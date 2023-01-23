@@ -1,0 +1,609 @@
+import azure.functions as func
+import logging
+import os
+import json
+import datetime
+from collections import defaultdict
+
+from azure.cosmos import CosmosClient, PartitionKey
+
+ENDPOINT = os.environ["COSMOS_ENDPOINT"]
+KEY = os.environ["COSMOS_KEY"]
+
+DATABASE_NAME = "dev"
+CONTAINER_NAME = "data"
+
+CLIENT = CosmosClient(url=ENDPOINT, credential=KEY)
+DATABASE = CLIENT.create_database_if_not_exists(id=DATABASE_NAME)
+CONTAINER = DATABASE.get_container_client(CONTAINER_NAME)
+
+APP = func.FunctionApp()
+
+
+
+@APP.function_name(name="CreateState")
+@APP.route(route="init", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def init_state(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a create initial game state.')
+
+    try:
+        CONTAINER.create_item(
+            {
+                "id": "kingdoms",
+                "kingdoms": {},
+            }
+        )
+        CONTAINER.create_item(
+            {
+                "id": "galaxies",
+                "galaxies": {},
+            }
+        )
+        CONTAINER.create_item(
+            {
+                "id": "empires",
+                "empires": {},
+            }
+        )
+        CONTAINER.create_item(
+            {
+                "id": "universal_news",
+                "universal_news": [],
+            }
+        )
+        CONTAINER.create_item(
+            {
+                "id": "universal_votes",
+                "policies": {},
+            }
+        )
+        return func.HttpResponse(
+            "Initial state created.",
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Initial state creation encountered an error",
+            status_code=500,
+        )
+
+@APP.function_name(name="CreateKingdom")
+@APP.route(route="kingdom", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a create kingdom request.')    
+    req_body = req.get_json()
+    kd_name = req_body.get('kingdom_name')
+
+    existing_kds = CONTAINER.read_item(
+        item="kingdoms",
+        partition_key="kingdoms",
+    )
+    if kd_name in existing_kds["kingdoms"]:
+        return func.HttpResponse(
+            "This kingdom already exists",
+            status_code=400,
+        )
+    try:
+        kd_id = str(len(existing_kds["kingdoms"]))
+        existing_kds["kingdoms"][kd_name] = kd_id
+        CONTAINER.replace_item(
+            "kingdoms",
+            existing_kds,
+        )
+        for resource_name in [
+            "kingdom",
+            "news",
+            # "next",
+            # "generals"
+            "settles",
+            "mobis",
+            "structures",
+            # "projects",
+            "revealed",
+            "shared",
+            "shared_requests",
+            "pinned",
+            "spy_history",
+            "attack_history",
+            "missile_history",
+        ]:
+            CONTAINER.create_item(
+                {
+                    "id": f"{resource_name}_{kd_id}",
+                    "kdId": kd_id,
+                    "type": resource_name,
+                    resource_name: [],
+                }
+            )
+        return func.HttpResponse(
+            "Kingdom created.",
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom was not created",
+            status_code=500,
+        )
+
+
+@APP.function_name(name="UpdateKingdom")
+@APP.route(route="kingdom/{kdId:int}", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_kingdom(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update kingdom request.')    
+    req_body = req.get_json()
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"kingdom_{kd_id}"
+    kd = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        update_kd = {**kd, **req_body}
+        CONTAINER.replace_item(
+            item_id,
+            update_kd,
+        )
+        return func.HttpResponse(
+            "Kingdom updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom was not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateNews")
+@APP.route(route="kingdom/{kdId:int}/news", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_news(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update news request.')    
+    req_body = req.get_json()
+    new_news = req_body["news"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"news_{kd_id}"
+    news = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        if isinstance(new_news, str):
+            news["news"] = [new_news] + news["news"]
+        else:
+            news["news"] = new_news + news["news"]
+        CONTAINER.replace_item(
+            item_id,
+            news,
+        )
+        return func.HttpResponse(
+            "Kingdom news updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom news was not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateSettles")
+@APP.route(route="kingdom/{kdId:int}/settles", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_settles(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update settles request.')    
+    req_body = req.get_json()
+    new_settles = req_body["settles"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"settles_{kd_id}"
+    settles = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        settles["settles"] = settles["settles"] + new_settles
+        CONTAINER.replace_item(
+            item_id,
+            settles,
+        )
+        return func.HttpResponse(
+            "Kingdom settles updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom settles were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="ResolveSettles")
+@APP.route(route="kingdom/{kdId:int}/resolvesettles", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def resolve_settles(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a resolve settles request.')    
+    try:
+        req_body = req.get_json()
+        timestamp = datetime.datetime.fromtimestamp(req_body["timestamp"])
+        kd_id = str(req.route_params.get('kdId'))
+        settles_id = f"settles_{kd_id}"
+        settles = CONTAINER.read_item(
+            item=settles_id,
+            partition_key=settles_id,
+        )
+        ready_settles = []
+        keep_settles = []
+        for settle in settles:
+            if datetime.datetime.fromtimestamp(settle["time"]) < timestamp:
+                ready_settles.append(settle['stars'])
+            else:
+                keep_settles.append(settle)
+        new_stars = sum(ready_settles)
+        kd_info_id = f"kingdom_{kd_id}"
+        kd_info = CONTAINER.read_item(
+            item=kd_info_id,
+            partition_key=kd_info_id,
+        )
+        kd_info['stars'] += new_stars
+
+        CONTAINER.replace_item(
+            settles_id,
+            keep_settles,
+        )
+        CONTAINER.replace_item(
+            kd_info_id,
+            kd_info,
+        )
+        return func.HttpResponse(
+            "Kingdom settles resolved.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom settles were not resolved",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateMobis")
+@APP.route(route="kingdom/{kdId:int}/mobis", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_mobis(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update mobis request.')    
+    req_body = req.get_json()
+    new_mobis = req_body["mobis"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"mobis_{kd_id}"
+    mobis = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        mobis["mobis"] = mobis["mobis"] + new_mobis
+        CONTAINER.replace_item(
+            item_id,
+            mobis,
+        )
+        return func.HttpResponse(
+            "Kingdom mobis updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom mobis were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="ResolveMobis")
+@APP.route(route="kingdom/{kdId:int}/resolvemobis", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def resolve_mobis(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a resolve mobis request.')    
+    try:
+        req_body = req.get_json()
+        timestamp = datetime.datetime.fromtimestamp(req_body["timestamp"])
+        kd_id = str(req.route_params.get('kdId'))
+        mobis_id = f"mobis_{kd_id}"
+        mobis = CONTAINER.read_item(
+            item=mobis_id,
+            partition_key=mobis_id,
+        )
+        ready_mobis = defaultdict(int)
+        keep_mobis = []
+        for mobi in mobis:
+            if datetime.datetime.fromtimestamp(mobi["time"]) < timestamp:
+                mobi.pop('time')
+                for unit, amt in mobi.items():
+                    ready_mobis[unit] += amt
+            else:
+                keep_mobis.append(mobi)
+
+        kd_info_id = f"kingdom_{kd_id}"
+        kd_info = CONTAINER.read_item(
+            item=kd_info_id,
+            partition_key=kd_info_id,
+        )
+        for unit, amt in ready_mobis.items():
+            kd_info['units'][unit] += amt
+
+        CONTAINER.replace_item(
+            mobis_id,
+            keep_mobis,
+        )
+        CONTAINER.replace_item(
+            kd_info_id,
+            kd_info,
+        )
+        return func.HttpResponse(
+            "Kingdom mobis resolved.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom mobis were not resolved",
+            status_code=500,
+        )
+        
+@APP.function_name(name="UpdateStructures")
+@APP.route(route="kingdom/{kdId:int}/structures", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_structures(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update structures request.')    
+    req_body = req.get_json()
+    new_structures = req_body["structures"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"structures_{kd_id}"
+    structures = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        structures["structures"] = structures["structures"] + new_structures
+        CONTAINER.replace_item(
+            item_id,
+            structures,
+        )
+        return func.HttpResponse(
+            "Kingdom structures updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom structures were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="ResolveStructures")
+@APP.route(route="kingdom/{kdId:int}/resolvestructures", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def resolve_structures(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a resolve structures request.')    
+    try:
+        req_body = req.get_json()
+        timestamp = datetime.datetime.fromtimestamp(req_body["timestamp"])
+        kd_id = str(req.route_params.get('kdId'))
+        structures_id = f"structures_{kd_id}"
+        structures = CONTAINER.read_item(
+            item=structures_id,
+            partition_key=structures_id,
+        )
+        ready_structures = defaultdict(int)
+        keep_structures = []
+        for structure in structures:
+            if datetime.datetime.fromtimestamp(structure["time"]) < timestamp:
+                structure.pop('time')
+                for structure, amt in structure.items():
+                    ready_structures[structure] += amt
+            else:
+                keep_structures.append(structure)
+
+        kd_info_id = f"kingdom_{kd_id}"
+        kd_info = CONTAINER.read_item(
+            item=kd_info_id,
+            partition_key=kd_info_id,
+        )
+        for structure, amt in ready_structures.items():
+            kd_info['structures'][structure] += amt
+
+        CONTAINER.replace_item(
+            structures_id,
+            keep_structures,
+        )
+        CONTAINER.replace_item(
+            kd_info_id,
+            kd_info,
+        )
+        return func.HttpResponse(
+            "Kingdom mobis resolved.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom mobis were not resolved",
+            status_code=500,
+        )
+        
+@APP.function_name(name="UpdateRevealed")
+@APP.route(route="kingdom/{kdId:int}/revealed", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update revealed request.')    
+    req_body = req.get_json()
+    new_revealed = req_body["revealed"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"revealed_{kd_id}"
+    revealed = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        revealed["revealed"] = revealed["revealed"] + new_revealed
+        CONTAINER.replace_item(
+            item_id,
+            revealed,
+        )
+        return func.HttpResponse(
+            "Kingdom revealed updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom revealed were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateShared")
+@APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_shared(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update shared request.')    
+    req_body = req.get_json()
+    new_shared = req_body["shared"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"shared_{kd_id}"
+    shared = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        shared["shared"] = shared["shared"] + new_shared
+        CONTAINER.replace_item(
+            item_id,
+            shared,
+        )
+        return func.HttpResponse(
+            "Kingdom shared updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom shared were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateSharedRequests")
+@APP.route(route="kingdom/{kdId:int}/sharedrequests", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_shared_requests(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update shared_requests request.')    
+    req_body = req.get_json()
+    new_shared_requests = req_body["shared_requests"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"shared_requests_{kd_id}"
+    shared_requests = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        shared_requests["shared_requests"] = shared_requests["shared_requests"] + new_shared_requests
+        CONTAINER.replace_item(
+            item_id,
+            shared_requests,
+        )
+        return func.HttpResponse(
+            "Kingdom shared_requests updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom shared_requests were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdatePinned")
+@APP.route(route="kingdom/{kdId:int}/pinned", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_pinned(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update pinned request.')    
+    req_body = req.get_json()
+    new_pinned = req_body["pinned"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"pinned_{kd_id}"
+    pinned = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        pinned["pinned"] = pinned["pinned"] + new_pinned
+        CONTAINER.replace_item(
+            item_id,
+            pinned,
+        )
+        return func.HttpResponse(
+            "Kingdom pinned updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom pinned were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateSpyHistory")
+@APP.route(route="kingdom/{kdId:int}/spyhistory", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_spy_history(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update spy_history request.')    
+    req_body = req.get_json()
+    new_spy_history = req_body["spy_history"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"spy_history_{kd_id}"
+    spy_history = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        spy_history["spy_history"] = spy_history["spy_history"] + new_spy_history
+        CONTAINER.replace_item(
+            item_id,
+            spy_history,
+        )
+        return func.HttpResponse(
+            "Kingdom spy_history updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom spy_history were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateAttackHistory")
+@APP.route(route="kingdom/{kdId:int}/attackhistory", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_attack_history(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update attack_history request.')    
+    req_body = req.get_json()
+    new_attack_history = req_body["attack_history"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"attack_history_{kd_id}"
+    attack_history = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        attack_history["attack_history"] = attack_history["attack_history"] + new_attack_history
+        CONTAINER.replace_item(
+            item_id,
+            attack_history,
+        )
+        return func.HttpResponse(
+            "Kingdom attack_history updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom attack_history were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateMissileHistory")
+@APP.route(route="kingdom/{kdId:int}/missilehistory", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_missile_history(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update missile_history request.')    
+    req_body = req.get_json()
+    new_missile_history = req_body["missile_history"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"missile_history_{kd_id}"
+    missile_history = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        missile_history["missile_history"] = missile_history["missile_history"] + new_missile_history
+        CONTAINER.replace_item(
+            item_id,
+            missile_history,
+        )
+        return func.HttpResponse(
+            "Kingdom missile_history updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom missile_history were not updated",
+            status_code=500,
+        )
