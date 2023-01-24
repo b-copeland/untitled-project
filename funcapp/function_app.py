@@ -184,6 +184,37 @@ def update_news(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+@APP.function_name(name="UpdateEmpireNews")
+@APP.route(route="empire/{empireId:int}/news", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update empire news request.')  
+    try:  
+        req_body = req.get_json()
+        new_news = req_body["news"]
+        empire_id = str(req.route_params.get('empireId'))
+        item_id = f"empire_{empire_id}"
+        news = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        if isinstance(new_news, str):
+            news["news"] = [new_news] + news["news"]
+        else:
+            news["news"] = new_news + news["news"]
+        CONTAINER.replace_item(
+            item_id,
+            news,
+        )
+        return func.HttpResponse(
+            "Empire news updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The Empire news was not updated",
+            status_code=500,
+        )
+
 @APP.function_name(name="UpdateSettles")
 @APP.route(route="kingdom/{kdId:int}/settles", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
 def update_settles(req: func.HttpRequest) -> func.HttpResponse:
@@ -440,6 +471,38 @@ def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+@APP.function_name(name="ResolveRevealed")
+@APP.route(route="kingdom/{kdId:int}/resolverevealed", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def resolve_revealed(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a resolve revealed request.')    
+    try:
+        req_body = req.get_json()
+        timestamp = datetime.datetime.fromtimestamp(req_body["timestamp"])
+        kd_id = str(req.route_params.get('kdId'))
+        revealed_id = f"revealed_{kd_id}"
+        revealed = CONTAINER.read_item(
+            item=revealed_id,
+            partition_key=revealed_id,
+        )
+        keep_revealed = [
+            i_revealed for i_revealed in revealed
+            if datetime.datetime.fromtimestamp(i_revealed["time"]) < timestamp
+        ]
+
+        CONTAINER.replace_item(
+            revealed_id,
+            keep_revealed,
+        )
+        return func.HttpResponse(
+            "Kingdom revealed resolved.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom revealed were not resolved",
+            status_code=500,
+        )
+
 @APP.function_name(name="UpdateShared")
 @APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
 def update_shared(req: func.HttpRequest) -> func.HttpResponse:
@@ -468,6 +531,38 @@ def update_shared(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+@APP.function_name(name="ResolveShared")
+@APP.route(route="kingdom/{kdId:int}/resolveshared", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def resolve_shared(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a resolve shared request.')    
+    try:
+        req_body = req.get_json()
+        timestamp = datetime.datetime.fromtimestamp(req_body["timestamp"])
+        kd_id = str(req.route_params.get('kdId'))
+        shared_id = f"shared_{kd_id}"
+        shared = CONTAINER.read_item(
+            item=shared_id,
+            partition_key=shared_id,
+        )
+        keep_shared = [
+            i_shared for i_shared in shared
+            if datetime.datetime.fromtimestamp(i_shared["time"]) < timestamp
+        ]
+
+        CONTAINER.replace_item(
+            shared_id,
+            keep_shared,
+        )
+        return func.HttpResponse(
+            "Kingdom shared resolved.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom shared were not resolved",
+            status_code=500,
+        )
+
 @APP.function_name(name="UpdateSharedRequests")
 @APP.route(route="kingdom/{kdId:int}/sharedrequests", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
 def update_shared_requests(req: func.HttpRequest) -> func.HttpResponse:
@@ -493,6 +588,38 @@ def update_shared_requests(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The kingdom shared_requests were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="ResolveSharedRequests")
+@APP.route(route="kingdom/{kdId:int}/resolvesharedrequests", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def resolve_shared_requests(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a resolve shared_requests request.')    
+    try:
+        req_body = req.get_json()
+        timestamp = datetime.datetime.fromtimestamp(req_body["timestamp"])
+        kd_id = str(req.route_params.get('kdId'))
+        shared_requests_id = f"shared_requests_{kd_id}"
+        shared_requests = CONTAINER.read_item(
+            item=shared_requests_id,
+            partition_key=shared_requests_id,
+        )
+        keep_shared_requests = [
+            i_shared_requests for i_shared_requests in shared_requests
+            if datetime.datetime.fromtimestamp(i_shared_requests["time"]) < timestamp
+        ]
+
+        CONTAINER.replace_item(
+            shared_requests_id,
+            keep_shared_requests,
+        )
+        return func.HttpResponse(
+            "Kingdom shared_requests resolved.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom shared_requests were not resolved",
             status_code=500,
         )
 
