@@ -33,3 +33,17 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+__azurite*
+__blobstorage*
+
+untitled-project-app/public/*
+untitled-project-app/node_modules/*
+
+*__pycache__*
+
+.vscode*
+
+funcapp/local.settings.json
+
+iac/.terraform.lock.hcl
