@@ -47,3 +47,7 @@ untitled-project-app/node_modules/*
 funcapp/local.settings.json
 
 iac/.terraform.lock.hcl
+
+node_modules*
+
+build/*
