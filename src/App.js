@@ -8,7 +8,9 @@ import {
   Outlet,
   useSearchParams
 } from "react-router-dom";
-import {login, authFetch, useAuth, logout} from "./auth"
+import {login, authFetch, useAuth, logout} from "./auth";
+import BasicExample from "./components/navbar";
+import "./App.css"
 
 
 const PrivateRoute = (rest) => {
@@ -20,39 +22,120 @@ const PrivateRoute = (rest) => {
 
 export default function App() {
   return (
-    <Router>
-      <div>
-        <nav>
-          <ul>
-            <li>
-              <Link to="/">Home</Link>
-            </li>
-            <li>
-              <Link to="/login">Login</Link>
-            </li>
-            <li>
-              <Link to="/secret">Secret</Link>
-            </li>
-          </ul>
-        </nav>
-
-        {/* A <Switch> looks through its children <Route>s and
-            renders the first one that matches the current URL. */}
-        <Routes>
-          <Route path="/login" element={<Login />}/>
-          <Route path="/secret" element={<PrivateRoute/>}>
-            <Route path="/secret" element={<Secret/>}/>
-          </Route>
-          <Route path="/finalize" element={<Finalize />}/>
-          <Route path="/" element={<Home />}/>
-        </Routes>
+    <div className="main">
+      <div className="navdiv">
+        <BasicExample />
       </div>
-    </Router>
+      <div className="main-body">
+        <Header />
+        <div className="router">
+          <Router>
+            <div className="router-body">
+              {/* A <Switch> looks through its children <Route>s and
+                  renders the first one that matches the current URL. */}
+              <Routes>
+                <Route path="/login" element={<Login />}/>
+                <Route path="/secret" element={<PrivateRoute/>}>
+                  <Route path="/secret" element={<Secret/>}/>
+                </Route>
+                <Route path="/finalize" element={<Finalize />}/>
+                <Route path="/" element={<Home />}/>
+              </Routes>
+            </div>
+          </Router>
+        </div>
+      </div>
+    </div>
   );
 }
 
+class Clock extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      date: new Date(),
+    };
+  }
+
+  async componentDidMount() {
+    const serverstart = await authFetch('/api/time').then(r => r.json());
+    this.timerID = setInterval(
+      () => this.tick(),
+      this.props.interval
+    );
+    this.setState({
+      start: Date.now(),
+      serverstart: new Date(serverstart),
+    })
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.timerID);
+  }
+
+  tick() {
+    this.setState({
+      date: new Date(this.state.serverstart.getTime() + (Date.now() - this.state.start))
+    });
+  }
+
+  render() {
+    return (
+      <span>Time: {this.state.date.toLocaleTimeString()}</span>
+    );
+  }
+}
+
+function Header() {
+  const [kdInfo, setKdInfo] = useState({});
+  // const kd_info = authFetch("api/kingdom").then(r => r.json());
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      await authFetch("api/kingdom").then(r => r.json()).then(r => setKdInfo(r));
+    }
+    fetchData();
+  }, [])
+
+  return (
+    <div className="header-container">
+      <div className="header-contents">
+        <div className="header-item">
+          <Clock interval={1000}/>
+        </div>
+        <div className="header-item">
+          <span>Stars: {kdInfo.stars}</span>
+        </div>
+        <div className="header-item">
+          <span>Power: {kdInfo.power}</span>
+        </div>
+        <div className="header-item">
+          <span>Pop: {kdInfo.population}</span>
+        </div>
+        <div className="header-item">
+          <span>Money {kdInfo.money}</span>
+        </div>
+        <div className="header-item">
+          <span>Score: {kdInfo.score}</span>
+        </div>
+        <div className="header-item">
+          <span>Spy Attempts: {kdInfo.spy_attempts}</span>
+        </div>
+        <div className="header-item">
+          <span>Generals: {kdInfo.generals_available}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Home() {
-  return <h2>Home</h2>;
+  return (
+    <div className="router-contents">
+      {/* <Header /> */}
+      <h2>Home</h2>
+    </div>
+  )
 }
 
 function Login() {
@@ -73,10 +156,10 @@ function Login() {
       method: 'post',
       body: JSON.stringify(opts)
     }).then(r => r.json())
-      .then(token => {
-        if (token.access_token){
-          login(token)
-          console.log(token)          
+      .then(session => {
+        if (session.accessToken){
+          login(session)
+          console.log(session)          
         }
         else {
           console.log("Please type in correct username/password")

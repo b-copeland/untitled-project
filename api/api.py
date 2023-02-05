@@ -1,4 +1,8 @@
+import datetime
 import os
+import requests
+import sys
+import json
 import flask
 import flask_sqlalchemy
 import flask_praetorian
@@ -10,6 +14,7 @@ guard = flask_praetorian.Praetorian()
 cors = flask_cors.CORS()
 mail = Mail()
 
+REQUESTS_SESSION = requests.Session()
 
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
@@ -17,6 +22,7 @@ class User(db.Model):
     username = db.Column(db.Text, unique=True)
     password = db.Column(db.Text)
     roles = db.Column(db.Text)
+    kd_id = db.Column(db.Integer)
     is_active = db.Column(db.Boolean, default=True, server_default='true')
     is_verified = db.Column(db.Boolean, default=True, server_default='false')
 
@@ -55,6 +61,8 @@ app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'apikey'
 app.config['MAIL_PASSWORD'] = os.environ.get('SENDGRID_API_KEY')
 app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+app.config['AZURE_FUNCTION_ENDPOINT'] = os.environ.get('COSMOS_ENDPOINT')
+app.config['AZURE_FUNCTION_KEY'] = os.environ.get('COSMOS_KEY')
 
 
 # Initialize the flask-praetorian instance for the app
@@ -82,7 +90,8 @@ with app.app_context():
         db.session.add(User(
           username='user',
           password=guard.hash_password('pass'),
-          roles='operator'
+          roles='verified',
+          kd_id=0
 		))
     db.session.commit()
 
@@ -105,8 +114,8 @@ def login():
     username = req.get('username', None)
     password = req.get('password', None)
     user = guard.authenticate(username, password)
-    ret = {'access_token': guard.encode_jwt_token(user)}
-    return ret, 200
+    ret = {'accessToken': guard.encode_jwt_token(user), 'refreshToken': guard.encode_jwt_token(user)}
+    return (flask.jsonify(ret), 200)
 
 @app.route('/api/refresh', methods=['POST'])
 def refresh():
@@ -120,12 +129,34 @@ def refresh():
     print("refresh request")
     old_token = guard.read_token_from_header()
     new_token = guard.refresh_jwt_token(old_token)
-    ret = {'access_token': new_token}
+    ret = {'accessToken': new_token}
     return ret, 200
+
+
+@app.route('/api/kingdom')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def kingdom():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    return (flask.jsonify(kd_info_parse), 200)
 
 
 @app.route('/api/protected')
 @flask_praetorian.auth_required
+@flask_praetorian.roles_required('verified')
 def protected():
     """
     A protected endpoint. The auth_required decorator will require a header
@@ -224,6 +255,11 @@ def blacklist_token():
     data = guard.extract_jwt_token(req['token'])
     blacklist.add(data['jti'])
     return flask.jsonify(message='token blacklisted ({})'.format(req['token']))
+
+@app.route('/api/time')
+@flask_praetorian.auth_required
+def time():
+    return (flask.jsonify(datetime.datetime.now().isoformat()), 200)
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

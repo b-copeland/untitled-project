@@ -10,7 +10,8 @@
     "react-dom": ">=16.13.1",
     "react-router-dom": ">=5.2.0",
     "react-scripts": ">=3.4.3",
-    "react-token-auth": ">=1.1.7",
+    "react-token-auth": "2.3.6",
+    "react-bootstrap": ">=2.7.0",
     "yarn": ">=1.22.19"
   },
   "scripts": {

@@ -125,6 +125,27 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+@APP.function_name(name="GetKingdom")
+@APP.route(route="kingdom/{kdId:int}", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get kingdom request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"kingdom_{kd_id}"
+    try:
+        kd = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(kd),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve kingdom info",
+            status_code=500,
+        )
+
 
 @APP.function_name(name="UpdateKingdom")
 @APP.route(route="kingdom/{kdId:int}", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
