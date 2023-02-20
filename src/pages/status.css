@@ -1,0 +1,112 @@
+.status {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.revealed {
+    display: flex;
+    flex-direction: column;
+    justify-items: center;
+    align-items: center;
+}
+
+.tab-content {
+    display: inline-block;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    width: 100%
+}
+
+.nav-tabs, .nav-pills {
+    text-align:center;
+}
+.nav-tabs > ul {
+    display: flex;
+    flex-direction: row;
+}
+
+.tab-content {
+    padding: 5px;
+    align-items: center;
+    justify-content: center;
+}
+
+.income-box {
+    border: 2px solid black;
+    display: flex;
+    flex-direction: column;
+    width: 45%;
+    margin: 5px;
+    padding: 5px;
+}
+
+.kingdom-card {
+    width: 30%
+}
+
+.income-box {
+    width: 30%
+}
+
+.revealed-box {
+    width: 30%
+}
+
+.text-box {
+    border: 2px solid black;
+    /* width: 45%; */
+    display: flex;
+    flex-direction: column;
+    margin: 5px;
+    padding: 5px;
+}
+
+.text-box-item {
+    width: 95%;
+}
+
+.text-box-item-title {
+    width: 45%;
+    float: left;
+    text-align: left;
+    margin-left: 5px;
+}
+
+.text-box-item-value {
+    width: 45%;
+    float: right;
+    text-align: right;
+    margin-right: 5px;
+}
+
+.revealed-box {
+    border: 2px solid black;
+    display: flex;
+    flex-direction: column;
+    width: 60%;
+    margin: 5px;
+    padding: 5px;
+}
+
+.input-group-text {
+    width: 50%
+}
+
+.army-info {
+    margin: 30px;
+    width: 45%;
+}
+.mobi-info {
+    margin: 30px;
+    width: 45%;
+}
+
+.structures-info {
+    width: 95%
+}
+
+.table {
+    width: 95%;
+}
