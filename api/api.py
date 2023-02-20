@@ -16,6 +16,32 @@ mail = Mail()
 
 REQUESTS_SESSION = requests.Session()
 
+UNITS = {
+    'attack': {
+        'offense': 5,
+        'defense': 0,
+        'cost': 300,
+    },
+    'defense': {
+        'offense': 0,
+        'defense': 5,
+        'cost': 350,
+    },
+    'flex': {
+        'offense': 6,
+        'defense': 6,
+        'cost': 900,
+    },
+}
+
+STRUCTURES = [
+    "homes",
+    "mines",
+    "fuel_plants",
+    "hangars",
+    "drone_factories",
+]
+
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -152,6 +178,446 @@ def kingdom():
     print(kd_info, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
     return (flask.jsonify(kd_info_parse), 200)
+
+
+@app.route('/api/news')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def news():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    news = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/news',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(news.text, file=sys.stderr)
+    news_parse = json.loads(news.text)
+    return (flask.jsonify(news_parse["news"]), 200)
+
+
+@app.route('/api/kingdoms')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def kingdoms():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdoms',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    return (flask.jsonify(kd_info_parse["kingdoms"]), 200)
+
+def _get_galaxy_info():
+    galaxy_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxies',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    galaxy_info_parse = json.loads(galaxy_info.text)
+    print(galaxy_info_parse, file=sys.stderr)
+    return galaxy_info_parse["galaxies"]
+
+@app.route('/api/galaxies')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def galaxies():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    galaxy_info = _get_galaxy_info()
+    return (flask.jsonify(galaxy_info), 200)
+
+def _get_galaxies_inverted():
+    galaxy_info = _get_galaxy_info()
+
+    galaxies_inverted = {}
+    for galaxy_name, kd_list in galaxy_info.items():
+        for kd in kd_list:
+            galaxies_inverted[kd] = galaxy_name
+    return galaxies_inverted
+
+@app.route('/api/galaxies_inverted')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def galaxies_inverted():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    galaxies_inverted = _get_galaxies_inverted()
+    return (flask.jsonify(galaxies_inverted), 200)
+
+def _get_empire_info():
+    empire_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    empire_info_parse = json.loads(empire_info.text)
+    print(empire_info_parse, file=sys.stderr)
+    return empire_info_parse["empires"]
+
+
+def _get_empires_inverted():
+    empire_info = _get_empire_info()
+    galaxy_info = _get_galaxy_info()
+
+    empires_inverted = {}
+    for empire_id, empire_info in empire_info.items():
+        for galaxy in empire_info["galaxies"]:
+            galaxy_kds = galaxy_info[galaxy]
+            for galaxy_kd in galaxy_kds:
+                empires_inverted[galaxy_kd] = empire_id
+    return empires_inverted
+
+@app.route('/api/empires')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def empires():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    empires = _get_empire_info()
+    return (flask.jsonify(empires), 200)
+
+@app.route('/api/empires_inverted')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def empires_inverted():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    empires_inverted = _get_empires_inverted()
+    return (flask.jsonify(empires_inverted), 200)
+
+
+
+@app.route('/api/galaxynews')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def galaxy_news():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    galaxies_inverted = _get_galaxies_inverted()
+    galaxy = galaxies_inverted[kd_id]
+    print(galaxy)
+    news = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy}/news',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(news.text, file=sys.stderr)
+    news_parse = json.loads(news.text)
+    return (flask.jsonify(news_parse["news"]), 200)
+
+
+@app.route('/api/empirenews')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def empire_news():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    empires_inverted = _get_empires_inverted()
+    print(empires_inverted)
+    kd_empire = empires_inverted[kd_id]
+    print(kd_empire)
+    news = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/news',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(news.text, file=sys.stderr)
+    news_parse = json.loads(news.text)
+    return (flask.jsonify(news_parse["news"]), 200)
+
+
+@app.route('/api/universenews')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def universe_news():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    news = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(news.text, file=sys.stderr)
+    news_parse = json.loads(news.text)
+    return (flask.jsonify(news_parse["news"]), 200)
+
+
+def _validate_spending(spending_input):
+    """Confirm that spending request is valid"""
+
+    values = spending_input.values()
+    if any((value < 0 for value in values)):
+        return False
+    if any((value > 100 for value in values)):
+        return False
+    if sum(values) > 100:
+        return False
+    
+    return True
+
+
+@app.route('/api/spending', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def spending():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    print(req, file=sys.stderr)
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    current_spending = kd_info_parse['auto_spending']
+    new_spending = {
+        'settle': float(req.get('settleInput', current_spending['settle'])),
+        'structures': float(req.get('structuresInput', current_spending['structures'])),
+        'military': float(req.get('militaryInput', current_spending['military'])),
+        'engineers': float(req.get('engineersInput', current_spending['engineers'])),
+    }
+    valid_spending = _validate_spending(new_spending)
+    if not valid_spending:
+        return (flask.jsonify('Please enter valid spending percents'), 400)
+
+    payload = {'auto_spending': new_spending}
+    patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(payload),
+    )
+    return (flask.jsonify(patch_response.text), 200)
+
+def _calc_units(
+    start_time,
+    current_units,
+    generals_units,
+    mobis_units,
+):
+    units = {
+        "current": {k: v for k, v in current_units.items() if k in UNITS.keys()}
+    }
+    for i_general, general in enumerate(generals_units):
+        units[f"general_{i_general}"] = general
+
+    for hours in [1, 2, 4, 8, 24]:
+        hour_units = {
+            key: 0
+            for key in UNITS.keys()
+        }
+        max_time = start_time + datetime.timedelta(hours=hours)
+        for mobi in mobis_units:
+            print(mobi)
+            print(type(mobi))
+            print(mobi.keys())
+            if datetime.datetime.fromisoformat(mobi["time"]) < max_time:
+                for key_unit in hour_units.keys():
+                    hour_units[key_unit] += mobi.get(key_unit, 0)
+
+        units[f"hour_{hours}"] = hour_units
+    return units
+
+def _calc_maxes(
+    units,
+):
+    maxes = {}
+    # maxes["defense"] = {
+    #     type_max: {
+    #         key: stat_map["defense"] * type_units.get(key, 0)
+    #         for key, stat_map in UNITS.items() 
+    #     }
+    #     for type_max, type_units in units.items() 
+    # }
+    maxes["defense"] = {
+        type_max: sum([
+            stat_map["defense"] * type_units.get(key, 0)
+            for key, stat_map in UNITS.items() 
+        ])
+        for type_max, type_units in units.items() 
+    }
+    # maxes["offense"] = {
+    #     type_max: {
+    #         key: stat_map["offense"] * type_units.get(key, 0)
+    #         for key, stat_map in UNITS.items() 
+    #     }
+    #     for type_max, type_units in units.items() 
+    # }
+    maxes["offense"] = {
+        type_max: sum([
+            stat_map["offense"] * type_units.get(key, 0)
+            for key, stat_map in UNITS.items() 
+        ])
+        for type_max, type_units in units.items() 
+    }
+    return maxes
+
+@app.route('/api/mobis', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def mobis():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    mobis_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(mobis_info.text, file=sys.stderr)
+    mobis_info_parse = json.loads(mobis_info.text)
+
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    current_units = kd_info_parse["units"]
+    generals_units = kd_info_parse["generals_out"]
+    mobis_units = mobis_info_parse["mobis"]
+
+    start_time = datetime.datetime.now()
+    units = _calc_units(start_time, current_units, generals_units, mobis_units)
+    maxes = _calc_maxes(units)
+
+    payload = {'units': units, 'maxes': maxes}
+    return (flask.jsonify(payload), 200)
+
+def _calc_structures(
+    start_time,
+    current_structures,
+    building_structures,
+):
+    structures = {
+        "current": {k: current_structures.get(k, 0) for k in STRUCTURES}
+    }
+
+    for hours in [1, 2, 4, 8, 24]:
+        hour_structures = {
+            key: 0
+            for key in STRUCTURES
+        }
+        max_time = start_time + datetime.timedelta(hours=hours)
+        for building_structure in building_structures:
+            if datetime.datetime.fromisoformat(building_structure["time"]) < max_time:
+                for key_structure in hour_structures.keys():
+                    hour_structures[key_structure] += building_structure.get(key_structure, 0)
+
+        structures[f"hour_{hours}"] = hour_structures
+    return structures
+
+@app.route('/api/structures', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def structures():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    structures_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(structures_info.text, file=sys.stderr)
+    structures_info_parse = json.loads(structures_info.text)
+
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    current_structures = kd_info_parse["structures"]
+    building_structures = structures_info_parse["structures"]
+
+    start_time = datetime.datetime.now()
+    structures = _calc_structures(start_time, current_structures, building_structures)
+
+    return (flask.jsonify(structures), 200)
+
+@app.route('/api/galaxy/<galaxy>', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def galaxy(galaxy):
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    galaxy_info = _get_galaxy_info()
+    current_galaxy = galaxy_info[galaxy]
+    galaxy_kd_info = {}
+    for kd_id in current_galaxy:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-Azure-Functions-Host-Key': ''}
+        )
+        print(kd_info.text, file=sys.stderr)
+        galaxy_kd_info[kd_id] = json.loads(kd_info.text)
+
+    return (flask.jsonify(galaxy_kd_info), 200)
 
 
 @app.route('/api/protected')

@@ -39,3 +39,9 @@
     flex-direction: column;
     align-items: center;
 }
+
+.nav-list {
+    list-style-position: inside;
+    /* width: 40% */
+    font-size: 32px;
+}

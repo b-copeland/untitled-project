@@ -8,13 +8,20 @@ import {
   Outlet,
   useSearchParams
 } from "react-router-dom";
-import {login, authFetch, useAuth, logout} from "./auth";
+import {login, authFetch, useAuth, logout, getSession, getSessionState} from "./auth";
 import BasicExample from "./components/navbar";
 import "./App.css"
+import StatusContent from "./pages/status.js"
+import NewsContent from "./pages/news.js"
+import Galaxy from "./pages/galaxy.js"
 
 
-const PrivateRoute = (rest) => {
-  const [logged] = useAuth();
+const PrivateRoute = () => {
+  const [logged, session] = useAuth();
+
+  if (session === null) {
+    return null; // or loading indicator, etc...
+  }
 
   return logged ? <Outlet /> : <Navigate to="/login" />;
 }
@@ -29,20 +36,24 @@ export default function App() {
       <div className="main-body">
         <Header />
         <div className="router">
-          <Router>
+          {/* <Router> */}
             <div className="router-body">
-              {/* A <Switch> looks through its children <Route>s and
-                  renders the first one that matches the current URL. */}
               <Routes>
                 <Route path="/login" element={<Login />}/>
-                <Route path="/secret" element={<PrivateRoute/>}>
-                  <Route path="/secret" element={<Secret/>}/>
+                <Route path="/status" element={<PrivateRoute/>}>
+                  <Route path="/status" element={<StatusContent/>}/>
+                </Route>
+                <Route path="/news" element={<PrivateRoute/>}>
+                  <Route path="/news" element={<NewsContent/>}/>
+                </Route>
+                <Route path="/galaxy" element={<PrivateRoute/>}>
+                  <Route path="/galaxy" element={<Galaxy/>}/>
                 </Route>
                 <Route path="/finalize" element={<Finalize />}/>
                 <Route path="/" element={<Home />}/>
               </Routes>
             </div>
-          </Router>
+          {/* </Router> */}
         </div>
       </div>
     </div>
@@ -75,7 +86,7 @@ class Clock extends React.Component {
 
   tick() {
     this.setState({
-      date: new Date(this.state.serverstart.getTime() + (Date.now() - this.state.start))
+      date: new Date(this.state.serverstart?.getTime() + (Date.now() - this.state.start))
     });
   }
 
@@ -88,7 +99,6 @@ class Clock extends React.Component {
 
 function Header() {
   const [kdInfo, setKdInfo] = useState({});
-  // const kd_info = authFetch("api/kingdom").then(r => r.json());
   
   useEffect(() => {
     const fetchData = async () => {
@@ -107,7 +117,7 @@ function Header() {
           <span>Stars: {kdInfo.stars}</span>
         </div>
         <div className="header-item">
-          <span>Power: {kdInfo.power}</span>
+          <span>Fuel: {kdInfo.fuel}</span>
         </div>
         <div className="header-item">
           <span>Pop: {kdInfo.population}</span>
@@ -132,8 +142,8 @@ function Header() {
 function Home() {
   return (
     <div className="router-contents">
-      {/* <Header /> */}
       <h2>Home</h2>
+      <Login />
     </div>
   )
 }
@@ -146,20 +156,17 @@ function Login() {
 
   const onSubmitClick = (e)=>{
     e.preventDefault()
-    console.log("You pressed login")
     let opts = {
       'username': username,
       'password': password
     }
-    console.log(opts)
     fetch('api/login', {
       method: 'post',
       body: JSON.stringify(opts)
     }).then(r => r.json())
       .then(session => {
         if (session.accessToken){
-          login(session)
-          console.log(session)          
+          login(session)     
         }
         else {
           console.log("Please type in correct username/password")

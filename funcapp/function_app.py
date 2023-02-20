@@ -47,13 +47,13 @@ def init_state(req: func.HttpRequest) -> func.HttpResponse:
         )
         CONTAINER.create_item(
             {
-                "id": "universal_news",
-                "universal_news": [],
+                "id": "universe_news",
+                "news": [],
             }
         )
         CONTAINER.create_item(
             {
-                "id": "universal_votes",
+                "id": "universe_votes",
                 "policies": {},
             }
         )
@@ -125,9 +125,69 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+@APP.function_name(name="GetKingdoms")
+@APP.route(route="kingdoms", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_kingdoms(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get kingdoms request.')    
+    item_id = f"kingdoms"
+    try:
+        kd = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(kd),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve kingdoms info",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetGalaxies")
+@APP.route(route="galaxies", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_galaxies(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get galaxies request.')    
+    item_id = f"galaxies"
+    try:
+        galaxies = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(galaxies),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve galaxies info",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetEmpires")
+@APP.route(route="empires", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_empires(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get empires request.')    
+    item_id = f"empires"
+    try:
+        empires = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(empires),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve empires info",
+            status_code=500,
+        )
+
 @APP.function_name(name="GetKingdom")
 @APP.route(route="kingdom/{kdId:int}", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
-def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
+def get_kingdom(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a get kingdom request.')    
     kd_id = str(req.route_params.get('kdId'))
     item_id = f"kingdom_{kd_id}"
@@ -171,6 +231,89 @@ def update_kingdom(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The kingdom was not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetNews")
+@APP.route(route="kingdom/{kdId:int}/news", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_news(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get news request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"news_{kd_id}"
+    try:
+        news = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(news),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve kingdom news",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetGalaxyNews")
+@APP.route(route="galaxy/{galaxyId}/news", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_galaxy_news(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get galaxy news request.')    
+    galaxy_id = str(req.route_params.get('galaxyId'))
+    item_id = f"galaxy_news_{galaxy_id}"
+    try:
+        news = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(news),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve galaxy news",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetEmpireNews")
+@APP.route(route="empire/{empireId:int}/news", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_empire_news(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get empire news request.')    
+    empire_id = str(req.route_params.get('empireId'))
+    item_id = f"empire_news_{empire_id}"
+    try:
+        news = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(news),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve empire news",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetUniverseNews")
+@APP.route(route="universenews", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_universe_news(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get universe news request.')    
+    item_id = f"universe_news"
+    try:
+        news = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(news),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve universe news",
             status_code=500,
         )
 
@@ -310,6 +453,27 @@ def resolve_settles(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+@APP.function_name(name="GetMobis")
+@APP.route(route="kingdom/{kdId:int}/mobis", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_mobis(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get mobis request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"mobis_{kd_id}"
+    mobis = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(mobis),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom mobis could not be retrieved",
+            status_code=500,
+        )
+
 @APP.function_name(name="UpdateMobis")
 @APP.route(route="kingdom/{kdId:int}/mobis", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
 def update_mobis(req: func.HttpRequest) -> func.HttpResponse:
@@ -384,6 +548,27 @@ def resolve_mobis(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The kingdom mobis were not resolved",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetStructures")
+@APP.route(route="kingdom/{kdId:int}/structures", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_structures(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get structures request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"structures_{kd_id}"
+    structures = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(structures),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom structures could not be retrieved",
             status_code=500,
         )
         
