@@ -109,16 +109,16 @@ function Galaxy(props) {
             <td>07:59:59</td>
             <td>Growth, Active</td>
             <td>
-                <Button variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit">
                     Attack
                 </Button>
-                <Button variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit">
                     Spy
                 </Button>
-                <Button variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit">
                     Missile
                 </Button>
-                <Button variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit">
                     Message
                 </Button>
             </td>

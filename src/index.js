@@ -6,6 +6,7 @@ import App from './App';
 import * as serviceWorker from './serviceWorker';
 
 const container = document.getElementById('root');
+document.documentElement.setAttribute('data-bs-theme', 'dark');
 const root = createRoot(container); // createRoot(container!) if you use TypeScript
 
 root.render(

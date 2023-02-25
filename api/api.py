@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 import requests
 import sys
@@ -21,17 +22,36 @@ UNITS = {
         'offense': 5,
         'defense': 0,
         'cost': 300,
+        'fuel': 1,
+        'hangar_capacity': 1,
     },
     'defense': {
         'offense': 0,
         'defense': 5,
         'cost': 350,
+        'fuel': 1,
+        'hangar_capacity': 1,
     },
     'flex': {
         'offense': 6,
         'defense': 6,
         'cost': 900,
+        'fuel': 2,
+        'hangar_capacity': 2,
     },
+    'big_flex': {
+        'offense': 9,
+        'defense': 9,
+        'cost': 1350,
+        'fuel': 2,
+        'hangar_capacity': 2,
+    },
+    'recruits': {
+        'offense': 0,
+        'defense': 1,
+        'fuel': 1,
+        'hangar_capacity': 1,
+    }
 }
 
 STRUCTURES = [
@@ -40,7 +60,98 @@ STRUCTURES = [
     "fuel_plants",
     "hangars",
     "drone_factories",
+    "missile_silos",
+    "workshops",
 ]
+
+MISSILES = {
+    "planet_busters": {
+        "stars_damage": 1,
+        "fuel_damage": 0,
+        "pop_damage": 0,
+        "fuel_cost": 1000,
+        "cost": 2000,
+    },
+    "star_busters": {
+        "stars_damage": 2,
+        "fuel_damage": 500,
+        "pop_damage": 0,
+        "fuel_cost": 2000,
+        "cost": 6000,
+    },
+    "galaxy_busters": {
+        "stars_damage": 4,
+        "fuel_damage": 1000,
+        "pop_damage": 100,
+        "fuel_cost": 4000,
+        "cost": 15000,
+    },
+}
+
+PROJECTS = {
+    "pop_bonus": {
+        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
+        "max_bonus": 0.25
+    },
+    "fuel_bonus": {
+        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
+        "max_bonus": 0.25
+    },
+    "military_bonus": {
+        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
+        "max_bonus": 0.25
+    },
+    "money_bonus": {
+        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
+        "max_bonus": 0.25
+    },
+    "general_bonus": {
+        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
+        "max_bonus": 0.25
+    },
+    "spy_bonus": {
+        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
+        "max_bonus": 0.25
+    },
+    "big_flexers": {
+        "max_points": 100000
+    },
+    "star_busters": {
+        "max_points": 100000
+    },
+    "galaxy_busters": {
+        "max_points": 250000
+    },
+    "drone_gadgets": {
+        "max_points": 50000
+    },
+}
+
+BASE_EPOCH_SECONDS = 60 * 60
+
+BASE_SETTLE_COST = lambda stars: math.floor((stars ** 0.5) * 50)
+BASE_MAX_SETTLE = lambda stars: math.floor(stars * 0.15)
+BASE_SETTLE_TIME_MULTIPLIER = 12
+
+BASE_STRUCTURE_COST = lambda stars: math.floor((stars ** 0.5) * 60)
+BASE_STRUCTURE_TIME_MULTIPLIER = 8
+
+BASE_MAX_RECRUITS = lambda pop: math.floor(pop * 0.12)
+BASE_RECRUIT_COST = 100
+BASE_RECRUIT_TIME_MULTIPLIER = 12
+
+BASE_SPECIALIST_TIME_MULTIPLIER = 12
+
+BASE_ENGINEER_COST = 1000
+BASE_ENGINEER_TIME_MULTIPLIER = 12
+BASE_MAX_ENGINEERS = lambda pop: math.floor(pop * 0.05)
+
+BASE_HOMES_CAPACITY = 50
+BASE_HANGAR_CAPACITY = 75
+BASE_MISSILE_SILO_CAPACITY = 1
+BASE_WORKSHOP_CAPACITY = 50
+
+BASE_MISSILE_TIME_MULTIPLER = 24
 
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
@@ -449,6 +560,16 @@ def _calc_units(
     for i_general, general in enumerate(generals_units):
         units[f"general_{i_general}"] = general
 
+    current_total = {
+        key: 0
+        for key in UNITS.keys()
+    }
+    for dict_units in units.values():
+        for key_unit in UNITS.keys():
+            current_total[key_unit] += dict_units.get(key_unit, 0)
+
+    units["current_total"] = current_total
+
     for hours in [1, 2, 4, 8, 24]:
         hour_units = {
             key: 0
@@ -500,6 +621,37 @@ def _calc_maxes(
     }
     return maxes
 
+def _calc_hangar_capacity(kd_info, units):
+    max_hangar_capacity = kd_info["structures"]["hangars"] * BASE_HANGAR_CAPACITY
+    current_hangar_capacity = sum([
+        stat_map["hangar_capacity"] * (units["current_total"].get(key, 0) + units["hour_24"].get(key, 0))
+        for key, stat_map in UNITS.items()
+    ])
+    return max_hangar_capacity, current_hangar_capacity
+
+def _calc_max_recruits(kd_info, units):
+    recruits_training = units["hour_24"]["recruits"]
+    max_total_recruits = BASE_MAX_RECRUITS(int(kd_info["population"]))
+    max_available_recruits = max(max_total_recruits - recruits_training, 0)
+    max_recruits_cost = BASE_RECRUIT_COST * max_available_recruits
+    try:
+        current_available_recruits = min(
+            math.floor((kd_info["money"] / max_recruits_cost) * max_available_recruits),
+            max_available_recruits,
+        )
+    except ZeroDivisionError:
+        current_available_recruits = 0
+    return max_available_recruits, current_available_recruits
+
+def _get_mobis_info(kd_id):
+    mobis_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(mobis_info.text, file=sys.stderr)
+    mobis_info_parse = json.loads(mobis_info.text)
+    return mobis_info_parse["mobis"]
+
 @app.route('/api/mobis', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
@@ -512,12 +664,6 @@ def mobis():
     """
     kd_id = flask_praetorian.current_user().kd_id
     print(kd_id, file=sys.stderr)
-    mobis_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-        headers={'x-Azure-Functions-Host-Key': ''}
-    )
-    print(mobis_info.text, file=sys.stderr)
-    mobis_info_parse = json.loads(mobis_info.text)
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -526,16 +672,173 @@ def mobis():
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
 
+    mobis_info_parse = _get_mobis_info(kd_id)
     current_units = kd_info_parse["units"]
     generals_units = kd_info_parse["generals_out"]
-    mobis_units = mobis_info_parse["mobis"]
+    mobis_units = mobis_info_parse
 
     start_time = datetime.datetime.now()
     units = _calc_units(start_time, current_units, generals_units, mobis_units)
     maxes = _calc_maxes(units)
 
-    payload = {'units': units, 'maxes': maxes}
+    max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
+    max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units)
+    payload = {
+        'units': units,
+        'maxes': maxes,
+        'recruit_price': BASE_RECRUIT_COST,
+        'max_hangar_capacity': max_hangar_capacity,
+        'current_hangar_capacity': current_hangar_capacity,
+        'max_available_recruits': max_available_recruits,
+        'current_available_recruits': current_available_recruits,
+        'units_desc': UNITS,
+        }
     return (flask.jsonify(payload), 200)
+
+def _validate_recruits(recruits_input, current_available_recruits):
+    if recruits_input > current_available_recruits:
+        return False
+    if recruits_input <= 0:
+        return False
+
+    return True
+
+@app.route('/api/recruits', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def recruits():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    print(req, file=sys.stderr)
+    recruits_input = int(req["recruitsInput"])
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    mobis_info_parse = _get_mobis_info(kd_id)
+    current_units = kd_info_parse["units"]
+    generals_units = kd_info_parse["generals_out"]
+    mobis_units = mobis_info_parse
+
+    start_time = datetime.datetime.now()
+    units = _calc_units(start_time, current_units, generals_units, mobis_units)
+
+    max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units)
+    valid_recruits = _validate_recruits(recruits_input, current_available_recruits)
+    if not valid_recruits:
+        return (flask.jsonify('Please enter valid recruits value'), 400)
+
+    new_money = kd_info_parse["money"] - BASE_RECRUIT_COST * recruits_input
+    kd_payload = {'money': new_money}
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(kd_payload),
+    )
+    recruits_payload = {
+        "mobis": [
+            {
+                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_RECRUIT_TIME_MULTIPLIER)).isoformat(),
+                "recruits": recruits_input,
+            }
+        ]
+    }
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(recruits_payload),
+    )
+    return (flask.jsonify(kd_patch_response.text), 200)
+
+def _get_mobis_cost(mobis_request):
+    mobis_cost = sum([
+        UNITS[k]['cost'] * units_value
+        for k, units_value in mobis_request.items()
+    ])
+    return mobis_cost
+
+def _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cost):
+    if sum(mobis_request.values()) > current_units["recruits"]:
+        return False
+    if any((value < 0 for value in mobis_request.values())):
+        return False
+    if mobis_cost > kd_info_parse["money"]:
+        return False
+    
+    return True
+    
+
+@app.route('/api/mobis', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def train_mobis():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    print(req, file=sys.stderr)
+    
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    current_units = kd_info_parse["units"]
+
+    mobis_request = {
+        k: int(v or 0)
+        for k, v in req.items()
+    }
+    mobis_cost = _get_mobis_cost(mobis_request)
+    valid_mobis = _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cost)
+    if not valid_mobis:
+        return (flask.jsonify('Please enter valid training values'), 400)
+
+    new_money = kd_info_parse["money"] - mobis_cost
+    new_recruits = kd_info_parse["units"]["recruits"] - sum(mobis_request.values())
+    kd_payload = {
+        'money': new_money,
+        'units': {
+            **kd_info_parse["units"],
+            'recruits': new_recruits,
+        }
+    }
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(kd_payload),
+    )
+    mobis_payload = {
+        "mobis": [
+            {
+                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPECIALIST_TIME_MULTIPLIER)).isoformat(),
+                **mobis_request,
+            }
+        ]
+    }
+    mobis_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(mobis_payload),
+    )
+    return (flask.jsonify(mobis_patch_response.text), 200)
 
 def _calc_structures(
     start_time,
@@ -559,6 +862,23 @@ def _calc_structures(
 
         structures[f"hour_{hours}"] = hour_structures
     return structures
+
+def _get_structure_price(kd_info):
+    return BASE_SETTLE_COST(int(kd_info["stars"]))
+
+def _calc_available_structures(structure_price, kd_info, structures_info):
+    total_structures = sum(structures_info["current"].values()) + sum(structures_info["hour_24"].values())
+    max_available_structures = max(int(kd_info["stars"]) - total_structures, 0)
+    max_structures_cost = structure_price * max_available_structures
+    try:
+        current_available_structures = min(
+            math.floor((kd_info["money"] / max_structures_cost) * max_available_structures),
+            max_available_structures,
+        )
+    except ZeroDivisionError:
+        current_available_structures
+    return max_available_structures, current_available_structures
+
 
 @app.route('/api/structures', methods=['GET'])
 @flask_praetorian.auth_required
@@ -586,13 +906,104 @@ def structures():
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
 
+    current_price = _get_structure_price(kd_info_parse)
     current_structures = kd_info_parse["structures"]
     building_structures = structures_info_parse["structures"]
 
     start_time = datetime.datetime.now()
     structures = _calc_structures(start_time, current_structures, building_structures)
 
-    return (flask.jsonify(structures), 200)
+    max_available_structures, current_available_structures = _calc_available_structures(current_price, kd_info_parse, structures)
+
+    payload = {
+        **structures,
+        "price": current_price,
+        "max_available_structures": max_available_structures,
+        "current_available_structures": current_available_structures,
+    }
+
+    return (flask.jsonify(payload), 200)
+
+def _validate_structures(structures_input, current_available_structures):
+    """Confirm that spending request is valid"""
+
+    values = structures_input.values()
+    if any((value < 0 for value in values)):
+        return False
+    if sum(values) > current_available_structures:
+        return False
+    if sum(values) == 0:
+        return False
+    
+    return True
+
+@app.route('/api/structures', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def build_structures():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    print(req, file=sys.stderr)
+    
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    
+    structures_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(structures_info.text, file=sys.stderr)
+    structures_info_parse = json.loads(structures_info.text)
+
+    current_price = _get_structure_price(kd_info_parse)
+    current_structures = kd_info_parse["structures"]
+    building_structures = structures_info_parse["structures"]
+
+    start_time = datetime.datetime.now()
+    structures = _calc_structures(start_time, current_structures, building_structures)
+
+    max_available_structures, current_available_structures = _calc_available_structures(current_price, kd_info_parse, structures)
+
+    structures_request = {
+        k: int(v or 0)
+        for k, v in req.items()
+    }
+    valid_structures = _validate_structures(structures_request, current_available_structures)
+    if not valid_structures:
+        return (flask.jsonify('Please enter valid structures values'), 400)
+
+    new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
+    kd_payload = {'money': new_money}
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(kd_payload),
+    )
+    structures_payload = {
+        "structures": [
+            {
+                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat(),
+                **structures_request,
+            }
+        ]
+    }
+    structures_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(structures_payload),
+    )
+    return (flask.jsonify(structures_patch_response.text), 200)
 
 @app.route('/api/galaxy/<galaxy>', methods=['GET'])
 @flask_praetorian.auth_required
@@ -619,6 +1030,503 @@ def galaxy(galaxy):
 
     return (flask.jsonify(galaxy_kd_info), 200)
 
+def _get_settle_info(kd_id):
+    settle_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(settle_info.text, file=sys.stderr)
+    settle_info_parse = json.loads(settle_info.text)
+    return settle_info_parse["settles"]
+
+def _get_settle_price(kd_info):
+    return BASE_SETTLE_COST(int(kd_info["stars"]))
+
+def _get_available_settle(kd_info, settle_info):
+    max_settle = BASE_MAX_SETTLE(int(kd_info["stars"]))
+    current_settle = sum([
+        int(settle_item["amount"])
+        for settle_item in settle_info
+    ])
+    max_available_settle = max(max_settle - current_settle, 0)
+    current_settle_cost = _get_settle_price(kd_info)
+    max_settle_cost = current_settle_cost * max_available_settle
+    try:
+        current_available_settle = min(
+            math.floor((kd_info["money"] / max_settle_cost) * max_available_settle),
+            max_available_settle,
+        )
+    except ZeroDivisionError:
+        current_available_settle = 0
+    return max_available_settle, current_available_settle
+
+@app.route('/api/settle', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def get_settle():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    settle_info = _get_settle_info(kd_id)
+
+    settle_price = _get_settle_price(kd_info_parse)
+    max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info)
+
+    payload = {
+        "settle_price": settle_price,
+        "max_available_settle": max_settle,
+        "current_available_settle": available_settle,
+    }
+
+    return (flask.jsonify(payload), 200)
+
+def _validate_settles(settle_input, kd_info, settle_info):
+    max_settle, available_settle = _get_available_settle(kd_info, settle_info)
+    if settle_input > available_settle:
+        return False
+
+    return True
+
+
+@app.route('/api/settle', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def settle():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    print(req, file=sys.stderr)
+    settle_input = int(req["settleInput"])
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    settle_info = _get_settle_info(kd_id)
+    valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info)
+    if not valid_settle:
+        return (flask.jsonify('Please enter valid settle value'), 400)
+
+    settle_price = _get_settle_price(kd_info_parse)
+    new_money = kd_info_parse["money"] - settle_price * settle_input
+    kd_payload = {'money': new_money}
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(kd_payload),
+    )
+    settle_payload = {
+        "settles": [
+            {
+                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat(),
+                "amount": settle_input,
+            }
+        ]
+    }
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(settle_payload),
+    )
+    return (flask.jsonify(kd_patch_response.text), 200)
+
+def _get_missiles_info(kd_id):
+    missiles_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(missiles_info.text, file=sys.stderr)
+    missiles_info_parse = json.loads(missiles_info.text)
+    return missiles_info_parse["missiles"]
+
+def _get_missiles_building(missiles_info):
+    missiles_building = {
+        k: 0
+        for k in MISSILES
+    }
+    for missile_queue in missiles_info:
+        missile_queue.pop("time")
+        for key_missile, amt_missile in missile_queue.items():
+            missiles_building[key_missile] += amt_missile
+    return missiles_building
+
+
+@app.route('/api/missiles', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def missiles():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    missiles_info = _get_missiles_info(kd_id)
+    missiles_building = _get_missiles_building(missiles_info)
+
+    current_missiles = kd_info_parse["missiles"]
+
+    payload = {
+        "current": current_missiles,
+        "building": missiles_building,
+        "build_time": BASE_MISSILE_TIME_MULTIPLER * BASE_EPOCH_SECONDS,
+        "capacity": kd_info_parse["structures"]["missile_silos"] * BASE_MISSILE_SILO_CAPACITY,
+        "desc": MISSILES,
+    }
+
+    return (flask.jsonify(payload), 200)
+
+def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles):
+    current_missiles = kd_info_parse["missiles"]
+    missiles = {k: current_missiles.get(k, 0) + missiles_building.get(k, 0) for k in MISSILES}
+
+    missiles_available = {k: max_available_missiles - missiles.get(k, 0) for k in missiles}
+    costs = sum([MISSILES[key_missile]["cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
+    fuel_costs = sum([MISSILES[key_missile]["fuel_cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
+
+    if any((value < 0 for value in missiles_request.values())):
+        return False
+    if any((value_missile > missiles_available.get(key_missile, 0) for key_missile, value_missile in missiles_request.items())):
+        return False
+    if sum(missiles_request.values()) == 0:
+        return False
+    if costs > kd_info_parse["money"]:
+        return False
+    if fuel_costs > kd_info_parse["fuel"]:
+        return False
+    
+    return True
+
+
+@app.route('/api/missiles', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def build_missiles():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    print(req, file=sys.stderr)
+    
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    
+    missiles_info = _get_missiles_info(kd_id)
+    missiles_building = _get_missiles_building(missiles_info)
+
+    max_available_missiles = kd_info_parse["structures"]["missile_silos"] * BASE_MISSILE_SILO_CAPACITY
+
+    missiles_request = {
+        k: int(v or 0)
+        for k, v in req.items()
+    }
+    valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles)
+    if not valid_missiles:
+        return (flask.jsonify('Please enter valid missiles values'), 400)
+
+    costs = sum([MISSILES[key_missile]["cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
+    fuel_costs = sum([MISSILES[key_missile]["fuel_cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
+    new_money = kd_info_parse["money"] - costs
+    new_fuel = kd_info_parse["fuel"] - fuel_costs
+    kd_payload = {
+        'money': new_money,
+        'fuel': new_fuel,
+    }
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(kd_payload),
+    )
+    missiles_payload = {
+        "missiles": [
+            {
+                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_MISSILE_TIME_MULTIPLER)).isoformat(),
+                **missiles_request,
+            }
+        ]
+    }
+    missiles_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(missiles_payload),
+    )
+    return (flask.jsonify(missiles_patch_response.text), 200)
+
+def _calc_workshop_capacity(kd_info, engineers_building):
+    max_workshop_capacity = kd_info["structures"]["workshops"] * BASE_WORKSHOP_CAPACITY
+    current_engineers = kd_info["units"]["engineers"]
+    current_workshop_capacity = current_engineers + engineers_building
+    return max_workshop_capacity, current_workshop_capacity
+
+def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
+    engineers_total = kd_info["units"]["engineers"] + engineers_building
+    available_workshop_capacity = max(max_workshop_capacity - engineers_total, 0)
+    max_trainable_engineers = BASE_MAX_ENGINEERS(int(kd_info["population"]))
+    max_available_engineers = min(available_workshop_capacity, max_trainable_engineers)
+    try:
+        current_available_engineers = min(
+            math.floor(kd_info["money"] / BASE_ENGINEER_COST),
+            max_available_engineers,
+        )
+    except ZeroDivisionError:
+        current_available_engineers = 0
+    return max_available_engineers, current_available_engineers
+
+def _get_engineers_info(kd_id):
+    engineers_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(engineers_info.text, file=sys.stderr)
+    engineers_info_parse = json.loads(engineers_info.text)
+    return engineers_info_parse["engineers"]
+
+@app.route('/api/engineers', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def engineers():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    engineers_info = _get_engineers_info(kd_id)
+    engineers_building = sum([training["amount"] for training in engineers_info])
+    max_workshop_capacity, current_workshop_capacity = _calc_workshop_capacity(kd_info_parse, engineers_building)
+    max_available_engineers, current_available_engineers = _calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
+
+    payload = {
+        'engineers_price': BASE_ENGINEER_COST,
+        'max_workshop_capacity': max_workshop_capacity,
+        'current_workshop_capacity': current_workshop_capacity,
+        'max_available_engineers': max_available_engineers,
+        'current_available_engineers': current_available_engineers,
+        'current_engineers': kd_info_parse["units"]["engineers"],
+        'engineers_building': engineers_building,
+        }
+    return (flask.jsonify(payload), 200)
+
+def _validate_engineers(engineers_input, current_available_engineers):
+    if engineers_input > current_available_engineers:
+        return False
+    if engineers_input <= 0:
+        return False
+
+    return True
+
+@app.route('/api/engineers', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def train_engineers():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    print(req, file=sys.stderr)
+    engineers_input = int(req["engineersInput"])
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    engineers_info = _get_engineers_info(kd_id)
+    engineers_building = sum([training["amount"] for training in engineers_info])
+    max_workshop_capacity, current_workshop_capacity = _calc_workshop_capacity(kd_info_parse, engineers_building)
+    max_available_engineers, current_available_engineers = _calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
+
+    valid_engineers = _validate_engineers(engineers_input, current_available_engineers)
+    if not valid_engineers:
+        return (flask.jsonify('Please enter valid recruits value'), 400)
+
+    new_money = kd_info_parse["money"] - BASE_ENGINEER_COST * engineers_input
+    kd_payload = {'money': new_money}
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(kd_payload),
+    )
+    engineers_payload = {
+        "engineers": [
+            {
+                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat(),
+                "amount": engineers_input,
+            }
+        ]
+    }
+    engineers_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(engineers_payload),
+    )
+    return (flask.jsonify(engineers_patch_response.text), 200)
+
+@app.route('/api/projects', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def projects():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    max_bonuses = {
+        project: project_dict.get("max_bonus", 0)
+        for project, project_dict in PROJECTS.items()
+        if "max_bonus" in project_dict
+    }
+    current_bonuses = {
+        project: project_dict.get("max_bonus", 0) * kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project]
+        for project, project_dict in PROJECTS.items()
+        if "max_bonus" in project_dict
+    }
+    available_engineers = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
+
+    payload = {
+        "current_bonuses": current_bonuses,
+        "max_bonuses": max_bonuses,
+        "available_engineers": available_engineers,
+    }
+    return (flask.jsonify(payload), 200)
+
+def _validate_assign_projects(req, kd_info_parse):
+    engineers_assigned = sum(req["assign"].values())
+    if engineers_assigned > kd_info_parse["units"]["engineers"]:
+        return False
+    if any(value < 0 for value in req["assign"].values()):
+        return False
+    return True
+
+def _validate_add_projects(req, available_engineers):
+    engineers_added = sum(req["add"].values())
+    if engineers_added > available_engineers:
+        return False
+    if any(value < 0 for value in req["add"].values()):
+        return False
+    return True
+
+@app.route('/api/projects', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def manage_projects():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    new_projects_assigned = kd_info_parse["projects_assigned"].copy()
+    if "clear" in req.keys():
+        projects_to_clear = req["clear"]
+        for project_to_clear in projects_to_clear:
+            new_projects_assigned[project_to_clear] = 0
+
+    elif "assign" in req.keys():
+        req["assign"] = {k: int(v) for k, v in req["assign"].items()}
+        valid_assign = _validate_assign_projects(req, kd_info_parse)
+        if not valid_assign:
+            return (flask.jsonify('Please enter valid assign engineers value'), 400)
+        
+        new_projects_assigned = {
+            key: req["assign"].get(key, 0)
+            for key in kd_info_parse["projects_assigned"]
+        }
+        
+    elif "add" in req.keys():
+        req["add"] = {k: int(v) for k, v in req["add"].items()}
+        available_engineers = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
+        valid_add = _validate_add_projects(req, available_engineers)
+        if not valid_add:
+            return (flask.jsonify('Please enter valid add engineers value'), 400)
+        
+        new_projects_assigned = {
+            key: value + req["add"].get(key, 0)
+            for key, value in kd_info_parse["projects_assigned"].items()
+        }
+
+    kd_payload = {"projects_assigned": new_projects_assigned}
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-Azure-Functions-Host-Key': ''},
+        data=json.dumps(kd_payload),
+    )
+    return (flask.jsonify(kd_patch_response.text), 200)
 
 @app.route('/api/protected')
 @flask_praetorian.auth_required
