@@ -9,20 +9,9 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import "./military.css";
 
-function MilitaryContent() {
-    const [kdInfo, setKdInfo] = useState({});
-    const [mobisInfo, setMobisInfo] = useState({});
-    const [reloading, setReloading] = useState(false);
-    
-    useEffect(() => {
-        const fetchData = async () => {
-            await authFetch("api/kingdom").then(r => r.json()).then(r => setKdInfo(r));
-            await authFetch("api/mobis").then(r => r.json()).then(r => setMobisInfo(r));
-            setReloading(false);
-        }
-        fetchData();
-    }, [reloading])
-
+function MilitaryContent(props) {
+    const kdInfo = props.data.kingdom;
+    const mobisInfo = props.data.mobis;
     return (
         <Tabs
           id="controlled-tab-example"
@@ -32,13 +21,13 @@ function MilitaryContent() {
           variant="tabs"
         >
           <Tab eventKey="recruits" title="Recruits">
-            <Recruits kdInfo={kdInfo} mobisInfo={mobisInfo} reloading={reloading} setReloading={v => setReloading(v)}/>
+            <Recruits kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
           <Tab eventKey="specialists" title="Specialists">
-            <Specialists kdInfo={kdInfo} mobisInfo={mobisInfo} reloading={reloading} setReloading={v => setReloading(v)}/>
+            <Specialists kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
           <Tab eventKey="levy" title="Levy">
-            <Levy kdInfo={kdInfo} mobisInfo={mobisInfo} reloading={reloading} setReloading={v => setReloading(v)}/>
+            <Levy kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
         </Tabs>
     )
@@ -64,11 +53,12 @@ function Recruits(props) {
             let opts = {
                 'recruitsInput': recruitsInput,
             };
-            authFetch('api/recruits', {
+            const updateFunc = () => authFetch('api/recruits', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            });
-            props.setReloading(true);
+            })
+            props.updateData(['mobis'], [updateFunc]);
+            setRecruitsInput('');
         }
     }
     if (Object.keys(props.mobisInfo).length === 0) {
@@ -124,7 +114,7 @@ function Recruits(props) {
                         placeholder="0"
                     />
                 </InputGroup>
-                {props.reloading
+                {props.loading.mobis
                 ? <Button className="recruits-button" variant="primary" type="submit" disabled>
                     Loading...
                 </Button>
@@ -166,11 +156,11 @@ function Specialists(props) {
                 'flex': flexersInput === '' ? undefined : flexersInput,
                 'big_flex': bigFlexersInput === '' ? undefined : bigFlexersInput,
             };
-            authFetch('api/mobis', {
+            const updateFunc = () => authFetch('api/mobis', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            });
-            props.setReloading(true);
+            })
+            props.updateData(['mobis'], [updateFunc]);
         }
     }
 
@@ -311,7 +301,7 @@ function Specialists(props) {
                 </tbody>
             </Table>
             {
-                props.reloading
+                props.loading.mobis
                 ? <Button className="specialists-button" variant="primary" type="submit" disabled>
                     Loading...
                 </Button>

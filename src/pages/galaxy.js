@@ -24,15 +24,12 @@ function getTimeString(date) {
 function Galaxy(props) {
     const [galaxyInfo, setGalaxyInfo] = useState({});
     const [galaxyIndex, setGalaxyIndex] = useState();
-    const [galaxiesArray, setGalaxiesArray] = useState([]);
+    const [galaxiesArray, setGalaxiesArray] = useState(Object.keys(props.data.galaxies));
     const [clusterInput, setClusterInput] = useState();
     const [galaxyInput, setGalaxyInput] = useState();
 
     useEffect(() => {
         const fetchData = async () => {
-            if (galaxiesArray.length === 0) {
-                await authFetch("api/galaxies").then(r => r.json()).then(r => setGalaxiesArray(Object.keys(r).sort()));
-            };
             if (galaxyIndex != undefined) {
                 if (galaxiesArray[galaxyIndex] != undefined) {
                     await authFetch("api/galaxy/" + galaxiesArray[galaxyIndex]).then(r => r.json()).then(r => setGalaxyInfo(r));
