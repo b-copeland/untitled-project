@@ -65,4 +65,12 @@ Novel ideas:
 Convenience:
   - Manually/Automatically attack "primitives" at a 3x the median defense per land (food attack simplification)
   - Automatically rob primitives at 1/3 the median income (food rob simplification)
+Recovery from attacks:
+  - Buildings are not instantly destroyed, but decay over time until at land
+  - Some defeated units become injured and can be recovered in hospitals
+RPG-esque:
+  - Generals have unique abilities/names
+Missiles:
+  - More granular build amounts
+  - Requires a dedicated building to construct
   
