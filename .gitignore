@@ -51,3 +51,6 @@ iac/.terraform.lock.hcl
 node_modules*
 
 build/*
+
+*.flaskenv
+*database.db
