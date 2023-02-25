@@ -99,6 +99,8 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             "mobis",
             "structures",
             # "projects",
+            "missiles",
+            "engineers",
             "revealed",
             "shared",
             "shared_requests",
@@ -379,6 +381,27 @@ def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+@APP.function_name(name="GetSettles")
+@APP.route(route="kingdom/{kdId:int}/settles", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_settles(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get settles request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"settles_{kd_id}"
+    settles = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(settles),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom settles could not be retrieved",
+            status_code=500,
+        )
+
 @APP.function_name(name="UpdateSettles")
 @APP.route(route="kingdom/{kdId:int}/settles", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
 def update_settles(req: func.HttpRequest) -> func.HttpResponse:
@@ -646,6 +669,199 @@ def resolve_structures(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The kingdom mobis were not resolved",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetMissiles")
+@APP.route(route="kingdom/{kdId:int}/missiles", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_missiles(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get missiles request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"missiles_{kd_id}"
+    missiles = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(missiles),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom missiles could not be retrieved",
+            status_code=500,
+        )
+        
+@APP.function_name(name="UpdateMissiles")
+@APP.route(route="kingdom/{kdId:int}/missiles", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_missiles(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update missiles request.')    
+    req_body = req.get_json()
+    new_missiles = req_body["missiles"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"missiles_{kd_id}"
+    missiles = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        missiles["missiles"] = missiles["missiles"] + new_missiles
+        CONTAINER.replace_item(
+            item_id,
+            missiles,
+        )
+        return func.HttpResponse(
+            "Kingdom missiles updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom missiles were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="ResolveMissiles")
+@APP.route(route="kingdom/{kdId:int}/resolvemissiles", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def resolve_missiles(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a resolve missiles request.')    
+    try:
+        req_body = req.get_json()
+        timestamp = datetime.datetime.fromtimestamp(req_body["timestamp"])
+        kd_id = str(req.route_params.get('kdId'))
+        missiles_id = f"missiles_{kd_id}"
+        missiles = CONTAINER.read_item(
+            item=missiles_id,
+            partition_key=missiles_id,
+        )
+        ready_missiles = defaultdict(int)
+        keep_missiles = []
+        for missile in missiles:
+            if datetime.datetime.fromtimestamp(missiles["time"]) < timestamp:
+                missile.pop('time')
+                for key_missile, amt in missile.items():
+                    ready_missiles[key_missile] += amt
+            else:
+                keep_missiles.append(missile)
+
+        kd_info_id = f"kingdom_{kd_id}"
+        kd_info = CONTAINER.read_item(
+            item=kd_info_id,
+            partition_key=kd_info_id,
+        )
+        for missile, amt in ready_missiles.items():
+            kd_info['missiles'][missile] += amt
+
+        CONTAINER.replace_item(
+            missiles_id,
+            keep_missiles,
+        )
+        CONTAINER.replace_item(
+            kd_info_id,
+            kd_info,
+        )
+        return func.HttpResponse(
+            "Kingdom missiles resolved.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom missiles were not resolved",
+            status_code=500,
+        )
+        
+@APP.function_name(name="GetEngineers")
+@APP.route(route="kingdom/{kdId:int}/engineers", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_engineers(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get engineers request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"engineers_{kd_id}"
+    engineers = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(engineers),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom engineers could not be retrieved",
+            status_code=500,
+        )
+        
+@APP.function_name(name="UpdateEngineers")
+@APP.route(route="kingdom/{kdId:int}/engineers", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def update_engineers(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update engineers request.')    
+    req_body = req.get_json()
+    new_engineers = req_body["engineers"]
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"engineers_{kd_id}"
+    engineers = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        engineers["engineers"] = engineers["engineers"] + new_engineers
+        CONTAINER.replace_item(
+            item_id,
+            engineers,
+        )
+        return func.HttpResponse(
+            "Kingdom engineers updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom engineers were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="ResolveEngineers")
+@APP.route(route="kingdom/{kdId:int}/resolveengineers", auth_level=func.AuthLevel.ANONYMOUS, methods=["PATCH"])
+def resolve_engineers(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a resolve engineers request.')    
+    try:
+        req_body = req.get_json()
+        timestamp = datetime.datetime.fromtimestamp(req_body["timestamp"])
+        kd_id = str(req.route_params.get('kdId'))
+        engineers_id = f"engineers_{kd_id}"
+        engineers = CONTAINER.read_item(
+            item=engineers_id,
+            partition_key=engineers_id,
+        )
+        ready_engineers = 0
+        keep_engineers = []
+        for engineer in engineers:
+            if datetime.datetime.fromtimestamp(engineers["time"]) < timestamp:
+                ready_engineers += engineer["amount"]
+            else:
+                keep_engineers.append(engineer)
+
+        kd_info_id = f"kingdom_{kd_id}"
+        kd_info = CONTAINER.read_item(
+            item=kd_info_id,
+            partition_key=kd_info_id,
+        )
+        kd_info['unit']['engineers'] += ready_engineers
+
+        CONTAINER.replace_item(
+            engineers_id,
+            keep_engineers,
+        )
+        CONTAINER.replace_item(
+            kd_info_id,
+            kd_info,
+        )
+        return func.HttpResponse(
+            "Kingdom engineers resolved.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom engineers were not resolved",
             status_code=500,
         )
         

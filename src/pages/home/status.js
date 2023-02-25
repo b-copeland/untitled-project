@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../auth";
+import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
@@ -301,6 +301,14 @@ function Military() {
                     </thead>
                     <tbody>
                         <tr>
+                            <td>Recruits</td>
+                            <td>{units.current?.recruits || 0}</td>
+                            <td>{units.general_0?.recruits || 0}</td>
+                            <td>{units.general_1?.recruits || 0}</td>
+                            <td>{units.general_2?.recruits || 0}</td>
+                            <td>{units.general_3?.recruits || 0}</td>
+                        </tr>
+                        <tr>
                             <td>Attackers</td>
                             <td>{units.current?.attack || 0}</td>
                             <td>{units.general_0?.attack || 0}</td>
@@ -323,6 +331,14 @@ function Military() {
                             <td>{units.general_1?.flex || 0}</td>
                             <td>{units.general_2?.flex || 0}</td>
                             <td>{units.general_3?.flex || 0}</td>
+                        </tr>
+                        <tr>
+                            <td>Big Flexers</td>
+                            <td>{units.current?.big_flex || 0}</td>
+                            <td>{units.general_0?.big_flex || 0}</td>
+                            <td>{units.general_1?.big_flex || 0}</td>
+                            <td>{units.general_2?.big_flex || 0}</td>
+                            <td>{units.general_3?.big_flex || 0}</td>
                         </tr>
                     </tbody>
                 </Table>
@@ -379,31 +395,49 @@ function Military() {
                     </thead>
                     <tbody>
                         <tr>
+                            <td>Recruits</td>
+                            <td>{units.current_total.recruits || 0}</td>
+                            <td>{(units.current_total.recruits || 0) + (units.hour_1.recruits || 0)}</td>
+                            <td>{(units.current_total.recruits || 0) + (units.hour_2.recruits || 0)}</td>
+                            <td>{(units.current_total.recruits || 0) + (units.hour_4.recruits || 0)}</td>
+                            <td>{(units.current_total.recruits || 0) + (units.hour_8.recruits || 0)}</td>
+                            <td>{(units.current_total.recruits || 0) + (units.hour_24.recruits || 0)}</td>
+                        </tr>
+                        <tr>
                             <td>Attackers</td>
-                            <td>{units.current.attack || 0}</td>
-                            <td>{(units.current.attack || 0) + (units.hour_1.attack || 0)}</td>
-                            <td>{(units.current.attack || 0) + (units.hour_2.attack || 0)}</td>
-                            <td>{(units.current.attack || 0) + (units.hour_4.attack || 0)}</td>
-                            <td>{(units.current.attack || 0) + (units.hour_8.attack || 0)}</td>
-                            <td>{(units.current.attack || 0) + (units.hour_24.attack || 0)}</td>
+                            <td>{units.current_total.attack || 0}</td>
+                            <td>{(units.current_total.attack || 0) + (units.hour_1.attack || 0)}</td>
+                            <td>{(units.current_total.attack || 0) + (units.hour_2.attack || 0)}</td>
+                            <td>{(units.current_total.attack || 0) + (units.hour_4.attack || 0)}</td>
+                            <td>{(units.current_total.attack || 0) + (units.hour_8.attack || 0)}</td>
+                            <td>{(units.current_total.attack || 0) + (units.hour_24.attack || 0)}</td>
                         </tr>
                         <tr>
                             <td>Defenders</td>
-                            <td>{units.current.defense || 0}</td>
-                            <td>{(units.current.defense || 0) + (units.hour_1.defense || 0)}</td>
-                            <td>{(units.current.defense || 0) + (units.hour_2.defense || 0)}</td>
-                            <td>{(units.current.defense || 0) + (units.hour_4.defense || 0)}</td>
-                            <td>{(units.current.defense || 0) + (units.hour_8.defense || 0)}</td>
-                            <td>{(units.current.defense || 0) + (units.hour_24.defense || 0)}</td>
+                            <td>{units.current_total.defense || 0}</td>
+                            <td>{(units.current_total.defense || 0) + (units.hour_1.defense || 0)}</td>
+                            <td>{(units.current_total.defense || 0) + (units.hour_2.defense || 0)}</td>
+                            <td>{(units.current_total.defense || 0) + (units.hour_4.defense || 0)}</td>
+                            <td>{(units.current_total.defense || 0) + (units.hour_8.defense || 0)}</td>
+                            <td>{(units.current_total.defense || 0) + (units.hour_24.defense || 0)}</td>
                         </tr>
                         <tr>
                             <td>Flexers</td>
-                            <td>{units.current.flex || 0}</td>
-                            <td>{(units.current.flex || 0) + (units.hour_1.flex || 0)}</td>
-                            <td>{(units.current.flex || 0) + (units.hour_2.flex || 0)}</td>
-                            <td>{(units.current.flex || 0) + (units.hour_4.flex || 0)}</td>
-                            <td>{(units.current.flex || 0) + (units.hour_8.flex || 0)}</td>
-                            <td>{(units.current.flex || 0) + (units.hour_24.flex || 0)}</td>
+                            <td>{units.current_total.flex || 0}</td>
+                            <td>{(units.current_total.flex || 0) + (units.hour_1.flex || 0)}</td>
+                            <td>{(units.current_total.flex || 0) + (units.hour_2.flex || 0)}</td>
+                            <td>{(units.current_total.flex || 0) + (units.hour_4.flex || 0)}</td>
+                            <td>{(units.current_total.flex || 0) + (units.hour_8.flex || 0)}</td>
+                            <td>{(units.current_total.flex || 0) + (units.hour_24.flex || 0)}</td>
+                        </tr>
+                        <tr>
+                            <td>Big Flexers</td>
+                            <td>{units.current_total.big_flex || 0}</td>
+                            <td>{(units.current_total.big_flex || 0) + (units.hour_1.big_flex || 0)}</td>
+                            <td>{(units.current_total.big_flex || 0) + (units.hour_2.big_flex || 0)}</td>
+                            <td>{(units.current_total.big_flex || 0) + (units.hour_4.big_flex || 0)}</td>
+                            <td>{(units.current_total.big_flex || 0) + (units.hour_8.big_flex || 0)}</td>
+                            <td>{(units.current_total.big_flex || 0) + (units.hour_24.big_flex || 0)}</td>
                         </tr>
                     </tbody>
                 </Table>
@@ -422,21 +456,21 @@ function Military() {
                     <tbody>
                         <tr>
                             <td>Max offense</td>
-                            <td>{maxOffense.current || 0}</td>
-                            <td>{(maxOffense.current || 0) + (maxOffense.hour_1 || 0)}</td>
-                            <td>{(maxOffense.current || 0) + (maxOffense.hour_2 || 0)}</td>
-                            <td>{(maxOffense.current || 0) + (maxOffense.hour_4 || 0)}</td>
-                            <td>{(maxOffense.current || 0) + (maxOffense.hour_8 || 0)}</td>
-                            <td>{(maxOffense.current || 0) + (maxOffense.hour_24 || 0)}</td>
+                            <td>{maxOffense.current_total || 0}</td>
+                            <td>{(maxOffense.current_total || 0) + (maxOffense.hour_1 || 0)}</td>
+                            <td>{(maxOffense.current_total || 0) + (maxOffense.hour_2 || 0)}</td>
+                            <td>{(maxOffense.current_total || 0) + (maxOffense.hour_4 || 0)}</td>
+                            <td>{(maxOffense.current_total || 0) + (maxOffense.hour_8 || 0)}</td>
+                            <td>{(maxOffense.current_total || 0) + (maxOffense.hour_24 || 0)}</td>
                         </tr>
                         <tr>
                             <td>Max defense</td>
-                            <td>{maxDefense.current || 0}</td>
-                            <td>{(maxDefense.current || 0) + (maxDefense.hour_1 || 0)}</td>
-                            <td>{(maxDefense.current || 0) + (maxDefense.hour_2 || 0)}</td>
-                            <td>{(maxDefense.current || 0) + (maxDefense.hour_4 || 0)}</td>
-                            <td>{(maxDefense.current || 0) + (maxDefense.hour_8 || 0)}</td>
-                            <td>{(maxDefense.current || 0) + (maxDefense.hour_24 || 0)}</td>
+                            <td>{maxDefense.current_total || 0}</td>
+                            <td>{(maxDefense.current_total || 0) + (maxDefense.hour_1 || 0)}</td>
+                            <td>{(maxDefense.current_total || 0) + (maxDefense.hour_2 || 0)}</td>
+                            <td>{(maxDefense.current_total || 0) + (maxDefense.hour_4 || 0)}</td>
+                            <td>{(maxDefense.current_total || 0) + (maxDefense.hour_8 || 0)}</td>
+                            <td>{(maxDefense.current_total || 0) + (maxDefense.hour_24 || 0)}</td>
                         </tr>
                     </tbody>
                 </Table>
@@ -521,6 +555,24 @@ function Structures(props) {
                             <td>{(structures.current.drone_factories || 0) + (structures.hour_8.drone_factories || 0)}</td>
                             <td>{(structures.current.drone_factories || 0) + (structures.hour_24.drone_factories || 0)}</td>
                         </tr>
+                        <tr>
+                            <td>Missile Silos</td>
+                            <td>{structures.current.missile_silos || 0}</td>
+                            <td>{(structures.current.missile_silos || 0) + (structures.hour_1.missile_silos || 0)}</td>
+                            <td>{(structures.current.missile_silos || 0) + (structures.hour_2.missile_silos || 0)}</td>
+                            <td>{(structures.current.missile_silos || 0) + (structures.hour_4.missile_silos || 0)}</td>
+                            <td>{(structures.current.missile_silos || 0) + (structures.hour_8.missile_silos || 0)}</td>
+                            <td>{(structures.current.missile_silos || 0) + (structures.hour_24.missile_silos || 0)}</td>
+                        </tr>
+                        <tr>
+                            <td>Workshops</td>
+                            <td>{structures.current.workshops || 0}</td>
+                            <td>{(structures.current.workshops || 0) + (structures.hour_1.workshops || 0)}</td>
+                            <td>{(structures.current.workshops || 0) + (structures.hour_2.workshops || 0)}</td>
+                            <td>{(structures.current.workshops || 0) + (structures.hour_4.workshops || 0)}</td>
+                            <td>{(structures.current.workshops || 0) + (structures.hour_8.workshops || 0)}</td>
+                            <td>{(structures.current.workshops || 0) + (structures.hour_24.workshops || 0)}</td>
+                        </tr>
                     </tbody>
                 </Table>
                 <Table striped bordered hover>
@@ -580,6 +632,24 @@ function Structures(props) {
                             <td>{displayPercent(((structures.current.drone_factories || 0) + (structures.hour_4.drone_factories || 0)) / props.kdInfo.stars)}</td>
                             <td>{displayPercent(((structures.current.drone_factories || 0) + (structures.hour_8.drone_factories || 0)) / props.kdInfo.stars)}</td>
                             <td>{displayPercent(((structures.current.drone_factories || 0) + (structures.hour_24.drone_factories || 0)) / props.kdInfo.stars)}</td>
+                        </tr>
+                        <tr>
+                            <td>Missile Silos</td>
+                            <td>{displayPercent((structures.current.missile_silos || 0) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent(((structures.current.missile_silos || 0) + (structures.hour_1.missile_silos || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent(((structures.current.missile_silos || 0) + (structures.hour_2.missile_silos || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent(((structures.current.missile_silos || 0) + (structures.hour_4.missile_silos || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent(((structures.current.missile_silos || 0) + (structures.hour_8.missile_silos || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent(((structures.current.missile_silos || 0) + (structures.hour_24.missile_silos || 0)) / props.kdInfo.stars)}</td>
+                        </tr>
+                        <tr>
+                            <td>Workshops</td>
+                            <td>{displayPercent((structures.current.workshops || 0) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent(((structures.current.workshops || 0) + (structures.hour_1.workshops || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent(((structures.current.workshops || 0) + (structures.hour_2.workshops || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent(((structures.current.workshops || 0) + (structures.hour_4.workshops || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent(((structures.current.workshops || 0) + (structures.hour_8.workshops || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent(((structures.current.workshops || 0) + (structures.hour_24.workshops || 0)) / props.kdInfo.stars)}</td>
                         </tr>
                     </tbody>
                 </Table>

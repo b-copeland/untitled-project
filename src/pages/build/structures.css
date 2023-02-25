@@ -1,0 +1,23 @@
+.structures {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.structures-table {
+    margin: 5px;
+    width: 40%;
+}
+
+.structures-form-data {
+    width: 20%;
+}
+
+.structures-button {
+    margin: 5px;
+}
+
+.structures-box {
+    width: 45%;
+    margin: 5px;
+}

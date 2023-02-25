@@ -6,28 +6,76 @@ import {
   Navigate,
   Link,
   Outlet,
-  useSearchParams
+  useSearchParams,
+  useNavigate,
+  redirect,
 } from "react-router-dom";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "./auth";
 import BasicExample from "./components/navbar";
+import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css"
-import StatusContent from "./pages/status.js"
-import NewsContent from "./pages/news.js"
+import StatusContent from "./pages/home/status.js"
+import NewsContent from "./pages/home/news.js"
 import Galaxy from "./pages/galaxy.js"
+import Forums from "./pages/home/forums.js"
+import History from "./pages/home/history.js"
+import Settle from "./pages/build/settle.js"
+import Structures from "./pages/build/structures.js"
+import MilitaryContent from "./pages/build/military.js"
+import ProjectsContent from "./pages/build/projects.js"
+import Missiles from "./pages/build/missiles.js"
 
 
-const PrivateRoute = () => {
+
+// const ProtectedRoute = ({ logged, session, redirectPath = '/login', children }) => {
+//   const navigate = useNavigate();
+//   useEffect(() => {
+//     if (!logged) {
+//       navigate(redirectPath, {replace: true});
+//     }
+//   }, [logged])
+
+//   if (session != null && session.hasOwnProperty("error")) {
+//     logout();
+//     return <Navigate to={redirectPath} replace />;
+//   }
+
+//   return children ? children : <Outlet />;
+// };
+
+
+const ProtectedRoute = ({ logged, session, redirectPath = '/login', children }) => {
+  if (session != null && session.hasOwnProperty("error")) {
+    logout();
+    return <Navigate to={redirectPath} replace />;
+  }
+  if (!logged) {
+    return <Navigate to={redirectPath} replace />;
+  }
+
+  return children ? children : <Outlet />;
+};
+
+const PrivateRoute = ({
+
+}) => {
   const [logged, session] = useAuth();
 
   if (session === null) {
-    return null; // or loading indicator, etc...
+    return null;
   }
 
   return logged ? <Outlet /> : <Navigate to="/login" />;
 }
 
-
 export default function App() {
+  const [logged, session] = useAuth();
+
+  if (session === null) {
+    if (!!JSON.parse(localStorage.getItem("DOMNUS_GAME_TOKEN"))) {
+      return null;
+    }
+  }
   return (
     <div className="main">
       <div className="navdiv">
@@ -40,14 +88,17 @@ export default function App() {
             <div className="router-body">
               <Routes>
                 <Route path="/login" element={<Login />}/>
-                <Route path="/status" element={<PrivateRoute/>}>
+                <Route element={<ProtectedRoute logged={logged} session={session}/>}>
                   <Route path="/status" element={<StatusContent/>}/>
-                </Route>
-                <Route path="/news" element={<PrivateRoute/>}>
                   <Route path="/news" element={<NewsContent/>}/>
-                </Route>
-                <Route path="/galaxy" element={<PrivateRoute/>}>
                   <Route path="/galaxy" element={<Galaxy/>}/>
+                  <Route path="/forums" element={<Forums/>}/>
+                  <Route path="/history" element={<History/>}/>
+                  <Route path="/settle" element={<Settle/>}/>
+                  <Route path="/structures" element={<Structures/>}/>
+                  <Route path="/military" element={<MilitaryContent/>}/>
+                  <Route path="/projects" element={<ProjectsContent/>}/>
+                  <Route path="/missiles" element={<Missiles/>}/>
                 </Route>
                 <Route path="/finalize" element={<Finalize />}/>
                 <Route path="/" element={<Home />}/>
@@ -59,6 +110,54 @@ export default function App() {
     </div>
   );
 }
+
+// export default function App() {
+//   return (
+//     <div className="main">
+//       <div className="navdiv">
+//         <BasicExample />
+//       </div>
+//       <div className="main-body">
+//         <Header />
+//         <div className="router">
+//           {/* <Router> */}
+//             <div className="router-body">
+//               <Routes>
+//                 <Route path="/login" element={<Login />}/>
+//                 <Route path="/status" element={<PrivateRoute/>}>
+//                   <Route path="/status" element={<StatusContent/>}/>
+//                 </Route>
+//                 <Route path="/news" element={<PrivateRoute/>}>
+//                   <Route path="/news" element={<NewsContent/>}/>
+//                 </Route>
+//                 <Route path="/galaxy" element={<PrivateRoute/>}>
+//                   <Route path="/galaxy" element={<Galaxy/>}/>
+//                 </Route>
+//                 <Route path="/forums" element={<PrivateRoute/>}>
+//                   <Route path="/forums" element={<Forums/>}/>
+//                 </Route>
+//                 <Route path="/history" element={<PrivateRoute/>}>
+//                   <Route path="/history" element={<History/>}/>
+//                 </Route>
+//                 <Route path="/settle" element={<PrivateRoute/>}>
+//                   <Route path="/settle" element={<Settle/>}/>
+//                 </Route>
+//                 <Route path="/structures" element={<PrivateRoute/>}>
+//                   <Route path="/structures" element={<Structures/>}/>
+//                 </Route>
+//                 <Route path="/military" element={<PrivateRoute/>}>
+//                   <Route path="/military" element={<MilitaryContent/>}/>
+//                 </Route>
+//                 <Route path="/finalize" element={<Finalize />}/>
+//                 <Route path="/" element={<Home />}/>
+//               </Routes>
+//             </div>
+//           {/* </Router> */}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 
 class Clock extends React.Component {
   constructor(props) {
@@ -151,8 +250,8 @@ function Home() {
 function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-
   const [logged] = useAuth();
+  const navigate = useNavigate();
 
   const onSubmitClick = (e)=>{
     e.preventDefault()
@@ -166,7 +265,8 @@ function Login() {
     }).then(r => r.json())
       .then(session => {
         if (session.accessToken){
-          login(session)     
+          login(session);
+          navigate('/status');
         }
         else {
           console.log("Please type in correct username/password")

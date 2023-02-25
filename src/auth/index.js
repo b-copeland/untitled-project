@@ -8,7 +8,7 @@ export const { useAuth, authFetch, login, logout, getSession, getSessionState } 
             method: 'POST',
             body: token.refreshToken,
         }).then(r => r.json()),
-    storageKey: "GAME_TOKEN",
+    storageKey: "DOMNUS_GAME_TOKEN",
     onHydratation: session => session,
     expirationThresholdMillisec: 1000 * 3600
 });

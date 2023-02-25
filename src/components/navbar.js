@@ -12,6 +12,13 @@ function BasicExample() {
             <li><Link to="/status">Status</Link></li>
             <li><Link to="/news">News</Link></li>
             <li><Link to="/galaxy">Galaxy</Link></li>
+            <li><Link to="/forums">Forums</Link></li>
+            <li><Link to="/history">History</Link></li>
+            <li><Link to="/settle">Settle</Link></li>
+            <li><Link to="/structures">Structures</Link></li>
+            <li><Link to="/military">Military</Link></li>
+            <li><Link to="/projects">Projects</Link></li>
+            <li><Link to="/missiles">Missiles</Link></li>
         </ul>
     </nav>
   );

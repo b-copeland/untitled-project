@@ -1,0 +1,17 @@
+
+
+.missiles {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+
+.missiles-table {
+    width: 80%;
+    margin: 5px;
+}
+
+.missiles-button {
+    margin: 5px;
+}
