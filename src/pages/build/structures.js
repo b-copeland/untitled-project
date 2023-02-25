@@ -7,9 +7,7 @@ import Table from 'react-bootstrap/Table';
 import "./structures.css"
 
 
-function Structures() {
-    const [kdInfo, setKdInfo] = useState({});
-    const [structuresInfo, setStructuresInfo] = useState({});
+function Structures(props) {
     const [homesInput, setHomesInput] = useState('');
     const [minesInput, setMinesInput] = useState('');
     const [fuelPlantsInput, setFuelPlantsInput] = useState('');
@@ -18,15 +16,6 @@ function Structures() {
     const [missileSilosInput, setMissileSilosInput] = useState('');
     const [workshopsInput, setWorkshopsInput] = useState('');
     const [reloading, setReloading] = useState(false);
-    
-    useEffect(() => {
-        const fetchData = async () => {
-            await authFetch("api/structures").then(r => r.json()).then(r => setStructuresInfo(r));
-            await authFetch("api/kingdom").then(r => r.json()).then(r => setKdInfo(r));
-            setReloading(false);
-        }
-        fetchData();
-    }, [reloading])
 
     const handleHomesInput = (e) => {
         setHomesInput(e.target.value);
@@ -63,22 +52,31 @@ function Structures() {
                 'missile_silos': missileSilosInput === '' ? undefined : missileSilosInput,
                 'workshops': workshopsInput === '' ? undefined : workshopsInput,
             };
-            authFetch('api/structures', {
+            const updateFunc = () => authFetch('api/structures', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            });
-            setReloading(true);
+            })
+            props.updateData(['structures'], [updateFunc])
+            setHomesInput('');
+            setMinesInput('');
+            setFuelPlantsInput('');
+            setHangarsInput('');
+            setDroneFactoriesInput('');
+            setMissileSilosInput('');
+            setWorkshopsInput('');
         }
     }
 
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
 
-    if (Object.keys(structuresInfo).length === 0) {
+    if (Object.keys(props.data.structures).length === 0) {
         return null;
     }
-    if (Object.keys(kdInfo).length === 0) {
+    if (Object.keys(props.data.kingdom).length === 0) {
         return null;
     }
+    const structuresInfo = props.data.structures;
+    const kdInfo = props.data.kingdom;
     return (
         <div className="structures">
             <div className="text-box structures-box">
@@ -218,7 +216,7 @@ function Structures() {
                     </tr>
                 </tbody>
             </Table>
-            {reloading
+            {props.loading.structures
             ? <Button className="structures-button" variant="primary" type="submit" disabled>
                 Loading...
             </Button>

@@ -7,18 +7,8 @@ import Button from 'react-bootstrap/Button';
 import "./settle.css"
 
 
-function Settle() {
+function Settle(props) {
     const [settleInput, setSettleInput] = useState();
-    const [settleInfo, setSettleInfo] = useState({});
-    const [reloading, setReloading] = useState(false);
-    
-    useEffect(() => {
-        const fetchData = async () => {
-            await authFetch("api/settle").then(r => r.json()).then(r => setSettleInfo(r));
-            setReloading(false);
-        }
-        fetchData();
-    }, [reloading])
 
     const handleSettleInput = (e) => {
         setSettleInput(e.target.value);
@@ -29,13 +19,15 @@ function Settle() {
             let opts = {
                 'settleInput': settleInput,
             };
-            authFetch('api/settle', {
+            const updateFunc = () => authFetch('api/settle', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            });
-            setReloading(true);
+            })
+            props.updateData(['settle'], [updateFunc])
+            setSettleInput('');
         }
     }
+    const settleInfo = props.data.settle;
     return (
         <div className="settle">
             <div className="settle-input">
@@ -69,7 +61,7 @@ function Settle() {
                         placeholder="0"
                     />
                 </InputGroup>
-                {reloading
+                {props.loading.settle
                 ? <Button className="settle-button" variant="primary" type="submit" disabled>
                     Loading...
                 </Button>

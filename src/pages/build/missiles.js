@@ -6,29 +6,19 @@ import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import "./missiles.css";
 
-function Missiles() {
-    const [kdInfo, setKdInfo] = useState({});
-    const [missilesInfo, setMissilesInfo] = useState({});
+function Missiles(props) {
     const [planetBustersInput, setPlanetBustersInput] = useState('');
     const [starBustersInput, setStarBustersInput] = useState('');
     const [galaxyBustersInput, setGalaxyBustersInput] = useState('');
-    const [reloading, setReloading] = useState(false);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            await authFetch("api/kingdom").then(r => r.json()).then(r => setKdInfo(r));
-            await authFetch("api/missiles").then(r => r.json()).then(r => setMissilesInfo(r));
-            setReloading(false);
-        }
-        fetchData();
-    }, [reloading])
-
-    if (Object.keys(kdInfo).length === 0) {
+    if (Object.keys(props.data.kingdom).length === 0) {
         return null;
     }
-    if (Object.keys(missilesInfo).length === 0) {
+    if (Object.keys(props.data.missiles).length === 0) {
         return null;
     }
+    const kdInfo = props.data.kingdom;
+    const missilesInfo = props.data.missiles;
     const handlePlanetBustersInput = (e) => {
         setPlanetBustersInput(e.target.value);
     }
@@ -48,11 +38,11 @@ function Missiles() {
                 'star_busters': starBustersInput === '' ? undefined : starBustersInput,
                 'galaxy_busters': galaxyBustersInput === '' ? undefined : galaxyBustersInput,
             };
-            authFetch('api/missiles', {
+            const updateFunc = () => authFetch('api/missiles', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            });
-            setReloading(true);
+            })
+            props.updateData(['missiles'], [updateFunc]);
         }
     }
     const toHHMMSS = (secs) => {
@@ -199,7 +189,7 @@ function Missiles() {
                 </tbody>
             </Table>
             {
-                reloading
+                props.loading.missiles
                 ? <Button className="missiles-button" variant="primary" type="submit" disabled>
                     Loading...
                 </Button>

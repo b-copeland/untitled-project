@@ -68,10 +68,99 @@ const PrivateRoute = ({
   return logged ? <Outlet /> : <Navigate to="/login" />;
 }
 
-export default function App() {
-  const [logged, session] = useAuth();
+const initGlobalData = {
+  'kingdom': {},
+  'kingdoms': {},
+  'galaxies': {},
+  'galaxies_inverted': {},
+  'news': [],
+  'galaxynews': [],
+  'empirenews': [],
+  'universenews': [],
+  'settle': {},
+  'structures': {},
+  'mobis': {},
+  'missiles': {},
+  'engineers': {},
+  'projects': {},
+}
+const initLoadingData = {
+  'kingdom': true,
+  'kingdoms': true,
+  'galaxies': true,
+  'galaxies_inverted': true,
+  'news': true,
+  'galaxynews': true,
+  'empirenews': true,
+  'universenews': true,
+  'settle': true,
+  'structures': true,
+  'mobis': true,
+  'missiles': true,
+  'engineers': true,
+  'projects': true,
+}
+const endpoints = {
+  'kingdom': 'api/kingdom',
+  'kingdoms': 'api/kingdoms',
+  'galaxies': 'api/galaxies',
+  'galaxies_inverted': 'api/galaxies_inverted',
+  'news': 'api/news',
+  'galaxynews': 'api/galaxynews',
+  'empirenews': 'api/empirenews',
+  'universenews': 'api/universenews',
+  'settle': 'api/settle',
+  'structures': 'api/structures',
+  'mobis': 'api/mobis',
+  'missiles': 'api/missiles',
+  'engineers': 'api/engineers',
+  'projects': 'api/projects',
+}
 
-  if (session === null) {
+function Content(props) {
+  const [data, setData] = useState(initGlobalData);
+  const [loading, setLoading] = useState(initLoadingData);
+
+  const updateData = async (keys, depFuncs=[]) => {
+    var newValues = JSON.parse(JSON.stringify(data));
+    var newLoading = {...loading};
+    for (const key of keys) {
+      newLoading[key] = true;
+    }
+    console.log(JSON.parse(JSON.stringify(newValues)));
+    console.log(newLoading);
+    setLoading(newLoading);
+
+    for (const depFunc of depFuncs) {
+      await depFunc();
+    }
+
+    const fetchData = async () => {
+      for (const key of keys) {
+        await authFetch(endpoints[key], {keepalive: true}).then(
+          r => r.json()
+        ).then(r => (newValues[key] = r)).catch(
+          err => {
+            console.log('Failed to fetch ' + key);
+            console.log(err);
+          }
+        );
+        newLoading[key] = false;
+        setData(JSON.parse(JSON.stringify(newValues)));
+        setLoading(newLoading);
+      }
+    }
+    await fetchData();
+    
+    console.log(JSON.parse(JSON.stringify(newValues)));
+    console.log(JSON.parse(JSON.stringify(newLoading)));
+  };
+
+  useEffect(() => {
+    const keys = Object.keys(initGlobalData);
+    updateData(keys);
+  }, [])
+  if (props.session === null) {
     if (!!JSON.parse(localStorage.getItem("DOMNUS_GAME_TOKEN"))) {
       return null;
     }
@@ -88,17 +177,17 @@ export default function App() {
             <div className="router-body">
               <Routes>
                 <Route path="/login" element={<Login />}/>
-                <Route element={<ProtectedRoute logged={logged} session={session}/>}>
-                  <Route path="/status" element={<StatusContent/>}/>
-                  <Route path="/news" element={<NewsContent/>}/>
-                  <Route path="/galaxy" element={<Galaxy/>}/>
+                <Route element={<ProtectedRoute logged={props.logged} session={props.session}/>}>
+                  <Route path="/status" element={<StatusContent data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/news" element={<NewsContent data={data}/>}/>
+                  <Route path="/galaxy" element={<Galaxy data={data}/>}/>
                   <Route path="/forums" element={<Forums/>}/>
                   <Route path="/history" element={<History/>}/>
-                  <Route path="/settle" element={<Settle/>}/>
-                  <Route path="/structures" element={<Structures/>}/>
-                  <Route path="/military" element={<MilitaryContent/>}/>
-                  <Route path="/projects" element={<ProjectsContent/>}/>
-                  <Route path="/missiles" element={<Missiles/>}/>
+                  <Route path="/settle" element={<Settle data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/structures" element={<Structures data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/military" element={<MilitaryContent data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/projects" element={<ProjectsContent data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/missiles" element={<Missiles data={data} loading={loading} updateData={updateData}/>}/>
                 </Route>
                 <Route path="/finalize" element={<Finalize />}/>
                 <Route path="/" element={<Home />}/>
@@ -108,7 +197,13 @@ export default function App() {
         </div>
       </div>
     </div>
-  );
+  )
+}
+
+export default function App() {
+  const [logged, session] = useAuth();
+
+  return <Content logged={logged} session={session}/>;
 }
 
 // export default function App() {
@@ -328,26 +423,5 @@ function Finalize() {
   }, [])
   return (
     <h2>{message}</h2>
-  )
-}
-
-function Secret() {
-  const [message, setMessage] = useState('')
-
-  useEffect(() => {
-    authFetch("api/protected").then(response => {
-      if (response.status === 401){
-        setMessage("Sorry you aren't authorized!")
-        return null
-      }
-      return response.json()
-    }).then(response => {
-      if (response && response.message){
-        setMessage(response.message)
-      }
-    })
-  }, [])
-  return (
-    <h2>Secret: {message}</h2>
   )
 }

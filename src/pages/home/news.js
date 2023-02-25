@@ -28,24 +28,17 @@ function getNiceTimeString(date) {
     return dateParse.toLocaleString('en-us', options);
 }
 
-function NewsContent() {
+function NewsContent(props) {
     const [key, setKey] = useState('kingdom');
-    const [galaxyMap, setGalaxyMap] = useState({});
-    const [kdNames, setKdNames] = useState({});
 
-    useEffect(() => {
-        const fetchData = async () => {
-            await authFetch("api/kingdoms").then(r => r.json()).then(r => setKdNames(r));
-            await authFetch("api/galaxies_inverted").then(r => r.json()).then(r => setGalaxyMap(r));
-        }
-        fetchData();
-    }, [])
-    if (Object.keys(galaxyMap).length === 0) {
+    if (Object.keys(props.data.galaxies_inverted).length === 0) {
         return null;
     }
-    if (Object.keys(kdNames).length === 0) {
+    if (Object.keys(props.data.kingdoms).length === 0) {
         return null;
     }
+    const kdNames = props.data.kingdoms;
+    const galaxyMap = props.data.galaxies_inverted;
     return (
       <Tabs
         id="controlled-tab-example"
@@ -55,32 +48,26 @@ function NewsContent() {
         variant="tabs"
       >
         <Tab eventKey="kingdom" title="Kingdom">
-          <Kingdom kdNames={kdNames} galaxyMap={galaxyMap}/>
+          <Kingdom kdNames={kdNames} galaxyMap={galaxyMap} news={props.data.news}/>
         </Tab>
         <Tab eventKey="galaxy" title="Galaxy">
-          <Galaxy kdNames={kdNames} galaxyMap={galaxyMap}/>
+          <Galaxy kdNames={kdNames} galaxyMap={galaxyMap} galaxynews={props.data.galaxynews}/>
         </Tab>
         <Tab eventKey="empire" title="Empire">
-          <Empire kdNames={kdNames} galaxyMap={galaxyMap}/>
+          <Empire kdNames={kdNames} galaxyMap={galaxyMap} empirenews={props.data.empirenews}/>
         </Tab>
         <Tab eventKey="universe" title="Universe">
-          <Universe />
+          <Universe universenews={props.data.universenews}/>
         </Tab>
       </Tabs>
     );
 }
 
 function Kingdom(props) {
-    const [news, setNews] = useState([]);
-    useEffect(() => {
-        const fetchData = async () => {
-            await authFetch("api/news").then(r => r.json()).then(r => setNews(r));
-        }
-        fetchData();
-    }, [])
-    if (news.length === 0) {
+    if (props.news.length === 0) {
         return null;
     }
+    const news = props.news;
     const newsRows = news.map((newsItem) =>
         <tr key={newsItem.time}>
             <td>{getNiceTimeString(newsItem.time)}</td>
@@ -109,16 +96,10 @@ function Kingdom(props) {
 }
 
 function Galaxy(props) {
-    const [news, setNews] = useState([]);
-    useEffect(() => {
-        const fetchData = async () => {
-            await authFetch("api/galaxynews").then(r => r.json()).then(r => setNews(r));
-        }
-        fetchData();
-    }, [])
-    if (news.length === 0) {
+    if (props.galaxynews.length === 0) {
         return null;
     }
+    const news = props.galaxynews;
     const newsRows = news.map((newsItem) =>
         <tr key={newsItem.time}>
             <td>{getNiceTimeString(newsItem.time)}</td>
@@ -149,16 +130,10 @@ function Galaxy(props) {
 }
 
 function Empire(props) {
-    const [news, setNews] = useState([]);
-    useEffect(() => {
-        const fetchData = async () => {
-            await authFetch("api/empirenews").then(r => r.json()).then(r => setNews(r));
-        }
-        fetchData();
-    }, [])
-    if (news.length === 0) {
+    if (props.empirenews.length === 0) {
         return null;
     }
+    const news = props.empirenews;
     const newsRows = news.map((newsItem) =>
         <tr key={newsItem.time}>
             <td>{getNiceTimeString(newsItem.time)}</td>
@@ -186,17 +161,11 @@ function Empire(props) {
     );
 }
 
-function Universe() {
-    const [news, setNews] = useState([]);
-    useEffect(() => {
-        const fetchData = async () => {
-            await authFetch("api/universenews").then(r => r.json()).then(r => setNews(r));
-        }
-        fetchData();
-    }, [])
-    if (news.length === 0) {
+function Universe(props) {
+    if (props.universenews.length === 0) {
         return null;
     }
+    const news = props.universenews;
     const newsRows = news.map((newsItem) =>
         <tr key={newsItem.time}>
             <td>{getNiceTimeString(newsItem.time)}</td>

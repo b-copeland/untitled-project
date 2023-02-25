@@ -9,22 +9,10 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import "./projects.css";
 
-function ProjectsContent() {
-    const [kdInfo, setKdInfo] = useState({});
-    const [engineersInfo, setEngineersInfo] = useState({});
-    const [projectsInfo, setProjectsInfo] = useState({});
-    const [reloading, setReloading] = useState(false);
-    
-    useEffect(() => {
-        const fetchData = async () => {
-            await authFetch("api/kingdom").then(r => r.json()).then(r => setKdInfo(r));
-            await authFetch("api/engineers").then(r => r.json()).then(r => setEngineersInfo(r));
-            await authFetch("api/projects").then(r => r.json()).then(r => setProjectsInfo(r));
-            setReloading(false);
-        }
-        fetchData();
-    }, [reloading])
-
+function ProjectsContent(props) {
+    const kdInfo = props.data.kingdom;
+    const engineersInfo = props.data.engineers;
+    const projectsInfo = props.data.projects;
     return (
         <Tabs
           id="controlled-tab-example"
@@ -34,10 +22,10 @@ function ProjectsContent() {
           variant="tabs"
         >
           <Tab eventKey="train" title="Train">
-            <Train kdInfo={kdInfo} engineersInfo={engineersInfo} reloading={reloading} setReloading={v => setReloading(v)}/>
+            <Train kdInfo={kdInfo} engineersInfo={engineersInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
           <Tab eventKey="assign" title="Assign">
-            <Assign kdInfo={kdInfo} engineersInfo={engineersInfo} projectsInfo={projectsInfo} reloading={reloading} setReloading={v => setReloading(v)}/>
+            <Assign kdInfo={kdInfo} engineersInfo={engineersInfo} projectsInfo={projectsInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
         </Tabs>
     )
@@ -55,11 +43,12 @@ function Train(props) {
             let opts = {
                 'engineersInput': engineersInput,
             };
-            authFetch('api/engineers', {
+            const updateFunc = () => authFetch('api/engineers', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            });
-            props.setReloading(true);
+            })
+            props.updateData(['engineers'], [updateFunc]);
+            setEngineersInput('');
         }
     }
     if (Object.keys(props.engineersInfo).length === 0) {
@@ -115,7 +104,7 @@ function Train(props) {
                         placeholder="0"
                     />
                 </InputGroup>
-                {props.reloading
+                {props.loading.engineers
                 ? <Button className="engineers-button" variant="primary" type="submit" disabled>
                     Loading...
                 </Button>
@@ -170,11 +159,11 @@ function Assign(props) {
         const hasAssign = Object.keys(assignOpts).length > 0;
         if (hasAssign) {
             const opts = {"assign": assignOpts}
-            authFetch('api/projects', {
+            const updateFunc = () => authFetch('api/projects', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            });
-            props.setReloading(true);
+            })
+            props.updateData(['projects', 'kingdom'], [updateFunc]);
         }
         setAssignValues(initialProjectsValues);
     }
@@ -189,11 +178,11 @@ function Assign(props) {
         const hasAdd = Object.keys(addOpts).length > 0;
         if (hasAdd){
             const opts = {"add": addOpts}
-            authFetch('api/projects', {
+            const updateFunc = () => authFetch('api/projects', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            });
-            props.setReloading(true);
+            })
+            props.updateData(['projects', 'kingdom'], [updateFunc]);
         }
         setAddValues(initialProjectsValues);
     }
@@ -202,22 +191,22 @@ function Assign(props) {
         const opts = {
             "clear": Object.keys(initialProjectsValues)
         };
-        authFetch('api/projects', {
+        const updateFunc = () => authFetch('api/projects', {
             method: 'post',
             body: JSON.stringify(opts)
-        });
-        props.setReloading(true);
+        })
+        props.updateData(['projects', 'kingdom'], [updateFunc]);
     }
 
     const OnClearClick = (e)=>{
         const opts = {
             "clear": [e.target.name]
         };
-        authFetch('api/projects', {
+        const updateFunc = () => authFetch('api/projects', {
             method: 'post',
             body: JSON.stringify(opts)
-        });
-        props.setReloading(true);
+        })
+        props.updateData(['projects', 'kingdom'], [updateFunc]);
     }
     if (Object.keys(props.engineersInfo).length === 0) {
         return null;
@@ -287,7 +276,7 @@ function Assign(props) {
                             />
                         }</td>
                         <td>{
-                            props.reloading
+                            props.loading.projects
                             ? <Button className="remove-button" name="pop_bonus" variant="primary" type="submit" disabled>
                                 Loading...
                             </Button>
@@ -325,7 +314,7 @@ function Assign(props) {
                             />
                         }</td>
                         <td>{
-                            props.reloading
+                            props.loading.projects
                             ? <Button className="remove-button" name="fuel_bonus" variant="primary" type="submit" disabled>
                                 Loading...
                             </Button>
@@ -363,7 +352,7 @@ function Assign(props) {
                             />
                         }</td>
                         <td>{
-                            props.reloading
+                            props.loading.projects
                             ? <Button className="remove-button" name="military_bonus" variant="primary" type="submit" disabled>
                                 Loading...
                             </Button>
@@ -401,7 +390,7 @@ function Assign(props) {
                             />
                         }</td>
                         <td>{
-                            props.reloading
+                            props.loading.projects
                             ? <Button className="remove-button" name="money_bonus" variant="primary" type="submit" disabled>
                                 Loading...
                             </Button>
@@ -439,7 +428,7 @@ function Assign(props) {
                             />
                         }</td>
                         <td>{
-                            props.reloading
+                            props.loading.projects
                             ? <Button className="remove-button" name="general_bonus" variant="primary" type="submit" disabled>
                                 Loading...
                             </Button>
@@ -479,7 +468,7 @@ function Assign(props) {
                                 />
                             }</td>
                             <td>{
-                                props.reloading
+                                props.loading.projects
                                 ? <Button className="remove-button" name="spy_bonus" variant="primary" type="submit" disabled>
                                     Loading...
                                 </Button>
@@ -529,7 +518,7 @@ function Assign(props) {
                         <th>Assigned %</th>
                         <th>Current Pts</th>
                         <th>Max Pts</th>
-                        <th colspan={2}>% Completed</th>
+                        <th colSpan={2}>% Completed</th>
                         <th>Assign</th>
                         <th>Add</th>
                         <th>Remove</th>
@@ -564,7 +553,7 @@ function Assign(props) {
                             />
                         }</td>
                         <td>{
-                            props.reloading
+                            props.loading.projects
                             ? <Button className="remove-button" name="big_flexers" variant="primary" type="submit" disabled>
                                 Loading...
                             </Button>
@@ -601,7 +590,7 @@ function Assign(props) {
                             />
                         }</td>
                         <td>{
-                            props.reloading
+                            props.loading.projects
                             ? <Button className="remove-button" name="star_busters" variant="primary" type="submit" disabled>
                                 Loading...
                             </Button>
@@ -638,7 +627,7 @@ function Assign(props) {
                             />
                         }</td>
                         <td>{
-                            props.reloading
+                            props.loading.projects
                             ? <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" disabled>
                                 Loading...
                             </Button>
@@ -675,7 +664,7 @@ function Assign(props) {
                             />
                         }</td>
                         <td>{
-                            props.reloading
+                            props.loading.projects
                             ? <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" disabled>
                                 Loading...
                             </Button>
@@ -688,7 +677,7 @@ function Assign(props) {
             </Table>
             <div className="projects-buttons">
                 {
-                    props.reloading
+                    props.loading.projects
                     ? <Button className="projects-button" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
@@ -697,7 +686,7 @@ function Assign(props) {
                     </Button>
                 }
                 {
-                    props.reloading
+                    props.loading.projects
                     ? <Button className="projects-button" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
@@ -706,7 +695,7 @@ function Assign(props) {
                     </Button>
                 }
                 {
-                    props.reloading
+                    props.loading.projects
                     ? <Button className="projects-button" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>

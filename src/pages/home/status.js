@@ -9,16 +9,9 @@ import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import "./status.css"
 
-function StatusContent() {
+function StatusContent(props) {
     const [key, setKey] = useState('kingdom');
-    const [kdInfo, setKdInfo] = useState({});
 
-    useEffect(() => {
-        const fetchData = async () => {
-        await authFetch("api/kingdom").then(r => r.json()).then(r => setKdInfo(r));
-        }
-        fetchData();
-    }, [])
     return (
       <Tabs
         id="controlled-tab-example"
@@ -28,19 +21,19 @@ function StatusContent() {
         variant="tabs"
       >
         <Tab eventKey="kingdom" title="Kingdom">
-          <Status kdInfo={kdInfo}/>
+          <Status data={props.data}/>
         </Tab>
         <Tab eventKey="revealed" title="Revealed">
-          <Revealed kdInfo={kdInfo}/>
+          <Revealed kingdom={props.data.kingdom} kingdoms={props.data.kingdoms}/>
         </Tab>
         <Tab eventKey="spending" title="Spending">
-          <Spending kdInfo={kdInfo}/>
+          <Spending kingdom={props.data.kingdom} loading={props.loading} /*updateData={keys => props.updateData(keys)}*/ updateData={props.updateData} />
         </Tab>
         <Tab eventKey="military" title="Military">
-          <Military />
+          <Military mobis={props.data.mobis} />
         </Tab>
         <Tab eventKey="structures" title="Structures">
-          <Structures kdInfo={kdInfo}/>
+          <Structures kingdom={props.data.kingdom} structures={props.data.structures}/>
         </Tab>
       </Tabs>
     );
@@ -63,37 +56,37 @@ function Status(props) {
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Stars</span>
-                    <span className="text-box-item-value">{props.kdInfo.stars}</span>
+                    <span className="text-box-item-value">{props.data.kingdom.stars}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Population</span>
-                    <span className="text-box-item-value">{props.kdInfo.population}</span>
+                    <span className="text-box-item-value">{props.data.kingdom.population}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Fuel</span>
-                    <span className="text-box-item-value">{props.kdInfo.fuel}</span>
+                    <span className="text-box-item-value">{props.data.kingdom.fuel}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Engineers</span>
-                    <span className="text-box-item-value">{props.kdInfo["units"]?.engineers}</span>
+                    <span className="text-box-item-value">{props.data.kingdom["units"]?.engineers}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value">{props.kdInfo.drones}</span>
+                    <span className="text-box-item-value">{props.data.kingdom.drones}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Attackers</span>
-                    <span className="text-box-item-value">{props.kdInfo["units"]?.attack}</span>
+                    <span className="text-box-item-value">{props.data.kingdom["units"]?.attack}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Defenders</span>
-                    <span className="text-box-item-value">{props.kdInfo["units"]?.defense}</span>
+                    <span className="text-box-item-value">{props.data.kingdom["units"]?.defense}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Flexers</span>
-                    <span className="text-box-item-value">{props.kdInfo["units"]?.flex}</span>
+                    <span className="text-box-item-value">{props.data.kingdom["units"]?.flex}</span>
                 </div>
             </div>
             <div className="text-box income-box">
@@ -123,24 +116,16 @@ function Status(props) {
 }
 
 function Revealed(props) {
-    const [kdNames, setKdNames] = useState({});
-
-    useEffect(() => {
-        const fetchData = async () => {
-        await authFetch("api/kingdoms").then(r => r.json()).then(r => setKdNames(r));
-        }
-        fetchData();
-    }, [])
-    const revealed_to = props.kdInfo?.revealed_to;
+    const revealed_to = props.kingdom?.revealed_to;
     if (revealed_to === undefined) {
         return null
     }
-    if (Object.keys(kdNames).length === 0) {
+    if (Object.keys(props.kingdoms).length === 0) {
         return null;
     }
     const revealedItems = Object.keys(revealed_to).map((kdId) =>
         <div key={kdId} className="text-box-item">
-            <span className="text-box-item-title" >{kdNames[kdId]}</span>
+            <span className="text-box-item-title" >{props.kingdoms[kdId]}</span>
             <span className="text-box-item-value" >{revealed_to[kdId]}</span>
         </div>
     );
@@ -156,12 +141,12 @@ function Revealed(props) {
 }
 
 function Spending(props) {
-    const [settleInput, setSettleInput] = useState('')
-    const [structuresInput, setStructuresInput] = useState('')
-    const [militaryInput, setMilitaryInput] = useState('')
-    const [engineersInput, setEngineersInput] = useState('')
+    const [settleInput, setSettleInput] = useState('');
+    const [structuresInput, setStructuresInput] = useState('');
+    const [militaryInput, setMilitaryInput] = useState('');
+    const [engineersInput, setEngineersInput] = useState('');
 
-    const spendingInfo = props.kdInfo?.auto_spending;
+    const spendingInfo = props.kingdom?.auto_spending;
     if (spendingInfo === undefined) {
         return null
     }
@@ -182,17 +167,22 @@ function Spending(props) {
         setEngineersInput(e.target.value)
     }
 
-    const onSubmitClick = (e)=>{
+    const onSubmitClick = async (e)=>{
         let opts = {
             'settleInput': settleInput === '' ? undefined : settleInput,
             'structuresInput': structuresInput === '' ? undefined : structuresInput,
             'militaryInput': militaryInput === '' ? undefined : militaryInput,
             'engineersInput': engineersInput === '' ? undefined : engineersInput,
         }
-        authFetch('api/spending', {
+        const updateFunc = () => authFetch('api/spending', {
             method: 'post',
             body: JSON.stringify(opts)
         })
+        props.updateData(['kingdom'], [updateFunc])
+        setSettleInput('');
+        setStructuresInput('');
+        setMilitaryInput('');
+        setEngineersInput('');
     }
     return (
         <div className="spending">
@@ -245,9 +235,14 @@ function Spending(props) {
                     placeholder={spendingInfo.engineers}
                 />
             </InputGroup>
-            <Button variant="primary" type="submit" onClick={onSubmitClick}>
+            {props.loading.kingdom
+            ? <Button className="spending-button" variant="primary" type="submit" disabled>
+                Loading...
+            </Button>
+            : <Button className="spending-button" variant="primary" type="submit" onClick={onSubmitClick}>
                 Submit
             </Button>
+            }
         </div>
     )
 }
@@ -262,22 +257,13 @@ function getTimeString(date) {
     return n.toTimeString().slice(0, 8);
 }
 
-function Military() {
-    const [mobis, setMobis] = useState({});
-    
-    useEffect(() => {
-        const fetchData = async () => {
-        await authFetch("api/mobis").then(r => r.json()).then(r => setMobis(r));
-        }
-        fetchData();
-    }, []);
-    if (Object.keys(mobis).length === 0) {
+function Military(props) {
+    if (Object.keys(props.mobis).length === 0) {
         return null;
     }
-    console.log(mobis);
-    const units = mobis.units;
-    const maxOffense = mobis.maxes.offense;
-    const maxDefense = mobis.maxes.defense;
+    const units = props.mobis?.units;
+    const maxOffense = props.mobis?.maxes.offense;
+    const maxDefense = props.mobis?.maxes.defense;
     return (
         <div className="status">
             <div className="army-info">
@@ -479,19 +465,10 @@ function Military() {
     )
 }
 
-function Structures(props) {
-    const [structures, setStructures] = useState({});
-    
-    useEffect(() => {
-        const fetchData = async () => {
-        await authFetch("api/structures").then(r => r.json()).then(r => setStructures(r));
-        }
-        fetchData();
-    }, []);
-    if (Object.keys(structures).length === 0) {
+function Structures(props) {    
+    if (Object.keys(props.structures).length === 0) {
         return null;
     }
-    console.log(structures);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
         <div className="revealed">
@@ -512,66 +489,66 @@ function Structures(props) {
                     <tbody>
                         <tr>
                             <td>Homes</td>
-                            <td>{structures.current.homes || 0}</td>
-                            <td>{(structures.current.homes || 0) + (structures.hour_1.homes || 0)}</td>
-                            <td>{(structures.current.homes || 0) + (structures.hour_2.homes || 0)}</td>
-                            <td>{(structures.current.homes || 0) + (structures.hour_4.homes || 0)}</td>
-                            <td>{(structures.current.homes || 0) + (structures.hour_8.homes || 0)}</td>
-                            <td>{(structures.current.homes || 0) + (structures.hour_24.homes || 0)}</td>
+                            <td>{props.structures.current.homes || 0}</td>
+                            <td>{(props.structures.current.homes || 0) + (props.structures.hour_1.homes || 0)}</td>
+                            <td>{(props.structures.current.homes || 0) + (props.structures.hour_2.homes || 0)}</td>
+                            <td>{(props.structures.current.homes || 0) + (props.structures.hour_4.homes || 0)}</td>
+                            <td>{(props.structures.current.homes || 0) + (props.structures.hour_8.homes || 0)}</td>
+                            <td>{(props.structures.current.homes || 0) + (props.structures.hour_24.homes || 0)}</td>
                         </tr>
                         <tr>
                             <td>Mines</td>
-                            <td>{structures.current.mines || 0}</td>
-                            <td>{(structures.current.mines || 0) + (structures.hour_1.mines || 0)}</td>
-                            <td>{(structures.current.mines || 0) + (structures.hour_2.mines || 0)}</td>
-                            <td>{(structures.current.mines || 0) + (structures.hour_4.mines || 0)}</td>
-                            <td>{(structures.current.mines || 0) + (structures.hour_8.mines || 0)}</td>
-                            <td>{(structures.current.mines || 0) + (structures.hour_24.mines || 0)}</td>
+                            <td>{props.structures.current.mines || 0}</td>
+                            <td>{(props.structures.current.mines || 0) + (props.structures.hour_1.mines || 0)}</td>
+                            <td>{(props.structures.current.mines || 0) + (props.structures.hour_2.mines || 0)}</td>
+                            <td>{(props.structures.current.mines || 0) + (props.structures.hour_4.mines || 0)}</td>
+                            <td>{(props.structures.current.mines || 0) + (props.structures.hour_8.mines || 0)}</td>
+                            <td>{(props.structures.current.mines || 0) + (props.structures.hour_24.mines || 0)}</td>
                         </tr>
                         <tr>
                             <td>Fuel Plants</td>
-                            <td>{structures.current.fuel_plants || 0}</td>
-                            <td>{(structures.current.fuel_plants || 0) + (structures.hour_1.fuel_plants || 0)}</td>
-                            <td>{(structures.current.fuel_plants || 0) + (structures.hour_2.fuel_plants || 0)}</td>
-                            <td>{(structures.current.fuel_plants || 0) + (structures.hour_4.fuel_plants || 0)}</td>
-                            <td>{(structures.current.fuel_plants || 0) + (structures.hour_8.fuel_plants || 0)}</td>
-                            <td>{(structures.current.fuel_plants || 0) + (structures.hour_24.fuel_plants || 0)}</td>
+                            <td>{props.structures.current.fuel_plants || 0}</td>
+                            <td>{(props.structures.current.fuel_plants || 0) + (props.structures.hour_1.fuel_plants || 0)}</td>
+                            <td>{(props.structures.current.fuel_plants || 0) + (props.structures.hour_2.fuel_plants || 0)}</td>
+                            <td>{(props.structures.current.fuel_plants || 0) + (props.structures.hour_4.fuel_plants || 0)}</td>
+                            <td>{(props.structures.current.fuel_plants || 0) + (props.structures.hour_8.fuel_plants || 0)}</td>
+                            <td>{(props.structures.current.fuel_plants || 0) + (props.structures.hour_24.fuel_plants || 0)}</td>
                         </tr>
                         <tr>
                             <td>Hangars</td>
-                            <td>{structures.current.hangars || 0}</td>
-                            <td>{(structures.current.hangars || 0) + (structures.hour_1.hangars || 0)}</td>
-                            <td>{(structures.current.hangars || 0) + (structures.hour_2.hangars || 0)}</td>
-                            <td>{(structures.current.hangars || 0) + (structures.hour_4.hangars || 0)}</td>
-                            <td>{(structures.current.hangars || 0) + (structures.hour_8.hangars || 0)}</td>
-                            <td>{(structures.current.hangars || 0) + (structures.hour_24.hangars || 0)}</td>
+                            <td>{props.structures.current.hangars || 0}</td>
+                            <td>{(props.structures.current.hangars || 0) + (props.structures.hour_1.hangars || 0)}</td>
+                            <td>{(props.structures.current.hangars || 0) + (props.structures.hour_2.hangars || 0)}</td>
+                            <td>{(props.structures.current.hangars || 0) + (props.structures.hour_4.hangars || 0)}</td>
+                            <td>{(props.structures.current.hangars || 0) + (props.structures.hour_8.hangars || 0)}</td>
+                            <td>{(props.structures.current.hangars || 0) + (props.structures.hour_24.hangars || 0)}</td>
                         </tr>
                         <tr>
                             <td>Drone Factories</td>
-                            <td>{structures.current.drone_factories || 0}</td>
-                            <td>{(structures.current.drone_factories || 0) + (structures.hour_1.drone_factories || 0)}</td>
-                            <td>{(structures.current.drone_factories || 0) + (structures.hour_2.drone_factories || 0)}</td>
-                            <td>{(structures.current.drone_factories || 0) + (structures.hour_4.drone_factories || 0)}</td>
-                            <td>{(structures.current.drone_factories || 0) + (structures.hour_8.drone_factories || 0)}</td>
-                            <td>{(structures.current.drone_factories || 0) + (structures.hour_24.drone_factories || 0)}</td>
+                            <td>{props.structures.current.drone_factories || 0}</td>
+                            <td>{(props.structures.current.drone_factories || 0) + (props.structures.hour_1.drone_factories || 0)}</td>
+                            <td>{(props.structures.current.drone_factories || 0) + (props.structures.hour_2.drone_factories || 0)}</td>
+                            <td>{(props.structures.current.drone_factories || 0) + (props.structures.hour_4.drone_factories || 0)}</td>
+                            <td>{(props.structures.current.drone_factories || 0) + (props.structures.hour_8.drone_factories || 0)}</td>
+                            <td>{(props.structures.current.drone_factories || 0) + (props.structures.hour_24.drone_factories || 0)}</td>
                         </tr>
                         <tr>
                             <td>Missile Silos</td>
-                            <td>{structures.current.missile_silos || 0}</td>
-                            <td>{(structures.current.missile_silos || 0) + (structures.hour_1.missile_silos || 0)}</td>
-                            <td>{(structures.current.missile_silos || 0) + (structures.hour_2.missile_silos || 0)}</td>
-                            <td>{(structures.current.missile_silos || 0) + (structures.hour_4.missile_silos || 0)}</td>
-                            <td>{(structures.current.missile_silos || 0) + (structures.hour_8.missile_silos || 0)}</td>
-                            <td>{(structures.current.missile_silos || 0) + (structures.hour_24.missile_silos || 0)}</td>
+                            <td>{props.structures.current.missile_silos || 0}</td>
+                            <td>{(props.structures.current.missile_silos || 0) + (props.structures.hour_1.missile_silos || 0)}</td>
+                            <td>{(props.structures.current.missile_silos || 0) + (props.structures.hour_2.missile_silos || 0)}</td>
+                            <td>{(props.structures.current.missile_silos || 0) + (props.structures.hour_4.missile_silos || 0)}</td>
+                            <td>{(props.structures.current.missile_silos || 0) + (props.structures.hour_8.missile_silos || 0)}</td>
+                            <td>{(props.structures.current.missile_silos || 0) + (props.structures.hour_24.missile_silos || 0)}</td>
                         </tr>
                         <tr>
                             <td>Workshops</td>
-                            <td>{structures.current.workshops || 0}</td>
-                            <td>{(structures.current.workshops || 0) + (structures.hour_1.workshops || 0)}</td>
-                            <td>{(structures.current.workshops || 0) + (structures.hour_2.workshops || 0)}</td>
-                            <td>{(structures.current.workshops || 0) + (structures.hour_4.workshops || 0)}</td>
-                            <td>{(structures.current.workshops || 0) + (structures.hour_8.workshops || 0)}</td>
-                            <td>{(structures.current.workshops || 0) + (structures.hour_24.workshops || 0)}</td>
+                            <td>{props.structures.current.workshops || 0}</td>
+                            <td>{(props.structures.current.workshops || 0) + (props.structures.hour_1.workshops || 0)}</td>
+                            <td>{(props.structures.current.workshops || 0) + (props.structures.hour_2.workshops || 0)}</td>
+                            <td>{(props.structures.current.workshops || 0) + (props.structures.hour_4.workshops || 0)}</td>
+                            <td>{(props.structures.current.workshops || 0) + (props.structures.hour_8.workshops || 0)}</td>
+                            <td>{(props.structures.current.workshops || 0) + (props.structures.hour_24.workshops || 0)}</td>
                         </tr>
                     </tbody>
                 </Table>
@@ -590,66 +567,66 @@ function Structures(props) {
                     <tbody>
                         <tr>
                             <td>Homes</td>
-                            <td>{displayPercent((structures.current.homes || 0) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.homes || 0) + (structures.hour_1.homes || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.homes || 0) + (structures.hour_2.homes || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.homes || 0) + (structures.hour_4.homes || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.homes || 0) + (structures.hour_8.homes || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.homes || 0) + (structures.hour_24.homes || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent((props.structures.current.homes || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.homes || 0) + (props.structures.hour_1.homes || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.homes || 0) + (props.structures.hour_2.homes || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.homes || 0) + (props.structures.hour_4.homes || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.homes || 0) + (props.structures.hour_8.homes || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.homes || 0) + (props.structures.hour_24.homes || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Mines</td>
-                            <td>{displayPercent((structures.current.mines || 0) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.mines || 0) + (structures.hour_1.mines || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.mines || 0) + (structures.hour_2.mines || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.mines || 0) + (structures.hour_4.mines || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.mines || 0) + (structures.hour_8.mines || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.mines || 0) + (structures.hour_24.mines || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent((props.structures.current.mines || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.mines || 0) + (props.structures.hour_1.mines || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.mines || 0) + (props.structures.hour_2.mines || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.mines || 0) + (props.structures.hour_4.mines || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.mines || 0) + (props.structures.hour_8.mines || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.mines || 0) + (props.structures.hour_24.mines || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Fuel Plants</td>
-                            <td>{displayPercent((structures.current.fuel_plants || 0) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.fuel_plants || 0) + (structures.hour_1.fuel_plants || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.fuel_plants || 0) + (structures.hour_2.fuel_plants || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.fuel_plants || 0) + (structures.hour_4.fuel_plants || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.fuel_plants || 0) + (structures.hour_8.fuel_plants || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.fuel_plants || 0) + (structures.hour_24.fuel_plants || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent((props.structures.current.fuel_plants || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.fuel_plants || 0) + (props.structures.hour_1.fuel_plants || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.fuel_plants || 0) + (props.structures.hour_2.fuel_plants || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.fuel_plants || 0) + (props.structures.hour_4.fuel_plants || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.fuel_plants || 0) + (props.structures.hour_8.fuel_plants || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.fuel_plants || 0) + (props.structures.hour_24.fuel_plants || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Hangars</td>
-                            <td>{displayPercent((structures.current.hangars || 0) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.hangars || 0) + (structures.hour_1.hangars || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.hangars || 0) + (structures.hour_2.hangars || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.hangars || 0) + (structures.hour_4.hangars || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.hangars || 0) + (structures.hour_8.hangars || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.hangars || 0) + (structures.hour_24.hangars || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent((props.structures.current.hangars || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.hangars || 0) + (props.structures.hour_1.hangars || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.hangars || 0) + (props.structures.hour_2.hangars || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.hangars || 0) + (props.structures.hour_4.hangars || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.hangars || 0) + (props.structures.hour_8.hangars || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.hangars || 0) + (props.structures.hour_24.hangars || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Drone Factories</td>
-                            <td>{displayPercent((structures.current.drone_factories || 0) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.drone_factories || 0) + (structures.hour_1.drone_factories || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.drone_factories || 0) + (structures.hour_2.drone_factories || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.drone_factories || 0) + (structures.hour_4.drone_factories || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.drone_factories || 0) + (structures.hour_8.drone_factories || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.drone_factories || 0) + (structures.hour_24.drone_factories || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent((props.structures.current.drone_factories || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.drone_factories || 0) + (props.structures.hour_1.drone_factories || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.drone_factories || 0) + (props.structures.hour_2.drone_factories || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.drone_factories || 0) + (props.structures.hour_4.drone_factories || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.drone_factories || 0) + (props.structures.hour_8.drone_factories || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.drone_factories || 0) + (props.structures.hour_24.drone_factories || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Missile Silos</td>
-                            <td>{displayPercent((structures.current.missile_silos || 0) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.missile_silos || 0) + (structures.hour_1.missile_silos || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.missile_silos || 0) + (structures.hour_2.missile_silos || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.missile_silos || 0) + (structures.hour_4.missile_silos || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.missile_silos || 0) + (structures.hour_8.missile_silos || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.missile_silos || 0) + (structures.hour_24.missile_silos || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent((props.structures.current.missile_silos || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.missile_silos || 0) + (props.structures.hour_1.missile_silos || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.missile_silos || 0) + (props.structures.hour_2.missile_silos || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.missile_silos || 0) + (props.structures.hour_4.missile_silos || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.missile_silos || 0) + (props.structures.hour_8.missile_silos || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.missile_silos || 0) + (props.structures.hour_24.missile_silos || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Workshops</td>
-                            <td>{displayPercent((structures.current.workshops || 0) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.workshops || 0) + (structures.hour_1.workshops || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.workshops || 0) + (structures.hour_2.workshops || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.workshops || 0) + (structures.hour_4.workshops || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.workshops || 0) + (structures.hour_8.workshops || 0)) / props.kdInfo.stars)}</td>
-                            <td>{displayPercent(((structures.current.workshops || 0) + (structures.hour_24.workshops || 0)) / props.kdInfo.stars)}</td>
+                            <td>{displayPercent((props.structures.current.workshops || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.workshops || 0) + (props.structures.hour_1.workshops || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.workshops || 0) + (props.structures.hour_2.workshops || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.workshops || 0) + (props.structures.hour_4.workshops || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.workshops || 0) + (props.structures.hour_8.workshops || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current.workshops || 0) + (props.structures.hour_24.workshops || 0)) / props.kingdom.stars)}</td>
                         </tr>
                     </tbody>
                 </Table>
