@@ -29,6 +29,9 @@ jobs:
       
       - name: Install dependencies
         run: pip install -r api/requirements.txt
+      
+      - name: Build frontend
+        run: npm run build
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
       
