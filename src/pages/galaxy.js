@@ -27,12 +27,14 @@ function Galaxy(props) {
     const [galaxiesArray, setGalaxiesArray] = useState(Object.keys(props.data.galaxies));
     const [clusterInput, setClusterInput] = useState();
     const [galaxyInput, setGalaxyInput] = useState();
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
             if (galaxyIndex != undefined) {
                 if (galaxiesArray[galaxyIndex] != undefined) {
                     await authFetch("api/galaxy/" + galaxiesArray[galaxyIndex]).then(r => r.json()).then(r => setGalaxyInfo(r));
+                    setLoading(false);
                 }
             };
         }
@@ -63,6 +65,7 @@ function Galaxy(props) {
         setGalaxyIndex(newIndex);
         setClusterInput(galaxiesArray[newIndex].split(':')[0]);
         setGalaxyInput(galaxiesArray[newIndex].split(':')[1]);
+        setLoading(true);
     }
     const moveRight = (e)=>{
         if (galaxyIndex === -1) {  
@@ -79,11 +82,13 @@ function Galaxy(props) {
         setGalaxyIndex(newIndex);
         setClusterInput(galaxiesArray[newIndex].split(':')[0]);
         setGalaxyInput(galaxiesArray[newIndex].split(':')[1]);
+        setLoading(true);
     }
     const handleClusterInput = (e) => {
         if (e.target.value) {
             setClusterInput(e.target.value);
             setGalaxyIndex(galaxiesArray.indexOf(e.target.value + ":" + galaxyInput));
+            setLoading(true);
         } else {
             setClusterInput(e.target.value);
         }
@@ -92,13 +97,14 @@ function Galaxy(props) {
         if (e.target.value) {
             setGalaxyInput(e.target.value)
             setGalaxyIndex(galaxiesArray.indexOf(clusterInput + ":" + e.target.value));
+            setLoading(true);
         } else {
             setGalaxyInput(e.target.value);
         }
     }
     const galaxyRows = Object.keys(galaxyInfo).map((kdId) =>
         <tr key={kdId}>
-            <td>{galaxyInfo[kdId].name || ""}</td>
+            <td>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</td>
             <td>{galaxyInfo[kdId].race || ""}</td>
             <td>{galaxyInfo[kdId].stars || ""}</td>
             <td>{galaxyInfo[kdId].score || ""}</td>
@@ -121,34 +127,68 @@ function Galaxy(props) {
             </td>
         </tr>
     );
+    const NonexistentGalaxy = () => {
+        setLoading(false);
+        return <h3>This galaxy does not exist!</h3>
+    }
     return (
         <div className="galaxy">
-            <div className="galaxy-nav-container">
-                <span className="galaxy-nav-arrow" onClick={moveLeft}>{'<<'}</span>
-                <div className="galaxy-nav-input">
-                    <InputGroup className="galaxy-nav-input-form">
-                        <InputGroup.Text id="cluster">Cluster</InputGroup.Text>
-                        <Form.Control
-                        // placeholder="Username"
-                        aria-label="Cluster"
-                        onChange={handleClusterInput}
-                        value={clusterInput || ''} 
-                        />
-                    </InputGroup>
-                    <InputGroup className="galaxy-nav-input-form">
-                        <InputGroup.Text id="galaxy">Galaxy</InputGroup.Text>
-                        <Form.Control
-                        // placeholder="Username"
-                        aria-label="Galaxy"
-                        onChange={handleGalaxyInput}
-                        value={galaxyInput || ''} 
-                        />
-                    </InputGroup>
+            {
+                loading
+                ? <div className="galaxy-nav-container">
+                    <span className="galaxy-nav-arrow-disabled">{'<<'}</span>
+                    <div className="galaxy-nav-input">
+                        <InputGroup className="galaxy-nav-input-form">
+                            <InputGroup.Text id="cluster">Cluster</InputGroup.Text>
+                            <Form.Control
+                            // placeholder="Username"
+                            aria-label="Cluster"
+                            onChange={handleClusterInput}
+                            value={clusterInput || ''}
+                            disabled
+                            />
+                        </InputGroup>
+                        <InputGroup className="galaxy-nav-input-form">
+                            <InputGroup.Text id="galaxy">Galaxy</InputGroup.Text>
+                            <Form.Control
+                            // placeholder="Username"
+                            aria-label="Galaxy"
+                            onChange={handleGalaxyInput}
+                            value={galaxyInput || ''} 
+                            disabled
+                            />
+                        </InputGroup>
+                    </div>
+                    <span className="galaxy-nav-arrow-disabled" >{'>>'}</span>
                 </div>
-                <span className="galaxy-nav-arrow" onClick={moveRight}>{'>>'}</span>
-            </div>
+                : <div className="galaxy-nav-container">
+                    <span className="galaxy-nav-arrow" onClick={moveLeft}>{'<<'}</span>
+                    <div className="galaxy-nav-input">
+                        <InputGroup className="galaxy-nav-input-form">
+                            <InputGroup.Text id="cluster">Cluster</InputGroup.Text>
+                            <Form.Control
+                            // placeholder="Username"
+                            aria-label="Cluster"
+                            onChange={handleClusterInput}
+                            value={clusterInput || ''} 
+                            />
+                        </InputGroup>
+                        <InputGroup className="galaxy-nav-input-form">
+                            <InputGroup.Text id="galaxy">Galaxy</InputGroup.Text>
+                            <Form.Control
+                            // placeholder="Username"
+                            aria-label="Galaxy"
+                            onChange={handleGalaxyInput}
+                            value={galaxyInput || ''} 
+                            />
+                        </InputGroup>
+                    </div>
+                    <span className="galaxy-nav-arrow" onClick={moveRight}>{'>>'}</span>
+                </div>
+            }
+            
             {!(galaxiesArray[galaxyIndex] != undefined)
-                ? <h3>This galaxy does not exist!</h3>
+                ? <NonexistentGalaxy />
                 : <Table striped bordered hover>
                     <thead>
                         <tr>

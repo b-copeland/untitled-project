@@ -15,6 +15,11 @@
     user-select: none;
     font-size: 3em;
 }
+.galaxy-nav-arrow-disabled {
+    user-select: none;
+    font-size: 3em;
+    opacity: 50%;
+}
 
 .galaxy-nav-input {
     width: 35%;
