@@ -38,13 +38,14 @@ jobs:
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
       
+      - name: tar.gz for artifacts
+        run: tar --exclude="/venv/" -czvf build_artifacts.tar.gz . 
+      
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v2
         with:
           name: python-app
-          path: |
-            . 
-            !venv/
+          path: build_artifacts.tar.gz
 
   deploy:
     runs-on: ubuntu-latest
@@ -59,6 +60,9 @@ jobs:
         with:
           name: python-app
           path: .
+        
+      - name: Extract artifact tar
+        run: tar -xzvf build_artifacts.tar.gz
           
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v2
