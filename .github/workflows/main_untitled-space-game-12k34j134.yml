@@ -39,7 +39,7 @@ jobs:
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
       
       - name: tar.gz for artifacts
-        run: tar --exclude="./venv" --exclude="./node_modules" -czvf build_artifacts.tar.gz . 
+        run: tar --exclude="./venv" --exclude="./node_modules" --exclude="./.git" --exclude=build_artifacts.tar.gz -czvf build_artifacts.tar.gz . 
       
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v2
