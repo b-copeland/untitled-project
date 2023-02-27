@@ -26,24 +26,6 @@ import ProjectsContent from "./pages/build/projects.js"
 import Missiles from "./pages/build/missiles.js"
 
 
-
-// const ProtectedRoute = ({ logged, session, redirectPath = '/login', children }) => {
-//   const navigate = useNavigate();
-//   useEffect(() => {
-//     if (!logged) {
-//       navigate(redirectPath, {replace: true});
-//     }
-//   }, [logged])
-
-//   if (session != null && session.hasOwnProperty("error")) {
-//     logout();
-//     return <Navigate to={redirectPath} replace />;
-//   }
-
-//   return children ? children : <Outlet />;
-// };
-
-
 const ProtectedRoute = ({ logged, session, redirectPath = '/login', children }) => {
   if (session != null && session.hasOwnProperty("error")) {
     logout();
@@ -55,18 +37,6 @@ const ProtectedRoute = ({ logged, session, redirectPath = '/login', children }) 
 
   return children ? children : <Outlet />;
 };
-
-const PrivateRoute = ({
-
-}) => {
-  const [logged, session] = useAuth();
-
-  if (session === null) {
-    return null;
-  }
-
-  return logged ? <Outlet /> : <Navigate to="/login" />;
-}
 
 const initGlobalData = {
   'kingdom': {},
@@ -160,11 +130,6 @@ function Content(props) {
     const keys = Object.keys(initGlobalData);
     updateData(keys);
   }, [])
-  if (props.session === null) {
-    if (!!JSON.parse(localStorage.getItem("DOMNUS_GAME_TOKEN"))) {
-      return null;
-    }
-  }
   return (
     <div className="main">
       <div className="navdiv">
@@ -176,7 +141,7 @@ function Content(props) {
           {/* <Router> */}
             <div className="router-body">
               <Routes>
-                <Route path="/login" element={<Login />}/>
+                <Route path="/login" element={<Login logged={props.logged}/>}/>
                 <Route element={<ProtectedRoute logged={props.logged} session={props.session}/>}>
                   <Route path="/status" element={<StatusContent data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/news" element={<NewsContent data={data}/>}/>
@@ -190,7 +155,7 @@ function Content(props) {
                   <Route path="/missiles" element={<Missiles data={data} loading={loading} updateData={updateData}/>}/>
                 </Route>
                 <Route path="/finalize" element={<Finalize />}/>
-                <Route path="/" element={<Home />}/>
+                <Route path="/" element={<Home logged={props.logged}/>}/>
               </Routes>
             </div>
           {/* </Router> */}
@@ -203,56 +168,13 @@ function Content(props) {
 export default function App() {
   const [logged, session] = useAuth();
 
+  if (session === null) {
+    if (!!JSON.parse(localStorage.getItem("DOMNUS_GAME_TOKEN"))) {
+      return null;
+    }
+  }
   return <Content logged={logged} session={session}/>;
 }
-
-// export default function App() {
-//   return (
-//     <div className="main">
-//       <div className="navdiv">
-//         <BasicExample />
-//       </div>
-//       <div className="main-body">
-//         <Header />
-//         <div className="router">
-//           {/* <Router> */}
-//             <div className="router-body">
-//               <Routes>
-//                 <Route path="/login" element={<Login />}/>
-//                 <Route path="/status" element={<PrivateRoute/>}>
-//                   <Route path="/status" element={<StatusContent/>}/>
-//                 </Route>
-//                 <Route path="/news" element={<PrivateRoute/>}>
-//                   <Route path="/news" element={<NewsContent/>}/>
-//                 </Route>
-//                 <Route path="/galaxy" element={<PrivateRoute/>}>
-//                   <Route path="/galaxy" element={<Galaxy/>}/>
-//                 </Route>
-//                 <Route path="/forums" element={<PrivateRoute/>}>
-//                   <Route path="/forums" element={<Forums/>}/>
-//                 </Route>
-//                 <Route path="/history" element={<PrivateRoute/>}>
-//                   <Route path="/history" element={<History/>}/>
-//                 </Route>
-//                 <Route path="/settle" element={<PrivateRoute/>}>
-//                   <Route path="/settle" element={<Settle/>}/>
-//                 </Route>
-//                 <Route path="/structures" element={<PrivateRoute/>}>
-//                   <Route path="/structures" element={<Structures/>}/>
-//                 </Route>
-//                 <Route path="/military" element={<PrivateRoute/>}>
-//                   <Route path="/military" element={<MilitaryContent/>}/>
-//                 </Route>
-//                 <Route path="/finalize" element={<Finalize />}/>
-//                 <Route path="/" element={<Home />}/>
-//               </Routes>
-//             </div>
-//           {/* </Router> */}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
 
 class Clock extends React.Component {
   constructor(props) {
@@ -333,19 +255,18 @@ function Header() {
   )
 }
 
-function Home() {
+function Home(props) {
   return (
     <div className="router-contents">
       <h2>Home</h2>
-      <Login />
+      <Login logged={props.logged}/>
     </div>
   )
 }
 
-function Login() {
+function Login(props) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [logged] = useAuth();
   const navigate = useNavigate();
 
   const onSubmitClick = (e)=>{
@@ -380,7 +301,7 @@ function Login() {
   return (
     <div>
       <h2>Login</h2>
-      {!logged? <form action="#">
+      {!props.logged? <form action="#">
         <div>
           <input type="text" 
             placeholder="Username" 
