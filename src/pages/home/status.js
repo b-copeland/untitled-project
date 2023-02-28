@@ -40,7 +40,7 @@ function StatusContent(props) {
 }
 
 function Status(props) {
-    if (Object.keys(props.kingdoms).length === 0) {
+    if (Object.keys(props.kingdom).length === 0) {
         return null;
     }
     return (
@@ -59,37 +59,37 @@ function Status(props) {
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Stars</span>
-                    <span className="text-box-item-value">{props.data.kingdom.stars}</span>
+                    <span className="text-box-item-value">{props.kingdom.stars}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Population</span>
-                    <span className="text-box-item-value">{props.data.kingdom.population}</span>
+                    <span className="text-box-item-value">{props.kingdom.population}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Fuel</span>
-                    <span className="text-box-item-value">{props.data.kingdom.fuel}</span>
+                    <span className="text-box-item-value">{props.kingdom.fuel}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Engineers</span>
-                    <span className="text-box-item-value">{props.data.kingdom["units"]?.engineers}</span>
+                    <span className="text-box-item-value">{props.kingdom["units"]?.engineers}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value">{props.data.kingdom.drones}</span>
+                    <span className="text-box-item-value">{props.kingdom.drones}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Attackers</span>
-                    <span className="text-box-item-value">{props.data.kingdom["units"]?.attack}</span>
+                    <span className="text-box-item-value">{props.kingdom["units"]?.attack}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Defenders</span>
-                    <span className="text-box-item-value">{props.data.kingdom["units"]?.defense}</span>
+                    <span className="text-box-item-value">{props.kingdom["units"]?.defense}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Flexers</span>
-                    <span className="text-box-item-value">{props.data.kingdom["units"]?.flex}</span>
+                    <span className="text-box-item-value">{props.kingdom["units"]?.flex}</span>
                 </div>
             </div>
             <div className="text-box income-box">

@@ -127,9 +127,11 @@ function Content(props) {
   };
 
   useEffect(() => {
-    const keys = Object.keys(initGlobalData);
-    updateData(keys);
-  }, [])
+    if (props.logged) {
+      const keys = Object.keys(initGlobalData);
+      updateData(keys);
+    }
+  }, [props.logged])
   return (
     <div className="main">
       <div className="navdiv">
