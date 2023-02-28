@@ -138,7 +138,7 @@ function Content(props) {
         <BasicExample />
       </div>
       <div className="main-body">
-        <Header />
+        <Header data={data}/>
         <div className="router">
           {/* <Router> */}
             <div className="router-body">
@@ -215,16 +215,12 @@ class Clock extends React.Component {
   }
 }
 
-function Header() {
-  const [kdInfo, setKdInfo] = useState({});
-  
-  useEffect(() => {
-    const fetchData = async () => {
-      await authFetch("api/kingdom").then(r => r.json()).then(r => setKdInfo(r));
-    }
-    fetchData();
-  }, [])
+function Header(props) {
+  if (Object.keys(props.data?.kingdom).length === 0) {
+    return null;
+  }
 
+  const kdInfo = props.data.kingdom;
   return (
     <div className="header-container">
       <div className="header-contents">
