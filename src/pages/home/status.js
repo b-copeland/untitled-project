@@ -27,7 +27,7 @@ function StatusContent(props) {
           <Revealed kingdom={props.data.kingdom} kingdoms={props.data.kingdoms}/>
         </Tab>
         <Tab eventKey="spending" title="Spending">
-          <Spending kingdom={props.data.kingdom} loading={props.loading} /*updateData={keys => props.updateData(keys)}*/ updateData={props.updateData} />
+          <Spending kingdom={props.data.kingdom} loading={props.loading} updateData={props.updateData} />
         </Tab>
         <Tab eventKey="military" title="Military">
           <Military mobis={props.data.mobis} />

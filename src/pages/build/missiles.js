@@ -42,7 +42,7 @@ function Missiles(props) {
                 method: 'post',
                 body: JSON.stringify(opts)
             })
-            props.updateData(['missiles'], [updateFunc]);
+            props.updateData(['missiles', 'kingdom'], [updateFunc]);
         }
     }
     const toHHMMSS = (secs) => {

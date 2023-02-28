@@ -57,7 +57,7 @@ function Recruits(props) {
                 method: 'post',
                 body: JSON.stringify(opts)
             })
-            props.updateData(['mobis'], [updateFunc]);
+            props.updateData(['mobis', 'kingdom'], [updateFunc]);
             setRecruitsInput('');
         }
     }
@@ -160,7 +160,7 @@ function Specialists(props) {
                 method: 'post',
                 body: JSON.stringify(opts)
             })
-            props.updateData(['mobis'], [updateFunc]);
+            props.updateData(['mobis', 'kingdom'], [updateFunc]);
         }
     }
 

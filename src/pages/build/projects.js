@@ -47,7 +47,7 @@ function Train(props) {
                 method: 'post',
                 body: JSON.stringify(opts)
             })
-            props.updateData(['engineers'], [updateFunc]);
+            props.updateData(['engineers', 'kingdom'], [updateFunc]);
             setEngineersInput('');
         }
     }

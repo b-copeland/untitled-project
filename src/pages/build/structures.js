@@ -56,7 +56,7 @@ function Structures(props) {
                 method: 'post',
                 body: JSON.stringify(opts)
             })
-            props.updateData(['structures'], [updateFunc])
+            props.updateData(['structures', 'kingdom'], [updateFunc])
             setHomesInput('');
             setMinesInput('');
             setFuelPlantsInput('');

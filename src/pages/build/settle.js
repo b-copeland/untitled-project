@@ -23,7 +23,7 @@ function Settle(props) {
                 method: 'post',
                 body: JSON.stringify(opts)
             })
-            props.updateData(['settle'], [updateFunc])
+            props.updateData(['settle', 'kingdom'], [updateFunc])
             setSettleInput('');
         }
     }
