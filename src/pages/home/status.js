@@ -21,7 +21,7 @@ function StatusContent(props) {
         variant="tabs"
       >
         <Tab eventKey="kingdom" title="Kingdom">
-          <Status data={props.data}/>
+          <Status kingdom={props.data.kingdom}/>
         </Tab>
         <Tab eventKey="revealed" title="Revealed">
           <Revealed kingdom={props.data.kingdom} kingdoms={props.data.kingdoms}/>
