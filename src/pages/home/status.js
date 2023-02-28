@@ -40,6 +40,9 @@ function StatusContent(props) {
 }
 
 function Status(props) {
+    if (Object.keys(props.kingdoms).length === 0) {
+        return null;
+    }
     return (
         <div className="status">
             <div className="text-box kingdom-card">
