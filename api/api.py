@@ -284,7 +284,7 @@ def kingdom():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -305,7 +305,7 @@ def news():
     print(kd_id, file=sys.stderr)
     news = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/news',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(news.text, file=sys.stderr)
     news_parse = json.loads(news.text)
@@ -326,7 +326,7 @@ def kingdoms():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdoms',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -335,7 +335,7 @@ def kingdoms():
 def _get_galaxy_info():
     galaxy_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxies',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     galaxy_info_parse = json.loads(galaxy_info.text)
     print(galaxy_info_parse, file=sys.stderr)
@@ -379,7 +379,7 @@ def galaxies_inverted():
 def _get_empire_info():
     empire_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     empire_info_parse = json.loads(empire_info.text)
     print(empire_info_parse, file=sys.stderr)
@@ -443,7 +443,7 @@ def galaxy_news():
     print(galaxy)
     news = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy}/news',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(news.text, file=sys.stderr)
     news_parse = json.loads(news.text)
@@ -468,7 +468,7 @@ def empire_news():
     print(kd_empire)
     news = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/news',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(news.text, file=sys.stderr)
     news_parse = json.loads(news.text)
@@ -487,7 +487,7 @@ def universe_news():
     """
     news = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(news.text, file=sys.stderr)
     news_parse = json.loads(news.text)
@@ -524,7 +524,7 @@ def spending():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -543,7 +543,7 @@ def spending():
     payload = {'auto_spending': new_spending}
     patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(payload),
     )
     return (flask.jsonify(patch_response.text), 200)
@@ -646,7 +646,7 @@ def _calc_max_recruits(kd_info, units):
 def _get_mobis_info(kd_id):
     mobis_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(mobis_info.text, file=sys.stderr)
     mobis_info_parse = json.loads(mobis_info.text)
@@ -667,7 +667,7 @@ def mobis():
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -720,7 +720,7 @@ def recruits():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -742,7 +742,7 @@ def recruits():
     kd_payload = {'money': new_money}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(kd_payload),
     )
     recruits_payload = {
@@ -755,7 +755,7 @@ def recruits():
     }
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(recruits_payload),
     )
     return (flask.jsonify(kd_patch_response.text), 200)
@@ -795,7 +795,7 @@ def train_mobis():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -822,7 +822,7 @@ def train_mobis():
     }
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(kd_payload),
     )
     mobis_payload = {
@@ -835,7 +835,7 @@ def train_mobis():
     }
     mobis_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(mobis_payload),
     )
     return (flask.jsonify(mobis_patch_response.text), 200)
@@ -894,14 +894,14 @@ def structures():
     print(kd_id, file=sys.stderr)
     structures_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(structures_info.text, file=sys.stderr)
     structures_info_parse = json.loads(structures_info.text)
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -954,14 +954,14 @@ def build_structures():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
     
     structures_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(structures_info.text, file=sys.stderr)
     structures_info_parse = json.loads(structures_info.text)
@@ -987,7 +987,7 @@ def build_structures():
     kd_payload = {'money': new_money}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(kd_payload),
     )
     structures_payload = {
@@ -1000,7 +1000,7 @@ def build_structures():
     }
     structures_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(structures_payload),
     )
     return (flask.jsonify(structures_patch_response.text), 200)
@@ -1023,7 +1023,7 @@ def galaxy(galaxy):
     for kd_id in current_galaxy:
         kd_info = REQUESTS_SESSION.get(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-Azure-Functions-Host-Key': ''}
+            headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
         )
         print(kd_info.text, file=sys.stderr)
         galaxy_kd_info[kd_id] = json.loads(kd_info.text)
@@ -1033,7 +1033,7 @@ def galaxy(galaxy):
 def _get_settle_info(kd_id):
     settle_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(settle_info.text, file=sys.stderr)
     settle_info_parse = json.loads(settle_info.text)
@@ -1074,7 +1074,7 @@ def get_settle():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -1116,7 +1116,7 @@ def settle():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -1131,7 +1131,7 @@ def settle():
     kd_payload = {'money': new_money}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(kd_payload),
     )
     settle_payload = {
@@ -1144,7 +1144,7 @@ def settle():
     }
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(settle_payload),
     )
     return (flask.jsonify(kd_patch_response.text), 200)
@@ -1152,7 +1152,7 @@ def settle():
 def _get_missiles_info(kd_id):
     missiles_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(missiles_info.text, file=sys.stderr)
     missiles_info_parse = json.loads(missiles_info.text)
@@ -1184,7 +1184,7 @@ def missiles():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -1243,7 +1243,7 @@ def build_missiles():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -1271,7 +1271,7 @@ def build_missiles():
     }
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(kd_payload),
     )
     missiles_payload = {
@@ -1284,7 +1284,7 @@ def build_missiles():
     }
     missiles_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(missiles_payload),
     )
     return (flask.jsonify(missiles_patch_response.text), 200)
@@ -1312,7 +1312,7 @@ def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
 def _get_engineers_info(kd_id):
     engineers_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(engineers_info.text, file=sys.stderr)
     engineers_info_parse = json.loads(engineers_info.text)
@@ -1333,7 +1333,7 @@ def engineers():
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -1379,7 +1379,7 @@ def train_engineers():
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -1397,7 +1397,7 @@ def train_engineers():
     kd_payload = {'money': new_money}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(kd_payload),
     )
     engineers_payload = {
@@ -1410,7 +1410,7 @@ def train_engineers():
     }
     engineers_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(engineers_payload),
     )
     return (flask.jsonify(engineers_patch_response.text), 200)
@@ -1430,7 +1430,7 @@ def projects():
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -1486,7 +1486,7 @@ def manage_projects():
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''}
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
@@ -1523,7 +1523,7 @@ def manage_projects():
     kd_payload = {"projects_assigned": new_projects_assigned}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-Azure-Functions-Host-Key': ''},
+        headers={'x-Azure-Functions-Host-Key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(kd_payload),
     )
     return (flask.jsonify(kd_patch_response.text), 200)
