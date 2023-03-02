@@ -1,6 +1,7 @@
 import datetime
 import math
 import os
+import random
 import requests
 import sys
 import json
@@ -152,6 +153,8 @@ BASE_MISSILE_SILO_CAPACITY = 1
 BASE_WORKSHOP_CAPACITY = 50
 
 BASE_MISSILE_TIME_MULTIPLER = 24
+
+BASE_REVEAL_DURATION_MULTIPLIER = 8
 
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
@@ -361,7 +364,7 @@ def _get_galaxies_inverted():
     for galaxy_name, kd_list in galaxy_info.items():
         for kd in kd_list:
             galaxies_inverted[kd] = galaxy_name
-    return galaxies_inverted
+    return galaxies_inverted, galaxy_info
 
 @app.route('/api/galaxies_inverted')
 @flask_praetorian.auth_required
@@ -373,7 +376,7 @@ def galaxies_inverted():
        $ curl http://localhost:5000/api/protected -X GET \
          -H "Authorization: Bearer <your_token>"
     """
-    galaxies_inverted = _get_galaxies_inverted()
+    galaxies_inverted, _ = _get_galaxies_inverted()
     return (flask.jsonify(galaxies_inverted), 200)
 
 def _get_empire_info():
@@ -387,16 +390,18 @@ def _get_empire_info():
 
 
 def _get_empires_inverted():
-    empire_info = _get_empire_info()
+    empire_infos = _get_empire_info()
     galaxy_info = _get_galaxy_info()
 
+    galaxy_empires = {}
     empires_inverted = {}
-    for empire_id, empire_info in empire_info.items():
+    for empire_id, empire_info in empire_infos.items():
         for galaxy in empire_info["galaxies"]:
+            galaxy_empires[galaxy] = empire_id
             galaxy_kds = galaxy_info[galaxy]
             for galaxy_kd in galaxy_kds:
                 empires_inverted[galaxy_kd] = empire_id
-    return empires_inverted
+    return empires_inverted, empire_infos, galaxy_empires, galaxy_info
 
 @app.route('/api/empires')
 @flask_praetorian.auth_required
@@ -421,8 +426,12 @@ def empires_inverted():
        $ curl http://localhost:5000/api/protected -X GET \
          -H "Authorization: Bearer <your_token>"
     """
-    empires_inverted = _get_empires_inverted()
-    return (flask.jsonify(empires_inverted), 200)
+    empires_inverted, _, galaxy_empires, _ = _get_empires_inverted()
+    payload = {
+        "empires_inverted": empires_inverted,
+        "galaxy_empires": galaxy_empires
+    }
+    return (flask.jsonify(payload), 200)
 
 
 
@@ -438,7 +447,7 @@ def galaxy_news():
     """
     kd_id = flask_praetorian.current_user().kd_id
     print(kd_id, file=sys.stderr)
-    galaxies_inverted = _get_galaxies_inverted()
+    galaxies_inverted, _ = _get_galaxies_inverted()
     galaxy = galaxies_inverted[kd_id]
     print(galaxy)
     news = REQUESTS_SESSION.get(
@@ -462,7 +471,7 @@ def empire_news():
     """
     kd_id = flask_praetorian.current_user().kd_id
     print(kd_id, file=sys.stderr)
-    empires_inverted = _get_empires_inverted()
+    empires_inverted, _, _, _ = _get_empires_inverted()
     print(empires_inverted)
     kd_empire = empires_inverted[kd_id]
     print(kd_empire)
@@ -1005,6 +1014,34 @@ def build_structures():
     )
     return (flask.jsonify(structures_patch_response.text), 200)
 
+def _get_max_kd_info(kd_id, revealed_info):
+    always_allowed_keys = {"name"}
+    allowed_keys = {
+        "stats": ["stars", "score"],
+        "kingdom": ["stars", "fuel", "population", "score", "money", "spy_attempts", "auto_spending", "missiles"],
+        "military": ["units", "generals_available", "generals_out"],
+        "structures": ["structures"],
+        "shields": ["shields"],
+        "projects": ["projects_points", "projects_max_points", "projects_assigned", "completed_projects"],
+    }
+    revealed_categories = revealed_info[kd_id].keys()
+    kingdom_info_keys = always_allowed_keys
+    for revealed_category in revealed_categories:
+        kingdom_info_keys = kingdom_info_keys.union(allowed_keys[revealed_category])
+
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    kd_info_parse_allowed = {
+        k: v
+        for k, v in kd_info_parse.items()
+        if k in kingdom_info_keys
+    }
+    return kd_info_parse_allowed
+
 @app.route('/api/galaxy/<galaxy>', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
@@ -1019,14 +1056,12 @@ def galaxy(galaxy):
     print(kd_id, file=sys.stderr)
     galaxy_info = _get_galaxy_info()
     current_galaxy = galaxy_info[galaxy]
+    revealed_info = _get_revealed(kd_id)
     galaxy_kd_info = {}
-    for kd_id in current_galaxy:
-        kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-        )
-        print(kd_info.text, file=sys.stderr)
-        galaxy_kd_info[kd_id] = json.loads(kd_info.text)
+    for galaxy_kd_id in current_galaxy:
+        galaxy_kd_info = _get_max_kd_info(galaxy_kd_id, revealed_info)
+        print(galaxy_kd_info.text, file=sys.stderr)
+        galaxy_kd_info[kd_id] = json.loads(galaxy_kd_info.text)
 
     return (flask.jsonify(galaxy_kd_info), 200)
 
@@ -1527,6 +1562,133 @@ def manage_projects():
         data=json.dumps(kd_payload),
     )
     return (flask.jsonify(kd_patch_response.text), 200)
+
+def _get_revealed(kd_id):
+    revealed_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(revealed_info.text, file=sys.stderr)
+    revealed_info_parse = json.loads(revealed_info.text)
+    return revealed_info_parse
+
+@app.route('/api/revealed', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def revealed():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    revealed_info = _get_revealed(kd_id)
+    return (flask.jsonify(revealed_info), 200)
+
+
+@app.route('/api/kingdomsinfo', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def max_kingdoms():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    kingdoms = req["kingdoms"]
+
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    revealed_info = _get_revealed(kd_id)["revealed"]
+
+    payload = {
+        kd_id: _get_max_kd_info(kd_id, revealed_info)
+        for kd_id in kingdoms
+    }
+    return (flask.jsonify(payload), 200)
+
+@app.route('/api/revealrandomgalaxy', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def reveal_random_galaxy():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    if kd_info_parse["spy_attempts"] <= 0:
+        return (flask.jsonify('You do not have any spy attempts remaining'), 400)
+
+    revealed_info = _get_revealed(kd_id)
+
+    empires_inverted, empires, _, _ = _get_empires_inverted()
+    galaxies_inverted, galaxy_info = _get_galaxies_inverted()
+
+    kd_empire = empires_inverted.get(kd_id, None)
+    kd_galaxy = galaxies_inverted[kd_id]
+
+    print(empires)
+    print(kd_empire)
+    excluded_galaxies = list(revealed_info["galaxies"].keys())
+    print(excluded_galaxies)
+    if kd_empire:
+        print(empires[kd_empire])
+        excluded_galaxies.extend(empires[kd_empire]["galaxies"])
+    else:
+        excluded_galaxies.extend(kd_galaxy)
+
+    potential_galaxies = set(galaxy_info.keys()) - set(excluded_galaxies)
+
+    if not len(potential_galaxies):
+        return (flask.jsonify('There are no more galaxies to reveal'), 400)
+
+    galaxy_to_reveal = random.choice(list(potential_galaxies))
+
+    time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER)).isoformat()
+    payload = {
+        "galaxies": {
+            galaxy_to_reveal: time
+        }
+    }
+
+    payload["revealed"] = {
+        kd_id: {
+            "stats": time,
+        }
+        for kd_id in galaxy_info[galaxy_to_reveal]
+    }
+
+    reveal_galaxy_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(payload),
+    )
+
+    kd_payload = {"spy_attempts": kd_info_parse["spy_attempts"] - 1}
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_payload),
+    )
+
+
+    return (flask.jsonify(reveal_galaxy_response.text), 200)
+
 
 @app.route('/api/protected')
 @flask_praetorian.auth_required

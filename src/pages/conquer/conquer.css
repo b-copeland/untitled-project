@@ -1,0 +1,33 @@
+
+
+.revealed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.reveal-random-galaxy-button {
+    margin: 10px;
+}
+
+.revealed-table {
+    margin: 10px;
+}
+
+.remaining-timer {
+    display: flex;
+    flex-direction: row;
+}
+
+.remaining-time-title {
+    width: 45%;
+    float: left;
+    text-align: left;
+    margin-left: 5px;
+}
+
+.remaining-time-value {
+    width: 45%;
+    float: right;
+    text-align: right;
+    margin-right: 5px;
+}

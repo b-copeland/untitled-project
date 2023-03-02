@@ -865,12 +865,10 @@ def resolve_engineers(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
         
-@APP.function_name(name="UpdateRevealed")
-@APP.route(route="kingdom/{kdId:int}/revealed", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
-def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed an update revealed request.')    
-    req_body = req.get_json()
-    new_revealed = req_body["revealed"]
+@APP.function_name(name="GetRevealed")
+@APP.route(route="kingdom/{kdId:int}/revealed", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_revealed(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get revealed request.')    
     kd_id = str(req.route_params.get('kdId'))
     item_id = f"revealed_{kd_id}"
     revealed = CONTAINER.read_item(
@@ -878,7 +876,43 @@ def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
         partition_key=item_id,
     )
     try:
-        revealed["revealed"] = revealed["revealed"] + new_revealed
+        return func.HttpResponse(
+            json.dumps(revealed),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom revealed could not be retrieved",
+            status_code=500,
+        )
+        
+@APP.function_name(name="UpdateRevealed")
+@APP.route(route="kingdom/{kdId:int}/revealed", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update revealed request.')    
+    req_body = req.get_json()
+    new_revealed = req_body["revealed"]
+    new_galaxies = req_body.get("galaxies", None)
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"revealed_{kd_id}"
+    revealed = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        current_revealed = revealed["revealed"]
+        for kd_id, revealed_dict in new_revealed.items():
+            kd_revealed = current_revealed.get(kd_id, {})
+            current_revealed[kd_id] = {
+                **kd_revealed,
+                **revealed_dict,
+            }
+        revealed["revealed"] = current_revealed
+        if new_galaxies:
+            revealed["galaxies"] = {
+                **revealed["galaxies"],
+                **new_galaxies,
+            }
         CONTAINER.replace_item(
             item_id,
             revealed,

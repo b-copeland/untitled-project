@@ -47,7 +47,7 @@ function Galaxy(props) {
         setGalaxyInput(galaxiesArray[newIndex].split(':')[1]);
     };
     if (Object.keys(galaxyInfo).length === 0) {
-        return null;
+        return <h3>Loading...</h3>;
     }
 
     const moveLeft = (e)=>{

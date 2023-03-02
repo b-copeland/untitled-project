@@ -13,17 +13,18 @@ import {
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "./auth";
 import BasicExample from "./components/navbar";
 import 'bootstrap/dist/css/bootstrap.css';
-import "./App.css"
-import StatusContent from "./pages/home/status.js"
-import NewsContent from "./pages/home/news.js"
-import Galaxy from "./pages/galaxy.js"
-import Forums from "./pages/home/forums.js"
-import History from "./pages/home/history.js"
-import Settle from "./pages/build/settle.js"
-import Structures from "./pages/build/structures.js"
-import MilitaryContent from "./pages/build/military.js"
-import ProjectsContent from "./pages/build/projects.js"
-import Missiles from "./pages/build/missiles.js"
+import "./App.css";
+import StatusContent from "./pages/home/status.js";
+import NewsContent from "./pages/home/news.js";
+import Galaxy from "./pages/galaxy.js";
+import Forums from "./pages/home/forums.js";
+import History from "./pages/home/history.js";
+import Settle from "./pages/build/settle.js";
+import Structures from "./pages/build/structures.js";
+import MilitaryContent from "./pages/build/military.js";
+import ProjectsContent from "./pages/build/projects.js";
+import Missiles from "./pages/build/missiles.js";
+import ConquerContent from "./pages/conquer/conquer.js";
 
 
 const ProtectedRoute = ({ logged, session, redirectPath = '/login', children }) => {
@@ -43,6 +44,8 @@ const initGlobalData = {
   'kingdoms': {},
   'galaxies': {},
   'galaxies_inverted': {},
+  'empires': {},
+  'empires_inverted': {},
   'news': [],
   'galaxynews': [],
   'empirenews': [],
@@ -53,12 +56,15 @@ const initGlobalData = {
   'missiles': {},
   'engineers': {},
   'projects': {},
+  'revealed': {},
 }
 const initLoadingData = {
   'kingdom': true,
   'kingdoms': true,
   'galaxies': true,
   'galaxies_inverted': true,
+  'empires': true,
+  'empires_inverted': true,
   'news': true,
   'galaxynews': true,
   'empirenews': true,
@@ -69,12 +75,15 @@ const initLoadingData = {
   'missiles': true,
   'engineers': true,
   'projects': true,
+  'revealed': true,
 }
 const endpoints = {
   'kingdom': 'api/kingdom',
   'kingdoms': 'api/kingdoms',
   'galaxies': 'api/galaxies',
   'galaxies_inverted': 'api/galaxies_inverted',
+  'empires': 'api/empires',
+  'empires_inverted': 'api/empires_inverted',
   'news': 'api/news',
   'galaxynews': 'api/galaxynews',
   'empirenews': 'api/empirenews',
@@ -85,6 +94,7 @@ const endpoints = {
   'missiles': 'api/missiles',
   'engineers': 'api/engineers',
   'projects': 'api/projects',
+  'revealed': 'api/revealed',
 }
 
 function Content(props) {
@@ -97,8 +107,8 @@ function Content(props) {
     for (const key of keys) {
       newLoading[key] = true;
     }
-    console.log(JSON.parse(JSON.stringify(newValues)));
-    console.log(newLoading);
+    // console.log(JSON.parse(JSON.stringify(newValues)));
+    // console.log(newLoading);
     setLoading(newLoading);
 
     for (const depFunc of depFuncs) {
@@ -122,8 +132,8 @@ function Content(props) {
     }
     await fetchData();
     
-    console.log(JSON.parse(JSON.stringify(newValues)));
-    console.log(JSON.parse(JSON.stringify(newLoading)));
+    // console.log(JSON.parse(JSON.stringify(newValues)));
+    // console.log(JSON.parse(JSON.stringify(newLoading)));
   };
 
   useEffect(() => {
@@ -155,6 +165,7 @@ function Content(props) {
                   <Route path="/military" element={<MilitaryContent data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/projects" element={<ProjectsContent data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/missiles" element={<Missiles data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/conquer" element={<ConquerContent data={data} loading={loading} updateData={updateData}/>}/>
                 </Route>
                 <Route path="/finalize" element={<Finalize />}/>
                 <Route path="/" element={<Home logged={props.logged}/>}/>
@@ -237,7 +248,7 @@ function Header(props) {
           <span>Pop: {kdInfo.population}</span>
         </div>
         <div className="header-item">
-          <span>Money {kdInfo.money}</span>
+          <span>Money: {kdInfo.money}</span>
         </div>
         <div className="header-item">
           <span>Score: {kdInfo.score}</span>
