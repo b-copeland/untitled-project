@@ -25,6 +25,9 @@ import MilitaryContent from "./pages/build/military.js";
 import ProjectsContent from "./pages/build/projects.js";
 import Missiles from "./pages/build/missiles.js";
 import ConquerContent from "./pages/conquer/conquer.js";
+import Attack from "./pages/conquer/attack.js";
+import Spy from "./pages/conquer/attack.js";
+import LaunchMissiles from "./pages/conquer/attack.js";
 
 
 const ProtectedRoute = ({ logged, session, redirectPath = '/login', children }) => {
@@ -166,6 +169,9 @@ function Content(props) {
                   <Route path="/projects" element={<ProjectsContent data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/missiles" element={<Missiles data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/conquer" element={<ConquerContent data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/attack" element={<Attack data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/spy" element={<Spy data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/launchmissiles" element={<LaunchMissiles data={data} loading={loading} updateData={updateData}/>}/>
                 </Route>
                 <Route path="/finalize" element={<Finalize />}/>
                 <Route path="/" element={<Home logged={props.logged}/>}/>

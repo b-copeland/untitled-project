@@ -29,3 +29,23 @@
 .inline-galaxy-button {
     margin: 2px;
 }
+
+.attack-modal {
+    width: 80%;
+    max-width: none;
+}
+
+.spy-modal {
+    width: 80%;
+    max-width: none;
+}
+
+.missile-modal {
+    width: 80%;
+    max-width: none;
+}
+
+.message-modal {
+    width: 80%;
+    max-width: none;
+}
