@@ -19,6 +19,7 @@ function BasicExample() {
             <li><Link to="/military">Military</Link></li>
             <li><Link to="/projects">Projects</Link></li>
             <li><Link to="/missiles">Missiles</Link></li>
+            <li><Link to="/conquer">Conquer</Link></li>
         </ul>
     </nav>
   );
