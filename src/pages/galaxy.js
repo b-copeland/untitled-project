@@ -9,7 +9,12 @@ import Form from 'react-bootstrap/Form';
 import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
-import "./galaxy.css"
+import Modal from 'react-bootstrap/Modal';
+import "./galaxy.css";
+import Attack from "./conquer/attack.js";
+import Spy from "./conquer/spy.js";
+import LaunchMissiles from "./conquer/launchmissiles.js";
+import Message from "./message.js";
 
 function getTimeString(date) {
     if (date === undefined) {
@@ -28,6 +33,10 @@ function Galaxy(props) {
     const [clusterInput, setClusterInput] = useState();
     const [galaxyInput, setGalaxyInput] = useState();
     const [loading, setLoading] = useState(false);
+    const [showAttack, setShowAttack] = useState(false);
+    const [showSpy, setShowSpy] = useState(false);
+    const [showMissile, setShowMissile] = useState(false);
+    const [showMessage, setShowMessage] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -112,16 +121,16 @@ function Galaxy(props) {
             <td>07:59:59</td>
             <td>Growth, Active</td>
             <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowAttack(true)}>
                     Attack
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowSpy(true)}>
                     Spy
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMissile(true)}>
                     Missile
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
                     Message
                 </Button>
             </td>
@@ -133,6 +142,78 @@ function Galaxy(props) {
     }
     return (
         <div className="galaxy">
+            <Modal
+                show={showAttack}
+                onHide={() => setShowAttack(false)}
+                animation={false}
+                dialogClassName="attack-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Attack</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Attack data={props.data}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowAttack(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            <Modal
+                show={showSpy}
+                onHide={() => setShowSpy(false)}
+                animation={false}
+                dialogClassName="spy-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Spy</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Spy data={props.data}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowSpy(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            <Modal
+                show={showMissile}
+                onHide={() => setShowMissile(false)}
+                animation={false}
+                dialogClassName="missile-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Missile</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <LaunchMissiles data={props.data}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowMissile(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            <Modal
+                show={showMessage}
+                onHide={() => setShowMessage(false)}
+                animation={false}
+                dialogClassName="message-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Message</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Message data={props.data}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowMessage(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
             {
                 loading
                 ? <div className="galaxy-nav-container">

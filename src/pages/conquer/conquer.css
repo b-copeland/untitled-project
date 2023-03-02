@@ -31,3 +31,8 @@
     text-align: right;
     margin-right: 5px;
 }
+
+.galaxy-modal {
+    width: 80%;
+    max-width: none;
+}

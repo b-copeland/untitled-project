@@ -1024,17 +1024,18 @@ def _get_max_kd_info(kd_id, revealed_info):
         "shields": ["shields"],
         "projects": ["projects_points", "projects_max_points", "projects_assigned", "completed_projects"],
     }
-    revealed_categories = revealed_info[kd_id].keys()
-    kingdom_info_keys = always_allowed_keys
-    for revealed_category in revealed_categories:
-        kingdom_info_keys = kingdom_info_keys.union(allowed_keys[revealed_category])
-
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
+    
+    revealed_categories = revealed_info.get(kd_id, {}).keys()
+    kingdom_info_keys = always_allowed_keys
+    for revealed_category in revealed_categories:
+        kingdom_info_keys = kingdom_info_keys.union(allowed_keys[revealed_category])
+
     kd_info_parse_allowed = {
         k: v
         for k, v in kd_info_parse.items()
@@ -1056,12 +1057,13 @@ def galaxy(galaxy):
     print(kd_id, file=sys.stderr)
     galaxy_info = _get_galaxy_info()
     current_galaxy = galaxy_info[galaxy]
-    revealed_info = _get_revealed(kd_id)
+    revealed_info = _get_revealed(kd_id)["revealed"]
     galaxy_kd_info = {}
     for galaxy_kd_id in current_galaxy:
-        galaxy_kd_info = _get_max_kd_info(galaxy_kd_id, revealed_info)
-        print(galaxy_kd_info.text, file=sys.stderr)
-        galaxy_kd_info[kd_id] = json.loads(galaxy_kd_info.text)
+        kd_info = _get_max_kd_info(galaxy_kd_id, revealed_info)
+        galaxy_kd_info[galaxy_kd_id] = kd_info
+    
+    print(galaxy_kd_info)
 
     return (flask.jsonify(galaxy_kd_info), 200)
 

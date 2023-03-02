@@ -7,6 +7,11 @@ import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Modal from 'react-bootstrap/Modal';
 import "./conquer.css";
+import Galaxy from "../galaxy.js";
+import Attack from "./attack.js";
+import Spy from "./spy.js";
+import LaunchMissiles from "./launchmissiles.js";
+import Message from "../message.js";
 
 
 function ConquerContent(props) {
@@ -29,6 +34,7 @@ function ConquerContent(props) {
             empires_inverted={props.data.empires_inverted}
             loading={props.loading}
             updateData={props.updateData}
+            data={props.data}
             />
         </Tab>
         <Tab eventKey="shared" title="Shared">
@@ -54,6 +60,12 @@ function getTimeString(date) {
 
 function Revealed(props) {
     const [maxKdInfo, setMaxKdInfo] = useState({});
+    const [showAttack, setShowAttack] = useState(false);
+    const [showSpy, setShowSpy] = useState(false);
+    const [showMissile, setShowMissile] = useState(false);
+    const [showMessage, setShowMessage] = useState(false);
+    const [showGalaxy, setShowGalaxy] = useState(false);
+    const [galaxyToShow, setGalaxyToShow] = useState('');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -97,19 +109,19 @@ function Revealed(props) {
             <td>{maxKdInfo[kdId]?.stars || ""}</td>
             <td>{maxKdInfo[kdId]?.score || ""}</td>
             <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowAttack(true)}>
                     Attack
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowSpy(true)}>
                     Spy
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMissile(true)}>
                     Missile
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
                     Message
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit">
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
                     View Galaxy
                 </Button>
             </td>
@@ -124,6 +136,96 @@ function Revealed(props) {
     );
     return (
         <div className="revealed">
+            <Modal
+                show={showAttack}
+                onHide={() => setShowAttack(false)}
+                animation={false}
+                dialogClassName="attack-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Attack</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Attack data={props.data}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowAttack(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            <Modal
+                show={showSpy}
+                onHide={() => setShowSpy(false)}
+                animation={false}
+                dialogClassName="spy-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Spy</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Spy data={props.data}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowSpy(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            <Modal
+                show={showMissile}
+                onHide={() => setShowMissile(false)}
+                animation={false}
+                dialogClassName="missile-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Missile</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <LaunchMissiles data={props.data}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowMissile(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            <Modal
+                show={showMessage}
+                onHide={() => setShowMessage(false)}
+                animation={false}
+                dialogClassName="message-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Message</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Message data={props.data}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowMessage(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            <Modal
+                show={showGalaxy}
+                onHide={() => setShowGalaxy(false)}
+                animation={false}
+                dialogClassName="galaxy-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>View Galaxy</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Galaxy data={props.data} initialGalaxyId={galaxyToShow}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowGalaxy(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
            {
                 props.loading.revealed
                 ? <Button className="reveal-random-galaxy-button" variant="primary" type="submit" disabled>
