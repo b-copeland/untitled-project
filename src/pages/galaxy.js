@@ -29,7 +29,7 @@ function getTimeString(date) {
 function Galaxy(props) {
     const [galaxyInfo, setGalaxyInfo] = useState({});
     const [galaxyIndex, setGalaxyIndex] = useState();
-    const [galaxiesArray, setGalaxiesArray] = useState(Object.keys(props.data.galaxies));
+    // const [galaxiesArray, setGalaxiesArray] = useState(Object.keys(props.data.galaxies));
     const [clusterInput, setClusterInput] = useState();
     const [galaxyInput, setGalaxyInput] = useState();
     const [loading, setLoading] = useState(false);
@@ -38,6 +38,7 @@ function Galaxy(props) {
     const [showMissile, setShowMissile] = useState(false);
     const [showMessage, setShowMessage] = useState(false);
 
+    const galaxiesArray = Object.keys(props.data.galaxies);
     useEffect(() => {
         const fetchData = async () => {
             if (galaxyIndex != undefined) {
@@ -48,7 +49,7 @@ function Galaxy(props) {
             };
         }
         fetchData();
-    }, [galaxyIndex])
+    }, [galaxyIndex]);
     if ((galaxyIndex === undefined) & galaxiesArray.length > 0) {
         var newIndex = galaxiesArray.indexOf(props.initialGalaxyId || '1:1');
         setGalaxyIndex(newIndex);
@@ -111,6 +112,22 @@ function Galaxy(props) {
             setGalaxyInput(e.target.value);
         }
     }
+
+    const onSubmitPin = (e)=>{
+        const updateFunc = () => authFetch('api/pinned', {
+            body: JSON.stringify({"pinned": [e.target.name]}),
+            method: "POST", 
+        })
+        props.updateData(['pinned'], [updateFunc])
+    }
+
+    const onSubmitUnpin = (e)=>{
+        const updateFunc = () => authFetch('api/pinned', {
+            body: JSON.stringify({"unpinned": [e.target.name]}),
+            method: "POST", 
+        })
+        props.updateData(['pinned'], [updateFunc])
+    }
     const galaxyRows = Object.keys(galaxyInfo).map((kdId) =>
         <tr key={kdId}>
             <td>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</td>
@@ -133,6 +150,19 @@ function Galaxy(props) {
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
                     Message
                 </Button>
+                {
+                    props.loading.pinned
+                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : props.data.pinned.indexOf(kdId) >= 0
+                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitUnpin}>
+                        Unpin
+                    </Button>
+                    : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitPin}>
+                        Pin
+                    </Button>
+                }
             </td>
         </tr>
     );

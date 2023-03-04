@@ -93,12 +93,9 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
         for resource_name in [
             "kingdom",
             "news",
-            # "next",
-            # "generals"
             "settles",
             "mobis",
             "structures",
-            # "projects",
             "missiles",
             "engineers",
             "revealed",
@@ -958,6 +955,58 @@ def resolve_revealed(req: func.HttpRequest) -> func.HttpResponse:
             "The kingdom revealed were not resolved",
             status_code=500,
         )
+        
+@APP.function_name(name="GetShared")
+@APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_shared(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get shared request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"shared_{kd_id}"
+    shared = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(shared),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom shared could not be retrieved",
+            status_code=500,
+        )
+        
+@APP.function_name(name="SetShared")
+@APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+def get_shared(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a set shared request.')        
+    req_body = req.get_json()
+
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"shared_{kd_id}"
+    shared = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    new_shared = {
+        **shared,
+        **req_body,
+    }
+    try:
+        CONTAINER.replace_item(
+            item_id,
+            new_shared,
+        )
+        return func.HttpResponse(
+            "Kingdom shared set.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom shared could not be retrieved",
+            status_code=500,
+        )
 
 @APP.function_name(name="UpdateShared")
 @APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
@@ -1078,13 +1127,35 @@ def resolve_shared_requests(req: func.HttpRequest) -> func.HttpResponse:
             "The kingdom shared_requests were not resolved",
             status_code=500,
         )
+        
+@APP.function_name(name="GetPinned")
+@APP.route(route="kingdom/{kdId:int}/pinned", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_pinned(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get pinned request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"pinned_{kd_id}"
+    pinned = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(pinned),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom pinned could not be retrieved",
+            status_code=500,
+        )
 
 @APP.function_name(name="UpdatePinned")
 @APP.route(route="kingdom/{kdId:int}/pinned", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
 def update_pinned(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update pinned request.')    
     req_body = req.get_json()
-    new_pinned = req_body["pinned"]
+    new_pinned = req_body.get("pinned", [])
+    new_unpinned = req_body.get("unpinned", [])
     kd_id = str(req.route_params.get('kdId'))
     item_id = f"pinned_{kd_id}"
     pinned = CONTAINER.read_item(
@@ -1093,6 +1164,11 @@ def update_pinned(req: func.HttpRequest) -> func.HttpResponse:
     )
     try:
         pinned["pinned"] = pinned["pinned"] + new_pinned
+        pinned["pinned"] = [
+            kd
+            for kd in pinned["pinned"]
+            if kd not in new_unpinned
+        ]
         CONTAINER.replace_item(
             item_id,
             pinned,

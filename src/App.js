@@ -60,6 +60,8 @@ const initGlobalData = {
   'engineers': {},
   'projects': {},
   'revealed': {},
+  'shared': {},
+  'pinned': [],
 }
 const initLoadingData = {
   'kingdom': true,
@@ -79,6 +81,8 @@ const initLoadingData = {
   'engineers': true,
   'projects': true,
   'revealed': true,
+  'shared': true,
+  'pinned': true,
 }
 const endpoints = {
   'kingdom': 'api/kingdom',
@@ -98,6 +102,8 @@ const endpoints = {
   'engineers': 'api/engineers',
   'projects': 'api/projects',
   'revealed': 'api/revealed',
+  'shared': 'api/shared',
+  'pinned': 'api/pinned',
 }
 
 function Content(props) {
@@ -160,7 +166,7 @@ function Content(props) {
                 <Route element={<ProtectedRoute logged={props.logged} session={props.session}/>}>
                   <Route path="/status" element={<StatusContent data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/news" element={<NewsContent data={data}/>}/>
-                  <Route path="/galaxy" element={<Galaxy data={data}/>}/>
+                  <Route path="/galaxy" element={<Galaxy data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/forums" element={<Forums/>}/>
                   <Route path="/history" element={<History/>}/>
                   <Route path="/settle" element={<Settle data={data} loading={loading} updateData={updateData}/>}/>

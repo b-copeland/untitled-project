@@ -1015,7 +1015,7 @@ def build_structures():
     return (flask.jsonify(structures_patch_response.text), 200)
 
 def _get_max_kd_info(kd_id, revealed_info):
-    always_allowed_keys = {"name"}
+    always_allowed_keys = {"name", "race"}
     allowed_keys = {
         "stats": ["stars", "score"],
         "kingdom": ["stars", "fuel", "population", "score", "money", "spy_attempts", "auto_spending", "missiles"],
@@ -1588,6 +1588,105 @@ def revealed():
     print(kd_id, file=sys.stderr)
     revealed_info = _get_revealed(kd_id)
     return (flask.jsonify(revealed_info), 200)
+
+def _get_shared(kd_id):
+    shared_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(shared_info.text, file=sys.stderr)
+    shared_info_parse = json.loads(shared_info.text)
+    return shared_info_parse
+
+@app.route('/api/shared', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def shared():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    shared_info = _get_shared(kd_id)
+    return (flask.jsonify(shared_info), 200)
+
+@app.route('/api/shared', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def accept_shared():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    accepted_kd = str(req["shared"])
+    print(accepted_kd)
+
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    shared_info = _get_shared(kd_id)
+
+    new_shared = shared_info["shared_requests"].pop(accepted_kd)
+    shared_info["shared"][accepted_kd] = new_shared
+
+    shared_info_response = REQUESTS_SESSION.post(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(shared_info),
+    )
+
+    return (flask.jsonify(shared_info_response.text), 200)
+
+def _get_pinned(kd_id):
+    pinned_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(pinned_info.text, file=sys.stderr)
+    pinned_info_parse = json.loads(pinned_info.text)
+    return pinned_info_parse
+
+@app.route('/api/pinned', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def pinned():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    pinned_info = _get_pinned(kd_id)
+    return (flask.jsonify(pinned_info["pinned"]), 200)
+
+@app.route('/api/pinned', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def update_pinned():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    print(req)
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    
+    pinned_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(req),
+    )
+    return (flask.jsonify(pinned_patch_response.text), 200)
 
 
 @app.route('/api/kingdomsinfo', methods=['POST'])

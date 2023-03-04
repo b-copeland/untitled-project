@@ -21,7 +21,7 @@ function StatusContent(props) {
         variant="tabs"
       >
         <Tab eventKey="kingdom" title="Kingdom">
-          <Status kingdom={props.data.kingdom}/>
+          <Status kingdom={props.data.kingdom} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted}/>
         </Tab>
         <Tab eventKey="revealed" title="Revealed">
           <Revealed kingdom={props.data.kingdom} kingdoms={props.data.kingdoms}/>
@@ -46,15 +46,15 @@ function Status(props) {
     return (
         <div className="status">
             <div className="text-box kingdom-card">
-                <h4>Omni (1:2)</h4>
+                <h4>{props.kingdoms[props.kingdom.kdId] || ""} ({props.galaxies_inverted[props.kingdom.kdId] || ""})</h4>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Name</span>
-                    <span className="text-box-item-value">Player1</span>
+                    <span className="text-box-item-value">{props.kingdoms[props.kingdom.kdId] || ""}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Race</span>
-                    <span className="text-box-item-value">Human</span>
+                    <span className="text-box-item-value">{props.kingdom.race}</span>
                 </div>
                 <br />
                 <div className="text-box-item">

@@ -25,6 +25,14 @@
     margin-left: 5px;
 }
 
+.remaining-time-title-shared {
+    width: 45%;
+    float: left;
+    text-align: left;
+    margin-left: 5px;
+    color: green;
+}
+
 .remaining-time-value {
     width: 45%;
     float: right;
