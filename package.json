@@ -13,6 +13,7 @@
     "react-router-dom": ">=5.2.0",
     "react-scripts": ">=3.4.3",
     "react-token-auth": "2.3.6",
+    "react-select": "latest",
     "yarn": ">=1.22.19"
   },
   "scripts": {

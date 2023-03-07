@@ -156,6 +156,12 @@ BASE_MISSILE_TIME_MULTIPLER = 24
 
 BASE_REVEAL_DURATION_MULTIPLIER = 8
 
+BASE_GENERALS_BONUS = lambda generals: (generals - 1) * 0.03
+BASE_GENERALS_RETURN_TIME_MULTIPLIER = 8
+BASE_DEFENDER_UNIT_LOSS_RATE = 0.05
+BASE_ATTACKER_UNIT_LOSS_RATE = 0.05
+BASE_KINGDOM_LOSS_RATE = 0.10
+
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -596,6 +602,34 @@ def _calc_units(
         units[f"hour_{hours}"] = hour_units
     return units
 
+def _calc_max_offense(
+    unit_dict,
+    military_bonus=0.25,
+    other_bonuses=0.0,
+    generals=4,
+):
+
+    raw_attack = sum([
+        stat_map["offense"] * unit_dict.get(key, 0)
+        for key, stat_map in UNITS.items() 
+    ])
+    attack_w_bonuses = raw_attack * (1 + BASE_GENERALS_BONUS(generals) + military_bonus + other_bonuses)
+    return math.floor(attack_w_bonuses)
+
+def _calc_max_defense(
+    unit_dict,
+    military_bonus=0.25,
+    other_bonuses=0.0,
+    shields=0.10,
+):
+
+    raw_defense = sum([
+        stat_map["defense"] * unit_dict.get(key, 0)
+        for key, stat_map in UNITS.items() 
+    ])
+    defense_w_bonuses = raw_defense * (1 + shields + military_bonus + other_bonuses)
+    return math.floor(defense_w_bonuses)
+
 def _calc_maxes(
     units,
 ):
@@ -608,10 +642,7 @@ def _calc_maxes(
     #     for type_max, type_units in units.items() 
     # }
     maxes["defense"] = {
-        type_max: sum([
-            stat_map["defense"] * type_units.get(key, 0)
-            for key, stat_map in UNITS.items() 
-        ])
+        type_max: _calc_max_defense(type_units)
         for type_max, type_units in units.items() 
     }
     # maxes["offense"] = {
@@ -622,10 +653,7 @@ def _calc_maxes(
     #     for type_max, type_units in units.items() 
     # }
     maxes["offense"] = {
-        type_max: sum([
-            stat_map["offense"] * type_units.get(key, 0)
-            for key, stat_map in UNITS.items() 
-        ])
+        type_max: _calc_max_offense(type_units)
         for type_max, type_units in units.items() 
     }
     return maxes
@@ -1041,7 +1069,38 @@ def _get_max_kd_info(kd_id, revealed_info):
         for k, v in kd_info_parse.items()
         if k in kingdom_info_keys
     }
+    if "projects_points" in kd_info_parse_allowed:
+        kd_info_parse_allowed["max_bonuses"] = {
+            project: project_dict.get("max_bonus", 0)
+            for project, project_dict in PROJECTS.items()
+            if "max_bonus" in project_dict
+        }
+        kd_info_parse_allowed["current_bonuses"] = {
+            project: project_dict.get("max_bonus", 0) * kd_info_parse_allowed["projects_points"][project] / kd_info_parse_allowed["projects_max_points"][project]
+            for project, project_dict in PROJECTS.items()
+            if "max_bonus" in project_dict
+        }
     return kd_info_parse_allowed
+
+
+@app.route('/api/kingdom/<other_kd_id>', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def max_kingdom(other_kd_id):
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+
+    revealed_info = _get_revealed(kd_id)["revealed"]
+    max_kd_info = _get_max_kd_info(other_kd_id, revealed_info)
+
+    return (flask.jsonify(max_kd_info), 200)
+
 
 @app.route('/api/galaxy/<galaxy>', methods=['GET'])
 @flask_praetorian.auth_required
@@ -1789,6 +1848,160 @@ def reveal_random_galaxy():
 
 
     return (flask.jsonify(reveal_galaxy_response.text), 200)
+
+def _validate_attack_request(
+    attacker_raw_values,
+    kd_info
+):
+    attacker_units = {
+        key: int(value)
+        for key, value in attacker_raw_values.items()
+        if (key in UNITS and value != "")
+    }
+    if any((
+        attack_units > kd_info["units"].get(key_unit, 0)
+        for key_unit, attack_units in attacker_units.items()
+    )):
+        return False, "You do not have that many units"
+    if int(attacker_raw_values["generals"] or 0) > kd_info["generals_available"]:
+        return False, "You do not have that many generals"
+    if int(attacker_raw_values["generals"] or 0) == 0:
+        return False, "You must send at least 1 general"
+    
+    return True, ""
+
+def _calc_losses(
+    unit_dict,
+    loss_rate,
+):
+    losses = {
+        key_unit: math.floor(value_unit * loss_rate)
+        for key_unit, value_unit in unit_dict.items()
+    }
+    return losses
+
+def _calc_generals_return_time(
+    generals,
+    return_multiplier,
+    base_time,
+):
+    return_times = [
+        base_time + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * return_multiplier / i)
+        for i in range(generals, 0, -1)
+    ]
+    return return_times
+
+@app.route('/api/calculate/<target_kd>', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def calculate_attack(target_kd):
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    attacker_raw_values = req["attackerValues"]
+    defender_raw_values = req["defenderValues"]
+
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    current_bonuses = {
+        project: project_dict.get("max_bonus", 0) * kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project]
+        for project, project_dict in PROJECTS.items()
+        if "max_bonus" in project_dict
+    }
+
+    revealed = _get_revealed(kd_id)["revealed"]
+    shared = _get_shared(kd_id)["shared"]
+    max_target_kd_info = _get_max_kd_info(target_kd, revealed)
+
+    valid_attack_request, attack_request_message = _validate_attack_request(
+        attacker_raw_values,
+        kd_info_parse,
+    )
+    if not valid_attack_request:
+        return (flask.jsonify({"message": attack_request_message}), 400)
+
+    attacker_units = {
+        key: int(value)
+        for key, value in attacker_raw_values.items()
+        if (key in UNITS and value != "")
+    }
+    if "units" in max_target_kd_info:
+        defender_units = max_target_kd_info["units"]
+    else:
+        defender_units = {
+            key: int(value)
+            for key, value in defender_raw_values.items()
+            if (key in UNITS and value != "")
+        }
+    attack = _calc_max_offense(
+        attacker_units,
+        military_bonus=float(current_bonuses['military_bonus'] or 0), 
+        other_bonuses=0,
+        generals=int(attacker_raw_values["generals"]),
+    )
+    defense = _calc_max_defense(
+        defender_units,
+        military_bonus=float(defender_raw_values['military_bonus'] or 0), 
+        other_bonuses=0,
+        shields=float(defender_raw_values["shields"] or 0),
+    )
+    attacker_losses = _calc_losses(
+        attacker_units,
+        BASE_ATTACKER_UNIT_LOSS_RATE,
+    )
+    defender_losses = _calc_losses(
+        defender_units,
+        BASE_DEFENDER_UNIT_LOSS_RATE,
+    )
+    time_now = datetime.datetime.now()
+    generals_return_times = _calc_generals_return_time(
+        int(attacker_raw_values["generals"]),
+        BASE_GENERALS_RETURN_TIME_MULTIPLIER,
+        time_now,
+    )
+    generals_strftime = ', '.join([
+        str(general_return_time - time_now)
+        for general_return_time in generals_return_times
+    ])
+    if attack > defense:
+        message = f"The attack will be a success!\n"
+        message += f"Your general(s) will return in: {generals_strftime}. \n"
+        spoils_values = {
+            key_spoil: math.floor(value_spoil * BASE_KINGDOM_LOSS_RATE)
+            for key_spoil, value_spoil in max_target_kd_info.items()
+            if key_spoil in {"stars", "population", "money"}
+        }
+        if spoils_values:
+            message += 'You will gain '
+            message += ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
+            message += ' \n'
+    else:
+        message = f"The attack will fail.\n"
+        message += f"Your general(s) will return in: {generals_strftime}\n"
+
+    payload = {
+        "defender_defense": defense,
+        "attacker_offense": attack,
+        "defender_losses": defender_losses,
+        "attacker_losses": attacker_losses,
+        "defender_unit_losses_rate": BASE_DEFENDER_UNIT_LOSS_RATE,
+        "attacker_unit_losses_rate": BASE_ATTACKER_UNIT_LOSS_RATE,
+        "defender_stars_loss_rate": BASE_KINGDOM_LOSS_RATE,
+        "generals_return_times": generals_return_times,
+        "message": message
+    }
+
+    return (flask.jsonify(payload), 200)
 
 
 @app.route('/api/protected')

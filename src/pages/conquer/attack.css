@@ -1,0 +1,87 @@
+.attack {
+    min-height: 480px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.attack-kingdom-form {
+    min-width: 15%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.attack-kingdom-select {
+    width: 100%;
+}
+
+.battle-stats {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+}
+
+.defender-stats {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.defender-detail {
+    display: flex;
+    flex-direction: row;
+}
+
+.defender-text-boxes {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.defender-table {
+    width: 50%;
+}
+
+.attacker-stats {
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.attacker-detail {
+    display: flex;
+    flex-direction: row;
+}
+
+.attacker-text-boxes {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+.attacker-table {
+    width: 50%;
+}
+
+.attack-results {
+    display: flex;
+    min-height: 100px;
+    min-width: 40%;
+    align-items: center;
+}
+
+.attack-results-box {
+    min-height: 100%;
+    min-width: 20%;
+    max-width: 50%;
+}
+
+.calculate-button {
+    margin: 5px;
+}
+
+.attack-button {
+    margin: 5px;
+}

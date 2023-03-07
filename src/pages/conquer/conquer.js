@@ -317,7 +317,7 @@ function Revealed(props) {
 }
 
 function Shared(props) {
-    const [maxKdInfo, setMaxKdInfo] = useState({});
+    // const [maxKdInfo, setMaxKdInfo] = useState({});
     const [showAttack, setShowAttack] = useState(false);
     const [showSpy, setShowSpy] = useState(false);
     const [showMissile, setShowMissile] = useState(false);
@@ -325,24 +325,24 @@ function Shared(props) {
     const [showGalaxy, setShowGalaxy] = useState(false);
     const [galaxyToShow, setGalaxyToShow] = useState('');
 
-    useEffect(() => {
-        const fetchData = async () => {
-            if (props.pinned.length > 0) {
-                var sharedKds = Array();
-                sharedKds.push.apply(
-                    Object.keys(props.shared.shared),
-                    Object.keys(props.shared.shared_requests),
-                    Object.keys(props.shared.shared_offers),
-                )
-                const opts = {"kingdoms": sharedKds}
-                await authFetch("api/kingdomsinfo", {
-                    method: "POST",
-                    body: JSON.stringify(opts)
-                }).then(r => r.json()).then(r => setMaxKdInfo(r));
-            };
-        }
-        fetchData();
-    }, [props.shared])
+    // useEffect(() => {
+    //     const fetchData = async () => {
+    //         var sharedKds = Array();
+    //         sharedKds.push.apply(
+    //             Object.keys(props.shared.shared),
+    //             Object.keys(props.shared.shared_requests),
+    //             Object.keys(props.shared.shared_offers),
+    //         )
+    //         const opts = {"kingdoms": sharedKds}
+    //         if (sharedKds.length > 0) {
+    //             await authFetch("api/kingdomsinfo", {
+    //                 method: "POST",
+    //                 body: JSON.stringify(opts)
+    //             }).then(r => r.json()).then(r => setMaxKdInfo(r));
+    //         }
+    //     };
+    //     fetchData();
+    // }, [props.shared])
     if (!props.shared.hasOwnProperty('shared')) {
         return <h3>Loading...</h3>
     }
