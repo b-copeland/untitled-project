@@ -1210,6 +1210,27 @@ def update_spy_history(req: func.HttpRequest) -> func.HttpResponse:
             "The kingdom spy_history were not updated",
             status_code=500,
         )
+        
+@APP.function_name(name="GetAttackHistory")
+@APP.route(route="kingdom/{kdId:int}/attackhistory", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_attackhistory(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get attackhistory request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"attack_history_{kd_id}"
+    attackhistory = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(attackhistory),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom attackhistory could not be retrieved",
+            status_code=500,
+        )
 
 @APP.function_name(name="UpdateAttackHistory")
 @APP.route(route="kingdom/{kdId:int}/attackhistory", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])

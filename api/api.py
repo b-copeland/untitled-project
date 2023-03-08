@@ -516,6 +516,28 @@ def universe_news():
     return (flask.jsonify(news_parse["news"]), 200)
 
 
+
+@app.route('/api/attackhistory')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def attack_history():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    history = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(history.text, file=sys.stderr)
+    history_parse = json.loads(history.text)
+    return (flask.jsonify(history_parse["attack_history"]), 200)
+
+
 def _validate_spending(spending_input):
     """Confirm that spending request is valid"""
 
