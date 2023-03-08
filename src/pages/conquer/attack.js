@@ -4,6 +4,9 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
+import InputGroup from 'react-bootstrap/InputGroup';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./attack.css";
 import Select from 'react-select';
 
@@ -33,6 +36,7 @@ function Attack(props) {
     const [calcMessage, setCalcMessage] = useState({"message": "Press calculate to project results"})
     const [loadingCalc, setLoadingCalc] = useState(false);
     const [targetKdInfo, setTargetKdInfo] = useState({});
+    const [attackResults, setAttackResults] = useState([]);
   
     const handleChange = (selectedOption) => {
         setSelected(selectedOption.value);
@@ -55,7 +59,20 @@ function Attack(props) {
           [name]: value,
         });
     };
-    const onClickAttack = () => {};
+    const onClickAttack = () => {
+        if (selected != undefined) {
+            const opts = {
+                "attackerValues": attackerValues,
+            };
+            const updateFunc = async () => authFetch('api/attack/' + selected, {
+                method: 'POST',
+                body: JSON.stringify(opts)
+            }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("")})
+            props.updateData(['kingdom', 'projects'], [updateFunc]);
+        } else {
+            setCalcMessage({"message": "Please select a target in order to attack"})
+        }
+    };
     const onClickCalculate = async (e) => {
         if (selected != undefined) {
             const opts = {
@@ -86,9 +103,6 @@ function Attack(props) {
         return {"value": kdId, "label": kdFullLabel(kdId)}
     })
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
-    console.log(targetKdInfo);
-    console.log(defenderValues);
-    console.log(calcMessage);
     if (props.data.projects.current_bonuses?.military_bonus && attackerValues.military_bonus === "") {
         setAttackerValues({
             ...attackerValues,
@@ -96,8 +110,24 @@ function Attack(props) {
         });
     }
 
+    const toasts = attackResults.map((results, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setAttackResults(attackResults.slice(0, index).concat(attackResults.slice(index + 1, 999)))}
+            show={true}
+            bg={results.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Attack Results</strong>
+            </Toast.Header>
+            <Toast.Body>{results.message}</Toast.Body>
+        </Toast>
+    )
     return (
         <div className="attack">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
             <h2>Attack</h2>
             <form className="attack-kingdom-form">
                 <label id="aria-label" htmlFor="aria-example-input">
@@ -214,50 +244,74 @@ function Attack(props) {
                                     <td>Military Efficiency</td>
                                     <td>
                                         {   targetKdInfo.hasOwnProperty("current_bonuses")
-                                            ? <Form.Control 
-                                                className="unit-form"
-                                                id="military-efficiency-input"
-                                                name="military_bonus"
-                                                value={displayPercent(targetKdInfo.current_bonuses.military_bonus) || "0%"} 
-                                                placeholder="0"
-                                                disabled
-                                            />
-                                            : <Form.Control 
-                                                className="unit-form"
-                                                id="military-efficiency-input"
-                                                name="military_bonus"
-                                                onChange={handleDefenderChange}
-                                                value={defenderValues.military_bonus || ""} 
-                                                placeholder="0"
-                                            />
+                                            ? <InputGroup className="mb-3">
+                                                <Form.Control
+                                                    className="unit-form"
+                                                    id="military-efficiency-input"
+                                                    name="military_bonus"
+                                                    value={targetKdInfo.current_bonuses.military_bonus * 100 || ""} 
+                                                    placeholder="0"
+                                                    disabled
+                                                />
+                                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                            </InputGroup>
+                                            : <InputGroup className="mb-3">
+                                                <Form.Control
+                                                    className="unit-form"
+                                                    id="military-efficiency-input"
+                                                    name="military_bonus"
+                                                    onChange={handleDefenderChange}
+                                                    value={defenderValues.military_bonus || ""} 
+                                                    placeholder="0"
+                                                />
+                                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                            </InputGroup>
                                         }
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>Shields</td>
                                     <td>
-                                        <Form.Control 
-                                            className="unit-form"
-                                            id="shields-input"
-                                            name="shields"
-                                            onChange={handleDefenderChange}
-                                            value={defenderValues.shields || ""} 
-                                            placeholder="0"
-                                        />
+                                        {   targetKdInfo.hasOwnProperty("shields")
+                                            ? <InputGroup className="mb-3">
+                                                <Form.Control
+                                                    className="unit-form"
+                                                    id="shields-input"
+                                                    name="shields"
+                                                    value={targetKdInfo.shields.military * 100 || ""} 
+                                                    placeholder="0"
+                                                    disabled
+                                                />
+                                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                            </InputGroup>
+                                            : <InputGroup className="mb-3">
+                                                <Form.Control
+                                                    className="unit-form"
+                                                    id="shields-input"
+                                                    name="shields"
+                                                    onChange={handleDefenderChange}
+                                                    value={defenderValues.shields || ""} 
+                                                    placeholder="0"
+                                                />
+                                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                            </InputGroup>
+                                        }
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>Other Bonuses</td>
                                     <td>
-                                        <Form.Control 
+                                        <InputGroup className="mb-3">
+                                            <Form.Control
                                             className="unit-form"
                                             id="other-bonuses-input"
                                             name="other_bonuses"
-                                            onChange={handleDefenderChange}
-                                            value={defenderValues.other_bonuses || ""} 
+                                            value={defenderValues.other_bonuses * 100 || ""} 
                                             placeholder="0"
                                             disabled
-                                        />
+                                            />
+                                            <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                        </InputGroup>
                                     </td>
                                 </tr>
                             </tbody>

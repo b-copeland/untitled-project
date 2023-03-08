@@ -321,7 +321,7 @@ def get_universe_news(req: func.HttpRequest) -> func.HttpResponse:
 def update_news(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update news request.')    
     req_body = req.get_json()
-    new_news = req_body["news"]
+    new_news = req_body
     kd_id = str(req.route_params.get('kdId'))
     item_id = f"news_{kd_id}"
     news = CONTAINER.read_item(
@@ -329,7 +329,7 @@ def update_news(req: func.HttpRequest) -> func.HttpResponse:
         partition_key=item_id,
     )
     try:
-        if isinstance(new_news, str):
+        if isinstance(new_news, dict):
             news["news"] = [new_news] + news["news"]
         else:
             news["news"] = new_news + news["news"]
@@ -1216,7 +1216,7 @@ def update_spy_history(req: func.HttpRequest) -> func.HttpResponse:
 def update_attack_history(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update attack_history request.')    
     req_body = req.get_json()
-    new_attack_history = req_body["attack_history"]
+    new_attack_history = req_body
     kd_id = str(req.route_params.get('kdId'))
     item_id = f"attack_history_{kd_id}"
     attack_history = CONTAINER.read_item(
@@ -1224,7 +1224,7 @@ def update_attack_history(req: func.HttpRequest) -> func.HttpResponse:
         partition_key=item_id,
     )
     try:
-        attack_history["attack_history"] = attack_history["attack_history"] + new_attack_history
+        attack_history["attack_history"] = [new_attack_history] + attack_history["attack_history"]
         CONTAINER.replace_item(
             item_id,
             attack_history,
