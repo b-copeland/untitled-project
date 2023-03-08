@@ -392,6 +392,7 @@ function Attack(props) {
                             <thead>
                                 <tr>
                                     <th>Value</th>
+                                    <th>Available</th>
                                     <th>Input</th>
                                 </tr>
                             </thead>
@@ -407,6 +408,7 @@ function Attack(props) {
                                             placeholder="0"
                                         />
                                     </td>
+                                    <td>{props.data.kingdom?.units?.attack}</td>
                                     <td>Attackers</td>
                                 </tr>
                                 <tr>
@@ -420,6 +422,7 @@ function Attack(props) {
                                             placeholder="0"
                                         />
                                     </td>
+                                    <td>{props.data.kingdom?.units?.flex}</td>
                                     <td>Flexers</td>
                                 </tr>
                                 <tr>
@@ -433,6 +436,7 @@ function Attack(props) {
                                             placeholder="0"
                                         />
                                     </td>
+                                    <td>{props.data.kingdom?.units?.big_flex || 0}</td>
                                     <td>Big Flexers</td>
                                 </tr>
                                 <tr>
@@ -447,20 +451,8 @@ function Attack(props) {
                                             disabled
                                         />
                                     </td>
+                                    <td></td>
                                     <td>Military Efficiency</td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        <Form.Control 
-                                            className="unit-form"
-                                            id="generals-input"
-                                            name="generals"
-                                            onChange={handleAttackerChange}
-                                            value={attackerValues.generals || ""} 
-                                            placeholder="0"
-                                        />
-                                    </td>
-                                    <td>Generals</td>
                                 </tr>
                                 <tr>
                                     <td>
@@ -473,7 +465,22 @@ function Attack(props) {
                                             disabled
                                         />
                                     </td>
+                                    <td></td>
                                     <td>Other Bonuses</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <Form.Control 
+                                            className="unit-form"
+                                            id="generals-input"
+                                            name="generals"
+                                            onChange={handleAttackerChange}
+                                            value={attackerValues.generals || ""} 
+                                            placeholder="0"
+                                        />
+                                    </td>
+                                    <td>{props.data.kingdom?.generals_available}</td>
+                                    <td>Generals</td>
                                 </tr>
                             </tbody>
                         </Table>
