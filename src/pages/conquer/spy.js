@@ -27,6 +27,14 @@ function Spy(props) {
     const [drones, setDrones] = useState();
     const [shieldDrones, setShieldDrones] = useState(false);
 
+    useEffect(() => {
+        if (props.initialKd != undefined) {
+            const fetchData = async () => {
+                await authFetch("api/kingdom/" + props.initialKd).then(r => r.json()).then(r => setTargetKdInfo(r));
+            };
+            fetchData();
+        }
+    }, []);
     const handleChange = (selectedOption) => {
         setSelected(selectedOption.value);
         const fetchData = async () => {
@@ -119,20 +127,17 @@ function Spy(props) {
             <Toast.Body>{results.message}</Toast.Body>
         </Toast>
     )
-    console.log(selected);
-    console.log(selectedOperation);
-    console.log(calcMessage);
     return (
         <div className="attack">
             <ToastContainer position="bottom-end">
                 {toasts}
             </ToastContainer>
-            <h2>Attack</h2>
+            <h2>Spy</h2>
             <form className="attack-kingdom-form">
                 <label id="aria-label" htmlFor="aria-example-input">
                     Select a target (type to filter)
                 </label>
-                <Select id="select-kingdom" className="attack-kingdom-select" options={kingdomOptions} onChange={handleChange} autoFocus={true} />
+                <Select id="select-kingdom" className="attack-kingdom-select" options={kingdomOptions} onChange={handleChange} autoFocus={true} defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)} />
             </form>
             <div className="battle-stats">
                 <div className="spy-defender-stats">

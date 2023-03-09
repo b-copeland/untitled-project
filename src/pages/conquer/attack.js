@@ -38,6 +38,14 @@ function Attack(props) {
     const [targetKdInfo, setTargetKdInfo] = useState({});
     const [attackResults, setAttackResults] = useState([]);
   
+    useEffect(() => {
+        if (props.initialKd != undefined) {
+            const fetchData = async () => {
+                await authFetch("api/kingdom/" + props.initialKd).then(r => r.json()).then(r => setTargetKdInfo(r));
+            };
+            fetchData();
+        }
+    }, []);
     const handleChange = (selectedOption) => {
         setSelected(selectedOption.value);
         const fetchData = async () => {
@@ -133,7 +141,7 @@ function Attack(props) {
                 <label id="aria-label" htmlFor="aria-example-input">
                     Select a target (type to filter)
                 </label>
-                <Select className="attack-kingdom-select" options={kingdomOptions} onChange={handleChange} autoFocus={true} />
+                <Select className="attack-kingdom-select" options={kingdomOptions} onChange={handleChange} autoFocus={true} defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}/>
             </form>
             <div className="battle-stats">
                 <div className="defender-stats">
@@ -489,7 +497,7 @@ function Attack(props) {
             </div>
             {/* <div className="attack-results"> */}
                 <div className="text-box attack-results-box">
-                    <span class="box-span">{calcMessage.message}</span>
+                    <span className="box-span">{calcMessage.message}</span>
                 </div>
             {/* </div> */}
             <div className="attack-buttons">

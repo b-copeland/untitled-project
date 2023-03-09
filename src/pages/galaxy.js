@@ -37,6 +37,7 @@ function Galaxy(props) {
     const [showSpy, setShowSpy] = useState(false);
     const [showMissile, setShowMissile] = useState(false);
     const [showMessage, setShowMessage] = useState(false);
+    const [kdToShow, setKdToShow] = useState();
 
     const galaxiesArray = Object.keys(props.data.galaxies);
     useEffect(() => {
@@ -138,10 +139,10 @@ function Galaxy(props) {
             <td>07:59:59</td>
             <td>Growth, Active</td>
             <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowAttack(true)}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowSpy(true)}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
                     Spy
                 </Button>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMissile(true)}>
@@ -182,7 +183,7 @@ function Galaxy(props) {
                     <Modal.Title>Attack</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Attack data={props.data} loading={props.loading} updateData={props.updateData}/>
+                    <Attack data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowAttack(false)}>
@@ -200,7 +201,7 @@ function Galaxy(props) {
                     <Modal.Title>Spy</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Spy data={props.data} loading={props.loading} updateData={props.updateData}/>
+                    <Spy data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowSpy(false)}>

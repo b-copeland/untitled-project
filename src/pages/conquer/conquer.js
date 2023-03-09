@@ -86,6 +86,7 @@ function Revealed(props) {
     const [showMessage, setShowMessage] = useState(false);
     const [showGalaxy, setShowGalaxy] = useState(false);
     const [galaxyToShow, setGalaxyToShow] = useState('');
+    const [kdToShow, setKdToShow] = useState();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -145,10 +146,10 @@ function Revealed(props) {
             <td>{maxKdInfo[kdId]?.stars || ""}</td>
             <td>{maxKdInfo[kdId]?.score || ""}</td>
             <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowAttack(true)}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowSpy(true)}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
                     Spy
                 </Button>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMissile(true)}>
@@ -195,7 +196,7 @@ function Revealed(props) {
                     <Modal.Title>Attack</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Attack data={props.data} loading={props.loading} updateData={props.updateData}/>
+                    <Attack data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowAttack(false)}>
@@ -213,7 +214,7 @@ function Revealed(props) {
                     <Modal.Title>Spy</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Spy data={props.data} loading={props.loading} updateData={props.updateData}/>
+                    <Spy data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowSpy(false)}>
@@ -324,6 +325,7 @@ function Shared(props) {
     const [showMessage, setShowMessage] = useState(false);
     const [showGalaxy, setShowGalaxy] = useState(false);
     const [galaxyToShow, setGalaxyToShow] = useState('');
+    const [kdToShow, setKdToShow] = useState();
 
     // useEffect(() => {
     //     const fetchData = async () => {
@@ -405,10 +407,10 @@ function Shared(props) {
             <td>{props.kingdoms[props.shared.shared[kdId].shared_by] || ""}</td>
             <td>{displayPercent(props.shared.shared[kdId].cut) || ""}</td>
             <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowAttack(true)}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowSpy(true)}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
                     Spy
                 </Button>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMissile(true)}>
@@ -516,7 +518,7 @@ function Shared(props) {
                     <Modal.Title>Attack</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Attack data={props.data} loading={props.loading} updateData={props.updateData}/>
+                    <Attack data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowAttack(false)}>
@@ -534,7 +536,7 @@ function Shared(props) {
                     <Modal.Title>Spy</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Spy data={props.data} loading={props.loading} updateData={props.updateData}/>
+                    <Spy data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowSpy(false)}>
@@ -663,6 +665,7 @@ function Pinned(props) {
     const [showMessage, setShowMessage] = useState(false);
     const [showGalaxy, setShowGalaxy] = useState(false);
     const [galaxyToShow, setGalaxyToShow] = useState('');
+    const [kdToShow, setKdToShow] = useState();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -715,10 +718,10 @@ function Pinned(props) {
             <td>{maxKdInfo[kdId]?.stars || ""}</td>
             <td>{maxKdInfo[kdId]?.score || ""}</td>
             <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowAttack(true)}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowSpy(true)}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
                     Spy
                 </Button>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMissile(true)}>
@@ -758,7 +761,7 @@ function Pinned(props) {
                     <Modal.Title>Attack</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Attack data={props.data} loading={props.loading} updateData={props.updateData}/>
+                    <Attack data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowAttack(false)}>
@@ -776,7 +779,7 @@ function Pinned(props) {
                     <Modal.Title>Spy</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Spy data={props.data} loading={props.loading} updateData={props.updateData}/>
+                    <Spy data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowSpy(false)}>
