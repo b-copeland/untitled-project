@@ -195,7 +195,7 @@ function Revealed(props) {
                     <Modal.Title>Attack</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Attack data={props.data}/>
+                    <Attack data={props.data} loading={props.loading} updateData={props.updateData}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowAttack(false)}>
@@ -213,7 +213,7 @@ function Revealed(props) {
                     <Modal.Title>Spy</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Spy data={props.data}/>
+                    <Spy data={props.data} loading={props.loading} updateData={props.updateData}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowSpy(false)}>
@@ -516,7 +516,7 @@ function Shared(props) {
                     <Modal.Title>Attack</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Attack data={props.data}/>
+                    <Attack data={props.data} loading={props.loading} updateData={props.updateData}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowAttack(false)}>
@@ -534,7 +534,7 @@ function Shared(props) {
                     <Modal.Title>Spy</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Spy data={props.data}/>
+                    <Spy data={props.data} loading={props.loading} updateData={props.updateData}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowSpy(false)}>
@@ -758,7 +758,7 @@ function Pinned(props) {
                     <Modal.Title>Attack</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Attack data={props.data}/>
+                    <Attack data={props.data} loading={props.loading} updateData={props.updateData}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowAttack(false)}>
@@ -776,7 +776,7 @@ function Pinned(props) {
                     <Modal.Title>Spy</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Spy data={props.data}/>
+                    <Spy data={props.data} loading={props.loading} updateData={props.updateData}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowSpy(false)}>

@@ -1,0 +1,29 @@
+
+
+.spy-defender-stats {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.spy-attacker-stats {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.spy-results-box {
+    min-height: 20%;
+    min-width: 20%;
+    max-width: 90%;
+}
+
+.drones-input-group {
+    width: 50%;
+}
+
+.box-span {
+    white-space: pre-line;
+}

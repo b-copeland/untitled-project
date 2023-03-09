@@ -49,7 +49,7 @@ function HistoryContent(props) {
           <Attack kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} attackhistory={props.data.attackhistory}/>
         </Tab>
         <Tab eventKey="spy" title="Spy">
-          <Spy kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} />
+          <Spy kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} spyhistory={props.data.spyhistory} />
         </Tab>
         <Tab eventKey="missiles" title="Missiles">
           <Missiles kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} />
@@ -93,9 +93,36 @@ function Attack(props) {
 }
 
 function Spy(props) {
+    if (props.spyhistory.length === 0) {
+        return <h2>Loading...</h2>;
+    }
+    const newsRows = props.spyhistory.map((newsItem) =>
+        <tr key={newsItem.time}>
+            <td>{getNiceTimeString(newsItem.time)}</td>
+            <td>{getTimeSinceString(newsItem.time)}</td>
+            <td>{props.kingdoms[newsItem.to]} ({props.galaxies_inverted[newsItem.to]})</td>
+            <td>{newsItem.operation || ""}</td>
+            <td>{newsItem.news}</td>
+        </tr>
+    );
     return (
-        <h2>Coming Soon</h2>
-    )
+        <div className="kingdom">
+            <Table striped bordered hover>
+                <thead>
+                    <tr>
+                    <th>Time</th>
+                    <th>Time Since</th>
+                    <th>Target</th>
+                    <th>Operation</th>
+                    <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {newsRows}
+                </tbody>
+            </Table>
+        </div>
+    );
 }
 
 function Missiles(props) {

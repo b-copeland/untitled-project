@@ -160,13 +160,26 @@ BASE_WORKSHOP_CAPACITY = 50
 
 BASE_MISSILE_TIME_MULTIPLER = 24
 
-BASE_REVEAL_DURATION_MULTIPLIER = 8
-
 BASE_GENERALS_BONUS = lambda generals: (generals - 1) * 0.03
 BASE_GENERALS_RETURN_TIME_MULTIPLIER = 8
 BASE_DEFENDER_UNIT_LOSS_RATE = 0.05
 BASE_ATTACKER_UNIT_LOSS_RATE = 0.05
 BASE_KINGDOM_LOSS_RATE = 0.10
+
+BASE_STARS_DRONE_DEFENSE_MULTIPLIER = 4
+BASE_DRONES_DRONE_DEFENSE_MULTIPLIER = 1
+BASE_SPY_MIN_SUCCESS_CHANCE = 0.10
+BASE_DRONES_SUCCESS_LOSS_RATE = 0.01
+BASE_DRONES_FAILURE_LOSS_RATE = 0.02
+BASE_DRONES_SHIELDING_LOSS_REDUCTION = 0.5
+BASE_REVEAL_DURATION_MULTIPLIER = 8
+
+REVEAL_OPERATIONS = [
+    "spykingdom",
+    "spymilitary",
+    "spyshields",
+    "spyprojects",
+]
 
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
@@ -536,6 +549,27 @@ def attack_history():
     print(history.text, file=sys.stderr)
     history_parse = json.loads(history.text)
     return (flask.jsonify(history_parse["attack_history"]), 200)
+
+
+@app.route('/api/spyhistory')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def spy_history():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    history = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(history.text, file=sys.stderr)
+    history_parse = json.loads(history.text)
+    return (flask.jsonify(history_parse["spy_history"]), 200)
 
 
 def _validate_spending(spending_input):
@@ -2297,7 +2331,238 @@ def attack(target_kd):
         "message": attacker_message,
     }
     return (flask.jsonify(attack_results), 200)
+
+def _validate_spy_request(
+    drones,
+    kd_info,
+    shielded,
+):
+    if drones > kd_info["drones"]:
+        return False, "You do not have that many drones"
+    if drones < 0:
+        return False, "You can not send negative drones"
+    if shielded:
+        if kd_info["fuel"] < drones:
+            return False, "You do not have enough fuel"
+    if kd_info["spy_attempts"] == 0:
+        return False, "You do not have any more spy attempts"
+    
+    return True, ""
+
+def _calculate_spy_probability(
+    drones_to_send,
+    target_drones,
+    target_stars,
+    target_shields,
+):
+    drones_defense = target_drones * BASE_DRONES_DRONE_DEFENSE_MULTIPLIER
+    stars_defense = target_stars * BASE_STARS_DRONE_DEFENSE_MULTIPLIER
+    total_defense = max(drones_defense + stars_defense, 1)
+
+    base_probability = min(max(drones_to_send / total_defense, BASE_SPY_MIN_SUCCESS_CHANCE), 1.0)
+    shielded_probability = base_probability * (1 - target_shields)
+
+    return shielded_probability, drones_defense, stars_defense
+
+def _calculate_spy_losses(
+    drones_to_send,
+    shielded,
+):
+    shielded_reduction = 1 - (int(shielded) * BASE_DRONES_SHIELDING_LOSS_REDUCTION)
+    success_loss = math.floor(drones_to_send * BASE_DRONES_SUCCESS_LOSS_RATE * shielded_reduction)
+    failure_loss = math.floor(drones_to_send * BASE_DRONES_FAILURE_LOSS_RATE * shielded_reduction)
+    return success_loss, failure_loss
+    
         
+@app.route('/api/calculatespy/<target_kd>', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def calculate_spy(target_kd):
+    req = flask.request.get_json(force=True)
+    drones = int(req["drones"])
+    shielded = req["shielded"]
+    defender_raw_values = req["defenderValues"]
+    operation = req["operation"]
+
+    kd_id = flask_praetorian.current_user().kd_id
+    if target_kd == kd_id:
+        return (flask.jsonify("You cannot attack yourself!"), 400)
+
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    valid_request, message = _validate_spy_request(
+        drones,
+        kd_info_parse,
+        shielded,
+    )
+    if not valid_request:
+        return (flask.jsonify({"message": message}), 400)
+    
+    revealed = _get_revealed(kd_id)["revealed"]
+    max_target_kd_info = _get_max_kd_info(target_kd, revealed)
+    
+    if "drones" in max_target_kd_info:
+        defender_drones = max_target_kd_info["drones"]
+    else:
+        defender_drones = int(defender_raw_values["drones"] or 0)
+    
+    if "stars" in max_target_kd_info:
+        defender_stars = max_target_kd_info["stars"]
+    else:
+        defender_stars = int(defender_raw_values["stars"] or 0)
+
+    if "shields" in max_target_kd_info:
+        defender_shields = max_target_kd_info["shields"]["spy"]
+    else:
+        defender_shields = float(defender_raw_values['shields'] or 0) / 100
+    
+    spy_probability, drones_defense, stars_defense = _calculate_spy_probability(
+        drones,
+        defender_drones,
+        defender_stars,
+        defender_shields
+    )
+    success_losses, failure_losses = _calculate_spy_losses(drones, shielded)
+
+    message = f"The operation has a {spy_probability:.2%} chance of success. \n\nIf successful, {success_losses} drones will be lost. \nIf unsuccessful, {failure_losses} drones will be lost.\n"
+
+    if operation in REVEAL_OPERATIONS:
+        revealed_stat = operation.replace('spy', '')
+        reveal_duration_seconds = BASE_REVEAL_DURATION_MULTIPLIER * BASE_EPOCH_SECONDS
+        reveal_duration_hours = reveal_duration_seconds / 3600
+        message += f"If successful, the target's {revealed_stat} will be revealed for {reveal_duration_hours} hours.\n"
+
+    payload = {
+        "message": message,
+        "stars_defense": stars_defense,
+        "drones_defense": drones_defense,
+        "total_defense": stars_defense + drones_defense,
+    }
+    return (flask.jsonify(payload), 200)
+    
+        
+@app.route('/api/spy/<target_kd>', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def spy(target_kd):
+    req = flask.request.get_json(force=True)
+    drones = int(req["drones"])
+    shielded = req["shielded"]
+    operation = req["operation"]
+
+    kd_id = flask_praetorian.current_user().kd_id
+    if target_kd == kd_id:
+        return (flask.jsonify("You cannot attack yourself!"), 400)
+
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    valid_request, message = _validate_spy_request(
+        drones,
+        kd_info_parse,
+        shielded,
+    )
+    if not valid_request:
+        return (flask.jsonify({"message": message}), 400)
+    
+    revealed = _get_revealed(kd_id)["revealed"]
+    max_target_kd_info = _get_max_kd_info(target_kd, revealed, max=True)
+    
+    defender_drones = max_target_kd_info["drones"]
+    defender_stars = max_target_kd_info["stars"]
+    defender_shields = max_target_kd_info["shields"]["spy"]
+    
+    spy_probability, drones_defense, stars_defense = _calculate_spy_probability(
+        drones,
+        defender_drones,
+        defender_stars,
+        defender_shields
+    )
+    success_losses, failure_losses = _calculate_spy_losses(drones, shielded)
+
+    success = random.uniform(0, 1) < spy_probability
+
+    time_now = datetime.datetime.now()
+    if success:
+        status = "success"
+        if operation in REVEAL_OPERATIONS:
+            revealed_stat = operation.replace('spy', '')
+            reveal_duration_seconds = BASE_REVEAL_DURATION_MULTIPLIER * BASE_EPOCH_SECONDS
+            revealed_until = time_now + datetime.timedelta(seconds=reveal_duration_seconds)
+            reveal_duration_hours = reveal_duration_seconds / 3600
+
+            revealed_payload = {
+                "revealed": {
+                    target_kd: {
+                        revealed_stat: revealed_until.isoformat()
+                    }
+                }
+            }
+            reveal_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(revealed_payload),
+            )
+            message = f"Success! The target will be revealed for {reveal_duration_hours} hours. You have lost {success_losses} drones."
+        target_message = "You were infiltrated by drones on a spy operation"
+        losses = success_losses
+    else:
+        status = "failure"
+        message = f"Failure! You have lost {failure_losses} drones."
+        target_message = f"{kd_info_parse['name']} failed a spy operation on you"
+        losses = failure_losses
+
+    kd_patch_payload = {
+        "drones": kd_info_parse["drones"] - losses,
+        "spy_attempts": kd_info_parse["spy_attempts"] - 1
+    }
+    if shielded:
+        kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_patch_payload, default=str),
+    )
+
+    history_payload = {
+        "time": time_now.isoformat(),
+        "to": target_kd,
+        "operation": operation,
+        "news": message,
+    }
+    kd_spy_history_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(history_payload, default=str),
+    )
+
+    target_news_payload = {
+        "time": time_now.isoformat(),
+        "from": "" if success else kd_id,
+        "news": target_message,
+    }
+    target_news_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(target_news_payload),
+    )
+
+    payload = {
+        "status": status,
+        "message": message,
+    }
+    return (flask.jsonify(payload), 200)
 
 @app.route('/api/protected')
 @flask_praetorian.auth_required

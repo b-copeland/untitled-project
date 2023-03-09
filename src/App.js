@@ -26,8 +26,8 @@ import ProjectsContent from "./pages/build/projects.js";
 import Missiles from "./pages/build/missiles.js";
 import ConquerContent from "./pages/conquer/conquer.js";
 import Attack from "./pages/conquer/attack.js";
-import Spy from "./pages/conquer/attack.js";
-import LaunchMissiles from "./pages/conquer/attack.js";
+import Spy from "./pages/conquer/spy.js";
+import LaunchMissiles from "./pages/conquer/launchmissiles.js";
 
 
 const ProtectedRoute = ({ logged, session, redirectPath = '/login', children }) => {
@@ -63,6 +63,7 @@ const initGlobalData = {
   'shared': {},
   'pinned': [],
   'attackhistory': [],
+  'spyhistory': [],
 }
 const initLoadingData = {
   'kingdom': true,
@@ -85,6 +86,7 @@ const initLoadingData = {
   'shared': true,
   'pinned': true,
   'attackhistory': true,
+  'spyhistory': true,
 }
 const endpoints = {
   'kingdom': 'api/kingdom',
@@ -107,6 +109,7 @@ const endpoints = {
   'shared': 'api/shared',
   'pinned': 'api/pinned',
   'attackhistory': 'api/attackhistory',
+  'spyhistory': 'api/spyhistory',
 }
 
 function Content(props) {

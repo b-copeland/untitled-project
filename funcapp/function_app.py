@@ -1182,13 +1182,34 @@ def update_pinned(req: func.HttpRequest) -> func.HttpResponse:
             "The kingdom pinned were not updated",
             status_code=500,
         )
+        
+@APP.function_name(name="GetSpyHistory")
+@APP.route(route="kingdom/{kdId:int}/spyhistory", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_spyhistory(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get spyhistory request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"spy_history_{kd_id}"
+    spyhistory = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(spyhistory),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom spyhistory could not be retrieved",
+            status_code=500,
+        )
 
 @APP.function_name(name="UpdateSpyHistory")
 @APP.route(route="kingdom/{kdId:int}/spyhistory", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
 def update_spy_history(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update spy_history request.')    
     req_body = req.get_json()
-    new_spy_history = req_body["spy_history"]
+    new_spy_history = req_body
     kd_id = str(req.route_params.get('kdId'))
     item_id = f"spy_history_{kd_id}"
     spy_history = CONTAINER.read_item(
@@ -1196,7 +1217,7 @@ def update_spy_history(req: func.HttpRequest) -> func.HttpResponse:
         partition_key=item_id,
     )
     try:
-        spy_history["spy_history"] = spy_history["spy_history"] + new_spy_history
+        spy_history["spy_history"] = [new_spy_history] + spy_history["spy_history"]
         CONTAINER.replace_item(
             item_id,
             spy_history,
