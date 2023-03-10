@@ -151,12 +151,14 @@ function Attack(props) {
                             <thead>
                                 <tr>
                                     <th>Input</th>
+                                    <th>Defense</th>
                                     <th>Value</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
                                     <td>Recruits</td>
+                                    <td>{props.data.mobis?.units_desc?.recruits?.defense || "--"}</td>
                                     <td>
                                         {   targetKdInfo.hasOwnProperty("units")
                                             ? <Form.Control 
@@ -180,6 +182,7 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Defenders</td>
+                                    <td>{props.data.mobis?.units_desc?.defense?.defense || "--"}</td>
                                     <td>
                                         {   targetKdInfo.hasOwnProperty("units")
                                             ? <Form.Control 
@@ -204,6 +207,7 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Flexers</td>
+                                    <td>{props.data.mobis?.units_desc?.flex?.defense || "--"}</td>
                                     <td>
                                         {   targetKdInfo.hasOwnProperty("units")
                                             ? <Form.Control 
@@ -227,6 +231,7 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Big Flexers</td>
+                                    <td>{props.data.mobis?.units_desc?.big_flex?.defense || "--"}</td>
                                     <td>
                                         {   targetKdInfo.hasOwnProperty("units")
                                             ? <Form.Control 
@@ -250,6 +255,7 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Military Efficiency</td>
+                                    <td></td>
                                     <td>
                                         {   targetKdInfo.hasOwnProperty("current_bonuses")
                                             ? <InputGroup className="mb-3">
@@ -279,6 +285,7 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Shields</td>
+                                    <td></td>
                                     <td>
                                         {   targetKdInfo.hasOwnProperty("shields")
                                             ? <InputGroup className="mb-3">
@@ -308,6 +315,7 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Other Bonuses</td>
+                                    <td></td>
                                     <td>
                                         <InputGroup className="mb-3">
                                             <Form.Control
@@ -400,6 +408,7 @@ function Attack(props) {
                             <thead>
                                 <tr>
                                     <th>Value</th>
+                                    <th>Offense</th>
                                     <th>Available</th>
                                     <th>Input</th>
                                 </tr>
@@ -416,6 +425,7 @@ function Attack(props) {
                                             placeholder="0"
                                         />
                                     </td>
+                                    <td>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
                                     <td>{props.data.kingdom?.units?.attack}</td>
                                     <td>Attackers</td>
                                 </tr>
@@ -430,6 +440,7 @@ function Attack(props) {
                                             placeholder="0"
                                         />
                                     </td>
+                                    <td>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
                                     <td>{props.data.kingdom?.units?.flex}</td>
                                     <td>Flexers</td>
                                 </tr>
@@ -444,6 +455,7 @@ function Attack(props) {
                                             placeholder="0"
                                         />
                                     </td>
+                                    <td>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
                                     <td>{props.data.kingdom?.units?.big_flex || 0}</td>
                                     <td>Big Flexers</td>
                                 </tr>
@@ -460,6 +472,7 @@ function Attack(props) {
                                         />
                                     </td>
                                     <td></td>
+                                    <td></td>
                                     <td>Military Efficiency</td>
                                 </tr>
                                 <tr>
@@ -474,6 +487,7 @@ function Attack(props) {
                                         />
                                     </td>
                                     <td></td>
+                                    <td></td>
                                     <td>Other Bonuses</td>
                                 </tr>
                                 <tr>
@@ -487,6 +501,7 @@ function Attack(props) {
                                             placeholder="0"
                                         />
                                     </td>
+                                    <td></td>
                                     <td>{props.data.kingdom?.generals_available}</td>
                                     <td>Generals</td>
                                 </tr>

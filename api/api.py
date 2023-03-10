@@ -179,6 +179,8 @@ REVEAL_OPERATIONS = [
     "spymilitary",
     "spyshields",
     "spyprojects",
+    "spystructures",
+    "spydrones",
 ]
 
 # A generic user model that might be used by an app powered by flask-praetorian

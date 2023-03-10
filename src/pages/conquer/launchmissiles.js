@@ -153,6 +153,9 @@ function LaunchMissiles(props) {
                         <tr>
                             <th>Missile</th>
                             <th>Available</th>
+                            <th>Stars Damage</th>
+                            <th>Fuel Damage</th>
+                            <th>Pop Damage</th>
                             <th>To Send</th>
                         </tr>
                     </thead>
@@ -160,6 +163,9 @@ function LaunchMissiles(props) {
                         <tr>
                             <td>Planet Busters</td>
                             <td>{props.data.kingdom.missiles?.planet_busters}</td>
+                            <td>{(props.data.missiles.desc?.planet_busters?.stars_damage || 0)}</td>
+                            <td>{(props.data.missiles.desc?.planet_busters?.fuel_damage || 0)}</td>
+                            <td>{(props.data.missiles.desc?.planet_busters?.pop_damage || 0)}</td>
                             <td>
                                 <Form.Control 
                                     className="unit-form"
@@ -174,6 +180,9 @@ function LaunchMissiles(props) {
                         <tr>
                             <td>Star Busters</td>
                             <td>{props.data.kingdom.missiles?.star_busters}</td>
+                            <td>{(props.data.missiles.desc?.star_busters?.stars_damage || 0)}</td>
+                            <td>{(props.data.missiles.desc?.star_busters?.fuel_damage || 0)}</td>
+                            <td>{(props.data.missiles.desc?.star_busters?.pop_damage || 0)}</td>
                             <td>
                                 <Form.Control 
                                     className="unit-form"
@@ -188,6 +197,9 @@ function LaunchMissiles(props) {
                         <tr>
                             <td>Galaxy Busters</td>
                             <td>{props.data.kingdom.missiles?.galaxy_busters}</td>
+                            <td>{(props.data.missiles.desc?.galaxy_busters?.stars_damage || 0)}</td>
+                            <td>{(props.data.missiles.desc?.galaxy_busters?.fuel_damage || 0)}</td>
+                            <td>{(props.data.missiles.desc?.galaxy_busters?.pop_damage || 0)}</td>
                             <td>
                                 <Form.Control 
                                     className="unit-form"
