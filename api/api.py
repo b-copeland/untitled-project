@@ -2135,7 +2135,7 @@ def attack(target_kd):
     attacker_raw_values = req["attackerValues"]
 
     kd_id = flask_praetorian.current_user().kd_id
-    if target_kd == kd_id:
+    if str(target_kd) == str(kd_id):
         return (flask.jsonify("You cannot attack yourself!"), 400)
 
     print(kd_id, file=sys.stderr)
@@ -2407,7 +2407,7 @@ def calculate_spy(target_kd):
     operation = req["operation"]
 
     kd_id = flask_praetorian.current_user().kd_id
-    if target_kd == kd_id:
+    if str(target_kd) == str(kd_id):
         return (flask.jsonify("You cannot attack yourself!"), 400)
 
     print(kd_id, file=sys.stderr)
@@ -2479,7 +2479,7 @@ def spy(target_kd):
     operation = req["operation"]
 
     kd_id = flask_praetorian.current_user().kd_id
-    if target_kd == kd_id:
+    if str(target_kd) == str(kd_id):
         return (flask.jsonify("You cannot attack yourself!"), 400)
 
     print(kd_id, file=sys.stderr)
@@ -2627,7 +2627,7 @@ def calculate_missiles(target_kd):
     attacker_raw_values = req["attackerValues"]
 
     kd_id = flask_praetorian.current_user().kd_id
-    if target_kd == kd_id:
+    if str(target_kd) == str(kd_id):
         return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
 
     print(kd_id, file=sys.stderr)
@@ -2680,7 +2680,7 @@ def launch_missiles(target_kd):
     attacker_raw_values = req["attackerValues"]
 
     kd_id = flask_praetorian.current_user().kd_id
-    if target_kd == kd_id:
+    if str(target_kd) == str(kd_id):
         return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
 
     print(kd_id, file=sys.stderr)
