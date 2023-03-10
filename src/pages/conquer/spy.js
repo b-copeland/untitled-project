@@ -112,6 +112,8 @@ function Spy(props) {
         {value: "spymilitary", "label": "Spy on Military"},
         {value: "spyshields", "label": "Spy on Shields"},
         {value: "spyprojects", "label": "Spy on Projects"},
+        {value: "spystructures", "label": "Spy on Structures"},
+        {value: "spydrones", "label": "Spy on Drones"},
     ];
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const toasts = attackResults.map((results, index) =>
@@ -223,7 +225,7 @@ function Spy(props) {
                                                 id="spy-shields-input"
                                                 name="shields"
                                                 onChange={handleDefenderChange}
-                                                value={defenderValues.shields * 100 || ""} 
+                                                value={defenderValues.shields || ""} 
                                                 placeholder="0"
                                             />
                                             <InputGroup.Text id="basic-addon2">%</InputGroup.Text>

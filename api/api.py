@@ -572,6 +572,27 @@ def spy_history():
     return (flask.jsonify(history_parse["spy_history"]), 200)
 
 
+@app.route('/api/missilehistory')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def missile_history():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    history = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missilehistory',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(history.text, file=sys.stderr)
+    history_parse = json.loads(history.text)
+    return (flask.jsonify(history_parse["missile_history"]), 200)
+
+
 def _validate_spending(spending_input):
     """Confirm that spending request is valid"""
 
@@ -1114,6 +1135,7 @@ def _get_max_kd_info(kd_id, revealed_info, max=False):
         "structures": ["structures"],
         "shields": ["shields"],
         "projects": ["projects_points", "projects_max_points", "projects_assigned", "completed_projects"],
+        "drones": ["drones"],
     }
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -2563,6 +2585,186 @@ def spy(target_kd):
         "message": message,
     }
     return (flask.jsonify(payload), 200)
+
+
+
+def _validate_missiles_request(
+    attacker_missiles,
+    kd_info,
+):
+    if any((
+        value_missile > kd_info["missiles"][key_missile]
+        for key_missile, value_missile in attacker_missiles.items()
+    )):
+        return False, "You do not have that many missiles"
+    if any((
+        value_missile < 0
+        for value_missile in attacker_missiles.values()
+    )):
+        return False, "You can not send negative missiles"
+    
+    return True, ""
+
+def _calculate_missiles_damage(
+    attacker_missiles,
+    defender_shields,
+):
+    damage_categories = {"stars_damage", "fuel_damage", "pop_damage"}
+    damage = {}
+    for damage_category in damage_categories:
+        damage[damage_category] = sum([
+            math.floor(value_missiles * MISSILES[key_missile].get(damage_category) * (1 - defender_shields))
+            for key_missile, value_missiles in attacker_missiles.items()
+        ])
+    return damage
+    
+
+@app.route('/api/calculatemissiles/<target_kd>', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def calculate_missiles(target_kd):
+    req = flask.request.get_json(force=True)
+    attacker_raw_values = req["attackerValues"]
+
+    kd_id = flask_praetorian.current_user().kd_id
+    if target_kd == kd_id:
+        return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
+
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    attacker_missiles = {
+        key: int(value)
+        for key, value in attacker_raw_values.items()
+        if value != ""
+    }
+
+    valid_request, message = _validate_missiles_request(
+        attacker_missiles,
+        kd_info_parse,
+    )
+    if not valid_request:
+        return (flask.jsonify({"message": message}), 400)
+    
+    revealed = _get_revealed(kd_id)["revealed"]
+    max_target_kd_info = _get_max_kd_info(target_kd, revealed)
+
+    if "shields" in max_target_kd_info:
+        defender_shields = max_target_kd_info["shields"]["missiles"]
+    else:
+        defender_shields = float(req['defenderShields'] or 0) / 100
+    
+    missile_damage = _calculate_missiles_damage(
+        attacker_missiles,
+        defender_shields
+    )
+
+    message = f"The missiles will destroy " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+
+    payload = {
+        "message": message,
+    }
+    return (flask.jsonify(payload), 200)
+    
+
+@app.route('/api/launchmissiles/<target_kd>', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def launch_missiles(target_kd):
+    req = flask.request.get_json(force=True)
+    attacker_raw_values = req["attackerValues"]
+
+    kd_id = flask_praetorian.current_user().kd_id
+    if target_kd == kd_id:
+        return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
+
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    attacker_missiles = {
+        key: int(value)
+        for key, value in attacker_raw_values.items()
+        if value != ""
+    }
+
+    valid_request, message = _validate_missiles_request(
+        attacker_missiles,
+        kd_info_parse,
+    )
+    if not valid_request:
+        return (flask.jsonify({"message": message}), 400)
+    
+    revealed = _get_revealed(kd_id)["revealed"]
+    max_target_kd_info = _get_max_kd_info(target_kd, revealed, max=True)
+    defender_shields = max_target_kd_info["shields"]["missiles"]
+    
+    missile_damage = _calculate_missiles_damage(
+        attacker_missiles,
+        defender_shields
+    )
+
+    message = f"Your missiles destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+    defender_message = f"Missiles from {kd_info_parse['name']} have destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+
+    kd_patch_payload = {
+        "missiles": {
+            k: v - attacker_missiles.get(k, 0)
+            for k, v in kd_info_parse["missiles"].items()
+        }
+    }
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_patch_payload, default=str),
+    )
+
+    defender_patch_payload = {
+        "stars": kd_info_parse["stars"] - missile_damage["stars_damage"],
+        "population": kd_info_parse["population"] - missile_damage["pop_damage"],
+        "fuel": kd_info_parse["fuel"] - missile_damage["fuel_damage"],
+    }
+    defender_kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(defender_patch_payload, default=str),
+    )
+    time_now = datetime.datetime.now()
+    target_news_payload = {
+        "time": time_now.isoformat(),
+        "from": kd_id,
+        "news": defender_message,
+    }
+    target_news_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(target_news_payload),
+    )
+    history_payload = {
+        "time": time_now.isoformat(),
+        "to": target_kd,
+        "news": message,
+    }
+    kd_missile_history_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missilehistory',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(history_payload, default=str),
+    )
+
+    payload = {
+        "message": message,
+    }
+    return (flask.jsonify(payload), 200)
+
 
 @app.route('/api/protected')
 @flask_praetorian.auth_required

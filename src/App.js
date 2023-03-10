@@ -64,6 +64,7 @@ const initGlobalData = {
   'pinned': [],
   'attackhistory': [],
   'spyhistory': [],
+  'missilehistory': [],
 }
 const initLoadingData = {
   'kingdom': true,
@@ -87,6 +88,7 @@ const initLoadingData = {
   'pinned': true,
   'attackhistory': true,
   'spyhistory': true,
+  'missilehistory': true,
 }
 const endpoints = {
   'kingdom': 'api/kingdom',
@@ -110,6 +112,7 @@ const endpoints = {
   'pinned': 'api/pinned',
   'attackhistory': 'api/attackhistory',
   'spyhistory': 'api/spyhistory',
+  'missilehistory': 'api/missilehistory',
 }
 
 function Content(props) {
@@ -174,7 +177,7 @@ function Content(props) {
                   <Route path="/news" element={<NewsContent data={data}/>}/>
                   <Route path="/galaxy" element={<Galaxy data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/forums" element={<Forums/>}/>
-                  <Route path="/history" element={<History data={data}/>}/>
+                  <Route path="/history" element={<History data={data} loading={loading}/>}/>
                   <Route path="/settle" element={<Settle data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/structures" element={<Structures data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/military" element={<MilitaryContent data={data} loading={loading} updateData={updateData}/>}/>

@@ -1280,13 +1280,34 @@ def update_attack_history(req: func.HttpRequest) -> func.HttpResponse:
             "The kingdom attack_history were not updated",
             status_code=500,
         )
+        
+@APP.function_name(name="GetMissileHistory")
+@APP.route(route="kingdom/{kdId:int}/missilehistory", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_missilehistory(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get missilehistory request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"missile_history_{kd_id}"
+    missilehistory = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(missilehistory),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom missilehistory could not be retrieved",
+            status_code=500,
+        )
 
 @APP.function_name(name="UpdateMissileHistory")
 @APP.route(route="kingdom/{kdId:int}/missilehistory", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
 def update_missile_history(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update missile_history request.')    
     req_body = req.get_json()
-    new_missile_history = req_body["missile_history"]
+    new_missile_history = req_body
     kd_id = str(req.route_params.get('kdId'))
     item_id = f"missile_history_{kd_id}"
     missile_history = CONTAINER.read_item(
@@ -1294,7 +1315,7 @@ def update_missile_history(req: func.HttpRequest) -> func.HttpResponse:
         partition_key=item_id,
     )
     try:
-        missile_history["missile_history"] = missile_history["missile_history"] + new_missile_history
+        missile_history["missile_history"] = [new_missile_history] + missile_history["missile_history"]
         CONTAINER.replace_item(
             item_id,
             missile_history,

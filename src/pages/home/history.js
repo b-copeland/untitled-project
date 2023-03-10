@@ -46,13 +46,13 @@ function HistoryContent(props) {
         variant="tabs"
       >
         <Tab eventKey="attack" title="Attack">
-          <Attack kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} attackhistory={props.data.attackhistory}/>
+          <Attack kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} attackhistory={props.data.attackhistory} loading={props.loading}/>
         </Tab>
         <Tab eventKey="spy" title="Spy">
-          <Spy kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} spyhistory={props.data.spyhistory} />
+          <Spy kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} spyhistory={props.data.spyhistory} loading={props.loading} />
         </Tab>
         <Tab eventKey="missiles" title="Missiles">
-          <Missiles kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} />
+          <Missiles kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} missilehistory={props.data.missilehistory} loading={props.loading}/>
         </Tab>
         <Tab eventKey="stats" title="Stats">
           <Stats />
@@ -62,7 +62,7 @@ function HistoryContent(props) {
 }
 
 function Attack(props) {
-    if (props.attackhistory.length === 0) {
+    if (props.loading.attackhistory) {
         return <h2>Loading...</h2>;
     }
     const newsRows = props.attackhistory.map((newsItem) =>
@@ -93,7 +93,7 @@ function Attack(props) {
 }
 
 function Spy(props) {
-    if (props.spyhistory.length === 0) {
+    if (props.loading.spyhistory) {
         return <h2>Loading...</h2>;
     }
     const newsRows = props.spyhistory.map((newsItem) =>
@@ -126,9 +126,34 @@ function Spy(props) {
 }
 
 function Missiles(props) {
+    if (props.loading.missilehistory) {
+        return <h2>Loading...</h2>;
+    }
+    const newsRows = props.missilehistory.map((newsItem) =>
+        <tr key={newsItem.time}>
+            <td>{getNiceTimeString(newsItem.time)}</td>
+            <td>{getTimeSinceString(newsItem.time)}</td>
+            <td>{props.kingdoms[newsItem.to]} ({props.galaxies_inverted[newsItem.to]})</td>
+            <td>{newsItem.news}</td>
+        </tr>
+    );
     return (
-        <h2>Coming Soon</h2>
-    )
+        <div className="kingdom">
+            <Table striped bordered hover>
+                <thead>
+                    <tr>
+                    <th>Time</th>
+                    <th>Time Since</th>
+                    <th>Target</th>
+                    <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {newsRows}
+                </tbody>
+            </Table>
+        </div>
+    );
 }
 
 function Stats(props) {
