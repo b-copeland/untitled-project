@@ -2831,6 +2831,7 @@ def refresh_data():
                 headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
                 data=json.dumps(new_kd_info, default=str),
             )
+    return "Refreshed", 200
 
 
 
