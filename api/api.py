@@ -157,6 +157,9 @@ BASE_HOMES_CAPACITY = 50
 BASE_HANGAR_CAPACITY = 75
 BASE_MISSILE_SILO_CAPACITY = 1
 BASE_WORKSHOP_CAPACITY = 50
+BASE_MINES_INCOME_PER_EPOCH = 150
+BASE_FUEL_PLANTS_INCOME_PER_EPOCH = 200
+BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH = 1
 
 BASE_MISSILE_TIME_MULTIPLER = 24
 
@@ -173,6 +176,9 @@ BASE_DRONES_SUCCESS_LOSS_RATE = 0.01
 BASE_DRONES_FAILURE_LOSS_RATE = 0.02
 BASE_DRONES_SHIELDING_LOSS_REDUCTION = 0.5
 BASE_REVEAL_DURATION_MULTIPLIER = 8
+
+BASE_POP_INCOME_PER_EPOCH = 2
+BASE_POP_FUEL_CONSUMPTION_PER_EPOCH = 0.5
 
 REVEAL_OPERATIONS = [
     "spykingdom",
@@ -2671,7 +2677,7 @@ def calculate_missiles(target_kd):
     payload = {
         "message": message,
     }
-    return (flask.jsonify(payload), 200)
+    return (flask.jsonify(payload), 200)         
     
 
 @app.route('/api/launchmissiles/<target_kd>', methods=['POST'])
@@ -2766,6 +2772,66 @@ def launch_missiles(target_kd):
         "message": message,
     }
     return (flask.jsonify(payload), 200)
+
+
+def _kingdom_with_income(
+    kd_info_parse,
+):
+    time_now = datetime.datetime.now()
+    time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"])
+    seconds_elapsed = (time_now - time_last_income).seconds
+    epoch_elapsed = seconds_elapsed / BASE_EPOCH_SECONDS
+
+    raw_new_income = (
+        (kd_info_parse["structures"]["mines"] * BASE_MINES_INCOME_PER_EPOCH)
+        + (kd_info_parse["population"] * BASE_POP_INCOME_PER_EPOCH)
+    )
+    new_income = raw_new_income * epoch_elapsed
+    new_fuel = kd_info_parse["structures"]["fuel_plants"] * BASE_FUEL_PLANTS_INCOME_PER_EPOCH * epoch_elapsed
+    raw_fuel_consumption = (
+        sum([
+            value_units * UNITS[key_unit]["fuel"]
+            for key_unit, value_units in kd_info_parse["units"].items()
+        ])
+        + (kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH)
+    )
+    fuel_spent = raw_fuel_consumption * epoch_elapsed
+    net_fuel = new_fuel - fuel_spent
+    new_drones = kd_info_parse["structures"]["drone_factories"] * BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH * epoch_elapsed
+
+    new_kd_info = kd_info_parse.copy()
+    new_kd_info["money"] += new_income
+    new_kd_info["fuel"] += net_fuel
+    new_kd_info["drones"] += new_drones
+    new_kd_info["last_income"] = time_now.isoformat()
+
+    return new_kd_info
+    
+
+@app.route('/api/refreshdata')
+def refresh_data():
+    """Performance periodic refresh tasks"""
+    headers = flask.request.headers
+    if headers.get("Refresh-Secret", "") != "domnusrefresh":
+        return ("Not Authorized", 401)
+
+    kingdoms = _get_kingdoms()
+    for kd_id in kingdoms:
+        if str(kd_id) == "0":
+            print(kd_id, file=sys.stderr)
+            kd_info = REQUESTS_SESSION.get(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            )
+            print(kd_info, file=sys.stderr)
+            kd_info_parse = json.loads(kd_info.text)
+            new_kd_info = _kingdom_with_income(kd_info_parse)
+            kd_patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(new_kd_info, default=str),
+            )
+
 
 
 @app.route('/api/protected')

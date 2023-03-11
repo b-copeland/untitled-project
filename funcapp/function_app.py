@@ -100,11 +100,11 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             "engineers",
             "revealed",
             "shared",
-            "shared_requests",
             "pinned",
             "spy_history",
             "attack_history",
             "missile_history",
+            "next_resolve",
         ]:
             CONTAINER.create_item(
                 {
