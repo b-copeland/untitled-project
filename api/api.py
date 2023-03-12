@@ -196,7 +196,7 @@ class User(db.Model):
     username = db.Column(db.Text, unique=True)
     password = db.Column(db.Text)
     roles = db.Column(db.Text)
-    kd_id = db.Column(db.Integer)
+    kd_id = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True, server_default='true')
     is_verified = db.Column(db.Boolean, default=True, server_default='false')
 
@@ -265,7 +265,7 @@ with app.app_context():
           username='user',
           password=guard.hash_password('pass'),
           roles='verified',
-          kd_id=0
+          kd_id="0"
 		))
     db.session.commit()
 
@@ -1797,6 +1797,76 @@ def accept_shared():
 
     return (flask.jsonify(shared_info_response.text), 200)
 
+@app.route('/api/offershared', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def offer_shared():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    shared_kd = str(req["shared"])
+    shared_stat = req["shared_stat"]
+    shared_to_kd = str(req["shared_to"])
+    cut = float(req["cut"])
+
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    revealed_info = _get_revealed(kd_id)
+
+    if shared_stat not in revealed_info["revealed"][shared_kd].keys():
+        return "You do not have that revealed stat to share", 400
+    
+    your_galaxy = galaxies_inverted[kd_id]
+    shared_to_galaxy = galaxies_inverted[shared_to_kd]
+
+    if your_galaxy != shared_to_galaxy:
+        return "You can not share to kingdoms outside of your galaxy", 400
+    
+    your_shared_info = _get_shared(kd_id)
+    shared_to_shared_info = _get_shared(shared_to_kd)
+
+    your_payload = { # TODO: this needs to support offers to multiple KDs
+        "shared_offers": {
+            **your_shared_info["shared_offers"],
+            shared_kd: {
+                "shared_to": shared_to_kd,
+                "shared_stat": shared_stat,
+                "cut": cut,
+                "time": revealed_info["revealed"][shared_kd][shared_stat],
+            }
+        }
+    }
+    shared_to_payload = { # TODO: this needs to support offers from multiple KDs
+        "shared_requests": {
+            **shared_to_shared_info["shared_requests"],
+            shared_kd: {
+                "shared_by": kd_id,
+                "shared_stat": shared_stat,
+                "cut": cut,
+                "time": revealed_info["revealed"][shared_kd][shared_stat],
+            }
+        }
+    }
+
+    your_shared_info_response = REQUESTS_SESSION.post(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(your_payload),
+    )
+    shared_to_shared_info_response = REQUESTS_SESSION.post(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{shared_to_kd}/shared',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(shared_to_payload),
+    )
+
+    return (flask.jsonify(shared_to_shared_info_response.text), 200)
+
 def _get_pinned(kd_id):
     pinned_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
@@ -1929,11 +1999,13 @@ def reveal_random_galaxy():
         for kd_id in galaxy_info[galaxy_to_reveal]
     }
 
+    print(payload)
     reveal_galaxy_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(payload),
     )
+    print(reveal_galaxy_response.text)
 
     kd_payload = {"spy_attempts": kd_info_parse["spy_attempts"] - 1}
     kd_patch_response = REQUESTS_SESSION.patch(
@@ -3101,11 +3173,11 @@ def refresh_data():
                 time_update,
             )
         
-        # if "shared" in categories_to_resolve:
-        #     next_resolves["shared"] = _resolve_shared(
-        #         kd_id,
-        #         time_update,
-        #     )
+        if "shared" in categories_to_resolve:
+            next_resolves["shared"] = _resolve_shared(
+                kd_id,
+                time_update,
+            )
 
         new_kd_info = _kingdom_with_income(kd_info_parse)
         kd_patch_response = REQUESTS_SESSION.patch(

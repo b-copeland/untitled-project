@@ -675,8 +675,6 @@ def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
     galaxies = req_body.get("galaxies", None)
     kd_id = str(req.route_params.get('kdId'))
     item_id = f"revealed_{kd_id}"
-    print(item_id)
-    logging.info('%s', item_id)
     revealed_info = CONTAINER.read_item(
         item=item_id,
         partition_key=item_id,
@@ -693,7 +691,7 @@ def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
             revealed_info["revealed"] = current_revealed
         if new_galaxies:
             revealed_info["galaxies"] = {
-                **revealed["galaxies"],
+                **revealed_info["galaxies"],
                 **new_galaxies,
             }
         if revealed != None:
