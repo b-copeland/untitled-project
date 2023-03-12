@@ -2662,7 +2662,7 @@ def spy(target_kd):
             reveal_duration_hours = reveal_duration_seconds / 3600
 
             revealed_payload = {
-                "revealed": {
+                "new_revealed": {
                     target_kd: {
                         revealed_stat: revealed_until.isoformat()
                     }
