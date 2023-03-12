@@ -1,3 +1,4 @@
+import collections
 import datetime
 import math
 import os
@@ -955,7 +956,7 @@ def train_mobis():
         data=json.dumps(kd_payload),
     )
     mobis_payload = {
-        "mobis": [
+        "new_mobis": [
             {
                 "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPECIALIST_TIME_MULTIPLIER)).isoformat(),
                 **mobis_request,
@@ -1120,7 +1121,7 @@ def build_structures():
         data=json.dumps(kd_payload),
     )
     structures_payload = {
-        "structures": [
+        "new_structures": [
             {
                 "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat(),
                 **structures_request,
@@ -1326,7 +1327,7 @@ def settle():
         data=json.dumps(kd_payload),
     )
     settle_payload = {
-        "settles": [
+        "new_settles": [
             {
                 "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat(),
                 "amount": settle_input,
@@ -1466,7 +1467,7 @@ def build_missiles():
         data=json.dumps(kd_payload),
     )
     missiles_payload = {
-        "missiles": [
+        "new_missiles": [
             {
                 "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_MISSILE_TIME_MULTIPLER)).isoformat(),
                 **missiles_request,
@@ -1592,7 +1593,7 @@ def train_engineers():
         data=json.dumps(kd_payload),
     )
     engineers_payload = {
-        "engineers": [
+        "new_engineers": [
             {
                 "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat(),
                 "amount": engineers_input,
@@ -1916,12 +1917,12 @@ def reveal_random_galaxy():
 
     time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER)).isoformat()
     payload = {
-        "galaxies": {
+        "new_galaxies": {
             galaxy_to_reveal: time
         }
     }
 
-    payload["revealed"] = {
+    payload["new_revealed"] = {
         kd_id: {
             "stats": time,
         }
@@ -1940,7 +1941,6 @@ def reveal_random_galaxy():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(kd_payload),
     )
-
 
     return (flask.jsonify(reveal_galaxy_response.text), 200)
 
@@ -2807,6 +2807,241 @@ def _kingdom_with_income(
 
     return new_kd_info
     
+def _resolve_settles(kd_id, time_update):
+    settle_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    settle_info_parse = json.loads(settle_info.text)
+
+    ready_settles = 0
+    keep_settles = []
+    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    for settle in settle_info_parse["settles"]:
+        time = datetime.datetime.fromisoformat(settle["time"])
+        if time < time_update:
+            ready_settles += settle['amount']
+        else:
+            if time < next_resolve:
+                next_resolve = time
+            keep_settles.append(settle)
+    
+    settles_payload = {
+        "settles": keep_settles
+    }
+    settles_patch = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(settles_payload),
+    )
+    print(settles_patch.text)
+    return ready_settles, next_resolve
+    
+def _resolve_mobis(kd_id, time_update):
+    mobis_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    mobis_info_parse = json.loads(mobis_info.text)
+
+    ready_mobis = collections.defaultdict(int)
+    keep_mobis = []
+    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    for mobi in mobis_info_parse["mobis"]:
+        time = datetime.datetime.fromisoformat(mobi["time"])
+        if time < time_update:
+            mobi.pop("time")
+            for key_unit, amt_unit in mobi.items():
+                ready_mobis[key_unit] += amt_unit
+        else:
+            next_resolve = min(time, next_resolve)
+            keep_mobis.append(mobi)
+    
+    print(ready_mobis)
+    print(keep_mobis)
+    mobis_payload = {
+        "mobis": keep_mobis
+    }
+    mobis_patch = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(mobis_payload),
+    )
+    print(mobis_patch.text)
+    return ready_mobis, next_resolve
+    
+def _resolve_structures(kd_id, time_update):
+    structures_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    structures_info_parse = json.loads(structures_info.text)
+
+    ready_structures = collections.defaultdict(int)
+    keep_structures = []
+    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    for structure in structures_info_parse["structures"]:
+        time = datetime.datetime.fromisoformat(structure["time"])
+        if time < time_update:
+            structure.pop("time")
+            for key_structure, amt_structure in structure.items():
+                ready_structures[key_structure] += amt_structure
+        else:
+            next_resolve = min(time, next_resolve)
+            keep_structures.append(structure)
+    
+    print(ready_structures)
+    print(keep_structures)
+    structures_payload = {
+        "structures": keep_structures
+    }
+    structures_patch = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(structures_payload),
+    )
+    print(structures_patch.text)
+    return ready_structures, next_resolve
+    
+def _resolve_missiles(kd_id, time_update):
+    missiles_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    missiles_info_parse = json.loads(missiles_info.text)
+
+    ready_missiles = collections.defaultdict(int)
+    keep_missiles = []
+    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    for missile in missiles_info_parse["missiles"]:
+        time = datetime.datetime.fromisoformat(missile["time"])
+        if time < time_update:
+            missile.pop("time")
+            for key_missile, amt_missile in missile.items():
+                ready_missiles[key_missile] += amt_missile
+        else:
+            next_resolve = min(time, next_resolve)
+            keep_missiles.append(missile)
+    
+    missiles_payload = {
+        "missiles": keep_missiles
+    }
+    missiles_patch = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(missiles_payload),
+    )
+    print(missiles_patch.text)
+    return ready_missiles, next_resolve
+    
+def _resolve_engineers(kd_id, time_update):
+    engineer_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    engineer_info_parse = json.loads(engineer_info.text)
+
+    ready_engineers = 0
+    keep_engineers = []
+    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    for engineer in engineer_info_parse["engineers"]:
+        time = datetime.datetime.fromisoformat(engineer["time"])
+        if time < time_update:
+            ready_engineers += engineer['amount']
+        else:
+            if time < next_resolve:
+                next_resolve = time
+            keep_engineers.append(engineer)
+    
+    engineers_payload = {
+        "engineers": keep_engineers
+    }
+    engineers_patch = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(engineers_payload),
+    )
+    print(engineers_patch.text)
+    return ready_engineers, next_resolve
+    
+def _resolve_revealed(kd_id, time_update):
+    revealed_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    revealed_info_parse = json.loads(revealed_info.text)
+
+    keep_revealed = collections.defaultdict(dict)
+    keep_galaxies = {}
+    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+
+    for revealed_kd_id, revealed_dict in revealed_info_parse["revealed"].items():
+        for revealed_stat, time_str in revealed_dict.items():
+            time = datetime.datetime.fromisoformat(time_str)
+            if time > time_update:
+                next_resolve = min(time, next_resolve)
+                keep_revealed[revealed_kd_id][revealed_stat] = time_str
+
+    for galaxy_id, time_str in revealed_info_parse["galaxies"].items():
+        time = datetime.datetime.fromisoformat(time_str)
+        if time > time_update:
+            keep_galaxies[galaxy_id] = time_str
+            next_resolve = min(time, next_resolve)
+
+    revealed_payload = {
+        "revealed": keep_revealed,
+        "galaxies": keep_galaxies,
+    }
+    revealed_patch = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(revealed_payload),
+    )
+    print(revealed_patch.text)
+    return next_resolve
+    
+def _resolve_shared(kd_id, time_update):
+    shared_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    shared_info_parse = json.loads(shared_info.text)
+
+    keep_shared = collections.defaultdict(dict)
+    keep_shared_requests = collections.defaultdict(dict)
+    keep_shared_offers = collections.defaultdict(dict)
+    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+
+    for shared_kd_id, shared_dict in shared_info_parse["shared"].items():
+        time = datetime.datetime.fromisoformat(shared_dict["time"])
+        if time > time_update:
+            next_resolve = min(time, next_resolve)
+            keep_shared[shared_kd_id] = shared_dict
+
+    for shared_kd_id, shared_dict in shared_info_parse["shared_requests"].items():
+        time = datetime.datetime.fromisoformat(shared_dict["time"])
+        if time > time_update:
+            next_resolve = min(time, next_resolve)
+            keep_shared_requests[shared_kd_id] = shared_dict
+
+    for shared_kd_id, shared_dict in shared_info_parse["shared_offers"].items():
+        time = datetime.datetime.fromisoformat(shared_dict["time"])
+        if time > time_update:
+            next_resolve = min(time, next_resolve)
+            keep_shared_offers[shared_kd_id] = shared_dict
+
+    shared_payload = {
+        "shared": keep_shared,
+        "shared_requests": keep_shared_requests,
+        "shared_offers": keep_shared_offers,
+    }
+    shared_post = REQUESTS_SESSION.post(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(shared_payload),
+    )
+    print(shared_post.text)
+    return next_resolve
 
 @app.route('/api/refreshdata')
 def refresh_data():
@@ -2817,20 +3052,67 @@ def refresh_data():
 
     kingdoms = _get_kingdoms()
     for kd_id in kingdoms:
-        if str(kd_id) == "0":
-            print(kd_id, file=sys.stderr)
-            kd_info = REQUESTS_SESSION.get(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        if str(kd_id) != "0":
+            continue
+        next_resolves = {}
+        time_update = datetime.datetime.now()
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        kd_info_parse = json.loads(kd_info.text)
+
+        categories_to_resolve = [cat for cat, time in kd_info_parse["next_resolve"].items() if datetime.datetime.fromisoformat(time) < time_update]
+        if "settles" in categories_to_resolve:
+            new_stars, next_resolves["settles"] = _resolve_settles(
+                kd_id,
+                time_update,
             )
-            print(kd_info, file=sys.stderr)
-            kd_info_parse = json.loads(kd_info.text)
-            new_kd_info = _kingdom_with_income(kd_info_parse)
-            kd_patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-                data=json.dumps(new_kd_info, default=str),
+            kd_info_parse["stars"] += new_stars
+            for key_project, project_dict in PROJECTS.items():
+                project_max_func = project_dict["max_points"]
+                kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
+        
+        if "mobis" in categories_to_resolve:
+            new_units, next_resolves["mobis"] = _resolve_mobis(kd_id, time_update)
+            for key_unit, amt_unit in new_units.items():
+                kd_info_parse["units"][key_unit] += amt_unit
+        
+        if "structures" in categories_to_resolve:
+            new_structures, next_resolves["structures"] = _resolve_structures(kd_id, time_update)
+            for key_structure, amt_structure in new_structures.items():
+                kd_info_parse["structures"][key_structure] += amt_structure
+        
+        if "missiles" in categories_to_resolve:
+            new_missiles, next_resolves["missiles"] = _resolve_missiles(kd_id, time_update)
+            for key_missiles, amt_missiles in new_missiles.items():
+                kd_info_parse["missiles"][key_missiles] += amt_missiles
+
+        if "engineers" in categories_to_resolve:
+            new_engineers, next_resolves["engineers"] = _resolve_engineers(
+                kd_id,
+                time_update,
             )
+            kd_info_parse["units"]["engineers"] += new_engineers
+        
+        if "revealed" in categories_to_resolve:
+            next_resolves["revealed"] = _resolve_revealed(
+                kd_id,
+                time_update,
+            )
+        
+        # if "shared" in categories_to_resolve:
+        #     next_resolves["shared"] = _resolve_shared(
+        #         kd_id,
+        #         time_update,
+        #     )
+
+        new_kd_info = _kingdom_with_income(kd_info_parse)
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(new_kd_info, default=str),
+        )
     return "Refreshed", 200
 
 
