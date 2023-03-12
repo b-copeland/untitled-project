@@ -181,6 +181,9 @@ BASE_REVEAL_DURATION_MULTIPLIER = 8
 BASE_POP_INCOME_PER_EPOCH = 2
 BASE_POP_FUEL_CONSUMPTION_PER_EPOCH = 0.5
 
+BASE_SPY_ATTEMPT_TIME_MULTIPLIER = 1
+BASE_SPY_ATTEMPTS_MAX = 10
+
 REVEAL_OPERATIONS = [
     "spykingdom",
     "spymilitary",
@@ -868,8 +871,11 @@ def recruits():
     if not valid_recruits:
         return (flask.jsonify('Please enter valid recruits value'), 400)
 
+    mobis_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_RECRUIT_TIME_MULTIPLIER)).isoformat()
+    next_resolve = kd_info_parse["next_resolve"]
+    next_resolve["mobis"] = min(next_resolve["mobis"], mobis_time)
     new_money = kd_info_parse["money"] - BASE_RECRUIT_COST * recruits_input
-    kd_payload = {'money': new_money}
+    kd_payload = {'money': new_money, 'next_resolve': next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -878,7 +884,7 @@ def recruits():
     recruits_payload = {
         "mobis": [
             {
-                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_RECRUIT_TIME_MULTIPLIER)).isoformat(),
+                "time": mobis_time,
                 "recruits": recruits_input,
             }
         ]
@@ -943,12 +949,16 @@ def train_mobis():
 
     new_money = kd_info_parse["money"] - mobis_cost
     new_recruits = kd_info_parse["units"]["recruits"] - sum(mobis_request.values())
+    mobis_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPECIALIST_TIME_MULTIPLIER)).isoformat()
+    next_resolve = kd_info_parse["next_resolve"]
+    next_resolve["mobis"] = min(next_resolve["mobis"], mobis_time)
     kd_payload = {
         'money': new_money,
         'units': {
             **kd_info_parse["units"],
             'recruits': new_recruits,
-        }
+        },
+        'next_resolve': next_resolve,
     }
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -958,7 +968,7 @@ def train_mobis():
     mobis_payload = {
         "new_mobis": [
             {
-                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPECIALIST_TIME_MULTIPLIER)).isoformat(),
+                "time": mobis_time,
                 **mobis_request,
             }
         ]
@@ -1113,8 +1123,11 @@ def build_structures():
     if not valid_structures:
         return (flask.jsonify('Please enter valid structures values'), 400)
 
+    structures_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat()
+    next_resolve = kd_info_parse["next_resolve"]
+    next_resolve["structures"] = min(next_resolve["structures"], structures_time)
     new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
-    kd_payload = {'money': new_money}
+    kd_payload = {'money': new_money, 'next_resolve': next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -1123,7 +1136,7 @@ def build_structures():
     structures_payload = {
         "new_structures": [
             {
-                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat(),
+                "time": structures_time,
                 **structures_request,
             }
         ]
@@ -1134,6 +1147,16 @@ def build_structures():
         data=json.dumps(structures_payload),
     )
     return (flask.jsonify(structures_patch_response.text), 200)
+
+def _get_kd_info(kd_id):
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    return kd_info_parse
+
 
 def _get_max_kd_info(kd_id, revealed_info, max=False):
     always_allowed_keys = {"name", "race"}
@@ -1320,7 +1343,10 @@ def settle():
 
     settle_price = _get_settle_price(kd_info_parse)
     new_money = kd_info_parse["money"] - settle_price * settle_input
-    kd_payload = {'money': new_money}
+    settle_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat()
+    next_resolve = kd_info_parse["next_resolve"]
+    next_resolve["settles"] = min(next_resolve["settles"], settle_time)
+    kd_payload = {'money': new_money, "next_resolve": next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -1329,7 +1355,7 @@ def settle():
     settle_payload = {
         "new_settles": [
             {
-                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat(),
+                "time": settle_time,
                 "amount": settle_input,
             }
         ]
@@ -1457,9 +1483,13 @@ def build_missiles():
     fuel_costs = sum([MISSILES[key_missile]["fuel_cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
     new_money = kd_info_parse["money"] - costs
     new_fuel = kd_info_parse["fuel"] - fuel_costs
+    missiles_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_MISSILE_TIME_MULTIPLER)).isoformat()
+    next_resolve = kd_info_parse["next_resolve"]
+    next_resolve["missiles"] = min(next_resolve["missiles"], missiles_time)
     kd_payload = {
         'money': new_money,
         'fuel': new_fuel,
+        'next_resolve': next_resolve,
     }
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -1469,7 +1499,7 @@ def build_missiles():
     missiles_payload = {
         "new_missiles": [
             {
-                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_MISSILE_TIME_MULTIPLER)).isoformat(),
+                "time": missiles_time,
                 **missiles_request,
             }
         ]
@@ -1585,8 +1615,11 @@ def train_engineers():
     if not valid_engineers:
         return (flask.jsonify('Please enter valid recruits value'), 400)
 
+    engineers_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat()
+    next_resolve = kd_info_parse["next_resolve"]
+    next_resolve["engineers"] = min(next_resolve["engineers"], engineers_time)
     new_money = kd_info_parse["money"] - BASE_ENGINEER_COST * engineers_input
-    kd_payload = {'money': new_money}
+    kd_payload = {'money': new_money, 'next_resolve': next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -1595,7 +1628,7 @@ def train_engineers():
     engineers_payload = {
         "new_engineers": [
             {
-                "time": (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat(),
+                "time": engineers_time,
                 "amount": engineers_input,
             }
         ]
@@ -1831,6 +1864,7 @@ def offer_shared():
     your_shared_info = _get_shared(kd_id)
     shared_to_shared_info = _get_shared(shared_to_kd)
 
+    shared_resolve_time = revealed_info["revealed"][shared_kd][shared_stat]
     your_payload = { # TODO: this needs to support offers to multiple KDs
         "shared_offers": {
             **your_shared_info["shared_offers"],
@@ -1838,7 +1872,7 @@ def offer_shared():
                 "shared_to": shared_to_kd,
                 "shared_stat": shared_stat,
                 "cut": cut,
-                "time": revealed_info["revealed"][shared_kd][shared_stat],
+                "time": shared_resolve_time,
             }
         }
     }
@@ -1849,7 +1883,7 @@ def offer_shared():
                 "shared_by": kd_id,
                 "shared_stat": shared_stat,
                 "cut": cut,
-                "time": revealed_info["revealed"][shared_kd][shared_stat],
+                "time": shared_resolve_time,
             }
         }
     }
@@ -1865,6 +1899,24 @@ def offer_shared():
         data=json.dumps(shared_to_payload),
     )
 
+    your_info = _get_kd_info(kd_id)
+    if shared_resolve_time < your_info["next_resolve"]["shared"]:
+        your_next_resolve = your_info["next_resolve"]
+        your_next_resolve["shared"] = shared_resolve_time
+        REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps({"next_resolve": your_next_resolve}),
+        )
+    shared_to_kd_info = _get_kd_info(shared_to_kd)
+    if shared_resolve_time < shared_to_kd_info["next_resolve"]["shared"]:
+        shared_to_next_resolve = shared_to_kd_info["next_resolve"]
+        shared_to_next_resolve["shared"] = shared_resolve_time
+        REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{shared_to_kd}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps({"next_resolve": shared_to_next_resolve}),
+        )
     return (flask.jsonify(shared_to_shared_info_response.text), 200)
 
 def _get_pinned(kd_id):
@@ -2007,7 +2059,9 @@ def reveal_random_galaxy():
     )
     print(reveal_galaxy_response.text)
 
-    kd_payload = {"spy_attempts": kd_info_parse["spy_attempts"] - 1}
+    next_resolve = kd_info_parse["next_resolve"]
+    next_resolve["revealed"] = min(next_resolve["revealed"], time)
+    kd_payload = {"spy_attempts": kd_info_parse["spy_attempts"] - 1, "next_resolve": next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -2305,6 +2359,7 @@ def attack(target_kd):
         }
         for general_time in generals_return_times
     ]
+    next_return_time = min([general["return_time"] for general in generals])
     new_defender_units = {
         key_unit: value_unit - defender_losses.get(key_unit, 0)
         for key_unit, value_unit in target_kd_info["units"].items()
@@ -2376,6 +2431,7 @@ def attack(target_kd):
     kd_info_parse["units"] = new_home_attacker_units
     kd_info_parse["generals_out"] = kd_info_parse["generals_out"] + generals
     kd_info_parse["generals_available"] = kd_info_parse["generals_available"] - int(attacker_raw_values["generals"])
+    kd_info_parse["next_resolve"]["generals"] = min(kd_info_parse["next_resolve"]["generals"], next_return_time)
 
     target_kd_info["units"] = new_defender_units
     for key_spoil, value_spoil in spoils_values.items():
@@ -2596,6 +2652,7 @@ def spy(target_kd):
     success = random.uniform(0, 1) < spy_probability
 
     time_now = datetime.datetime.now()
+    revealed_until = None
     if success:
         status = "success"
         if operation in REVEAL_OPERATIONS:
@@ -2631,6 +2688,10 @@ def spy(target_kd):
     }
     if shielded:
         kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
+    if revealed_until:
+        next_resolve = kd_info_parse["next_resolve"]
+        next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until.isoformat())
+        kd_patch_payload["next_resolve"] = next_resolve
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -2848,7 +2909,7 @@ def launch_missiles(target_kd):
 
 def _kingdom_with_income(
     kd_info_parse,
-):
+): # TODO: Pop handling
     time_now = datetime.datetime.now()
     time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"])
     seconds_elapsed = (time_now - time_last_income).seconds
@@ -2868,7 +2929,7 @@ def _kingdom_with_income(
         + (kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH)
     )
     fuel_spent = raw_fuel_consumption * epoch_elapsed
-    net_fuel = new_fuel - fuel_spent
+    net_fuel = new_fuel - fuel_spent # TODO: Fuel cap
     new_drones = kd_info_parse["structures"]["drone_factories"] * BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH * epoch_elapsed
 
     new_kd_info = kd_info_parse.copy()
@@ -3115,6 +3176,41 @@ def _resolve_shared(kd_id, time_update):
     print(shared_post.text)
     return next_resolve
 
+def _resolve_generals(kd_info_parse, time_update):
+    generals_keep = []
+    returning_units = collections.defaultdict(int)
+    returning_generals = 0
+
+    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    for general in kd_info_parse["generals_out"]:
+        time = datetime.datetime.fromisoformat(general["return_time"])
+        if time < time_update:
+            general.pop("return_time")
+            for key_unit, value_units in general.items():
+                returning_units[key_unit] += value_units
+            returning_generals += 1
+        else:
+            next_resolve = min(time, next_resolve)
+            generals_keep.append(general)
+
+    kd_info_parse["generals_available"] += returning_generals
+    for key_unit, value_unit in returning_units.items():
+        kd_info_parse["units"][key_unit] += value_unit
+
+    kd_info_parse["generals_out"] = generals_keep
+    return kd_info_parse, next_resolve
+
+
+def _resolve_spy(kd_info_parse, time_update):
+    resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["spy_attempt"])
+    next_resolve_time = max(
+        resolve_time + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPY_ATTEMPT_TIME_MULTIPLIER),
+        time_update,
+    )
+    if kd_info_parse["spy_attempts"] < BASE_SPY_ATTEMPTS_MAX:
+        kd_info_parse["spy_attempts"] += 1
+    return kd_info_parse, next_resolve_time
+
 @app.route('/api/refreshdata')
 def refresh_data():
     """Performance periodic refresh tasks"""
@@ -3179,6 +3275,20 @@ def refresh_data():
                 time_update,
             )
 
+        if "generals" in categories_to_resolve:
+            kd_info_parse, next_resolves["generals"] = _resolve_generals(
+                kd_info_parse,
+                time_update,
+            )
+        
+        if "spy_attempt" in categories_to_resolve:
+            kd_info_parse, next_resolves["spy_attempt"] = _resolve_spy(
+                kd_info_parse,
+                time_update
+            )
+
+        for category, next_resolve_datetime in next_resolves.items():
+            kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
         new_kd_info = _kingdom_with_income(kd_info_parse)
         kd_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
