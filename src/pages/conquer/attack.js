@@ -76,7 +76,7 @@ function Attack(props) {
                 method: 'POST',
                 body: JSON.stringify(opts)
             }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("")})
-            props.updateData(['kingdom', 'projects', 'attackhistory'], [updateFunc]);
+            props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis'], [updateFunc]);
         } else {
             setCalcMessage({"message": "Please select a target in order to attack"})
         }

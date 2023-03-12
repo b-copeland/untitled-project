@@ -1016,7 +1016,7 @@ def _calc_available_structures(structure_price, kd_info, structures_info):
             max_available_structures,
         )
     except ZeroDivisionError:
-        current_available_structures
+        current_available_structures = 0
     return max_available_structures, current_available_structures
 
 
@@ -2544,8 +2544,11 @@ def calculate_spy(target_kd):
 
     kd_id = flask_praetorian.current_user().kd_id
     if str(target_kd) == str(kd_id):
-        return (flask.jsonify("You cannot attack yourself!"), 400)
+        return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
 
+    if not operation:
+        return (flask.jsonify({"message": "You must select an operation"}), 400)
+    
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -2616,7 +2619,10 @@ def spy(target_kd):
 
     kd_id = flask_praetorian.current_user().kd_id
     if str(target_kd) == str(kd_id):
-        return (flask.jsonify("You cannot attack yourself!"), 400)
+        return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
+    
+    if not operation:
+        return (flask.jsonify({"message": "You must select an operation"}), 400)
 
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
