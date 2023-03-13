@@ -691,7 +691,7 @@ def _calc_units(
             print(mobi)
             print(type(mobi))
             print(mobi.keys())
-            if datetime.datetime.fromisoformat(mobi["time"]) < max_time:
+            if datetime.datetime.fromisoformat(mobi["time"]).astimezone(datetime.timezone.utc) < max_time:
                 for key_unit in hour_units.keys():
                     hour_units[key_unit] += mobi.get(key_unit, 0)
 
@@ -810,7 +810,7 @@ def mobis():
     generals_units = kd_info_parse["generals_out"]
     mobis_units = mobis_info_parse
 
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(datetime.timezone.utc)
     units = _calc_units(start_time, current_units, generals_units, mobis_units)
     maxes = _calc_maxes(units)
 
@@ -863,7 +863,7 @@ def recruits():
     generals_units = kd_info_parse["generals_out"]
     mobis_units = mobis_info_parse
 
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(datetime.timezone.utc)
     units = _calc_units(start_time, current_units, generals_units, mobis_units)
 
     max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units)
@@ -871,7 +871,7 @@ def recruits():
     if not valid_recruits:
         return (flask.jsonify('Please enter valid recruits value'), 400)
 
-    mobis_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_RECRUIT_TIME_MULTIPLIER)).isoformat()
+    mobis_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_RECRUIT_TIME_MULTIPLIER)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["mobis"] = min(next_resolve["mobis"], mobis_time)
     new_money = kd_info_parse["money"] - BASE_RECRUIT_COST * recruits_input
@@ -949,7 +949,7 @@ def train_mobis():
 
     new_money = kd_info_parse["money"] - mobis_cost
     new_recruits = kd_info_parse["units"]["recruits"] - sum(mobis_request.values())
-    mobis_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPECIALIST_TIME_MULTIPLIER)).isoformat()
+    mobis_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPECIALIST_TIME_MULTIPLIER)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["mobis"] = min(next_resolve["mobis"], mobis_time)
     kd_payload = {
@@ -996,7 +996,7 @@ def _calc_structures(
         }
         max_time = start_time + datetime.timedelta(hours=hours)
         for building_structure in building_structures:
-            if datetime.datetime.fromisoformat(building_structure["time"]) < max_time:
+            if datetime.datetime.fromisoformat(building_structure["time"]).astimezone(datetime.timezone.utc) < max_time:
                 for key_structure in hour_structures.keys():
                     hour_structures[key_structure] += building_structure.get(key_structure, 0)
 
@@ -1050,7 +1050,7 @@ def structures():
     current_structures = kd_info_parse["structures"]
     building_structures = structures_info_parse["structures"]
 
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(datetime.timezone.utc)
     structures = _calc_structures(start_time, current_structures, building_structures)
 
     max_available_structures, current_available_structures = _calc_available_structures(current_price, kd_info_parse, structures)
@@ -1110,7 +1110,7 @@ def build_structures():
     current_structures = kd_info_parse["structures"]
     building_structures = structures_info_parse["structures"]
 
-    start_time = datetime.datetime.now()
+    start_time = datetime.datetime.now(datetime.timezone.utc)
     structures = _calc_structures(start_time, current_structures, building_structures)
 
     max_available_structures, current_available_structures = _calc_available_structures(current_price, kd_info_parse, structures)
@@ -1123,7 +1123,7 @@ def build_structures():
     if not valid_structures:
         return (flask.jsonify('Please enter valid structures values'), 400)
 
-    structures_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat()
+    structures_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["structures"] = min(next_resolve["structures"], structures_time)
     new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
@@ -1343,7 +1343,7 @@ def settle():
 
     settle_price = _get_settle_price(kd_info_parse)
     new_money = kd_info_parse["money"] - settle_price * settle_input
-    settle_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat()
+    settle_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["settles"] = min(next_resolve["settles"], settle_time)
     kd_payload = {'money': new_money, "next_resolve": next_resolve}
@@ -1483,7 +1483,7 @@ def build_missiles():
     fuel_costs = sum([MISSILES[key_missile]["fuel_cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
     new_money = kd_info_parse["money"] - costs
     new_fuel = kd_info_parse["fuel"] - fuel_costs
-    missiles_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_MISSILE_TIME_MULTIPLER)).isoformat()
+    missiles_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_MISSILE_TIME_MULTIPLER)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["missiles"] = min(next_resolve["missiles"], missiles_time)
     kd_payload = {
@@ -1521,7 +1521,8 @@ def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
     engineers_total = kd_info["units"]["engineers"] + engineers_building
     available_workshop_capacity = max(max_workshop_capacity - engineers_total, 0)
     max_trainable_engineers = BASE_MAX_ENGINEERS(int(kd_info["population"]))
-    max_available_engineers = min(available_workshop_capacity, max_trainable_engineers)
+    untrained_engineers = max(max_trainable_engineers - engineers_building, 0)
+    max_available_engineers = min(available_workshop_capacity, untrained_engineers)
     try:
         current_available_engineers = min(
             math.floor(kd_info["money"] / BASE_ENGINEER_COST),
@@ -1615,7 +1616,7 @@ def train_engineers():
     if not valid_engineers:
         return (flask.jsonify('Please enter valid recruits value'), 400)
 
-    engineers_time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat()
+    engineers_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["engineers"] = min(next_resolve["engineers"], engineers_time)
     new_money = kd_info_parse["money"] - BASE_ENGINEER_COST * engineers_input
@@ -2037,7 +2038,7 @@ def reveal_random_galaxy():
 
     galaxy_to_reveal = random.choice(list(potential_galaxies))
 
-    time = (datetime.datetime.now() + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER)).isoformat()
+    time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER)).isoformat()
     payload = {
         "new_galaxies": {
             galaxy_to_reveal: time
@@ -2202,7 +2203,7 @@ def calculate_attack(target_kd):
         defender_units,
         BASE_DEFENDER_UNIT_LOSS_RATE * attack_ratio,
     )
-    time_now = datetime.datetime.now()
+    time_now = datetime.datetime.now(datetime.timezone.utc)
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
@@ -2335,7 +2336,7 @@ def attack(target_kd):
         defender_units,
         BASE_DEFENDER_UNIT_LOSS_RATE * attack_ratio,
     )
-    time_now = datetime.datetime.now()
+    time_now = datetime.datetime.now(datetime.timezone.utc)
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
@@ -2657,7 +2658,7 @@ def spy(target_kd):
 
     success = random.uniform(0, 1) < spy_probability
 
-    time_now = datetime.datetime.now()
+    time_now = datetime.datetime.now(datetime.timezone.utc)
     revealed_until = None
     if success:
         status = "success"
@@ -2885,7 +2886,7 @@ def launch_missiles(target_kd):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(defender_patch_payload, default=str),
     )
-    time_now = datetime.datetime.now()
+    time_now = datetime.datetime.now(datetime.timezone.utc)
     target_news_payload = {
         "time": time_now.isoformat(),
         "from": kd_id,
@@ -2916,8 +2917,8 @@ def launch_missiles(target_kd):
 def _kingdom_with_income(
     kd_info_parse,
 ): # TODO: Pop handling
-    time_now = datetime.datetime.now()
-    time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"])
+    time_now = datetime.datetime.now(datetime.timezone.utc)
+    time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_now - time_last_income).seconds
     epoch_elapsed = seconds_elapsed / BASE_EPOCH_SECONDS
 
@@ -2955,9 +2956,9 @@ def _resolve_settles(kd_id, time_update):
 
     ready_settles = 0
     keep_settles = []
-    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
     for settle in settle_info_parse["settles"]:
-        time = datetime.datetime.fromisoformat(settle["time"])
+        time = datetime.datetime.fromisoformat(settle["time"]).astimezone(datetime.timezone.utc)
         if time < time_update:
             ready_settles += settle['amount']
         else:
@@ -2985,9 +2986,9 @@ def _resolve_mobis(kd_id, time_update):
 
     ready_mobis = collections.defaultdict(int)
     keep_mobis = []
-    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
     for mobi in mobis_info_parse["mobis"]:
-        time = datetime.datetime.fromisoformat(mobi["time"])
+        time = datetime.datetime.fromisoformat(mobi["time"]).astimezone(datetime.timezone.utc)
         if time < time_update:
             mobi.pop("time")
             for key_unit, amt_unit in mobi.items():
@@ -3018,9 +3019,9 @@ def _resolve_structures(kd_id, time_update):
 
     ready_structures = collections.defaultdict(int)
     keep_structures = []
-    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
     for structure in structures_info_parse["structures"]:
-        time = datetime.datetime.fromisoformat(structure["time"])
+        time = datetime.datetime.fromisoformat(structure["time"]).astimezone(datetime.timezone.utc)
         if time < time_update:
             structure.pop("time")
             for key_structure, amt_structure in structure.items():
@@ -3051,9 +3052,9 @@ def _resolve_missiles(kd_id, time_update):
 
     ready_missiles = collections.defaultdict(int)
     keep_missiles = []
-    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
     for missile in missiles_info_parse["missiles"]:
-        time = datetime.datetime.fromisoformat(missile["time"])
+        time = datetime.datetime.fromisoformat(missile["time"]).astimezone(datetime.timezone.utc)
         if time < time_update:
             missile.pop("time")
             for key_missile, amt_missile in missile.items():
@@ -3082,9 +3083,9 @@ def _resolve_engineers(kd_id, time_update):
 
     ready_engineers = 0
     keep_engineers = []
-    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
     for engineer in engineer_info_parse["engineers"]:
-        time = datetime.datetime.fromisoformat(engineer["time"])
+        time = datetime.datetime.fromisoformat(engineer["time"]).astimezone(datetime.timezone.utc)
         if time < time_update:
             ready_engineers += engineer['amount']
         else:
@@ -3112,17 +3113,17 @@ def _resolve_revealed(kd_id, time_update):
 
     keep_revealed = collections.defaultdict(dict)
     keep_galaxies = {}
-    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
 
     for revealed_kd_id, revealed_dict in revealed_info_parse["revealed"].items():
         for revealed_stat, time_str in revealed_dict.items():
-            time = datetime.datetime.fromisoformat(time_str)
+            time = datetime.datetime.fromisoformat(time_str).astimezone(datetime.timezone.utc)
             if time > time_update:
                 next_resolve = min(time, next_resolve)
                 keep_revealed[revealed_kd_id][revealed_stat] = time_str
 
     for galaxy_id, time_str in revealed_info_parse["galaxies"].items():
-        time = datetime.datetime.fromisoformat(time_str)
+        time = datetime.datetime.fromisoformat(time_str).astimezone(datetime.timezone.utc)
         if time > time_update:
             keep_galaxies[galaxy_id] = time_str
             next_resolve = min(time, next_resolve)
@@ -3149,22 +3150,22 @@ def _resolve_shared(kd_id, time_update):
     keep_shared = collections.defaultdict(dict)
     keep_shared_requests = collections.defaultdict(dict)
     keep_shared_offers = collections.defaultdict(dict)
-    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
 
     for shared_kd_id, shared_dict in shared_info_parse["shared"].items():
-        time = datetime.datetime.fromisoformat(shared_dict["time"])
+        time = datetime.datetime.fromisoformat(shared_dict["time"]).astimezone(datetime.timezone.utc)
         if time > time_update:
             next_resolve = min(time, next_resolve)
             keep_shared[shared_kd_id] = shared_dict
 
     for shared_kd_id, shared_dict in shared_info_parse["shared_requests"].items():
-        time = datetime.datetime.fromisoformat(shared_dict["time"])
+        time = datetime.datetime.fromisoformat(shared_dict["time"]).astimezone(datetime.timezone.utc)
         if time > time_update:
             next_resolve = min(time, next_resolve)
             keep_shared_requests[shared_kd_id] = shared_dict
 
     for shared_kd_id, shared_dict in shared_info_parse["shared_offers"].items():
-        time = datetime.datetime.fromisoformat(shared_dict["time"])
+        time = datetime.datetime.fromisoformat(shared_dict["time"]).astimezone(datetime.timezone.utc)
         if time > time_update:
             next_resolve = min(time, next_resolve)
             keep_shared_offers[shared_kd_id] = shared_dict
@@ -3187,9 +3188,9 @@ def _resolve_generals(kd_info_parse, time_update):
     returning_units = collections.defaultdict(int)
     returning_generals = 0
 
-    next_resolve = datetime.datetime(year=2099, month=1, day=1)
+    next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
     for general in kd_info_parse["generals_out"]:
-        time = datetime.datetime.fromisoformat(general["return_time"])
+        time = datetime.datetime.fromisoformat(general["return_time"]).astimezone(datetime.timezone.utc)
         if time < time_update:
             general.pop("return_time")
             for key_unit, value_units in general.items():
@@ -3208,7 +3209,7 @@ def _resolve_generals(kd_info_parse, time_update):
 
 
 def _resolve_spy(kd_info_parse, time_update):
-    resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["spy_attempt"])
+    resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["spy_attempt"]).astimezone(datetime.timezone.utc)
     next_resolve_time = max(
         resolve_time + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPY_ATTEMPT_TIME_MULTIPLIER),
         time_update,
@@ -3229,14 +3230,14 @@ def refresh_data():
         if str(kd_id) != "0":
             continue
         next_resolves = {}
-        time_update = datetime.datetime.now()
+        time_update = datetime.datetime.now(datetime.timezone.utc)
         kd_info = REQUESTS_SESSION.get(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
         )
         kd_info_parse = json.loads(kd_info.text)
 
-        categories_to_resolve = [cat for cat, time in kd_info_parse["next_resolve"].items() if datetime.datetime.fromisoformat(time) < time_update]
+        categories_to_resolve = [cat for cat, time in kd_info_parse["next_resolve"].items() if datetime.datetime.fromisoformat(time).astimezone(datetime.timezone.utc) < time_update]
         if "settles" in categories_to_resolve:
             new_stars, next_resolves["settles"] = _resolve_settles(
                 kd_id,
@@ -3410,7 +3411,7 @@ def blacklist_token():
 @app.route('/api/time')
 @flask_praetorian.auth_required
 def time():
-    return (flask.jsonify(datetime.datetime.now().isoformat()), 200)
+    return (flask.jsonify(datetime.datetime.now(datetime.timezone.utc).isoformat()), 200)
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
