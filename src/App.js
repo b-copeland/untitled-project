@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -115,9 +115,31 @@ const endpoints = {
   'missilehistory': 'api/missilehistory',
 }
 
+function useInterval(callback, delay) {
+  const savedCallback = useRef();
+
+  // Remember the latest callback.
+  useEffect(() => {
+    savedCallback.current = callback;
+  }, [callback]);
+
+  // Set up the interval.
+  useEffect(() => {
+    function tick() {
+      savedCallback.current();
+    }
+    if (delay !== null) {
+      let id = setInterval(tick, delay);
+      return () => clearInterval(id);
+    }
+  }, [delay]);
+}
+
 function Content(props) {
   const [data, setData] = useState(initGlobalData);
   const [loading, setLoading] = useState(initLoadingData);
+  const [initLoadComplete, setInitLoadComplete] = useState(false);
+  const [lastResolves, setLastResolves] = useState({});
 
   const updateData = async (keys, depFuncs=[]) => {
     var newValues = JSON.parse(JSON.stringify(data));
@@ -154,12 +176,65 @@ function Content(props) {
     // console.log(JSON.parse(JSON.stringify(newLoading)));
   };
 
+  const resolveKeysMap = {
+    "generals": ["mobis"],
+    "spy_attempt": [],
+    "settles": ["settle", "structures"],
+    "mobis": ["mobis"],
+    "missiles": ["missiles"],
+    "engineers": ["engineers"],
+    "structures": ["structures"],
+    "revealed": ["revealed"],
+    "shared": ["shared"],
+  }
+  const refreshData = async () => {
+    // console.log('Updating Data');
+    // console.log(data);
+    // console.log(lastResolves);
+    if (initLoadComplete) {
+      await updateData(["kingdom"]);
+      if (Object.keys(lastResolves).length > 0) {
+        const newResolves = Object.keys(lastResolves).filter(key => lastResolves[key] != data.kingdom.next_resolve[key]);
+        // console.log(newResolves);
+        var keysToUpdate = [];
+        for (const resolve of newResolves) {
+          keysToUpdate.push(...resolveKeysMap[resolve])
+        }
+        // console.log(keysToUpdate);
+        updateData(keysToUpdate);
+        setLastResolves(data.kingdom["next_resolve"]);
+      }
+    }
+  }
+
   useEffect(() => {
     if (props.logged) {
       const keys = Object.keys(initGlobalData);
-      updateData(keys);
+      const fetchData = async () => {
+        await updateData(keys);
+      }
+      fetchData();
+      setInitLoadComplete(true);
+
+      // const interval = setInterval(() => {
+      //   refreshData()
+      // }, 10000);
+
+      // return () => clearInterval(interval);
     }
   }, [props.logged])
+
+  useInterval(() => {
+    if (initLoadComplete) {
+      refreshData()
+    }
+  }, 10000)
+
+  // console.log(data);
+  // console.log(lastResolves);
+  if (Object.keys(lastResolves).length == 0 && Object.keys(data.kingdom).length > 0) {
+    setLastResolves(data.kingdom.next_resolve);
+  }
   return (
     <div className="main">
       <div className="navdiv">
