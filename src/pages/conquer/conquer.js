@@ -128,7 +128,7 @@ function Revealed(props) {
     }
     
     const getRemainingSpans = (kdId, revealed) => {
-        const remainingSpans = Object.keys(revealed[kdId]).map((category) =>
+        const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
             <div key={kdId.toString() + '_' + category} className="remaining-timer">
                 <span className="remaining-time-title">{category}</span>
                 <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
@@ -374,7 +374,7 @@ function Shared(props) {
     }
     
     const getRemainingSpans = (kdId, revealed) => {
-        const remainingSpans = Object.keys(revealed[kdId]).map((category) =>
+        const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
             <div key={kdId.toString() + '_' + category} className="remaining-timer">
                 <span className="remaining-time-title">{category}</span>
                 <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
@@ -384,7 +384,7 @@ function Shared(props) {
         return remainingSpans;
     }
     const getRemainingSharedSpans = (kdId, revealed, sharedStat) => {
-        const remainingSpans = Object.keys(revealed[kdId]).map((category) =>
+        const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
             <div key={kdId.toString() + '_' + category} className="remaining-timer">
                 {
                     (category === sharedStat)
@@ -700,7 +700,7 @@ function Pinned(props) {
     }
     
     const getRemainingSpans = (kdId, revealed) => {
-        const remainingSpans = Object.keys(revealed[kdId]).map((category) =>
+        const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
             <div key={kdId.toString() + '_' + category} className="remaining-timer">
                 <span className="remaining-time-title">{category}</span>
                 <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
