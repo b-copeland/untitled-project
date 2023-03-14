@@ -814,6 +814,11 @@ def mobis():
     units = _calc_units(start_time, current_units, generals_units, mobis_units)
     maxes = _calc_maxes(units)
 
+    top_queue = sorted(
+        mobis_info_parse,
+        key=lambda queue: queue["time"],
+    )[:10]
+
     max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
     max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units)
     payload = {
@@ -825,6 +830,7 @@ def mobis():
         'max_available_recruits': max_available_recruits,
         'current_available_recruits': current_available_recruits,
         'units_desc': UNITS,
+        'top_queue': top_queue,
         }
     return (flask.jsonify(payload), 200)
 
@@ -882,7 +888,7 @@ def recruits():
         data=json.dumps(kd_payload),
     )
     recruits_payload = {
-        "mobis": [
+        "new_mobis": [
             {
                 "time": mobis_time,
                 "recruits": recruits_input,
@@ -1046,6 +1052,11 @@ def structures():
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
 
+    top_queue = sorted(
+        structures_info_parse["structures"],
+        key=lambda queue: queue["time"],
+    )[:10]
+
     current_price = _get_structure_price(kd_info_parse)
     current_structures = kd_info_parse["structures"]
     building_structures = structures_info_parse["structures"]
@@ -1060,6 +1071,7 @@ def structures():
         "price": current_price,
         "max_available_structures": max_available_structures,
         "current_available_structures": current_available_structures,
+        "top_queue": top_queue,
     }
 
     return (flask.jsonify(payload), 200)
@@ -1295,6 +1307,11 @@ def get_settle():
     kd_info_parse = json.loads(kd_info.text)
     settle_info = _get_settle_info(kd_id)
 
+    top_queue = sorted(
+        settle_info,
+        key=lambda queue: queue["time"],
+    )[:10]
+
     settle_price = _get_settle_price(kd_info_parse)
     max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info)
 
@@ -1302,6 +1319,7 @@ def get_settle():
         "settle_price": settle_price,
         "max_available_settle": max_settle,
         "current_available_settle": available_settle,
+        "top_queue": top_queue
     }
 
     return (flask.jsonify(payload), 200)
@@ -1376,15 +1394,15 @@ def _get_missiles_info(kd_id):
     missiles_info_parse = json.loads(missiles_info.text)
     return missiles_info_parse["missiles"]
 
-def _get_missiles_building(missiles_info):
+def _get_missiles_building(missiles_info): # TODO: Make this not mutate
     missiles_building = {
         k: 0
         for k in MISSILES
     }
     for missile_queue in missiles_info:
-        missile_queue.pop("time")
         for key_missile, amt_missile in missile_queue.items():
-            missiles_building[key_missile] += amt_missile
+            if key_missile != "time":
+                missiles_building[key_missile] += amt_missile
     return missiles_building
 
 
@@ -1408,9 +1426,15 @@ def missiles():
     kd_info_parse = json.loads(kd_info.text)
 
     missiles_info = _get_missiles_info(kd_id)
+    top_queue = sorted(
+        missiles_info,
+        key=lambda queue: queue["time"],
+    )[:10]
     missiles_building = _get_missiles_building(missiles_info)
 
     current_missiles = kd_info_parse["missiles"]
+
+    print(missiles_info)
 
     payload = {
         "current": current_missiles,
@@ -1418,6 +1442,7 @@ def missiles():
         "build_time": BASE_MISSILE_TIME_MULTIPLER * BASE_EPOCH_SECONDS,
         "capacity": kd_info_parse["structures"]["missile_silos"] * BASE_MISSILE_SILO_CAPACITY,
         "desc": MISSILES,
+        "top_queue": top_queue
     }
 
     return (flask.jsonify(payload), 200)

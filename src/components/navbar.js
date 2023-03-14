@@ -14,6 +14,7 @@ function BasicExample() {
             <li><Link to="/galaxy">Galaxy</Link></li>
             <li><Link to="/forums">Forums</Link></li>
             <li><Link to="/history">History</Link></li>
+            <li><Link to="/build">Build</Link></li>
             <li><Link to="/settle">Settle</Link></li>
             <li><Link to="/structures">Structures</Link></li>
             <li><Link to="/military">Military</Link></li>

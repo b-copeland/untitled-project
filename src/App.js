@@ -19,6 +19,7 @@ import NewsContent from "./pages/home/news.js";
 import Galaxy from "./pages/galaxy.js";
 import Forums from "./pages/home/forums.js";
 import History from "./pages/home/history.js";
+import Build from "./pages/build/build.js";
 import Settle from "./pages/build/settle.js";
 import Structures from "./pages/build/structures.js";
 import MilitaryContent from "./pages/build/military.js";
@@ -232,7 +233,7 @@ function Content(props) {
 
   // console.log(data);
   // console.log(lastResolves);
-  if (Object.keys(lastResolves).length == 0 && Object.keys(data.kingdom).length > 0) {
+  if (Object.keys(lastResolves || {}).length == 0 && data.kingdom.hasOwnProperty("next_resolve")) {
     setLastResolves(data.kingdom.next_resolve);
   }
   return (
@@ -253,6 +254,7 @@ function Content(props) {
                   <Route path="/galaxy" element={<Galaxy data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/forums" element={<Forums/>}/>
                   <Route path="/history" element={<History data={data} loading={loading}/>}/>
+                  <Route path="/build" element={<Build data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/settle" element={<Settle data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/structures" element={<Structures data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/military" element={<MilitaryContent data={data} loading={loading} updateData={updateData}/>}/>

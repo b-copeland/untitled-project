@@ -1,0 +1,11 @@
+.queue-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 5px;
+}
+
+.queue-accordion {
+    margin: 10px;
+    width: 50%;
+}
