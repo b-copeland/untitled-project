@@ -152,6 +152,7 @@ BASE_SPECIALIST_TIME_MULTIPLIER = 12
 
 BASE_ENGINEER_COST = 1000
 BASE_ENGINEER_TIME_MULTIPLIER = 12
+BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH = 1
 BASE_MAX_ENGINEERS = lambda pop: math.floor(pop * 0.05)
 
 BASE_HOMES_CAPACITY = 50
@@ -1207,7 +1208,7 @@ def _get_max_kd_info(kd_id, revealed_info, max=False):
             if "max_bonus" in project_dict
         }
         kd_info_parse_allowed["current_bonuses"] = {
-            project: project_dict.get("max_bonus", 0) * kd_info_parse_allowed["projects_points"][project] / kd_info_parse_allowed["projects_max_points"][project]
+            project: project_dict.get("max_bonus", 0) * min(kd_info_parse_allowed["projects_points"][project] / kd_info_parse_allowed["projects_max_points"][project], 1.0)
             for project, project_dict in PROJECTS.items()
             if "max_bonus" in project_dict
         }
@@ -2138,9 +2139,12 @@ def _calc_generals_return_time(
     generals,
     return_multiplier,
     base_time,
+    general_bonus=0
 ):
+    return_time_with_bonus = datetime.timedelta(seconds=BASE_EPOCH_SECONDS * return_multiplier) * (1 - general_bonus)
+    print(return_time_with_bonus)
     return_times = [
-        base_time + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * return_multiplier / i)
+        base_time + (return_time_with_bonus / i)
         for i in range(generals, 0, -1)
     ]
     return return_times
@@ -2168,7 +2172,7 @@ def calculate_attack(target_kd):
     print(kd_info, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
     current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project]
+        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
         for project, project_dict in PROJECTS.items()
         if "max_bonus" in project_dict
     }
@@ -2219,7 +2223,10 @@ def calculate_attack(target_kd):
         other_bonuses=0,
         shields=defender_shields,
     )
-    attack_ratio = min(attack / defense, 1.0)
+    try:
+        attack_ratio = min(attack / defense, 1.0)
+    except ZeroDivisionError:
+        attack_ratio = 1.0
     attacker_losses = _calc_losses(
         attacker_units,
         BASE_ATTACKER_UNIT_LOSS_RATE,
@@ -2233,6 +2240,7 @@ def calculate_attack(target_kd):
         int(attacker_raw_values["generals"]),
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
         time_now,
+        current_bonuses["general_bonus"],
     )
     generals_strftime = ', '.join([
         str(general_return_time - time_now)
@@ -2306,7 +2314,7 @@ def attack(target_kd):
     print(kd_info, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
     current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project]
+        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
         for project, project_dict in PROJECTS.items()
         if "max_bonus" in project_dict
     }
@@ -2315,7 +2323,7 @@ def attack(target_kd):
     shared = _get_shared(kd_id)["shared"]
     target_kd_info = _get_max_kd_info(target_kd, revealed, max=True)
     target_current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * target_kd_info["projects_points"][project] / target_kd_info["projects_max_points"][project]
+        project: project_dict.get("max_bonus", 0) * min(target_kd_info["projects_points"][project] / target_kd_info["projects_max_points"][project], 1.0)
         for project, project_dict in PROJECTS.items()
         if "max_bonus" in project_dict
     }
@@ -2366,6 +2374,7 @@ def attack(target_kd):
         int(attacker_raw_values["generals"]),
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
         time_now,
+        current_bonuses["general_bonus"],
     )
     new_home_attacker_units = {
         key_unit: value_unit - attacker_units.get(key_unit, 0)
@@ -2947,12 +2956,17 @@ def _kingdom_with_income(
     seconds_elapsed = (time_now - time_last_income).seconds
     epoch_elapsed = seconds_elapsed / BASE_EPOCH_SECONDS
 
+    current_bonuses = {
+        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
+        for project, project_dict in PROJECTS.items()
+        if "max_bonus" in project_dict
+    }
     raw_new_income = (
         (kd_info_parse["structures"]["mines"] * BASE_MINES_INCOME_PER_EPOCH)
         + (kd_info_parse["population"] * BASE_POP_INCOME_PER_EPOCH)
-    )
+    ) * (1 + current_bonuses["money_bonus"])
     new_income = raw_new_income * epoch_elapsed
-    new_fuel = kd_info_parse["structures"]["fuel_plants"] * BASE_FUEL_PLANTS_INCOME_PER_EPOCH * epoch_elapsed
+    new_fuel = kd_info_parse["structures"]["fuel_plants"] * BASE_FUEL_PLANTS_INCOME_PER_EPOCH * epoch_elapsed * (1 + current_bonuses["fuel_bonus"])
     raw_fuel_consumption = (
         sum([
             value_units * UNITS[key_unit]["fuel"]
@@ -2964,7 +2978,13 @@ def _kingdom_with_income(
     net_fuel = new_fuel - fuel_spent # TODO: Fuel cap
     new_drones = kd_info_parse["structures"]["drone_factories"] * BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH * epoch_elapsed
 
+    new_project_points = {
+        key_project: assigned_engineers * BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH * epoch_elapsed
+        for key_project, assigned_engineers in kd_info_parse["projects_assigned"].items()
+    }
     new_kd_info = kd_info_parse.copy()
+    for key_project, new_points in new_project_points.items():
+        kd_info_parse["projects_points"][key_project] += new_points
     new_kd_info["money"] += new_income
     new_kd_info["fuel"] += net_fuel
     new_kd_info["drones"] += new_drones

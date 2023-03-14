@@ -142,7 +142,7 @@ function Revealed(props) {
             <td>{getRemainingSpans(kdId, props.revealed.revealed)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{props.galaxies_inverted[kdId] || ""}</td>
-            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]].name || ""}</td>
+            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
             <td>{maxKdInfo[kdId]?.stars || ""}</td>
             <td>{maxKdInfo[kdId]?.score || ""}</td>
             <td>
@@ -181,7 +181,7 @@ function Revealed(props) {
         <tr key={galaxyId}>
             <td>{getTimeString(props.revealed.galaxies[galaxyId])}</td>
             <td>{galaxyId || ""}</td>
-            <td>{props.empires[props.empires_inverted?.galaxy_empires[galaxyId]].name || ""}</td>
+            <td>{props.empires[props.empires_inverted?.galaxy_empires[galaxyId]]?.name || ""}</td>
         </tr>
     );
     return (
@@ -403,7 +403,7 @@ function Shared(props) {
             <td>{getRemainingSharedSpans(kdId, props.revealed.revealed, props.shared.shared[kdId].shared_stat)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{props.galaxies_inverted[kdId] || ""}</td>
-            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]].name || ""}</td>
+            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
             <td>{props.kingdoms[props.shared.shared[kdId].shared_by] || ""}</td>
             <td>{displayPercent(props.shared.shared[kdId].cut) || ""}</td>
             <td>
@@ -443,7 +443,7 @@ function Shared(props) {
             <td>{getRemainingSpans(kdId, props.revealed.revealed)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{props.galaxies_inverted[kdId] || ""}</td>
-            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]].name || ""}</td>
+            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
             <td>{props.kingdoms[props.shared.shared_requests[kdId].shared_by] || ""}</td>
             <td>{displayPercent(props.shared.shared_requests[kdId].cut) || ""}</td>
             <td>{props.shared.shared_requests[kdId].shared_stat || ""}</td>
@@ -482,7 +482,7 @@ function Shared(props) {
             <td>{getTimeString(props.shared.shared_offers[kdId].time)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{props.galaxies_inverted[kdId] || ""}</td>
-            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]].name || ""}</td>
+            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
             <td>{props.kingdoms[props.shared.shared_offers[kdId].shared_to]}</td>
             <td>{displayPercent(props.shared.shared_offers[kdId].cut) || ""}</td>
             <td>{props.shared.shared_offers[kdId].shared_stat || ""}</td>
@@ -714,7 +714,7 @@ function Pinned(props) {
             <td>{getRemainingSpans(kdId, props.revealed.revealed)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{props.galaxies_inverted[kdId] || ""}</td>
-            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]].name || ""}</td>
+            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
             <td>{maxKdInfo[kdId]?.stars || ""}</td>
             <td>{maxKdInfo[kdId]?.score || ""}</td>
             <td>
