@@ -204,32 +204,32 @@ function Structures(props) {
                     <tr>
                         <td>Mines</td>
                         <td>{structures?.mines || 0}</td>
-                        <td>{displayPercent((structures?.homes || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.mines || 0) / (props.kingdom.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Fuel Plants</td>
                         <td>{structures?.fuel_plants || 0}</td>
-                        <td>{displayPercent((structures?.homes || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.fuel_plants || 0) / (props.kingdom.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Hangars</td>
                         <td>{structures?.hangars || 0}</td>
-                        <td>{displayPercent((structures?.homes || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.hangars || 0) / (props.kingdom.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Drone Factories</td>
                         <td>{structures?.drone_factories || 0}</td>
-                        <td>{displayPercent((structures?.homes || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.drone_factories || 0) / (props.kingdom.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Missile Silos</td>
                         <td>{structures?.missile_silos || 0}</td>
-                        <td>{displayPercent((structures?.homes || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.missile_silos || 0) / (props.kingdom.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Workshops</td>
                         <td>{structures?.workshops || 0}</td>
-                        <td>{displayPercent((structures?.homes || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.workshops || 0) / (props.kingdom.stars || 1))}</td>
                     </tr>
                 </tbody>
             </Table>
