@@ -12,6 +12,7 @@ import Attack from "./attack.js";
 import Spy from "./spy.js";
 import LaunchMissiles from "./launchmissiles.js";
 import Message from "../message.js";
+import Kingdom from "../kingdominfo.js";
 
 
 function ConquerContent(props) {
@@ -80,6 +81,7 @@ function getTimeString(date) {
 
 function Revealed(props) {
     const [maxKdInfo, setMaxKdInfo] = useState({});
+    const [showView, setShowView] = useState(false);
     const [showAttack, setShowAttack] = useState(false);
     const [showSpy, setShowSpy] = useState(false);
     const [showMissile, setShowMissile] = useState(false);
@@ -146,6 +148,9 @@ function Revealed(props) {
             <td>{maxKdInfo[kdId]?.stars || ""}</td>
             <td>{maxKdInfo[kdId]?.score || ""}</td>
             <td>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
+                    View
+                </Button>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
@@ -186,6 +191,24 @@ function Revealed(props) {
     );
     return (
         <div className="revealed">
+            <Modal
+                show={showView}
+                onHide={() => setShowView(false)}
+                animation={false}
+                dialogClassName="view-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>View</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "kdId": kdToShow}}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowView(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
             <Modal
                 show={showAttack}
                 onHide={() => setShowAttack(false)}
@@ -318,7 +341,8 @@ function Revealed(props) {
 }
 
 function Shared(props) {
-    // const [maxKdInfo, setMaxKdInfo] = useState({});
+    const [maxKdInfo, setMaxKdInfo] = useState({});
+    const [showView, setShowView] = useState(false);
     const [showAttack, setShowAttack] = useState(false);
     const [showSpy, setShowSpy] = useState(false);
     const [showMissile, setShowMissile] = useState(false);
@@ -327,24 +351,24 @@ function Shared(props) {
     const [galaxyToShow, setGalaxyToShow] = useState('');
     const [kdToShow, setKdToShow] = useState();
 
-    // useEffect(() => {
-    //     const fetchData = async () => {
-    //         var sharedKds = Array();
-    //         sharedKds.push.apply(
-    //             Object.keys(props.shared.shared),
-    //             Object.keys(props.shared.shared_requests),
-    //             Object.keys(props.shared.shared_offers),
-    //         )
-    //         const opts = {"kingdoms": sharedKds}
-    //         if (sharedKds.length > 0) {
-    //             await authFetch("api/kingdomsinfo", {
-    //                 method: "POST",
-    //                 body: JSON.stringify(opts)
-    //             }).then(r => r.json()).then(r => setMaxKdInfo(r));
-    //         }
-    //     };
-    //     fetchData();
-    // }, [props.shared])
+    useEffect(() => {
+        const fetchData = async () => {
+            var sharedKds = Array();
+            sharedKds.push.apply(
+                Object.keys(props.shared.shared),
+                // Object.keys(props.shared.shared_requests),
+                // Object.keys(props.shared.shared_offers),
+            )
+            const opts = {"kingdoms": sharedKds}
+            if (sharedKds.length > 0) {
+                await authFetch("api/kingdomsinfo", {
+                    method: "POST",
+                    body: JSON.stringify(opts)
+                }).then(r => r.json()).then(r => setMaxKdInfo(r));
+            }
+        };
+        fetchData();
+    }, [props.shared.shared])
     if (!props.shared.hasOwnProperty('shared')) {
         return <h3>Loading...</h3>
     }
@@ -407,6 +431,9 @@ function Shared(props) {
             <td>{props.kingdoms[props.shared.shared[kdId].shared_by] || ""}</td>
             <td>{displayPercent(props.shared.shared[kdId].cut) || ""}</td>
             <td>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
+                    View
+                </Button>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
@@ -508,6 +535,24 @@ function Shared(props) {
     );
     return (
         <div className="revealed">
+            <Modal
+                show={showView}
+                onHide={() => setShowView(false)}
+                animation={false}
+                dialogClassName="view-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>View</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "kdId": kdToShow}}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowView(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
             <Modal
                 show={showAttack}
                 onHide={() => setShowAttack(false)}
@@ -659,6 +704,7 @@ function Shared(props) {
 
 function Pinned(props) {
     const [maxKdInfo, setMaxKdInfo] = useState({});
+    const [showView, setShowView] = useState(false);
     const [showAttack, setShowAttack] = useState(false);
     const [showSpy, setShowSpy] = useState(false);
     const [showMissile, setShowMissile] = useState(false);
@@ -718,6 +764,9 @@ function Pinned(props) {
             <td>{maxKdInfo[kdId]?.stars || ""}</td>
             <td>{maxKdInfo[kdId]?.score || ""}</td>
             <td>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
+                    View
+                </Button>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
@@ -751,6 +800,24 @@ function Pinned(props) {
     );
     return (
         <div className="revealed">
+            <Modal
+                show={showView}
+                onHide={() => setShowView(false)}
+                animation={false}
+                dialogClassName="view-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>View</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "kdId": kdToShow}}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowView(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
             <Modal
                 show={showAttack}
                 onHide={() => setShowAttack(false)}
