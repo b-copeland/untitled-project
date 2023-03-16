@@ -19,8 +19,6 @@ CONTAINER = DATABASE.get_container_client(CONTAINER_NAME)
 
 APP = func.FunctionApp()
 
-
-
 @APP.function_name(name="CreateState")
 @APP.route(route="init", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
 def init_state(req: func.HttpRequest) -> func.HttpResponse:
@@ -73,6 +71,7 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a create kingdom request.')    
     req_body = req.get_json()
     kd_name = req_body.get('kingdom_name')
+    galaxy = req_body.get('galaxy')
 
     existing_kds = CONTAINER.read_item(
         item="kingdoms",
@@ -85,11 +84,22 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
         )
     try:
         kd_id = str(len(existing_kds["kingdoms"]))
-        existing_kds["kingdoms"][kd_name] = kd_id
+        existing_kds["kingdoms"][kd_id] = kd_name
         CONTAINER.replace_item(
             "kingdoms",
             existing_kds,
         )
+
+        galaxies = CONTAINER.read_item(
+            item="galaxies",
+            partition_key="galaxies",
+        )
+        galaxies["galaxies"][galaxy].append(kd_id)
+        CONTAINER.replace_item(
+            "galaxies",
+            galaxies,
+        )
+
         for resource_name in [
             "kingdom",
             "news",
@@ -104,23 +114,51 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             "spy_history",
             "attack_history",
             "missile_history",
-            "next_resolve",
         ]:
             CONTAINER.create_item(
                 {
                     "id": f"{resource_name}_{kd_id}",
                     "kdId": kd_id,
                     "type": resource_name,
-                    resource_name: [],
                 }
             )
         return func.HttpResponse(
-            "Kingdom created.",
+            kd_id,
             status_code=201,
         )
     except:
         return func.HttpResponse(
             "The kingdom was not created",
+            status_code=500,
+        )
+
+@APP.function_name(name="CreateItem")
+@APP.route(route="createitem", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a create item request.')    
+    req_body = req.get_json()
+    item = req_body.get('item')
+    state = req_body.get('state')
+
+    item_contents = CONTAINER.read_item(
+        item=item,
+        partition_key=item,
+    )
+    try:
+        CONTAINER.replace_item(
+            item,
+            {
+                **item_contents,
+                **state,
+            },
+        )
+        return func.HttpResponse(
+            f"Successfully created {item} state",
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            f"{item} state was not created",
             status_code=500,
         )
 

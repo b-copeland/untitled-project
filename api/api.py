@@ -194,6 +194,122 @@ REVEAL_OPERATIONS = [
     "spydrones",
 ]
 
+INITIAL_KINGDOM_STATE = {
+    "kingdom": {
+        "kdId": "",
+        "name": "",
+        "race": "",
+        "last_income": "",
+        "next_resolve": {
+            "generals": "2099-01-01T00:00:00+00:00",
+            "spy_attempt": "2099-01-01T00:00:00+00:00",
+            "settles": "2099-01-01T00:00:00+00:00",
+            "mobis": "2099-01-01T00:00:00+00:00",
+            "missiles": "2099-01-01T00:00:00+00:00",
+            "engineers": "2099-01-01T00:00:00+00:00",
+            "structures": "2099-01-01T00:00:00+00:00",
+            "revealed": "2099-01-01T00:00:00+00:00",
+            "shared": "2099-01-01T00:00:00+00:00",
+        },
+        "stars": 300,
+        "fuel": 10000,
+        "population": 2500,
+        "score": 0,
+        "money": 100000,
+        "drones": 1000,
+        "spy_attempts": 10,
+        "generals_available": 4,
+        "generals_out": [],
+        "units": {
+            "attack": 0,
+            "defense": 0,
+            "flex": 0,
+            "recruits": 0,
+            "engineers": 0,
+            "big_flex": 0,
+        },
+        "structures": {
+            "homes": 0,
+            "mines": 0,
+            "fuel_plants": 0,
+            "hangars": 0,
+            "drone_factories": 0,
+            "missile_silos": 0,
+            "workshops": 0,
+        },
+        "revealed_to": {},
+        "auto_spending": {
+            "settle": 0,
+            "structures": 0,
+            "military": 0,
+            "engineers": 0
+        },
+        "project_points": {
+            "pop_bonus": 1000,
+            "fuel_bonus": 1000,
+            "military_bonus": 1000,
+            "money_bonus": 1000,
+            "general_bonus": 1000,
+            "spy_bonus": 0,
+            "big_flexers": 0,
+            "star_busters": 0,
+            "galaxy_busters": 0,
+            "drone_gadgets": 0
+        },
+        "projects_max_points": {
+            "pop_bonus": 1000,
+            "fuel_bonus": 1000,
+            "military_bonus": 1000,
+            "money_bonus": 1000,
+            "general_bonus": 1000,
+            "spy_bonus": 1000,
+            "big_flexers": PROJECTS["big_flexers"]["max_points"](0),
+            "star_busters": PROJECTS["star_busters"]["max_points"](0),
+            "galaxy_busters": PROJECTS["galaxy_busters"]["max_points"](0),
+            "drone_gadgets": PROJECTS["drone_gadgets"]["max_points"](0),
+        },
+        "projects_assigned": {
+            "pop_bonus": 0,
+            "fuel_bonus": 0,
+            "military_bonus": 0,
+            "money_bonus": 0,
+            "general_bonus": 0,
+            "spy_bonus": 0,
+            "big_flexers": 0,
+            "star_busters": 0,
+            "galaxy_busters": 0,
+            "drone_gadgets": 0
+        },
+        "completed_projects": [],
+        "missiles": {
+            "planet_busters": 0,
+            "star_busters": 0,
+            "galaxy_busters": 0,
+        },
+        "shields": {
+            "military": 0.0,
+            "spy": 0.0,
+            "missiles": 0.0
+        },
+    },
+    "news": {"news": []},
+    "settles": {"settles": []},
+    "mobis": {"mobis": []},
+    "structures": {"structures": []},
+    "missiles": {"missiles": []},
+    "engineers": {"engineers": []},
+    "revealed": {"revealed": {}, "galaxies": {}},
+    "shared": {
+        "shared": {},
+        "shared_requests": {},
+        "shared_offers": {},
+    },
+    "pinned": {"pinned": []},
+    "spy_history": {"spy_history": []},
+    "attack_history": {"attack_history": []},
+    "missile_history": {"missile_history": []},
+}
+
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -201,6 +317,7 @@ class User(db.Model):
     password = db.Column(db.Text)
     roles = db.Column(db.Text)
     kd_id = db.Column(db.Text)
+    kd_created = db.Column(db.Boolean, default=False, server_default='false')
     is_active = db.Column(db.Boolean, default=True, server_default='true')
     is_verified = db.Column(db.Boolean, default=True, server_default='false')
 
@@ -262,14 +379,22 @@ with app.app_context():
         db.session.add(User(
           username='admin',
           password=guard.hash_password('pass'),
-          roles='operator,admin'
+          roles='operator,admin',
+          kd_created=True,
 		))
     if db.session.query(User).filter_by(username='user').count() < 1:
         db.session.add(User(
           username='user',
           password=guard.hash_password('pass'),
           roles='verified',
-          kd_id="0"
+          kd_id="0",
+          kd_created=True,
+		))
+    if db.session.query(User).filter_by(username='newkd').count() < 1:
+        db.session.add(User(
+          username='newkd',
+          password=guard.hash_password('newkd'),
+          roles='verified',
 		))
     db.session.commit()
 
@@ -309,6 +434,95 @@ def refresh():
     new_token = guard.refresh_jwt_token(old_token)
     ret = {'accessToken': new_token}
     return ret, 200
+
+@app.route('/api/kingdomid')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def kingdomid():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    kd_created = flask_praetorian.current_user().kd_created
+    if kd_id == None:
+        return flask.jsonify({"kd_id": "", "created": kd_created}), 200
+    
+    return flask.jsonify({"kd_id": kd_id, "created": kd_created}), 200
+
+def _validate_kingdom_name(
+    name,    
+):
+    kingdoms = _get_kingdoms()
+    if any((name.lower() == existing_name.lower() for existing_name in kingdoms.values())):
+        return False, "Kingdom name already exists"
+    
+    if len(name) > 24:
+        return False, "Kingdom name must be less than 25 characters"
+    
+    if len(name) == 0:
+        return False, "Kingdom name must have at least one character"
+    
+    return True, ""
+
+@app.route('/api/createkingdom', methods=["POST"])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def create_initial_kingdom():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    user = flask_praetorian.current_user()
+
+    valid_name, message = _validate_kingdom_name(req["kdName"])
+    if not valid_name:
+        return (flask.jsonify(message), 400)
+    
+    galaxies = _get_galaxy_info()
+    size_galaxies = collections.defaultdict(list)
+    for galaxy_id, kingdoms in galaxies.items():
+        size_galaxies[len(kingdoms)].append(galaxy_id)
+
+    smallest_galaxy_size = min(size_galaxies.keys())
+    smallest_galaxies = size_galaxies[smallest_galaxy_size]
+
+    chosen_galaxy = random.choice(smallest_galaxies)
+    create_kd_response = REQUESTS_SESSION.post(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps({"kingdom_name": req["kdName"], "galaxy": chosen_galaxy}),
+    )
+    if create_kd_response.status_code != 201:
+        return (flask.jsonify("Error creating kingdom"), 400)
+    
+    kd_id = create_kd_response.text
+
+    for table, initial_state in INITIAL_KINGDOM_STATE.items():
+        item_id = f"{table}_{kd_id}"
+        state = initial_state.copy()
+        if table == "kingdom":
+            state["kdId"] = kd_id
+            state["name"] = req["kdName"]
+
+        create_response = REQUESTS_SESSION.post(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps({
+                "item": item_id,
+                "state": state,
+            }),
+        )        
+
+    user.kd_id = kd_id
+    db.session.commit()
+    
+    return kd_id, 200
 
 
 @app.route('/api/kingdom')

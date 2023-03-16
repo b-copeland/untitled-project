@@ -14,6 +14,7 @@ import {login, authFetch, useAuth, logout, getSession, getSessionState} from "./
 import BasicExample from "./components/navbar";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css";
+import CreateKingdom from "./pages/createkingdom.js";
 import StatusContent from "./pages/home/status.js";
 import NewsContent from "./pages/home/news.js";
 import Galaxy from "./pages/galaxy.js";
@@ -31,7 +32,7 @@ import Spy from "./pages/conquer/spy.js";
 import LaunchMissiles from "./pages/conquer/launchmissiles.js";
 
 
-const ProtectedRoute = ({ logged, session, redirectPath = '/login', children }) => {
+const ProtectedRoute = ({ logged, session, kingdomid, redirectPath = '/login', children }) => {
   if (session != null && session.hasOwnProperty("error")) {
     logout();
     return <Navigate to={redirectPath} replace />;
@@ -40,10 +41,20 @@ const ProtectedRoute = ({ logged, session, redirectPath = '/login', children }) 
     return <Navigate to={redirectPath} replace />;
   }
 
+  if (kingdomid.kd_id === undefined) {
+    return <h2>Loading...</h2>
+  }
+
+  if (kingdomid.kd_id === "" || kingdomid.created === false) {
+    console.log("Going to /createkingdom")
+    return <Navigate to="/createkingdom" replace />;
+  }
+
   return children ? children : <Outlet />;
 };
 
 const initGlobalData = {
+  'kingdomid': {},
   'kingdom': {},
   'kingdoms': {},
   'galaxies': {},
@@ -68,6 +79,7 @@ const initGlobalData = {
   'missilehistory': [],
 }
 const initLoadingData = {
+  'kingdomid': true,
   'kingdom': true,
   'kingdoms': true,
   'galaxies': true,
@@ -92,6 +104,7 @@ const initLoadingData = {
   'missilehistory': true,
 }
 const endpoints = {
+  'kingdomid': 'api/kingdomid',
   'kingdom': 'api/kingdom',
   'kingdoms': 'api/kingdoms',
   'galaxies': 'api/galaxies',
@@ -141,6 +154,8 @@ function Content(props) {
   const [loading, setLoading] = useState(initLoadingData);
   const [initLoadComplete, setInitLoadComplete] = useState(false);
   const [lastResolves, setLastResolves] = useState({});
+  console.log(data);
+  console.log(loading);
 
   const updateData = async (keys, depFuncs=[]) => {
     var newValues = JSON.parse(JSON.stringify(data));
@@ -227,7 +242,9 @@ function Content(props) {
 
   useInterval(() => {
     if (initLoadComplete) {
-      refreshData()
+      if (data.kingdomid.created !== false) {
+        refreshData()
+      }
     }
   }, 10000)
 
@@ -248,7 +265,8 @@ function Content(props) {
             <div className="router-body">
               <Routes>
                 <Route path="/login" element={<Login logged={props.logged}/>}/>
-                <Route element={<ProtectedRoute logged={props.logged} session={props.session}/>}>
+                <Route path="/createkingdom" element={<CreateKingdom loading={loading} updateData={updateData} kingdomid={data.kingdomid}/>}/>
+                <Route element={<ProtectedRoute logged={props.logged} session={props.session} kingdomid={data.kingdomid}/>}>
                   <Route path="/status" element={<StatusContent data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/news" element={<NewsContent data={data}/>}/>
                   <Route path="/galaxy" element={<Galaxy data={data} loading={loading} updateData={updateData}/>}/>
