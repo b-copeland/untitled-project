@@ -310,6 +310,16 @@ INITIAL_KINGDOM_STATE = {
     "missile_history": {"missile_history": []},
 }
 
+KINGDOM_CREATOR_STARTING_POINTS = 20000
+KINGDOM_CREATOR_POINTS = {
+    "drones": 1,
+    "recruits": 1,
+    "attack": 5,
+    "defense": 5,
+    "flex": 10,
+    "engineers": 10,
+}
+
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -523,6 +533,104 @@ def create_initial_kingdom():
     db.session.commit()
     
     return kd_id, 200
+
+@app.route('/api/createkingdomdata')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def create_kingdom_data():
+    """
+    Return information to inform kingdom creator page
+    """
+
+    payload = {
+        "total_points": KINGDOM_CREATOR_STARTING_POINTS,
+        "selection_points": KINGDOM_CREATOR_POINTS,
+        "total_stars": INITIAL_KINGDOM_STATE["kingdom"]["stars"],
+    }
+    return (flask.jsonify(payload), 200)
+
+def _validate_kingdom_choices(
+    unit_choices,
+    structures_choices,    
+):
+    sum_units_points = sum([
+        value_unit * KINGDOM_CREATOR_POINTS[key_unit]
+        for key_unit, value_unit in unit_choices.items()
+    ])
+    sum_structures = sum(structures_choices.values())
+    if any((value_unit < 0 for value_unit in unit_choices.values())):
+        return False, "Unit values must be non-negative"
+    if any((value_structure < 0 for value_structure in structures_choices.values())):
+        return False, "Structures values must be non-negative"
+    
+    if KINGDOM_CREATOR_STARTING_POINTS - sum_units_points < 0:
+        return False, "You do not have that many unit points available"
+
+    if sum_units_points != KINGDOM_CREATOR_STARTING_POINTS:
+        return False, "You must use all units points"
+    
+    if INITIAL_KINGDOM_STATE["kingdom"]["stars"] - sum_structures < 0:
+        return False, "You do not have that many stars available for structures"
+
+    if sum_structures != INITIAL_KINGDOM_STATE["kingdom"]["stars"]:
+        return False, "You must use all stars for structures"
+    
+    return True, ""
+
+@app.route('/api/createkingdomchoices', methods=["POST"])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def create_kingdom_choices():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    user = flask_praetorian.current_user()
+
+    if user.kd_created:
+        return (flask.jsonify("This kingdom has already been created"), 400)
+
+    unit_choices = {
+        k: int(v or 0)
+        for k, v in req["unitsChoices"].items()
+    }
+    structures_choices = {
+        k: int(v or 0)
+        for k, v in req["structuresChoices"].items()
+    }
+
+    valid_kd, message = _validate_kingdom_choices(unit_choices, structures_choices)
+    if not valid_kd:
+        return (flask.jsonify(message), 400)
+    
+    kd_id = user.kd_id
+    kd_info = _get_kd_info(kd_id)
+    drones = unit_choices.pop("drones")
+
+    payload = {}
+    payload["drones"] = drones
+    payload["units"] = {
+        k: v + unit_choices.get(k, 0)
+        for k, v in kd_info["units"].items()
+    }
+    payload["structures"] = {
+        k: v + structures_choices.get(k, 0)
+        for k, v in kd_info["structures"].items()
+    }
+
+    patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(payload),
+    )        
+
+    user.kd_created = True
+    db.session.commit()
+    
+    return (flask.jsonify("Success"), 200)
 
 
 @app.route('/api/kingdom')

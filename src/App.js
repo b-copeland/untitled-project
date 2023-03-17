@@ -46,7 +46,7 @@ const ProtectedRoute = ({ logged, session, kingdomid, redirectPath = '/login', c
   }
 
   if (kingdomid.kd_id === "" || kingdomid.created === false) {
-    console.log("Going to /createkingdom")
+    // console.log("Going to /createkingdom")
     return <Navigate to="/createkingdom" replace />;
   }
 
@@ -154,8 +154,8 @@ function Content(props) {
   const [loading, setLoading] = useState(initLoadingData);
   const [initLoadComplete, setInitLoadComplete] = useState(false);
   const [lastResolves, setLastResolves] = useState({});
-  console.log(data);
-  console.log(loading);
+  // console.log(data);
+  // console.log(loading);
 
   const updateData = async (keys, depFuncs=[]) => {
     var newValues = JSON.parse(JSON.stringify(data));
