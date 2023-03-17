@@ -129,6 +129,9 @@ function Spy(props) {
             <Toast.Body>{results.message}</Toast.Body>
         </Toast>
     )
+    if (drones > props.data.kingdom["drones"]) {
+        setDrones(Math.floor(props.data.kingdom["drones"]))
+    }
     return (
         <div className="attack">
             <ToastContainer position="bottom-end">
