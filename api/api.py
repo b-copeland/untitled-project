@@ -194,6 +194,7 @@ REVEAL_OPERATIONS = [
     "spydrones",
 ]
 
+INITIAL_KINGDOM_STARS = 300
 INITIAL_KINGDOM_STATE = {
     "kingdom": {
         "kdId": "",
@@ -211,7 +212,7 @@ INITIAL_KINGDOM_STATE = {
             "revealed": "2099-01-01T00:00:00+00:00",
             "shared": "2099-01-01T00:00:00+00:00",
         },
-        "stars": 300,
+        "stars": INITIAL_KINGDOM_STARS,
         "fuel": 10000,
         "population": 2500,
         "score": 0,
@@ -244,7 +245,7 @@ INITIAL_KINGDOM_STATE = {
             "military": 0,
             "engineers": 0
         },
-        "project_points": {
+        "projects_points": {
             "pop_bonus": 1000,
             "fuel_bonus": 1000,
             "military_bonus": 1000,
@@ -257,12 +258,12 @@ INITIAL_KINGDOM_STATE = {
             "drone_gadgets": 0
         },
         "projects_max_points": {
-            "pop_bonus": 1000,
-            "fuel_bonus": 1000,
-            "military_bonus": 1000,
-            "money_bonus": 1000,
-            "general_bonus": 1000,
-            "spy_bonus": 1000,
+            "pop_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
+            "fuel_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
+            "military_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
+            "money_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
+            "general_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
+            "spy_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
             "big_flexers": PROJECTS["big_flexers"]["max_points"](0),
             "star_busters": PROJECTS["star_busters"]["max_points"](0),
             "galaxy_busters": PROJECTS["galaxy_busters"]["max_points"](0),
@@ -490,6 +491,9 @@ def create_initial_kingdom():
     req = flask.request.get_json(force=True)
     user = flask_praetorian.current_user()
 
+    if user.kd_id != "" and user.kd_id != None:
+        return (flask.jsonify("You already have a kingdom ID"), 400)
+
     valid_name, message = _validate_kingdom_name(req["kdName"])
     if not valid_name:
         return (flask.jsonify(message), 400)
@@ -620,6 +624,7 @@ def create_kingdom_choices():
         k: v + structures_choices.get(k, 0)
         for k, v in kd_info["structures"].items()
     }
+    payload["last_income"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -3594,7 +3599,7 @@ def refresh_data():
 
     kingdoms = _get_kingdoms()
     for kd_id in kingdoms:
-        if str(kd_id) != "0":
+        if str(kd_id) != "12":
             continue
         next_resolves = {}
         time_update = datetime.datetime.now(datetime.timezone.utc)
