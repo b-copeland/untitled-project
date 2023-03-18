@@ -23,6 +23,7 @@ function BasicExample() {
             <li><Link to="/conquer">Conquer</Link></li>
             <li><Link to="/attack">Attack</Link></li>
             <li><Link to="/spy">Spy</Link></li>
+            <li><Link to="/shareintel">Share Intel</Link></li>
             <li><Link to="/launchmissiles">Launch Missiles</Link></li>
         </ul>
     </nav>

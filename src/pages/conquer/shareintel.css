@@ -1,0 +1,24 @@
+.share-intel {
+    display: flex;
+    flex-direction: column;
+    min-height: 80vh;
+    /* width: 50%; */
+    align-items: center;
+    padding: 20px;
+}
+.share-intel-choices {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.share-revealed-stats-box {
+    margin: 10px;
+}
+
+.share-input {
+    margin: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}

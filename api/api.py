@@ -625,6 +625,10 @@ def create_kingdom_choices():
         for k, v in kd_info["structures"].items()
     }
     payload["last_income"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    payload["next_resolve"] = kd_info["next_resolve"]
+    payload["next_resolve"]["spy_attempt"] = (
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPY_ATTEMPT_TIME_MULTIPLIER)
+    ).isoformat()
 
     patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -2198,25 +2202,35 @@ def offer_shared():
     shared_kd = str(req["shared"])
     shared_stat = req["shared_stat"]
     shared_to_kd = str(req["shared_to"])
-    cut = float(req["cut"])
+    cut = float(req.get("cut", 0)) / 100
+
+    if (
+        shared_kd == "" or shared_kd == None
+        or shared_stat == "" or shared_stat == None
+        or shared_to_kd == "" or shared_to_kd == None
+    ):
+        return flask.jsonify({"message": "The request selections are not complete"}), 400
 
     kd_id = flask_praetorian.current_user().kd_id
     print(kd_id, file=sys.stderr)
 
     galaxies_inverted, _ = _get_galaxies_inverted()
     revealed_info = _get_revealed(kd_id)
-
-    if shared_stat not in revealed_info["revealed"][shared_kd].keys():
-        return "You do not have that revealed stat to share", 400
-    
-    your_galaxy = galaxies_inverted[kd_id]
-    shared_to_galaxy = galaxies_inverted[shared_to_kd]
-
-    if your_galaxy != shared_to_galaxy:
-        return "You can not share to kingdoms outside of your galaxy", 400
     
     your_shared_info = _get_shared(kd_id)
     shared_to_shared_info = _get_shared(shared_to_kd)
+
+    if shared_stat not in revealed_info["revealed"][shared_kd].keys():
+        return flask.jsonify({"message": "You do not have that revealed stat to share"}), 400
+    
+    if shared_stat == your_shared_info["shared"].get(shared_kd, {}).get("shared_stat"):
+        return flask.jsonify({"message": "You can not share intel that was shared with you"}), 400
+
+    your_galaxy = galaxies_inverted[kd_id]
+    shared_to_galaxy = galaxies_inverted.get(shared_to_kd, None)
+
+    if your_galaxy != shared_to_galaxy and shared_to_kd != "galaxy":
+        return flask.jsonify({"message": "You can not share to kingdoms outside of your galaxy"}), 400
 
     shared_resolve_time = revealed_info["revealed"][shared_kd][shared_stat]
     your_payload = { # TODO: this needs to support offers to multiple KDs
@@ -2271,7 +2285,7 @@ def offer_shared():
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps({"next_resolve": shared_to_next_resolve}),
         )
-    return (flask.jsonify(shared_to_shared_info_response.text), 200)
+    return (flask.jsonify({"message": "Succesfully shared intel", "status": "success"}), 200)
 
 def _get_pinned(kd_id):
     pinned_info = REQUESTS_SESSION.get(
@@ -3015,9 +3029,12 @@ def spy(target_kd):
         defender_stars,
         defender_shields
     )
+    print(spy_probability)
     success_losses, failure_losses = _calculate_spy_losses(drones, shielded)
 
-    success = random.uniform(0, 1) < spy_probability
+    roll = random.uniform(0, 1)
+    print(roll)
+    success = roll < spy_probability
 
     time_now = datetime.datetime.now(datetime.timezone.utc)
     revealed_until = None

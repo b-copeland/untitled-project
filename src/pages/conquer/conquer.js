@@ -11,6 +11,7 @@ import Galaxy from "../galaxy.js";
 import Attack from "./attack.js";
 import Spy from "./spy.js";
 import LaunchMissiles from "./launchmissiles.js";
+import ShareIntel from "./shareintel.js";
 import Message from "../message.js";
 import Kingdom from "../kingdominfo.js";
 
@@ -86,6 +87,7 @@ function Revealed(props) {
     const [showSpy, setShowSpy] = useState(false);
     const [showMissile, setShowMissile] = useState(false);
     const [showMessage, setShowMessage] = useState(false);
+    const [showShareIntel, setShowShareIntel] = useState(false);
     const [showGalaxy, setShowGalaxy] = useState(false);
     const [galaxyToShow, setGalaxyToShow] = useState('');
     const [kdToShow, setKdToShow] = useState();
@@ -162,6 +164,9 @@ function Revealed(props) {
                 </Button>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
                     Message
+                </Button>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowShareIntel(true)}}>
+                    Share Intel
                 </Button>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
                     View Galaxy
@@ -277,6 +282,24 @@ function Revealed(props) {
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowMessage(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            <Modal
+                show={showShareIntel}
+                onHide={() => setShowShareIntel(false)}
+                animation={false}
+                dialogClassName="share-intel-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Share Intel</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <ShareIntel data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowShareIntel(false)}>
                     Close
                     </Button>
                 </Modal.Footer>
