@@ -4,6 +4,8 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./structures.css"
 
 
@@ -16,6 +18,7 @@ function Structures(props) {
     const [missileSilosInput, setMissileSilosInput] = useState('');
     const [workshopsInput, setWorkshopsInput] = useState('');
     const [reloading, setReloading] = useState(false);
+    const [structuresResult, setStructuresResult] = useState([]);
 
     const handleHomesInput = (e) => {
         setHomesInput(e.target.value);
@@ -55,7 +58,7 @@ function Structures(props) {
             const updateFunc = () => authFetch('api/structures', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            })
+            }).then(r => r.json()).then(r => setStructuresResult(structuresResult.concat(r)))
             props.updateData(['structures', 'kingdom'], [updateFunc])
             setHomesInput('');
             setMinesInput('');
@@ -77,8 +80,24 @@ function Structures(props) {
     }
     const structuresInfo = props.data.structures;
     const kdInfo = props.data.kingdom;
+    const toasts = structuresResult.map((results, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setStructuresResult(structuresResult.slice(0, index).concat(structuresResult.slice(index + 1, 999)))}
+            show={true}
+            bg={results.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Structures Results</strong>
+            </Toast.Header>
+            <Toast.Body>{results.message}</Toast.Body>
+        </Toast>
+    )
     return (
         <div className="structures">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
             <div className="text-box structures-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Build Time</span>

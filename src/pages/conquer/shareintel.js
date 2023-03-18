@@ -11,7 +11,6 @@ import Select from 'react-select';
 import Galaxy from "../galaxy";
 
 function ShareIntel(props) {
-    const [message, setMessage] = useState("");
     const [selected, setSelected] = useState(props.initialKd || undefined);
     const [selectedStat, setSelectedStat] = useState(undefined);
     const [selectedShareTo, setSelectedShareTo] = useState(undefined);

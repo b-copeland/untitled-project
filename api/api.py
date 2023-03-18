@@ -1213,7 +1213,7 @@ def recruits():
     max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units)
     valid_recruits = _validate_recruits(recruits_input, current_available_recruits)
     if not valid_recruits:
-        return (flask.jsonify('Please enter valid recruits value'), 400)
+        return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
 
     mobis_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_RECRUIT_TIME_MULTIPLIER)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
@@ -1238,7 +1238,7 @@ def recruits():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(recruits_payload),
     )
-    return (flask.jsonify(kd_patch_response.text), 200)
+    return (flask.jsonify({"message": "Successfully began recruiting", "status": "success"}), 200)
 
 def _get_mobis_cost(mobis_request):
     mobis_cost = sum([
@@ -1249,6 +1249,8 @@ def _get_mobis_cost(mobis_request):
 
 def _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cost):
     if sum(mobis_request.values()) > current_units["recruits"]:
+        return False
+    if sum(mobis_request.values()) == 0:
         return False
     if any((value < 0 for value in mobis_request.values())):
         return False
@@ -1289,7 +1291,7 @@ def train_mobis():
     mobis_cost = _get_mobis_cost(mobis_request)
     valid_mobis = _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cost)
     if not valid_mobis:
-        return (flask.jsonify('Please enter valid training values'), 400)
+        return (flask.jsonify({"message": 'Please enter valid training values'}), 400)
 
     new_money = kd_info_parse["money"] - mobis_cost
     new_recruits = kd_info_parse["units"]["recruits"] - sum(mobis_request.values())
@@ -1322,7 +1324,7 @@ def train_mobis():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(mobis_payload),
     )
-    return (flask.jsonify(mobis_patch_response.text), 200)
+    return (flask.jsonify({"message": "Successfully began training specialists", "status": "success"}), 200)
 
 def _calc_structures(
     start_time,
@@ -1471,7 +1473,7 @@ def build_structures():
     }
     valid_structures = _validate_structures(structures_request, current_available_structures)
     if not valid_structures:
-        return (flask.jsonify('Please enter valid structures values'), 400)
+        return (flask.jsonify({"message": 'Please enter valid structures values'}), 400)
 
     structures_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
@@ -1496,7 +1498,7 @@ def build_structures():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(structures_payload),
     )
-    return (flask.jsonify(structures_patch_response.text), 200)
+    return (flask.jsonify({"message": "Successfully began building structures", "status": "success"}), 200)
 
 def _get_kd_info(kd_id):
     kd_info = REQUESTS_SESSION.get(
@@ -1664,6 +1666,8 @@ def get_settle():
 
 def _validate_settles(settle_input, kd_info, settle_info):
     max_settle, available_settle = _get_available_settle(kd_info, settle_info)
+    if settle_input <= 0:
+        return False
     if settle_input > available_settle:
         return False
 
@@ -1695,7 +1699,7 @@ def settle():
     settle_info = _get_settle_info(kd_id)
     valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info)
     if not valid_settle:
-        return (flask.jsonify('Please enter valid settle value'), 400)
+        return (flask.jsonify({"message": 'Please enter valid settle value'}), 400)
 
     settle_price = _get_settle_price(kd_info_parse)
     new_money = kd_info_parse["money"] - settle_price * settle_input
@@ -1721,7 +1725,7 @@ def settle():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(settle_payload),
     )
-    return (flask.jsonify(kd_patch_response.text), 200)
+    return (flask.jsonify({"message": "Successfully began settling", "status": "success"}), 200)
 
 def _get_missiles_info(kd_id):
     missiles_info = REQUESTS_SESSION.get(
@@ -1803,6 +1807,10 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
         return False
     if fuel_costs > kd_info_parse["fuel"]:
         return False
+    if missiles_request["star_busters"] > 0 and "star_busters" not in kd_info_parse["completed_projects"]:
+        return False
+    if missiles_request["galaxy_busters"] > 0 and "galaxy_busters" not in kd_info_parse["completed_projects"]:
+        return False
     
     return True
 
@@ -1840,7 +1848,7 @@ def build_missiles():
     }
     valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles)
     if not valid_missiles:
-        return (flask.jsonify('Please enter valid missiles values'), 400)
+        return (flask.jsonify({"message": 'Please enter valid missiles values'}), 400)
 
     costs = sum([MISSILES[key_missile]["cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
     fuel_costs = sum([MISSILES[key_missile]["fuel_cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
@@ -1872,7 +1880,7 @@ def build_missiles():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(missiles_payload),
     )
-    return (flask.jsonify(missiles_patch_response.text), 200)
+    return (flask.jsonify({"message": "Successfully began building missiles", "status": "success"}), 200)
 
 def _calc_workshop_capacity(kd_info, engineers_building):
     max_workshop_capacity = kd_info["structures"]["workshops"] * BASE_WORKSHOP_CAPACITY
@@ -1977,7 +1985,7 @@ def train_engineers():
 
     valid_engineers = _validate_engineers(engineers_input, current_available_engineers)
     if not valid_engineers:
-        return (flask.jsonify('Please enter valid recruits value'), 400)
+        return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
 
     engineers_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
@@ -2002,7 +2010,7 @@ def train_engineers():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(engineers_payload),
     )
-    return (flask.jsonify(engineers_patch_response.text), 200)
+    return (flask.jsonify({"message": "Successfully began training engineers", "status": "success"}), 200)
 
 @app.route('/api/projects', methods=['GET'])
 @flask_praetorian.auth_required
@@ -2090,7 +2098,7 @@ def manage_projects():
         req["assign"] = {k: int(v) for k, v in req["assign"].items()}
         valid_assign = _validate_assign_projects(req, kd_info_parse)
         if not valid_assign:
-            return (flask.jsonify('Please enter valid assign engineers value'), 400)
+            return (flask.jsonify({"message": 'Please enter valid assign engineers value'}), 400)
         
         new_projects_assigned = {
             key: req["assign"].get(key, 0)
@@ -2102,7 +2110,7 @@ def manage_projects():
         available_engineers = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
         valid_add = _validate_add_projects(req, available_engineers)
         if not valid_add:
-            return (flask.jsonify('Please enter valid add engineers value'), 400)
+            return (flask.jsonify({"message": 'Please enter valid add engineers value'}), 400)
         
         new_projects_assigned = {
             key: value + req["add"].get(key, 0)
@@ -2115,7 +2123,7 @@ def manage_projects():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(kd_payload),
     )
-    return (flask.jsonify(kd_patch_response.text), 200)
+    return (flask.jsonify({"message": "Successfully updated project assignment", "status": "success"}), 200)
 
 def _get_revealed(kd_id):
     revealed_info = REQUESTS_SESSION.get(

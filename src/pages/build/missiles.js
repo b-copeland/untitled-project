@@ -4,12 +4,15 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./missiles.css";
 
 function Missiles(props) {
     const [planetBustersInput, setPlanetBustersInput] = useState('');
     const [starBustersInput, setStarBustersInput] = useState('');
     const [galaxyBustersInput, setGalaxyBustersInput] = useState('');
+    const [missilesResult, setMissilesResult] = useState([]);
 
     if (Object.keys(props.data.kingdom).length === 0) {
         return null;
@@ -41,7 +44,7 @@ function Missiles(props) {
             const updateFunc = () => authFetch('api/missiles', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            })
+            }).then(r => r.json()).then(r => setMissilesResult(missilesResult.concat(r)))
             props.updateData(['missiles', 'kingdom'], [updateFunc]);
         }
     }
@@ -56,8 +59,24 @@ function Missiles(props) {
             .filter((v,i) => v !== "00" || i > 0)
             .join(":")
     }
+    const toasts = missilesResult.map((results, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setMissilesResult(missilesResult.slice(0, index).concat(missilesResult.slice(index + 1, 999)))}
+            show={true}
+            bg={results.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Structures Results</strong>
+            </Toast.Header>
+            <Toast.Body>{results.message}</Toast.Body>
+        </Toast>
+    )
     return (
         <div className="missiles">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
             <Table className="missiles-table" striped bordered hover>
                 <thead>
                     <tr>

@@ -4,11 +4,14 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./settle.css"
 
 
 function Settle(props) {
     const [settleInput, setSettleInput] = useState();
+    const [settleResults, setSettleResults] = useState([]);
 
     const handleSettleInput = (e) => {
         setSettleInput(e.target.value);
@@ -22,14 +25,30 @@ function Settle(props) {
             const updateFunc = () => authFetch('api/settle', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            })
+            }).then(r => r.json()).then(r => setSettleResults(settleResults.concat(r)))
             props.updateData(['settle', 'kingdom'], [updateFunc])
             setSettleInput('');
         }
     }
     const settleInfo = props.data.settle;
+    const toasts = settleResults.map((results, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setSettleResults(settleResults.slice(0, index).concat(settleResults.slice(index + 1, 999)))}
+            show={true}
+            bg={results.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Settle Results</strong>
+            </Toast.Header>
+            <Toast.Body>{results.message}</Toast.Body>
+        </Toast>
+    )
     return (
         <div className="settle">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
             <div className="settle-input">
                 <div className="text-box settle-box">
                     <div className="text-box-item">

@@ -7,6 +7,8 @@ import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./military.css";
 
 function MilitaryContent(props) {
@@ -35,6 +37,7 @@ function MilitaryContent(props) {
 
 function Recruits(props) {
     const [recruitsInput, setRecruitsInput] = useState();
+    const [recruitsResults, setRecruitsResults] = useState([]);
     
     // useEffect(() => {
     //     const fetchData = async () => {
@@ -56,7 +59,7 @@ function Recruits(props) {
             const updateFunc = () => authFetch('api/recruits', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            })
+            }).then(r => r.json()).then(r => setRecruitsResults(recruitsResults.concat(r)))
             props.updateData(['mobis', 'kingdom'], [updateFunc]);
             setRecruitsInput('');
         }
@@ -68,8 +71,24 @@ function Recruits(props) {
         return null;
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
+    const toasts = recruitsResults.map((results, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setRecruitsResults(recruitsResults.slice(0, index).concat(recruitsResults.slice(index + 1, 999)))}
+            show={true}
+            bg={results.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Recruits Results</strong>
+            </Toast.Header>
+            <Toast.Body>{results.message}</Toast.Body>
+        </Toast>
+    )
     return (
         <div className="recruits">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
             <div className="text-box recruits-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Recruit Time</span>
@@ -132,6 +151,7 @@ function Specialists(props) {
     const [defendersInput, setDefendersInput] = useState('');
     const [flexersInput, setFlexersInput] = useState('');
     const [bigFlexersInput, setBigFlexersInput] = useState('');
+    const [specialistsResults, setSpecialistsResults] = useState([]);
 
     const handleAttackersInput = (e) => {
         setAttackersInput(e.target.value);
@@ -159,7 +179,7 @@ function Specialists(props) {
             const updateFunc = () => authFetch('api/mobis', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            })
+            }).then(r => r.json()).then(r => setSpecialistsResults(specialistsResults.concat(r)))
             props.updateData(['mobis', 'kingdom'], [updateFunc]);
         }
     }
@@ -171,8 +191,24 @@ function Specialists(props) {
     if (Object.keys(props.kdInfo).length === 0) {
         return null;
     }
+    const toasts = specialistsResults.map((results, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setSpecialistsResults(specialistsResults.slice(0, index).concat(specialistsResults.slice(index + 1, 999)))}
+            show={true}
+            bg={results.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Recruits Results</strong>
+            </Toast.Header>
+            <Toast.Body>{results.message}</Toast.Body>
+        </Toast>
+    )
     return (
         <div className="specialists">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
             <div className="text-box specialists-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Hangar Capacity</span>

@@ -7,6 +7,8 @@ import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./projects.css";
 
 function ProjectsContent(props) {
@@ -33,6 +35,7 @@ function ProjectsContent(props) {
 
 function Train(props) {
     const [engineersInput, setEngineersInput] = useState();
+    const [engineersResult, setEngineersResult] = useState([]);
 
     const handleEngineersInput = (e) => {
         setEngineersInput(e.target.value);
@@ -46,7 +49,7 @@ function Train(props) {
             const updateFunc = () => authFetch('api/engineers', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            })
+            }).then(r => r.json()).then(r => setEngineersResult(engineersResult.concat(r)))
             props.updateData(['engineers', 'kingdom'], [updateFunc]);
             setEngineersInput('');
         }
@@ -58,8 +61,24 @@ function Train(props) {
         return null;
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
+    const toasts = engineersResult.map((results, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setEngineersResult(engineersResult.slice(0, index).concat(engineersResult.slice(index + 1, 999)))}
+            show={true}
+            bg={results.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Structures Results</strong>
+            </Toast.Header>
+            <Toast.Body>{results.message}</Toast.Body>
+        </Toast>
+    )
     return (
         <div className="engineers">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
             <div className="text-box engineers-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Training Time</span>
@@ -133,6 +152,7 @@ const initialProjectsValues = {
 function Assign(props) {
     const [assignValues, setAssignValues] = useState(initialProjectsValues);
     const [addValues, setAddValues] = useState(initialProjectsValues);
+    const [assignResult, setAssignResult] = useState([]);
 
     const handleAssignInputChange = (e) => {
         const { name, value } = e.target;
@@ -162,7 +182,7 @@ function Assign(props) {
             const updateFunc = () => authFetch('api/projects', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            })
+            }).then(r => r.json()).then(r => setAssignResult(assignResult.concat(r)))
             props.updateData(['projects', 'kingdom'], [updateFunc]);
         }
         setAssignValues(initialProjectsValues);
@@ -181,7 +201,7 @@ function Assign(props) {
             const updateFunc = () => authFetch('api/projects', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            })
+            }).then(r => r.json()).then(r => setAssignResult(assignResult.concat(r)))
             props.updateData(['projects', 'kingdom'], [updateFunc]);
         }
         setAddValues(initialProjectsValues);
@@ -194,7 +214,7 @@ function Assign(props) {
         const updateFunc = () => authFetch('api/projects', {
             method: 'post',
             body: JSON.stringify(opts)
-        })
+        }).then(r => r.json()).then(r => setAssignResult(assignResult.concat(r)))
         props.updateData(['projects', 'kingdom'], [updateFunc]);
     }
 
@@ -205,7 +225,7 @@ function Assign(props) {
         const updateFunc = () => authFetch('api/projects', {
             method: 'post',
             body: JSON.stringify(opts)
-        })
+        }).then(r => r.json()).then(r => setAssignResult(assignResult.concat(r)))
         props.updateData(['projects', 'kingdom'], [updateFunc]);
     }
     if (Object.keys(props.engineersInfo).length === 0) {
@@ -218,8 +238,24 @@ function Assign(props) {
         return null;
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
+    const toasts = assignResult.map((results, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setAssignResult(assignResult.slice(0, index).concat(assignResult.slice(index + 1, 999)))}
+            show={true}
+            bg={results.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Structures Results</strong>
+            </Toast.Header>
+            <Toast.Body>{results.message}</Toast.Body>
+        </Toast>
+    )
     return (
         <div className="projects">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
             <div className="text-box projects-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Total Engineers</span>
