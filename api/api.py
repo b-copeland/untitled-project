@@ -161,6 +161,7 @@ BASE_MISSILE_SILO_CAPACITY = 1
 BASE_WORKSHOP_CAPACITY = 50
 BASE_MINES_INCOME_PER_EPOCH = 150
 BASE_FUEL_PLANTS_INCOME_PER_EPOCH = 200
+BASE_FUEL_PLANTS_CAPACITY = 1000
 BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH = 1
 
 BASE_MISSILE_TIME_MULTIPLER = 24
@@ -3319,7 +3320,8 @@ def _kingdom_with_income(
         + (kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH)
     )
     fuel_spent = raw_fuel_consumption * epoch_elapsed
-    net_fuel = new_fuel - fuel_spent # TODO: Fuel cap
+    net_fuel = new_fuel - fuel_spent
+    max_fuel = kd_info_parse["structures"]["fuel_plants"] * BASE_FUEL_PLANTS_CAPACITY
     new_drones = kd_info_parse["structures"]["drone_factories"] * BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH * epoch_elapsed
 
     new_project_points = {
@@ -3330,7 +3332,7 @@ def _kingdom_with_income(
     for key_project, new_points in new_project_points.items():
         kd_info_parse["projects_points"][key_project] += new_points
     new_kd_info["money"] += new_income
-    new_kd_info["fuel"] += net_fuel
+    new_kd_info["fuel"] = min(max_fuel, new_kd_info["fuel"] + net_fuel)
     new_kd_info["drones"] += new_drones
     new_kd_info["last_income"] = time_now.isoformat()
 
