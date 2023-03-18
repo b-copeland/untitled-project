@@ -182,6 +182,11 @@ BASE_REVEAL_DURATION_MULTIPLIER = 8
 
 BASE_POP_INCOME_PER_EPOCH = 2
 BASE_POP_FUEL_CONSUMPTION_PER_EPOCH = 0.5
+BASE_PCT_POP_GROWTH_PER_EPOCH = 0.10
+BASE_POP_GROWTH_PER_STAR_PER_EPOCH = 0.5
+
+BASE_PCT_POP_LOSS_PER_EPOCH = 0.10
+BASE_POP_LOSS_PER_STAR_PER_EPOCH = 0.2
 
 BASE_SPY_ATTEMPT_TIME_MULTIPLIER = 1
 BASE_SPY_ATTEMPTS_MAX = 10
@@ -3292,6 +3297,39 @@ def launch_missiles(target_kd):
     }
     return (flask.jsonify(payload), 200)
 
+def _calc_pop_change_per_epoch(
+    kd_info_parse,
+):
+    current_units = kd_info_parse["units"]
+    generals_units = kd_info_parse["generals_out"]
+    mobis_info = _get_mobis_info(kd_info_parse["kdId"])
+    mobis_units = mobis_info
+
+    start_time = datetime.datetime.now(datetime.timezone.utc)
+    units = _calc_units(start_time, current_units, generals_units, mobis_units)
+    max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
+
+    overflow = max(current_hangar_capacity - max_hangar_capacity, 0)
+    pop_capacity = kd_info_parse["structures"]["homes"] * BASE_HOMES_CAPACITY
+    
+    pop_capacity_less_overflow = max(pop_capacity - overflow, 0)
+
+    pop_difference = pop_capacity_less_overflow - kd_info_parse["population"]
+    if pop_difference < 0:
+        pct_pop_loss = BASE_PCT_POP_LOSS_PER_EPOCH * kd_info_parse["population"]
+        stars_pop_loss = BASE_POP_LOSS_PER_STAR_PER_EPOCH * kd_info_parse["stars"]
+        greater_pop_loss = max(pct_pop_loss, stars_pop_loss)
+        pop_change = -1 *min(greater_pop_loss, abs(pop_difference))
+    elif pop_difference > 0:
+        pct_pop_gain = BASE_PCT_POP_GROWTH_PER_EPOCH * kd_info_parse["population"]
+        stars_pop_gain = BASE_POP_GROWTH_PER_STAR_PER_EPOCH * kd_info_parse["stars"]
+        greater_pop_gain = max(pct_pop_gain, stars_pop_gain)
+        pop_change = min(greater_pop_gain, pop_difference)
+    else:
+        pop_change = 0
+    
+    return pop_change
+
 
 def _kingdom_with_income(
     kd_info_parse,
@@ -3324,6 +3362,9 @@ def _kingdom_with_income(
     max_fuel = kd_info_parse["structures"]["fuel_plants"] * BASE_FUEL_PLANTS_CAPACITY
     new_drones = kd_info_parse["structures"]["drone_factories"] * BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH * epoch_elapsed
 
+    pop_change_per_epoch = _calc_pop_change_per_epoch(kd_info_parse)
+    pop_change = pop_change_per_epoch * epoch_elapsed
+
     new_project_points = {
         key_project: assigned_engineers * BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH * epoch_elapsed
         for key_project, assigned_engineers in kd_info_parse["projects_assigned"].items()
@@ -3334,6 +3375,7 @@ def _kingdom_with_income(
     new_kd_info["money"] += new_income
     new_kd_info["fuel"] = min(max_fuel, new_kd_info["fuel"] + net_fuel)
     new_kd_info["drones"] += new_drones
+    new_kd_info["population"] += pop_change
     new_kd_info["last_income"] = time_now.isoformat()
 
     return new_kd_info
