@@ -85,7 +85,7 @@ function CreateKingdom(props) {
             method: 'post',
             body: JSON.stringify(opts)
         }).then(r => r.json()).then(r => setKdMessage(r))
-        props.updateData(['kingdomid'], [updateFunc])
+        props.updateData(['all'], [updateFunc])
     }
 
     if (Object.keys(createKingdomData).length === 0) {

@@ -399,20 +399,21 @@ with app.app_context():
           roles='operator,admin',
           kd_created=True,
 		))
-    if db.session.query(User).filter_by(username='user').count() < 1:
-        db.session.add(User(
-          username='user',
-          password=guard.hash_password('pass'),
-          roles='verified',
-          kd_id="0",
-          kd_created=True,
-		))
-    if db.session.query(User).filter_by(username='newkd').count() < 1:
-        db.session.add(User(
-          username='newkd',
-          password=guard.hash_password('newkd'),
-          roles='verified',
-		))
+    # if db.session.query(User).filter_by(username='user').count() < 1:
+    #     db.session.add(User(
+    #       username='user',
+    #       password=guard.hash_password('pass'),
+    #       roles='verified',
+    #       kd_id="0",
+    #       kd_created=True,
+	# 	))
+    for i in range(0, 6):
+        if db.session.query(User).filter_by(username=f'newkd{i}').count() < 1:
+            db.session.add(User(
+            username=f'newkd{i}',
+            password=guard.hash_password(f'newkd{i}'),
+            roles='verified',
+            ))
     db.session.commit()
 
 
@@ -3668,8 +3669,6 @@ def refresh_data():
 
     kingdoms = _get_kingdoms()
     for kd_id in kingdoms:
-        if str(kd_id) != "12":
-            continue
         next_resolves = {}
         time_update = datetime.datetime.now(datetime.timezone.utc)
         kd_info = REQUESTS_SESSION.get(

@@ -161,7 +161,13 @@ function Content(props) {
   const updateData = async (keys, depFuncs=[]) => {
     var newValues = JSON.parse(JSON.stringify(data));
     var newLoading = {...loading};
-    for (const key of keys) {
+    var loadKeys = keys;
+    console.log(keys.includes("all"))
+    if (keys.includes("all")) {
+      loadKeys = Object.keys(initGlobalData);
+      console.log(loadKeys);
+    }
+    for (const key of loadKeys) {
       newLoading[key] = true;
     }
     // console.log(JSON.parse(JSON.stringify(newValues)));
@@ -173,7 +179,7 @@ function Content(props) {
     }
 
     const fetchData = async () => {
-      for (const key of keys) {
+      for (const key of loadKeys) {
         await authFetch(endpoints[key], {keepalive: true}).then(
           r => r.json()
         ).then(r => (newValues[key] = r)).catch(
