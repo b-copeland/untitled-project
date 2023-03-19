@@ -8,11 +8,26 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./missiles.css";
 
+const initialInput = {
+    "planet_busters": "",
+    "star_busters": "",
+    "galaxy_busters": "",
+}
+
 function Missiles(props) {
     const [planetBustersInput, setPlanetBustersInput] = useState('');
     const [starBustersInput, setStarBustersInput] = useState('');
     const [galaxyBustersInput, setGalaxyBustersInput] = useState('');
     const [missilesResult, setMissilesResult] = useState([]);
+    const [input, setInput] = useState(initialInput);
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setInput({
+          ...input,
+          [name]: value,
+        });
+      };
 
     if (Object.keys(props.data.kingdom).length === 0) {
         return null;
@@ -22,31 +37,14 @@ function Missiles(props) {
     }
     const kdInfo = props.data.kingdom;
     const missilesInfo = props.data.missiles;
-    const handlePlanetBustersInput = (e) => {
-        setPlanetBustersInput(e.target.value);
-    }
-    const handleStarBustersInput = (e) => {
-        setStarBustersInput(e.target.value);
-    }
-    const handleGalaxyBustersInput = (e) => {
-        setGalaxyBustersInput(e.target.value);
-    }
 
     const onSubmitClick = (e)=>{
-        if (
-            planetBustersInput || starBustersInput || galaxyBustersInput
-        ) {
-            let opts = {
-                'planet_busters': planetBustersInput === '' ? undefined : planetBustersInput,
-                'star_busters': starBustersInput === '' ? undefined : starBustersInput,
-                'galaxy_busters': galaxyBustersInput === '' ? undefined : galaxyBustersInput,
-            };
-            const updateFunc = () => authFetch('api/missiles', {
-                method: 'post',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => setMissilesResult(missilesResult.concat(r)))
-            props.updateData(['missiles', 'kingdom'], [updateFunc]);
-        }
+        let opts = input;
+        const updateFunc = () => authFetch('api/missiles', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => setMissilesResult(missilesResult.concat(r)))
+        props.updateData(['missiles', 'kingdom'], [updateFunc]);
     }
     const toHHMMSS = (secs) => {
         var sec_num = parseInt(secs, 10)
@@ -59,6 +57,22 @@ function Missiles(props) {
             .filter((v,i) => v !== "00" || i > 0)
             .join(":")
     }
+    const calcMissilesCosts = (input, desc) => {
+        var total = 0
+        for (const missile in input) {
+            total += (parseInt(input[missile] || 0) * desc[missile]["cost"]);
+        }
+        return total
+    }
+    const calcMissilesFuelCosts = (input, desc) => {
+        var total = 0
+        for (const missile in input) {
+            total += (parseInt(input[missile] || 0) * desc[missile]["fuel_cost"]);
+        }
+        return total
+    }
+    const missilesCost = calcMissilesCosts(input, missilesInfo.desc);
+    const missilesFuelCost = calcMissilesFuelCosts(input, missilesInfo.desc);
     const toasts = missilesResult.map((results, index) =>
         <Toast
             key={index}
@@ -109,8 +123,9 @@ function Missiles(props) {
                             <Form.Control 
                                 className="missiles-form"
                                 id="planet-busters-input"
-                                onChange={handlePlanetBustersInput}
-                                value={planetBustersInput || ""} 
+                                name="planet_busters"
+                                onChange={handleInputChange}
+                                value={input.planet_busters || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -132,8 +147,9 @@ function Missiles(props) {
                                 <Form.Control 
                                     className="missiles-form"
                                     id="star-busters-input"
-                                    onChange={handleStarBustersInput}
-                                    value={starBustersInput || ""} 
+                                    name="star_busters"
+                                    onChange={handleInputChange}
+                                    value={input.star_busters || ""} 
                                     placeholder="0"
                                 />
                             }</td>
@@ -152,8 +168,9 @@ function Missiles(props) {
                                 <Form.Control 
                                     className="missiles-form"
                                     id="star-busters-input"
-                                    onChange={handleStarBustersInput}
-                                    value={starBustersInput || ""} 
+                                    name="star_busters"
+                                    onChange={handleInputChange}
+                                    value={input.star_busters || ""} 
                                     placeholder="0"
                                     disabled
                                 />
@@ -177,8 +194,9 @@ function Missiles(props) {
                                 <Form.Control 
                                     className="missiles-form"
                                     id="galaxy-busters-input"
-                                    onChange={handleGalaxyBustersInput}
-                                    value={galaxyBustersInput || ""} 
+                                    name="galaxy_busters"
+                                    onChange={handleInputChange}
+                                    value={input.galaxy_busters || ""} 
                                     placeholder="0"
                                 />
                             }</td>
@@ -197,8 +215,9 @@ function Missiles(props) {
                                 <Form.Control 
                                     className="missiles-form"
                                     id="galaxy-busters-input"
-                                    onChange={handleGalaxyBustersInput}
-                                    value={galaxyBustersInput || ""} 
+                                    name="galaxy_busters"
+                                    onChange={handleInputChange}
+                                    value={input.galaxy_busters || ""} 
                                     placeholder="0"
                                     disabled
                                 />
@@ -215,6 +234,14 @@ function Missiles(props) {
                 : <Button className="missiles-button" variant="primary" type="submit" onClick={onSubmitClick}>
                     Build
                 </Button>
+            }
+            {
+                missilesCost !== 0
+                ? <div>
+                    <h3>Missiles Cost: {missilesCost}</h3>
+                    <h3>Missiles Fuel Cost: {missilesFuelCost}</h3>
+                </div>
+                : null
             }
         </div>
     )

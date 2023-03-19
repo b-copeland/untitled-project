@@ -8,66 +8,37 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./structures.css"
 
+const initialStructuresValues = {
+    "homes": "",
+    "mines": "",
+    "fuel_plants": "",
+    "hangars": "",
+    "drone_factories": "",
+    "missile_silos": "",
+    "workshops": ""
+}
 
 function Structures(props) {
-    const [homesInput, setHomesInput] = useState('');
-    const [minesInput, setMinesInput] = useState('');
-    const [fuelPlantsInput, setFuelPlantsInput] = useState('');
-    const [hangarsInput, setHangarsInput] = useState('');
-    const [droneFactoriesInput, setDroneFactoriesInput] = useState('');
-    const [missileSilosInput, setMissileSilosInput] = useState('');
-    const [workshopsInput, setWorkshopsInput] = useState('');
     const [reloading, setReloading] = useState(false);
     const [structuresResult, setStructuresResult] = useState([]);
+    const [structuresInput, setStructuresInput] = useState(initialStructuresValues);
 
-    const handleHomesInput = (e) => {
-        setHomesInput(e.target.value);
-    }
-    const handleMinesInput = (e) => {
-        setMinesInput(e.target.value);
-    }
-    const handleFuelPlantsInput = (e) => {
-        setFuelPlantsInput(e.target.value);
-    }
-    const handleHangarsInput = (e) => {
-        setHangarsInput(e.target.value);
-    }
-    const handleDroneFactoriesInput = (e) => {
-        setDroneFactoriesInput(e.target.value);
-    }
-    const handleMissileSilosInput = (e) => {
-        setMissileSilosInput(e.target.value);
-    }
-    const handleWorkshopsInput = (e) => {
-        setWorkshopsInput(e.target.value);
-    }
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setStructuresInput({
+          ...structuresInput,
+          [name]: value,
+        });
+      };
 
     const onSubmitClick = (e)=>{
-        if (
-            homesInput || minesInput || fuelPlantsInput || hangarsInput || droneFactoriesInput || missileSilosInput || workshopsInput
-        ) {
-            let opts = {
-                'homes': homesInput === '' ? undefined : homesInput,
-                'mines': minesInput === '' ? undefined : minesInput,
-                'fuel_plants': fuelPlantsInput === '' ? undefined : fuelPlantsInput,
-                'hangars': hangarsInput === '' ? undefined : hangarsInput,
-                'drone_factories': droneFactoriesInput === '' ? undefined : droneFactoriesInput,
-                'missile_silos': missileSilosInput === '' ? undefined : missileSilosInput,
-                'workshops': workshopsInput === '' ? undefined : workshopsInput,
-            };
-            const updateFunc = () => authFetch('api/structures', {
-                method: 'post',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => setStructuresResult(structuresResult.concat(r)))
-            props.updateData(['structures', 'kingdom'], [updateFunc])
-            setHomesInput('');
-            setMinesInput('');
-            setFuelPlantsInput('');
-            setHangarsInput('');
-            setDroneFactoriesInput('');
-            setMissileSilosInput('');
-            setWorkshopsInput('');
-        }
+        let opts = structuresInput;
+        const updateFunc = () => authFetch('api/structures', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => setStructuresResult(structuresResult.concat(r)))
+        props.updateData(['structures', 'kingdom'], [updateFunc])
+        setStructuresInput(initialStructuresValues);
     }
 
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
@@ -93,6 +64,15 @@ function Structures(props) {
             <Toast.Body>{results.message}</Toast.Body>
         </Toast>
     )
+    const calcStructuresStarsUsed = (structuresInput) => {
+        var total = 0
+        for (const structure in structuresInput) {
+            total += (parseInt(structuresInput[structure] || 0));
+        }
+        return total
+    }
+    const structuresStars = calcStructuresStarsUsed(structuresInput)
+    const structuresCost = structuresStars * structuresInfo.price
     return (
         <div className="structures">
             <ToastContainer position="bottom-end">
@@ -137,8 +117,9 @@ function Structures(props) {
                             <Form.Control 
                                 className="structures-form"
                                 id="homes-input"
-                                onChange={handleHomesInput}
-                                value={homesInput || ""} 
+                                name="homes"
+                                onChange={handleInputChange}
+                                value={structuresInput.homes || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -152,8 +133,9 @@ function Structures(props) {
                             <Form.Control 
                                 className="structures-form"
                                 id="mines-input"
-                                onChange={handleMinesInput}
-                                value={minesInput || ""} 
+                                name="mines"
+                                onChange={handleInputChange}
+                                value={structuresInput.mines || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -167,8 +149,9 @@ function Structures(props) {
                             <Form.Control 
                                 className="structures-form"
                                 id="fuel-plants-input"
-                                onChange={handleFuelPlantsInput}
-                                value={fuelPlantsInput || ""} 
+                                name="fuel_plants"
+                                onChange={handleInputChange}
+                                value={structuresInput.fuel_plants || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -182,8 +165,9 @@ function Structures(props) {
                             <Form.Control 
                                 className="structures-form"
                                 id="hangars-input"
-                                onChange={handleHangarsInput}
-                                value={hangarsInput || ""} 
+                                name="hangars"
+                                onChange={handleInputChange}
+                                value={structuresInput.hangars || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -197,8 +181,9 @@ function Structures(props) {
                             <Form.Control 
                                 className="structures-form"
                                 id="drone-factories-input"
-                                onChange={handleDroneFactoriesInput}
-                                value={droneFactoriesInput || ""} 
+                                name="drone_factories"
+                                onChange={handleInputChange}
+                                value={structuresInput.drone_factories || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -212,8 +197,9 @@ function Structures(props) {
                             <Form.Control 
                                 className="structures-form"
                                 id="missile-silos-input"
-                                onChange={handleMissileSilosInput}
-                                value={missileSilosInput || ""} 
+                                name="missile_silos"
+                                onChange={handleInputChange}
+                                value={structuresInput.missile_silos || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -227,8 +213,9 @@ function Structures(props) {
                             <Form.Control 
                                 className="structures-form"
                                 id="workshops-input"
-                                onChange={handleWorkshopsInput}
-                                value={workshopsInput || ""} 
+                                name="workshops"
+                                onChange={handleInputChange}
+                                value={structuresInput.workshops || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -243,9 +230,14 @@ function Structures(props) {
                 Build
             </Button>
             }
-            {/* <Button variant="primary" type="submit" onClick={onSubmitClick}>
-                Settle
-            </Button> */}
+            {
+                structuresStars !== 0
+                ? <div>
+                    <h3>Structures Cost: {structuresCost}</h3>
+                    <h3>Stars Remaining: {structuresInfo.max_available_structures - structuresStars}</h3>
+                </div>
+                : null
+            }
         </div>
         )
 }

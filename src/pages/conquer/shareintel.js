@@ -85,7 +85,6 @@ function ShareIntel(props) {
     const revealedOptions = Object.keys(props.data.revealed["revealed"][selected] || {}).map((stat) => {
         return {"value": stat, "label": stat}
     })
-    console.log(props.data.galaxies[props.data.galaxies_inverted[props.data.kingdomid.kd_id]]);
     const shareToOptions = props.data.galaxies[props.data.galaxies_inverted[props.data.kingdomid.kd_id]].map((kdId) => {
         return {"value": kdId, "label": kdFullLabel(kdId)}
     });

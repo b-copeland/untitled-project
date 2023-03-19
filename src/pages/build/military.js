@@ -36,7 +36,7 @@ function MilitaryContent(props) {
 }
 
 function Recruits(props) {
-    const [recruitsInput, setRecruitsInput] = useState();
+    const [recruitsInput, setRecruitsInput] = useState("");
     const [recruitsResults, setRecruitsResults] = useState([]);
     
     // useEffect(() => {
@@ -141,47 +141,42 @@ function Recruits(props) {
                     Recruit
                 </Button>
                 }
+                {
+                    recruitsInput !== ""
+                    ? <h3>Recruits Cost: {parseInt(recruitsInput) * props.mobisInfo.recruit_price}</h3>
+                    : null
+                }
             </div>
         </div>
         )
 }
 
-function Specialists(props) {
-    const [attackersInput, setAttackersInput] = useState('');
-    const [defendersInput, setDefendersInput] = useState('');
-    const [flexersInput, setFlexersInput] = useState('');
-    const [bigFlexersInput, setBigFlexersInput] = useState('');
-    const [specialistsResults, setSpecialistsResults] = useState([]);
+const initialInput = {
+    "attack": "",
+    "defense": "",
+    "flex": "",
+    "big_flex": "",
+};
 
-    const handleAttackersInput = (e) => {
-        setAttackersInput(e.target.value);
-    }
-    const handleDefendersInput = (e) => {
-        setDefendersInput(e.target.value);
-    }
-    const handleFlexersInput = (e) => {
-        setFlexersInput(e.target.value);
-    }
-    const handleBigFlexersInput = (e) => {
-        setBigFlexersInput(e.target.value);
-    }
+function Specialists(props) {
+    const [specialistsResults, setSpecialistsResults] = useState([]);
+    const [input, setInput] = useState(initialInput)
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setInput({
+          ...input,
+          [name]: value,
+        });
+      };
 
     const onSubmitClick = (e)=>{
-        if (
-            attackersInput || defendersInput || flexersInput
-        ) {
-            let opts = {
-                'attack': attackersInput === '' ? undefined : attackersInput,
-                'defense': defendersInput === '' ? undefined : defendersInput,
-                'flex': flexersInput === '' ? undefined : flexersInput,
-                'big_flex': bigFlexersInput === '' ? undefined : bigFlexersInput,
-            };
-            const updateFunc = () => authFetch('api/mobis', {
-                method: 'post',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => setSpecialistsResults(specialistsResults.concat(r)))
-            props.updateData(['mobis', 'kingdom'], [updateFunc]);
-        }
+        let opts = input;
+        const updateFunc = () => authFetch('api/mobis', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => setSpecialistsResults(specialistsResults.concat(r)))
+        props.updateData(['mobis', 'kingdom'], [updateFunc]);
     }
 
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
@@ -191,6 +186,22 @@ function Specialists(props) {
     if (Object.keys(props.kdInfo).length === 0) {
         return null;
     }
+    const calcSpecialistsCosts = (input, units_desc) => {
+        var total = 0
+        for (const unit in input) {
+            total += (parseInt(input[unit] || 0) * units_desc[unit]["cost"]);
+        }
+        return total
+    }
+    const calcRecruitsUsed = (input) => {
+        var total = 0
+        for (const unit in input) {
+            total += (parseInt(input[unit] || 0));
+        }
+        return total
+    }
+    const specialistCosts = calcSpecialistsCosts(input, props.mobisInfo.units_desc);
+    const recruitsUsed = calcRecruitsUsed(input);
     const toasts = specialistsResults.map((results, index) =>
         <Toast
             key={index}
@@ -249,8 +260,9 @@ function Specialists(props) {
                             <Form.Control 
                                 className="specialists-form"
                                 id="attackers-input"
-                                onChange={handleAttackersInput}
-                                value={attackersInput || ""} 
+                                name="attack"
+                                onChange={handleInputChange}
+                                value={input.attack || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -268,8 +280,9 @@ function Specialists(props) {
                             <Form.Control 
                                 className="specialists-form"
                                 id="defenders-input"
-                                onChange={handleDefendersInput}
-                                value={defendersInput || ""} 
+                                name="defense"
+                                onChange={handleInputChange}
+                                value={input.defense || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -287,8 +300,9 @@ function Specialists(props) {
                             <Form.Control 
                                 className="specialists-form"
                                 id="flexers-input"
-                                onChange={handleFlexersInput}
-                                value={flexersInput || ""} 
+                                name="flex"
+                                onChange={handleInputChange}
+                                value={input.flex || ""} 
                                 placeholder="0"
                             />
                         }</td>
@@ -308,8 +322,9 @@ function Specialists(props) {
                                 <Form.Control 
                                     className="specialists-form"
                                     id="big-flexers-input"
-                                    onChange={handleBigFlexersInput}
-                                    value={bigFlexersInput || ""} 
+                                    name="big_flex"
+                                    onChange={handleInputChange}
+                                    value={input.big_flex || ""} 
                                     placeholder="0"
                                 />
                             }</td>
@@ -326,8 +341,9 @@ function Specialists(props) {
                                 <Form.Control 
                                     className="specialists-form"
                                     id="big-flexers-input"
-                                    onChange={handleBigFlexersInput}
-                                    value={bigFlexersInput || ""} 
+                                    name="big_flex"
+                                    onChange={handleInputChange}
+                                    value={input.big_flex || ""} 
                                     placeholder="0"
                                     disabled
                                 />
@@ -344,6 +360,14 @@ function Specialists(props) {
                 : <Button className="specialists-button" variant="primary" type="submit" onClick={onSubmitClick}>
                     Train
                 </Button>
+            }
+            {
+                recruitsUsed != 0
+                ? <div>
+                    <h3>Training Cost: {specialistCosts}</h3>
+                    <h3>Recruits Remaining: {props.kdInfo.units.recruits - recruitsUsed}</h3>
+                </div>
+                : null
             }
         </div>
     

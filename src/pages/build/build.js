@@ -28,7 +28,6 @@ function Build(props) {
     if (Object.keys(props.data.missiles).length === 0) {
         return <h2>Loading...</h2> 
     }
-    console.log(props.data.mobis);
     const getRemainingMultiSpans = (queue) => {
         const remainingSpans = queue.map((itemObj) => {
             var spanItems = [];
@@ -72,7 +71,6 @@ function Build(props) {
             <td>{queueItem.spans}</td>
         </tr>
     )
-    console.log(getRemainingMultiSpans(props.data.mobis.top_queue))
     return (
     <div className="queue-page">
         <Accordion defaultActiveKey={['0']} alwaysOpen className="queue-accordion">

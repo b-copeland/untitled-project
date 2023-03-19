@@ -182,7 +182,6 @@ function Military(props) {
 }
 function Structures(props) {
     const structures = props.kingdom.structures;
-    console.log(structures);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
         

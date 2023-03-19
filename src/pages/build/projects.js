@@ -34,7 +34,7 @@ function ProjectsContent(props) {
 }
 
 function Train(props) {
-    const [engineersInput, setEngineersInput] = useState();
+    const [engineersInput, setEngineersInput] = useState("");
     const [engineersResult, setEngineersResult] = useState([]);
 
     const handleEngineersInput = (e) => {
@@ -61,6 +61,8 @@ function Train(props) {
         return null;
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
+    const calcTrainCosts = (input) => parseInt(input || 0) * props.engineersInfo.engineers_price;
+    const trainCosts = calcTrainCosts(engineersInput);
     const toasts = engineersResult.map((results, index) =>
         <Toast
             key={index}
@@ -130,6 +132,11 @@ function Train(props) {
                 : <Button className="engineers-button" variant="primary" type="submit" onClick={onSubmitClick}>
                     Train
                 </Button>
+                }
+                {
+                    trainCosts !== 0
+                    ? <h3>Engineers Cost: {trainCosts}</h3>
+                    : null
                 }
             </div>
         </div>
@@ -237,6 +244,22 @@ function Assign(props) {
     if (Object.keys(props.projectsInfo).length === 0) {
         return null;
     }
+    const calcEngineersAssigned = (assignValues) => {
+        var total = 0
+        for (const assign in assignValues) {
+            total += (parseInt(assignValues[assign] || 0));
+        }
+        return total
+    }
+    const calcEngineersAdd = (addValues) => {
+        var total = 0
+        for (const addVal in addValues) {
+            total += (parseInt(addValues[addVal] || 0));
+        }
+        return total
+    }
+    const engineersAssigned = calcEngineersAssigned(assignValues);
+    const engineersAdded = calcEngineersAdd(addValues);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const toasts = assignResult.map((results, index) =>
         <Toast
@@ -738,6 +761,13 @@ function Assign(props) {
                     : <Button className="projects-button" variant="primary" type="submit" onClick={OnClearAllClick}>
                         Remove All
                     </Button>
+                }
+                {
+                    engineersAssigned !== 0
+                    ? <h3>Unassigned Engineers: {props.engineersInfo.current_engineers - engineersAssigned}</h3>
+                    : engineersAdded !== 0
+                        ? <h3>Unassigned Engineers: {props.projectsInfo.available_engineers - engineersAdded}</h3>
+                        : null
                 }
             </div>
         </div>

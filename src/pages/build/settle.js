@@ -10,7 +10,7 @@ import "./settle.css"
 
 
 function Settle(props) {
-    const [settleInput, setSettleInput] = useState();
+    const [settleInput, setSettleInput] = useState("");
     const [settleResults, setSettleResults] = useState([]);
 
     const handleSettleInput = (e) => {
@@ -44,6 +44,7 @@ function Settle(props) {
             <Toast.Body>{results.message}</Toast.Body>
         </Toast>
     )
+    const calcSettleCosts = (input) => parseInt(input) * settleInfo.settle_price
     return (
         <div className="settle">
             <ToastContainer position="bottom-end">
@@ -88,9 +89,11 @@ function Settle(props) {
                     Settle
                 </Button>
                 }
-                {/* <Button variant="primary" type="submit" onClick={onSubmitClick}>
-                    Settle
-                </Button> */}
+                {
+                    settleInput !== ""
+                    ? <h3>Settle Cost: {calcSettleCosts(settleInput)}</h3>
+                    : null
+                }   
             </div>
         </div>
         )
