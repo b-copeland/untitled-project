@@ -171,6 +171,7 @@ BASE_GENERALS_RETURN_TIME_MULTIPLIER = 8
 BASE_DEFENDER_UNIT_LOSS_RATE = 0.05
 BASE_ATTACKER_UNIT_LOSS_RATE = 0.05
 BASE_KINGDOM_LOSS_RATE = 0.10
+BASE_FUELLESS_STRENGTH_REDUCTION = 0.2
 
 BASE_STARS_DRONE_DEFENSE_MULTIPLIER = 4
 BASE_DRONES_DRONE_DEFENSE_MULTIPLIER = 1
@@ -184,6 +185,8 @@ BASE_POP_INCOME_PER_EPOCH = 2
 BASE_POP_FUEL_CONSUMPTION_PER_EPOCH = 0.5
 BASE_PCT_POP_GROWTH_PER_EPOCH = 0.10
 BASE_POP_GROWTH_PER_STAR_PER_EPOCH = 0.5
+BASE_FUELLESS_POP_GROWTH_REDUCTION = 0.9
+BASE_FUELLESS_POP_CAP_REDUCTION = 0.2
 
 BASE_PCT_POP_LOSS_PER_EPOCH = 0.10
 BASE_POP_LOSS_PER_STAR_PER_EPOCH = 0.2
@@ -1042,13 +1045,14 @@ def _calc_max_offense(
     military_bonus=0.25,
     other_bonuses=0.0,
     generals=4,
+    fuelless=False,
 ):
-
+    int_fuelless = int(fuelless)
     raw_attack = sum([
         stat_map["offense"] * unit_dict.get(key, 0)
         for key, stat_map in UNITS.items() 
     ])
-    attack_w_bonuses = raw_attack * (1 + BASE_GENERALS_BONUS(generals) + military_bonus + other_bonuses)
+    attack_w_bonuses = raw_attack * (1 + BASE_GENERALS_BONUS(generals) + military_bonus + other_bonuses - (int_fuelless * BASE_FUELLESS_STRENGTH_REDUCTION))
     return math.floor(attack_w_bonuses)
 
 def _calc_max_defense(
@@ -1056,13 +1060,15 @@ def _calc_max_defense(
     military_bonus=0.25,
     other_bonuses=0.0,
     shields=0.10,
+    fuelless=False,
 ):
 
+    int_fuelless = int(fuelless)
     raw_defense = sum([
         stat_map["defense"] * unit_dict.get(key, 0)
         for key, stat_map in UNITS.items() 
     ])
-    defense_w_bonuses = raw_defense * (1 + shields + military_bonus + other_bonuses)
+    defense_w_bonuses = raw_defense * (1 + shields + military_bonus + other_bonuses - (int_fuelless * BASE_FUELLESS_STRENGTH_REDUCTION))
     return math.floor(defense_w_bonuses)
 
 def _calc_maxes(
@@ -2567,17 +2573,26 @@ def calculate_attack(target_kd):
         defender_shields = max_target_kd_info["shields"]["military"]
     else:
         defender_shields = float(defender_raw_values['shields'] or 0) / 100
+
+    if "fuel" in max_target_kd_info:
+        target_fuelless = max_target_kd_info["fuel"] <= 0
+    else:
+        target_fuelless = False
+
+    attacker_fuelless = kd_info_parse["fuel"] <= 0
     attack = _calc_max_offense(
         attacker_units,
         military_bonus=float(current_bonuses['military_bonus'] or 0), 
         other_bonuses=0,
         generals=int(attacker_raw_values["generals"]),
+        fuelless=attacker_fuelless
     )
     defense = _calc_max_defense(
         defender_units,
         military_bonus=defender_military_bonus, 
         other_bonuses=0,
         shields=defender_shields,
+        fuelless=target_fuelless
     )
     try:
         attack_ratio = min(attack / defense, 1.0)
@@ -2704,17 +2719,21 @@ def attack(target_kd):
     defender_military_bonus = target_current_bonuses['military_bonus']
     defender_shields = target_kd_info["shields"]["military"]
 
+    attacker_fuelless = kd_info_parse["fuel"] <= 0
+    target_fuelless = target_kd_info["fuel"] <= 0
     attack = _calc_max_offense(
         attacker_units,
         military_bonus=float(current_bonuses['military_bonus'] or 0), 
         other_bonuses=0,
         generals=int(attacker_raw_values["generals"]),
+        fuelless=attacker_fuelless,
     )
     defense = _calc_max_defense(
         defender_units,
         military_bonus=defender_military_bonus, 
         other_bonuses=0,
         shields=defender_shields,
+        fuelless=target_fuelless,
     )
     attack_ratio = min(attack / defense, 1.0)
     attacker_losses = _calc_losses(
@@ -3308,18 +3327,20 @@ def launch_missiles(target_kd):
 
 def _calc_pop_change_per_epoch(
     kd_info_parse,
+    fuelless: bool,
 ):
     current_units = kd_info_parse["units"]
     generals_units = kd_info_parse["generals_out"]
     mobis_info = _get_mobis_info(kd_info_parse["kdId"])
     mobis_units = mobis_info
+    int_fuelless = int(fuelless)
 
     start_time = datetime.datetime.now(datetime.timezone.utc)
     units = _calc_units(start_time, current_units, generals_units, mobis_units)
     max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
 
     overflow = max(current_hangar_capacity - max_hangar_capacity, 0)
-    pop_capacity = kd_info_parse["structures"]["homes"] * BASE_HOMES_CAPACITY
+    pop_capacity = kd_info_parse["structures"]["homes"] * BASE_HOMES_CAPACITY * (1 - int_fuelless * BASE_FUELLESS_POP_CAP_REDUCTION)
     
     pop_capacity_less_overflow = max(pop_capacity - overflow, 0)
 
@@ -3332,12 +3353,12 @@ def _calc_pop_change_per_epoch(
     elif pop_difference > 0:
         pct_pop_gain = BASE_PCT_POP_GROWTH_PER_EPOCH * kd_info_parse["population"]
         stars_pop_gain = BASE_POP_GROWTH_PER_STAR_PER_EPOCH * kd_info_parse["stars"]
-        greater_pop_gain = max(pct_pop_gain, stars_pop_gain)
+        greater_pop_gain = max(pct_pop_gain, stars_pop_gain) * (1 - int_fuelless * BASE_FUELLESS_POP_GROWTH_REDUCTION)
         pop_change = min(greater_pop_gain, pop_difference)
     else:
         pop_change = 0
     
-    return pop_change
+    return pop_change, pop_capacity_less_overflow
 
 
 def _kingdom_with_income(
@@ -3371,7 +3392,8 @@ def _kingdom_with_income(
     max_fuel = kd_info_parse["structures"]["fuel_plants"] * BASE_FUEL_PLANTS_CAPACITY
     new_drones = kd_info_parse["structures"]["drone_factories"] * BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH * epoch_elapsed
 
-    pop_change_per_epoch = _calc_pop_change_per_epoch(kd_info_parse)
+    fuelless = kd_info_parse["fuel"] <= 0
+    pop_change_per_epoch, pop_cap = _calc_pop_change_per_epoch(kd_info_parse, fuelless)
     pop_change = pop_change_per_epoch * epoch_elapsed
 
     new_project_points = {
@@ -3382,9 +3404,12 @@ def _kingdom_with_income(
     for key_project, new_points in new_project_points.items():
         kd_info_parse["projects_points"][key_project] += new_points
     new_kd_info["money"] += new_income
-    new_kd_info["fuel"] = min(max_fuel, new_kd_info["fuel"] + net_fuel)
+    new_kd_info["fuel"] = max(min(max_fuel, new_kd_info["fuel"] + net_fuel), 0)
     new_kd_info["drones"] += new_drones
-    new_kd_info["population"] += pop_change
+    if pop_change > 0:
+        new_kd_info["population"] = min(new_kd_info["population"] + pop_change, pop_cap)
+    else:
+        new_kd_info["population"] = max(new_kd_info["population"] + pop_change, pop_cap)
     new_kd_info["last_income"] = time_now.isoformat()
 
     return new_kd_info
