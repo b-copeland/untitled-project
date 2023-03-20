@@ -3452,17 +3452,13 @@ def _calc_structures_losses(
 
 def _kingdom_with_income(
     kd_info_parse,
+    current_bonuses,
 ): # TODO: Pop handling
     time_now = datetime.datetime.now(datetime.timezone.utc)
     time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_now - time_last_income).total_seconds()
     epoch_elapsed = seconds_elapsed / BASE_EPOCH_SECONDS
 
-    current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-        for project, project_dict in PROJECTS.items()
-        if "max_bonus" in project_dict
-    }
     income = {
         "money": {},
         "fuel": {},
@@ -3783,10 +3779,10 @@ def _resolve_generals(kd_info_parse, time_update):
     return kd_info_parse, next_resolve
 
 
-def _resolve_spy(kd_info_parse, time_update):
+def _resolve_spy(kd_info_parse, time_update, current_bonuses):
     resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["spy_attempt"]).astimezone(datetime.timezone.utc)
     next_resolve_time = max(
-        resolve_time + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPY_ATTEMPT_TIME_MULTIPLIER),
+        resolve_time + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPY_ATTEMPT_TIME_MULTIPLIER * (1 - current_bonuses["spy_bonus"])),
         time_update,
     )
     if kd_info_parse["spy_attempts"] < BASE_SPY_ATTEMPTS_MAX:
@@ -3809,6 +3805,11 @@ def refresh_data():
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
         )
         kd_info_parse = json.loads(kd_info.text)
+        current_bonuses = {
+            project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
+            for project, project_dict in PROJECTS.items()
+            if "max_bonus" in project_dict
+        }
 
         categories_to_resolve = [cat for cat, time in kd_info_parse["next_resolve"].items() if datetime.datetime.fromisoformat(time).astimezone(datetime.timezone.utc) < time_update]
         if "settles" in categories_to_resolve:
@@ -3864,12 +3865,13 @@ def refresh_data():
         if "spy_attempt" in categories_to_resolve:
             kd_info_parse, next_resolves["spy_attempt"] = _resolve_spy(
                 kd_info_parse,
-                time_update
+                time_update,
+                current_bonuses,
             )
 
         for category, next_resolve_datetime in next_resolves.items():
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
-        new_kd_info = _kingdom_with_income(kd_info_parse)
+        new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses)
         kd_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
