@@ -2899,6 +2899,34 @@ def attack(target_kd):
         data=json.dumps(kd_attack_history, default=str),
     )
 
+    
+    galaxies_inverted, galaxy_info = _get_galaxies_inverted()
+    attacker_galaxy = galaxies_inverted[kd_id]
+    kds_to_reveal = galaxy_info[attacker_galaxy]
+
+    revealed_until = (time_now + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER)).isoformat()
+    payload = {
+        "new_galaxies": {
+            attacker_galaxy: revealed_until
+        }
+    }
+
+    payload["new_revealed"] = {
+        kd_id: {
+            "stats": revealed_until,
+        }
+        for kd_id in kds_to_reveal
+    }
+
+    defender_galaxy = galaxies_inverted[target_kd]
+    kds_revealed_to = galaxy_info[defender_galaxy]
+    for kd_revealed_to in kds_revealed_to:
+        reveal_galaxy_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}/revealed',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload),
+        )
+
     attack_results = {
         "status": attack_status,
         "message": attacker_message,
