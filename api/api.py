@@ -164,6 +164,9 @@ BASE_FUEL_PLANTS_INCOME_PER_EPOCH = 200
 BASE_FUEL_PLANTS_CAPACITY = 1000
 BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH = 1
 
+BASE_STRUCTURES_LOSS_RETURN_RATE = 0.2
+BASE_STRUCTURES_LOSS_PER_STAR_PER_EPOCH = 0.02
+
 BASE_MISSILE_TIME_MULTIPLER = 24
 
 BASE_GENERALS_BONUS = lambda generals: (generals - 1) * 0.03
@@ -1100,7 +1103,7 @@ def _calc_maxes(
     return maxes
 
 def _calc_hangar_capacity(kd_info, units):
-    max_hangar_capacity = kd_info["structures"]["hangars"] * BASE_HANGAR_CAPACITY
+    max_hangar_capacity = math.floor(kd_info["structures"]["hangars"]) * BASE_HANGAR_CAPACITY
     current_hangar_capacity = sum([
         stat_map["hangar_capacity"] * (units["current_total"].get(key, 0) + units["hour_24"].get(key, 0))
         for key, stat_map in UNITS.items()
@@ -1337,17 +1340,19 @@ def _calc_structures(
     start_time,
     current_structures,
     building_structures,
+    epochs=[1, 2, 4, 8, 24]
 ):
     structures = {
         "current": {k: current_structures.get(k, 0) for k in STRUCTURES}
     }
 
-    for hours in [1, 2, 4, 8, 24]:
+    for hours in epochs:
+        epoch_seconds = hours * BASE_EPOCH_SECONDS
         hour_structures = {
             key: 0
             for key in STRUCTURES
         }
-        max_time = start_time + datetime.timedelta(hours=hours)
+        max_time = start_time + datetime.timedelta(seconds=epoch_seconds)
         for building_structure in building_structures:
             if datetime.datetime.fromisoformat(building_structure["time"]).astimezone(datetime.timezone.utc) < max_time:
                 for key_structure in hour_structures.keys():
@@ -1360,7 +1365,7 @@ def _get_structure_price(kd_info):
     return BASE_SETTLE_COST(int(kd_info["stars"]))
 
 def _calc_available_structures(structure_price, kd_info, structures_info):
-    total_structures = sum(structures_info["current"].values()) + sum(structures_info["hour_24"].values())
+    total_structures = math.ceil(sum(structures_info["current"].values()) + sum(structures_info["hour_24"].values()))
     max_available_structures = max(int(kd_info["stars"]) - total_structures, 0)
     max_structures_cost = structure_price * max_available_structures
     try:
@@ -1789,7 +1794,7 @@ def missiles():
         "current": current_missiles,
         "building": missiles_building,
         "build_time": BASE_MISSILE_TIME_MULTIPLER * BASE_EPOCH_SECONDS,
-        "capacity": kd_info_parse["structures"]["missile_silos"] * BASE_MISSILE_SILO_CAPACITY,
+        "capacity": math.floor(kd_info_parse["structures"]["missile_silos"]) * BASE_MISSILE_SILO_CAPACITY,
         "desc": MISSILES,
         "top_queue": top_queue
     }
@@ -1847,7 +1852,7 @@ def build_missiles():
     missiles_info = _get_missiles_info(kd_id)
     missiles_building = _get_missiles_building(missiles_info)
 
-    max_available_missiles = kd_info_parse["structures"]["missile_silos"] * BASE_MISSILE_SILO_CAPACITY
+    max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * BASE_MISSILE_SILO_CAPACITY
 
     missiles_request = {
         k: int(v or 0)
@@ -1890,7 +1895,7 @@ def build_missiles():
     return (flask.jsonify({"message": "Successfully began building missiles", "status": "success"}), 200)
 
 def _calc_workshop_capacity(kd_info, engineers_building):
-    max_workshop_capacity = kd_info["structures"]["workshops"] * BASE_WORKSHOP_CAPACITY
+    max_workshop_capacity = math.floor(kd_info["structures"]["workshops"]) * BASE_WORKSHOP_CAPACITY
     current_engineers = kd_info["units"]["engineers"]
     current_workshop_capacity = current_engineers + engineers_building
     return max_workshop_capacity, current_workshop_capacity
@@ -3328,6 +3333,7 @@ def launch_missiles(target_kd):
 def _calc_pop_change_per_epoch(
     kd_info_parse,
     fuelless: bool,
+    epoch_elapsed,
 ):
     current_units = kd_info_parse["units"]
     generals_units = kd_info_parse["generals_out"]
@@ -3340,25 +3346,80 @@ def _calc_pop_change_per_epoch(
     max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
 
     overflow = max(current_hangar_capacity - max_hangar_capacity, 0)
-    pop_capacity = kd_info_parse["structures"]["homes"] * BASE_HOMES_CAPACITY * (1 - int_fuelless * BASE_FUELLESS_POP_CAP_REDUCTION)
+    pop_capacity = math.floor(kd_info_parse["structures"]["homes"] * BASE_HOMES_CAPACITY * (1 - int_fuelless * BASE_FUELLESS_POP_CAP_REDUCTION))
     
     pop_capacity_less_overflow = max(pop_capacity - overflow, 0)
 
     pop_difference = pop_capacity_less_overflow - kd_info_parse["population"]
     if pop_difference < 0:
-        pct_pop_loss = BASE_PCT_POP_LOSS_PER_EPOCH * kd_info_parse["population"]
-        stars_pop_loss = BASE_POP_LOSS_PER_STAR_PER_EPOCH * kd_info_parse["stars"]
+        pct_pop_loss = BASE_PCT_POP_LOSS_PER_EPOCH * kd_info_parse["population"] * epoch_elapsed
+        stars_pop_loss = BASE_POP_LOSS_PER_STAR_PER_EPOCH * kd_info_parse["stars"] * epoch_elapsed
         greater_pop_loss = max(pct_pop_loss, stars_pop_loss)
         pop_change = -1 *min(greater_pop_loss, abs(pop_difference))
     elif pop_difference > 0:
-        pct_pop_gain = BASE_PCT_POP_GROWTH_PER_EPOCH * kd_info_parse["population"]
-        stars_pop_gain = BASE_POP_GROWTH_PER_STAR_PER_EPOCH * kd_info_parse["stars"]
+        pct_pop_gain = BASE_PCT_POP_GROWTH_PER_EPOCH * kd_info_parse["population"] * epoch_elapsed
+        stars_pop_gain = BASE_POP_GROWTH_PER_STAR_PER_EPOCH * kd_info_parse["stars"] * epoch_elapsed
         greater_pop_gain = max(pct_pop_gain, stars_pop_gain) * (1 - int_fuelless * BASE_FUELLESS_POP_GROWTH_REDUCTION)
         pop_change = min(greater_pop_gain, pop_difference)
     else:
         pop_change = 0
     
     return pop_change, pop_capacity_less_overflow
+
+def _calc_structures_losses(
+    kd_info_parse,
+    epoch_elapsed
+):
+    # kd_id = kd_info_parse['kdId']
+    # structures_info = REQUESTS_SESSION.get(
+    #     os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+    #     headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    # )
+    # print(structures_info.text, file=sys.stderr)
+    # structures_info_parse = json.loads(structures_info.text)
+
+    current_structures = kd_info_parse["structures"]
+    # building_structures = structures_info_parse["structures"]
+
+    # start_time = datetime.datetime.now(datetime.timezone.utc)
+    # structures = _calc_structures(start_time, current_structures, building_structures, epochs=[999])
+    count_current_structures = sum(current_structures.values())
+    # all_building_structures = sum(structures["hour_999"].values())
+    total_structures = {
+        k: (
+            kd_info_parse["structures"].get(k, 0)
+            # + all_building_structures.get(k, 0) 
+        )
+        for k in STRUCTURES
+    }
+    count_total_structures = (
+        count_current_structures
+        # + all_building_structures
+    )
+    if count_total_structures <= kd_info_parse["stars"]:
+        return None
+    try:
+        pct_total_structures = {
+            k: v / count_total_structures
+            for k, v in total_structures.items()
+        }
+    except ZeroDivisionError:
+        pct_total_structures = {
+            k: 0
+            for k in total_structures
+        }
+    
+    structures_to_reduce = count_total_structures - kd_info_parse["stars"]
+    reduction_per_epoch = structures_to_reduce * BASE_STRUCTURES_LOSS_RETURN_RATE * epoch_elapsed
+    reduction_per_stars = min(kd_info_parse["stars"] * BASE_STRUCTURES_LOSS_PER_STAR_PER_EPOCH * epoch_elapsed, structures_to_reduce, count_current_structures)
+    greater_reduction = max(reduction_per_epoch, reduction_per_stars)
+
+    structures_to_reduce = {
+        k: v * greater_reduction
+        for k, v in pct_total_structures.items()
+    }
+    return structures_to_reduce
+    
 
 
 def _kingdom_with_income(
@@ -3389,12 +3450,13 @@ def _kingdom_with_income(
     )
     fuel_spent = raw_fuel_consumption * epoch_elapsed
     net_fuel = new_fuel - fuel_spent
-    max_fuel = kd_info_parse["structures"]["fuel_plants"] * BASE_FUEL_PLANTS_CAPACITY
+    max_fuel = math.floor(kd_info_parse["structures"]["fuel_plants"]) * BASE_FUEL_PLANTS_CAPACITY
     new_drones = kd_info_parse["structures"]["drone_factories"] * BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH * epoch_elapsed
 
     fuelless = kd_info_parse["fuel"] <= 0
-    pop_change_per_epoch, pop_cap = _calc_pop_change_per_epoch(kd_info_parse, fuelless)
-    pop_change = pop_change_per_epoch * epoch_elapsed
+    pop_change, _ = _calc_pop_change_per_epoch(kd_info_parse, fuelless, epoch_elapsed)
+
+    structures_to_reduce = _calc_structures_losses(kd_info_parse, epoch_elapsed)
 
     new_project_points = {
         key_project: assigned_engineers * BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH * epoch_elapsed
@@ -3406,11 +3468,13 @@ def _kingdom_with_income(
     new_kd_info["money"] += new_income
     new_kd_info["fuel"] = max(min(max_fuel, new_kd_info["fuel"] + net_fuel), 0)
     new_kd_info["drones"] += new_drones
-    if pop_change > 0:
-        new_kd_info["population"] = min(new_kd_info["population"] + pop_change, pop_cap)
-    else:
-        new_kd_info["population"] = max(new_kd_info["population"] + pop_change, pop_cap)
+    new_kd_info["population"] = new_kd_info["population"] + pop_change
     new_kd_info["last_income"] = time_now.isoformat()
+    if structures_to_reduce:
+        new_kd_info["structures"] = {
+            k: v - structures_to_reduce.get(k, 0)
+            for k, v in new_kd_info["structures"].items()
+        }
 
     return new_kd_info
     
