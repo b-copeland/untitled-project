@@ -2050,7 +2050,7 @@ def projects():
         if "max_bonus" in project_dict
     }
     current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project]
+        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
         for project, project_dict in PROJECTS.items()
         if "max_bonus" in project_dict
     }
