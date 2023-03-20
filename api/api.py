@@ -3455,7 +3455,7 @@ def _kingdom_with_income(
 ): # TODO: Pop handling
     time_now = datetime.datetime.now(datetime.timezone.utc)
     time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
-    seconds_elapsed = (time_now - time_last_income).seconds
+    seconds_elapsed = (time_now - time_last_income).total_seconds()
     epoch_elapsed = seconds_elapsed / BASE_EPOCH_SECONDS
 
     current_bonuses = {
@@ -3463,26 +3463,41 @@ def _kingdom_with_income(
         for project, project_dict in PROJECTS.items()
         if "max_bonus" in project_dict
     }
-    raw_new_income = (
-        (kd_info_parse["structures"]["mines"] * BASE_MINES_INCOME_PER_EPOCH)
-        + (kd_info_parse["population"] * BASE_POP_INCOME_PER_EPOCH)
-    ) * (1 + current_bonuses["money_bonus"])
-    new_income = raw_new_income * epoch_elapsed
-    new_fuel = kd_info_parse["structures"]["fuel_plants"] * BASE_FUEL_PLANTS_INCOME_PER_EPOCH * epoch_elapsed * (1 + current_bonuses["fuel_bonus"])
+    income = {
+        "money": {},
+        "fuel": {},
+    }
+    income["money"]["mines"] = math.floor(kd_info_parse["structures"]["mines"]) * BASE_MINES_INCOME_PER_EPOCH
+    income["money"]["population"] = math.floor(kd_info_parse["population"]) * BASE_POP_INCOME_PER_EPOCH
+    income["money"]["bonus"] = current_bonuses["money_bonus"]
+    income["money"]["net"] = (
+        income["money"]["mines"]
+        + income["money"]["population"]
+    ) * (1 + income["money"]["bonus"])
+    new_income = income["money"]["net"] * epoch_elapsed
+
+    income["fuel"]["fuel_plants"] = math.floor(kd_info_parse["structures"]["fuel_plants"]) * BASE_FUEL_PLANTS_INCOME_PER_EPOCH
+    income["fuel"]["bonus"] = current_bonuses["fuel_bonus"]
+    income["fuel"]["units"] = {}
+    for key_unit, value_units in kd_info_parse["units"].items():
+        income["fuel"]["units"][key_unit] = value_units * UNITS[key_unit]["fuel"]
+    income["fuel"]["population"] = kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH
+
+    new_fuel = income["fuel"]["fuel_plants"] * (1 + income["fuel"]["bonus"])
     raw_fuel_consumption = (
-        sum([
-            value_units * UNITS[key_unit]["fuel"]
-            for key_unit, value_units in kd_info_parse["units"].items()
-        ])
-        + (kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH)
+        sum(income["fuel"]["units"].values())
+        + income["fuel"]["population"]
     )
-    fuel_spent = raw_fuel_consumption * epoch_elapsed
-    net_fuel = new_fuel - fuel_spent
+    income["fuel"]["net"] = new_fuel - raw_fuel_consumption
+    net_fuel = income["fuel"]["net"] * epoch_elapsed
     max_fuel = math.floor(kd_info_parse["structures"]["fuel_plants"]) * BASE_FUEL_PLANTS_CAPACITY
-    new_drones = kd_info_parse["structures"]["drone_factories"] * BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH * epoch_elapsed
+
+    income["drones"] = math.floor(kd_info_parse["structures"]["drone_factories"]) * BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH
+    new_drones = income["drones"] * epoch_elapsed
 
     fuelless = kd_info_parse["fuel"] <= 0
     pop_change, _ = _calc_pop_change_per_epoch(kd_info_parse, fuelless, epoch_elapsed)
+    income["population"] = pop_change / epoch_elapsed
 
     structures_to_reduce = _calc_structures_losses(kd_info_parse, epoch_elapsed)
 
@@ -3498,6 +3513,7 @@ def _kingdom_with_income(
     new_kd_info["drones"] += new_drones
     new_kd_info["population"] = new_kd_info["population"] + pop_change
     new_kd_info["last_income"] = time_now.isoformat()
+    new_kd_info["income"] = income
     if structures_to_reduce:
         new_kd_info["structures"] = {
             k: v - structures_to_reduce.get(k, 0)

@@ -43,6 +43,13 @@ function Status(props) {
     if (Object.keys(props.kingdom).length === 0) {
         return null;
     }
+    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
+    const unitsFuelCosts = Object.keys(props.kingdom.income.fuel.units).sort().map((unit) => 
+        <div className="text-box-item" key={unit}>
+            <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{unit}</span>
+            <span className="text-box-item-value">-{props.kingdom.income.fuel.units[unit]}</span>
+        </div>
+    )
     return (
         <div className="status">
             <div className="text-box kingdom-card">
@@ -93,25 +100,50 @@ function Status(props) {
                 </div>
             </div>
             <div className="text-box income-box">
+                <h3>Income (per hour)</h3>
                 <div className="text-box-item">
-                    <span className="text-box-item-title">Income (per hour)</span>
-                    <span className="text-box-item-value">9999</span>
+                    <span className="text-box-item-title">Money</span>
+                    <span className="text-box-item-value">{props.kingdom.income?.money?.net}</span>
                 </div>
                 <div className="text-box-item">
-                    <span className="text-box-item-title">Fuel (per hour)</span>
-                    <span className="text-box-item-value">9999</span>
+                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Mines</span>
+                    <span className="text-box-item-value">{props.kingdom.income?.money?.mines}</span>
                 </div>
                 <div className="text-box-item">
-                    <span className="text-box-item-title">Score (per hour)</span>
-                    <span className="text-box-item-value">9999</span>
+                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Population</span>
+                    <span className="text-box-item-value">{props.kingdom.income?.money?.population}</span>
                 </div>
                 <div className="text-box-item">
-                    <span className="text-box-item-title">Population (per hour)</span>
-                    <span className="text-box-item-value">9999</span>
+                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Bonus</span>
+                    <span className="text-box-item-value">{displayPercent(props.kingdom.income?.money?.bonus)}</span>
+                </div>
+                <br />
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Fuel</span>
+                    <span className="text-box-item-value">{props.kingdom.income?.fuel?.net}</span>
                 </div>
                 <div className="text-box-item">
-                    <span className="text-box-item-title">Drones (per hour)</span>
-                    <span className="text-box-item-value">9999</span>
+                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Fuel Plants</span>
+                    <span className="text-box-item-value">{props.kingdom.income?.fuel?.fuel_plants}</span>
+                </div>
+                <div className="text-box-item">
+                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Bonus</span>
+                    <span className="text-box-item-value">{displayPercent(props.kingdom.income?.fuel?.bonus)}</span>
+                </div>
+                {unitsFuelCosts}
+                <div className="text-box-item">
+                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Population</span>
+                    <span className="text-box-item-value">-{props.kingdom.income?.fuel?.population}</span>
+                </div>
+                <br />
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Population</span>
+                    <span className="text-box-item-value">{props.kingdom.income?.population}</span>
+                </div>
+                <br />
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Drones</span>
+                    <span className="text-box-item-value">{props.kingdom.income?.drones}</span>
                 </div>
             </div>
         </div>
