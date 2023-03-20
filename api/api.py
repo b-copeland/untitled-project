@@ -270,12 +270,12 @@ INITIAL_KINGDOM_STATE = {
             "drone_gadgets": 0
         },
         "projects_max_points": {
-            "pop_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
-            "fuel_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
-            "military_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
-            "money_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
-            "general_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
-            "spy_bonus": PROJECTS["big_flexers"]["max_points"](INITIAL_KINGDOM_STARS),
+            "pop_bonus": PROJECTS["pop_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
+            "fuel_bonus": PROJECTS["fuel_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
+            "military_bonus": PROJECTS["military_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
+            "money_bonus": PROJECTS["money_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
+            "general_bonus": PROJECTS["general_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
+            "spy_bonus": PROJECTS["spy_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
             "big_flexers": PROJECTS["big_flexers"]["max_points"](0),
             "star_busters": PROJECTS["star_busters"]["max_points"](0),
             "galaxy_busters": PROJECTS["galaxy_busters"]["max_points"](0),
