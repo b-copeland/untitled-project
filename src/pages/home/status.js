@@ -44,10 +44,10 @@ function Status(props) {
         return null;
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
-    const unitsFuelCosts = Object.keys(props.kingdom.income.fuel.units).sort().map((unit) => 
+    const unitsFuelCosts = Object.keys(props.kingdom.income?.fuel?.units || {}).sort().map((unit) => 
         <div className="text-box-item" key={unit}>
             <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{unit}</span>
-            <span className="text-box-item-value">-{props.kingdom.income.fuel.units[unit]}</span>
+            <span className="text-box-item-value">-{props.kingdom.income?.fuel?.units[unit]}</span>
         </div>
     )
     return (
@@ -296,9 +296,9 @@ function Military(props) {
     if (Object.keys(props.mobis).length === 0) {
         return null;
     }
-    const units = props.mobis?.units;
-    const maxOffense = props.mobis?.maxes.offense;
-    const maxDefense = props.mobis?.maxes.defense;
+    const units = props.mobis?.units || {};
+    const maxOffense = props.mobis?.maxes?.offense || {};
+    const maxDefense = props.mobis?.maxes?.defense || {};
     return (
         <div className="status">
             <div className="army-info">
@@ -417,48 +417,48 @@ function Military(props) {
                     <tbody>
                         <tr>
                             <td>Recruits</td>
-                            <td>{units.current_total.recruits || 0}</td>
-                            <td>{(units.current_total.recruits || 0) + (units.hour_1.recruits || 0)}</td>
-                            <td>{(units.current_total.recruits || 0) + (units.hour_2.recruits || 0)}</td>
-                            <td>{(units.current_total.recruits || 0) + (units.hour_4.recruits || 0)}</td>
-                            <td>{(units.current_total.recruits || 0) + (units.hour_8.recruits || 0)}</td>
-                            <td>{(units.current_total.recruits || 0) + (units.hour_24.recruits || 0)}</td>
+                            <td>{units.current_total?.recruits || 0}</td>
+                            <td>{(units.current_total?.recruits || 0) + (units.hour_1?.recruits || 0)}</td>
+                            <td>{(units.current_total?.recruits || 0) + (units.hour_2?.recruits || 0)}</td>
+                            <td>{(units.current_total?.recruits || 0) + (units.hour_4?.recruits || 0)}</td>
+                            <td>{(units.current_total?.recruits || 0) + (units.hour_8?.recruits || 0)}</td>
+                            <td>{(units.current_total?.recruits || 0) + (units.hour_24?.recruits || 0)}</td>
                         </tr>
                         <tr>
                             <td>Attackers</td>
-                            <td>{units.current_total.attack || 0}</td>
-                            <td>{(units.current_total.attack || 0) + (units.hour_1.attack || 0)}</td>
-                            <td>{(units.current_total.attack || 0) + (units.hour_2.attack || 0)}</td>
-                            <td>{(units.current_total.attack || 0) + (units.hour_4.attack || 0)}</td>
-                            <td>{(units.current_total.attack || 0) + (units.hour_8.attack || 0)}</td>
-                            <td>{(units.current_total.attack || 0) + (units.hour_24.attack || 0)}</td>
+                            <td>{units.current_total?.attack || 0}</td>
+                            <td>{(units.current_total?.attack || 0) + (units.hour_1?.attack || 0)}</td>
+                            <td>{(units.current_total?.attack || 0) + (units.hour_2?.attack || 0)}</td>
+                            <td>{(units.current_total?.attack || 0) + (units.hour_4?.attack || 0)}</td>
+                            <td>{(units.current_total?.attack || 0) + (units.hour_8?.attack || 0)}</td>
+                            <td>{(units.current_total?.attack || 0) + (units.hour_24?.attack || 0)}</td>
                         </tr>
                         <tr>
                             <td>Defenders</td>
-                            <td>{units.current_total.defense || 0}</td>
-                            <td>{(units.current_total.defense || 0) + (units.hour_1.defense || 0)}</td>
-                            <td>{(units.current_total.defense || 0) + (units.hour_2.defense || 0)}</td>
-                            <td>{(units.current_total.defense || 0) + (units.hour_4.defense || 0)}</td>
-                            <td>{(units.current_total.defense || 0) + (units.hour_8.defense || 0)}</td>
-                            <td>{(units.current_total.defense || 0) + (units.hour_24.defense || 0)}</td>
+                            <td>{units.current_total?.defense || 0}</td>
+                            <td>{(units.current_total?.defense || 0) + (units.hour_1?.defense || 0)}</td>
+                            <td>{(units.current_total?.defense || 0) + (units.hour_2?.defense || 0)}</td>
+                            <td>{(units.current_total?.defense || 0) + (units.hour_4?.defense || 0)}</td>
+                            <td>{(units.current_total?.defense || 0) + (units.hour_8?.defense || 0)}</td>
+                            <td>{(units.current_total?.defense || 0) + (units.hour_24?.defense || 0)}</td>
                         </tr>
                         <tr>
                             <td>Flexers</td>
-                            <td>{units.current_total.flex || 0}</td>
-                            <td>{(units.current_total.flex || 0) + (units.hour_1.flex || 0)}</td>
-                            <td>{(units.current_total.flex || 0) + (units.hour_2.flex || 0)}</td>
-                            <td>{(units.current_total.flex || 0) + (units.hour_4.flex || 0)}</td>
-                            <td>{(units.current_total.flex || 0) + (units.hour_8.flex || 0)}</td>
-                            <td>{(units.current_total.flex || 0) + (units.hour_24.flex || 0)}</td>
+                            <td>{units.current_total?.flex || 0}</td>
+                            <td>{(units.current_total?.flex || 0) + (units.hour_1?.flex || 0)}</td>
+                            <td>{(units.current_total?.flex || 0) + (units.hour_2?.flex || 0)}</td>
+                            <td>{(units.current_total?.flex || 0) + (units.hour_4?.flex || 0)}</td>
+                            <td>{(units.current_total?.flex || 0) + (units.hour_8?.flex || 0)}</td>
+                            <td>{(units.current_total?.flex || 0) + (units.hour_24?.flex || 0)}</td>
                         </tr>
                         <tr>
                             <td>Big Flexers</td>
-                            <td>{units.current_total.big_flex || 0}</td>
-                            <td>{(units.current_total.big_flex || 0) + (units.hour_1.big_flex || 0)}</td>
-                            <td>{(units.current_total.big_flex || 0) + (units.hour_2.big_flex || 0)}</td>
-                            <td>{(units.current_total.big_flex || 0) + (units.hour_4.big_flex || 0)}</td>
-                            <td>{(units.current_total.big_flex || 0) + (units.hour_8.big_flex || 0)}</td>
-                            <td>{(units.current_total.big_flex || 0) + (units.hour_24.big_flex || 0)}</td>
+                            <td>{units.current_total?.big_flex || 0}</td>
+                            <td>{(units.current_total?.big_flex || 0) + (units.hour_1?.big_flex || 0)}</td>
+                            <td>{(units.current_total?.big_flex || 0) + (units.hour_2?.big_flex || 0)}</td>
+                            <td>{(units.current_total?.big_flex || 0) + (units.hour_4?.big_flex || 0)}</td>
+                            <td>{(units.current_total?.big_flex || 0) + (units.hour_8?.big_flex || 0)}</td>
+                            <td>{(units.current_total?.big_flex || 0) + (units.hour_24?.big_flex || 0)}</td>
                         </tr>
                     </tbody>
                 </Table>
@@ -524,66 +524,66 @@ function Structures(props) {
                     <tbody>
                         <tr>
                             <td>Homes</td>
-                            <td>{props.structures.current.homes || 0}</td>
-                            <td>{(props.structures.current.homes || 0) + (props.structures.hour_1.homes || 0)}</td>
-                            <td>{(props.structures.current.homes || 0) + (props.structures.hour_2.homes || 0)}</td>
-                            <td>{(props.structures.current.homes || 0) + (props.structures.hour_4.homes || 0)}</td>
-                            <td>{(props.structures.current.homes || 0) + (props.structures.hour_8.homes || 0)}</td>
-                            <td>{(props.structures.current.homes || 0) + (props.structures.hour_24.homes || 0)}</td>
+                            <td>{props.structures.current?.homes || 0}</td>
+                            <td>{(props.structures.current?.homes || 0) + (props.structures.hour_1?.homes || 0)}</td>
+                            <td>{(props.structures.current?.homes || 0) + (props.structures.hour_2?.homes || 0)}</td>
+                            <td>{(props.structures.current?.homes || 0) + (props.structures.hour_4?.homes || 0)}</td>
+                            <td>{(props.structures.current?.homes || 0) + (props.structures.hour_8?.homes || 0)}</td>
+                            <td>{(props.structures.current?.homes || 0) + (props.structures.hour_24?.homes || 0)}</td>
                         </tr>
                         <tr>
                             <td>Mines</td>
-                            <td>{props.structures.current.mines || 0}</td>
-                            <td>{(props.structures.current.mines || 0) + (props.structures.hour_1.mines || 0)}</td>
-                            <td>{(props.structures.current.mines || 0) + (props.structures.hour_2.mines || 0)}</td>
-                            <td>{(props.structures.current.mines || 0) + (props.structures.hour_4.mines || 0)}</td>
-                            <td>{(props.structures.current.mines || 0) + (props.structures.hour_8.mines || 0)}</td>
-                            <td>{(props.structures.current.mines || 0) + (props.structures.hour_24.mines || 0)}</td>
+                            <td>{props.structures.current?.mines || 0}</td>
+                            <td>{(props.structures.current?.mines || 0) + (props.structures.hour_1?.mines || 0)}</td>
+                            <td>{(props.structures.current?.mines || 0) + (props.structures.hour_2?.mines || 0)}</td>
+                            <td>{(props.structures.current?.mines || 0) + (props.structures.hour_4?.mines || 0)}</td>
+                            <td>{(props.structures.current?.mines || 0) + (props.structures.hour_8?.mines || 0)}</td>
+                            <td>{(props.structures.current?.mines || 0) + (props.structures.hour_24?.mines || 0)}</td>
                         </tr>
                         <tr>
                             <td>Fuel Plants</td>
-                            <td>{props.structures.current.fuel_plants || 0}</td>
-                            <td>{(props.structures.current.fuel_plants || 0) + (props.structures.hour_1.fuel_plants || 0)}</td>
-                            <td>{(props.structures.current.fuel_plants || 0) + (props.structures.hour_2.fuel_plants || 0)}</td>
-                            <td>{(props.structures.current.fuel_plants || 0) + (props.structures.hour_4.fuel_plants || 0)}</td>
-                            <td>{(props.structures.current.fuel_plants || 0) + (props.structures.hour_8.fuel_plants || 0)}</td>
-                            <td>{(props.structures.current.fuel_plants || 0) + (props.structures.hour_24.fuel_plants || 0)}</td>
+                            <td>{props.structures.current?.fuel_plants || 0}</td>
+                            <td>{(props.structures.current?.fuel_plants || 0) + (props.structures.hour_1?.fuel_plants || 0)}</td>
+                            <td>{(props.structures.current?.fuel_plants || 0) + (props.structures.hour_2?.fuel_plants || 0)}</td>
+                            <td>{(props.structures.current?.fuel_plants || 0) + (props.structures.hour_4?.fuel_plants || 0)}</td>
+                            <td>{(props.structures.current?.fuel_plants || 0) + (props.structures.hour_8?.fuel_plants || 0)}</td>
+                            <td>{(props.structures.current?.fuel_plants || 0) + (props.structures.hour_24?.fuel_plants || 0)}</td>
                         </tr>
                         <tr>
                             <td>Hangars</td>
-                            <td>{props.structures.current.hangars || 0}</td>
-                            <td>{(props.structures.current.hangars || 0) + (props.structures.hour_1.hangars || 0)}</td>
-                            <td>{(props.structures.current.hangars || 0) + (props.structures.hour_2.hangars || 0)}</td>
-                            <td>{(props.structures.current.hangars || 0) + (props.structures.hour_4.hangars || 0)}</td>
-                            <td>{(props.structures.current.hangars || 0) + (props.structures.hour_8.hangars || 0)}</td>
-                            <td>{(props.structures.current.hangars || 0) + (props.structures.hour_24.hangars || 0)}</td>
+                            <td>{props.structures.current?.hangars || 0}</td>
+                            <td>{(props.structures.current?.hangars || 0) + (props.structures.hour_1?.hangars || 0)}</td>
+                            <td>{(props.structures.current?.hangars || 0) + (props.structures.hour_2?.hangars || 0)}</td>
+                            <td>{(props.structures.current?.hangars || 0) + (props.structures.hour_4?.hangars || 0)}</td>
+                            <td>{(props.structures.current?.hangars || 0) + (props.structures.hour_8?.hangars || 0)}</td>
+                            <td>{(props.structures.current?.hangars || 0) + (props.structures.hour_24?.hangars || 0)}</td>
                         </tr>
                         <tr>
                             <td>Drone Factories</td>
-                            <td>{props.structures.current.drone_factories || 0}</td>
-                            <td>{(props.structures.current.drone_factories || 0) + (props.structures.hour_1.drone_factories || 0)}</td>
-                            <td>{(props.structures.current.drone_factories || 0) + (props.structures.hour_2.drone_factories || 0)}</td>
-                            <td>{(props.structures.current.drone_factories || 0) + (props.structures.hour_4.drone_factories || 0)}</td>
-                            <td>{(props.structures.current.drone_factories || 0) + (props.structures.hour_8.drone_factories || 0)}</td>
-                            <td>{(props.structures.current.drone_factories || 0) + (props.structures.hour_24.drone_factories || 0)}</td>
+                            <td>{props.structures.current?.drone_factories || 0}</td>
+                            <td>{(props.structures.current?.drone_factories || 0) + (props.structures.hour_1?.drone_factories || 0)}</td>
+                            <td>{(props.structures.current?.drone_factories || 0) + (props.structures.hour_2?.drone_factories || 0)}</td>
+                            <td>{(props.structures.current?.drone_factories || 0) + (props.structures.hour_4?.drone_factories || 0)}</td>
+                            <td>{(props.structures.current?.drone_factories || 0) + (props.structures.hour_8?.drone_factories || 0)}</td>
+                            <td>{(props.structures.current?.drone_factories || 0) + (props.structures.hour_24?.drone_factories || 0)}</td>
                         </tr>
                         <tr>
                             <td>Missile Silos</td>
-                            <td>{props.structures.current.missile_silos || 0}</td>
-                            <td>{(props.structures.current.missile_silos || 0) + (props.structures.hour_1.missile_silos || 0)}</td>
-                            <td>{(props.structures.current.missile_silos || 0) + (props.structures.hour_2.missile_silos || 0)}</td>
-                            <td>{(props.structures.current.missile_silos || 0) + (props.structures.hour_4.missile_silos || 0)}</td>
-                            <td>{(props.structures.current.missile_silos || 0) + (props.structures.hour_8.missile_silos || 0)}</td>
-                            <td>{(props.structures.current.missile_silos || 0) + (props.structures.hour_24.missile_silos || 0)}</td>
+                            <td>{props.structures.current?.missile_silos || 0}</td>
+                            <td>{(props.structures.current?.missile_silos || 0) + (props.structures.hour_1?.missile_silos || 0)}</td>
+                            <td>{(props.structures.current?.missile_silos || 0) + (props.structures.hour_2?.missile_silos || 0)}</td>
+                            <td>{(props.structures.current?.missile_silos || 0) + (props.structures.hour_4?.missile_silos || 0)}</td>
+                            <td>{(props.structures.current?.missile_silos || 0) + (props.structures.hour_8?.missile_silos || 0)}</td>
+                            <td>{(props.structures.current?.missile_silos || 0) + (props.structures.hour_24?.missile_silos || 0)}</td>
                         </tr>
                         <tr>
                             <td>Workshops</td>
-                            <td>{props.structures.current.workshops || 0}</td>
-                            <td>{(props.structures.current.workshops || 0) + (props.structures.hour_1.workshops || 0)}</td>
-                            <td>{(props.structures.current.workshops || 0) + (props.structures.hour_2.workshops || 0)}</td>
-                            <td>{(props.structures.current.workshops || 0) + (props.structures.hour_4.workshops || 0)}</td>
-                            <td>{(props.structures.current.workshops || 0) + (props.structures.hour_8.workshops || 0)}</td>
-                            <td>{(props.structures.current.workshops || 0) + (props.structures.hour_24.workshops || 0)}</td>
+                            <td>{props.structures.current?.workshops || 0}</td>
+                            <td>{(props.structures.current?.workshops || 0) + (props.structures.hour_1?.workshops || 0)}</td>
+                            <td>{(props.structures.current?.workshops || 0) + (props.structures.hour_2?.workshops || 0)}</td>
+                            <td>{(props.structures.current?.workshops || 0) + (props.structures.hour_4?.workshops || 0)}</td>
+                            <td>{(props.structures.current?.workshops || 0) + (props.structures.hour_8?.workshops || 0)}</td>
+                            <td>{(props.structures.current?.workshops || 0) + (props.structures.hour_24?.workshops || 0)}</td>
                         </tr>
                     </tbody>
                 </Table>
@@ -602,66 +602,66 @@ function Structures(props) {
                     <tbody>
                         <tr>
                             <td>Homes</td>
-                            <td>{displayPercent((props.structures.current.homes || 0) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.homes || 0) + (props.structures.hour_1.homes || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.homes || 0) + (props.structures.hour_2.homes || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.homes || 0) + (props.structures.hour_4.homes || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.homes || 0) + (props.structures.hour_8.homes || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.homes || 0) + (props.structures.hour_24.homes || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent((props.structures.current?.homes || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.homes || 0) + (props.structures.hour_1?.homes || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.homes || 0) + (props.structures.hour_2?.homes || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.homes || 0) + (props.structures.hour_4?.homes || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.homes || 0) + (props.structures.hour_8?.homes || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.homes || 0) + (props.structures.hour_24?.homes || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Mines</td>
-                            <td>{displayPercent((props.structures.current.mines || 0) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.mines || 0) + (props.structures.hour_1.mines || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.mines || 0) + (props.structures.hour_2.mines || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.mines || 0) + (props.structures.hour_4.mines || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.mines || 0) + (props.structures.hour_8.mines || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.mines || 0) + (props.structures.hour_24.mines || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent((props.structures.current?.mines || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.mines || 0) + (props.structures.hour_1?.mines || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.mines || 0) + (props.structures.hour_2?.mines || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.mines || 0) + (props.structures.hour_4?.mines || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.mines || 0) + (props.structures.hour_8?.mines || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.mines || 0) + (props.structures.hour_24?.mines || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Fuel Plants</td>
-                            <td>{displayPercent((props.structures.current.fuel_plants || 0) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.fuel_plants || 0) + (props.structures.hour_1.fuel_plants || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.fuel_plants || 0) + (props.structures.hour_2.fuel_plants || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.fuel_plants || 0) + (props.structures.hour_4.fuel_plants || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.fuel_plants || 0) + (props.structures.hour_8.fuel_plants || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.fuel_plants || 0) + (props.structures.hour_24.fuel_plants || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent((props.structures.current?.fuel_plants || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.fuel_plants || 0) + (props.structures.hour_1?.fuel_plants || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.fuel_plants || 0) + (props.structures.hour_2?.fuel_plants || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.fuel_plants || 0) + (props.structures.hour_4?.fuel_plants || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.fuel_plants || 0) + (props.structures.hour_8?.fuel_plants || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.fuel_plants || 0) + (props.structures.hour_24?.fuel_plants || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Hangars</td>
-                            <td>{displayPercent((props.structures.current.hangars || 0) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.hangars || 0) + (props.structures.hour_1.hangars || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.hangars || 0) + (props.structures.hour_2.hangars || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.hangars || 0) + (props.structures.hour_4.hangars || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.hangars || 0) + (props.structures.hour_8.hangars || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.hangars || 0) + (props.structures.hour_24.hangars || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent((props.structures.current?.hangars || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.hangars || 0) + (props.structures.hour_1?.hangars || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.hangars || 0) + (props.structures.hour_2?.hangars || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.hangars || 0) + (props.structures.hour_4?.hangars || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.hangars || 0) + (props.structures.hour_8?.hangars || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.hangars || 0) + (props.structures.hour_24?.hangars || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Drone Factories</td>
-                            <td>{displayPercent((props.structures.current.drone_factories || 0) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.drone_factories || 0) + (props.structures.hour_1.drone_factories || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.drone_factories || 0) + (props.structures.hour_2.drone_factories || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.drone_factories || 0) + (props.structures.hour_4.drone_factories || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.drone_factories || 0) + (props.structures.hour_8.drone_factories || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.drone_factories || 0) + (props.structures.hour_24.drone_factories || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent((props.structures.current?.drone_factories || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.drone_factories || 0) + (props.structures.hour_1?.drone_factories || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.drone_factories || 0) + (props.structures.hour_2?.drone_factories || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.drone_factories || 0) + (props.structures.hour_4?.drone_factories || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.drone_factories || 0) + (props.structures.hour_8?.drone_factories || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.drone_factories || 0) + (props.structures.hour_24?.drone_factories || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Missile Silos</td>
-                            <td>{displayPercent((props.structures.current.missile_silos || 0) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.missile_silos || 0) + (props.structures.hour_1.missile_silos || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.missile_silos || 0) + (props.structures.hour_2.missile_silos || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.missile_silos || 0) + (props.structures.hour_4.missile_silos || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.missile_silos || 0) + (props.structures.hour_8.missile_silos || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.missile_silos || 0) + (props.structures.hour_24.missile_silos || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent((props.structures.current?.missile_silos || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.missile_silos || 0) + (props.structures.hour_1?.missile_silos || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.missile_silos || 0) + (props.structures.hour_2?.missile_silos || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.missile_silos || 0) + (props.structures.hour_4?.missile_silos || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.missile_silos || 0) + (props.structures.hour_8?.missile_silos || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.missile_silos || 0) + (props.structures.hour_24?.missile_silos || 0)) / props.kingdom.stars)}</td>
                         </tr>
                         <tr>
                             <td>Workshops</td>
-                            <td>{displayPercent((props.structures.current.workshops || 0) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.workshops || 0) + (props.structures.hour_1.workshops || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.workshops || 0) + (props.structures.hour_2.workshops || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.workshops || 0) + (props.structures.hour_4.workshops || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.workshops || 0) + (props.structures.hour_8.workshops || 0)) / props.kingdom.stars)}</td>
-                            <td>{displayPercent(((props.structures.current.workshops || 0) + (props.structures.hour_24.workshops || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent((props.structures.current?.workshops || 0) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.workshops || 0) + (props.structures.hour_1?.workshops || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.workshops || 0) + (props.structures.hour_2?.workshops || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.workshops || 0) + (props.structures.hour_4?.workshops || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.workshops || 0) + (props.structures.hour_8?.workshops || 0)) / props.kingdom.stars)}</td>
+                            <td>{displayPercent(((props.structures.current?.workshops || 0) + (props.structures.hour_24?.workshops || 0)) / props.kingdom.stars)}</td>
                         </tr>
                     </tbody>
                 </Table>

@@ -137,7 +137,7 @@ function Galaxy(props) {
             <td>{galaxyInfo[kdId].score || ""}</td>
             <td>{galaxyInfo[kdId].aggression || ""}</td>
             <td>07:59:59</td>
-            <td>Growth, Active</td>
+            <td>{galaxyInfo[kdId].status}</td>
             <td>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack

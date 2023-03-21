@@ -6,11 +6,14 @@ import random
 import requests
 import sys
 import json
+from functools import wraps
+
 import flask
 import flask_sqlalchemy
 import flask_praetorian
 import flask_cors
 from flask_mail import Mail
+
 
 db = flask_sqlalchemy.SQLAlchemy()
 guard = flask_praetorian.Praetorian()
@@ -175,6 +178,7 @@ BASE_DEFENDER_UNIT_LOSS_RATE = 0.05
 BASE_ATTACKER_UNIT_LOSS_RATE = 0.05
 BASE_KINGDOM_LOSS_RATE = 0.10
 BASE_FUELLESS_STRENGTH_REDUCTION = 0.2
+BASE_ATTACK_MIN_STARS_GAIN = 25
 
 BASE_STARS_DRONE_DEFENSE_MULTIPLIER = 4
 BASE_DRONES_DRONE_DEFENSE_MULTIPLIER = 1
@@ -212,6 +216,7 @@ INITIAL_KINGDOM_STATE = {
         "kdId": "",
         "name": "",
         "race": "",
+        "status": "Active",
         "last_income": "",
         "next_resolve": {
             "generals": "2099-01-01T00:00:00+00:00",
@@ -343,6 +348,7 @@ class User(db.Model):
     kd_created = db.Column(db.Boolean, default=False, server_default='false')
     is_active = db.Column(db.Boolean, default=True, server_default='true')
     is_verified = db.Column(db.Boolean, default=True, server_default='false')
+    kd_death_date = db.Column(db.Text)
 
     @property
     def rolenames(self):
@@ -405,28 +411,27 @@ with app.app_context():
           roles='operator,admin',
           kd_created=True,
 		))
-    # if db.session.query(User).filter_by(username='user').count() < 1:
-    #     db.session.add(User(
-    #       username='user',
-    #       password=guard.hash_password('pass'),
-    #       roles='verified',
-    #       kd_id="0",
-    #       kd_created=True,
-	# 	))
     for i in range(0, 6):
         if db.session.query(User).filter_by(username=f'newkd{i}').count() < 1:
             db.session.add(User(
             username=f'newkd{i}',
             password=guard.hash_password(f'newkd{i}'),
             roles='verified',
+            kd_id=str(i),
+            kd_created=True,
+            kd_death_date=None if i != 4 else "populated"
             ))
+        
     db.session.commit()
 
-
-# Set up some routes for the example
-@app.route('/api/')
-def home():
-  	return {"Hello": "World"}, 200
+def alive_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        kd_death_date = flask_praetorian.current_user().kd_death_date
+        if kd_death_date not in (None, ""):
+            return flask.jsonify({"message": "You can not do that because your kingdom is dead!"}), 400
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -966,6 +971,7 @@ def _validate_spending(spending_input):
 
 @app.route('/api/spending', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def spending():
     """
@@ -1192,6 +1198,7 @@ def _validate_recruits(recruits_input, current_available_recruits):
 
 @app.route('/api/recruits', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def recruits():
     """
@@ -1272,6 +1279,7 @@ def _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cos
 
 @app.route('/api/mobis', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def train_mobis():
     """
@@ -1443,6 +1451,7 @@ def _validate_structures(structures_input, current_available_structures):
 
 @app.route('/api/structures', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def build_structures():
     """
@@ -1523,7 +1532,7 @@ def _get_kd_info(kd_id):
 
 
 def _get_max_kd_info(kd_id, revealed_info, max=False):
-    always_allowed_keys = {"name", "race"}
+    always_allowed_keys = {"name", "race", "status"}
     allowed_keys = {
         "stats": ["stars", "score"],
         "kingdom": ["stars", "fuel", "population", "score", "money", "spy_attempts", "auto_spending", "missiles"],
@@ -1688,6 +1697,7 @@ def _validate_settles(settle_input, kd_info, settle_info):
 
 @app.route('/api/settle', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def settle():
     """
@@ -1829,6 +1839,7 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
 
 @app.route('/api/missiles', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def build_missiles():
     """
@@ -1970,6 +1981,7 @@ def _validate_engineers(engineers_input, current_available_engineers):
 
 @app.route('/api/engineers', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def train_engineers():
     """
@@ -2081,6 +2093,7 @@ def _validate_add_projects(req, available_engineers):
 
 @app.route('/api/projects', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def manage_projects():
     """
@@ -2187,6 +2200,7 @@ def shared():
 
 @app.route('/api/shared', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def accept_shared():
     """
@@ -2216,6 +2230,7 @@ def accept_shared():
 
 @app.route('/api/offershared', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def offer_shared():
     """
@@ -2339,6 +2354,7 @@ def pinned():
 
 @app.route('/api/pinned', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def update_pinned():
     """
@@ -2362,6 +2378,7 @@ def update_pinned():
 
 @app.route('/api/kingdomsinfo', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def max_kingdoms():
     """
@@ -2385,6 +2402,7 @@ def max_kingdoms():
 
 @app.route('/api/revealrandomgalaxy', methods=['GET'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def reveal_random_galaxy():
     """
@@ -2518,6 +2536,7 @@ def _calc_generals_return_time(
 
 @app.route('/api/calculate/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def calculate_attack(target_kd):
     """
@@ -2636,6 +2655,10 @@ def calculate_attack(target_kd):
             for key_spoil, value_spoil in max_target_kd_info.items()
             if key_spoil in {"stars", "population", "money", "fuel"}
         }
+        try:
+            spoils_values["stars"] = max(spoils_values["stars"], BASE_ATTACK_MIN_STARS_GAIN * (1 - cut))
+        except KeyError:
+            pass
         if spoils_values:
             message += 'You will gain '
             message += ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
@@ -2646,6 +2669,10 @@ def calculate_attack(target_kd):
                     for key_spoil, value_spoil in max_target_kd_info.items()
                     if key_spoil in {"stars", "population", "money", "fuel"}
                 }
+                try:
+                    sharer_spoils_values["stars"] = max(sharer_spoils_values["stars"], BASE_ATTACK_MIN_STARS_GAIN * (cut))
+                except KeyError:
+                    pass
                 kingdoms = _get_kingdoms()
                 sharer_name = kingdoms[sharer]
                 message += f'Your galaxymate {sharer_name} will gain '
@@ -2673,6 +2700,7 @@ def calculate_attack(target_kd):
 
 @app.route('/api/attack/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def attack(target_kd):
     req = flask.request.get_json(force=True)
@@ -2698,6 +2726,8 @@ def attack(target_kd):
     revealed = _get_revealed(kd_id)["revealed"]
     shared = _get_shared(kd_id)["shared"]
     target_kd_info = _get_max_kd_info(target_kd, revealed, max=True)
+    if target_kd_info["status"].lower() == "dead":
+        return (flask.jsonify({"message": "You can't attack this kingdom because they are dead!"}), 400)
     target_current_bonuses = {
         project: project_dict.get("max_bonus", 0) * min(target_kd_info["projects_points"][project] / target_kd_info["projects_max_points"][project], 1.0)
         for project, project_dict in PROJECTS.items()
@@ -2791,15 +2821,16 @@ def attack(target_kd):
             for key_spoil, value_spoil in target_kd_info.items()
             if key_spoil in {"stars", "population", "money", "fuel"}
         }
+        total_spoils["stars"] = max(total_spoils["stars"], BASE_ATTACK_MIN_STARS_GAIN)
         spoils_values = {
-            key_spoil: math.floor(value_spoil * BASE_KINGDOM_LOSS_RATE * (1 - cut))
-            for key_spoil, value_spoil in target_kd_info.items()
+            key_spoil: math.floor(value_spoil * (1 - cut))
+            for key_spoil, value_spoil in total_spoils.items()
             if key_spoil in {"stars", "population", "money", "fuel"}
         }
         if sharer:
             sharer_spoils_values = {
-                key_spoil: math.floor(value_spoil * BASE_KINGDOM_LOSS_RATE * cut)
-                for key_spoil, value_spoil in target_kd_info.items()
+                key_spoil: math.floor(value_spoil * cut)
+                for key_spoil, value_spoil in total_spoils.items()
                 if key_spoil in {"stars", "population", "money", "fuel"}
             }
             sharer_message = (
@@ -2853,6 +2884,7 @@ def attack(target_kd):
         kd_info_parse[key_spoil] += value_spoil
         target_kd_info[key_spoil] -= value_spoil
 
+    target_kd_info["stars"] = max(target_kd_info["stars"], 0)
     for key_project, project_dict in PROJECTS.items():
         project_max_func = project_dict["max_points"]
         kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
@@ -2868,6 +2900,9 @@ def attack(target_kd):
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(sharer_kd_info),
         )
+    if target_kd_info["stars"] <= 0:
+        target_kd_info["status"] = "Dead"
+        _mark_kingdom_death(target_kd)
     target_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -2919,13 +2954,14 @@ def attack(target_kd):
     }
 
     defender_galaxy = galaxies_inverted[target_kd]
-    kds_revealed_to = galaxy_info[defender_galaxy]
-    for kd_revealed_to in kds_revealed_to:
-        reveal_galaxy_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}/revealed',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps(payload),
-        )
+    if attacker_galaxy != defender_galaxy:
+        kds_revealed_to = galaxy_info[defender_galaxy]
+        for kd_revealed_to in kds_revealed_to:
+            reveal_galaxy_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}/revealed',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(payload),
+            )
 
     attack_results = {
         "status": attack_status,
@@ -2977,6 +3013,7 @@ def _calculate_spy_losses(
         
 @app.route('/api/calculatespy/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def calculate_spy(target_kd):
     req = flask.request.get_json(force=True)
@@ -3053,6 +3090,7 @@ def calculate_spy(target_kd):
         
 @app.route('/api/spy/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def spy(target_kd):
     req = flask.request.get_json(force=True)
@@ -3085,6 +3123,8 @@ def spy(target_kd):
     
     revealed = _get_revealed(kd_id)["revealed"]
     max_target_kd_info = _get_max_kd_info(target_kd, revealed, max=True)
+    if max_target_kd_info["status"].lower() == "dead":
+        return (flask.jsonify({"message": "You can't attack this kingdom because they are dead!"}), 400)
     
     defender_drones = max_target_kd_info["drones"]
     defender_stars = max_target_kd_info["stars"]
@@ -3214,6 +3254,7 @@ def _calculate_missiles_damage(
 
 @app.route('/api/calculatemissiles/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def calculate_missiles(target_kd):
     req = flask.request.get_json(force=True)
@@ -3267,6 +3308,7 @@ def calculate_missiles(target_kd):
 
 @app.route('/api/launchmissiles/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def launch_missiles(target_kd):
     req = flask.request.get_json(force=True)
@@ -3300,6 +3342,8 @@ def launch_missiles(target_kd):
     revealed = _get_revealed(kd_id)["revealed"]
     max_target_kd_info = _get_max_kd_info(target_kd, revealed, max=True)
     defender_shields = max_target_kd_info["shields"]["missiles"]
+    if max_target_kd_info["status"].lower() == "dead":
+        return (flask.jsonify({"message": "You can't attack this kingdom because they are dead!"}), 400)
     
     missile_damage = _calculate_missiles_damage(
         attacker_missiles,
@@ -3321,11 +3365,21 @@ def launch_missiles(target_kd):
         data=json.dumps(kd_patch_payload, default=str),
     )
 
+    target_stars = max_target_kd_info["stars"] - missile_damage["stars_damage"]
+    target_pop = max_target_kd_info["population"] - missile_damage["pop_damage"]
     defender_patch_payload = {
-        "stars": kd_info_parse["stars"] - missile_damage["stars_damage"],
-        "population": kd_info_parse["population"] - missile_damage["pop_damage"],
-        "fuel": kd_info_parse["fuel"] - missile_damage["fuel_damage"],
+        "stars": target_stars,
+        "population": target_pop,
+        "fuel": max_target_kd_info["fuel"] - missile_damage["fuel_damage"],
     }
+    if target_stars <= 0 or target_pop <= 0:
+        defender_patch_payload["status"] = "Dead"
+        _mark_kingdom_death(target_kd)
+    defender_patch_payload["stars"] = max(defender_patch_payload["stars"], 0)
+    defender_patch_payload["projects_max_points"] = {}
+    for key_project, project_dict in PROJECTS.items():
+        project_max_func = project_dict["max_points"]
+        defender_patch_payload["projects_max_points"][key_project] = project_max_func(max_target_kd_info["stars"])
     defender_kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -3510,6 +3564,10 @@ def _kingdom_with_income(
     new_kd_info["population"] = new_kd_info["population"] + pop_change
     new_kd_info["last_income"] = time_now.isoformat()
     new_kd_info["income"] = income
+
+    if new_kd_info["population"] <= 0:
+        new_kd_info["status"] = "Dead"
+        _mark_kingdom_death(kd_info_parse["kdId"])
     if structures_to_reduce:
         new_kd_info["structures"] = {
             k: v - structures_to_reduce.get(k, 0)
@@ -3789,6 +3847,19 @@ def _resolve_spy(kd_info_parse, time_update, current_bonuses):
         kd_info_parse["spy_attempts"] += 1
     return kd_info_parse, next_resolve_time
 
+# @app.route('/api/testkdquery/<kd_id>')
+# def testkdquery(kd_id):
+#     query = db.session.query(User).filter_by(kd_id=kd_id).all()
+#     user = query[0]
+#     return flask.jsonify(str(user.__dict__))
+
+def _mark_kingdom_death(kd_id):
+    query = db.session.query(User).filter_by(kd_id=kd_id).all()
+    user = query[0]
+    user.kd_death_date = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    db.session.commit()
+    return flask.jsonify(str(user.__dict__))
+
 @app.route('/api/refreshdata')
 def refresh_data():
     """Performance periodic refresh tasks"""
@@ -3805,6 +3876,8 @@ def refresh_data():
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
         )
         kd_info_parse = json.loads(kd_info.text)
+        if kd_info_parse["status"].lower() == "dead":
+            continue
         current_bonuses = {
             project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
             for project, project_dict in PROJECTS.items()
