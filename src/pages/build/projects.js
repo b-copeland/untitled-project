@@ -584,154 +584,311 @@ function Assign(props) {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>Big Flexers</td>
-                        <td>{(props.kdInfo.projects_assigned.big_flexers || 0)}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{(props.kdInfo.projects_points.big_flexers || 0)}</td>
-                        <td>{(props.kdInfo.projects_max_points.big_flexers || 0)}</td>
-                        <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
-                        <td>{
-                            <Form.Control 
-                                className="projects-assign-form"
-                                id="big-flexers-assign-input"
-                                onChange={handleAssignInputChange}
-                                name="big_flexers"
-                                value={assignValues.big_flexers || ""} 
-                                placeholder="0"
-                            />
-                        }</td>
-                        <td>{
-                            <Form.Control 
-                                className="projects-add-form"
-                                id="big-flexers-add-input"
-                                onChange={handleAddInputChange}
-                                name="big_flexers"
-                                value={addValues.big_flexers || ""} 
-                                placeholder="0"
-                            />
-                        }</td>
-                        <td>{
-                            props.loading.projects
-                            ? <Button className="remove-button" name="big_flexers" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="remove-button" name="big_flexers" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.big_flexers || 0) == 0}>
-                                Remove
-                            </Button>
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td>Star Busters</td>
-                        <td>{(props.kdInfo.projects_assigned.star_busters || 0)}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{(props.kdInfo.projects_points.star_busters || 0)}</td>
-                        <td>{(props.kdInfo.projects_max_points.star_busters || 0)}</td>
-                        <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
-                        <td>{
-                            <Form.Control 
-                                className="projects-assign-form"
-                                id="star-busters-assign-input"
-                                onChange={handleAssignInputChange}
-                                name="star_busters"
-                                value={assignValues.star_busters || ""} 
-                                placeholder="0"
-                            />
-                        }</td>
-                        <td>{
-                            <Form.Control 
-                                className="projects-add-form"
-                                id="star-busters-add-input"
-                                onChange={handleAddInputChange}
-                                name="star_busters"
-                                value={addValues.star_busters || ""} 
-                                placeholder="0"
-                            />
-                        }</td>
-                        <td>{
-                            props.loading.projects
-                            ? <Button className="remove-button" name="star_busters" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="remove-button" name="star_busters" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.star_busters || 0) == 0}>
-                                Remove
-                            </Button>
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td>Galaxy Busters</td>
-                        <td>{(props.kdInfo.projects_assigned.galaxy_busters || 0)}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{(props.kdInfo.projects_points.galaxy_busters || 0)}</td>
-                        <td>{(props.kdInfo.projects_max_points.galaxy_busters || 0)}</td>
-                        <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
-                        <td>{
-                            <Form.Control 
-                                className="projects-assign-form"
-                                id="galaxy-busters-assign-input"
-                                onChange={handleAssignInputChange}
-                                name="galaxy_busters"
-                                value={assignValues.galaxy_busters || ""} 
-                                placeholder="0"
-                            />
-                        }</td>
-                        <td>{
-                            <Form.Control 
-                                className="projects-add-form"
-                                id="galaxy-busters-add-input"
-                                onChange={handleAddInputChange}
-                                name="galaxy_busters"
-                                value={addValues.galaxy_busters || ""} 
-                                placeholder="0"
-                            />
-                        }</td>
-                        <td>{
-                            props.loading.projects
-                            ? <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.galaxy_busters || 0) == 0}>
-                                Remove
-                            </Button>
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td>Drone Gadgets</td>
-                        <td>{(props.kdInfo.projects_assigned.drone_gadgets || 0)}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{(props.kdInfo.projects_points.drone_gadgets || 0)}</td>
-                        <td>{(props.kdInfo.projects_max_points.drone_gadgets || 0)}</td>
-                        <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
-                        <td>{
-                            <Form.Control 
-                                className="projects-assign-form"
-                                id="drone-gadgets-assign-input"
-                                onChange={handleAssignInputChange}
-                                name="drone_gadgets"
-                                value={assignValues.drone_gadgets || ""} 
-                                placeholder="0"
-                            />
-                        }</td>
-                        <td>{
-                            <Form.Control 
-                                className="projects-add-form"
-                                id="drone-gadgets-add-input"
-                                onChange={handleAddInputChange}
-                                name="drone_gadgets"
-                                value={addValues.drone_gadgets || ""} 
-                                placeholder="0"
-                            />
-                        }</td>
-                        <td>{
-                            props.loading.projects
-                            ? <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.drone_gadgets || 0) == 0}>
-                                Remove
-                            </Button>
-                        }</td>
-                    </tr>
+                    
+                    {
+                        props.kdInfo.completed_projects.indexOf('big_flexers') < 0
+                        ? <tr>
+                            <td>Big Flexers</td>
+                            <td>{(props.kdInfo.projects_assigned.big_flexers || 0)}</td>
+                            <td>{displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td>{(props.kdInfo.projects_points.big_flexers || 0)}</td>
+                            <td>{(props.kdInfo.projects_max_points.big_flexers || 0)}</td>
+                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-assign-form"
+                                    id="big-flexers-assign-input"
+                                    onChange={handleAssignInputChange}
+                                    name="big_flexers"
+                                    value={assignValues.big_flexers || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-add-form"
+                                    id="big-flexers-add-input"
+                                    onChange={handleAddInputChange}
+                                    name="big_flexers"
+                                    value={addValues.big_flexers || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                props.loading.projects
+                                ? <Button className="remove-button" name="big_flexers" variant="primary" type="submit" disabled>
+                                    Loading...
+                                </Button>
+                                : <Button className="remove-button" name="big_flexers" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.big_flexers || 0) == 0}>
+                                    Remove
+                                </Button>
+                            }</td>
+                        </tr>
+                        : <tr className="disabled-table-row">
+                            <td>Big Flexers</td>
+                            <td colSpan={2}>Project Complete!</td>
+                            <td>{(props.kdInfo.projects_points.big_flexers || 0)}</td>
+                            <td>{(props.kdInfo.projects_max_points.big_flexers || 0)}</td>
+                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-assign-form"
+                                    id="big-flexers-assign-input"
+                                    onChange={handleAssignInputChange}
+                                    name="big_flexers"
+                                    value={assignValues.big_flexers || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-add-form"
+                                    id="big-flexers-add-input"
+                                    onChange={handleAddInputChange}
+                                    name="big_flexers"
+                                    value={addValues.big_flexers || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                props.loading.projects
+                                ? <Button className="remove-button" name="big_flexers" variant="primary" type="submit" disabled>
+                                    Loading...
+                                </Button>
+                                : <Button className="remove-button" name="big_flexers" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.big_flexers || 0) == 0}>
+                                    Remove
+                                </Button>
+                            }</td>
+                        </tr>
+                    }
+                    {
+                        props.kdInfo.completed_projects.indexOf('star_busters') < 0
+                        ? <tr>
+                            <td>Star Busters</td>
+                            <td>{(props.kdInfo.projects_assigned.star_busters || 0)}</td>
+                            <td>{displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td>{(props.kdInfo.projects_points.star_busters || 0)}</td>
+                            <td>{(props.kdInfo.projects_max_points.star_busters || 0)}</td>
+                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-assign-form"
+                                    id="star-busters-assign-input"
+                                    onChange={handleAssignInputChange}
+                                    name="star_busters"
+                                    value={assignValues.star_busters || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-add-form"
+                                    id="star-busters-add-input"
+                                    onChange={handleAddInputChange}
+                                    name="star_busters"
+                                    value={addValues.star_busters || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                props.loading.projects
+                                ? <Button className="remove-button" name="star_busters" variant="primary" type="submit" disabled>
+                                    Loading...
+                                </Button>
+                                : <Button className="remove-button" name="star_busters" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.star_busters || 0) == 0}>
+                                    Remove
+                                </Button>
+                            }</td>
+                        </tr>
+                        : <tr className="disabled-table-row">
+                            <td>Star Busters</td>
+                            <td colSpan={2}>Project Complete!</td>
+                            <td>{(props.kdInfo.projects_points.star_busters || 0)}</td>
+                            <td>{(props.kdInfo.projects_max_points.star_busters || 0)}</td>
+                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-assign-form"
+                                    id="star-busters-assign-input"
+                                    onChange={handleAssignInputChange}
+                                    name="star_busters"
+                                    value={assignValues.star_busters || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-add-form"
+                                    id="star-busters-add-input"
+                                    onChange={handleAddInputChange}
+                                    name="star_busters"
+                                    value={addValues.star_busters || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                props.loading.projects
+                                ? <Button className="remove-button" name="star_busters" variant="primary" type="submit" disabled>
+                                    Loading...
+                                </Button>
+                                : <Button className="remove-button" name="star_busters" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.star_busters || 0) == 0}>
+                                    Remove
+                                </Button>
+                            }</td>
+                        </tr>
+                    }
+                    {
+                        props.kdInfo.completed_projects.indexOf('galaxy_busters') < 0
+                        ? <tr>
+                            <td>Galaxy Busters</td>
+                            <td>{(props.kdInfo.projects_assigned.galaxy_busters || 0)}</td>
+                            <td>{displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td>{(props.kdInfo.projects_points.galaxy_busters || 0)}</td>
+                            <td>{(props.kdInfo.projects_max_points.galaxy_busters || 0)}</td>
+                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-assign-form"
+                                    id="galaxy-busters-assign-input"
+                                    onChange={handleAssignInputChange}
+                                    name="galaxy_busters"
+                                    value={assignValues.galaxy_busters || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-add-form"
+                                    id="galaxy-busters-add-input"
+                                    onChange={handleAddInputChange}
+                                    name="galaxy_busters"
+                                    value={addValues.galaxy_busters || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                props.loading.projects
+                                ? <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" disabled>
+                                    Loading...
+                                </Button>
+                                : <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.galaxy_busters || 0) == 0}>
+                                    Remove
+                                </Button>
+                            }</td>
+                        </tr>
+                        : <tr className="disabled-table-row">
+                            <td>Galaxy Busters</td>
+                            <td colSpan={2}>Project Complete!</td>
+                            <td>{(props.kdInfo.projects_points.galaxy_busters || 0)}</td>
+                            <td>{(props.kdInfo.projects_max_points.galaxy_busters || 0)}</td>
+                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-assign-form"
+                                    id="galaxy-busters-assign-input"
+                                    onChange={handleAssignInputChange}
+                                    name="galaxy_busters"
+                                    value={assignValues.galaxy_busters || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-add-form"
+                                    id="galaxy-busters-add-input"
+                                    onChange={handleAddInputChange}
+                                    name="galaxy_busters"
+                                    value={addValues.galaxy_busters || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                props.loading.projects
+                                ? <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" disabled>
+                                    Loading...
+                                </Button>
+                                : <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.galaxy_busters || 0) == 0}>
+                                    Remove
+                                </Button>
+                            }</td>
+                        </tr>
+                    }
+                    {
+                        props.kdInfo.completed_projects.indexOf('drone_gadgets') < 0
+                        ? <tr>
+                            <td>Drone Gadgets</td>
+                            <td>{(props.kdInfo.projects_assigned.drone_gadgets || 0)}</td>
+                            <td>{displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td>{(props.kdInfo.projects_points.drone_gadgets || 0)}</td>
+                            <td>{(props.kdInfo.projects_max_points.drone_gadgets || 0)}</td>
+                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-assign-form"
+                                    id="drone-gadgets-assign-input"
+                                    onChange={handleAssignInputChange}
+                                    name="drone_gadgets"
+                                    value={assignValues.drone_gadgets || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-add-form"
+                                    id="drone-gadgets-add-input"
+                                    onChange={handleAddInputChange}
+                                    name="drone_gadgets"
+                                    value={addValues.drone_gadgets || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                props.loading.projects
+                                ? <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" disabled>
+                                    Loading...
+                                </Button>
+                                : <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.drone_gadgets || 0) == 0}>
+                                    Remove
+                                </Button>
+                            }</td>
+                        </tr>
+                        : <tr className="disabled-table-row">
+                            <td>Drone Gadgets</td>
+                            <td colSpan={2}>Project Complete!</td>
+                            <td>{(props.kdInfo.projects_points.drone_gadgets || 0)}</td>
+                            <td>{(props.kdInfo.projects_max_points.drone_gadgets || 0)}</td>
+                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-assign-form"
+                                    id="drone-gadgets-assign-input"
+                                    onChange={handleAssignInputChange}
+                                    name="drone_gadgets"
+                                    value={assignValues.drone_gadgets || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                <Form.Control 
+                                    className="projects-add-form"
+                                    id="drone-gadgets-add-input"
+                                    onChange={handleAddInputChange}
+                                    name="drone_gadgets"
+                                    value={addValues.drone_gadgets || ""} 
+                                    placeholder="0"
+                                />
+                            }</td>
+                            <td>{
+                                props.loading.projects
+                                ? <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" disabled>
+                                    Loading...
+                                </Button>
+                                : <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.drone_gadgets || 0) == 0}>
+                                    Remove
+                                </Button>
+                            }</td>
+                        </tr>
+                    }
                 </tbody>
             </Table>
             <div className="projects-buttons">
