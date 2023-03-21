@@ -3570,7 +3570,12 @@ def _kingdom_with_income(
     }
     new_kd_info = kd_info_parse.copy()
     for key_project, new_points in new_project_points.items():
-        kd_info_parse["projects_points"][key_project] += new_points
+        new_kd_info["projects_points"][key_project] += new_points
+    for key_project in ONE_TIME_PROJECTS:
+        if key_project not in kd_info_parse["completed_projects"]:
+            if new_kd_info["projects_points"][key_project] >= new_kd_info["projects_max_points"][key_project]:
+                new_kd_info["completed_projects"].append(key_project)
+                new_kd_info["projects_assigned"][key_project] = 0
     new_kd_info["money"] += new_income
     new_kd_info["fuel"] = max(min(max_fuel, new_kd_info["fuel"] + net_fuel), 0)
     new_kd_info["drones"] += new_drones
