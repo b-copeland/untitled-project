@@ -138,7 +138,14 @@ PROJECTS = {
     },
 }
 
-BASE_EPOCH_SECONDS = 60 * 60
+ONE_TIME_PROJECTS = [
+    "big_flexers",
+    "star_busters",
+    "galaxy_busters",
+    "drone_gadgets",
+]
+
+BASE_EPOCH_SECONDS = 60 * 1
 
 BASE_SETTLE_COST = lambda stars: math.floor((stars ** 0.5) * 50)
 BASE_MAX_SETTLE = lambda stars: math.floor(stars * 0.15)
@@ -1273,6 +1280,8 @@ def _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cos
         return False
     if mobis_cost > kd_info_parse["money"]:
         return False
+    if mobis_request.get("big_flex", 0) > 0 and "big_flexers" not in kd_info_parse["completed_projects"]:
+        return False
     
     return True
     
@@ -2081,13 +2090,17 @@ def _validate_assign_projects(req, kd_info_parse):
         return False
     if any(value < 0 for value in req["assign"].values()):
         return False
+    if req.get("spy_bonus", 0) > 0 and "drone_gadgets" not in kd_info_parse["completed_projects"]:
+        return False
     return True
 
-def _validate_add_projects(req, available_engineers):
+def _validate_add_projects(req, available_engineers, kd_info_parse):
     engineers_added = sum(req["add"].values())
     if engineers_added > available_engineers:
         return False
     if any(value < 0 for value in req["add"].values()):
+        return False
+    if req.get("spy_bonus", 0) > 0 and "drone_gadgets" not in kd_info_parse["completed_projects"]:
         return False
     return True
 
@@ -2133,7 +2146,7 @@ def manage_projects():
     elif "add" in req.keys():
         req["add"] = {k: int(v) for k, v in req["add"].items()}
         available_engineers = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
-        valid_add = _validate_add_projects(req, available_engineers)
+        valid_add = _validate_add_projects(req, available_engineers, kd_info_parse)
         if not valid_add:
             return (flask.jsonify({"message": 'Please enter valid add engineers value'}), 400)
         
