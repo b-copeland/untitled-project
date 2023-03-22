@@ -195,6 +195,15 @@ BASE_DRONES_FAILURE_LOSS_RATE = 0.02
 BASE_DRONES_SHIELDING_LOSS_REDUCTION = 0.5
 BASE_REVEAL_DURATION_MULTIPLIER = 8
 
+BASE_DRONES_PER_HOME_DAMAGE = 1500
+BASE_DRONES_MAX_HOME_DAMAGE = 0.05
+BASE_DRONES_PER_FUEL_PLANT_DAMAGE = 1500
+BASE_DRONES_MAX_FUEL_PLANT_DAMAGE = 0.05
+BASE_DRONES_PER_KIDNAP = 10
+BASE_DRONES_MAX_KIDNAP_DAMAGE = 0.05
+BASE_DRONES_SUICIDE_FUEL_DAMAGE = 5
+BASE_KIDNAP_RETURN_RATE = 0.4
+
 BASE_POP_INCOME_PER_EPOCH = 2
 BASE_POP_FUEL_CONSUMPTION_PER_EPOCH = 0.5
 BASE_PCT_POP_GROWTH_PER_EPOCH = 0.10
@@ -215,6 +224,12 @@ REVEAL_OPERATIONS = [
     "spyprojects",
     "spystructures",
     "spydrones",
+]
+AGGRO_OPERATIONS = [
+    "bombhomes",
+    "sabotagefuelplants",
+    "kidnappopulation",
+    "suicidedrones"
 ]
 
 INITIAL_KINGDOM_STARS = 300
@@ -3091,6 +3106,36 @@ def calculate_spy(target_kd):
         reveal_duration_seconds = BASE_REVEAL_DURATION_MULTIPLIER * BASE_EPOCH_SECONDS
         reveal_duration_hours = reveal_duration_seconds / 3600
         message += f"If successful, the target's {revealed_stat} will be revealed for {reveal_duration_hours} hours.\n"
+    if operation == "bombhomes":
+        if "structures" in max_target_kd_info.keys():
+            homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * BASE_DRONES_MAX_HOME_DAMAGE), math.floor(drones / BASE_DRONES_PER_HOME_DAMAGE))
+            message = f"If successful, you will destroy {homes_damage} homes."
+        else:
+            homes_damage = math.floor(drones / BASE_DRONES_PER_HOME_DAMAGE)
+            message = f"If successful, you will destroy up to {homes_damage} homes."
+    if operation == "sabotagefuelplants":
+        if "structures" in max_target_kd_info.keys():
+            fuel_plant_damage = min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * BASE_DRONES_MAX_FUEL_PLANT_DAMAGE), math.floor(drones / BASE_DRONES_PER_FUEL_PLANT_DAMAGE))
+            message = f"If successful, you will destroy {fuel_plant_damage} fuel plants."
+        else:
+            fuel_plant_damage = math.floor(drones / BASE_DRONES_PER_FUEL_PLANT_DAMAGE)
+            message = f"If successful, you will destroy up to {fuel_plant_damage} fuel plants."
+    if operation == "kidnappopulation":
+        if "population" in max_target_kd_info.keys():
+            kidnap_damage = min(math.floor(max_target_kd_info["population"] * BASE_DRONES_MAX_KIDNAP_DAMAGE), math.floor(drones / BASE_DRONES_PER_KIDNAP))
+            kidnap_return = math.floor(kidnap_damage * BASE_KIDNAP_RETURN_RATE)
+            message = f"If successful, you will kidnap {kidnap_damage} civilians. {kidnap_return} civilians will join your population."
+        else:
+            kidnap_damage = math.floor(drones / BASE_DRONES_PER_KIDNAP)
+            kidnap_return = math.floor(kidnap_damage * BASE_KIDNAP_RETURN_RATE)
+            message = f"If successful, you will kidnap up to {kidnap_damage} civilians. Up to {kidnap_return} civilians will join your population."
+    if operation == "suicidedrones":
+        fuel_damage = drones * 5
+        if "fuel" in max_target_kd_info.keys():
+            fuel_damage = min(fuel_damage, max_target_kd_info["fuel"])
+            message = f"You will destroy {fuel_damage} fuel."
+        else:
+            message = f"You will destroy up to {fuel_damage} fuel."
 
     payload = {
         "message": message,
@@ -3158,39 +3203,75 @@ def spy(target_kd):
 
     time_now = datetime.datetime.now(datetime.timezone.utc)
     revealed_until = None
-    if success:
-        status = "success"
-        if operation in REVEAL_OPERATIONS:
-            revealed_stat = operation.replace('spy', '')
-            reveal_duration_seconds = BASE_REVEAL_DURATION_MULTIPLIER * BASE_EPOCH_SECONDS
-            revealed_until = time_now + datetime.timedelta(seconds=reveal_duration_seconds)
-            reveal_duration_hours = reveal_duration_seconds / 3600
+    homes_damage = None
+    fuel_plant_damage = None
+    kidnap_damage = None
+    kidnap_return = None
+    fuel_damage = None
+    revealed = False
 
-            revealed_payload = {
-                "new_revealed": {
-                    target_kd: {
-                        revealed_stat: revealed_until.isoformat()
+    if operation == "suicidedrones":
+        fuel_damage = min(max_target_kd_info["fuel"], drones * BASE_DRONES_SUICIDE_FUEL_DAMAGE)
+        losses = drones
+        status = "success"
+        message = f"You have destroyed {fuel_damage} fuel. You have lost {losses} drones"
+        target_message = f"Enemy drones have destroyed {fuel_damage} fuel"
+    else:
+        if success:
+            status = "success"
+            if operation in REVEAL_OPERATIONS:
+                revealed_stat = operation.replace('spy', '')
+                reveal_duration_seconds = BASE_REVEAL_DURATION_MULTIPLIER * BASE_EPOCH_SECONDS
+                revealed_until = time_now + datetime.timedelta(seconds=reveal_duration_seconds)
+                reveal_duration_hours = reveal_duration_seconds / 3600
+
+                revealed_payload = {
+                    "new_revealed": {
+                        target_kd: {
+                            revealed_stat: revealed_until.isoformat()
+                        }
                     }
                 }
-            }
-            reveal_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-                data=json.dumps(revealed_payload),
-            )
-            message = f"Success! The target will be revealed for {reveal_duration_hours} hours. You have lost {success_losses} drones."
-        target_message = "You were infiltrated by drones on a spy operation"
-        losses = success_losses
-    else:
-        status = "failure"
-        message = f"Failure! You have lost {failure_losses} drones."
-        target_message = f"{kd_info_parse['name']} failed a spy operation on you"
-        losses = failure_losses
+                reveal_response = REQUESTS_SESSION.patch(
+                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    data=json.dumps(revealed_payload),
+                )
+                message = f"Success! The target will be revealed for {reveal_duration_hours} hours. You have lost {success_losses} drones."
+                target_message = "You were infiltrated by drones on a spy operation."
+            
+            if operation == "bombhomes":
+                homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * BASE_DRONES_MAX_HOME_DAMAGE), math.floor(drones / BASE_DRONES_PER_HOME_DAMAGE))
+                message = f"Success! You have destroyed {homes_damage} homes. You have lost {success_losses} drones."
+                target_message = f"Enemy drones have destroyed {homes_damage} homes."
+            if operation == "sabotagefuelplants":
+                fuel_plant_damage = min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * BASE_DRONES_MAX_FUEL_PLANT_DAMAGE), math.floor(drones / BASE_DRONES_PER_FUEL_PLANT_DAMAGE))
+                message = f"Success! You have destroyed {fuel_plant_damage} fuel plants. You have lost {success_losses} drones."
+                target_message = f"Enemy drones have destroyed {fuel_plant_damage} fuel plants."
+            if operation == "kidnappopulation":
+                kidnap_damage = min(math.floor(max_target_kd_info["population"] * BASE_DRONES_MAX_KIDNAP_DAMAGE), math.floor(drones / BASE_DRONES_PER_KIDNAP))
+                kidnap_return = math.floor(kidnap_damage * BASE_KIDNAP_RETURN_RATE)
+                message = f"Success! You have kidnapped {kidnap_damage} civilians. {kidnap_return} civilians have joined your population. You have lost {success_losses} drones."
+                target_message = f"Enemy drones have kidnapped {kidnap_damage} civilians."
+
+            losses = success_losses
+        else:
+            status = "failure"
+            message = f"Failure! You have lost {failure_losses} drones."
+            if operation in REVEAL_OPERATIONS:
+                target_message = f"{kd_info_parse['name']} failed a spy operation on you."
+            else:
+                target_message = f"{kd_info_parse['name']} failed an aggressive spy operation on you."
+            losses = failure_losses
+            if operation in AGGRO_OPERATIONS:
+                revealed = True
 
     kd_patch_payload = {
         "drones": kd_info_parse["drones"] - losses,
         "spy_attempts": kd_info_parse["spy_attempts"] - 1
     }
+    if kidnap_return:
+        kd_patch_payload["population"] = kd_info_parse["population"] + kidnap_return
     if shielded:
         kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
     if revealed_until:
@@ -3203,6 +3284,47 @@ def spy(target_kd):
         data=json.dumps(kd_patch_payload, default=str),
     )
 
+    target_patch_payload = {}
+    if homes_damage:
+        target_patch_payload["structures"] = {
+            **max_target_kd_info["structures"],
+            "homes": max_target_kd_info["structures"]["homes"] - homes_damage
+        }
+    if fuel_plant_damage:
+        target_patch_payload["structures"] = {
+            **max_target_kd_info["structures"],
+            "fuel_plants": max_target_kd_info["structures"]["fuel_plants"] - fuel_plant_damage
+        }
+    if kidnap_damage:
+        target_patch_payload["population"] = max_target_kd_info["population"] - kidnap_damage
+    if fuel_damage:
+        target_patch_payload["fuel"] = max_target_kd_info["fuel"] - fuel_damage
+
+    if target_patch_payload:
+        target_kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(target_patch_payload, default=str),
+        )
+
+
+    if revealed:
+        revealed_until = (time_now + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER)).isoformat()
+
+        revealed_payload = {
+            "new_revealed": {
+                kd_id: {
+                    "stats": revealed_until,
+                    "drones": revealed_until,
+                }
+            }
+        }
+        reveal_galaxy_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/revealed',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(revealed_payload),
+        )
+        target_message += f" Their kingdom 'stats' and 'drones' will be revealed for {BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER / 3600} hours"
     history_payload = {
         "time": time_now.isoformat(),
         "to": target_kd,

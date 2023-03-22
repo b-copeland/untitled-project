@@ -114,6 +114,10 @@ function Spy(props) {
         {value: "spyprojects", "label": "Spy on Projects"},
         {value: "spystructures", "label": "Spy on Structures"},
         {value: "spydrones", "label": "Spy on Drones"},
+        {value: "bombhomes", "label": "Bomb Homes"},
+        {value: "sabotagefuelplants", "label": "Sabotage Fuel Plants"},
+        {value: "kidnappopulation", "label": "Kidnap Population"},
+        {value: "suicidedrones", "label": "Suicide Drones"},
     ];
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const toasts = attackResults.map((results, index) =>
