@@ -441,10 +441,10 @@ with app.app_context():
           kd_created=True,
 		))
     for i in range(0, 6):
-        if db.session.query(User).filter_by(username=f'newkd{i}').count() < 1:
+        if db.session.query(User).filter_by(username=f'anewkd{i}').count() < 1:
             db.session.add(User(
             username=f'anewkd{i}',
-            password=guard.hash_password(f'newkd{i}'),
+            password=guard.hash_password(f'anewkd{i}'),
             roles='verified',
             # kd_id=str(i),
             # kd_created=True,
