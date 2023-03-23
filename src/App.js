@@ -57,6 +57,7 @@ const ProtectedRoute = ({ logged, session, kingdomid, redirectPath = '/login', c
 const initGlobalData = {
   'kingdomid': {},
   'kingdom': {},
+  'shields': {},
   'kingdoms': {},
   'galaxies': {},
   'galaxies_inverted': {},
@@ -82,6 +83,7 @@ const initGlobalData = {
 const initLoadingData = {
   'kingdomid': true,
   'kingdom': true,
+  'shields': true,
   'kingdoms': true,
   'galaxies': true,
   'galaxies_inverted': true,
@@ -107,6 +109,7 @@ const initLoadingData = {
 const endpoints = {
   'kingdomid': 'api/kingdomid',
   'kingdom': 'api/kingdom',
+  'shields': 'api/shields',
   'kingdoms': 'api/kingdoms',
   'galaxies': 'api/galaxies',
   'galaxies_inverted': 'api/galaxies_inverted',

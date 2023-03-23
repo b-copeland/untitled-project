@@ -145,7 +145,7 @@ ONE_TIME_PROJECTS = [
     "drone_gadgets",
 ]
 
-BASE_EPOCH_SECONDS = 60 * 1
+BASE_EPOCH_SECONDS = 60 * 60
 
 BASE_SETTLE_COST = lambda stars: math.floor((stars ** 0.5) * 50)
 BASE_MAX_SETTLE = lambda stars: math.floor(stars * 0.15)
@@ -216,6 +216,13 @@ BASE_POP_LOSS_PER_STAR_PER_EPOCH = 0.2
 
 BASE_SPY_ATTEMPT_TIME_MULTIPLIER = 1
 BASE_SPY_ATTEMPTS_MAX = 10
+
+BASE_MILITARY_SHIELDS_MAX = 0.10
+BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT = 0.1
+BASE_SPY_SHIELDS_MAX = 0.20
+BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT = 0.05
+BASE_MISSILES_SHIELDS_MAX = 1.0
+BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT = 0.005
 
 REVEAL_OPERATIONS = [
     "spykingdom",
@@ -702,6 +709,77 @@ def kingdom():
     kd_info_parse = json.loads(kd_info.text)
     return (flask.jsonify(kd_info_parse), 200)
 
+@app.route('/api/shields')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def shields():
+    return {
+        "desc": {
+            "military": {
+                "max": BASE_MILITARY_SHIELDS_MAX,
+                "cost": BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT,
+            },
+            "spy": {
+                "max": BASE_SPY_SHIELDS_MAX,
+                "cost": BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT,
+            },
+            "missiles": {
+                "max": BASE_MISSILES_SHIELDS_MAX,
+                "cost": BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT,
+            },
+        }
+    }
+
+def _validate_shields(req_values):
+
+    if req_values.get("military", 0) > BASE_MILITARY_SHIELDS_MAX:
+        return False, "Military shields must be at or below max shields value"
+    if req_values.get("spy", 0) > BASE_SPY_SHIELDS_MAX:
+        return False, "Spy shields must be at or below max shields value"
+    if req_values.get("missiles", 0) > BASE_MISSILES_SHIELDS_MAX:
+        return False, "Missiles shields must be at or below max shields value"
+    if any((value < 0 for value in req_values.values())):
+        return False, "Shields value must be non-negative"
+
+    return True, ""
+
+@app.route('/api/shields', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def set_shields():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    req_values = {
+        k: int(v or 0) / 100
+        for k, v in req.items()
+        if int(v or 0)
+    }
+    valid_shields, error_message = _validate_shields(req_values)
+    if not valid_shields:
+        return flask.jsonify({"message": error_message}), 400
+    
+    
+    kd_id = flask_praetorian.current_user().kd_id
+    kd_info = _get_kd_info(kd_id)
+
+    payload = {
+        "shields": {
+            **kd_info["shields"],
+            **req_values,
+        }
+    }
+    patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(payload),
+    )
+    return flask.jsonify({"message": "Successfully updated shields", "status": "success"}), 200
 
 @app.route('/api/news')
 @flask_praetorian.auth_required
@@ -3666,11 +3744,16 @@ def _kingdom_with_income(
     income["fuel"]["units"] = {}
     for key_unit, value_units in kd_info_parse["units"].items():
         income["fuel"]["units"][key_unit] = value_units * UNITS[key_unit]["fuel"]
+    income["fuel"]["shields"] = {}
+    income["fuel"]["shields"]["military"] = kd_info_parse["shields"]["military"] * 100 * kd_info_parse["stars"] * BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT
+    income["fuel"]["shields"]["spy"] = kd_info_parse["shields"]["spy"] * 100 * kd_info_parse["stars"] * BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT
+    income["fuel"]["shields"]["missiles"] = kd_info_parse["shields"]["missiles"] * 100 * kd_info_parse["stars"] * BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT
     income["fuel"]["population"] = kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH
 
     new_fuel = income["fuel"]["fuel_plants"] * (1 + income["fuel"]["bonus"])
     raw_fuel_consumption = (
         sum(income["fuel"]["units"].values())
+        + sum(income["fuel"]["shields"].values())
         + income["fuel"]["population"]
     )
     income["fuel"]["net"] = new_fuel - raw_fuel_consumption

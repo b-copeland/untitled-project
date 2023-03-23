@@ -7,6 +7,8 @@ import Form from 'react-bootstrap/Form';
 import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./status.css"
 
 function StatusContent(props) {
@@ -23,8 +25,8 @@ function StatusContent(props) {
         <Tab eventKey="kingdom" title="Kingdom">
           <Status kingdom={props.data.kingdom} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted}/>
         </Tab>
-        <Tab eventKey="revealed" title="Revealed">
-          <Revealed kingdom={props.data.kingdom} kingdoms={props.data.kingdoms}/>
+        <Tab eventKey="shields" title="Shields">
+          <Shields data={props.data} loading={props.loading} updateData={props.updateData}/>
         </Tab>
         <Tab eventKey="spending" title="Spending">
           <Spending kingdom={props.data.kingdom} loading={props.loading} updateData={props.updateData} />
@@ -48,6 +50,12 @@ function Status(props) {
         <div className="text-box-item" key={unit}>
             <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{unit}</span>
             <span className="text-box-item-value">-{props.kingdom.income?.fuel?.units[unit]}</span>
+        </div>
+    )
+    const shieldsFuelCosts = Object.keys(props.kingdom.income?.fuel?.shields || {}).sort().map((shield) => 
+        <div className="text-box-item" key={shield}>
+            <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{shield} shields</span>
+            <span className="text-box-item-value">-{props.kingdom.income?.fuel?.shields[shield]}</span>
         </div>
     )
     return (
@@ -130,7 +138,11 @@ function Status(props) {
                     <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Bonus</span>
                     <span className="text-box-item-value">{displayPercent(props.kingdom.income?.fuel?.bonus)}</span>
                 </div>
+                <br />
                 {unitsFuelCosts}
+                <br />
+                {shieldsFuelCosts}
+                <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Population</span>
                     <span className="text-box-item-value">-{props.kingdom.income?.fuel?.population}</span>
@@ -148,6 +160,137 @@ function Status(props) {
             </div>
         </div>
     );
+}
+
+
+const initialShields = {
+    "military": "",
+    "drones": "",
+    "missiles": "",
+}
+function Shields(props) {
+    const [shields, setShields] = useState(initialShields);
+    const [results, setResults] = useState([]);
+    
+    const onClick = (e)=>{
+        const opts = shields;
+        const updateFunc = () => authFetch('api/shields', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['kingdom'], [updateFunc]);
+        // setShields(initialShields);
+    }
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setShields({
+          ...shields,
+          [name]: value,
+        });
+      };
+    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
+    const toasts = results.map((result, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
+            show={true}
+            bg={result.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Shields Results</strong>
+            </Toast.Header>
+            <Toast.Body>{result.message}</Toast.Body>
+        </Toast>
+    )
+    return (
+        <div className="shields">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
+            <Table className="projects-table" striped bordered hover size="sm">
+                <thead>
+                    <tr>
+                        <th>Shield</th>
+                        <th>Current %</th>
+                        <th>Max %</th>
+                        <th>Current Power Cost</th>
+                        <th>Max Power Cost</th>
+                        <td>Input</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Military</td>
+                        <td>{displayPercent(props.data.kingdom.shields?.military || 0)}</td>
+                        <td>{displayPercent(props.data.shields.desc?.military?.max || 0)}</td>
+                        <td>{props.data.kingdom.shields?.military * props.data.shields.desc?.military?.cost * props.data.kingdom.stars * 100 || 0}</td>
+                        <td>{props.data.shields.desc?.military?.max * props.data.shields.desc?.military?.cost * props.data.kingdom.stars * 100 || 0}</td>
+                        <td>
+                            <InputGroup className="mb-3">
+                                <Form.Control
+                                className="shields-assign-form"
+                                id="military-input"
+                                onChange={handleInputChange}
+                                name="military"
+                                value={shields.military || ""} 
+                                placeholder="0"
+                                />
+                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                            </InputGroup>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Spy</td>
+                        <td>{displayPercent(props.data.kingdom.shields?.spy || 0)}</td>
+                        <td>{displayPercent(props.data.shields.desc?.spy?.max || 0)}</td>
+                        <td>{props.data.kingdom.shields?.spy * props.data.shields.desc?.spy?.cost * props.data.kingdom.stars * 100 || 0}</td>
+                        <td>{props.data.shields.desc?.spy?.max * props.data.shields.desc?.spy?.cost * props.data.kingdom.stars * 100 || 0}</td>
+                        <td>
+                            <InputGroup className="mb-3">
+                                <Form.Control
+                                className="shields-assign-form"
+                                id="spy-input"
+                                onChange={handleInputChange}
+                                name="spy"
+                                value={shields.spy || ""} 
+                                placeholder="0"
+                                />
+                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                            </InputGroup>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Missiles</td>
+                        <td>{displayPercent(props.data.kingdom.shields?.missiles || 0)}</td>
+                        <td>{displayPercent(props.data.shields.desc?.missiles?.max || 0)}</td>
+                        <td>{props.data.kingdom.shields?.missiles * props.data.shields.desc?.missiles?.cost * props.data.kingdom.stars * 100 || 0}</td>
+                        <td>{props.data.shields.desc?.missiles?.max * props.data.shields.desc?.missiles?.cost * props.data.kingdom.stars * 100 || 0}</td>
+                        <td>
+                            <InputGroup className="mb-3">
+                                <Form.Control
+                                className="shields-assign-form"
+                                id="missiles-input"
+                                onChange={handleInputChange}
+                                name="missiles"
+                                value={shields.missiles || ""} 
+                                placeholder="0"
+                                />
+                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                            </InputGroup>
+                        </td>
+                    </tr>
+                </tbody>
+            </Table>
+            {props.loading.kingdom
+            ? <Button className="shields-button" variant="primary" type="submit" disabled>
+                Loading...
+            </Button>
+            : <Button className="shields-button" variant="primary" type="submit" onClick={onClick}>
+                Update
+            </Button>
+            }
+        </div>
+    )
 }
 
 function Revealed(props) {
