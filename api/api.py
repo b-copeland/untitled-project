@@ -443,12 +443,12 @@ with app.app_context():
     for i in range(0, 6):
         if db.session.query(User).filter_by(username=f'newkd{i}').count() < 1:
             db.session.add(User(
-            username=f'newkd{i}',
+            username=f'anewkd{i}',
             password=guard.hash_password(f'newkd{i}'),
             roles='verified',
-            kd_id=str(i),
-            kd_created=True,
-            kd_death_date=None if i != 4 else "populated"
+            # kd_id=str(i),
+            # kd_created=True,
+            # kd_death_date=None if i != 4 else "populated"
             ))
         
     db.session.commit()
