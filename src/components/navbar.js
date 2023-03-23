@@ -2,8 +2,40 @@ import "./navbar.css";
 import {
     Link,
   } from "react-router-dom";
+import Container from 'react-bootstrap/Container';
+import Nav from 'react-bootstrap/Nav';
+import Navbar from 'react-bootstrap/Navbar';
+import NavDropdown from 'react-bootstrap/NavDropdown';
+import 'bootstrap/dist/css/bootstrap.css';
 
 function BasicExample() {
+  return (
+    <div className="sidenav">
+      <Nav className="mainnav">
+        <Nav.Link as={Link} to="/">Landing</Nav.Link>
+        <Nav.Link as={Link} to="/login">Login</Nav.Link>
+        <Nav.Link as={Link} to="/status">Status</Nav.Link>
+        <Nav.Link as={Link} to="/news">News</Nav.Link>
+        <Nav.Link as={Link} to="/galaxy">Galaxy</Nav.Link>
+        <Nav.Link as={Link} to="/forums">Forums</Nav.Link>
+        <Nav.Link as={Link} to="/history">History</Nav.Link>
+        <Nav.Link as={Link} to="/build">Build</Nav.Link>
+        <Nav.Link as={Link} to="/settle">Settle</Nav.Link>
+        <Nav.Link as={Link} to="/structures">Structures</Nav.Link>
+        <Nav.Link as={Link} to="/military">Military</Nav.Link>
+        <Nav.Link as={Link} to="/projects">Projects</Nav.Link>
+        <Nav.Link as={Link} to="/missiles">Build Missiles</Nav.Link>
+        <Nav.Link as={Link} to="/conquer">Conquer</Nav.Link>
+        <Nav.Link as={Link} to="/attack">Attack</Nav.Link>
+        <Nav.Link as={Link} to="/spy">Spy</Nav.Link>
+        <Nav.Link as={Link} to="/shareintel">Share Intel</Nav.Link>
+        <Nav.Link as={Link} to="/launchmissiles">Launch Missiles</Nav.Link>
+      </Nav>
+    </div>
+  );
+}
+
+function BasicExample2() {
   return (
     <nav>
         <ul className="nav-list">

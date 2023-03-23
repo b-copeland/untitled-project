@@ -1,4 +1,4 @@
-.container {
+/* .container {
     width: 80%;
     height: 100%;
     font-size: 24px;
@@ -42,6 +42,11 @@
 
 .nav-list {
     list-style-position: inside;
-    /* width: 40% */
     font-size: 32px;
+} */
+
+.mainnav {
+    display: flex;
+    flex-direction: column;
+    align-items: left;
 }

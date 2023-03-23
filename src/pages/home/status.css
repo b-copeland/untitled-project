@@ -4,6 +4,13 @@
     justify-content: center;
 }
 
+.shields {
+    display: flex;
+    flex-direction: column;
+    justify-items: center;
+    align-items: center;
+}
+
 .revealed {
     display: flex;
     flex-direction: column;
