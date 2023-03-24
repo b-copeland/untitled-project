@@ -19,12 +19,27 @@ CONTAINER = DATABASE.get_container_client(CONTAINER_NAME)
 
 APP = func.FunctionApp()
 
+RESET_KEEP_IDS = [
+    "state",
+    "kingdoms",
+    "galaxies",
+    "empires",
+    "universe_news",
+    "universe_votes",
+]
+
 @APP.function_name(name="CreateState")
 @APP.route(route="init", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
 def init_state(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a create initial game state.')
 
     try:
+        CONTAINER.create_item(
+            {
+                "id": "state",
+                "state": {},
+            }
+        )
         CONTAINER.create_item(
             {
                 "id": "kingdoms",
@@ -52,7 +67,7 @@ def init_state(req: func.HttpRequest) -> func.HttpResponse:
         CONTAINER.create_item(
             {
                 "id": "universe_votes",
-                "policies": {},
+                "votes": {},
             }
         )
         return func.HttpResponse(
@@ -62,6 +77,138 @@ def init_state(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "Initial state creation encountered an error",
+            status_code=500,
+        )
+    
+@APP.function_name(name="Update")
+@APP.route(route="updatestate", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_state(req: func.HttpRequest) -> func.HttpResponse:
+    req_body = req.get_json()
+    try:
+        state = CONTAINER.read_item(
+            item="state",
+            partition_key="state",
+        )
+        state["state"] = {
+            **state["state"],
+            **req_body,
+        }
+        CONTAINER.replace_item(
+            "state",
+            state,
+        )
+        return func.HttpResponse(
+            "Updated state",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "Failed to update state",
+            status_code=500,
+        )
+
+@APP.function_name(name="ResetState")
+@APP.route(route="resetstate", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+def reset_state(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        items = CONTAINER.read_all_items()
+        for item in items:
+            if item["id"] not in RESET_KEEP_IDS:
+                CONTAINER.delete_item(
+                    item=item["id"],
+                    partition_key=item["id"],
+                )
+        kingdoms = CONTAINER.read_item(
+            item="kingdoms",
+            partition_key="kingdoms"
+        )
+        kingdoms["kingdoms"] = {}
+        CONTAINER.replace_item(
+            "kingdoms",
+            kingdoms,
+        )
+
+        galaxies = CONTAINER.read_item(
+            item="galaxies",
+            partition_key="galaxies"
+        )
+        galaxies["galaxies"] = {}
+        CONTAINER.replace_item(
+            "galaxies",
+            galaxies,
+        )
+
+        empires = CONTAINER.read_item(
+            item="empires",
+            partition_key="empires"
+        )
+        empires["empires"] = {}
+        CONTAINER.replace_item(
+            "empires",
+            empires,
+        )
+
+        universe_news = CONTAINER.read_item(
+            item="universe_news",
+            partition_key="universe_news"
+        )
+        universe_news["news"] = []
+        CONTAINER.replace_item(
+            "universe_news",
+            universe_news,
+        )
+
+        universe_votes = CONTAINER.read_item(
+            item="universe_votes",
+            partition_key="universe_votes"
+        )
+        universe_votes["votes"] = {}
+        CONTAINER.replace_item(
+            "universe_votes",
+            universe_votes,
+        )
+        return func.HttpResponse(
+            "Reset state",
+            status_code=200,
+        )
+    except Exception as e:
+        logging.warn(str(e))
+        return func.HttpResponse(
+            "Failed to reset state",
+            status_code=500,
+        )
+
+    
+@APP.function_name(name="CreateGalaxy")
+@APP.route(route="galaxy/{galaxyId}", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+def create_galaxy(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        galaxies_id = "galaxies"
+        galaxies = CONTAINER.read_item(
+            item=galaxies_id,
+            partition_key=galaxies_id,
+        )
+
+        galaxy_id = str(req.route_params.get('galaxyId'))
+        if galaxy_id not in galaxies["galaxies"].keys():
+            galaxies["galaxies"][galaxy_id] = []
+            CONTAINER.replace_item(
+                galaxies_id,
+                galaxies,
+            )
+            CONTAINER.create_item(
+                {
+                    "id": f"galaxy_news_{galaxy_id}",
+                    "news": [],
+                }
+            )
+        return func.HttpResponse(
+            "Created galaxy",
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not create galaxy",
             status_code=500,
         )
 
@@ -134,7 +281,7 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="CreateItem")
 @APP.route(route="createitem", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
-def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
+def create_item(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a create item request.')    
     req_body = req.get_json()
     item = req_body.get('item')
@@ -181,6 +328,34 @@ def get_kingdoms(req: func.HttpRequest) -> func.HttpResponse:
             "Could not retrieve kingdoms info",
             status_code=500,
         )
+
+
+@APP.function_name(name="UpdateKingdoms")
+@APP.route(route="kingdoms", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_kingdoms(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update kingdoms request.')    
+    req_body = req.get_json()
+    item_id = f"kingdoms"
+    kingdoms = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        update_kd = {**kingdoms, **req_body}
+        CONTAINER.replace_item(
+            item_id,
+            update_kd,
+        )
+        return func.HttpResponse(
+            "Kingdoms updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdoms were not updated",
+            status_code=500,
+        )
+
 
 @APP.function_name(name="GetGalaxies")
 @APP.route(route="galaxies", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
@@ -310,6 +485,37 @@ def get_galaxy_news(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "Could not retrieve galaxy news",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateGalaxyNews")
+@APP.route(route="galaxy/{galaxyId}/news", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_galaxy_news(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update news request.')    
+    req_body = req.get_json()
+    new_news = req_body
+    galaxy_id = str(req.route_params.get('galaxyId'))
+    item_id = f"galaxy_news_{galaxy_id}"
+    news = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        if isinstance(new_news, dict):
+            news["news"] = [new_news] + news["news"]
+        else:
+            news["news"] = new_news + news["news"]
+        CONTAINER.replace_item(
+            item_id,
+            news,
+        )
+        return func.HttpResponse(
+            "Kingdom news updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom news was not updated",
             status_code=500,
         )
 
@@ -773,7 +979,7 @@ def get_shared(req: func.HttpRequest) -> func.HttpResponse:
         
 @APP.function_name(name="SetShared")
 @APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
-def get_shared(req: func.HttpRequest) -> func.HttpResponse:
+def set_shared(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a set shared request.')        
     req_body = req.get_json()
 

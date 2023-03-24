@@ -436,7 +436,7 @@ with app.app_context():
     if db.session.query(User).filter_by(username='admin').count() < 1:
         db.session.add(User(
           username='admin',
-          password=guard.hash_password('pass'),
+          password=guard.hash_password('adminpass'),
           roles='operator,admin',
           kd_created=True,
 		))
@@ -478,6 +478,24 @@ def login():
     ret = {'accessToken': guard.encode_jwt_token(user), 'refreshToken': guard.encode_jwt_token(user)}
     return (flask.jsonify(ret), 200)
 
+@app.route('/api/adminlogin', methods=['POST'])
+def admin_login():
+    """
+    Logs a user in by parsing a POST request containing user credentials and
+    issuing a JWT token.
+    .. example::
+       $ curl http://localhost:5000/api/login -X POST \
+         -d '{"username":"Yasoob","password":"strongpassword"}'
+    """
+    req = flask.request.get_json(force=True)
+    username = req.get('username', None)
+    password = req.get('password', None)
+    user = guard.authenticate(username, password)
+    if "admin" not in user.roles:
+        return flask.jsonify({"message": "Not authorized"})
+    ret = {'accessToken': guard.encode_jwt_token(user), 'refreshToken': guard.encode_jwt_token(user)}
+    return (flask.jsonify(ret), 200)
+
 @app.route('/api/refresh', methods=['POST'])
 def refresh():
     """
@@ -492,6 +510,73 @@ def refresh():
     new_token = guard.refresh_jwt_token(old_token)
     ret = {'accessToken': new_token}
     return ret, 200
+
+
+
+@app.route('/api/resetstate', methods=["POST"])
+@flask_praetorian.roles_required('admin')
+def reset_state():
+    """
+    Return game to initial state
+    """
+    
+    create_response = REQUESTS_SESSION.post(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/resetstate',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+    )
+    query = db.session.query(User).all()
+    for user in query:
+        user.kd_id = None
+        user.kd_created = False
+        user.kd_death_date = None
+    db.session.commit()
+    return flask.jsonify(create_response.text), 200
+
+@app.route('/api/updatestate', methods=["POST"])
+@flask_praetorian.roles_required('admin')
+def update_state():
+    """
+    Update initial state
+    """
+    req = flask.request.get_json(force=True)
+    
+    update_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(req)
+    )
+    return flask.jsonify(update_response.text), 200
+
+@app.route('/api/createstate', methods=["POST"])
+@flask_praetorian.roles_required('admin')
+def create_state():
+    """
+    Create galaxies
+    """
+    req = flask.request.get_json(force=True)
+
+    num_galaxies = int(req["num_galaxies"])
+    max_galaxy_size = int(req["max_galaxy_size"])
+    avg_size_new_galaxy = int(req["avg_size_new_galaxy"])
+
+    for i in range(0, num_galaxies):
+        galaxy_id = f"1:{i + 1}"
+        create_galaxy_response = REQUESTS_SESSION.post(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(req)
+        )
+    
+    update_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps({
+            "max_galaxy_size": max_galaxy_size,
+            "avg_size_new_galaxy": avg_size_new_galaxy,
+        })
+    )
+    return flask.jsonify(update_response.text), 200
+
 
 @app.route('/api/kingdomid')
 @flask_praetorian.auth_required

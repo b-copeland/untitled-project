@@ -57,7 +57,7 @@ function Galaxy(props) {
         setClusterInput(galaxiesArray[newIndex].split(':')[0]);
         setGalaxyInput(galaxiesArray[newIndex].split(':')[1]);
     };
-    if (Object.keys(galaxyInfo).length === 0) {
+    if (galaxyIndex === undefined) {
         return <h3>Loading...</h3>;
     }
 

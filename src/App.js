@@ -14,6 +14,7 @@ import {login, authFetch, useAuth, logout, getSession, getSessionState} from "./
 import BasicExample from "./components/navbar";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css";
+import Admin from "./pages/admin.js";
 import CreateKingdom from "./pages/createkingdom.js";
 import StatusContent from "./pages/home/status.js";
 import NewsContent from "./pages/home/news.js";
@@ -275,6 +276,7 @@ function Content(props) {
             <div className="router-body">
               <Routes>
                 <Route path="/login" element={<Login logged={props.logged}/>}/>
+                <Route path="/admin" element={<Admin />}/>
                 <Route path="/createkingdom" element={<CreateKingdom loading={loading} updateData={updateData} kingdomid={data.kingdomid}/>}/>
                 <Route element={<ProtectedRoute logged={props.logged} session={props.session} kingdomid={data.kingdomid}/>}>
                   <Route path="/status" element={<StatusContent data={data} loading={loading} updateData={updateData}/>}/>
