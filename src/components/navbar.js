@@ -30,6 +30,7 @@ function BasicExample() {
         <Nav.Link as={Link} to="/spy">Spy</Nav.Link>
         <Nav.Link as={Link} to="/shareintel">Share Intel</Nav.Link>
         <Nav.Link as={Link} to="/launchmissiles">Launch Missiles</Nav.Link>
+        <Nav.Link as={Link} to="/primitives">Primitives</Nav.Link>
       </Nav>
     </div>
   );

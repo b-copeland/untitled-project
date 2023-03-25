@@ -187,6 +187,11 @@ BASE_KINGDOM_LOSS_RATE = 0.10
 BASE_FUELLESS_STRENGTH_REDUCTION = 0.2
 BASE_ATTACK_MIN_STARS_GAIN = 25
 
+BASE_PRIMITIVES_DEFENSE_PER_STAR = 100
+BASE_PRIMITIVES_MONEY_PER_STAR = 1000
+BASE_PRIMITIVES_FUEL_PER_STAR = 100
+BASE_PRIMITIVES_POPULATION_PER_STAR = 10
+
 BASE_STARS_DRONE_DEFENSE_MULTIPLIER = 4
 BASE_DRONES_DRONE_DEFENSE_MULTIPLIER = 1
 BASE_SPY_MIN_SUCCESS_CHANCE = 0.10
@@ -3153,6 +3158,224 @@ def attack(target_kd):
                 headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
                 data=json.dumps(payload),
             )
+
+    attack_results = {
+        "status": attack_status,
+        "message": attacker_message,
+    }
+    return (flask.jsonify(attack_results), 200)
+
+@app.route('/api/calculateprimitives', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def calculate_attack_primitives():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    attacker_raw_values = req["attackerValues"]
+
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    current_bonuses = {
+        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
+        for project, project_dict in PROJECTS.items()
+        if "max_bonus" in project_dict
+    }
+
+    valid_attack_request, attack_request_message = _validate_attack_request(
+        attacker_raw_values,
+        kd_info_parse,
+    )
+    if not valid_attack_request:
+        return (flask.jsonify({"message": attack_request_message}), 400)
+
+    attacker_units = {
+        key: int(value)
+        for key, value in attacker_raw_values.items()
+        if (key in UNITS and value != "")
+    }
+    attacker_fuelless = kd_info_parse["fuel"] <= 0
+    attack = _calc_max_offense(
+        attacker_units,
+        military_bonus=float(current_bonuses['military_bonus'] or 0), 
+        other_bonuses=0,
+        generals=int(attacker_raw_values["generals"]),
+        fuelless=attacker_fuelless
+    )
+    stars = math.floor(attack / BASE_PRIMITIVES_DEFENSE_PER_STAR)
+    money = stars * BASE_PRIMITIVES_MONEY_PER_STAR
+    fuel = stars * BASE_PRIMITIVES_FUEL_PER_STAR
+    pop = stars * BASE_PRIMITIVES_POPULATION_PER_STAR
+    attacker_losses = _calc_losses(
+        attacker_units,
+        BASE_ATTACKER_UNIT_LOSS_RATE,
+    )
+    time_now = datetime.datetime.now(datetime.timezone.utc)
+    generals_return_times = _calc_generals_return_time(
+        int(attacker_raw_values["generals"]),
+        BASE_GENERALS_RETURN_TIME_MULTIPLIER,
+        time_now,
+        current_bonuses["general_bonus"],
+    )
+    generals_strftime = ', '.join([
+        str(general_return_time - time_now)
+        for general_return_time in generals_return_times
+    ])
+    
+    message = f"Your general(s) will return in: {generals_strftime}. \n"
+    spoils_values = {
+        "stars": stars,
+        "money": money,
+        "fuel": fuel,
+        "population": pop,
+    }
+    if spoils_values:
+        message += 'You will gain '
+        message += ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
+        message += '. \n'
+
+    payload = {
+        "attacker_offense": attack,
+        "attacker_losses": attacker_losses,
+        "attacker_unit_losses_rate": BASE_ATTACKER_UNIT_LOSS_RATE,
+        "generals_return_times": generals_return_times,
+        "message": message
+    }
+
+    return (flask.jsonify(payload), 200)
+
+@app.route('/api/attackprimitives', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def attack_primitives():
+    req = flask.request.get_json(force=True)
+    attacker_raw_values = req["attackerValues"]
+
+    kd_id = flask_praetorian.current_user().kd_id
+
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    current_bonuses = {
+        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
+        for project, project_dict in PROJECTS.items()
+        if "max_bonus" in project_dict
+    }
+
+    valid_attack_request, attack_request_message = _validate_attack_request(
+        attacker_raw_values,
+        kd_info_parse,
+    )
+    if not valid_attack_request:
+        return (flask.jsonify({"message": attack_request_message}), 400)
+
+    attacker_units = {
+        key: int(value)
+        for key, value in attacker_raw_values.items()
+        if (key in UNITS and value != "")
+    }
+
+    attacker_fuelless = kd_info_parse["fuel"] <= 0
+    attack = _calc_max_offense(
+        attacker_units,
+        military_bonus=float(current_bonuses['military_bonus'] or 0), 
+        other_bonuses=0,
+        generals=int(attacker_raw_values["generals"]),
+        fuelless=attacker_fuelless,
+    )
+    attacker_losses = _calc_losses(
+        attacker_units,
+        BASE_ATTACKER_UNIT_LOSS_RATE,
+    )
+    time_now = datetime.datetime.now(datetime.timezone.utc)
+    generals_return_times = _calc_generals_return_time(
+        int(attacker_raw_values["generals"]),
+        BASE_GENERALS_RETURN_TIME_MULTIPLIER,
+        time_now,
+        current_bonuses["general_bonus"],
+    )
+    new_home_attacker_units = {
+        key_unit: value_unit - attacker_units.get(key_unit, 0)
+        for key_unit, value_unit in kd_info_parse["units"].items()
+    }
+    remaining_attacker_units = {
+        key_unit: value_unit - attacker_losses.get(key_unit, 0)
+        for key_unit, value_unit in attacker_units.items()
+    }
+    generals = [
+        {
+            "return_time": general_time.isoformat(),
+            **{
+                key_unit: math.floor(remaining_unit / len(generals_return_times))
+                for key_unit, remaining_unit in remaining_attacker_units.items()
+            }
+        }
+        for general_time in generals_return_times
+    ]
+    next_return_time = min([general["return_time"] for general in generals])
+
+    stars = math.floor(attack / BASE_PRIMITIVES_DEFENSE_PER_STAR)
+    money = stars * BASE_PRIMITIVES_MONEY_PER_STAR
+    fuel = stars * BASE_PRIMITIVES_FUEL_PER_STAR
+    pop = stars * BASE_PRIMITIVES_POPULATION_PER_STAR
+    spoils_values = {
+        "stars": stars,
+        "money": money,
+        "fuel": fuel,
+        "population": pop,
+    }
+
+    attack_status = "success"
+    attacker_message = (
+        "You have attacked primitives and gained "
+        + ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
+        + ". You have lost "
+        + ', '.join([f"{value} {key}" for key, value in attacker_losses.items()])
+    )
+
+    kd_info_parse["units"] = new_home_attacker_units
+    kd_info_parse["generals_out"] = kd_info_parse["generals_out"] + generals
+    kd_info_parse["generals_available"] = kd_info_parse["generals_available"] - int(attacker_raw_values["generals"])
+    kd_info_parse["next_resolve"]["generals"] = min(kd_info_parse["next_resolve"]["generals"], next_return_time)
+
+    for key_spoil, value_spoil in spoils_values.items():
+        kd_info_parse[key_spoil] += value_spoil
+
+    for key_project, project_dict in PROJECTS.items():
+        project_max_func = project_dict["max_points"]
+        kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
+
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_info_parse, default=str),
+    )
+    kd_attack_history = {
+        "time": time_now.isoformat(),
+        "to": "",
+        "news": attacker_message,
+    }
+    kd_attack_history_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_attack_history, default=str),
+    )
 
     attack_results = {
         "status": attack_status,

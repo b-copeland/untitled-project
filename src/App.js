@@ -32,6 +32,7 @@ import Attack from "./pages/conquer/attack.js";
 import Spy from "./pages/conquer/spy.js";
 import ShareIntel from "./pages/conquer/shareintel.js";
 import LaunchMissiles from "./pages/conquer/launchmissiles.js";
+import Primitives from "./pages/conquer/primitives.js";
 
 
 const ProtectedRoute = ({ logged, session, kingdomid, redirectPath = '/login', children }) => {
@@ -295,6 +296,7 @@ function Content(props) {
                   <Route path="/spy" element={<Spy data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/shareintel" element={<ShareIntel data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/launchmissiles" element={<LaunchMissiles data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/primitives" element={<Primitives data={data} loading={loading} updateData={updateData}/>}/>
                 </Route>
                 <Route path="/finalize" element={<Finalize />}/>
                 <Route path="/" element={<Home logged={props.logged}/>}/>
