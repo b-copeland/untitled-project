@@ -196,7 +196,7 @@ function Spy(props) {
                                             className="unit-form"
                                             id="drones-input"
                                             name="drones"
-                                            value={targetKdInfo.drones || "0"} 
+                                            value={targetKdInfo.drones?.toLocaleString() || "0"} 
                                             placeholder="0"
                                             disabled
                                         />
@@ -219,7 +219,7 @@ function Spy(props) {
                                             className="unit-form"
                                             id="spy-stars-input"
                                             name="stars"
-                                            value={targetKdInfo.stars || ""} 
+                                            value={targetKdInfo.stars?.toLocaleString() || ""} 
                                             placeholder="0"
                                             disabled
                                         />
@@ -277,15 +277,15 @@ function Spy(props) {
                             <tbody>
                                 <tr>
                                     <td>Stars-based defense</td>
-                                    <td>{calcMessage.stars_defense}</td>
+                                    <td>{(calcMessage.stars_defense || 0).toLocaleString()}</td>
                                 </tr>
                                 <tr>
                                     <td>Drones-based defense</td>
-                                    <td>{calcMessage.drones_defense}</td>
+                                    <td>{Math.floor(calcMessage.drones_defense || 0)?.toLocaleString()}</td>
                                 </tr>
                                 <tr>
                                     <td>Max success threshold</td>
-                                    <td>{calcMessage.total_defense}</td>
+                                    <td>{Math.floor(calcMessage.total_defense || 0)?.toLocaleString()}</td>
                                 </tr>
                             </tbody>
                         </Table>
@@ -294,7 +294,7 @@ function Spy(props) {
                 <div className="spy-attacker-stats">
                     <h3>{kdFullLabel(props.data.kingdom.kdId)}</h3>
                     <InputGroup className="mb-3 drones-input-group">
-                        <InputGroup.Text id="basic-addon2">Drones (Max {props.data.kingdom["drones"]})</InputGroup.Text>
+                        <InputGroup.Text id="basic-addon2">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>
                         <Form.Control 
                             className="unit-form"
                             id="drones-input"

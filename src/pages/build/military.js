@@ -96,31 +96,31 @@ function Recruits(props) {
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Recruit Cost</span>
-                    <span className="text-box-item-value">{props.mobisInfo.recruit_price}</span>
+                    <span className="text-box-item-value">{props.mobisInfo.recruit_price?.toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Hangar Capacity</span>
                     <span className="text-box-item-value">
-                        {props.mobisInfo.current_hangar_capacity} / {props.mobisInfo.max_hangar_capacity} ({displayPercent(props.mobisInfo.current_hangar_capacity / props.mobisInfo.max_hangar_capacity)})
+                        {props.mobisInfo.current_hangar_capacity?.toLocaleString()} / {props.mobisInfo.max_hangar_capacity?.toLocaleString()} ({displayPercent(props.mobisInfo.current_hangar_capacity / props.mobisInfo.max_hangar_capacity)})
                     </span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Current Recruits</span>
-                    <span className="text-box-item-value">{props.mobisInfo.units.current_total.recruits}</span>
+                    <span className="text-box-item-value">{props.mobisInfo.units.current_total.recruits?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Training Recruits</span>
-                    <span className="text-box-item-value">{props.mobisInfo.units.hour_24.recruits}</span>
+                    <span className="text-box-item-value">{props.mobisInfo.units.hour_24.recruits?.toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Maximum New Recruits</span>
-                    <span className="text-box-item-value">{props.mobisInfo.max_available_recruits}</span>
+                    <span className="text-box-item-value">{props.mobisInfo.max_available_recruits?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Available New Recruits</span>
-                    <span className="text-box-item-value">{props.mobisInfo.current_available_recruits}</span>
+                    <span className="text-box-item-value">{props.mobisInfo.current_available_recruits?.toLocaleString()}</span>
                 </div>
                 <InputGroup className="recruits-input-group">
                     <InputGroup.Text id="recruits-input-display">
@@ -143,7 +143,7 @@ function Recruits(props) {
                 }
                 {
                     recruitsInput !== ""
-                    ? <h3>Recruits Cost: {parseInt(recruitsInput) * props.mobisInfo.recruit_price}</h3>
+                    ? <h3>Recruits Cost: {(parseInt(recruitsInput) * props.mobisInfo.recruit_price).toLocaleString()}</h3>
                     : null
                 }
             </div>
@@ -224,12 +224,12 @@ function Specialists(props) {
                 <div className="text-box-item">
                     <span className="text-box-item-title">Hangar Capacity</span>
                     <span className="text-box-item-value">
-                        {props.mobisInfo.current_hangar_capacity} / {props.mobisInfo.max_hangar_capacity} ({displayPercent(props.mobisInfo.current_hangar_capacity / props.mobisInfo.max_hangar_capacity)})
+                        {props.mobisInfo.current_hangar_capacity?.toLocaleString()} / {props.mobisInfo.max_hangar_capacity?.toLocaleString()} ({displayPercent(props.mobisInfo.current_hangar_capacity / props.mobisInfo.max_hangar_capacity)})
                     </span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Current Recruits</span>
-                    <span className="text-box-item-value">{props.mobisInfo.units.current.recruits}</span>
+                    <span className="text-box-item-value">{props.mobisInfo.units.current.recruits?.toLocaleString()}</span>
                 </div>
             </div>
             <Table className="specialists-table" striped bordered hover>
@@ -249,9 +249,9 @@ function Specialists(props) {
                 <tbody>
                     <tr>
                         <td>Attackers</td>
-                        <td>{(props.mobisInfo.units_desc.attack.cost || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.attack.cost || 0).toLocaleString()}</td>
                         <td>{(props.mobisInfo.units.current_total.attack || 0)}</td>
-                        <td>{(props.mobisInfo.units.hour_24.attack || 0)}</td>
+                        <td>{(props.mobisInfo.units.hour_24.attack || 0).toLocaleString()}</td>
                         <td>{(props.mobisInfo.units_desc.attack.offense || 0)}</td>
                         <td>{(props.mobisInfo.units_desc.attack.defense || 0)}</td>
                         <td>{(props.mobisInfo.units_desc.attack.hangar_capacity || 0)}</td>
@@ -269,9 +269,9 @@ function Specialists(props) {
                     </tr>
                     <tr>
                         <td>Defenders</td>
-                        <td>{(props.mobisInfo.units_desc.defense.cost || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.defense.cost || 0).toLocaleString()}</td>
                         <td>{(props.mobisInfo.units.current_total.defense || 0)}</td>
-                        <td>{(props.mobisInfo.units.hour_24.defense || 0)}</td>
+                        <td>{(props.mobisInfo.units.hour_24.defense || 0).toLocaleString()}</td>
                         <td>{(props.mobisInfo.units_desc.defense.offense || 0)}</td>
                         <td>{(props.mobisInfo.units_desc.defense.defense || 0)}</td>
                         <td>{(props.mobisInfo.units_desc.defense.hangar_capacity || 0)}</td>
@@ -289,9 +289,9 @@ function Specialists(props) {
                     </tr>
                     <tr>
                         <td>Flexers</td>
-                        <td>{(props.mobisInfo.units_desc.flex.cost || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.flex.cost || 0).toLocaleString()}</td>
                         <td>{(props.mobisInfo.units.current_total.flex || 0)}</td>
-                        <td>{(props.mobisInfo.units.hour_24.flex || 0)}</td>
+                        <td>{(props.mobisInfo.units.hour_24.flex || 0).toLocaleString()}</td>
                         <td>{(props.mobisInfo.units_desc.flex.offense || 0)}</td>
                         <td>{(props.mobisInfo.units_desc.flex.defense || 0)}</td>
                         <td>{(props.mobisInfo.units_desc.flex.hangar_capacity || 0)}</td>
@@ -311,9 +311,9 @@ function Specialists(props) {
                         props.kdInfo.completed_projects.indexOf('big_flexers') >= 0
                         ? <tr>
                             <td>Big Flexers</td>
-                            <td>{(props.mobisInfo.units_desc.big_flex.cost || 0)}</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.cost || 0).toLocaleString()}</td>
                             <td>{(props.mobisInfo.units.current_total.big_flex || 0)}</td>
-                            <td>{(props.mobisInfo.units.hour_24.big_flex || 0)}</td>
+                            <td>{(props.mobisInfo.units.hour_24.big_flex || 0).toLocaleString()}</td>
                             <td>{(props.mobisInfo.units_desc.big_flex.offense || 0)}</td>
                             <td>{(props.mobisInfo.units_desc.big_flex.defense || 0)}</td>
                             <td>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
@@ -331,9 +331,9 @@ function Specialists(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td>Big Flexers</td>
-                            <td>{(props.mobisInfo.units_desc.big_flex.cost || 0)}</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.cost || 0).toLocaleString()}</td>
                             <td colSpan={2}>Research "Big Flexers" Project to Unlock</td>
-                            <td>{(props.mobisInfo.units_desc.big_flex.offense || 0)}</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.offense || 0).toLocaleString()}</td>
                             <td>{(props.mobisInfo.units_desc.big_flex.defense || 0)}</td>
                             <td>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
                             <td>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td>
@@ -364,8 +364,8 @@ function Specialists(props) {
             {
                 recruitsUsed != 0
                 ? <div>
-                    <h3>Training Cost: {specialistCosts}</h3>
-                    <h3>Recruits Remaining: {props.kdInfo.units.recruits - recruitsUsed}</h3>
+                    <h3>Training Cost: {specialistCosts.toLocaleString()}</h3>
+                    <h3>Recruits Remaining: {(props.kdInfo.units.recruits - recruitsUsed).toLocaleString()}</h3>
                 </div>
                 : null
             }

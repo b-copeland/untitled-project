@@ -162,7 +162,7 @@ function LaunchMissiles(props) {
                     <tbody>
                         <tr>
                             <td>Planet Busters</td>
-                            <td>{props.data.kingdom.missiles?.planet_busters}</td>
+                            <td>{props.data.kingdom.missiles?.planet_busters?.toLocaleString()}</td>
                             <td>{(props.data.missiles.desc?.planet_busters?.stars_damage || 0)}</td>
                             <td>{(props.data.missiles.desc?.planet_busters?.fuel_damage || 0)}</td>
                             <td>{(props.data.missiles.desc?.planet_busters?.pop_damage || 0)}</td>
@@ -179,7 +179,7 @@ function LaunchMissiles(props) {
                         </tr>
                         <tr>
                             <td>Star Busters</td>
-                            <td>{props.data.kingdom.missiles?.star_busters}</td>
+                            <td>{props.data.kingdom.missiles?.star_busters?.toLocaleString()}</td>
                             <td>{(props.data.missiles.desc?.star_busters?.stars_damage || 0)}</td>
                             <td>{(props.data.missiles.desc?.star_busters?.fuel_damage || 0)}</td>
                             <td>{(props.data.missiles.desc?.star_busters?.pop_damage || 0)}</td>
@@ -196,7 +196,7 @@ function LaunchMissiles(props) {
                         </tr>
                         <tr>
                             <td>Galaxy Busters</td>
-                            <td>{props.data.kingdom.missiles?.galaxy_busters}</td>
+                            <td>{props.data.kingdom.missiles?.galaxy_busters?.toLocaleString()}</td>
                             <td>{(props.data.missiles.desc?.galaxy_busters?.stars_damage || 0)}</td>
                             <td>{(props.data.missiles.desc?.galaxy_busters?.fuel_damage || 0)}</td>
                             <td>{(props.data.missiles.desc?.galaxy_busters?.pop_damage || 0)}</td>

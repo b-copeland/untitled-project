@@ -39,7 +39,7 @@ function Build(props) {
             const spans = spanItems.map((spanObj) => 
                 <div key={itemObj.time + "_" + spanObj.key} className="remaining-timer">
                     <span className="remaining-time-title">{spanObj.key}</span>
-                    <span className="remaining-time-value">{spanObj.value}</span>
+                    <span className="remaining-time-value">{Math.floor(spanObj.value).toLocaleString()}</span>
                     <br />
                 </div>
             )

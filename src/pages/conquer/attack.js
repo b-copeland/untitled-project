@@ -165,7 +165,7 @@ function Attack(props) {
                                                 className="unit-form"
                                                 id="recruits-input"
                                                 name="recruits"
-                                                value={targetKdInfo.units.recruits || "0"} 
+                                                value={targetKdInfo.units.recruits?.toLocaleString() || "0"} 
                                                 placeholder="0"
                                                 disabled
                                             />
@@ -190,7 +190,7 @@ function Attack(props) {
                                                 id="defenders-input"
                                                 name="defense"
                                                 onChange={handleDefenderChange}
-                                                value={targetKdInfo.units.defense || "0"} 
+                                                value={targetKdInfo.units.defense?.toLocaleString() || "0"} 
                                                 placeholder="0"
                                                 disabled
                                             />
@@ -214,7 +214,7 @@ function Attack(props) {
                                                 className="unit-form"
                                                 id="flexers-input"
                                                 name="flex"
-                                                value={targetKdInfo.units.flex || "0"} 
+                                                value={targetKdInfo.units.flex?.toLocaleString() || "0"} 
                                                 placeholder="0"
                                                 disabled
                                             />
@@ -238,7 +238,7 @@ function Attack(props) {
                                                 className="unit-form"
                                                 id="big-flexers-input"
                                                 name="big_flex"
-                                                value={targetKdInfo.units.big_flex || "0"} 
+                                                value={targetKdInfo.units.big_flex?.toLocaleString() || "0"} 
                                                 placeholder="0"
                                                 disabled
                                             />
@@ -337,19 +337,19 @@ function Attack(props) {
                                 <h4>Their Losses</h4> 
                                 <div className="text-box-item">
                                     <span className="text-box-item-title">Recruits</span>
-                                    <span className="text-box-item-value">{calcMessage.defender_losses?.recruits || "--"}</span>
+                                    <span className="text-box-item-value">{calcMessage.defender_losses?.recruits?.toLocaleString() || "--"}</span>
                                 </div>
                                 <div className="text-box-item">
                                     <span className="text-box-item-title">Defenders</span>
-                                    <span className="text-box-item-value">{calcMessage.defender_losses?.defense || "--"}</span>
+                                    <span className="text-box-item-value">{calcMessage.defender_losses?.defense?.toLocaleString() || "--"}</span>
                                 </div>
                                 <div className="text-box-item">
                                     <span className="text-box-item-title">Flexers</span>
-                                    <span className="text-box-item-value">{calcMessage.defender_losses?.flex || "--"}</span>
+                                    <span className="text-box-item-value">{calcMessage.defender_losses?.flex?.toLocaleString() || "--"}</span>
                                 </div>
                                 <div className="text-box-item">
                                     <span className="text-box-item-title">Big Flexers</span>
-                                    <span className="text-box-item-value">{calcMessage.defender_losses?.big_flex || "--"}</span>
+                                    <span className="text-box-item-value">{calcMessage.defender_losses?.big_flex?.toLocaleString() || "--"}</span>
                                 </div>
                                 <br />
                                 <div className="text-box-item">
@@ -365,7 +365,7 @@ function Attack(props) {
                             <div className="text-box defender-defense-box">
                                 <h4>Their Defense</h4> 
                                 <div className="text-box-item">
-                                    <span className="defender-defense">{calcMessage.defender_defense || "--"}</span>
+                                    <span className="defender-defense">{calcMessage.defender_defense?.toLocaleString() || "--"}</span>
                                 </div>
                             </div>
                         </div>
@@ -379,15 +379,15 @@ function Attack(props) {
                                 <h4>Your Losses</h4> 
                                 <div className="text-box-item">
                                     <span className="text-box-item-title">Attackers</span>
-                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.attack || "--"}</span>
+                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.attack?.toLocaleString() || "--"}</span>
                                 </div>
                                 <div className="text-box-item">
                                     <span className="text-box-item-title">Flexers</span>
-                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.flex || "--"}</span>
+                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.flex?.toLocaleString() || "--"}</span>
                                 </div>
                                 <div className="text-box-item">
                                     <span className="text-box-item-title">Big Flexers</span>
-                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.big_flex || "--"}</span>
+                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.big_flex?.toLocaleString() || "--"}</span>
                                 </div>
                                 <br />
                                 <br />
@@ -400,7 +400,7 @@ function Attack(props) {
                             <div className="text-box attacker-defense-box">
                                 <h4>Your Offense</h4> 
                                 <div className="text-box-item">
-                                    <span className="attacker-offense">{calcMessage.attacker_offense || "--"}</span>
+                                    <span className="attacker-offense">{calcMessage.attacker_offense?.toLocaleString() || "--"}</span>
                                 </div>
                             </div>
                         </div>
@@ -426,7 +426,7 @@ function Attack(props) {
                                         />
                                     </td>
                                     <td>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
-                                    <td>{props.data.kingdom?.units?.attack}</td>
+                                    <td>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
                                     <td>Attackers</td>
                                 </tr>
                                 <tr>
@@ -441,7 +441,7 @@ function Attack(props) {
                                         />
                                     </td>
                                     <td>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
-                                    <td>{props.data.kingdom?.units?.flex}</td>
+                                    <td>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
                                     <td>Flexers</td>
                                 </tr>
                                 <tr>
@@ -456,7 +456,7 @@ function Attack(props) {
                                         />
                                     </td>
                                     <td>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
-                                    <td>{props.data.kingdom?.units?.big_flex || 0}</td>
+                                    <td>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
                                     <td>Big Flexers</td>
                                 </tr>
                                 <tr>

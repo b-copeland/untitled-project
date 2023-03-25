@@ -15,9 +15,6 @@ const initialInput = {
 }
 
 function Missiles(props) {
-    const [planetBustersInput, setPlanetBustersInput] = useState('');
-    const [starBustersInput, setStarBustersInput] = useState('');
-    const [galaxyBustersInput, setGalaxyBustersInput] = useState('');
     const [missilesResult, setMissilesResult] = useState([]);
     const [input, setInput] = useState(initialInput);
 
@@ -110,12 +107,12 @@ function Missiles(props) {
                 <tbody>
                     <tr>
                         <td>Planet Buster</td>
-                        <td>{(missilesInfo.current.planet_busters || 0)}</td>
-                        <td>{(missilesInfo.building.planet_busters || 0)}</td>
-                        <td>{(missilesInfo.capacity || 0)}</td>
+                        <td>{(missilesInfo.current.planet_busters || 0).toLocaleString()}</td>
+                        <td>{(missilesInfo.building.planet_busters || 0).toLocaleString()}</td>
+                        <td>{(missilesInfo.capacity || 0).toLocaleString()}</td>
                         <td>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                        <td>{(missilesInfo.desc.planet_busters.cost || 0)}</td>
-                        <td>{(missilesInfo.desc.planet_busters.fuel_cost || 0)}</td>
+                        <td>{Math.floor(missilesInfo.desc.planet_busters.cost || 0).toLocaleString()}</td>
+                        <td>{Math.floor(missilesInfo.desc.planet_busters.fuel_cost || 0).toLocaleString()}</td>
                         <td>{(missilesInfo.desc.planet_busters.stars_damage || 0)}</td>
                         <td>{(missilesInfo.desc.planet_busters.fuel_damage || 0)}</td>
                         <td>{(missilesInfo.desc.planet_busters.pop_damage || 0)}</td>
@@ -134,12 +131,12 @@ function Missiles(props) {
                         kdInfo.completed_projects.indexOf('star_busters') >= 0
                         ? <tr>
                             <td>Star Buster</td>
-                            <td>{(missilesInfo.current.star_busters || 0)}</td>
-                            <td>{(missilesInfo.building.star_busters || 0)}</td>
-                            <td>{(missilesInfo.capacity || 0)}</td>
+                            <td>{(missilesInfo.current.star_busters || 0).toLocaleString()}</td>
+                            <td>{(missilesInfo.building.star_busters || 0).toLocaleString()}</td>
+                            <td>{(missilesInfo.capacity || 0).toLocaleString()}</td>
                             <td>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td>{(missilesInfo.desc.star_busters.cost || 0)}</td>
-                            <td>{(missilesInfo.desc.star_busters.fuel_cost || 0)}</td>
+                            <td>{Math.floor(missilesInfo.desc.star_busters.cost || 0).toLocaleString()}</td>
+                            <td>{Math.floor(missilesInfo.desc.star_busters.fuel_cost || 0).toLocaleString()}</td>
                             <td>{(missilesInfo.desc.star_busters.stars_damage || 0)}</td>
                             <td>{(missilesInfo.desc.star_busters.fuel_damage || 0)}</td>
                             <td>{(missilesInfo.desc.star_busters.pop_damage || 0)}</td>
@@ -157,10 +154,10 @@ function Missiles(props) {
                         : <tr className="disabled-table-row">
                             <td>Star Buster</td>
                             <td colSpan={2}>Research "Star Busters" Project to Unlock</td>
-                            <td>{(missilesInfo.capacity || 0)}</td>
+                            <td>{(missilesInfo.capacity || 0).toLocaleString()}</td>
                             <td>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td>{(missilesInfo.desc.star_busters.cost || 0)}</td>
-                            <td>{(missilesInfo.desc.star_busters.fuel_cost || 0)}</td>
+                            <td>{Math.floor(missilesInfo.desc.star_busters.cost || 0).toLocaleString()}</td>
+                            <td>{Math.floor(missilesInfo.desc.star_busters.fuel_cost || 0).toLocaleString()}</td>
                             <td>{(missilesInfo.desc.star_busters.stars_damage || 0)}</td>
                             <td>{(missilesInfo.desc.star_busters.fuel_damage || 0)}</td>
                             <td>{(missilesInfo.desc.star_busters.pop_damage || 0)}</td>
@@ -181,12 +178,12 @@ function Missiles(props) {
                         kdInfo.completed_projects.indexOf('galaxy_busters') >= 0
                         ? <tr>
                             <td>Galaxy Buster</td>
-                            <td>{(missilesInfo.current.galaxy_busters || 0)}</td>
-                            <td>{(missilesInfo.building.galaxy_busters || 0)}</td>
-                            <td>{(missilesInfo.capacity || 0)}</td>
+                            <td>{(missilesInfo.current.galaxy_busters || 0).toLocaleString()}</td>
+                            <td>{(missilesInfo.building.galaxy_busters || 0).toLocaleString()}</td>
+                            <td>{(missilesInfo.capacity || 0).toLocaleString()}</td>
                             <td>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td>{(missilesInfo.desc.galaxy_busters.cost || 0)}</td>
-                            <td>{(missilesInfo.desc.galaxy_busters.fuel_cost || 0)}</td>
+                            <td>{Math.floor(missilesInfo.desc.galaxy_busters.cost || 0).toLocaleString()}</td>
+                            <td>{Math.floor(missilesInfo.desc.galaxy_busters.fuel_cost || 0).toLocaleString()}</td>
                             <td>{(missilesInfo.desc.galaxy_busters.stars_damage || 0)}</td>
                             <td>{(missilesInfo.desc.galaxy_busters.fuel_damage || 0)}</td>
                             <td>{(missilesInfo.desc.galaxy_busters.pop_damage || 0)}</td>
@@ -204,10 +201,10 @@ function Missiles(props) {
                         : <tr className="disabled-table-row">
                             <td>Galaxy Buster</td>
                             <td colSpan={2}>Research "Galaxy Busters" Project to Unlock</td>
-                            <td>{(missilesInfo.capacity || 0)}</td>
+                            <td>{(missilesInfo.capacity || 0).toLocaleString()}</td>
                             <td>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td>{(missilesInfo.desc.galaxy_busters.cost || 0)}</td>
-                            <td>{(missilesInfo.desc.galaxy_busters.fuel_cost || 0)}</td>
+                            <td>{Math.floor(missilesInfo.desc.galaxy_busters.cost || 0).toLocaleString()}</td>
+                            <td>{Math.floor(missilesInfo.desc.galaxy_busters.fuel_cost || 0).toLocaleString()}</td>
                             <td>{(missilesInfo.desc.galaxy_busters.stars_damage || 0)}</td>
                             <td>{(missilesInfo.desc.galaxy_busters.fuel_damage || 0)}</td>
                             <td>{(missilesInfo.desc.galaxy_busters.pop_damage || 0)}</td>
@@ -238,8 +235,8 @@ function Missiles(props) {
             {
                 missilesCost !== 0
                 ? <div>
-                    <h3>Missiles Cost: {missilesCost}</h3>
-                    <h3>Missiles Fuel Cost: {missilesFuelCost}</h3>
+                    <h3>Missiles Cost: {missilesCost.toLocaleString()}</h3>
+                    <h3>Missiles Fuel Cost: {missilesFuelCost.toLocaleString()}</h3>
                 </div>
                 : null
             }

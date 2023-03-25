@@ -58,16 +58,16 @@ function Settle(props) {
                     </div>
                     <div className="text-box-item">
                         <span className="text-box-item-title">Settle Cost</span>
-                        <span className="text-box-item-value">{settleInfo["settle_price"]}</span>
+                        <span className="text-box-item-value">{settleInfo.settle_price?.toLocaleString()}</span>
                     </div>
                     <br />
                     <div className="text-box-item">
                         <span className="text-box-item-title">Maximum New Settlements</span>
-                        <span className="text-box-item-value">{settleInfo["max_available_settle"]}</span>
+                        <span className="text-box-item-value">{settleInfo.max_available_settle?.toLocaleString()}</span>
                     </div>
                     <div className="text-box-item">
                         <span className="text-box-item-title">Available New Settlements</span>
-                        <span className="text-box-item-value">{settleInfo["current_available_settle"]}</span>
+                        <span className="text-box-item-value">{settleInfo.current_available_settle?.toLocaleString()}</span>
                     </div>
                 </div>
                 <InputGroup className="settle-input-group">
@@ -91,7 +91,7 @@ function Settle(props) {
                 }
                 {
                     settleInput !== ""
-                    ? <h3>Settle Cost: {calcSettleCosts(settleInput)}</h3>
+                    ? <h3>Settle Cost: {calcSettleCosts(settleInput).toLocaleString()}</h3>
                     : null
                 }   
             </div>

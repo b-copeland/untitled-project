@@ -85,16 +85,16 @@ function Structures(props) {
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Build Cost</span>
-                    <span className="text-box-item-value">{structuresInfo["price"]}</span>
+                    <span className="text-box-item-value">{structuresInfo["price"].toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Maximum New Structures</span>
-                    <span className="text-box-item-value">{structuresInfo["max_available_structures"]}</span>
+                    <span className="text-box-item-value">{structuresInfo["max_available_structures"].toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Available New Stuctures</span>
-                    <span className="text-box-item-value">{structuresInfo["current_available_structures"]}</span>
+                    <span className="text-box-item-value">{structuresInfo["current_available_structures"].toLocaleString()}</span>
                 </div>
             </div>
             <Table className="structures-table" striped bordered hover>
@@ -111,8 +111,8 @@ function Structures(props) {
                     <tr>
                         <td>Homes</td>
                         <td>{displayPercent((structuresInfo.current.homes || 0) / kdInfo["stars"])}</td>
-                        <td>{(structuresInfo.current.homes || 0)}</td>
-                        <td>{(structuresInfo.hour_24.homes || 0)}</td>
+                        <td>{Math.floor(structuresInfo.current.homes || 0).toLocaleString()}</td>
+                        <td>{Math.floor(structuresInfo.hour_24.homes || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -127,8 +127,8 @@ function Structures(props) {
                     <tr>
                         <td>Mines</td>
                         <td>{displayPercent((structuresInfo.current.mines || 0) / kdInfo["stars"])}</td>
-                        <td>{(structuresInfo.current.mines || 0)}</td>
-                        <td>{(structuresInfo.hour_24.mines || 0)}</td>
+                        <td>{Math.floor(structuresInfo.current.mines || 0).toLocaleString()}</td>
+                        <td>{Math.floor(structuresInfo.hour_24.mines || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -143,8 +143,8 @@ function Structures(props) {
                     <tr>
                         <td>Fuel Plants</td>
                         <td>{displayPercent((structuresInfo.current.fuel_plants || 0) / kdInfo["stars"])}</td>
-                        <td>{(structuresInfo.current.fuel_plants || 0)}</td>
-                        <td>{(structuresInfo.hour_24.fuel_plants || 0)}</td>
+                        <td>{Math.floor(structuresInfo.current.fuel_plants || 0).toLocaleString()}</td>
+                        <td>{Math.floor(structuresInfo.hour_24.fuel_plants || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -159,8 +159,8 @@ function Structures(props) {
                     <tr>
                         <td>Hangars</td>
                         <td>{displayPercent((structuresInfo.current.hangars || 0) / kdInfo["stars"])}</td>
-                        <td>{(structuresInfo.current.hangars || 0)}</td>
-                        <td>{(structuresInfo.hour_24.hangars || 0)}</td>
+                        <td>{Math.floor(structuresInfo.current.hangars || 0).toLocaleString()}</td>
+                        <td>{Math.floor(structuresInfo.hour_24.hangars || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -175,8 +175,8 @@ function Structures(props) {
                     <tr>
                         <td>Drone Factories</td>
                         <td>{displayPercent((structuresInfo.current.drone_factories || 0) / kdInfo["stars"])}</td>
-                        <td>{(structuresInfo.current.drone_factories || 0)}</td>
-                        <td>{(structuresInfo.hour_24.drone_factories || 0)}</td>
+                        <td>{Math.floor(structuresInfo.current.drone_factories || 0).toLocaleString()}</td>
+                        <td>{Math.floor(structuresInfo.hour_24.drone_factories || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -191,8 +191,8 @@ function Structures(props) {
                     <tr>
                         <td>Missile Silos</td>
                         <td>{displayPercent((structuresInfo.current.missile_silos || 0) / kdInfo["stars"])}</td>
-                        <td>{(structuresInfo.current.missile_silos || 0)}</td>
-                        <td>{(structuresInfo.hour_24.missile_silos || 0)}</td>
+                        <td>{Math.floor(structuresInfo.current.missile_silos || 0).toLocaleString()}</td>
+                        <td>{Math.floor(structuresInfo.hour_24.missile_silos || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -207,8 +207,8 @@ function Structures(props) {
                     <tr>
                         <td>Workshops</td>
                         <td>{displayPercent((structuresInfo.current.workshops || 0) / kdInfo["stars"])}</td>
-                        <td>{(structuresInfo.current.workshops || 0)}</td>
-                        <td>{(structuresInfo.hour_24.workshops || 0)}</td>
+                        <td>{Math.floor(structuresInfo.current.workshops || 0).toLocaleString()}</td>
+                        <td>{Math.floor(structuresInfo.hour_24.workshops || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -233,8 +233,8 @@ function Structures(props) {
             {
                 structuresStars !== 0
                 ? <div>
-                    <h3>Structures Cost: {structuresCost}</h3>
-                    <h3>Stars Remaining: {structuresInfo.max_available_structures - structuresStars}</h3>
+                    <h3>Structures Cost: {structuresCost.toLocaleString()}</h3>
+                    <h3>Stars Remaining: {(structuresInfo.max_available_structures - structuresStars).toLocaleString()}</h3>
                 </div>
                 : null
             }

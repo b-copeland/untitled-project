@@ -88,31 +88,31 @@ function Train(props) {
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Training Cost</span>
-                    <span className="text-box-item-value">{props.engineersInfo.engineers_price}</span>
+                    <span className="text-box-item-value">{props.engineersInfo.engineers_price?.toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Workshop Capacity</span>
                     <span className="text-box-item-value">
-                        {props.engineersInfo.current_workshop_capacity} / {props.engineersInfo.max_workshop_capacity} ({displayPercent(props.engineersInfo.current_workshop_capacity / props.engineersInfo.max_workshop_capacity)})
+                        {props.engineersInfo.current_workshop_capacity?.toLocaleString()} / {props.engineersInfo.max_workshop_capacity?.toLocaleString()} ({displayPercent(props.engineersInfo.current_workshop_capacity / props.engineersInfo.max_workshop_capacity)})
                     </span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Current Engineers</span>
-                    <span className="text-box-item-value">{props.engineersInfo.current_engineers}</span>
+                    <span className="text-box-item-value">{props.engineersInfo.current_engineers?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Training Engineers</span>
-                    <span className="text-box-item-value">{props.engineersInfo.engineers_building}</span>
+                    <span className="text-box-item-value">{props.engineersInfo.engineers_building?.toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Maximum New Engineers</span>
-                    <span className="text-box-item-value">{props.engineersInfo.max_available_engineers}</span>
+                    <span className="text-box-item-value">{props.engineersInfo.max_available_engineers?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Available New Engineers</span>
-                    <span className="text-box-item-value">{props.engineersInfo.current_available_engineers}</span>
+                    <span className="text-box-item-value">{props.engineersInfo.current_available_engineers?.toLocaleString()}</span>
                 </div>
                 <InputGroup className="engineers-input-group">
                     <InputGroup.Text id="engineers-input-display">
@@ -135,7 +135,7 @@ function Train(props) {
                 }
                 {
                     trainCosts !== 0
-                    ? <h3>Engineers Cost: {trainCosts}</h3>
+                    ? <h3>Engineers Cost: {trainCosts.toLocaleString()}</h3>
                     : null
                 }
             </div>
@@ -282,11 +282,11 @@ function Assign(props) {
             <div className="text-box projects-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Total Engineers</span>
-                    <span className="text-box-item-value">{props.engineersInfo.current_engineers}</span>
+                    <span className="text-box-item-value">{props.engineersInfo.current_engineers?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Available Engineers</span>
-                    <span className="text-box-item-value">{props.projectsInfo.available_engineers}</span>
+                    <span className="text-box-item-value">{props.projectsInfo.available_engineers?.toLocaleString()}</span>
                 </div>
             </div>
             <Table className="projects-table" striped bordered hover size="sm">
@@ -308,10 +308,10 @@ function Assign(props) {
                 <tbody>
                     <tr>
                         <td>Pop Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.pop_bonus || 0)}</td>
+                        <td>{(props.kdInfo.projects_assigned.pop_bonus || 0).toLocaleString()}</td>
                         <td>{displayPercent((props.kdInfo.projects_assigned.pop_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{(props.kdInfo.projects_points.pop_bonus || 0)}</td>
-                        <td>{(props.kdInfo.projects_max_points.pop_bonus || 0)}</td>
+                        <td>{Math.floor(props.kdInfo.projects_points.pop_bonus || 0).toLocaleString()}</td>
+                        <td>{Math.floor(props.kdInfo.projects_max_points.pop_bonus || 0).toLocaleString()}</td>
                         <td>{displayPercent(props.projectsInfo.current_bonuses.pop_bonus || 0)}</td>
                         <td>{displayPercent(props.projectsInfo.max_bonuses.pop_bonus || 0)}</td>
                         <td>{
@@ -346,10 +346,10 @@ function Assign(props) {
                     </tr>
                     <tr>
                         <td>Fuel Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.fuel_bonus || 0)}</td>
+                        <td>{(props.kdInfo.projects_assigned.fuel_bonus || 0).toLocaleString()}</td>
                         <td>{displayPercent((props.kdInfo.projects_assigned.fuel_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{(props.kdInfo.projects_points.fuel_bonus || 0)}</td>
-                        <td>{(props.kdInfo.projects_max_points.fuel_bonus || 0)}</td>
+                        <td>{Math.floor(props.kdInfo.projects_points.fuel_bonus || 0).toLocaleString()}</td>
+                        <td>{Math.floor(props.kdInfo.projects_max_points.fuel_bonus || 0).toLocaleString()}</td>
                         <td>{displayPercent(props.projectsInfo.current_bonuses.fuel_bonus || 0)}</td>
                         <td>{displayPercent(props.projectsInfo.max_bonuses.fuel_bonus || 0)}</td>
                         <td>{
@@ -384,10 +384,10 @@ function Assign(props) {
                     </tr>
                     <tr>
                         <td>Military Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.military_bonus || 0)}</td>
+                        <td>{(props.kdInfo.projects_assigned.military_bonus || 0).toLocaleString()}</td>
                         <td>{displayPercent((props.kdInfo.projects_assigned.military_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{(props.kdInfo.projects_points.military_bonus || 0)}</td>
-                        <td>{(props.kdInfo.projects_max_points.military_bonus || 0)}</td>
+                        <td>{Math.floor(props.kdInfo.projects_points.military_bonus || 0).toLocaleString()}</td>
+                        <td>{Math.floor(props.kdInfo.projects_max_points.military_bonus || 0).toLocaleString()}</td>
                         <td>{displayPercent(props.projectsInfo.current_bonuses.military_bonus || 0)}</td>
                         <td>{displayPercent(props.projectsInfo.max_bonuses.military_bonus || 0)}</td>
                         <td>{
@@ -422,10 +422,10 @@ function Assign(props) {
                     </tr>
                     <tr>
                         <td>Money Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.money_bonus || 0)}</td>
+                        <td>{(props.kdInfo.projects_assigned.money_bonus || 0).toLocaleString()}</td>
                         <td>{displayPercent((props.kdInfo.projects_assigned.money_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{(props.kdInfo.projects_points.money_bonus || 0)}</td>
-                        <td>{(props.kdInfo.projects_max_points.money_bonus || 0)}</td>
+                        <td>{Math.floor(props.kdInfo.projects_points.money_bonus || 0).toLocaleString()}</td>
+                        <td>{Math.floor(props.kdInfo.projects_max_points.money_bonus || 0).toLocaleString()}</td>
                         <td>{displayPercent(props.projectsInfo.current_bonuses.money_bonus || 0)}</td>
                         <td>{displayPercent(props.projectsInfo.max_bonuses.money_bonus || 0)}</td>
                         <td>{
@@ -460,10 +460,10 @@ function Assign(props) {
                     </tr>
                     <tr>
                         <td>Generals Speed Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.general_bonus || 0)}</td>
+                        <td>{(props.kdInfo.projects_assigned.general_bonus || 0).toLocaleString()}</td>
                         <td>{displayPercent((props.kdInfo.projects_assigned.general_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{(props.kdInfo.projects_points.general_bonus || 0)}</td>
-                        <td>{(props.kdInfo.projects_max_points.general_bonus || 0)}</td>
+                        <td>{Math.floor(props.kdInfo.projects_points.general_bonus || 0).toLocaleString()}</td>
+                        <td>{Math.floor(props.kdInfo.projects_max_points.general_bonus || 0).toLocaleString()}</td>
                         <td>{displayPercent(props.projectsInfo.current_bonuses.general_bonus || 0)}</td>
                         <td>{displayPercent(props.projectsInfo.max_bonuses.general_bonus || 0)}</td>
                         <td>{
@@ -500,10 +500,10 @@ function Assign(props) {
                         props.kdInfo.completed_projects.indexOf('drone_gadgets') >= 0
                         ? <tr>
                             <td>Spy Bonus</td>
-                            <td>{(props.kdInfo.projects_assigned.spy_bonus || 0)}</td>
+                            <td>{(props.kdInfo.projects_assigned.spy_bonus || 0).toLocaleString()}</td>
                             <td>{displayPercent((props.kdInfo.projects_assigned.spy_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{(props.kdInfo.projects_points.spy_bonus || 0)}</td>
-                            <td>{(props.kdInfo.projects_max_points.spy_bonus || 0)}</td>
+                            <td>{Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()}</td>
+                            <td>{Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}</td>
                             <td>{displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)}</td>
                             <td>{displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}</td>
                             <td>{
@@ -539,8 +539,8 @@ function Assign(props) {
                         : <tr className="disabled-table-row">
                             <td>Spy Bonus</td>
                             <td colSpan={2}>Complete "Drone Gadgets" Project to Unlock</td>
-                            <td>{(props.kdInfo.projects_points.spy_bonus || 0)}</td>
-                            <td>{(props.kdInfo.projects_max_points.spy_bonus || 0)}</td>
+                            <td>{Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()}</td>
+                            <td>{Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}</td>
                             <td>{displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)}</td>
                             <td>{displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}</td>
                             <td>{
@@ -589,10 +589,10 @@ function Assign(props) {
                         props.kdInfo.completed_projects.indexOf('big_flexers') < 0
                         ? <tr>
                             <td>Big Flexers</td>
-                            <td>{(props.kdInfo.projects_assigned.big_flexers || 0)}</td>
+                            <td>{(props.kdInfo.projects_assigned.big_flexers || 0).toLocaleString()}</td>
                             <td>{displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{(props.kdInfo.projects_points.big_flexers || 0)}</td>
-                            <td>{(props.kdInfo.projects_max_points.big_flexers || 0)}</td>
+                            <td>{Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()}</td>
+                            <td>{Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}</td>
                             <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
                             <td>{
                                 <Form.Control 
@@ -627,8 +627,8 @@ function Assign(props) {
                         : <tr className="disabled-table-row">
                             <td>Big Flexers</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{(props.kdInfo.projects_points.big_flexers || 0)}</td>
-                            <td>{(props.kdInfo.projects_max_points.big_flexers || 0)}</td>
+                            <td>{Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()}</td>
+                            <td>{Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}</td>
                             <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
                             <td>{
                                 <Form.Control 
@@ -665,10 +665,10 @@ function Assign(props) {
                         props.kdInfo.completed_projects.indexOf('star_busters') < 0
                         ? <tr>
                             <td>Star Busters</td>
-                            <td>{(props.kdInfo.projects_assigned.star_busters || 0)}</td>
+                            <td>{(props.kdInfo.projects_assigned.star_busters || 0).toLocaleString()}</td>
                             <td>{displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{(props.kdInfo.projects_points.star_busters || 0)}</td>
-                            <td>{(props.kdInfo.projects_max_points.star_busters || 0)}</td>
+                            <td>{Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()}</td>
+                            <td>{Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}</td>
                             <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
                             <td>{
                                 <Form.Control 
@@ -703,8 +703,8 @@ function Assign(props) {
                         : <tr className="disabled-table-row">
                             <td>Star Busters</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{(props.kdInfo.projects_points.star_busters || 0)}</td>
-                            <td>{(props.kdInfo.projects_max_points.star_busters || 0)}</td>
+                            <td>{Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()}</td>
+                            <td>{Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}</td>
                             <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
                             <td>{
                                 <Form.Control 
@@ -741,10 +741,10 @@ function Assign(props) {
                         props.kdInfo.completed_projects.indexOf('galaxy_busters') < 0
                         ? <tr>
                             <td>Galaxy Busters</td>
-                            <td>{(props.kdInfo.projects_assigned.galaxy_busters || 0)}</td>
+                            <td>{(props.kdInfo.projects_assigned.galaxy_busters || 0).toLocaleString()}</td>
                             <td>{displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{(props.kdInfo.projects_points.galaxy_busters || 0)}</td>
-                            <td>{(props.kdInfo.projects_max_points.galaxy_busters || 0)}</td>
+                            <td>{Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()}</td>
+                            <td>{Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}</td>
                             <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
                             <td>{
                                 <Form.Control 
@@ -779,8 +779,8 @@ function Assign(props) {
                         : <tr className="disabled-table-row">
                             <td>Galaxy Busters</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{(props.kdInfo.projects_points.galaxy_busters || 0)}</td>
-                            <td>{(props.kdInfo.projects_max_points.galaxy_busters || 0)}</td>
+                            <td>{Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()}</td>
+                            <td>{Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}</td>
                             <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
                             <td>{
                                 <Form.Control 
@@ -817,10 +817,10 @@ function Assign(props) {
                         props.kdInfo.completed_projects.indexOf('drone_gadgets') < 0
                         ? <tr>
                             <td>Drone Gadgets</td>
-                            <td>{(props.kdInfo.projects_assigned.drone_gadgets || 0)}</td>
+                            <td>{(props.kdInfo.projects_assigned.drone_gadgets || 0).toLocaleString()}</td>
                             <td>{displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{(props.kdInfo.projects_points.drone_gadgets || 0)}</td>
-                            <td>{(props.kdInfo.projects_max_points.drone_gadgets || 0)}</td>
+                            <td>{Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()}</td>
+                            <td>{Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}</td>
                             <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
                             <td>{
                                 <Form.Control 
@@ -855,8 +855,8 @@ function Assign(props) {
                         : <tr className="disabled-table-row">
                             <td>Drone Gadgets</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{(props.kdInfo.projects_points.drone_gadgets || 0)}</td>
-                            <td>{(props.kdInfo.projects_max_points.drone_gadgets || 0)}</td>
+                            <td>{Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()}</td>
+                            <td>{Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}</td>
                             <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
                             <td>{
                                 <Form.Control 
@@ -921,9 +921,9 @@ function Assign(props) {
                 }
                 {
                     engineersAssigned !== 0
-                    ? <h3>Unassigned Engineers: {props.engineersInfo.current_engineers - engineersAssigned}</h3>
+                    ? <h3>Unassigned Engineers: {(props.engineersInfo.current_engineers - engineersAssigned).toLocaleString()}</h3>
                     : engineersAdded !== 0
-                        ? <h3>Unassigned Engineers: {props.projectsInfo.available_engineers - engineersAdded}</h3>
+                        ? <h3>Unassigned Engineers: {(props.projectsInfo.available_engineers - engineersAdded).toLocaleString()}</h3>
                         : null
                 }
             </div>

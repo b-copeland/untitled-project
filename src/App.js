@@ -368,19 +368,19 @@ function Header(props) {
           <Clock interval={1000}/>
         </div>
         <div className="header-item">
-          <span>Stars: {kdInfo.stars}</span>
+          <span>Stars: {kdInfo.stars?.toLocaleString()}</span>
         </div>
         <div className="header-item">
-          <span>Fuel: {kdInfo.fuel}</span>
+          <span>Fuel: {Math.floor(kdInfo.fuel).toLocaleString()}</span>
         </div>
         <div className="header-item">
-          <span>Pop: {kdInfo.population}</span>
+          <span>Pop: {Math.floor(kdInfo.population).toLocaleString()}</span>
         </div>
         <div className="header-item">
-          <span>Money: {kdInfo.money}</span>
+          <span>Money: {Math.floor(kdInfo.money).toLocaleString()}</span>
         </div>
         <div className="header-item">
-          <span>Score: {kdInfo.score}</span>
+          <span>Score: {Math.floor(kdInfo.score).toLocaleString()}</span>
         </div>
         <div className="header-item">
           <span>Spy Attempts: {kdInfo.spy_attempts}</span>

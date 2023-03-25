@@ -147,8 +147,8 @@ function Revealed(props) {
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{props.galaxies_inverted[kdId] || ""}</td>
             <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
-            <td>{maxKdInfo[kdId]?.stars || ""}</td>
-            <td>{maxKdInfo[kdId]?.score || ""}</td>
+            <td>{maxKdInfo[kdId]?.stars?.toLocaleString() || ""}</td>
+            <td>{maxKdInfo[kdId]?.score?.toLocaleString() || ""}</td>
             <td>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
                     View
@@ -378,7 +378,7 @@ function Shared(props) {
         const fetchData = async () => {
             var sharedKds = Array();
             sharedKds.push.apply(
-                Object.keys(props.shared.shared),
+                Object.keys(props.shared.shared || {}),
                 // Object.keys(props.shared.shared_requests),
                 // Object.keys(props.shared.shared_offers),
             )
