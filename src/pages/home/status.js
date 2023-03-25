@@ -111,7 +111,7 @@ function Status(props) {
                 <h3>Income (per hour)</h3>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Money</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.income?.money?.net).toLocaleString()}</span>
+                    <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.money?.net).toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Mines</span>
@@ -128,7 +128,7 @@ function Status(props) {
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Fuel</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.income?.fuel?.net).toLocaleString()}</span>
+                    <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.fuel?.net).toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Fuel Plants</span>
@@ -150,12 +150,12 @@ function Status(props) {
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Population</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.income?.population).toLocaleString()}</span>
+                    <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.population).toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.income?.drones).toLocaleString()}</span>
+                    <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.drones).toLocaleString()}</span>
                 </div>
             </div>
         </div>
