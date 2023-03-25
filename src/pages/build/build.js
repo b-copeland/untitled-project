@@ -77,66 +77,81 @@ function Build(props) {
             <Accordion.Item eventKey="0">
             <Accordion.Header>Settle Queue</Accordion.Header>
             <Accordion.Body>
-                <Table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Stars</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {settleData}
-                    </tbody>
-                </Table>
-
+                {
+                    settleData.length > 0
+                    ? <Table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Stars</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {settleData}
+                        </tbody>
+                    </Table>
+                    : null
+                }
             </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="1">
             <Accordion.Header>Structures Queue</Accordion.Header>
             <Accordion.Body>
-                <Table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Structures</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {structuresData}
-                    </tbody>
-                </Table>
+                {
+                    structuresData.length > 0
+                    ? <Table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Structures</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {structuresData}
+                        </tbody>
+                    </Table>
+                    : null
+                }
             </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="2">
             <Accordion.Header>Units Queue</Accordion.Header>
             <Accordion.Body>
-                <Table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Units</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {unitsData}
-                    </tbody>
-                </Table>
+                {
+                    unitsData.length > 0
+                    ? <Table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Units</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {unitsData}
+                        </tbody>
+                    </Table>
+                    : null
+                }
             </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="3">
             <Accordion.Header>Missiles Queue</Accordion.Header>
             <Accordion.Body>
-                <Table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Missiles</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {missilesData}
-                    </tbody>
-                </Table>
+                {
+                    missilesData.length > 0
+                    ? <Table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Missiles</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {missilesData}
+                        </tbody>
+                    </Table>
+                    : null
+                }
             </Accordion.Body>
             </Accordion.Item>
         </Accordion>
