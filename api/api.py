@@ -3166,6 +3166,18 @@ def attack(target_kd):
                 headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
                 data=json.dumps(payload),
             )
+            kd_revealed_to_info = _get_kd_info(kd_revealed_to)
+            if revealed_until < kd_revealed_to_info["next_resolve"]["revealed"]:
+                kd_revealed_to_next_resolve = kd_revealed_to_info["next_resolve"]
+                kd_revealed_to_next_resolve["revealed"] = revealed_until
+                kd_revealed_to_patch_payload = {
+                    "next_resolve": kd_revealed_to_next_resolve
+                }
+                REQUESTS_SESSION.patch(
+                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}',
+                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    data=json.dumps(kd_revealed_to_patch_payload),
+                )
 
     attack_results = {
         "status": attack_status,
@@ -3721,16 +3733,13 @@ def spy(target_kd):
     if fuel_damage:
         target_patch_payload["fuel"] = max_target_kd_info["fuel"] - fuel_damage
 
-    if target_patch_payload:
-        target_kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps(target_patch_payload, default=str),
-        )
-
 
     if revealed:
         revealed_until = (time_now + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER)).isoformat()
+        if revealed_until < max_target_kd_info["next_resolve"]["revealed"]:
+            next_resolve = max_target_kd_info["next_resolve"]
+            next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until)
+            target_patch_payload["next_resolve"] = next_resolve
 
         revealed_payload = {
             "new_revealed": {
@@ -3746,6 +3755,13 @@ def spy(target_kd):
             data=json.dumps(revealed_payload),
         )
         target_message += f" Their kingdom 'stats' and 'drones' will be revealed for {BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER / 3600} hours"
+
+    if target_patch_payload:
+        target_kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(target_patch_payload, default=str),
+        )
     history_payload = {
         "time": time_now.isoformat(),
         "to": target_kd,
