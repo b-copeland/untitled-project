@@ -172,7 +172,7 @@ BASE_WORKSHOP_CAPACITY = 50
 BASE_MINES_INCOME_PER_EPOCH = 150
 BASE_FUEL_PLANTS_INCOME_PER_EPOCH = 200
 BASE_FUEL_PLANTS_CAPACITY = 1000
-BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH = 1
+BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH = 1
 
 BASE_STRUCTURES_LOSS_RETURN_RATE = 0.2
 BASE_STRUCTURES_LOSS_PER_STAR_PER_EPOCH = 0.02
@@ -191,6 +191,7 @@ BASE_PRIMITIVES_DEFENSE_PER_STAR = 100
 BASE_PRIMITIVES_MONEY_PER_STAR = 1000
 BASE_PRIMITIVES_FUEL_PER_STAR = 100
 BASE_PRIMITIVES_POPULATION_PER_STAR = 10
+BASE_PRIMITIVES_ROB_PER_DRONE = 2
 
 BASE_STARS_DRONE_DEFENSE_MULTIPLIER = 4
 BASE_DRONES_DRONE_DEFENSE_MULTIPLIER = 1
@@ -3774,6 +3775,72 @@ def spy(target_kd):
     }
     return (flask.jsonify(payload), 200)
 
+@app.route('/api/robprimitives', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def rob_primitives():
+    req = flask.request.get_json(force=True)
+    drones = int(req["drones"])
+    shielded = req["shielded"]
+
+    kd_id = flask_praetorian.current_user().kd_id
+
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    valid_request, message = _validate_spy_request(
+        drones,
+        kd_info_parse,
+        shielded,
+    )
+    if not valid_request:
+        return (flask.jsonify({"message": message}), 400)
+
+    success_losses, _ = _calculate_spy_losses(drones, shielded)
+
+    status = "success"
+    rob = drones * BASE_PRIMITIVES_ROB_PER_DRONE
+    message = f"You have robbed {rob} money from primitives. You have lost {success_losses} drones."
+    
+
+    losses = success_losses
+
+    kd_patch_payload = {
+        "drones": kd_info_parse["drones"] - losses,
+        "spy_attempts": kd_info_parse["spy_attempts"] - 1,
+        "money": kd_info_parse["money"] + rob,
+    }
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_patch_payload, default=str),
+    )
+
+    time_now = datetime.datetime.now(datetime.timezone.utc)
+    history_payload = {
+        "time": time_now.isoformat(),
+        "to": "",
+        "operation": "robprimitives",
+        "news": message,
+    }
+    kd_spy_history_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(history_payload, default=str),
+    )
+
+    payload = {
+        "status": status,
+        "message": message,
+    }
+    return (flask.jsonify(payload), 200)
+
 
 
 def _validate_missiles_request(
@@ -4183,7 +4250,7 @@ def _kingdom_with_income(
     net_fuel = income["fuel"]["net"] * epoch_elapsed
     max_fuel = math.floor(kd_info_parse["structures"]["fuel_plants"]) * BASE_FUEL_PLANTS_CAPACITY
 
-    income["drones"] = math.floor(kd_info_parse["structures"]["drone_factories"]) * BASE_DRONE_PLANTS_PRODUCTION_PER_EPOCH
+    income["drones"] = math.floor(kd_info_parse["structures"]["drone_factories"]) * BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH
     new_drones = income["drones"] * epoch_elapsed
 
     fuelless = kd_info_parse["fuel"] <= 0

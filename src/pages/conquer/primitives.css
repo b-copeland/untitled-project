@@ -3,3 +3,9 @@
     flex-direction: column;
     align-items: center;
 }
+.primitives-box {
+    margin: 10px;
+}
+.rob-button {
+    margin: 10px;
+}

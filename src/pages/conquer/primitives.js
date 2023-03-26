@@ -2,12 +2,44 @@ import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
+import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Toast from 'react-bootstrap/Toast';
+import Tab from 'react-bootstrap/Tab';
+import Tabs from 'react-bootstrap/Tabs';
 import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./primitives.css";
 
+
+
+function Primitives(props) {
+    const [key, setKey] = useState('attack');
+
+    return (
+      <Tabs
+        id="controlled-tab-example"
+        defaultActiveKey="attack"
+        justify
+        fill
+        variant="tabs"
+      >
+        <Tab eventKey="attack" title="Attack">
+          <AttackPrimitives
+            loading={props.loading}
+            updateData={props.updateData}
+            data={props.data}
+            />
+        </Tab>
+        <Tab eventKey="rob" title="Rob">
+          <RobPrimitives
+            loading={props.loading}
+            updateData={props.updateData}
+            data={props.data}/>
+        </Tab>
+      </Tabs>
+    );
+}
 
 const initialAttackerValues = {
     "recruits": "",
@@ -18,7 +50,7 @@ const initialAttackerValues = {
     "generals": "",
 }
 
-function Primitives(props) {
+function AttackPrimitives(props) {
     const [attackerValues, setAttackerValues] = useState(initialAttackerValues);
     const [calcMessage, setCalcMessage] = useState({"message": "Press calculate to project results"})
     const [loadingCalc, setLoadingCalc] = useState(false);
@@ -245,6 +277,87 @@ function Primitives(props) {
                     </Button>
                 }
             </div>
+        </div>
+    )
+}
+
+function RobPrimitives(props) {
+    const [results, setResults] = useState([]);
+    const [drones, setDrones] = useState();
+    const [shieldDrones, setShieldDrones] = useState(false);
+    const handleShieldChange = (e) => {
+        setShieldDrones(e.target.checked)
+    };
+    const handleDronesChange = (e) => {
+        setDrones(e.target.value);
+    };
+    const onClickAttack = () => {
+        const opts = {
+            "drones": drones,
+            "shielded": shieldDrones,
+        };
+        const updateFunc = async () => authFetch('api/robprimitives', {
+            method: 'POST',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
+        props.updateData(['kingdom', 'spyhistory'], [updateFunc]);
+    };
+    const toasts = results.map((result, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
+            show={true}
+            bg={result.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Shields Results</strong>
+            </Toast.Header>
+            <Toast.Body>{result.message}</Toast.Body>
+        </Toast>
+    )
+    if (drones > props.data.kingdom["drones"]) {
+        setDrones(Math.floor(props.data.kingdom["drones"]))
+    }
+    return (
+        <div className="primitives">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
+            <h2>Rob Primitives</h2>
+            <div className="text-box primitives-box">
+                <span className="box-span">Your drones will exploit primitive galaxies to steal resources.</span>
+                <br />
+                <span className="box-span">Primitives money per drone: 2</span>
+            </div>
+            <InputGroup className="mb-3 drones-input-group">
+                <InputGroup.Text id="basic-addon2">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>
+                <Form.Control 
+                    className="unit-form"
+                    id="drones-input"
+                    name="drones"
+                    onChange={handleDronesChange}
+                    value={drones || ""} 
+                    placeholder="0"
+                />
+            </InputGroup>
+            <Form>
+                <Form.Check 
+                    type="switch"
+                    id="shield-drones-switch"
+                    label="Shield Drones?"
+                    onChange={handleShieldChange}
+                />
+            </Form>
+            <span>Spy Attempts Remaining: {props.data.kingdom["spy_attempts"]}</span>
+            {
+                props.loading.kingdom
+                ? <Button className="rob-button" variant="primary" type="submit" disabled>
+                    Loading...
+                </Button>
+                : <Button className="rob-button" variant="primary" type="submit" onClick={onClickAttack}>
+                    Rob
+                </Button>
+            }
         </div>
     )
 }
