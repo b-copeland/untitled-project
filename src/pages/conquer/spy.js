@@ -114,6 +114,7 @@ function Spy(props) {
         {value: "spyprojects", "label": "Spy on Projects"},
         {value: "spystructures", "label": "Spy on Structures"},
         {value: "spydrones", "label": "Spy on Drones"},
+        {value: "siphonfunds", "label": "Siphon Funds"},
         {value: "bombhomes", "label": "Bomb Homes"},
         {value: "sabotagefuelplants", "label": "Sabotage Fuel Plants"},
         {value: "kidnappopulation", "label": "Kidnap Population"},

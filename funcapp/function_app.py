@@ -249,6 +249,8 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
 
         for resource_name in [
             "kingdom",
+            "siphons_in",
+            "siphons_out",
             "news",
             "settles",
             "mobis",
@@ -443,6 +445,112 @@ def update_kingdom(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The kingdom was not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetSiphonsIn")
+@APP.route(route="kingdom/{kdId:int}/siphonsin", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_siphons_in(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get siphons in request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"siphons_in_{kd_id}"
+    try:
+        siphons_in = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(siphons_in),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve siphons in info",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetSiphonsOut")
+@APP.route(route="kingdom/{kdId:int}/siphonsout", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_siphons_out(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get siphons out request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"siphons_out_{kd_id}"
+    try:
+        siphons_out = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(siphons_out),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve siphons out info",
+            status_code=500,
+        )
+        
+@APP.function_name(name="UpdateSiphonsOut")
+@APP.route(route="kingdom/{kdId:int}/siphonsout", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_siphonsout(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update siphons out request.')    
+    req_body = req.get_json()
+    new_siphons = req_body.get("new_siphons", None)
+    siphons = req_body.get("siphons", None)
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"siphons_out_{kd_id}"
+    siphons_out_info = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        if new_siphons:
+            siphons_out_info["siphons_out"] = siphons_out_info["siphons_out"] + [new_siphons]
+        if siphons != None:
+            siphons_out_info["siphons_out"] = siphons
+        CONTAINER.replace_item(
+            item_id,
+            siphons_out_info,
+        )
+        return func.HttpResponse(
+            "Kingdom siphons out updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom siphons out were not updated",
+            status_code=500,
+        )
+        
+@APP.function_name(name="UpdateSiphonsIn")
+@APP.route(route="kingdom/{kdId:int}/siphonsin", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_siphonsin(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update siphons in request.')    
+    req_body = req.get_json()
+    new_siphons = req_body.get("new_siphons", None)
+    siphons = req_body.get("siphons", None)
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"siphons_in_{kd_id}"
+    siphons_in_info = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        if new_siphons:
+            siphons_in_info["siphons_in"] = siphons_in_info["siphons_in"] + [new_siphons]
+        if siphons != None:
+            siphons_in_info["siphons_in"] = siphons
+        CONTAINER.replace_item(
+            item_id,
+            siphons_in_info,
+        )
+        return func.HttpResponse(
+            "Kingdom siphons in updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom siphons in were not updated",
             status_code=500,
         )
 

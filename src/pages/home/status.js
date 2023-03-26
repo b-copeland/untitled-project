@@ -74,15 +74,15 @@ function Status(props) {
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Stars</span>
-                    <span className="text-box-item-value">{props.kingdom.stars.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom.stars?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Population</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.population).toLocaleString()}</span>
+                    <span className="text-box-item-value">{Math.floor(props.kingdom.population)?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Fuel</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.fuel).toLocaleString()}</span>
+                    <span className="text-box-item-value">{Math.floor(props.kingdom.fuel)?.toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
@@ -91,7 +91,7 @@ function Status(props) {
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.drones).toLocaleString()}</span>
+                    <span className="text-box-item-value">{Math.floor(props.kingdom.drones)?.toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
@@ -124,6 +124,14 @@ function Status(props) {
                 <div className="text-box-item">
                     <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Bonus</span>
                     <span className="text-box-item-value">{displayPercent(props.kingdom.income?.money?.bonus)}</span>
+                </div>
+                <div className="text-box-item">
+                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Siphons In</span>
+                    <span className="text-box-item-value">{Math.floor(props.kingdom.income?.money?.siphons_in).toLocaleString()}</span>
+                </div>
+                <div className="text-box-item">
+                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Siphons Out</span>
+                    <span className="text-box-item-value">-{Math.floor(props.kingdom.income?.money?.siphons_out).toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">

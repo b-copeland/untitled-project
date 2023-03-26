@@ -200,6 +200,8 @@ BASE_DRONES_FAILURE_LOSS_RATE = 0.02
 BASE_DRONES_SHIELDING_LOSS_REDUCTION = 0.5
 BASE_REVEAL_DURATION_MULTIPLIER = 8
 
+BASE_DRONES_SIPHON_PER_DRONE = 8
+BASE_DRONES_SIPHON_TIME_MULTIPLIER = 8
 BASE_DRONES_PER_HOME_DAMAGE = 1500
 BASE_DRONES_MAX_HOME_DAMAGE = 0.05
 BASE_DRONES_PER_FUEL_PLANT_DAMAGE = 1500
@@ -208,6 +210,8 @@ BASE_DRONES_PER_KIDNAP = 10
 BASE_DRONES_MAX_KIDNAP_DAMAGE = 0.05
 BASE_DRONES_SUICIDE_FUEL_DAMAGE = 5
 BASE_KIDNAP_RETURN_RATE = 0.4
+
+BASE_MAX_SIPHON = 0.10
 
 BASE_POP_INCOME_PER_EPOCH = 2
 BASE_POP_FUEL_CONSUMPTION_PER_EPOCH = 0.5
@@ -238,6 +242,7 @@ REVEAL_OPERATIONS = [
     "spydrones",
 ]
 AGGRO_OPERATIONS = [
+    "siphonfunds",
     "bombhomes",
     "sabotagefuelplants",
     "kidnappopulation",
@@ -344,6 +349,8 @@ INITIAL_KINGDOM_STATE = {
             "missiles": 0.0
         },
     },
+    "siphons_in": {"siphons_in": []},
+    "siphons_out": {"siphons_out": []},
     "news": {"news": []},
     "settles": {"settles": []},
     "mobis": {"mobis": []},
@@ -3492,6 +3499,11 @@ def calculate_spy(target_kd):
         reveal_duration_seconds = BASE_REVEAL_DURATION_MULTIPLIER * BASE_EPOCH_SECONDS
         reveal_duration_hours = reveal_duration_seconds / 3600
         message += f"If successful, the target's {revealed_stat} will be revealed for {reveal_duration_hours} hours.\n"
+    if operation == "siphonfunds":
+        siphon_damage = math.floor(drones * BASE_DRONES_SIPHON_PER_DRONE)
+        siphon_seconds = BASE_DRONES_SIPHON_TIME_MULTIPLIER * BASE_EPOCH_SECONDS
+        siphon_hours = siphon_seconds / 3600
+        message = f"If successful, you will siphon up to {siphon_damage} money over the next {siphon_hours} hours."
     if operation == "bombhomes":
         if "structures" in max_target_kd_info.keys():
             homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * BASE_DRONES_MAX_HOME_DAMAGE), math.floor(drones / BASE_DRONES_PER_HOME_DAMAGE))
@@ -3589,6 +3601,8 @@ def spy(target_kd):
 
     time_now = datetime.datetime.now(datetime.timezone.utc)
     revealed_until = None
+    siphon_damage = None
+    siphon_until = None
     homes_damage = None
     fuel_plant_damage = None
     kidnap_damage = None
@@ -3626,6 +3640,13 @@ def spy(target_kd):
                 message = f"Success! The target will be revealed for {reveal_duration_hours} hours. You have lost {success_losses} drones."
                 target_message = "You were infiltrated by drones on a spy operation."
             
+            if operation == "siphonfunds":
+                siphon_damage = drones * BASE_DRONES_SIPHON_PER_DRONE
+                siphon_seconds = BASE_DRONES_SIPHON_TIME_MULTIPLIER * BASE_EPOCH_SECONDS
+                siphon_hours = siphon_seconds / 3600
+                siphon_until = time_now + datetime.timedelta(seconds=siphon_seconds)
+                message = f"Success! Your drones will siphon up to {siphon_damage} money over the next {siphon_hours} hours. You have lost {success_losses} drones."
+                target_message = f"Enemy drones have begun siphoning up to {siphon_damage} money over the next {siphon_hours} hours."
             if operation == "bombhomes":
                 homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * BASE_DRONES_MAX_HOME_DAMAGE), math.floor(drones / BASE_DRONES_PER_HOME_DAMAGE))
                 message = f"Success! You have destroyed {homes_damage} homes. You have lost {success_losses} drones."
@@ -3671,6 +3692,19 @@ def spy(target_kd):
     )
 
     target_patch_payload = {}
+    if siphon_damage:
+        siphons_out_payload = {
+            "new_siphons": {
+                "from": kd_id,
+                "time": siphon_until,
+                "siphon": siphon_damage
+            }
+        }
+        siphons_out_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/siphonsout',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(siphons_out_payload, default=str),
+        )
     if homes_damage:
         target_patch_payload["structures"] = {
             **max_target_kd_info["structures"],
@@ -4023,7 +4057,81 @@ def _calc_structures_losses(
     }
     return structures_to_reduce
     
+def _get_siphons_in(kd_id):
+    siphons_in_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsin',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print("Siphons in text:", siphons_in_info.text, file=sys.stderr)
+    siphons_in_info_parse = json.loads(siphons_in_info.text)
+    return siphons_in_info_parse["siphons_in"]
+    
+def _get_siphons_out(kd_id):
+    siphons_out_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsout',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print("Siphons out text:", siphons_out_info.text, file=sys.stderr)
+    siphons_out_info_parse = json.loads(siphons_out_info.text)
+    return siphons_out_info_parse["siphons_out"]
+    
 
+def _calc_siphons(
+    gross_income,
+    kd_id,
+    time_update,
+    epoch_elapsed,
+):
+    siphons_out = _get_siphons_out(kd_id)
+    siphons_in = _get_siphons_in(kd_id)
+
+    total_siphons = sum([siphon["siphon"] for siphon in siphons_out])
+    siphon_pool = min(gross_income * BASE_MAX_SIPHON, total_siphons)
+    keep_siphons = []
+    for siphon_out in siphons_out:
+        from_kd = siphon_out["from"]
+        time_expiry = datetime.datetime.fromisoformat(siphon_out["time"]).astimezone(datetime.timezone.utc)
+        pct_siphon = siphon_out["siphon"] / total_siphons
+        siphon_money = pct_siphon * siphon_pool * epoch_elapsed
+        payload_siphons_in = {
+            "new_siphons": {
+                "from": kd_id,
+                "siphon": siphon_money,
+            }
+        }
+        siphons_in_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{from_kd}/siphonsin',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload_siphons_in),
+        )
+        if time_expiry > time_update:
+            keep_siphons.append(
+                {
+                    "from": siphon_out["from"],
+                    "time": siphon_out["time"],
+                    "siphon": siphon_out["siphon"] - siphon_money
+                }
+            )
+    
+    siphon_out_payload = {
+        "siphons": keep_siphons,
+    }
+    siphon_out_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsout',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(siphon_out_payload),
+    )
+
+    siphon_in_income = sum(siphon["siphon"] for siphon in siphons_in) / epoch_elapsed
+    resolve_siphons_in_payload = {
+        "siphons": []
+    }
+    resolve_siphons_in = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsin',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(resolve_siphons_in_payload),
+    )
+    return siphon_pool, siphon_in_income
 
 def _kingdom_with_income(
     kd_info_parse,
@@ -4041,10 +4149,17 @@ def _kingdom_with_income(
     income["money"]["mines"] = math.floor(kd_info_parse["structures"]["mines"]) * BASE_MINES_INCOME_PER_EPOCH
     income["money"]["population"] = math.floor(kd_info_parse["population"]) * BASE_POP_INCOME_PER_EPOCH
     income["money"]["bonus"] = current_bonuses["money_bonus"]
-    income["money"]["net"] = (
+    income["money"]["gross"] = (
         income["money"]["mines"]
         + income["money"]["population"]
     ) * (1 + income["money"]["bonus"])
+    income["money"]["siphons_out"], income["money"]["siphons_in"] = _calc_siphons(
+        income["money"]["gross"],
+        kd_info_parse["kdId"],
+        time_now,
+        epoch_elapsed,
+    )
+    income["money"]["net"] = (income["money"]["gross"] + income["money"]["siphons_in"] - income["money"]["siphons_out"])
     new_income = income["money"]["net"] * epoch_elapsed
 
     income["fuel"]["fuel_plants"] = math.floor(kd_info_parse["structures"]["fuel_plants"]) * BASE_FUEL_PLANTS_INCOME_PER_EPOCH
