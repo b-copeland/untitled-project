@@ -92,7 +92,7 @@ function Recruits(props) {
             <div className="text-box recruits-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Recruit Time</span>
-                    <span className="text-box-item-value">12h</span>
+                    <span className="text-box-item-value">{(props.mobisInfo.recruit_time / 3600).toFixed(1)}h</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Recruit Cost</span>

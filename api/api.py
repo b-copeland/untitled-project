@@ -386,7 +386,7 @@ GALAXY_POLICIES = {
         "options": {
             "1": {
                 "name": "Expansionist",
-                "desc": "You grow your kingdoms through peaceful exploration. Your galaxy's exploration costs 15% less"
+                "desc": "You grow your kingdoms through exploring new frontiers. Your galaxy's settling costs 15% less"
             },
             "2": {
                 "name": "Warlike",
@@ -402,12 +402,17 @@ GALAXY_POLICIES = {
                 "desc": "You protect your kingdoms through proactive intelligence gathering. Your galaxy's spy attempts return 10% faster"
             },
             "2": {
-                "name": "Strategy",
-                "desc": "You protect your kingdoms through careful military strategy. Your galaxy's kingdoms lose 15% less military units when defending"
+                "name": "Conscription",
+                "desc": "You protect your kingdoms through mandatory military enlistment. Your galaxy's recruits are trained 20% faster"
             }
         }
     },
 }
+
+BASE_EXPANSIONIST_SETTLE_REDUCTION = 0.15
+BASE_WARLIKE_RETURN_REDUCTION = 0.1
+BASE_INTELLIGENCE_RETURN_REDUCTION = 0.1
+BASE_CONSCRIPTION_TIME_REDUCTION = 0.2
 
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
@@ -1370,6 +1375,9 @@ def _get_mobis_info(kd_id):
     mobis_info_parse = json.loads(mobis_info.text)
     return mobis_info_parse["mobis"]
 
+def _calc_recruit_time(is_conscription):
+    return BASE_EPOCH_SECONDS * BASE_RECRUIT_TIME_MULTIPLIER * (1 - int(is_conscription) * BASE_CONSCRIPTION_TIME_REDUCTION)
+
 @app.route('/api/mobis', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
@@ -1404,12 +1412,18 @@ def mobis():
         key=lambda queue: queue["time"],
     )[:10]
 
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    is_conscription = "Conscription" in galaxy_policies["active_policies"]
+    recruit_time = _calc_recruit_time(is_conscription)
+
     max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
     max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units)
     payload = {
         'units': units,
         'maxes': maxes,
         'recruit_price': BASE_RECRUIT_COST,
+        'recruit_time': recruit_time,
         'max_hangar_capacity': max_hangar_capacity,
         'current_hangar_capacity': current_hangar_capacity,
         'max_available_recruits': max_available_recruits,
@@ -1463,7 +1477,12 @@ def recruits():
     if not valid_recruits:
         return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
 
-    mobis_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_RECRUIT_TIME_MULTIPLIER)).isoformat()
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    is_conscription = "Conscription" in galaxy_policies["active_policies"]
+    recruit_time = _calc_recruit_time(is_conscription)
+
+    mobis_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=recruit_time)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["mobis"] = min(next_resolve["mobis"], mobis_time)
     new_money = kd_info_parse["money"] - BASE_RECRUIT_COST * recruits_input
@@ -1860,17 +1879,17 @@ def _get_settle_info(kd_id):
     settle_info_parse = json.loads(settle_info.text)
     return settle_info_parse["settles"]
 
-def _get_settle_price(kd_info):
-    return BASE_SETTLE_COST(int(kd_info["stars"]))
+def _get_settle_price(kd_info, is_expansionist):
+    return BASE_SETTLE_COST(int(kd_info["stars"])) * (1 - int(is_expansionist) * BASE_EXPANSIONIST_SETTLE_REDUCTION)
 
-def _get_available_settle(kd_info, settle_info):
+def _get_available_settle(kd_info, settle_info, is_expansionist):
     max_settle = BASE_MAX_SETTLE(int(kd_info["stars"]))
     current_settle = sum([
         int(settle_item["amount"])
         for settle_item in settle_info
     ])
     max_available_settle = max(max_settle - current_settle, 0)
-    current_settle_cost = _get_settle_price(kd_info)
+    current_settle_cost = _get_settle_price(kd_info, is_expansionist)
     max_settle_cost = current_settle_cost * max_available_settle
     try:
         current_available_settle = min(
@@ -1906,8 +1925,11 @@ def get_settle():
         key=lambda queue: queue["time"],
     )[:10]
 
-    settle_price = _get_settle_price(kd_info_parse)
-    max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info)
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
+    settle_price = _get_settle_price(kd_info_parse, is_expansionist)
+    max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info, is_expansionist)
 
     payload = {
         "settle_price": settle_price,
@@ -1918,8 +1940,8 @@ def get_settle():
 
     return (flask.jsonify(payload), 200)
 
-def _validate_settles(settle_input, kd_info, settle_info):
-    max_settle, available_settle = _get_available_settle(kd_info, settle_info)
+def _validate_settles(settle_input, kd_info, settle_info, is_expansionist):
+    max_settle, available_settle = _get_available_settle(kd_info, settle_info, is_expansionist)
     if settle_input <= 0:
         return False
     if settle_input > available_settle:
@@ -1952,11 +1974,15 @@ def settle():
     kd_info_parse = json.loads(kd_info.text)
 
     settle_info = _get_settle_info(kd_id)
-    valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info)
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
+    valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info, is_expansionist)
     if not valid_settle:
         return (flask.jsonify({"message": 'Please enter valid settle value'}), 400)
 
-    settle_price = _get_settle_price(kd_info_parse)
+
+    settle_price = _get_settle_price(kd_info_parse, is_expansionist)
     new_money = kd_info_parse["money"] - settle_price * settle_input
     settle_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
@@ -2761,9 +2787,10 @@ def _calc_generals_return_time(
     generals,
     return_multiplier,
     base_time,
-    general_bonus=0
+    general_bonus=0,
+    is_warlike=False,
 ):
-    return_time_with_bonus = datetime.timedelta(seconds=BASE_EPOCH_SECONDS * return_multiplier) * (1 - general_bonus)
+    return_time_with_bonus = datetime.timedelta(seconds=BASE_EPOCH_SECONDS * return_multiplier) * (1 - general_bonus - int(is_warlike) * BASE_WARLIKE_RETURN_REDUCTION)
     print(return_time_with_bonus)
     return_times = [
         base_time + (return_time_with_bonus / i)
@@ -2868,11 +2895,15 @@ def calculate_attack(target_kd):
         BASE_DEFENDER_UNIT_LOSS_RATE * attack_ratio,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    is_warlike = "Warlike" in galaxy_policies["active_policies"]
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
         time_now,
         current_bonuses["general_bonus"],
+        is_warlike=is_warlike
     )
     generals_strftime = ', '.join([
         str(general_return_time - time_now)
@@ -3017,11 +3048,15 @@ def attack(target_kd):
         BASE_DEFENDER_UNIT_LOSS_RATE * attack_ratio,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    is_warlike = "Warlike" in galaxy_policies["active_policies"]
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
         time_now,
         current_bonuses["general_bonus"],
+        is_warlike=is_warlike
     )
     new_home_attacker_units = {
         key_unit: value_unit - attacker_units.get(key_unit, 0)
@@ -3275,11 +3310,15 @@ def calculate_attack_primitives():
         BASE_ATTACKER_UNIT_LOSS_RATE,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    is_warlike = "Warlike" in galaxy_policies["active_policies"]
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
         time_now,
         current_bonuses["general_bonus"],
+        is_warlike=is_warlike
     )
     generals_strftime = ', '.join([
         str(general_return_time - time_now)
@@ -3357,11 +3396,15 @@ def attack_primitives():
         BASE_ATTACKER_UNIT_LOSS_RATE,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    is_warlike = "Warlike" in galaxy_policies["active_policies"]
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
         time_now,
         current_bonuses["general_bonus"],
+        is_warlike=is_warlike
     )
     new_home_attacker_units = {
         key_unit: value_unit - attacker_units.get(key_unit, 0)
@@ -4083,9 +4126,10 @@ def launch_missiles(target_kd):
     }
     return (flask.jsonify(payload), 200)
 
-def _get_galaxy_politics(kd_id):
-    galaxies_inverted, _ = _get_galaxies_inverted()
-    galaxy_id = galaxies_inverted[kd_id]
+def _get_galaxy_politics(kd_id, galaxy_id=None):
+    if not galaxy_id:
+        galaxies_inverted, _ = _get_galaxies_inverted()
+        galaxy_id = galaxies_inverted[kd_id]
     galaxy_politics_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
@@ -4717,8 +4761,13 @@ def _resolve_generals(kd_info_parse, time_update):
 
 def _resolve_spy(kd_info_parse, time_update, current_bonuses):
     resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["spy_attempt"]).astimezone(datetime.timezone.utc)
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxy_policies, _ = _get_galaxy_politics(kd_info_parse["kdId"], galaxies_inverted[kd_info_parse["kdId"]])
+    is_intelligence = "Intelligence" in galaxy_policies["active_policies"]
     next_resolve_time = max(
-        resolve_time + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPY_ATTEMPT_TIME_MULTIPLIER * (1 - current_bonuses["spy_bonus"])),
+        resolve_time + datetime.timedelta(
+            seconds=BASE_EPOCH_SECONDS * BASE_SPY_ATTEMPT_TIME_MULTIPLIER * (1 - current_bonuses["spy_bonus"] - int(is_intelligence) * BASE_INTELLIGENCE_RETURN_REDUCTION)
+        ),
         time_update,
     )
     if kd_info_parse["spy_attempts"] < BASE_SPY_ATTEMPTS_MAX:
