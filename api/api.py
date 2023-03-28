@@ -380,6 +380,35 @@ KINGDOM_CREATOR_POINTS = {
     "engineers": 10,
 }
 
+GALAXY_POLICIES = {
+    "policy_1": {
+        "name": "Growth Doctrine",
+        "options": {
+            "1": {
+                "name": "Expansionist",
+                "desc": "You grow your kingdoms through peaceful exploration. Your galaxy's exploration costs 15% less"
+            },
+            "2": {
+                "name": "Warlike",
+                "desc": "You grow your kingdoms through military force. Your galaxy's generals return 10% faster"
+            }
+        }
+    },
+    "policy_2": {
+        "name": "Defense Doctrine",
+        "options": {
+            "1": {
+                "name": "Intelligence",
+                "desc": "You protect your kingdoms through proactive intelligence gathering. Your galaxy's spy attempts return 10% faster"
+            },
+            "2": {
+                "name": "Strategy",
+                "desc": "You protect your kingdoms through careful military strategy. Your galaxy's kingdoms lose 15% less military units when defending"
+            }
+        }
+    },
+}
+
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -560,6 +589,14 @@ def update_state():
     )
     return flask.jsonify(update_response.text), 200
 
+def _create_galaxy(galaxy_id):
+    create_galaxy_response = REQUESTS_SESSION.post(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+    )
+    return create_galaxy_response.text
+
+
 @app.route('/api/createstate', methods=["POST"])
 @flask_praetorian.roles_required('admin')
 def create_state():
@@ -574,11 +611,7 @@ def create_state():
 
     for i in range(0, num_galaxies):
         galaxy_id = f"1:{i + 1}"
-        create_galaxy_response = REQUESTS_SESSION.post(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps(req)
-        )
+        _create_galaxy(galaxy_id)
     
     update_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
@@ -4049,6 +4082,122 @@ def launch_missiles(target_kd):
         "message": message,
     }
     return (flask.jsonify(payload), 200)
+
+def _get_galaxy_politics(kd_id):
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxy_id = galaxies_inverted[kd_id]
+    galaxy_politics_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(galaxy_politics_info.text, file=sys.stderr)
+    galaxy_politics_info_parse = json.loads(galaxy_politics_info.text)
+    return galaxy_politics_info_parse, galaxy_id
+
+@app.route('/api/galaxypolitics', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def galaxy_politics():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    galaxy_votes, _ = _get_galaxy_politics(kd_id)
+    payload = {
+        **galaxy_votes,
+        "desc": GALAXY_POLICIES,
+    }
+    return (flask.jsonify(payload), 200)
+
+@app.route('/api/galaxypolitics/leader', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def galaxy_leader():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    galaxy_votes, galaxy_id = _get_galaxy_politics(kd_id)
+
+    galaxy_votes["votes"]["leader"][kd_id] = req["selected"]
+    patch_payload = {
+        "votes": galaxy_votes["votes"],
+    }
+    leader_votes = collections.defaultdict(int)
+    for leader in galaxy_votes["votes"]["leader"].values():
+        leader_votes[leader] += 1
+
+    current_leader = galaxy_votes["leader"]
+    most_votes = max(leader_votes.values())
+    kds_with_most_votes = [
+        k
+        for k, v in leader_votes.items()
+        if v == most_votes
+    ]
+    if len(kds_with_most_votes) == 1 and (kds_with_most_votes[0] != current_leader):
+        patch_payload["leader"] = kds_with_most_votes[0]
+    
+    galaxy_politics_info = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(patch_payload)
+    )
+
+    return (flask.jsonify(galaxy_votes), 200)
+
+@app.route('/api/galaxypolitics/policies', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def galaxy_policies():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    galaxy_votes, galaxy_id = _get_galaxy_politics(kd_id)
+
+    galaxy_votes["votes"][req["policy"]][kd_id] = req["option"].split('_')[-1]
+    patch_payload = {
+        "votes": galaxy_votes["votes"],
+    }
+    policy_votes = collections.defaultdict(int)
+    for policy in galaxy_votes["votes"][req["policy"]].values():
+        policy_votes[policy] += 1
+
+    current_option_winner = galaxy_votes[f"{req['policy']}_winner"]
+    most_votes = max(policy_votes.values())
+    policies_with_most_votes = [
+        k
+        for k, v in policy_votes.items()
+        if v == most_votes
+    ]
+    if len(policies_with_most_votes) == 1 and (policies_with_most_votes[0] != current_option_winner):
+        patch_payload[f"{req['policy']}_winner"] = policies_with_most_votes[0]
+        option_names = [option["name"] for option in GALAXY_POLICIES[req["policy"]]["options"].values()]
+        new_option_name = GALAXY_POLICIES[req["policy"]]["options"][policies_with_most_votes[0]]["name"]
+        new_active_policies = [policy for policy in galaxy_votes["active_policies"] if policy not in option_names] + [new_option_name]
+        patch_payload["active_policies"] = new_active_policies
+
+    galaxy_politics_info = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(patch_payload)
+    )
+
+    return (flask.jsonify(galaxy_votes), 200)
 
 def _calc_pop_change_per_epoch(
     kd_info_parse,

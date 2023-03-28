@@ -202,6 +202,12 @@ def create_galaxy(req: func.HttpRequest) -> func.HttpResponse:
                     "news": [],
                 }
             )
+            CONTAINER.create_item(
+                {
+                    "id": f"galaxy_votes_{galaxy_id}",
+                    "votes": {},
+                }
+            )
         return func.HttpResponse(
             "Created galaxy",
             status_code=201,
@@ -376,6 +382,56 @@ def get_galaxies(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "Could not retrieve galaxies info",
+            status_code=500,
+        )
+
+
+@APP.function_name(name="GetGalaxyPolitics")
+@APP.route(route="galaxy/{galaxy_id}/politics", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_galaxy_politics(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get galaxy politics request.')    
+    galaxy_id = str(req.route_params.get('galaxy_id'))
+    item_id = f"galaxy_votes_{galaxy_id}"
+    try:
+        galaxy_votes = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(galaxy_votes),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve galaxy politics info",
+            status_code=500,
+        )
+
+
+@APP.function_name(name="UpdateGalaxyPolitics")
+@APP.route(route="galaxy/{galaxy_id}/politics", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_galaxy_politics(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a galaxy politics update request.')    
+    req_body = req.get_json()
+    galaxy_id = str(req.route_params.get('galaxy_id'))
+    item_id = f"galaxy_votes_{galaxy_id}"
+    galaxy_votes = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        update_galaxy_votes = {**galaxy_votes, **req_body}
+        CONTAINER.replace_item(
+            item_id,
+            update_galaxy_votes,
+        )
+        return func.HttpResponse(
+            "Galaxy politics updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The galaxy politics were not updated",
             status_code=500,
         )
 

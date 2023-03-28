@@ -33,6 +33,7 @@ import Spy from "./pages/conquer/spy.js";
 import ShareIntel from "./pages/conquer/shareintel.js";
 import LaunchMissiles from "./pages/conquer/launchmissiles.js";
 import Primitives from "./pages/conquer/primitives.js";
+import GalaxyPolitics from "./pages/politics/galaxypolitics.js";
 
 
 const ProtectedRoute = ({ logged, session, kingdomid, redirectPath = '/login', children }) => {
@@ -66,9 +67,6 @@ const initGlobalData = {
   'empires': {},
   'empires_inverted': {},
   'news': [],
-  'galaxynews': [],
-  'empirenews': [],
-  'universenews': [],
   'settle': {},
   'structures': {},
   'mobis': {},
@@ -78,9 +76,13 @@ const initGlobalData = {
   'revealed': {},
   'shared': {},
   'pinned': [],
+  'galaxypolitics': {},
   'attackhistory': [],
   'spyhistory': [],
   'missilehistory': [],
+  'galaxynews': [],
+  'empirenews': [],
+  'universenews': [],
 }
 const initLoadingData = {
   'kingdomid': true,
@@ -104,6 +106,7 @@ const initLoadingData = {
   'revealed': true,
   'shared': true,
   'pinned': true,
+  'galaxypolitics': true,
   'attackhistory': true,
   'spyhistory': true,
   'missilehistory': true,
@@ -130,6 +133,7 @@ const endpoints = {
   'revealed': 'api/revealed',
   'shared': 'api/shared',
   'pinned': 'api/pinned',
+  'galaxypolitics': 'api/galaxypolitics',
   'attackhistory': 'api/attackhistory',
   'spyhistory': 'api/spyhistory',
   'missilehistory': 'api/missilehistory',
@@ -167,7 +171,6 @@ function Content(props) {
     var newValues = JSON.parse(JSON.stringify(data));
     var newLoading = {...loading};
     var loadKeys = keys;
-    console.log(keys.includes("all"))
     if (keys.includes("all")) {
       loadKeys = Object.keys(initGlobalData);
       console.log(loadKeys);
@@ -297,6 +300,7 @@ function Content(props) {
                   <Route path="/shareintel" element={<ShareIntel data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/launchmissiles" element={<LaunchMissiles data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/primitives" element={<Primitives data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/galaxypolitics" element={<GalaxyPolitics data={data} loading={loading} updateData={updateData}/>}/>
                 </Route>
                 <Route path="/finalize" element={<Finalize />}/>
                 <Route path="/" element={<Home logged={props.logged}/>}/>

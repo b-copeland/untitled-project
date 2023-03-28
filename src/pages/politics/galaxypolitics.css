@@ -1,0 +1,30 @@
+.galaxy-politics {
+    min-height: 480px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.galaxy-policies {
+    min-height: 480px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.galaxy-policy-options {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+.galaxy-policy-card {
+    display: flex;
+    flex-direction: columns;
+    align-items: center;
+    width: 50%;
+}
+.galaxy-policy-button {
+    width: 40%;
+}
+.galaxy-policy-winner {
+    border: 5px solid var(--bs-primary);
+}
