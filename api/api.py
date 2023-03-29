@@ -6,6 +6,7 @@ import random
 import requests
 import sys
 import json
+import copy
 from functools import wraps
 
 import flask
@@ -235,6 +236,8 @@ BASE_MISSILES_SHIELDS_MAX = 1.0
 BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT = 0.005
 
 BASE_VOTES_COST = 10000
+BASE_ELECTION_LENGTH_SECONDS = BASE_EPOCH_SECONDS * 24 * 1
+BASE_ELECTION_RESULTS_DURATION = BASE_EPOCH_SECONDS * 24 * 6
 
 REVEAL_OPERATIONS = [
     "spykingdom",
@@ -444,6 +447,10 @@ BASE_EXPANSIONIST_SETTLE_REDUCTION = 0.15
 BASE_WARLIKE_RETURN_REDUCTION = 0.1
 BASE_INTELLIGENCE_RETURN_REDUCTION = 0.1
 BASE_CONSCRIPTION_TIME_REDUCTION = 0.2
+BASE_UNREGULATED_COST_REDUCTION = 0.2
+BASE_TREATIED_COST_INCREASE = 0.2
+BASE_FREE_TRADE_INCREASE = 0.1
+BASE_ISOLATIONIST_DECREASE = 0.1
 
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
@@ -610,17 +617,21 @@ def reset_state():
     db.session.commit()
     return flask.jsonify(create_response.text), 200
 
+def _get_state():
+    get_response = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/state',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+    )
+    get_response_json = json.loads(get_response.text)
+    return get_response_json
+
 @app.route('/api/state', methods=["GET"])
 # @flask_praetorian.roles_required('verified')
 def get_state():
     """
     Get state
     """    
-    get_response = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/state',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-    )
-    get_response_json = json.loads(get_response.text)
+    get_response_json = _get_state()
     return flask.jsonify(get_response_json), 200
 
 def _create_galaxy(galaxy_id):
@@ -1429,6 +1440,18 @@ def _get_mobis_info(kd_id):
 def _calc_recruit_time(is_conscription):
     return BASE_EPOCH_SECONDS * BASE_RECRUIT_TIME_MULTIPLIER * (1 - int(is_conscription) * BASE_CONSCRIPTION_TIME_REDUCTION)
 
+def _get_units_adjusted_costs(state):
+    is_unregulated = "Unregulated" in state["state"]["active_policies"]
+    is_treatied = "Treatied" in state["state"]["active_policies"]
+    
+    cost_modifier = 1.0 - is_unregulated * BASE_UNREGULATED_COST_REDUCTION + is_treatied * BASE_TREATIED_COST_INCREASE
+    units_desc = copy.deepcopy(UNITS)
+    for unit, unit_dict in units_desc.items():
+        if "cost" in unit_dict:
+            unit_dict["cost"] = unit_dict["cost"] * cost_modifier
+
+    return units_desc
+
 @app.route('/api/mobis', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
@@ -1468,6 +1491,9 @@ def mobis():
     is_conscription = "Conscription" in galaxy_policies["active_policies"]
     recruit_time = _calc_recruit_time(is_conscription)
 
+    state = _get_state()
+    units_adjusted_costs = _get_units_adjusted_costs(state)
+
     max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
     max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units)
     payload = {
@@ -1479,7 +1505,7 @@ def mobis():
         'current_hangar_capacity': current_hangar_capacity,
         'max_available_recruits': max_available_recruits,
         'current_available_recruits': current_available_recruits,
-        'units_desc': UNITS,
+        'units_desc': units_adjusted_costs,
         'top_queue': top_queue,
         }
     return (flask.jsonify(payload), 200)
@@ -1559,8 +1585,10 @@ def recruits():
     return (flask.jsonify({"message": "Successfully began recruiting", "status": "success"}), 200)
 
 def _get_mobis_cost(mobis_request):
+    state = _get_state()
+    units_adjusted_costs = _get_units_adjusted_costs(state)
     mobis_cost = sum([
-        UNITS[k]['cost'] * units_value
+        units_adjusted_costs[k]['cost'] * units_value
         for k, units_value in mobis_request.items()
     ])
     return mobis_cost
@@ -4432,7 +4460,7 @@ def universe_policies():
         universe_politics["votes"][policy][option][kd_id] += votes
     except KeyError:
         universe_politics["votes"][policy][option][kd_id] = votes
-        
+
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -4617,11 +4645,15 @@ def _calc_siphons(
 def _kingdom_with_income(
     kd_info_parse,
     current_bonuses,
-): # TODO: Pop handling
+    state,
+):
     time_now = datetime.datetime.now(datetime.timezone.utc)
     time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_now - time_last_income).total_seconds()
     epoch_elapsed = seconds_elapsed / BASE_EPOCH_SECONDS
+
+    is_isolationist = "Isolationist" in state["state"]["active_policies"]
+    is_free_trade = "Free Trade" in state["state"]["active_policies"]
 
     income = {
         "money": {},
@@ -4629,7 +4661,7 @@ def _kingdom_with_income(
     }
     income["money"]["mines"] = math.floor(kd_info_parse["structures"]["mines"]) * BASE_MINES_INCOME_PER_EPOCH
     income["money"]["population"] = math.floor(kd_info_parse["population"]) * BASE_POP_INCOME_PER_EPOCH
-    income["money"]["bonus"] = current_bonuses["money_bonus"]
+    income["money"]["bonus"] = current_bonuses["money_bonus"] - is_isolationist * BASE_ISOLATIONIST_DECREASE + is_free_trade * BASE_FREE_TRADE_INCREASE
     income["money"]["gross"] = (
         income["money"]["mines"]
         + income["money"]["population"]
@@ -4992,12 +5024,91 @@ def _mark_kingdom_death(kd_id):
     db.session.commit()
     return flask.jsonify(str(user.__dict__))
 
+def _begin_election(state):
+    election_start = datetime.datetime.fromisoformat(state["state"]["election_start"]).astimezone(datetime.timezone.utc)
+    election_end = election_start + datetime.timedelta(seconds=BASE_ELECTION_LENGTH_SECONDS)
+
+    state_payload = {
+        "election_end": election_end.isoformat(),
+        "active_policies": [],
+    }
+
+    universe_politics_payload = {
+        "votes": {
+            "policy_1": {
+                "option_1": {},
+                "option_2": {},
+            },
+            "policy_2": {
+                "option_1": {},
+                "option_2": {},
+            },
+        }
+    }
+
+    universe_politics_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universepolitics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(universe_politics_payload)
+    )
+    update_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(state_payload)
+    )
+    return state
+
+def _resolve_election(state):
+    election_end = datetime.datetime.fromisoformat(state["state"]["election_end"]).astimezone(datetime.timezone.utc)
+    next_election_start = election_end + datetime.timedelta(seconds=BASE_ELECTION_RESULTS_DURATION)
+
+
+    universe_politics = _get_universe_politics()
+    policy_1_option_1_votes = sum(universe_politics["votes"]["policy_1"]["option_1"].values())
+    policy_1_option_2_votes = sum(universe_politics["votes"]["policy_1"]["option_2"].values())
+    policy_2_option_1_votes = sum(universe_politics["votes"]["policy_2"]["option_1"].values())
+    policy_2_option_2_votes = sum(universe_politics["votes"]["policy_2"]["option_2"].values())
+
+    active_policies = []
+    if policy_1_option_1_votes >= policy_1_option_2_votes:
+        active_policies.append(UNIVERSE_POLICIES["policy_1"]["options"]["1"]["name"])
+    else:
+        active_policies.append(UNIVERSE_POLICIES["policy_1"]["options"]["2"]["name"])
+
+        
+    if policy_2_option_1_votes >= policy_2_option_2_votes:
+        active_policies.append(UNIVERSE_POLICIES["policy_2"]["options"]["1"]["name"])
+    else:
+        active_policies.append(UNIVERSE_POLICIES["policy_2"]["options"]["2"]["name"])
+
+    state_payload = {
+        "election_start": next_election_start.isoformat(),
+        "election_end": "",
+        "active_policies": active_policies,
+    }
+    state["state"]["active_policies"] = active_policies
+
+    update_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(state_payload)
+    )
+    return state
+
+
 @app.route('/api/refreshdata')
 def refresh_data():
     """Performance periodic refresh tasks"""
     headers = flask.request.headers
     if headers.get("Refresh-Secret", "") != "domnusrefresh":
         return ("Not Authorized", 401)
+    
+    state = _get_state()
+    time_now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    if time_now > state["state"]["election_end"] and state["state"]["election_end"] != "":
+        state = _resolve_election(state)
+    elif time_now > state["state"]["election_start"] and state["state"]["election_end"] == "":
+        state = _begin_election(state)
 
     kingdoms = _get_kingdoms()
     for kd_id in kingdoms:
@@ -5076,7 +5187,7 @@ def refresh_data():
 
         for category, next_resolve_datetime in next_resolves.items():
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
-        new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses)
+        new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state)
         kd_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},

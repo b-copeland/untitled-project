@@ -1,0 +1,16 @@
+.universe-politics {
+    min-height: 480px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.universe-votes-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 40%;
+    padding: 15px;
+}
+.buy-votes-button {
+    width: 25%;
+}

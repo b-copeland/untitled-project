@@ -9,7 +9,7 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer'
-import "./galaxypolitics.css";
+import "./universepolitics.css";
 import Select from 'react-select';
 
 function getTimeSinceString(date) {
@@ -48,10 +48,8 @@ function UniversePolitics(props) {
     const [timeNow, setTimeNow] = useState(new Date())
 
     const electionStart = new Date(props.data.state.state?.election_start);
-    console.log(timeNow);
-    console.log(new Date(props.data.state.state?.election_start));
 
-    if (electionStart > timeNow && props.data.state.active_policies?.length === 0) {
+    if (electionStart > timeNow && props.data.state.state?.active_policies?.length === 0) {
         return (
             <div className="universe-politics">
                 <div className="text-box universe-politics-box">
@@ -64,12 +62,11 @@ function UniversePolitics(props) {
             </div>
         )
     }
-    console.log(props.data.universepolitics);
-    if (electionStart > timeNow && props.data.state.active_policies?.length > 0) {
+    if (electionStart > timeNow && props.data.state.state?.active_policies?.length > 0) {
         if (Object.keys(props.data.universepolitics).length === 0) {
             return <h2>Loading...</h2> 
         }
-        const winningPolicies = props.data.state.active_policies;
+        const winningPolicies = props.data.state.state?.active_policies;
         const winningOptionPolicy1 = (winningPolicies.includes(props.data.universepolitics.desc?.policy_1?.options["1"].name)) ? "1" : "2";
         const winningOptionPolicy2 = (winningPolicies.includes(props.data.universepolitics.desc?.policy_2?.options["1"].name)) ? "1" : "2";
         return (
@@ -77,7 +74,7 @@ function UniversePolitics(props) {
                 <div className="text-box universe-politics-box">
                     <span>The universe democracy elections have finished.</span>
                     <br />
-                    <span>Effect will last until the next voting begins in {getTimeString(props.data.state.state?.election_start)}</span>
+                    <span>Effects will last until the next voting begins in {getTimeString(props.data.state.state?.election_start)}</span>
                     <br />
                     <span>Voting will last for 1 day</span>
                 </div>
