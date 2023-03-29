@@ -32,6 +32,8 @@ function BasicExample() {
         <Nav.Link as={Link} to="/launchmissiles">Launch Missiles</Nav.Link>
         <Nav.Link as={Link} to="/primitives">Primitives</Nav.Link>
         <Nav.Link as={Link} to="/galaxypolitics">Galaxy Politics</Nav.Link>
+        <Nav.Link as={Link} to="/empirepolitics">Empire Politics</Nav.Link>
+        <Nav.Link as={Link} to="/universepolitics">Universe Politics</Nav.Link>
       </Nav>
     </div>
   );

@@ -79,6 +79,27 @@ def init_state(req: func.HttpRequest) -> func.HttpResponse:
             "Initial state creation encountered an error",
             status_code=500,
         )
+
+
+@APP.function_name(name="GetState")
+@APP.route(route="state", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_state(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get state request.')    
+    item_id = f"state"
+    try:
+        state = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(state),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve state info",
+            status_code=500,
+        )
     
 @APP.function_name(name="Update")
 @APP.route(route="updatestate", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
@@ -432,6 +453,54 @@ def update_galaxy_politics(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The galaxy politics were not updated",
+            status_code=500,
+        )
+
+
+@APP.function_name(name="GetUniverseVotes")
+@APP.route(route="universevotes", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_universe_votes(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get universe votes request.')    
+    item_id = f"universe_votes"
+    try:
+        universe_votes = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(universe_votes),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve universe politics info",
+            status_code=500,
+        )
+
+
+@APP.function_name(name="UpdateUniversePolitics")
+@APP.route(route="universepolitics", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_universe_politics(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a universe politics update request.')    
+    req_body = req.get_json()
+    item_id = f"universe_votes"
+    universe_votes = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        update_universe_votes = {**universe_votes, **req_body}
+        CONTAINER.replace_item(
+            item_id,
+            update_universe_votes,
+        )
+        return func.HttpResponse(
+            "Universe politics updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The universe politics were not updated",
             status_code=500,
         )
 

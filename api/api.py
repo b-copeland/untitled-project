@@ -234,6 +234,8 @@ BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT = 0.05
 BASE_MISSILES_SHIELDS_MAX = 1.0
 BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT = 0.005
 
+BASE_VOTES_COST = 10000
+
 REVEAL_OPERATIONS = [
     "spykingdom",
     "spymilitary",
@@ -409,6 +411,35 @@ GALAXY_POLICIES = {
     },
 }
 
+UNIVERSE_POLICIES = {
+    "policy_1": {
+        "name": "Arms Doctrine",
+        "options": {
+            "1": {
+                "name": "Unregulated",
+                "desc": "Militarization has no universal regulation. All military units cost 20% less."
+            },
+            "2": {
+                "name": "Treatied",
+                "desc": "Universal treaties enforce demilitarization. All military units cost 20% more."
+            }
+        }
+    },
+    "policy_2": {
+        "name": "Trade Doctrine",
+        "options": {
+            "1": {
+                "name": "Free Trade",
+                "desc": "Kingdoms freely engage in mutually beneficial trade. Universal income is increased by 10%"
+            },
+            "2": {
+                "name": "Isolationist",
+                "desc": "Kingdoms impose tariffs on imported goods. Universal income is decreased by 10%"
+            }
+        }
+    },
+}
+
 BASE_EXPANSIONIST_SETTLE_REDUCTION = 0.15
 BASE_WARLIKE_RETURN_REDUCTION = 0.1
 BASE_INTELLIGENCE_RETURN_REDUCTION = 0.1
@@ -578,6 +609,26 @@ def reset_state():
         user.kd_death_date = None
     db.session.commit()
     return flask.jsonify(create_response.text), 200
+
+@app.route('/api/state', methods=["GET"])
+# @flask_praetorian.roles_required('verified')
+def get_state():
+    """
+    Get state
+    """    
+    get_response = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/state',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+    )
+    get_response_json = json.loads(get_response.text)
+    return flask.jsonify(get_response_json), 200
+
+def _create_galaxy(galaxy_id):
+    create_galaxy_response = REQUESTS_SESSION.post(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+    )
+    return create_galaxy_response.text
 
 @app.route('/api/updatestate', methods=["POST"])
 @flask_praetorian.roles_required('admin')
@@ -4159,6 +4210,7 @@ def galaxy_politics():
 
 @app.route('/api/galaxypolitics/leader', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_leader():
     """
@@ -4200,6 +4252,7 @@ def galaxy_leader():
 
 @app.route('/api/galaxypolitics/policies', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_policies():
     """
@@ -4242,6 +4295,158 @@ def galaxy_policies():
     )
 
     return (flask.jsonify(galaxy_votes), 200)
+
+def _validate_buy_votes(
+    kd_info,
+    votes,
+):
+    if votes <= 0:
+        return False, "Votes must be greater than 0"
+    votes_cost = votes * BASE_VOTES_COST
+    if votes_cost > kd_info["money"]:
+        return False, "Not enough money"
+    
+    return True, ""
+
+@app.route('/api/votes', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def buy_votes():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = _get_kd_info(kd_id)
+    
+    votes = int(req["votes"])
+    votes_cost = votes * BASE_VOTES_COST
+
+    valid_votes, message = _validate_buy_votes(kd_info, votes)
+    if not valid_votes:
+        return flask.jsonify({"message": message}), 400
+    
+    kd_patch_payload = {
+        "money": kd_info["money"] - votes_cost,
+        "votes": kd_info["votes"] + votes,
+    }
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_patch_payload)
+    )
+
+    return (flask.jsonify({"message": "Bought votes", "status": "success"}), 200)
+
+def _get_universe_politics():
+    universe_politics_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universevotes',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(universe_politics_info.text, file=sys.stderr)
+    universe_politics_info_parse = json.loads(universe_politics_info.text)
+    return universe_politics_info_parse
+
+
+@app.route('/api/universepolitics', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def universe_politics():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    universe_politics = _get_universe_politics()
+    kd_payload = {
+        "policy_1": {
+            "option_1": "",
+            "option_2": "",
+        },
+        "policy_2": {
+            "option_1": "",
+            "option_2": "",
+        },
+    }
+    for policy_name, policy_options in universe_politics["votes"].items():
+        for option_name, option_votes in policy_options.items():
+            for vote_kd_id, votes_cast in option_votes.items():
+                if kd_id == vote_kd_id:
+                    kd_payload[policy_name][option_name] = votes_cast
+    payload = {
+        **kd_payload,
+        "desc": UNIVERSE_POLICIES,
+    }
+    return (flask.jsonify(payload), 200)
+
+def _validate_cast_votes(
+    kd_info,
+    votes,
+):
+    if votes <= 0:
+        return False, "Votes must be greater than 0"
+    if votes > kd_info["votes"]:
+        return False, "Not enough votes available"
+    
+    return True, ""
+
+@app.route('/api/universepolitics/policies', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def universe_policies():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = _get_kd_info(kd_id)
+    
+    votes = int(req["votes"])
+    policy = req["policy"]
+    option = req["option"]
+
+    valid_votes, message = _validate_cast_votes(kd_info, votes)
+    if not valid_votes:
+        return flask.jsonify({"message": message}), 400
+    
+    universe_politics = _get_universe_politics()
+
+    kd_patch_payload = {
+        "votes": kd_info["votes"] - votes,
+    }
+
+    try:
+        universe_politics["votes"][policy][option][kd_id] += votes
+    except KeyError:
+        universe_politics["votes"][policy][option][kd_id] = votes
+        
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_patch_payload)
+    )
+
+    universe_politics_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universepolitics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(universe_politics)
+    )
+
+    return (flask.jsonify({"message": "Cast votes", "status": "success"}), 200)
+
 
 def _calc_pop_change_per_epoch(
     kd_info_parse,

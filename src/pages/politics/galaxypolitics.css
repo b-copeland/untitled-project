@@ -11,6 +11,10 @@
     flex-direction: column;
     align-items: center;
 }
+.galaxy-policy {
+    width: 80%;
+    margin: 20px;
+}
 .galaxy-policy-options {
     display: flex;
     flex-direction: row;
@@ -21,6 +25,7 @@
     flex-direction: columns;
     align-items: center;
     width: 50%;
+    padding: 15px;
 }
 .galaxy-policy-button {
     width: 25%;
