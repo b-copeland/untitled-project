@@ -20,6 +20,7 @@ function Admin(props) {
   const [password, setPassword] = useState('');
   const [gameStart, setGameStart] = useState('');
   const [gameEnd, setGameEnd] = useState('');
+  const [electionStart, setElectionStart] = useState('');
   const [numGalaxies, setNumGalaxies] = useState('');
   const [maxGalaxySize, setMaxGalaxySize] = useState('');
   const [avgSizeNewGalaxy, setAvgSizeNewGalaxy] = useState('');
@@ -63,6 +64,8 @@ function Admin(props) {
     let opts = {
         "game_start": gameStart,
         "game_end": gameEnd,
+        "election_start": "",
+        "election_end": "",
     }
     adminAuth.authFetch('api/updatestate', {
         method: 'POST',
@@ -95,6 +98,9 @@ function Admin(props) {
   }
   const handleGameEndChange = (e) => {
     setGameEnd(e.target.value)
+  }
+  const handleElectionStartChange = (e) => {
+    setElectionStart(e.target.value)
   }
   const handleNumGalaxiesChange = (e) => {
     setNumGalaxies(e.target.value)
@@ -209,6 +215,14 @@ function Admin(props) {
                 id="game-end-input"
                 onChange={handleGameEndChange}
                 value={gameEnd || ""} 
+                placeholder=""
+            />
+            <h3>Election Start</h3>
+            <Form.Control 
+                className="election-start-form"
+                id="election-start-input"
+                onChange={handleElectionStartChange}
+                value={electionStart || ""} 
                 placeholder=""
             />
             <Button onClick={() => {setShowUpdate(true)}}>Update Game State</Button>

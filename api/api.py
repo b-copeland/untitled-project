@@ -686,6 +686,7 @@ def create_state():
         data=json.dumps({
             "max_galaxy_size": max_galaxy_size,
             "avg_size_new_galaxy": avg_size_new_galaxy,
+            "active_policies": [],
         })
     )
     return flask.jsonify(update_response.text), 200
