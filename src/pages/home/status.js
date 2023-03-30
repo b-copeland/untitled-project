@@ -57,7 +57,7 @@ function Status(props) {
     )
     const shieldsFuelCosts = Object.keys(props.kingdom.income?.fuel?.shields || {}).sort().map((shield) => 
         <div className="text-box-item" key={shield}>
-            <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{capitalizeFirstLetter(shield)} shields</span>
+            <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{(shield === "spy_radar") ? "Spy radar" : capitalizeFirstLetter(shield) + " shields"}</span>
             <span className="text-box-item-value">-{props.kingdom.income?.fuel?.shields[shield].toLocaleString()}</span>
         </div>
     )
@@ -176,7 +176,8 @@ function Status(props) {
 
 const initialShields = {
     "military": "",
-    "drones": "",
+    "spy": "",
+    "spy_radar": "",
     "missiles": "",
 }
 function Shields(props) {
@@ -264,6 +265,26 @@ function Shields(props) {
                                 onChange={handleInputChange}
                                 name="spy"
                                 value={shields.spy || ""} 
+                                placeholder="0"
+                                />
+                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                            </InputGroup>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Spy Radar</td>
+                        <td>{displayPercent(props.data.kingdom.shields?.spy_radar || 0)}</td>
+                        <td>{displayPercent(props.data.shields.desc?.spy_radar?.max || 0)}</td>
+                        <td>{Math.floor(props.data.kingdom.shields?.spy_radar * props.data.shields.desc?.spy_radar?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
+                        <td>{Math.floor(props.data.shields.desc?.spy_radar?.max * props.data.shields.desc?.spy_radar?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
+                        <td>
+                            <InputGroup className="mb-3">
+                                <Form.Control
+                                className="shields-assign-form"
+                                id="spy-radar-input"
+                                onChange={handleInputChange}
+                                name="spy_radar"
+                                value={shields.spy_radar || ""} 
                                 placeholder="0"
                                 />
                                 <InputGroup.Text id="basic-addon2">%</InputGroup.Text>

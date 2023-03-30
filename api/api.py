@@ -232,6 +232,8 @@ BASE_MILITARY_SHIELDS_MAX = 0.10
 BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT = 0.1
 BASE_SPY_SHIELDS_MAX = 0.20
 BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT = 0.05
+BASE_SPY_RADAR_MAX = 0.20
+BASE_SPY_RADAR_COST_PER_LAND_PER_PCT = 0.05
 BASE_MISSILES_SHIELDS_MAX = 1.0
 BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT = 0.005
 
@@ -352,6 +354,7 @@ INITIAL_KINGDOM_STATE = {
         "shields": {
             "military": 0.0,
             "spy": 0.0,
+            "spy_radar": 0.0,
             "missiles": 0.0
         },
     },
@@ -952,6 +955,10 @@ def shields():
                 "max": BASE_SPY_SHIELDS_MAX,
                 "cost": BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT,
             },
+            "spy_radar": {
+                "max": BASE_SPY_RADAR_MAX,
+                "cost": BASE_SPY_RADAR_COST_PER_LAND_PER_PCT,
+            },
             "missiles": {
                 "max": BASE_MISSILES_SHIELDS_MAX,
                 "cost": BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT,
@@ -965,6 +972,8 @@ def _validate_shields(req_values):
         return False, "Military shields must be at or below max shields value"
     if req_values.get("spy", 0) > BASE_SPY_SHIELDS_MAX:
         return False, "Spy shields must be at or below max shields value"
+    if req_values.get("spy_radar", 0) > BASE_SPY_RADAR_MAX:
+        return False, "Spy radar must be at or below max value"
     if req_values.get("missiles", 0) > BASE_MISSILES_SHIELDS_MAX:
         return False, "Missiles shields must be at or below max shields value"
     if any((value < 0 for value in req_values.values())):
@@ -996,6 +1005,9 @@ def set_shields():
     
     kd_id = flask_praetorian.current_user().kd_id
     kd_info = _get_kd_info(kd_id)
+
+    if kd_info["fuel"] <= 0:
+        return flask.jsonify({"message": "You can't set shields without fuel"}), 400
 
     payload = {
         "shields": {
@@ -3797,8 +3809,9 @@ def spy(target_kd):
     success_losses, failure_losses = _calculate_spy_losses(drones, shielded)
 
     roll = random.uniform(0, 1)
-    print(roll)
+    spy_radar_roll = random.uniform(0, 1)
     success = roll < spy_probability
+    spy_radar_success = spy_radar_roll < max_target_kd_info["shields"]["spy_radar"]
 
     time_now = datetime.datetime.now(datetime.timezone.utc)
     revealed_until = None
@@ -3873,6 +3886,10 @@ def spy(target_kd):
             losses = failure_losses
             if operation in AGGRO_OPERATIONS:
                 revealed = True
+
+    if spy_radar_success and not revealed:
+        revealed = True
+        target_message += f" Your spy radar has revealed the operation came from {kd_info_parse['name']}."
 
     kd_patch_payload = {
         "drones": kd_info_parse["drones"] - losses,
@@ -4716,6 +4733,7 @@ def _kingdom_with_income(
     income["fuel"]["shields"] = {}
     income["fuel"]["shields"]["military"] = kd_info_parse["shields"]["military"] * 100 * kd_info_parse["stars"] * BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT
     income["fuel"]["shields"]["spy"] = kd_info_parse["shields"]["spy"] * 100 * kd_info_parse["stars"] * BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT
+    income["fuel"]["shields"]["spy_radar"] = kd_info_parse["shields"]["spy_radar"] * 100 * kd_info_parse["stars"] * BASE_SPY_RADAR_COST_PER_LAND_PER_PCT
     income["fuel"]["shields"]["missiles"] = kd_info_parse["shields"]["missiles"] * 100 * kd_info_parse["stars"] * BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT
     income["fuel"]["population"] = kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH
 
@@ -4764,6 +4782,11 @@ def _kingdom_with_income(
         new_kd_info["structures"] = {
             k: v - structures_to_reduce.get(k, 0)
             for k, v in new_kd_info["structures"].items()
+        }
+    if new_kd_info["fuel"] <= 0:
+        new_kd_info["shields"] = {
+            k: 0
+            for k in new_kd_info["shields"]
         }
 
     return new_kd_info
