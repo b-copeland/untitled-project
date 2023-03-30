@@ -23,7 +23,7 @@ function StatusContent(props) {
         variant="tabs"
       >
         <Tab eventKey="kingdom" title="Kingdom">
-          <Status kingdom={props.data.kingdom} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted}/>
+          <Status kingdom={props.data.kingdom} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} state={props.data.state}/>
         </Tab>
         <Tab eventKey="shields" title="Shields">
           <Shields data={props.data} loading={props.loading} updateData={props.updateData}/>
@@ -40,21 +40,24 @@ function StatusContent(props) {
       </Tabs>
     );
 }
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
 
 function Status(props) {
-    if (Object.keys(props.kingdom).length === 0) {
+    if (Object.keys(props.kingdom).length === 0 || Object.keys(props.state).length === 0) {
         return null;
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const unitsFuelCosts = Object.keys(props.kingdom.income?.fuel?.units || {}).sort().map((unit) => 
         <div className="text-box-item" key={unit}>
-            <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{unit}</span>
+            <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{props.state.pretty_names[unit] || unit}</span>
             <span className="text-box-item-value">-{props.kingdom.income?.fuel?.units[unit].toLocaleString()}</span>
         </div>
     )
     const shieldsFuelCosts = Object.keys(props.kingdom.income?.fuel?.shields || {}).sort().map((shield) => 
         <div className="text-box-item" key={shield}>
-            <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{shield} shields</span>
+            <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{capitalizeFirstLetter(shield)} shields</span>
             <span className="text-box-item-value">-{props.kingdom.income?.fuel?.shields[shield].toLocaleString()}</span>
         </div>
     )
@@ -332,6 +335,7 @@ function Spending(props) {
     const [militaryInput, setMilitaryInput] = useState('');
     const [engineersInput, setEngineersInput] = useState('');
 
+    return <h2>Coming Soon...</h2>
     const spendingInfo = props.kingdom?.auto_spending;
     if (spendingInfo === undefined) {
         return null

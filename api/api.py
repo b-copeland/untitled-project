@@ -452,6 +452,33 @@ BASE_TREATIED_COST_INCREASE = 0.2
 BASE_FREE_TRADE_INCREASE = 0.1
 BASE_ISOLATIONIST_DECREASE = 0.1
 
+PRETTY_NAMES = {
+    "spykingdom": "Spy on Kingdom",
+    "spymilitary": "Spy on Military",
+    "spyshields": "Spy on Shields",
+    "spyprojects": "Spy on Projects",
+    "spystructures": "Spy on Structures",
+    "spydrones": "Spy on Drones",
+    "siphonfunds": "Siphon Funds",
+    "bombhomes": "Bomb Homes",
+    "sabotagefuelplants": "Sabotage Fuel Plants",
+    "kidnappopulation": "Kidnap Population",
+    "suicidedrones": "Suicide Drones",
+    "recruits": "Recruits",
+    "attack": "Attackers",
+    "defense": "Defenders",
+    "flex": "Flexers",
+    "big_flex": "Big Flexers",
+    "engineers": "Engineers",
+    "homes": "Homes",
+    "mines": "Mines",
+    "fuel_plants": "Fuel Plants",
+    "hangars": "Hangars",
+    "missile_silos": "Missile Silos",
+    "drone_factories": "Drone Factories",
+    "workshops": "Workshops",
+}
+
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -632,7 +659,10 @@ def get_state():
     Get state
     """    
     get_response_json = _get_state()
-    return flask.jsonify(get_response_json), 200
+    return flask.jsonify({
+        **get_response_json,
+        "pretty_names": PRETTY_NAMES,
+    }), 200
 
 def _create_galaxy(galaxy_id):
     create_galaxy_response = REQUESTS_SESSION.post(
@@ -1637,6 +1667,7 @@ def train_mobis():
     mobis_request = {
         k: int(v or 0)
         for k, v in req.items()
+        if int(v or 0) != 0
     }
     mobis_cost = _get_mobis_cost(mobis_request)
     valid_mobis = _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cost)
@@ -1823,6 +1854,7 @@ def build_structures():
     structures_request = {
         k: int(v or 0)
         for k, v in req.items()
+        if int(v or 0) != 0
     }
     valid_structures = _validate_structures(structures_request, current_available_structures)
     if not valid_structures:
@@ -3208,20 +3240,20 @@ def attack(target_kd):
             + ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
             + f" and destroyed {units_destroyed} units."
             + " You have lost "
-            + ', '.join([f"{value} {key}" for key, value in attacker_losses.items()])
+            + ', '.join([f"{value} {PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
         )
         defender_message = (
             f"Your kingdom was defeated in battle by {kd_info_parse['name']}. You have lost "
             + ', '.join([f"{value} {key}" for key, value in total_spoils.items()])
             + ' and '
-            + ', '.join([f"{value} {key}" for key, value in defender_losses.items()])
+            + ', '.join([f"{value} {PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
         )
     else:
         attack_status = "failure"
         attacker_message = "Failure! You have lost " + ', '.join([f"{value} {key}" for key, value in attacker_losses.items()])
         defender_message = (
             f"Your kingdom was successfully defended an attack by {kd_info_parse['name']}. You have lost "
-            + ', '.join([f"{value} {key}" for key, value in defender_losses.items()])
+            + ', '.join([f"{value} {PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
         )
         spoils_values = {}
         sharer_spoils_values = {}
@@ -3522,7 +3554,7 @@ def attack_primitives():
         "You have attacked primitives and gained "
         + ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
         + ". You have lost "
-        + ', '.join([f"{value} {key}" for key, value in attacker_losses.items()])
+        + ', '.join([f"{value} {PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
     )
 
     kd_info_parse["units"] = new_home_attacker_units
@@ -3921,7 +3953,7 @@ def spy(target_kd):
     history_payload = {
         "time": time_now.isoformat(),
         "to": target_kd,
-        "operation": operation,
+        "operation": PRETTY_NAMES.get(operation, operation),
         "news": message,
     }
     kd_spy_history_patch_response = REQUESTS_SESSION.patch(
