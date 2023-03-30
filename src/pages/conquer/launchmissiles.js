@@ -130,6 +130,7 @@ function LaunchMissiles(props) {
                             value={targetKdInfo.shields.missiles * 100 || ""} 
                             placeholder="Missile Shields"
                             disabled
+                            autoComplete="off"
                         />
                         <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                     </InputGroup>
@@ -141,6 +142,7 @@ function LaunchMissiles(props) {
                             onChange={handleShieldsChange}
                             value={defenderShields || ""} 
                             placeholder="Missile Shields"
+                            autoComplete="off"
                         />
                         <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                     </InputGroup>
@@ -174,6 +176,7 @@ function LaunchMissiles(props) {
                                     onChange={handleAttackerChange}
                                     value={attackerValues.planet_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             </td>
                         </tr>
@@ -191,6 +194,7 @@ function LaunchMissiles(props) {
                                     onChange={handleAttackerChange}
                                     value={attackerValues.star_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             </td>
                         </tr>
@@ -208,6 +212,7 @@ function LaunchMissiles(props) {
                                     onChange={handleAttackerChange}
                                     value={attackerValues.galaxy_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             </td>
                         </tr>

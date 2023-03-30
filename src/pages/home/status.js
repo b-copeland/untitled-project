@@ -246,6 +246,7 @@ function Shields(props) {
                                 name="military"
                                 value={shields.military || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                                 />
                                 <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                             </InputGroup>
@@ -266,6 +267,7 @@ function Shields(props) {
                                 name="spy"
                                 value={shields.spy || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                                 />
                                 <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                             </InputGroup>
@@ -286,6 +288,7 @@ function Shields(props) {
                                 name="spy_radar"
                                 value={shields.spy_radar || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                                 />
                                 <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                             </InputGroup>
@@ -306,6 +309,7 @@ function Shields(props) {
                                 name="missiles"
                                 value={shields.missiles || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                                 />
                                 <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                             </InputGroup>
@@ -408,6 +412,7 @@ function Spending(props) {
                     onChange={handleSettleInput}
                     value={settleInput} 
                     placeholder={spendingInfo.settle}
+                    autoComplete="off"
                 />
             </InputGroup>
             <InputGroup className="mb-3">
@@ -420,6 +425,7 @@ function Spending(props) {
                     onChange={handleStructuresInput}
                     value={structuresInput} 
                     placeholder={spendingInfo.structures}
+                    autoComplete="off"
                 />
             </InputGroup>
             <InputGroup className="mb-3">
@@ -432,6 +438,7 @@ function Spending(props) {
                     onChange={handleMilitaryInput}
                     value={militaryInput} 
                     placeholder={spendingInfo.military}
+                    autoComplete="off"
                 />
             </InputGroup>
             <InputGroup className="mb-3">
@@ -444,6 +451,7 @@ function Spending(props) {
                     onChange={handleEngineersInput}
                     value={engineersInput} 
                     placeholder={spendingInfo.engineers}
+                    autoComplete="off"
                 />
             </InputGroup>
             {props.loading.kingdom

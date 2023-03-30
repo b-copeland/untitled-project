@@ -219,6 +219,7 @@ function UniversePolitics(props) {
                         onChange={handleBuyVotesInput}
                         value={buyVotes || ""} 
                         placeholder="0"
+                        autoComplete="off"
                     />
                 </InputGroup>
                 {props.loading.kingdom
@@ -254,6 +255,7 @@ function UniversePolitics(props) {
                                 onChange={handlePolicy1Option1Input}
                                 value={policy1Option1Votes || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         </InputGroup>
                         {
@@ -288,6 +290,7 @@ function UniversePolitics(props) {
                                 onChange={handlePolicy1Option2Input}
                                 value={policy1Option2Votes || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         </InputGroup>
                         {
@@ -327,6 +330,7 @@ function UniversePolitics(props) {
                                 onChange={handlePolicy2Option1Input}
                                 value={policy2Option1Votes || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         </InputGroup>
                         {
@@ -361,6 +365,7 @@ function UniversePolitics(props) {
                                 onChange={handlePolicy2Option2Input}
                                 value={policy2Option2Votes || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         </InputGroup>
                         {

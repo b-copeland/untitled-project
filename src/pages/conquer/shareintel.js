@@ -159,6 +159,7 @@ function ShareIntel(props) {
                                 onChange={handleCutInput}
                                 value={cutInput || ""}
                                 placeholder="0"
+                                autoComplete="off"
                             />
                             <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                         </InputGroup>

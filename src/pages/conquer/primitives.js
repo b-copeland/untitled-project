@@ -141,6 +141,7 @@ function AttackPrimitives(props) {
                                         onChange={handleAttackerChange}
                                         value={attackerValues.attack || ""} 
                                         placeholder="0"
+                                        autoComplete="off"
                                     />
                                 </td>
                             </tr>
@@ -156,6 +157,7 @@ function AttackPrimitives(props) {
                                         onChange={handleAttackerChange}
                                         value={attackerValues.flex || ""} 
                                         placeholder="0"
+                                        autoComplete="off"
                                     />
                                 </td>
                             </tr>
@@ -171,6 +173,7 @@ function AttackPrimitives(props) {
                                         onChange={handleAttackerChange}
                                         value={attackerValues.big_flex || ""} 
                                         placeholder="0"
+                                        autoComplete="off"
                                     />
                                 </td>
                             </tr>
@@ -187,6 +190,7 @@ function AttackPrimitives(props) {
                                         value={displayPercent(props.data.projects.current_bonuses?.military_bonus)} 
                                         placeholder="0"
                                         disabled
+                                        autoComplete="off"
                                     />
                                 </td>
                             </tr>
@@ -202,6 +206,7 @@ function AttackPrimitives(props) {
                                         value="0%" 
                                         placeholder="0%"
                                         disabled
+                                        autoComplete="off"
                                     />
                                 </td>
                             </tr>
@@ -217,6 +222,7 @@ function AttackPrimitives(props) {
                                         onChange={handleAttackerChange}
                                         value={attackerValues.generals || ""} 
                                         placeholder="0"
+                                        autoComplete="off"
                                     />
                                 </td>
                             </tr>
@@ -338,6 +344,7 @@ function RobPrimitives(props) {
                     onChange={handleDronesChange}
                     value={drones || ""} 
                     placeholder="0"
+                    autoComplete="off"
                 />
             </InputGroup>
             <Form>

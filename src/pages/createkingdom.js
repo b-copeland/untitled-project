@@ -126,6 +126,7 @@ function CreateKingdom(props) {
                         onChange={handleNameInput}
                         value={kdName || ""} 
                         placeholder=""
+                        autoComplete="off"
                     />
                 </InputGroup>
                 {props.loading.kingdomid
@@ -159,6 +160,7 @@ function CreateKingdom(props) {
                                     onChange={handleUnitsInputChange}
                                     value={unitsChoices.drones || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="units-choices-input">
@@ -171,6 +173,7 @@ function CreateKingdom(props) {
                                     onChange={handleUnitsInputChange}
                                     value={unitsChoices.recruits || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="units-choices-input">
@@ -183,6 +186,7 @@ function CreateKingdom(props) {
                                     onChange={handleUnitsInputChange}
                                     value={unitsChoices.attack || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="units-choices-input">
@@ -195,6 +199,7 @@ function CreateKingdom(props) {
                                     onChange={handleUnitsInputChange}
                                     value={unitsChoices.defense || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="units-choices-input">
@@ -207,6 +212,7 @@ function CreateKingdom(props) {
                                     onChange={handleUnitsInputChange}
                                     value={unitsChoices.flex || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="units-choices-input">
@@ -219,6 +225,7 @@ function CreateKingdom(props) {
                                     onChange={handleUnitsInputChange}
                                     value={unitsChoices.engineers || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                         </div>
@@ -237,6 +244,7 @@ function CreateKingdom(props) {
                                     onChange={handleStructuresInputChange}
                                     value={structuresChoices.homes || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="structures-choices-input">
@@ -249,6 +257,7 @@ function CreateKingdom(props) {
                                     onChange={handleStructuresInputChange}
                                     value={structuresChoices.mines || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="structures-choices-input">
@@ -261,6 +270,7 @@ function CreateKingdom(props) {
                                     onChange={handleStructuresInputChange}
                                     value={structuresChoices.fuel_plants || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="structures-choices-input">
@@ -273,6 +283,7 @@ function CreateKingdom(props) {
                                     onChange={handleStructuresInputChange}
                                     value={structuresChoices.hangars || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="structures-choices-input">
@@ -285,6 +296,7 @@ function CreateKingdom(props) {
                                     onChange={handleStructuresInputChange}
                                     value={structuresChoices.drone_factories || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="structures-choices-input">
@@ -297,6 +309,7 @@ function CreateKingdom(props) {
                                     onChange={handleStructuresInputChange}
                                     value={structuresChoices.missile_silos || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                             <InputGroup className="structures-choices-input">
@@ -309,6 +322,7 @@ function CreateKingdom(props) {
                                     onChange={handleStructuresInputChange}
                                     value={structuresChoices.workshops || ""} 
                                     placeholder=""
+                                    autoComplete="off"
                                 />
                             </InputGroup>
                         </div>

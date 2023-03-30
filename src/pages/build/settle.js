@@ -79,6 +79,7 @@ function Settle(props) {
                         onChange={handleSettleInput}
                         value={settleInput || ""} 
                         placeholder="0"
+                        autoComplete="off"
                     />
                 </InputGroup>
                 {props.loading.settle

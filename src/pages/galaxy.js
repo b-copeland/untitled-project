@@ -258,6 +258,7 @@ function Galaxy(props) {
                             onChange={handleClusterInput}
                             value={clusterInput || ''}
                             disabled
+                            autoComplete="off"
                             />
                         </InputGroup>
                         <InputGroup className="galaxy-nav-input-form">
@@ -268,6 +269,7 @@ function Galaxy(props) {
                             onChange={handleGalaxyInput}
                             value={galaxyInput || ''} 
                             disabled
+                            autoComplete="off"
                             />
                         </InputGroup>
                     </div>
@@ -283,6 +285,7 @@ function Galaxy(props) {
                             aria-label="Cluster"
                             onChange={handleClusterInput}
                             value={clusterInput || ''} 
+                            autoComplete="off"
                             />
                         </InputGroup>
                         <InputGroup className="galaxy-nav-input-form">
@@ -292,6 +295,7 @@ function Galaxy(props) {
                             aria-label="Galaxy"
                             onChange={handleGalaxyInput}
                             value={galaxyInput || ''} 
+                            autoComplete="off"
                             />
                         </InputGroup>
                     </div>

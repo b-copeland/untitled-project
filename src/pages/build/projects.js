@@ -123,6 +123,7 @@ function Train(props) {
                         onChange={handleEngineersInput}
                         value={engineersInput || ""} 
                         placeholder="0"
+                        autoComplete="off"
                     />
                 </InputGroup>
                 {props.loading.engineers
@@ -322,6 +323,7 @@ function Assign(props) {
                                 name="pop_bonus"
                                 value={assignValues.pop_bonus || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                         <td>{
@@ -332,6 +334,7 @@ function Assign(props) {
                                 name="pop_bonus"
                                 value={addValues.pop_bonus || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                         <td>{
@@ -360,6 +363,7 @@ function Assign(props) {
                                 name="fuel_bonus"
                                 value={assignValues.fuel_bonus || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                         <td>{
@@ -370,6 +374,7 @@ function Assign(props) {
                                 name="fuel_bonus"
                                 value={addValues.fuel_bonus || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                         <td>{
@@ -398,6 +403,7 @@ function Assign(props) {
                                 name="military_bonus"
                                 value={assignValues.military_bonus || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                         <td>{
@@ -408,6 +414,7 @@ function Assign(props) {
                                 name="military_bonus"
                                 value={addValues.military_bonus || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                         <td>{
@@ -436,6 +443,7 @@ function Assign(props) {
                                 name="money_bonus"
                                 value={assignValues.money_bonus || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                         <td>{
@@ -446,6 +454,7 @@ function Assign(props) {
                                 name="money_bonus"
                                 value={addValues.money_bonus || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                         <td>{
@@ -474,6 +483,7 @@ function Assign(props) {
                                 name="general_bonus"
                                 value={assignValues.general_bonus || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                         <td>{
@@ -484,6 +494,7 @@ function Assign(props) {
                                 name="general_bonus"
                                 value={addValues.general_bonus || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                         <td>{
@@ -514,6 +525,7 @@ function Assign(props) {
                                     name="spy_bonus"
                                     value={assignValues.spy_bonus || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -524,6 +536,7 @@ function Assign(props) {
                                     name="spy_bonus"
                                     value={addValues.spy_bonus || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -552,6 +565,7 @@ function Assign(props) {
                                     value={assignValues.spy_bonus || ""} 
                                     placeholder="0"
                                     disabled
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -563,6 +577,7 @@ function Assign(props) {
                                     value={addValues.spy_bonus || ""} 
                                     placeholder="0"
                                     disabled
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td></td>
@@ -602,6 +617,7 @@ function Assign(props) {
                                     name="big_flexers"
                                     value={assignValues.big_flexers || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -612,6 +628,7 @@ function Assign(props) {
                                     name="big_flexers"
                                     value={addValues.big_flexers || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -638,6 +655,7 @@ function Assign(props) {
                                     name="big_flexers"
                                     value={assignValues.big_flexers || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -648,6 +666,7 @@ function Assign(props) {
                                     name="big_flexers"
                                     value={addValues.big_flexers || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -678,6 +697,7 @@ function Assign(props) {
                                     name="star_busters"
                                     value={assignValues.star_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -688,6 +708,7 @@ function Assign(props) {
                                     name="star_busters"
                                     value={addValues.star_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -714,6 +735,7 @@ function Assign(props) {
                                     name="star_busters"
                                     value={assignValues.star_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -724,6 +746,7 @@ function Assign(props) {
                                     name="star_busters"
                                     value={addValues.star_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -754,6 +777,7 @@ function Assign(props) {
                                     name="galaxy_busters"
                                     value={assignValues.galaxy_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -764,6 +788,7 @@ function Assign(props) {
                                     name="galaxy_busters"
                                     value={addValues.galaxy_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -790,6 +815,7 @@ function Assign(props) {
                                     name="galaxy_busters"
                                     value={assignValues.galaxy_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -800,6 +826,7 @@ function Assign(props) {
                                     name="galaxy_busters"
                                     value={addValues.galaxy_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -830,6 +857,7 @@ function Assign(props) {
                                     name="drone_gadgets"
                                     value={assignValues.drone_gadgets || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -840,6 +868,7 @@ function Assign(props) {
                                     name="drone_gadgets"
                                     value={addValues.drone_gadgets || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -866,6 +895,7 @@ function Assign(props) {
                                     name="drone_gadgets"
                                     value={assignValues.drone_gadgets || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{
@@ -876,6 +906,7 @@ function Assign(props) {
                                     name="drone_gadgets"
                                     value={addValues.drone_gadgets || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                             <td>{

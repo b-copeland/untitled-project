@@ -200,6 +200,7 @@ function Spy(props) {
                                             value={targetKdInfo.drones?.toLocaleString() || "0"} 
                                             placeholder="0"
                                             disabled
+                                            autoComplete="off"
                                         />
                                         : <Form.Control 
                                             className="unit-form"
@@ -208,6 +209,7 @@ function Spy(props) {
                                             onChange={handleDefenderChange}
                                             value={defenderValues.drones || ""} 
                                             placeholder="0"
+                                            autoComplete="off"
                                         />
                                     }
                                 </td>
@@ -223,6 +225,7 @@ function Spy(props) {
                                             value={targetKdInfo.stars?.toLocaleString() || ""} 
                                             placeholder="0"
                                             disabled
+                                            autoComplete="off"
                                         />
                                         : <Form.Control
                                             className="unit-form"
@@ -231,6 +234,7 @@ function Spy(props) {
                                             onChange={handleDefenderChange}
                                             value={defenderValues.stars || ""} 
                                             placeholder="0"
+                                            autoComplete="off"
                                         />
                                     }
                                 </td>
@@ -247,6 +251,7 @@ function Spy(props) {
                                                 value={targetKdInfo.shields.spy * 100 || ""} 
                                                 placeholder="0"
                                                 disabled
+                                                autoComplete="off"
                                             />
                                             <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                                         </InputGroup>
@@ -258,6 +263,7 @@ function Spy(props) {
                                                 onChange={handleDefenderChange}
                                                 value={defenderValues.shields || ""} 
                                                 placeholder="0"
+                                                autoComplete="off"
                                             />
                                             <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                                         </InputGroup>
@@ -303,6 +309,7 @@ function Spy(props) {
                             onChange={handleDronesChange}
                             value={drones || ""} 
                             placeholder="0"
+                            autoComplete="off"
                         />
                     </InputGroup>
                     <Form>

@@ -131,6 +131,7 @@ function Recruits(props) {
                         onChange={handleRecruitsInput}
                         value={recruitsInput || ""} 
                         placeholder="0"
+                        autoComplete="off"
                     />
                 </InputGroup>
                 {props.loading.mobis
@@ -264,6 +265,7 @@ function Specialists(props) {
                                 onChange={handleInputChange}
                                 value={input.attack || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
@@ -284,6 +286,7 @@ function Specialists(props) {
                                 onChange={handleInputChange}
                                 value={input.defense || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
@@ -304,6 +307,7 @@ function Specialists(props) {
                                 onChange={handleInputChange}
                                 value={input.flex || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
@@ -326,6 +330,7 @@ function Specialists(props) {
                                     onChange={handleInputChange}
                                     value={input.big_flex || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                         </tr>
@@ -346,6 +351,7 @@ function Specialists(props) {
                                     value={input.big_flex || ""} 
                                     placeholder="0"
                                     disabled
+                                    autoComplete="off"
                                 />
                             }</td>
                         </tr>

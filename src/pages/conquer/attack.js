@@ -168,6 +168,7 @@ function Attack(props) {
                                                 value={targetKdInfo.units.recruits?.toLocaleString() || "0"} 
                                                 placeholder="0"
                                                 disabled
+                                                autoComplete="off"
                                             />
                                             : <Form.Control 
                                                 className="unit-form"
@@ -176,6 +177,7 @@ function Attack(props) {
                                                 onChange={handleDefenderChange}
                                                 value={defenderValues.recruits || ""} 
                                                 placeholder="0"
+                                                autoComplete="off"
                                             />
                                         }
                                     </td>
@@ -193,6 +195,7 @@ function Attack(props) {
                                                 value={targetKdInfo.units.defense?.toLocaleString() || "0"} 
                                                 placeholder="0"
                                                 disabled
+                                                autoComplete="off"
                                             />
                                             : <Form.Control 
                                                 className="unit-form"
@@ -201,6 +204,7 @@ function Attack(props) {
                                                 onChange={handleDefenderChange}
                                                 value={defenderValues.defense || ""} 
                                                 placeholder="0"
+                                                autoComplete="off"
                                             />
                                         }
                                     </td>
@@ -217,6 +221,7 @@ function Attack(props) {
                                                 value={targetKdInfo.units.flex?.toLocaleString() || "0"} 
                                                 placeholder="0"
                                                 disabled
+                                                autoComplete="off"
                                             />
                                             : <Form.Control 
                                                 className="unit-form"
@@ -225,6 +230,7 @@ function Attack(props) {
                                                 onChange={handleDefenderChange}
                                                 value={defenderValues.flex || ""} 
                                                 placeholder="0"
+                                                autoComplete="off"
                                             />
                                         }
                                     </td>
@@ -241,6 +247,7 @@ function Attack(props) {
                                                 value={targetKdInfo.units.big_flex?.toLocaleString() || "0"} 
                                                 placeholder="0"
                                                 disabled
+                                                autoComplete="off"
                                             />
                                             : <Form.Control 
                                                 className="unit-form"
@@ -249,6 +256,7 @@ function Attack(props) {
                                                 onChange={handleDefenderChange}
                                                 value={defenderValues.big_flex || ""} 
                                                 placeholder="0"
+                                                autoComplete="off"
                                             />
                                         }
                                     </td>
@@ -266,6 +274,7 @@ function Attack(props) {
                                                     value={targetKdInfo.current_bonuses.military_bonus * 100 || ""} 
                                                     placeholder="0"
                                                     disabled
+                                                    autoComplete="off"
                                                 />
                                                 <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                                             </InputGroup>
@@ -277,6 +286,7 @@ function Attack(props) {
                                                     onChange={handleDefenderChange}
                                                     value={defenderValues.military_bonus || ""} 
                                                     placeholder="0"
+                                                    autoComplete="off"
                                                 />
                                                 <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                                             </InputGroup>
@@ -296,6 +306,7 @@ function Attack(props) {
                                                     value={targetKdInfo.shields.military * 100 || ""} 
                                                     placeholder="0"
                                                     disabled
+                                                    autoComplete="off"
                                                 />
                                                 <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                                             </InputGroup>
@@ -307,6 +318,7 @@ function Attack(props) {
                                                     onChange={handleDefenderChange}
                                                     value={defenderValues.shields || ""} 
                                                     placeholder="0"
+                                                    autoComplete="off"
                                                 />
                                                 <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                                             </InputGroup>
@@ -325,6 +337,7 @@ function Attack(props) {
                                             value={defenderValues.other_bonuses * 100 || ""} 
                                             placeholder="0"
                                             disabled
+                                            autoComplete="off"
                                             />
                                             <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
                                         </InputGroup>
@@ -423,6 +436,7 @@ function Attack(props) {
                                             onChange={handleAttackerChange}
                                             value={attackerValues.attack || ""} 
                                             placeholder="0"
+                                            autoComplete="off"
                                         />
                                     </td>
                                     <td>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
@@ -438,6 +452,7 @@ function Attack(props) {
                                             onChange={handleAttackerChange}
                                             value={attackerValues.flex || ""} 
                                             placeholder="0"
+                                            autoComplete="off"
                                         />
                                     </td>
                                     <td>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
@@ -453,6 +468,7 @@ function Attack(props) {
                                             onChange={handleAttackerChange}
                                             value={attackerValues.big_flex || ""} 
                                             placeholder="0"
+                                            autoComplete="off"
                                         />
                                     </td>
                                     <td>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
@@ -469,6 +485,7 @@ function Attack(props) {
                                             value={displayPercent(props.data.projects.current_bonuses?.military_bonus)} 
                                             placeholder="0"
                                             disabled
+                                            autoComplete="off"
                                         />
                                     </td>
                                     <td></td>
@@ -484,6 +501,7 @@ function Attack(props) {
                                             value="0%" 
                                             placeholder="0%"
                                             disabled
+                                            autoComplete="off"
                                         />
                                     </td>
                                     <td></td>
@@ -499,6 +517,7 @@ function Attack(props) {
                                             onChange={handleAttackerChange}
                                             value={attackerValues.generals || ""} 
                                             placeholder="0"
+                                            autoComplete="off"
                                         />
                                     </td>
                                     <td></td>

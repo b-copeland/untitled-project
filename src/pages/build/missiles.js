@@ -124,6 +124,7 @@ function Missiles(props) {
                                 onChange={handleInputChange}
                                 value={input.planet_busters || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
@@ -148,6 +149,7 @@ function Missiles(props) {
                                     onChange={handleInputChange}
                                     value={input.star_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                         </tr>
@@ -170,6 +172,7 @@ function Missiles(props) {
                                     value={input.star_busters || ""} 
                                     placeholder="0"
                                     disabled
+                                    autoComplete="off"
                                 />
                             }</td>
                         </tr>
@@ -195,6 +198,7 @@ function Missiles(props) {
                                     onChange={handleInputChange}
                                     value={input.galaxy_busters || ""} 
                                     placeholder="0"
+                                    autoComplete="off"
                                 />
                             }</td>
                         </tr>
@@ -217,6 +221,7 @@ function Missiles(props) {
                                     value={input.galaxy_busters || ""} 
                                     placeholder="0"
                                     disabled
+                                    autoComplete="off"
                                 />
                             }</td>
                         </tr>

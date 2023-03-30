@@ -121,6 +121,7 @@ function Structures(props) {
                                 onChange={handleInputChange}
                                 value={structuresInput.homes || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
@@ -137,6 +138,7 @@ function Structures(props) {
                                 onChange={handleInputChange}
                                 value={structuresInput.mines || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
@@ -153,6 +155,7 @@ function Structures(props) {
                                 onChange={handleInputChange}
                                 value={structuresInput.fuel_plants || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
@@ -169,6 +172,7 @@ function Structures(props) {
                                 onChange={handleInputChange}
                                 value={structuresInput.hangars || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
@@ -185,6 +189,7 @@ function Structures(props) {
                                 onChange={handleInputChange}
                                 value={structuresInput.drone_factories || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
@@ -201,6 +206,7 @@ function Structures(props) {
                                 onChange={handleInputChange}
                                 value={structuresInput.missile_silos || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
@@ -217,6 +223,7 @@ function Structures(props) {
                                 onChange={handleInputChange}
                                 value={structuresInput.workshops || ""} 
                                 placeholder="0"
+                                autoComplete="off"
                             />
                         }</td>
                     </tr>
