@@ -221,6 +221,7 @@ BASE_PCT_POP_GROWTH_PER_EPOCH = 0.10
 BASE_POP_GROWTH_PER_STAR_PER_EPOCH = 0.5
 BASE_FUELLESS_POP_GROWTH_REDUCTION = 0.9
 BASE_FUELLESS_POP_CAP_REDUCTION = 0.2
+BASE_NEGATIVE_FUEL_CAP = lambda stars: stars * -5
 
 BASE_PCT_POP_LOSS_PER_EPOCH = 0.10
 BASE_POP_LOSS_PER_STAR_PER_EPOCH = 0.2
@@ -3825,7 +3826,8 @@ def spy(target_kd):
     revealed = False
 
     if operation == "suicidedrones":
-        fuel_damage = min(max_target_kd_info["fuel"], drones * BASE_DRONES_SUICIDE_FUEL_DAMAGE)
+        burnable_fuel = max_target_kd_info["fuel"] - BASE_NEGATIVE_FUEL_CAP(max_target_kd_info["stars"])
+        fuel_damage = min(burnable_fuel, drones * BASE_DRONES_SUICIDE_FUEL_DAMAGE)
         losses = drones
         status = "success"
         message = f"You have destroyed {fuel_damage} fuel. You have lost {losses} drones"
@@ -4746,6 +4748,7 @@ def _kingdom_with_income(
     income["fuel"]["net"] = new_fuel - raw_fuel_consumption
     net_fuel = income["fuel"]["net"] * epoch_elapsed
     max_fuel = math.floor(kd_info_parse["structures"]["fuel_plants"]) * BASE_FUEL_PLANTS_CAPACITY
+    min_fuel = BASE_NEGATIVE_FUEL_CAP(kd_info_parse["stars"])
 
     income["drones"] = math.floor(kd_info_parse["structures"]["drone_factories"]) * BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH
     new_drones = income["drones"] * epoch_elapsed
@@ -4769,7 +4772,7 @@ def _kingdom_with_income(
                 new_kd_info["completed_projects"].append(key_project)
                 new_kd_info["projects_assigned"][key_project] = 0
     new_kd_info["money"] += new_income
-    new_kd_info["fuel"] = max(min(max_fuel, new_kd_info["fuel"] + net_fuel), 0)
+    new_kd_info["fuel"] = max(min(max_fuel, new_kd_info["fuel"] + net_fuel), min_fuel)
     new_kd_info["drones"] += new_drones
     new_kd_info["population"] = new_kd_info["population"] + pop_change
     new_kd_info["last_income"] = time_now.isoformat()
