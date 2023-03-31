@@ -10,6 +10,7 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./primitives.css";
+import Header from "../../components/header";
 
 
 
@@ -17,6 +18,8 @@ function Primitives(props) {
     const [key, setKey] = useState('attack');
 
     return (
+    <>
+      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="attack"
@@ -38,6 +41,7 @@ function Primitives(props) {
             data={props.data}/>
         </Tab>
       </Tabs>
+    </>
     );
 }
 

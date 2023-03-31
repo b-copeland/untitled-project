@@ -7,11 +7,14 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import "./galaxypolitics.css";
 import Select from 'react-select';
+import Header from "../../components/header";
 
 function GalaxyPolitics(props) {
     const [key, setKey] = useState('leader');
 
     return (
+    <>
+      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="leader"
@@ -33,6 +36,7 @@ function GalaxyPolitics(props) {
             data={props.data}/>
         </Tab>
       </Tabs>
+    </>
     );
 }
 

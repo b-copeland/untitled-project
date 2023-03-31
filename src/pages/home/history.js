@@ -5,6 +5,7 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Table from 'react-bootstrap/Table';
 import "./history.css";
+import Header from "../../components/header";
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -38,6 +39,8 @@ function HistoryContent(props) {
         return null;
     }
     return (
+    <>
+      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="attack"
@@ -58,6 +61,7 @@ function HistoryContent(props) {
           <Stats />
         </Tab>
       </Tabs>
+    </>
     )
 }
 

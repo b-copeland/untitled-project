@@ -11,6 +11,7 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./universepolitics.css";
 import Select from 'react-select';
+import Header from "../../components/header";
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -51,6 +52,8 @@ function UniversePolitics(props) {
 
     if (electionStart > timeNow && props.data.state.state?.active_policies?.length === 0) {
         return (
+            <>
+            <Header data={props.data} />
             <div className="universe-politics">
                 <div className="text-box universe-politics-box">
                     <span>The universe democracy elections have not yet begun.</span>
@@ -60,6 +63,7 @@ function UniversePolitics(props) {
                     <span>Voting will last for 1 day</span>
                 </div>
             </div>
+            </>
         )
     }
     if (electionStart > timeNow && props.data.state.state?.active_policies?.length > 0) {
@@ -70,6 +74,8 @@ function UniversePolitics(props) {
         const winningOptionPolicy1 = (winningPolicies.includes(props.data.universepolitics.desc?.policy_1?.options["1"].name)) ? "1" : "2";
         const winningOptionPolicy2 = (winningPolicies.includes(props.data.universepolitics.desc?.policy_2?.options["1"].name)) ? "1" : "2";
         return (
+            <>
+            <Header data={props.data} />
             <div className="universe-politics">
                 <div className="text-box universe-politics-box">
                     <span>The universe democracy elections have finished.</span>
@@ -100,6 +106,7 @@ function UniversePolitics(props) {
                     </div>
                 </div>
             </div>
+            </>
         )
     }
     const onSubmitClick = (e)=>{
@@ -194,6 +201,8 @@ function UniversePolitics(props) {
         </Toast>
     )
     return (
+        <>
+        <Header data={props.data} />
         <div className="universe-politics">
             <ToastContainer position="bottom-end">
                 {toasts}
@@ -387,6 +396,7 @@ function UniversePolitics(props) {
                 </div>
             </div>
         </div>
+        </>
     )
 }
 

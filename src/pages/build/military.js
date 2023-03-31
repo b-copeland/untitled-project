@@ -10,11 +10,14 @@ import Tabs from 'react-bootstrap/Tabs';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./military.css";
+import Header from "../../components/header";
 
 function MilitaryContent(props) {
     const kdInfo = props.data.kingdom;
     const mobisInfo = props.data.mobis;
     return (
+    <>
+        <Header data={props.data} />
         <Tabs
           id="controlled-tab-example"
           defaultActiveKey="recruits"
@@ -32,6 +35,7 @@ function MilitaryContent(props) {
             <Levy kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
         </Tabs>
+    </>
     )
 }
 

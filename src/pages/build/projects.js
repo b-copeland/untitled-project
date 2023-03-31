@@ -10,12 +10,15 @@ import Tabs from 'react-bootstrap/Tabs';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./projects.css";
+import Header from "../../components/header";
 
 function ProjectsContent(props) {
     const kdInfo = props.data.kingdom;
     const engineersInfo = props.data.engineers;
     const projectsInfo = props.data.projects;
     return (
+    <>
+        <Header data={props.data} />
         <Tabs
           id="controlled-tab-example"
           defaultActiveKey="train"
@@ -30,6 +33,7 @@ function ProjectsContent(props) {
             <Assign kdInfo={kdInfo} engineersInfo={engineersInfo} projectsInfo={projectsInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
         </Tabs>
+    </>
     )
 }
 

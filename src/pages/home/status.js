@@ -9,12 +9,15 @@ import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
-import "./status.css"
+import "./status.css";
+import Header from "../../components/header";
 
 function StatusContent(props) {
     const [key, setKey] = useState('kingdom');
 
     return (
+    <>
+      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="kingdom"
@@ -38,6 +41,7 @@ function StatusContent(props) {
           <Structures kingdom={props.data.kingdom} structures={props.data.structures}/>
         </Tab>
       </Tabs>
+    </>
     );
 }
 function capitalizeFirstLetter(string) {

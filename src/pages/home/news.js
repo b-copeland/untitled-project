@@ -5,6 +5,7 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Table from 'react-bootstrap/Table';
 import "./news.css"
+import Header from "../../components/header";
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -40,6 +41,8 @@ function NewsContent(props) {
     const kdNames = props.data.kingdoms;
     const galaxyMap = props.data.galaxies_inverted;
     return (
+    <>
+      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="kingdom"
@@ -60,6 +63,7 @@ function NewsContent(props) {
           <Universe universenews={props.data.universenews}/>
         </Tab>
       </Tabs>
+    </>
     );
 }
 

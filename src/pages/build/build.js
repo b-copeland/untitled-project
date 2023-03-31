@@ -4,6 +4,8 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Accordion from 'react-bootstrap/Accordion';
 import Table from 'react-bootstrap/Table';
 import "./build.css";
+import Header from "../../components/header";
+
 
 function getTimeString(date) {
     if (date === undefined) {
@@ -72,6 +74,8 @@ function Build(props) {
         </tr>
     )
     return (
+    <>
+    <Header data={props.data} />
     <div className="queue-page">
         <Accordion defaultActiveKey={['0']} alwaysOpen className="queue-accordion">
             <Accordion.Item eventKey="0">
@@ -156,6 +160,7 @@ function Build(props) {
             </Accordion.Item>
         </Accordion>
     </div>
+    </>
     );
 }
 

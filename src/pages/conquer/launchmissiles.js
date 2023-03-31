@@ -9,6 +9,7 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./launchmissiles.css";
 import Select from 'react-select';
+import Header from "../../components/header";
 
 const initialAttackerValues = {
     "planet_busters": "",
@@ -108,6 +109,8 @@ function LaunchMissiles(props) {
     )
 
     return (
+    <>
+        <Header data={props.data} />
         <div className="attack">
             <ToastContainer position="bottom-end">
                 {toasts}
@@ -243,6 +246,7 @@ function LaunchMissiles(props) {
                 </div>
             </div>
         </div>
+        </>
     )
 }
 

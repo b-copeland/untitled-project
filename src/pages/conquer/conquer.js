@@ -14,12 +14,15 @@ import LaunchMissiles from "./launchmissiles.js";
 import ShareIntel from "./shareintel.js";
 import Message from "../message.js";
 import Kingdom from "../kingdominfo.js";
+import Header from "../../components/header";
 
 
 function ConquerContent(props) {
     const [key, setKey] = useState('kingdom');
 
     return (
+    <>
+        <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="revealed"
@@ -66,6 +69,7 @@ function ConquerContent(props) {
             data={props.data}/>
         </Tab>
       </Tabs>
+    </>
     );
 }
 

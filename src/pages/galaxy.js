@@ -15,6 +15,7 @@ import Attack from "./conquer/attack.js";
 import Spy from "./conquer/spy.js";
 import LaunchMissiles from "./conquer/launchmissiles.js";
 import Message from "./message.js";
+import Header from "../components/header";
 
 function getTimeString(date) {
     if (date === undefined) {
@@ -172,6 +173,8 @@ function Galaxy(props) {
         return <h3>This galaxy does not exist!</h3>
     }
     return (
+        <>
+        <Header data={props.data} />
         <div className="galaxy">
             <Modal
                 show={showAttack}
@@ -324,6 +327,7 @@ function Galaxy(props) {
                 </Table>
             }
         </div>
+    </>
     );
 }
 

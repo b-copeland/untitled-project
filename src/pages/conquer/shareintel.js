@@ -8,7 +8,7 @@ import Form from 'react-bootstrap/Form';
 import InputGroup from 'react-bootstrap/InputGroup';
 import "./shareintel.css";
 import Select from 'react-select';
-import Galaxy from "../galaxy";
+import Header from "../../components/header";
 
 function ShareIntel(props) {
     const [selected, setSelected] = useState(props.initialKd || undefined);
@@ -104,6 +104,8 @@ function ShareIntel(props) {
         </Toast>
     )
     return (
+        <>
+        <Header data={props.data} />
         <div className="share-intel">
             <ToastContainer position="bottom-end">
                 {toasts}
@@ -177,6 +179,7 @@ function ShareIntel(props) {
                 : null
             }
         </div>
+        </>
     )
 }
 

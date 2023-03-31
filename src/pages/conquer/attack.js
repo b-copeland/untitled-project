@@ -9,6 +9,7 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./attack.css";
 import Select from 'react-select';
+import Header from "../../components/header";
 
 
 const initialDefenderValues = {
@@ -132,6 +133,8 @@ function Attack(props) {
         </Toast>
     )
     return (
+    <>
+        <Header data={props.data} />
         <div className="attack">
             <ToastContainer position="bottom-end">
                 {toasts}
@@ -555,6 +558,7 @@ function Attack(props) {
                 }
             </div>
         </div>
+    </>
     )
 }
 

@@ -7,6 +7,7 @@ import Table from 'react-bootstrap/Table';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./structures.css"
+import Header from "../../components/header";
 
 const initialStructuresValues = {
     "homes": "",
@@ -74,6 +75,8 @@ function Structures(props) {
     const structuresStars = calcStructuresStarsUsed(structuresInput)
     const structuresCost = structuresStars * structuresInfo.price
     return (
+        <>
+        <Header data={props.data} />
         <div className="structures">
             <ToastContainer position="bottom-end">
                 {toasts}
@@ -246,6 +249,7 @@ function Structures(props) {
                 : null
             }
         </div>
+        </>
         )
 }
 

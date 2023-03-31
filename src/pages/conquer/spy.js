@@ -9,6 +9,7 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./spy.css";
 import Select from 'react-select';
+import Header from "../../components/header";
 
 const initialDefenderValues = {
     "drones": "",
@@ -161,6 +162,8 @@ function Spy(props) {
         setDrones(Math.floor(props.data.kingdom["drones"]))
     }
     return (
+        <>
+        <Header data={props.data} />
         <div className="attack">
             <ToastContainer position="bottom-end">
                 {toasts}
@@ -355,6 +358,7 @@ function Spy(props) {
                 </div>
             </div>
         </div>
+        </>
     )
 }
 

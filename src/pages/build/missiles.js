@@ -7,6 +7,7 @@ import Table from 'react-bootstrap/Table';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./missiles.css";
+import Header from "../../components/header";
 
 const initialInput = {
     "planet_busters": "",
@@ -84,6 +85,8 @@ function Missiles(props) {
         </Toast>
     )
     return (
+        <>
+        <Header data={props.data} />
         <div className="missiles">
             <ToastContainer position="bottom-end">
                 {toasts}
@@ -246,6 +249,7 @@ function Missiles(props) {
                 : null
             }
         </div>
+        </>
     )
 }
 

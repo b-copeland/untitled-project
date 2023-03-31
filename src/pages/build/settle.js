@@ -7,6 +7,7 @@ import Button from 'react-bootstrap/Button';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./settle.css"
+import Header from "../../components/header";
 
 
 function Settle(props) {
@@ -46,6 +47,8 @@ function Settle(props) {
     )
     const calcSettleCosts = (input) => parseInt(input) * settleInfo.settle_price
     return (
+        <>
+        <Header data={props.data} />
         <div className="settle">
             <ToastContainer position="bottom-end">
                 {toasts}
@@ -97,6 +100,7 @@ function Settle(props) {
                 }   
             </div>
         </div>
+        </>
         )
 }
 
