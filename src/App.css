@@ -80,10 +80,12 @@
 }
 
 .header-container {
-  width: 90%;
+  width: 100%;
   align-items: center;
   justify-content: center;
   display: flex;
+  padding: 20px;
+  align-self: center;
 }
 
 .header-contents {
