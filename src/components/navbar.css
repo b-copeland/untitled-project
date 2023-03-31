@@ -45,6 +45,11 @@
     font-size: 32px;
 } */
 
+.sidenav {
+    padding: 15px;
+    min-width: 60%;
+}
+
 .mainnav {
     display: flex;
     flex-direction: column;
