@@ -1,57 +1,19 @@
-/* .container {
-    width: 80%;
-    height: 100%;
-    font-size: 24px;
-}
-
-.navbar {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.navbar-nav {
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-}
-
-.nav-link {
-    width: 100%;
-    margin: 5px;
-}
-.dropdown-item {
-    width: 100%;
-    margin: 5px;
-}
-
-.dropdown-menu {
-    align-items: right;
-    display: flex;
-    flex-direction: column;
-}
-.navbar-collapse {
-    display: flex;
-    align-items: center;
-}
-.nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.nav-list {
-    list-style-position: inside;
-    font-size: 32px;
-} */
-
 .sidenav {
-    padding: 15px;
-    min-width: 60%;
+    height: 100%;
+    width: 100%;
+    padding: 50px;
+    font-size: larger;
+    display: flex;
+    flex-direction: column;
 }
 
 .mainnav {
     display: flex;
     flex-direction: column;
     align-items: left;
+}
+
+.nav-logout {
+    margin-top: auto;
+    align-self: center;
 }

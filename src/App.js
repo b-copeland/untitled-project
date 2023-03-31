@@ -11,7 +11,7 @@ import {
   redirect,
 } from "react-router-dom";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "./auth";
-import BasicExample from "./components/navbar";
+import SideNavbar from "./components/navbar";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css";
 import Admin from "./pages/admin.js";
@@ -279,7 +279,7 @@ function Content(props) {
   return (
     <div className="main">
       <div className="navdiv">
-        <BasicExample />
+        <SideNavbar logged={props.logged} setData={setData}/>
       </div>
       <div className="main-body">
         <Header data={data}/>
@@ -323,7 +323,7 @@ function Content(props) {
   )
 }
 
-export default function App() {
+function App() {
   const [logged, session] = useAuth();
 
   if (session === null) {
@@ -421,9 +421,11 @@ function Home(props) {
 function Login(props) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
   const onSubmitClick = (e)=>{
+    setMessage("");
     e.preventDefault()
     let opts = {
       'username': username,
@@ -439,7 +441,7 @@ function Login(props) {
           navigate('/status');
         }
         else {
-          console.log("Please type in correct username/password")
+          setMessage("Invalid username/password")
         }
       })
   }
@@ -472,8 +474,13 @@ function Login(props) {
           />
         </div>
         <button onClick={onSubmitClick} type="submit">
-          Login Now
+          Login
         </button>
+        {
+          message != ""
+          ? <h2>{message}</h2>
+          : null
+        }
       </form>
       : <button onClick={() => logout()}>Logout</button>}
     </div>
@@ -500,3 +507,5 @@ function Finalize() {
     <h2>{message}</h2>
   )
 }
+
+export {App, initGlobalData};
