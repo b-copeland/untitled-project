@@ -289,7 +289,7 @@ function Content(props) {
               <Routes>
                 <Route path="/login" element={<Login logged={props.logged}/>}/>
                 <Route path="/admin" element={<Admin />}/>
-                <Route path="/createkingdom" element={<CreateKingdom loading={loading} updateData={updateData} kingdomid={data.kingdomid}/>}/>
+                <Route path="/createkingdom" element={<CreateKingdom loading={loading} updateData={updateData} kingdomid={data.kingdomid} state={data.state}/>}/>
                 <Route element={<ProtectedRoute logged={props.logged} session={props.session} kingdomid={data.kingdomid}/>}>
                   <Route path="/status" element={<StatusContent data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/news" element={<NewsContent data={data}/>}/>

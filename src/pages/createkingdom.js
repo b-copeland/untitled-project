@@ -8,21 +8,21 @@ import "./createkingdom.css"
 
 const initialStructuresChoices = {
     "homes": 60,
-    "mines": 60,
+    "mines": 80,
     "fuel_plants": 30,
-    "hangars": 60,
+    "hangars": 48,
     "drone_factories": 60,
     "missile_silos": 0,
-    "workshops": 15,
+    "workshops": 12,
 }
 
 const initialUnitsChoices = {
     "drones": 2000,
     "recruits": 500,
-    "attack": 300,
-    "defense": 500,
+    "attack": 500,
+    "defense": 800,
     "flex": 500,
-    "engineers": 800,
+    "engineers": 500,
 }
 
 function CreateKingdom(props) {
@@ -91,6 +91,9 @@ function CreateKingdom(props) {
     if (Object.keys(createKingdomData).length === 0) {
         return <h2>Loading...</h2>
     }
+    if (Object.keys(props.state).length === 0) {
+        return <h2>Loading...</h2>
+    }
 
     if (kdMessage != "" && kdMessage == props.kingdomid.kd_id) {
         setKdMessage("");
@@ -111,6 +114,52 @@ function CreateKingdom(props) {
         return availablePoints - total
     }
 
+    const calcOffense = (unitsData) => {
+        var total = 0;
+        for (const unit in unitsData) {
+            const unitDesc = props.state.units[unit] || {};
+            total += (unitDesc.offense || 0) * unitsData[unit]
+        }
+        return total
+    }
+    const calcDefense = (unitsData) => {
+        var total = 0;
+        for (const unit in unitsData) {
+            const unitDesc = props.state.units[unit] || {};
+            total += (unitDesc.defense || 0) * unitsData[unit]
+        }
+        return total
+    }
+    const calcUnitsFuelConsumption = (unitsData) => {
+        var total = 0;
+        for (const unit in unitsData) {
+            const unitDesc = props.state.units[unit] || {};
+            total += (unitDesc.fuel || 0) * unitsData[unit]
+        }
+        return total
+    }
+    const calcUnitsHangarCapacity = (unitsData) => {
+        var total = 0;
+        for (const unit in unitsData) {
+            const unitDesc = props.state.units[unit] || {};
+            total += (unitDesc.hangar_capacity || 0) * unitsData[unit]
+        }
+        return total
+    }
+    const offense = calcOffense(unitsChoices);
+    const defense = calcDefense(unitsChoices);
+    const unitsFuel = calcUnitsFuelConsumption(unitsChoices);
+    const hangarCapacityUsed = calcUnitsHangarCapacity(unitsChoices);
+    const maxPop = structuresChoices.homes * props.state.structures.pop_per_home;
+    const popIncome = maxPop * props.state.income_per_pop;
+    const popFuel = maxPop * props.state.fuel_consumption_per_pop;
+    const minesIncome = structuresChoices.mines * props.state.structures.income_per_mine;
+    const fuelPlantsIncome = structuresChoices.fuel_plants * props.state.structures.fuel_per_fuel_plant;
+    const fuelPlantsCap = structuresChoices.fuel_plants * props.state.structures.fuel_cap_per_fuel_plant;
+    const hangarCapacityMax = structuresChoices.hangars * props.state.structures.hangar_capacity;
+    const droneProduction = structuresChoices.drone_factories * props.state.structures.drone_production_per_drone_plant;
+    const missileCapacity = structuresChoices.missile_silos * props.state.structures.missile_capacity_per_missile_silo;
+    const workshopCapacity = structuresChoices.workshops * props.state.structures.engineers_capacity_per_workshop;
     return (
         <div>
         {
@@ -341,6 +390,57 @@ function CreateKingdom(props) {
                     ? <h4>{kdMessage}</h4>
                     : null
                 }
+                <div className="text-box kingdom-card">
+                    <h4>Kingdom Stats</h4>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Offense</span>
+                        <span className="text-box-item-value">{offense.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Defense</span>
+                        <span className="text-box-item-value">{defense.toLocaleString()}</span>
+                    </div>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Population</span>
+                        <span className="text-box-item-value">{maxPop.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Income</span>
+                        <span className="text-box-item-value">{(popIncome + minesIncome).toLocaleString()}</span>
+                    </div>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Fuel Production</span>
+                        <span className="text-box-item-value">{fuelPlantsIncome.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Fuel Usage</span>
+                        <span className="text-box-item-value">{(unitsFuel + popFuel).toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Fuel Capacity</span>
+                        <span className="text-box-item-value">{fuelPlantsCap.toLocaleString()}</span>
+                    </div>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Hangar Capacity</span>
+                        <span className="text-box-item-value">{hangarCapacityUsed.toLocaleString()} / {hangarCapacityMax.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Drones Production</span>
+                        <span className="text-box-item-value">{droneProduction}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Missile Capacity</span>
+                        <span className="text-box-item-value">{missileCapacity}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Workshop Capacity</span>
+                        <span className="text-box-item-value">{unitsChoices.engineers.toLocaleString()} / {workshopCapacity.toLocaleString()}</span>
+                    </div>
+                </div>
             </div>
             : <h2>Kingdom Created!</h2>
         }

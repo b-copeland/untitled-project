@@ -666,6 +666,19 @@ def get_state():
     return flask.jsonify({
         **get_response_json,
         "pretty_names": PRETTY_NAMES,
+        "units": UNITS,
+        "structures": {
+            "pop_per_home": BASE_HOMES_CAPACITY,
+            "income_per_mine": BASE_MINES_INCOME_PER_EPOCH,
+            "fuel_per_fuel_plant": BASE_FUEL_PLANTS_INCOME_PER_EPOCH,
+            "fuel_cap_per_fuel_plant": BASE_FUEL_PLANTS_CAPACITY,
+            "hangar_capacity": BASE_HANGAR_CAPACITY,
+            "drone_production_per_drone_plant": BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH,
+            "missile_capacity_per_missile_silo": BASE_MISSILE_SILO_CAPACITY,
+            "engineers_capacity_per_workshop": BASE_WORKSHOP_CAPACITY,
+        },
+        "income_per_pop": BASE_POP_INCOME_PER_EPOCH,
+        "fuel_consumption_per_pop": BASE_POP_FUEL_CONSUMPTION_PER_EPOCH,
     }), 200
 
 def _create_galaxy(galaxy_id):
@@ -4732,12 +4745,12 @@ def _kingdom_with_income(
     income["fuel"]["units"] = {}
     for key_unit, value_units in kd_info_parse["units"].items():
         income["fuel"]["units"][key_unit] = value_units * UNITS[key_unit]["fuel"]
+    income["fuel"]["population"] = kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH
     income["fuel"]["shields"] = {}
     income["fuel"]["shields"]["military"] = kd_info_parse["shields"]["military"] * 100 * kd_info_parse["stars"] * BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT
     income["fuel"]["shields"]["spy"] = kd_info_parse["shields"]["spy"] * 100 * kd_info_parse["stars"] * BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT
     income["fuel"]["shields"]["spy_radar"] = kd_info_parse["shields"]["spy_radar"] * 100 * kd_info_parse["stars"] * BASE_SPY_RADAR_COST_PER_LAND_PER_PCT
     income["fuel"]["shields"]["missiles"] = kd_info_parse["shields"]["missiles"] * 100 * kd_info_parse["stars"] * BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT
-    income["fuel"]["population"] = kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH
 
     new_fuel = income["fuel"]["fuel_plants"] * (1 + income["fuel"]["bonus"])
     raw_fuel_consumption = (
