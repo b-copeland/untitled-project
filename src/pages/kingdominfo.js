@@ -44,46 +44,46 @@ function Kingdom(props) {
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Race</span>
-                    <span className="text-box-item-value">{props.kingdom.race}</span>
+                    <span className="text-box-item-value">{props.kingdom?.race}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Stars</span>
-                    <span className="text-box-item-value">{props.kingdom.stars?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom?.stars?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Population</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.population).toLocaleString()}</span>
+                    <span className="text-box-item-value">{Math.floor(props.kingdom?.population).toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Fuel</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.fuel).toLocaleString()}</span>
+                    <span className="text-box-item-value">{Math.floor(props.kingdom?.fuel).toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Engineers</span>
-                    <span className="text-box-item-value">{props.kingdom["units"]?.engineers?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom?.units?.engineers?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.drones).toLocaleString()}</span>
+                    <span className="text-box-item-value">{Math.floor(props.kingdom?.drones).toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Attackers</span>
-                    <span className="text-box-item-value">{props.kingdom["units"]?.attack?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom?.units?.attack?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Defenders</span>
-                    <span className="text-box-item-value">{props.kingdom["units"]?.defense?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom?.units?.defense?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Flexers</span>
-                    <span className="text-box-item-value">{props.kingdom["units"]?.flex?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom?.units?.flex?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Big Flexers</span>
-                    <span className="text-box-item-value">{props.kingdom["units"]?.big_flex?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom?.units?.big_flex?.toLocaleString()}</span>
                 </div>
             </div>
         </div>
@@ -113,7 +113,7 @@ function Military(props) {
           rv[keyPrefix + i] = arr[i];
         return rv;
       };
-    const generals = arrayToObject(props.kingdom.generals_out || []);
+    const generals = arrayToObject(props.kingdom?.generals_out || []);
     return (
         <div className="military">
             <h2>Armies</h2>
@@ -181,7 +181,7 @@ function Military(props) {
     )
 }
 function Structures(props) {
-    const structures = props.kingdom.structures;
+    const structures = props.kingdom?.structures;
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
         
@@ -198,37 +198,37 @@ function Structures(props) {
                     <tr>
                         <td>Homes</td>
                         <td>{structures?.homes?.toLocaleString() || 0}</td>
-                        <td>{displayPercent((structures?.homes || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.homes || 0) / (props.kingdom?.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Mines</td>
                         <td>{structures?.mines?.toLocaleString() || 0}</td>
-                        <td>{displayPercent((structures?.mines || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.mines || 0) / (props.kingdom?.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Fuel Plants</td>
                         <td>{structures?.fuel_plants?.toLocaleString() || 0}</td>
-                        <td>{displayPercent((structures?.fuel_plants || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.fuel_plants || 0) / (props.kingdom?.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Hangars</td>
                         <td>{structures?.hangars?.toLocaleString() || 0}</td>
-                        <td>{displayPercent((structures?.hangars || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.hangars || 0) / (props.kingdom?.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Drone Factories</td>
                         <td>{structures?.drone_factories?.toLocaleString() || 0}</td>
-                        <td>{displayPercent((structures?.drone_factories || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.drone_factories || 0) / (props.kingdom?.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Missile Silos</td>
                         <td>{structures?.missile_silos?.toLocaleString() || 0}</td>
-                        <td>{displayPercent((structures?.missile_silos || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.missile_silos || 0) / (props.kingdom?.stars || 1))}</td>
                     </tr>
                     <tr>
                         <td>Workshops</td>
                         <td>{structures?.workshops?.toLocaleString() || 0}</td>
-                        <td>{displayPercent((structures?.workshops || 0) / (props.kingdom.stars || 1))}</td>
+                        <td>{displayPercent((structures?.workshops || 0) / (props.kingdom?.stars || 1))}</td>
                     </tr>
                 </tbody>
             </Table>
