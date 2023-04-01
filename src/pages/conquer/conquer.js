@@ -356,6 +356,7 @@ function Revealed(props) {
                 </Button>
            }
             <DataTable
+                className="revealed-table"
                 value={revealedPrimeRows}
                 paginator
                 size="small"

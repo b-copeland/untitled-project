@@ -120,7 +120,36 @@ function LaunchMissiles(props) {
                 <label id="aria-label" htmlFor="aria-example-input">
                     Select a target (type to filter)
                 </label>
-                <Select className="attack-kingdom-select" options={kingdomOptions} onChange={handleChange} autoFocus={true} defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}/>
+                <Select className="attack-kingdom-select" options={kingdomOptions} onChange={handleChange} autoFocus={true} defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}
+                    styles={{
+                        control: (baseStyles, state) => ({
+                            ...baseStyles,
+                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                            backgroundColor: 'var(--bs-body-bg)',
+                        }),
+                        placeholder: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-primary-text)',
+                        }),
+                        input: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                        option: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                        }),
+                        menuList: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: 'var(--bs-secondary-bg)',
+                            // borderColor: 'var(--bs-secondary-bg)',
+                        }),
+                        singleValue: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                    }}/>
             </form>
             <div className="defender-stats">
                 <h3>{kdFullLabel(selected)}</h3>

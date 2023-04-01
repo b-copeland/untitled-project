@@ -119,6 +119,35 @@ function ShareIntel(props) {
                 onChange={handleChange}
                 autoFocus={true}
                 defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}
+                styles={{
+                    control: (baseStyles, state) => ({
+                        ...baseStyles,
+                        borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                        backgroundColor: 'var(--bs-body-bg)',
+                    }),
+                    placeholder: (baseStyles, state) => ({
+                        ...baseStyles,
+                        color: 'var(--bs-primary-text)',
+                    }),
+                    input: (baseStyles, state) => ({
+                        ...baseStyles,
+                        color: 'var(--bs-secondary-text)',
+                    }),
+                    option: (baseStyles, state) => ({
+                        ...baseStyles,
+                        backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                        color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                    }),
+                    menuList: (baseStyles, state) => ({
+                        ...baseStyles,
+                        backgroundColor: 'var(--bs-secondary-bg)',
+                        // borderColor: 'var(--bs-secondary-bg)',
+                    }),
+                    singleValue: (baseStyles, state) => ({
+                        ...baseStyles,
+                        color: 'var(--bs-secondary-text)',
+                    }),
+                }}
             />
             {   selected !== undefined
                 ? <div className="share-intel-choices">
@@ -135,6 +164,35 @@ function ShareIntel(props) {
                             options={revealedOptions}
                             onChange={handleStatChange}
                             autoFocus={true}
+                            styles={{
+                                control: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                                    backgroundColor: 'var(--bs-body-bg)',
+                                }),
+                                placeholder: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    color: 'var(--bs-primary-text)',
+                                }),
+                                input: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    color: 'var(--bs-secondary-text)',
+                                }),
+                                option: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                                    color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                                }),
+                                menuList: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    backgroundColor: 'var(--bs-secondary-bg)',
+                                    // borderColor: 'var(--bs-secondary-bg)',
+                                }),
+                                singleValue: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    color: 'var(--bs-secondary-text)',
+                                }),
+                            }}
                             // defaultValue={revealedOptions.filter(option => option.value === props.initialKd)}
                         />
                     </div>
@@ -147,6 +205,35 @@ function ShareIntel(props) {
                             options={shareToOptions}
                             onChange={handleShareToChange}
                             autoFocus={true}
+                            styles={{
+                                control: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                                    backgroundColor: 'var(--bs-body-bg)',
+                                }),
+                                placeholder: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    color: 'var(--bs-primary-text)',
+                                }),
+                                input: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    color: 'var(--bs-secondary-text)',
+                                }),
+                                option: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                                    color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                                }),
+                                menuList: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    backgroundColor: 'var(--bs-secondary-bg)',
+                                    // borderColor: 'var(--bs-secondary-bg)',
+                                }),
+                                singleValue: (baseStyles, state) => ({
+                                    ...baseStyles,
+                                    color: 'var(--bs-secondary-text)',
+                                }),
+                            }}
                             // defaultValue={revealedOptions.filter(option => option.value === props.initialKd)}
                         />
                     </div>
