@@ -174,37 +174,37 @@ function Revealed(props) {
             "stars": maxKdInfo[kdId]?.stars || null,
             "score": maxKdInfo[kdId]?.score || null,
             "actions": <>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
                     View
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
                     Spy
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
                     Missile
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
                     Message
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowShareIntel(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowShareIntel(true)}}>
                     Share Intel
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
                     View Galaxy
                 </Button>
                 {
                     props.loading.pinned
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" disabled>
+                    ? <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
                     : props.pinned.indexOf(kdId) >= 0
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitUnpin}>
+                    ? <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onSubmitUnpin}>
                         Unpin
                     </Button>
-                    : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitPin}>
+                    : <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onSubmitPin}>
                         Pin
                     </Button>
                 }
@@ -486,34 +486,34 @@ function Shared(props) {
             <td>{props.kingdoms[props.shared.shared[kdId].shared_by] || ""}</td>
             <td>{displayPercent(props.shared.shared[kdId].cut) || ""}</td>
             <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
                     View
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
                     Spy
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
                     Missile
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
                     Message
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
                     View Galaxy
                 </Button>
                 {
                     props.loading.pinned
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" disabled>
+                    ? <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
                     : props.pinned.indexOf(kdId) >= 0
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitUnpin}>
+                    ? <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onSubmitUnpin}>
                         Unpin
                     </Button>
-                    : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitPin}>
+                    : <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onSubmitPin}>
                         Pin
                     </Button>
                 }
@@ -532,27 +532,27 @@ function Shared(props) {
             <td>
                 {
                     props.loading.shared
-                    ? <Button className="inline-galaxy-button" variant="primary" type="submit" disabled>
+                    ? <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
-                    : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onAcceptShared}>
+                    : <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onAcceptShared}>
                         Accept
                     </Button>
                 }
                 
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
                     View Galaxy
                 </Button>
                 {
                     props.loading.pinned
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" disabled>
+                    ? <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
                     : props.pinned.indexOf(kdId) >= 0
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitUnpin}>
+                    ? <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onSubmitUnpin}>
                         Unpin
                     </Button>
-                    : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitPin}>
+                    : <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onSubmitPin}>
                         Pin
                     </Button>
                 }
@@ -569,19 +569,19 @@ function Shared(props) {
             <td>{displayPercent(props.shared.shared_offers[kdId].cut) || ""}</td>
             <td>{props.shared.shared_offers[kdId].shared_stat || ""}</td>
             <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
                     View Galaxy
                 </Button>
                 {
                     props.loading.pinned
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" disabled>
+                    ? <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
                     : props.pinned.indexOf(kdId) >= 0
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitUnpin}>
+                    ? <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onSubmitUnpin}>
                         Unpin
                     </Button>
-                    : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitPin}>
+                    : <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onSubmitPin}>
                         Pin
                     </Button>
                 }
@@ -819,34 +819,34 @@ function Pinned(props) {
             <td>{maxKdInfo[kdId]?.stars || ""}</td>
             <td>{maxKdInfo[kdId]?.score || ""}</td>
             <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
                     View
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
                     Spy
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
                     Missile
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
                     Message
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
                     View Galaxy
                 </Button>
                 {
                     props.loading.pinned
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" disabled>
+                    ? <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
                     : props.pinned.indexOf(kdId) >= 0
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitUnpin}>
+                    ? <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onSubmitUnpin}>
                         Unpin
                     </Button>
-                    : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitPin}>
+                    : <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onSubmitPin}>
                         Pin
                     </Button>
                 }
