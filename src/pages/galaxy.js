@@ -11,6 +11,7 @@ import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Modal from 'react-bootstrap/Modal';
 import "./galaxy.css";
+import Kingdom from "./kingdominfo.js";
 import Attack from "./conquer/attack.js";
 import Spy from "./conquer/spy.js";
 import LaunchMissiles from "./conquer/launchmissiles.js";
@@ -34,10 +35,12 @@ function Galaxy(props) {
     const [clusterInput, setClusterInput] = useState();
     const [galaxyInput, setGalaxyInput] = useState();
     const [loading, setLoading] = useState(false);
+    const [showView, setShowView] = useState(false);
     const [showAttack, setShowAttack] = useState(false);
     const [showSpy, setShowSpy] = useState(false);
     const [showMissile, setShowMissile] = useState(false);
     const [showMessage, setShowMessage] = useState(false);
+    const [showShareInfo, setShowShareInfo] = useState(false);
     const [kdToShow, setKdToShow] = useState();
 
     const galaxiesArray = Object.keys(props.data.galaxies);
@@ -130,6 +133,21 @@ function Galaxy(props) {
         })
         props.updateData(['pinned'], [updateFunc])
     }
+
+    const onSubmitShare = (e)=>{
+        const updateFunc = () => authFetch('api/share/' + kdToShow, {
+            method: "POST", 
+        })
+        props.updateData(['revealed'], [updateFunc]);
+        setShowShareInfo(false);
+    }
+
+    const onSubmitUnShare = (kdId)=>{
+        const updateFunc = () => authFetch('api/unshare/' + kdId, {
+            method: "POST", 
+        })
+        props.updateData(['revealed'], [updateFunc])
+    }
     const galaxyRows = Object.keys(galaxyInfo).map((kdId) =>
         <tr key={kdId}>
             <td>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</td>
@@ -140,6 +158,9 @@ function Galaxy(props) {
             <td>07:59:59</td>
             <td>{galaxyInfo[kdId].status}</td>
             <td>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
+                    View
+                </Button>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
@@ -165,6 +186,21 @@ function Galaxy(props) {
                         Pin
                     </Button>
                 }
+                {
+                    props.data.galaxies_inverted[kdId] == props.data.galaxies_inverted[props.data.kingdom.kdId]
+                    ? props.loading.revealed
+                        ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" disabled>
+                            Loading...
+                        </Button>
+                        : props.data.revealed.revealed_to_galaxymates?.indexOf(kdId) >= 0
+                        ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={() => onSubmitUnShare(kdId)}>
+                            Stop Sharing
+                        </Button>
+                        : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowShareInfo(true)}}>
+                            Share 
+                        </Button>
+                    : null
+                }
             </td>
         </tr>
     );
@@ -176,6 +212,24 @@ function Galaxy(props) {
         <>
         <Header data={props.data} />
         <div className="galaxy">
+            <Modal
+                show={showView}
+                onHide={() => setShowView(false)}
+                animation={false}
+                dialogClassName="view-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>View</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Kingdom data={{"kingdom": galaxyInfo[kdToShow], "kingdoms": props.data.kingdoms, "galaxies_inverted": props.data.galaxies_inverted, "kdId": kdToShow}}/>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowView(false)}>
+                    Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
             <Modal
                 show={showAttack}
                 onHide={() => setShowAttack(false)}
@@ -245,6 +299,34 @@ function Galaxy(props) {
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowMessage(false)}>
                     Close
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            <Modal
+                show={showShareInfo}
+                onHide={() => setShowShareInfo(false)}
+                animation={false}
+                dialogClassName="share-info-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Share Info?</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <div>
+                        <span>Sharing your info will allow the target kingdom to see all your kingdom info. You can stop sharing your info at any time</span>
+                        <br />
+                        <br />
+                        <span>Are you sure?</span>
+                        <br />
+                        <br />
+                        <Button variant="primary" type="submit" onClick={onSubmitShare}>
+                            Share 
+                        </Button>
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowShareInfo(false)}>
+                    Cancel
                     </Button>
                 </Modal.Footer>
             </Modal>

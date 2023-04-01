@@ -367,7 +367,12 @@ INITIAL_KINGDOM_STATE = {
     "structures": {"structures": []},
     "missiles": {"missiles": []},
     "engineers": {"engineers": []},
-    "revealed": {"revealed": {}, "galaxies": {}},
+    "revealed": {
+        "revealed": {},
+        "galaxies": {},
+        "revealed_galaxymates": [],
+        "revealed_to_galaxymates": [],
+    },
     "shared": {
         "shared": {},
         "shared_requests": {},
@@ -1942,8 +1947,11 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
     kd_info_parse = json.loads(kd_info.text)
     if max:
         return kd_info_parse
+
+    if other_kd_id in revealed_info["revealed_galaxymates"]:
+        return kd_info_parse
     
-    revealed_categories = revealed_info.get(other_kd_id, {}).keys()
+    revealed_categories = revealed_info["revealed"].get(other_kd_id, {}).keys()
     kingdom_info_keys = always_allowed_keys
     for revealed_category in revealed_categories:
         kingdom_info_keys = kingdom_info_keys.union(allowed_keys[revealed_category])
@@ -1983,7 +1991,7 @@ def max_kingdom(other_kd_id):
     kd_id = flask_praetorian.current_user().kd_id
     print(kd_id, file=sys.stderr)
 
-    revealed_info = _get_revealed(kd_id)["revealed"]
+    revealed_info = _get_revealed(kd_id)
     max_kd_info = _get_max_kd_info(other_kd_id, kd_id, revealed_info)
 
     return (flask.jsonify(max_kd_info), 200)
@@ -2003,7 +2011,7 @@ def galaxy(galaxy):
     print(kd_id, file=sys.stderr)
     galaxies_inverted, galaxy_info = _get_galaxies_inverted()
     current_galaxy = galaxy_info[galaxy]
-    revealed_info = _get_revealed(kd_id)["revealed"]
+    revealed_info = _get_revealed(kd_id)
     galaxy_kd_info = {}
     for galaxy_kd_id in current_galaxy:
         kd_info = _get_max_kd_info(galaxy_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted)
@@ -2794,6 +2802,68 @@ def update_pinned():
     return (flask.jsonify(pinned_patch_response.text), 200)
 
 
+@app.route('/api/share/<share_to>', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def share_kd(share_to):
+    kd_id = flask_praetorian.current_user().kd_id
+
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    if galaxies_inverted[kd_id] != galaxies_inverted[share_to]:
+        return flask.jsonify("You can only share your kingdom to galaxymates"), 400
+
+    kd_payload = {
+        "new_revealed_to_galaxymates": [share_to]
+    }
+    share_to_payload = {
+        "new_revealed_galaxymates": [kd_id]
+    }
+    kd_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_payload),
+    )
+    share_to_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(share_to_payload),
+    )
+    return (flask.jsonify(kd_response.text)), 200
+
+@app.route('/api/unshare/<share_to>', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def unshare_kd(share_to):
+    kd_id = flask_praetorian.current_user().kd_id
+
+    kd_revealed = _get_revealed(kd_id)
+    share_to_revealed = _get_revealed(share_to)
+
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    if galaxies_inverted[kd_id] != galaxies_inverted[share_to]:
+        return flask.jsonify("You can only share your kingdom to galaxymates"), 400
+
+    kd_payload = {
+        "revealed_to_galaxymates": [revealed_to_id for revealed_to_id in kd_revealed["revealed_to_galaxymates"] if revealed_to_id != share_to]
+    }
+    share_to_payload = {
+        "revealed_galaxymates": [revealed_id for revealed_id in share_to_revealed["revealed_galaxymates"] if revealed_id != kd_id]
+    }
+    kd_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_payload),
+    )
+    share_to_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(share_to_payload),
+    )
+    return (flask.jsonify(kd_response.text)), 200
+
+
 @app.route('/api/kingdomsinfo', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -2810,7 +2880,7 @@ def max_kingdoms():
 
     kd_id = flask_praetorian.current_user().kd_id
     print(kd_id, file=sys.stderr)
-    revealed_info = _get_revealed(kd_id)["revealed"]
+    revealed_info = _get_revealed(kd_id)
     galaxies_inverted, _ = _get_galaxies_inverted()
 
     payload = {
@@ -2983,7 +3053,7 @@ def calculate_attack(target_kd):
         if "max_bonus" in project_dict
     }
 
-    revealed = _get_revealed(kd_id)["revealed"]
+    revealed = _get_revealed(kd_id)
     shared = _get_shared(kd_id)["shared"]
     max_target_kd_info = _get_max_kd_info(target_kd, kd_id, revealed)
 
@@ -3743,7 +3813,7 @@ def calculate_spy(target_kd):
     if not valid_request:
         return (flask.jsonify({"message": message}), 400)
     
-    revealed = _get_revealed(kd_id)["revealed"]
+    revealed = _get_revealed(kd_id)
     max_target_kd_info = _get_max_kd_info(target_kd, kd_id, revealed)
     
     if "drones" in max_target_kd_info:
@@ -4193,7 +4263,7 @@ def calculate_missiles(target_kd):
     if not valid_request:
         return (flask.jsonify({"message": message}), 400)
     
-    revealed = _get_revealed(kd_id)["revealed"]
+    revealed = _get_revealed(kd_id)
     max_target_kd_info = _get_max_kd_info(target_kd, kd_id, revealed)
 
     if "shields" in max_target_kd_info:

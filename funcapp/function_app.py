@@ -1148,8 +1148,12 @@ def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json()
     new_revealed = req_body.get("new_revealed", None)
     new_galaxies = req_body.get("new_galaxies", None)
+    new_revealed_galaxymates = req_body.get("new_revealed_galaxymates", None)
+    new_revealed_to_galaxymates = req_body.get("new_revealed_to_galaxymates", None)
     revealed = req_body.get("revealed", None)
     galaxies = req_body.get("galaxies", None)
+    revealed_galaxymates = req_body.get("revealed_galaxymates", None)
+    revealed_to_galaxymates = req_body.get("revealed_to_galaxymates", None)
     kd_id = str(req.route_params.get('kdId'))
     item_id = f"revealed_{kd_id}"
     revealed_info = CONTAINER.read_item(
@@ -1171,10 +1175,18 @@ def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
                 **revealed_info["galaxies"],
                 **new_galaxies,
             }
+        if new_revealed_galaxymates:
+            revealed_info["revealed_galaxymates"] += new_revealed_galaxymates
+        if new_revealed_to_galaxymates:
+            revealed_info["revealed_to_galaxymates"] += new_revealed_to_galaxymates
         if revealed != None:
             revealed_info["revealed"] = revealed
         if galaxies != None:
             revealed_info["galaxies"] = galaxies
+        if revealed_galaxymates != None:
+            revealed_info["revealed_galaxymates"] = revealed_galaxymates
+        if revealed_to_galaxymates != None:
+            revealed_info["revealed_to_galaxymates"] = revealed_to_galaxymates
         CONTAINER.replace_item(
             item_id,
             revealed_info,
