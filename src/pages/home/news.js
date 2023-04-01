@@ -10,6 +10,7 @@ import { Column } from 'primereact/column';
 import { FilterMatchMode } from 'primereact/api';
 import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";     
+import "primeicons/primeicons.css";
 import 'bootstrap/dist/css/bootstrap.css';
 
 function getTimeSinceString(date) {
@@ -119,11 +120,11 @@ function Kingdom(props) {
                 style={{ minWidth: '100%'}}
                 header={"Kingdom News"}
             >
-                <Column field="time" header="Time" sortable filter style={{ width: '15%' }}/>
-                <Column field="day" header="Day" sortable filter style={{ width: '10%' }}/>
-                <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
-                <Column field="from" header="From" sortable filter style={{ width: '10%' }}/>
-                <Column field="news" header="News" filter style={{ width: '55%' }}/>
+                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '55%' }}/>
             </DataTable>
         </div>
     );
@@ -169,12 +170,12 @@ function Galaxy(props) {
                 style={{ minWidth: '100%'}}
                 header={"Galaxy News"}
             >
-                <Column field="time" header="Time" sortable filter style={{ width: '15%' }}/>
-                <Column field="day" header="Day" sortable filter style={{ width: '10%' }}/>
-                <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
-                <Column field="from" header="From" sortable filter style={{ width: '10%' }}/>
-                <Column field="to" header="From" sortable filter style={{ width: '10%' }}/>
-                <Column field="news" header="News" filter style={{ width: '45%' }}/>
+                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '45%' }}/>
             </DataTable>
         </div>
     );

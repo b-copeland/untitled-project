@@ -6,6 +6,13 @@ import Tabs from 'react-bootstrap/Tabs';
 import Table from 'react-bootstrap/Table';
 import "./history.css";
 import Header from "../../components/header";
+import { DataTable } from 'primereact/datatable';
+import { Column } from 'primereact/column';
+import { FilterMatchMode } from 'primereact/api';
+import "primereact/resources/primereact.min.css";
+import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";     
+import "primeicons/primeicons.css";
+import 'bootstrap/dist/css/bootstrap.css';
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -27,6 +34,14 @@ function getNiceTimeString(date) {
 
     const options = { weekday: 'short', month: 'short', day: 'numeric'};
     return dateParse.toLocaleString('en-us', options);
+}
+
+function getHoursSince(dateStr) {
+    if (dateStr === undefined) {
+        return "--"
+    }
+    const hours = Math.floor(Math.abs(Date.now() - Date.parse(dateStr)) / 3.6e6);
+    return hours
 }
 
 function HistoryContent(props) {
@@ -66,96 +81,145 @@ function HistoryContent(props) {
 }
 
 function Attack(props) {
+    const [filters, setFilters] = useState({
+        time: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        day: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        time_since: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
+        to: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        news: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    });
     if (props.loading.attackhistory) {
         return <h2>Loading...</h2>;
     }
-    const newsRows = props.attackhistory.map((newsItem) =>
-        <tr key={newsItem.time}>
-            <td>{getNiceTimeString(newsItem.time)}</td>
-            <td>{getTimeSinceString(newsItem.time)}</td>
-            <td>{props.kingdoms[newsItem.to]} ({props.galaxies_inverted[newsItem.to]})</td>
-            <td>{newsItem.news}</td>
-        </tr>
+    const newsRowsPrime = props.attackhistory.map((newsItem) => {
+            return {
+                "time": new Date(newsItem.time).toLocaleString(),
+                "day": getNiceTimeString(newsItem.time),
+                "time_since": getHoursSince(newsItem.time),
+                "to": (newsItem.to != "") ? props.kingdoms[newsItem.to] + ' (' + props.galaxies_inverted[newsItem.to] + ')' : "",
+                "news": newsItem.news,
+            }
+        }
     );
     return (
         <div className="kingdom">
-            <Table striped bordered hover>
-                <thead>
-                    <tr>
-                    <th>Time</th>
-                    <th>Time Since</th>
-                    <th>Target</th>
-                    <th>Result</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {newsRows}
-                </tbody>
-            </Table>
+            <DataTable
+                value={newsRowsPrime}
+                paginator
+                size="small"
+                columnResizeMode="expand"
+                rows={10}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                sortMode="multiple"
+                removableSort
+                filters={filters}
+                filterDisplay="row"
+                style={{ minWidth: '100%'}}
+                header={"Attack History"}
+            >
+                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '50%' }}/>
+            </DataTable>
         </div>
     );
 }
 
 function Spy(props) {
+    const [filters, setFilters] = useState({
+        time: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        day: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        time_since: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
+        to: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        operation: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        news: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    });
     if (props.loading.spyhistory) {
         return <h2>Loading...</h2>;
     }
-    const newsRows = props.spyhistory.map((newsItem) =>
-        <tr key={newsItem.time}>
-            <td>{getNiceTimeString(newsItem.time)}</td>
-            <td>{getTimeSinceString(newsItem.time)}</td>
-            <td>{props.kingdoms[newsItem.to]} ({props.galaxies_inverted[newsItem.to]})</td>
-            <td>{newsItem.operation || ""}</td>
-            <td>{newsItem.news}</td>
-        </tr>
+    const newsRowsPrime = props.spyhistory.map((newsItem) => {
+            return {
+                "time": new Date(newsItem.time).toLocaleString(),
+                "day": getNiceTimeString(newsItem.time),
+                "time_since": getHoursSince(newsItem.time),
+                "to": (newsItem.to != "") ? props.kingdoms[newsItem.to] + ' (' + props.galaxies_inverted[newsItem.to] + ')' : "",
+                "operation": newsItem.operation,
+                "news": newsItem.news,
+            }
+        }
     );
     return (
         <div className="kingdom">
-            <Table striped bordered hover>
-                <thead>
-                    <tr>
-                    <th>Time</th>
-                    <th>Time Since</th>
-                    <th>Target</th>
-                    <th>Operation</th>
-                    <th>Result</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {newsRows}
-                </tbody>
-            </Table>
+            <DataTable
+                value={newsRowsPrime}
+                paginator
+                size="small"
+                columnResizeMode="expand"
+                rows={10}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                sortMode="multiple"
+                removableSort
+                filters={filters}
+                filterDisplay="row"
+                style={{ minWidth: '100%'}}
+                header={"Spy History"}
+            >
+                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="operation" header="Operation" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '35%' }}/>
+            </DataTable>
         </div>
     );
 }
 
 function Missiles(props) {
+    const [filters, setFilters] = useState({
+        time: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        day: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        time_since: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
+        to: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        news: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    });
     if (props.loading.missilehistory) {
         return <h2>Loading...</h2>;
     }
-    const newsRows = props.missilehistory.map((newsItem) =>
-        <tr key={newsItem.time}>
-            <td>{getNiceTimeString(newsItem.time)}</td>
-            <td>{getTimeSinceString(newsItem.time)}</td>
-            <td>{props.kingdoms[newsItem.to]} ({props.galaxies_inverted[newsItem.to]})</td>
-            <td>{newsItem.news}</td>
-        </tr>
+    const newsRowsPrime = props.missilehistory.map((newsItem) => {
+            return {
+                "time": new Date(newsItem.time).toLocaleString(),
+                "day": getNiceTimeString(newsItem.time),
+                "time_since": getHoursSince(newsItem.time),
+                "to": (newsItem.to != "") ? props.kingdoms[newsItem.to] + ' (' + props.galaxies_inverted[newsItem.to] + ')' : "",
+                "news": newsItem.news,
+            }
+        }
     );
     return (
         <div className="kingdom">
-            <Table striped bordered hover>
-                <thead>
-                    <tr>
-                    <th>Time</th>
-                    <th>Time Since</th>
-                    <th>Target</th>
-                    <th>Result</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {newsRows}
-                </tbody>
-            </Table>
+            <DataTable
+                value={newsRowsPrime}
+                paginator
+                size="small"
+                columnResizeMode="expand"
+                rows={10}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                sortMode="multiple"
+                removableSort
+                filters={filters}
+                filterDisplay="row"
+                style={{ minWidth: '100%'}}
+                header={"Missile History"}
+            >
+                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '55%' }}/>
+            </DataTable>
         </div>
     );
 }

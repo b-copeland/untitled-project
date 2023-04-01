@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
-import 'bootstrap/dist/css/bootstrap.css';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Button from 'react-bootstrap/Button';
@@ -15,6 +14,13 @@ import ShareIntel from "./shareintel.js";
 import Message from "../message.js";
 import Kingdom from "../kingdominfo.js";
 import Header from "../../components/header";
+import { DataTable } from 'primereact/datatable';
+import { Column } from 'primereact/column';
+import { FilterMatchMode } from 'primereact/api';
+import "primereact/resources/primereact.min.css";
+import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";     
+import "primeicons/primeicons.css";
+import 'bootstrap/dist/css/bootstrap.css';
 
 
 function ConquerContent(props) {
@@ -95,6 +101,14 @@ function Revealed(props) {
     const [showGalaxy, setShowGalaxy] = useState(false);
     const [galaxyToShow, setGalaxyToShow] = useState('');
     const [kdToShow, setKdToShow] = useState();
+    const [filters, setFilters] = useState({
+        remaining: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        kingdom: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        galaxy: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        empire: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        stars: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
+        score: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
+    });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -134,6 +148,12 @@ function Revealed(props) {
         })
         props.updateData(['pinned'], [updateFunc])
     }
+    const formatStars = (rowData) => {
+        return rowData.score !== null ? rowData.stars.toLocaleString() : null
+    }
+    const formatScore = (rowData) => {
+        return rowData.score !== null ? rowData.score.toLocaleString() : null
+    }
     
     const getRemainingSpans = (kdId, revealed) => {
         const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
@@ -145,15 +165,15 @@ function Revealed(props) {
         )
         return remainingSpans;
     }
-    const revealedRows = Object.keys(props.revealed.revealed).map((kdId) =>
-        <tr key={kdId}>
-            <td>{getRemainingSpans(kdId, props.revealed.revealed)}</td>
-            <td>{props.kingdoms[kdId] || ""}</td>
-            <td>{props.galaxies_inverted[kdId] || ""}</td>
-            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
-            <td>{maxKdInfo[kdId]?.stars?.toLocaleString() || ""}</td>
-            <td>{maxKdInfo[kdId]?.score?.toLocaleString() || ""}</td>
-            <td>
+    const revealedPrimeRows = Object.keys(props.revealed.revealed).map((kdId) => {
+        return {
+            "remaining": getRemainingSpans(kdId, props.revealed.revealed),
+            "kingdom": props.kingdoms[kdId] || "",
+            "galaxy": props.galaxies_inverted[kdId] || "",
+            "empire": props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || "",
+            "stars": maxKdInfo[kdId]?.stars || null,
+            "score": maxKdInfo[kdId]?.score || null,
+            "actions": <>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
                     View
                 </Button>
@@ -188,9 +208,9 @@ function Revealed(props) {
                         Pin
                     </Button>
                 }
-            </td>
-        </tr>
-    );
+            </>
+        }
+    });
     const revealedGalaxyRows = Object.keys(props.revealed.galaxies).map((galaxyId) =>
         <tr key={galaxyId}>
             <td>{getTimeString(props.revealed.galaxies[galaxyId])}</td>
@@ -335,22 +355,29 @@ function Revealed(props) {
                     Reveal Random Galaxy (1 Spy Attempt)
                 </Button>
            }
-            <Table className="revealed-table" striped bordered hover>
-                <thead>
-                    <tr>
-                        <th>Remaining</th>
-                        <th>Kingdom</th>
-                        <th>Galaxy</th>
-                        <th>Empire</th>
-                        <th>Stars</th>
-                        <th>Score</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {revealedRows}
-                </tbody>
-            </Table>
+            <DataTable
+                value={revealedPrimeRows}
+                paginator
+                size="small"
+                columnResizeMode="expand"
+                rows={10}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                sortMode="multiple"
+                removableSort
+                filters={filters}
+                filterDisplay="row"
+                style={{ minWidth: '100%'}}
+                header={"Revealed Kingdoms"}
+                showGridlines={true}
+            >
+                <Column field="remaining" header="Remaining" style={{ width: '12.5%' }}/>
+                <Column field="kingdom" header="Kingdom" filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="galaxy" header="Galaxy" sortable filter showFilterMenu={false} style={{ width: '7.5%' }}/>
+                <Column field="empire" header="Empire" sortable showFilterMenu={false} filter style={{ width: '10%' }}/>
+                <Column field="stars" header="Stars" sortable filter dataType="numeric" body={formatStars} style={{ width: '10%' }}/>
+                <Column field="score" header="Score" sortable filter body={formatScore} style={{ width: '10%' }}/>
+                <Column field="actions" header="Actions" style={{ width: '50%' }}/>
+            </DataTable>
             <Table className="revealed-table" striped bordered hover>
                 <thead>
                     <tr>
