@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
-import 'bootstrap/dist/css/bootstrap.css';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Table from 'react-bootstrap/Table';
 import "./news.css"
 import Header from "../../components/header";
+import { DataTable } from 'primereact/datatable';
+import { Column } from 'primereact/column';
+import { FilterMatchMode } from 'primereact/api';
+import "primereact/resources/primereact.min.css";
+import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";     
+import 'bootstrap/dist/css/bootstrap.css';
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -67,68 +72,110 @@ function NewsContent(props) {
     );
 }
 
+function getHoursSince(dateStr) {
+    if (dateStr === undefined) {
+        return "--"
+    }
+    const hours = Math.floor(Math.abs(Date.now() - Date.parse(dateStr)) / 3.6e6);
+    return hours
+}
+
 function Kingdom(props) {
+    const [filters, setFilters] = useState({
+        time: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        day: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        time_since: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
+        from: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        news: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    });
+
     if (props.news.length === 0) {
         return null;
     }
     const news = props.news;
-    const newsRows = news.map((newsItem) =>
-        <tr key={newsItem.time}>
-            <td>{getNiceTimeString(newsItem.time)}</td>
-            <td>{getTimeSinceString(newsItem.time)}</td>
-            <td>{props.kdNames[newsItem.from]} ({props.galaxyMap[newsItem.from]})</td>
-            <td>{newsItem.news}</td>
-        </tr>
+    const newsRowsPrime = news.map((newsItem) => {
+            return {
+                "time": new Date(newsItem.time).toLocaleString(),
+                "day": getNiceTimeString(newsItem.time),
+                "time_since": getHoursSince(newsItem.time),
+                "from": (newsItem.from != "") ? props.kdNames[newsItem.from] + ' (' + props.galaxyMap[newsItem.from] + ')' : "",
+                "news": newsItem.news,
+            }
+        }
     );
     return (
         <div className="kingdom">
-            <Table striped bordered hover>
-                <thead>
-                    <tr>
-                    <th>Time</th>
-                    <th>Time Since</th>
-                    <th>From</th>
-                    <th>News</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {newsRows}
-                </tbody>
-            </Table>
+            <DataTable
+                value={newsRowsPrime}
+                paginator
+                size="small"
+                columnResizeMode="expand"
+                rows={10}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                sortMode="multiple"
+                removableSort
+                filters={filters}
+                filterDisplay="row"
+                style={{ minWidth: '100%'}}
+                header={"Kingdom News"}
+            >
+                <Column field="time" header="Time" sortable filter style={{ width: '15%' }}/>
+                <Column field="day" header="Day" sortable filter style={{ width: '10%' }}/>
+                <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="from" header="From" sortable filter style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter style={{ width: '55%' }}/>
+            </DataTable>
         </div>
     );
 }
 
 function Galaxy(props) {
+    const [filters, setFilters] = useState({
+        time: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        day: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        time_since: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
+        from: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        to: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        news: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    });
     if (props.galaxynews.length === 0) {
         return null;
     }
     const news = props.galaxynews;
-    const newsRows = news.map((newsItem) =>
-        <tr key={newsItem.time}>
-            <td>{getNiceTimeString(newsItem.time)}</td>
-            <td>{getTimeSinceString(newsItem.time)}</td>
-            <td>{props.kdNames[newsItem.from]} ({props.galaxyMap[newsItem.from]})</td>
-            <td>{props.kdNames[newsItem.to]} ({props.galaxyMap[newsItem.to]})</td>
-            <td>{newsItem.news}</td>
-        </tr>
+    const newsRowsPrime = news.map((newsItem) => {
+            return {
+                "time": new Date(newsItem.time).toLocaleString(),
+                "day": getNiceTimeString(newsItem.time),
+                "time_since": getHoursSince(newsItem.time),
+                "from": (newsItem.from != "") ? props.kdNames[newsItem.from] + ' (' + props.galaxyMap[newsItem.from] + ')' : "",
+                "to": (newsItem.to != "") ? props.kdNames[newsItem.to] + ' (' + props.galaxyMap[newsItem.to] + ')' : "",
+                "news": newsItem.news,
+            }
+        }
     );
     return (
         <div className="kingdom">
-            <Table striped bordered hover>
-                <thead>
-                    <tr>
-                    <th>Time</th>
-                    <th>Time Since</th>
-                    <th>From</th>
-                    <th>To</th>
-                    <th>News</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {newsRows}
-                </tbody>
-            </Table>
+            <DataTable
+                value={newsRowsPrime}
+                paginator
+                size="small"
+                columnResizeMode="expand"
+                rows={10}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                sortMode="multiple"
+                removableSort
+                filters={filters}
+                filterDisplay="row"
+                style={{ minWidth: '100%'}}
+                header={"Galaxy News"}
+            >
+                <Column field="time" header="Time" sortable filter style={{ width: '15%' }}/>
+                <Column field="day" header="Day" sortable filter style={{ width: '10%' }}/>
+                <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="from" header="From" sortable filter style={{ width: '10%' }}/>
+                <Column field="to" header="From" sortable filter style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter style={{ width: '45%' }}/>
+            </DataTable>
         </div>
     );
 }

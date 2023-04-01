@@ -4,3 +4,16 @@
     justify-items: center;
     align-items: center;
 }
+
+.p-datatable-tbody tr {
+    background: var(--bs-body-bg) !important
+}
+.p-datatable-thead th {
+    background: var(--bs-body-bg) !important
+}
+.p-paginator {
+    background: var(--bs-body-bg) !important
+}
+.p-column-filter-menu-button {
+    background: var(--bs-secondary-bg) !important
+}
