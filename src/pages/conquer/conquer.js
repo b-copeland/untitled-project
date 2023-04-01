@@ -405,7 +405,8 @@ function Shared(props) {
             body: JSON.stringify({"shared": e.target.name}),
             method: "POST", 
         })
-        props.updateData(['shared'], [updateFunc])
+        props.updateData(['shared', 'revealed'], [updateFunc])
+        
     }
 
     const onSubmitPin = (e)=>{

@@ -2627,6 +2627,18 @@ def accept_shared():
         data=json.dumps(shared_info),
     )
 
+    revealed_payload = {
+        "new_revealed" : {
+            accepted_kd: {
+                new_shared["shared_stat"]: new_shared["time"],
+            }
+        }
+    }
+    revealed_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(revealed_payload),
+    )
     return (flask.jsonify(shared_info_response.text), 200)
 
 @app.route('/api/offershared', methods=['POST'])
@@ -3276,13 +3288,14 @@ def attack(target_kd):
         )
     else:
         attack_status = "failure"
-        attacker_message = "Failure! You have lost " + ', '.join([f"{value} {key}" for key, value in attacker_losses.items()])
+        attacker_message = "Failure! You have lost " + ', '.join([f"{value} {PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
         defender_message = (
             f"Your kingdom was successfully defended an attack by {kd_info_parse['name']}. You have lost "
             + ', '.join([f"{value} {PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
         )
         spoils_values = {}
         sharer_spoils_values = {}
+    
 
     kd_info_parse["units"] = new_home_attacker_units
     kd_info_parse["generals_out"] = kd_info_parse["generals_out"] + generals
@@ -3385,6 +3398,37 @@ def attack(target_kd):
                     data=json.dumps(kd_revealed_to_patch_payload),
                 )
 
+    attacker_galaxy_payload = {
+        "time": time_now.isoformat(),
+        "from": kd_id,
+        "to": target_kd,
+    }
+    defender_galaxy_payload = {
+        "time": time_now.isoformat(),
+        "from": kd_id,
+        "to": target_kd,
+    }
+    if attack > defense:
+        attacker_galaxy_payload["news"] = f"Your kingdom {kd_info_parse['name']} successfully attacked {target_kd_info['name']} and gained {spoils_values['stars']} stars."
+        if sharer_spoils_values:
+            attacker_galaxy_payload["news"] += f" Your kingdom {sharer_kd_info['name']} provided intel and gained {sharer_spoils_values['stars']} stars."
+
+        defender_galaxy_payload["news"] = f"Your kingdom {target_kd_info['name']} was defeated by {kd_info_parse['name']} and lost {total_spoils['stars']} stars."
+    else:
+        attacker_galaxy_payload["news"] = f"Your kingdom {kd_info_parse['name']} failed an attack on {target_kd_info['name']}."
+
+        defender_galaxy_payload["news"] = f"Your kingdom {target_kd_info['name']} successfully defended an attack by {kd_info_parse['name']}."
+
+    REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{attacker_galaxy}/news',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(attacker_galaxy_payload),
+    )
+    REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{defender_galaxy}/news',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(defender_galaxy_payload),
+    )
     attack_results = {
         "status": attack_status,
         "message": attacker_message,
