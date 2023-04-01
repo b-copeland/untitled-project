@@ -149,7 +149,7 @@ function Revealed(props) {
         props.updateData(['pinned'], [updateFunc])
     }
     const formatStars = (rowData) => {
-        return rowData.score !== null ? rowData.stars.toLocaleString() : null
+        return rowData.stars !== null ? rowData.stars.toLocaleString() : null
     }
     const formatScore = (rowData) => {
         return rowData.score !== null ? rowData.score.toLocaleString() : null

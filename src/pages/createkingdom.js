@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import {useNavigate} from "react-router-dom";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
@@ -31,6 +32,7 @@ function CreateKingdom(props) {
     const [createKingdomData, setCreateKingdomData] = useState({});
     const [structuresChoices, setStructuresChoices] = useState(initialStructuresChoices);
     const [unitsChoices, setUnitsChoices] = useState(initialUnitsChoices);
+    const navigate = useNavigate();
     
     useEffect(() => {
         authFetch('api/createkingdomdata').then(
@@ -86,6 +88,10 @@ function CreateKingdom(props) {
             body: JSON.stringify(opts)
         }).then(r => r.json()).then(r => setKdMessage(r))
         props.updateData(['all'], [updateFunc])
+    }
+
+    const onClickGoHome = (e)=>{
+        navigate("/status")
     }
 
     if (Object.keys(createKingdomData).length === 0) {
@@ -442,7 +448,10 @@ function CreateKingdom(props) {
                     </div>
                 </div>
             </div>
-            : <h2>Kingdom Created!</h2>
+            : <div>
+                <h2>Kingdom Created!</h2>
+                <Button variant="primary" type="submit" onClick={onClickGoHome}>Go to Home</Button>
+            </div>
         }
         </div>
     )

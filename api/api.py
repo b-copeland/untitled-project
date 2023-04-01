@@ -1921,7 +1921,9 @@ def _get_kd_info(kd_id):
     return kd_info_parse
 
 
-def _get_max_kd_info(kd_id, revealed_info, max=False):
+def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inverted=None):
+    if galaxies_inverted == None:
+        galaxies_inverted, _ = _get_galaxies_inverted()
     always_allowed_keys = {"name", "race", "status"}
     allowed_keys = {
         "stats": ["stars", "score"],
@@ -1933,7 +1935,7 @@ def _get_max_kd_info(kd_id, revealed_info, max=False):
         "drones": ["drones"],
     }
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{other_kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     print(kd_info.text, file=sys.stderr)
@@ -1941,10 +1943,13 @@ def _get_max_kd_info(kd_id, revealed_info, max=False):
     if max:
         return kd_info_parse
     
-    revealed_categories = revealed_info.get(kd_id, {}).keys()
+    revealed_categories = revealed_info.get(other_kd_id, {}).keys()
     kingdom_info_keys = always_allowed_keys
     for revealed_category in revealed_categories:
         kingdom_info_keys = kingdom_info_keys.union(allowed_keys[revealed_category])
+
+    if galaxies_inverted[other_kd_id] == galaxies_inverted[kd_id]:
+        kingdom_info_keys = kingdom_info_keys.union(allowed_keys["stats"])
 
     kd_info_parse_allowed = {
         k: v
@@ -1979,7 +1984,7 @@ def max_kingdom(other_kd_id):
     print(kd_id, file=sys.stderr)
 
     revealed_info = _get_revealed(kd_id)["revealed"]
-    max_kd_info = _get_max_kd_info(other_kd_id, revealed_info)
+    max_kd_info = _get_max_kd_info(other_kd_id, kd_id, revealed_info)
 
     return (flask.jsonify(max_kd_info), 200)
 
@@ -1996,12 +2001,12 @@ def galaxy(galaxy):
     """
     kd_id = flask_praetorian.current_user().kd_id
     print(kd_id, file=sys.stderr)
-    galaxy_info = _get_galaxy_info()
+    galaxies_inverted, galaxy_info = _get_galaxies_inverted()
     current_galaxy = galaxy_info[galaxy]
     revealed_info = _get_revealed(kd_id)["revealed"]
     galaxy_kd_info = {}
     for galaxy_kd_id in current_galaxy:
-        kd_info = _get_max_kd_info(galaxy_kd_id, revealed_info)
+        kd_info = _get_max_kd_info(galaxy_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted)
         galaxy_kd_info[galaxy_kd_id] = kd_info
     
     print(galaxy_kd_info)
@@ -2806,10 +2811,11 @@ def max_kingdoms():
     kd_id = flask_praetorian.current_user().kd_id
     print(kd_id, file=sys.stderr)
     revealed_info = _get_revealed(kd_id)["revealed"]
+    galaxies_inverted, _ = _get_galaxies_inverted()
 
     payload = {
-        kd_id: _get_max_kd_info(kd_id, revealed_info)
-        for kd_id in kingdoms
+        other_kd_id: _get_max_kd_info(other_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted)
+        for other_kd_id in kingdoms
     }
     return (flask.jsonify(payload), 200)
 
@@ -2979,7 +2985,7 @@ def calculate_attack(target_kd):
 
     revealed = _get_revealed(kd_id)["revealed"]
     shared = _get_shared(kd_id)["shared"]
-    max_target_kd_info = _get_max_kd_info(target_kd, revealed)
+    max_target_kd_info = _get_max_kd_info(target_kd, kd_id, revealed)
 
     valid_attack_request, attack_request_message = _validate_attack_request(
         attacker_raw_values,
@@ -3143,7 +3149,8 @@ def attack(target_kd):
 
     revealed = _get_revealed(kd_id)["revealed"]
     shared = _get_shared(kd_id)["shared"]
-    target_kd_info = _get_max_kd_info(target_kd, revealed, max=True)
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    target_kd_info = _get_kd_info(target_kd)
     if target_kd_info["status"].lower() == "dead":
         return (flask.jsonify({"message": "You can't attack this kingdom because they are dead!"}), 400)
     target_current_bonuses = {
@@ -3198,7 +3205,6 @@ def attack(target_kd):
         BASE_DEFENDER_UNIT_LOSS_RATE * attack_ratio,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
-    galaxies_inverted, _ = _get_galaxies_inverted()
     galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
     is_warlike = "Warlike" in galaxy_policies["active_policies"]
     generals_return_times = _calc_generals_return_time(
@@ -3314,7 +3320,7 @@ def attack(target_kd):
         target_kd_info["projects_max_points"][key_project] = project_max_func(target_kd_info["stars"])
 
     if sharer:
-        sharer_kd_info = _get_max_kd_info(sharer, revealed, max=True)
+        sharer_kd_info = _get_kd_info(sharer)
         for key_spoil, value_spoil in sharer_spoils_values.items():
             sharer_kd_info[key_spoil] += value_spoil
             target_kd_info[key_spoil] -= value_spoil
@@ -3738,7 +3744,7 @@ def calculate_spy(target_kd):
         return (flask.jsonify({"message": message}), 400)
     
     revealed = _get_revealed(kd_id)["revealed"]
-    max_target_kd_info = _get_max_kd_info(target_kd, revealed)
+    max_target_kd_info = _get_max_kd_info(target_kd, kd_id, revealed)
     
     if "drones" in max_target_kd_info:
         defender_drones = max_target_kd_info["drones"]
@@ -3849,7 +3855,7 @@ def spy(target_kd):
         return (flask.jsonify({"message": message}), 400)
     
     revealed = _get_revealed(kd_id)["revealed"]
-    max_target_kd_info = _get_max_kd_info(target_kd, revealed, max=True)
+    max_target_kd_info = _get_kd_info(target_kd)
     if max_target_kd_info["status"].lower() == "dead":
         return (flask.jsonify({"message": "You can't attack this kingdom because they are dead!"}), 400)
     
@@ -4188,7 +4194,7 @@ def calculate_missiles(target_kd):
         return (flask.jsonify({"message": message}), 400)
     
     revealed = _get_revealed(kd_id)["revealed"]
-    max_target_kd_info = _get_max_kd_info(target_kd, revealed)
+    max_target_kd_info = _get_max_kd_info(target_kd, kd_id, revealed)
 
     if "shields" in max_target_kd_info:
         defender_shields = max_target_kd_info["shields"]["missiles"]
@@ -4242,7 +4248,7 @@ def launch_missiles(target_kd):
         return (flask.jsonify({"message": message}), 400)
     
     revealed = _get_revealed(kd_id)["revealed"]
-    max_target_kd_info = _get_max_kd_info(target_kd, revealed, max=True)
+    max_target_kd_info = _get_kd_info(target_kd)
     defender_shields = max_target_kd_info["shields"]["missiles"]
     if max_target_kd_info["status"].lower() == "dead":
         return (flask.jsonify({"message": "You can't attack this kingdom because they are dead!"}), 400)

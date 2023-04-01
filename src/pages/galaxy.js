@@ -135,7 +135,7 @@ function Galaxy(props) {
             <td>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</td>
             <td>{galaxyInfo[kdId].race || ""}</td>
             <td>{galaxyInfo[kdId].stars?.toLocaleString() || ""}</td>
-            <td>{Math.floor(galaxyInfo[kdId].score).toLocaleString() || ""}</td>
+            <td>{galaxyInfo[kdId].score != undefined ? Math.floor(galaxyInfo[kdId].score).toLocaleString() : ""}</td>
             <td>{galaxyInfo[kdId].aggression || ""}</td>
             <td>07:59:59</td>
             <td>{galaxyInfo[kdId].status}</td>
