@@ -79,7 +79,7 @@ function Build(props) {
     <div className="queue-page">
         <Accordion defaultActiveKey={['0']} alwaysOpen className="queue-accordion">
             <Accordion.Item eventKey="0">
-            <Accordion.Header>Settle Queue</Accordion.Header>
+            <Accordion.Header>Settle Queue ({props.data.settle.len_queue || 0})</Accordion.Header>
             <Accordion.Body>
                 {
                     settleData.length > 0
@@ -99,7 +99,7 @@ function Build(props) {
             </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="1">
-            <Accordion.Header>Structures Queue</Accordion.Header>
+            <Accordion.Header>Structures Queue ({props.data.structures.len_queue || 0})</Accordion.Header>
             <Accordion.Body>
                 {
                     structuresData.length > 0
@@ -119,7 +119,7 @@ function Build(props) {
             </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="2">
-            <Accordion.Header>Units Queue</Accordion.Header>
+            <Accordion.Header>Units Queue ({props.data.mobis.len_queue || 0})</Accordion.Header>
             <Accordion.Body>
                 {
                     unitsData.length > 0
@@ -139,7 +139,7 @@ function Build(props) {
             </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="3">
-            <Accordion.Header>Missiles Queue</Accordion.Header>
+            <Accordion.Header>Missiles Queue ({props.data.missiles.len_queue || 0})</Accordion.Header>
             <Accordion.Body>
                 {
                     missilesData.length > 0

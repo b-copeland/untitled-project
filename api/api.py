@@ -1547,6 +1547,7 @@ def mobis():
         mobis_info_parse,
         key=lambda queue: queue["time"],
     )[:10]
+    len_queue = len(mobis_info_parse)
 
     galaxies_inverted, _ = _get_galaxies_inverted()
     galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
@@ -1569,6 +1570,7 @@ def mobis():
         'current_available_recruits': current_available_recruits,
         'units_desc': units_adjusted_costs,
         'top_queue': top_queue,
+        'len_queue': len_queue,
         }
     return (flask.jsonify(payload), 200)
 
@@ -1810,6 +1812,7 @@ def structures():
         structures_info_parse["structures"],
         key=lambda queue: queue["time"],
     )[:10]
+    len_queue = len(structures_info_parse["structures"])
 
     current_price = _get_structure_price(kd_info_parse)
     current_structures = kd_info_parse["structures"]
@@ -1826,6 +1829,7 @@ def structures():
         "max_available_structures": max_available_structures,
         "current_available_structures": current_available_structures,
         "top_queue": top_queue,
+        "len_queue": len_queue,
     }
 
     return (flask.jsonify(payload), 200)
@@ -2075,6 +2079,7 @@ def get_settle():
         settle_info,
         key=lambda queue: queue["time"],
     )[:10]
+    len_queue = len(settle_info)
 
     galaxies_inverted, _ = _get_galaxies_inverted()
     galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
@@ -2086,7 +2091,8 @@ def get_settle():
         "settle_price": settle_price,
         "max_available_settle": max_settle,
         "current_available_settle": available_settle,
-        "top_queue": top_queue
+        "top_queue": top_queue,
+        "len_queue": len_queue,
     }
 
     return (flask.jsonify(payload), 200)
@@ -2204,6 +2210,7 @@ def missiles():
         missiles_info,
         key=lambda queue: queue["time"],
     )[:10]
+    len_queue = len(missiles_info)
     missiles_building = _get_missiles_building(missiles_info)
 
     current_missiles = kd_info_parse["missiles"]
@@ -2216,7 +2223,8 @@ def missiles():
         "build_time": BASE_MISSILE_TIME_MULTIPLER * BASE_EPOCH_SECONDS,
         "capacity": math.floor(kd_info_parse["structures"]["missile_silos"]) * BASE_MISSILE_SILO_CAPACITY,
         "desc": MISSILES,
-        "top_queue": top_queue
+        "top_queue": top_queue,
+        "len_queue": len_queue,
     }
 
     return (flask.jsonify(payload), 200)
