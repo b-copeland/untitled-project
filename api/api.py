@@ -2853,7 +2853,7 @@ def reveal_random_galaxy():
         print(empires[kd_empire])
         excluded_galaxies.extend(empires[kd_empire]["galaxies"])
     else:
-        excluded_galaxies.extend(kd_galaxy)
+        excluded_galaxies.append(kd_galaxy)
 
     potential_galaxies = set(galaxy_info.keys()) - set(excluded_galaxies)
 
