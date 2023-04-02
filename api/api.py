@@ -608,24 +608,35 @@ limiter = Limiter(
 # Add users for the example
 with app.app_context():
     db.create_all()
-    if db.session.query(User).filter_by(username='admin').count() < 1:
-        db.session.add(User(
-          username='admin',
-          password=guard.hash_password('adminpass'),
-          roles='operator,admin',
-          kd_created=True,
-		))
-    for i in range(0, 6):
-        if db.session.query(User).filter_by(username=f'anewkd{i}').count() < 1:
-            db.session.add(User(
-            username=f'anewkd{i}',
-            password=guard.hash_password(f'anewkd{i}'),
-            roles='verified',
-            # kd_id=str(i),
-            # kd_created=True,
-            # kd_death_date=None if i != 4 else "populated"
-            ))
-        
+    accounts_response = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/accounts',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+    )
+    accounts_json = json.loads(accounts_response.text)
+    accounts = accounts_json["accounts"]
+    print(accounts)
+    for user in accounts:
+        if db.session.query(User).filter_by(username=user["username"]).count() < 1:
+            db.session.add(
+                User(**user)
+            )
+    # if db.session.query(User).filter_by(username='admin').count() < 1:
+    #     db.session.add(User(
+    #       username='admin',
+    #       password=guard.hash_password('adminpass'),
+    #       roles='operator,admin',
+    #       kd_created=True,
+	# 	))
+    # for i in range(0, 6):
+    #     if db.session.query(User).filter_by(username=f'anewkd{i}').count() < 1:
+    #         db.session.add(User(
+    #         username=f'anewkd{i}',
+    #         password=guard.hash_password(f'anewkd{i}'),
+    #         roles='verified',
+    #         # kd_id=str(i),
+    #         # kd_created=True,
+    #         # kd_death_date=None if i != 4 else "populated"
+    #         ))
     db.session.commit()
 
 def alive_required(f):
@@ -686,6 +697,15 @@ def refresh():
     ret = {'accessToken': new_token}
     return ret, 200
 
+def _update_accounts():
+    query = db.session.query(User).all()
+    users = [{k: v for k, v in user.__dict__.items() if k != "_sa_instance_state"} for user in query]
+    update_accounts = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/accounts',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps({"accounts": users}),
+    )
+    return update_accounts.text
 
 
 @app.route('/api/resetstate', methods=["POST"])
@@ -705,6 +725,7 @@ def reset_state():
         user.kd_created = False
         user.kd_death_date = None
     db.session.commit()
+    _update_accounts()
     return flask.jsonify(create_response.text), 200
 
 def _get_state():
@@ -887,6 +908,7 @@ def create_initial_kingdom():
 
     user.kd_id = kd_id
     db.session.commit()
+    _update_accounts()
     
     return kd_id, 200
 
@@ -990,6 +1012,7 @@ def create_kingdom_choices():
 
     user.kd_created = True
     db.session.commit()
+    _update_accounts()
     
     return (flask.jsonify("Success"), 200)
 
@@ -5890,6 +5913,7 @@ def _mark_kingdom_death(kd_id):
     user = query[0]
     user.kd_death_date = datetime.datetime.now(datetime.timezone.utc).isoformat()
     db.session.commit()
+    _update_accounts()
     return flask.jsonify(str(user.__dict__))
 
 def _begin_election(state):
@@ -6106,6 +6130,7 @@ def disable_user():
     usr = User.query.filter_by(username=req.get('username', None)).one()
     usr.is_active = False
     db.session.commit()
+    _update_accounts()
     return flask.jsonify(message='disabled user {}'.format(usr.username))
 
 
@@ -6135,6 +6160,7 @@ def register():
     )
     db.session.add(new_user)
     db.session.commit()
+    _update_accounts()
     guard.send_registration_email(
         email,
         user=new_user,
@@ -6161,6 +6187,7 @@ def finalize():
     user = guard.get_user_from_registration_token(registration_token)
     user.roles = 'operator,verified'
     db.session.commit()
+    _update_accounts()
     ret = {'access_token': guard.encode_jwt_token(user)}
     return (flask.jsonify(ret), 200)
 

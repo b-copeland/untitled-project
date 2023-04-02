@@ -20,6 +20,7 @@ CONTAINER = DATABASE.get_container_client(CONTAINER_NAME)
 APP = func.FunctionApp()
 
 RESET_KEEP_IDS = [
+    "accounts",
     "state",
     "kingdoms",
     "galaxies",
@@ -68,6 +69,12 @@ def init_state(req: func.HttpRequest) -> func.HttpResponse:
             {
                 "id": "universe_votes",
                 "votes": {},
+            }
+        )
+        CONTAINER.create_item(
+            {
+                "id": "accounts",
+                "accounts": [],
             }
         )
         return func.HttpResponse(
@@ -139,6 +146,23 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
                     item=item["id"],
                     partition_key=item["id"],
                 )
+
+        accounts = CONTAINER.read_item(
+            item="accounts",
+            partition_key="accounts"
+        )
+        new_accounts = []
+        for account in accounts["accounts"]:
+            reset_account = account
+            reset_account["kd_id"] = None
+            reset_account["kd_death_date"] = None
+            reset_account["kd_created"] = False
+            new_accounts.append(reset_account)
+        accounts["accounts"] = new_accounts
+        CONTAINER.replace_item(
+            "accounts",
+            accounts,
+        )
         kingdoms = CONTAINER.read_item(
             item="kingdoms",
             partition_key="kingdoms"
@@ -196,6 +220,48 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
         logging.warn(str(e))
         return func.HttpResponse(
             "Failed to reset state",
+            status_code=500,
+        )
+    
+@APP.function_name(name="GetAccounts")
+@APP.route(route="accounts", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_accounts(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        accounts = CONTAINER.read_item(
+            item="accounts",
+            partition_key="accounts",
+        )
+        return func.HttpResponse(
+            json.dumps(accounts),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "Failed to get accounts",
+            status_code=500,
+        )
+    
+@APP.function_name(name="UpdateAccounts")
+@APP.route(route="accounts", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_accounts(req: func.HttpRequest) -> func.HttpResponse:
+    req_body = req.get_json()
+    try:
+        accounts = CONTAINER.read_item(
+            item="accounts",
+            partition_key="accounts",
+        )
+        accounts["accounts"] = req_body["accounts"]
+        CONTAINER.replace_item(
+            "accounts",
+            accounts,
+        )
+        return func.HttpResponse(
+            "Updated accounts",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "Failed to update accounts",
             status_code=500,
         )
 
