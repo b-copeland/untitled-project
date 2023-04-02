@@ -5590,7 +5590,7 @@ def _resolve_auto_spending(
         target_units_to_build = {}
         for key_unit, funding_unit in target_gap_weighted_funding.items():
             units_to_build = min(math.floor(funding_unit / units_desc[key_unit]["cost"]), target_gap_weighted_recruits[key_unit])
-            remaining_funding = remaining_funding - units_to_build
+            remaining_funding = remaining_funding - units_to_build * units_desc[key_unit]["cost"]
             kd_info_parse["units"]["recruits"] = kd_info_parse["units"]["recruits"] - units_to_build
             target_units_to_build[key_unit] = units_to_build
         print("Target units to build", target_units_to_build)
