@@ -59,6 +59,9 @@ function AttackPrimitives(props) {
     const [calcMessage, setCalcMessage] = useState({"message": "Press calculate to project results"})
     const [loadingCalc, setLoadingCalc] = useState(false);
     const [attackResults, setAttackResults] = useState([]);
+    const [enabled, setEnabled] = useState(props.data.kingdom.auto_attack_enabled)
+    const [autoPure, setAutoPure] = useState("");
+    const [autoFlex, setAutoFlex] = useState("");
 
     const handleAttackerChange = (e) => {
         const { name, value } = e.target;
@@ -67,6 +70,24 @@ function AttackPrimitives(props) {
           [name]: value,
         });
     };
+    const handleEnabledChange = (e) => {
+        let opts = {
+            'enabled': e.target.checked
+        }
+        const updateFunc = () => authFetch('api/attackprimitives/auto', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r))})
+        props.updateData(['kingdom'], [updateFunc])
+        setEnabled(e.target.checked)
+    }
+    const handleAutoPureInput = (e) => {
+        setAutoPure(e.target.value)
+    }
+    const handleAutoFlexInput = (e) => {
+        setAutoFlex(e.target.value)
+    }
+  
     const onClickAttack = () => {
         const opts = {
             "attackerValues": attackerValues,
@@ -89,6 +110,17 @@ function AttackPrimitives(props) {
         await updateFunc();
         setLoadingCalc(false);
     };
+    const onSubmitAutoSettingsClick = async (e)=>{
+        let opts = {
+            "pure": autoPure,
+            "flex": autoFlex,
+        }
+        const updateFunc = () => authFetch('api/attackprimitives/auto', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("")})
+        props.updateData(['kingdom'], [updateFunc])
+    }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     if (props.data.projects.current_bonuses?.military_bonus && attackerValues.military_bonus === "") {
         setAttackerValues({
@@ -115,177 +147,234 @@ function AttackPrimitives(props) {
             <ToastContainer position="bottom-end">
                 {toasts}
             </ToastContainer>
-            <h2>Attack Primitives</h2>
-            <div className="text-box primitives-box">
-                <span className="box-span">Your military will exploit primitive galaxies to conquer distant stars.</span>
-                <br />
-                <span className="box-span">Primitives defense per star: 150</span>
-            </div>
-            <div className="primitives-battle-stats">
-                <div className="attacker-detail">
-                    <Table className="attacker-table" striped bordered hover size="sm">
-                        <thead>
-                            <tr>
-                                <th>Unit</th>
-                                <th>Available</th>
-                                <th>Offense</th>
-                                <th>Input</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Attackers</td>
-                                <td>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
-                                <td>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
-                                <td>
-                                    <Form.Control 
-                                        className="unit-form"
-                                        id="attack-input"
-                                        name="attack"
-                                        onChange={handleAttackerChange}
-                                        value={attackerValues.attack || ""} 
-                                        placeholder="0"
-                                        autoComplete="off"
-                                    />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Flexers</td>
-                                <td>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
-                                <td>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
-                                <td>
-                                    <Form.Control 
-                                        className="unit-form"
-                                        id="flexers-input"
-                                        name="flex"
-                                        onChange={handleAttackerChange}
-                                        value={attackerValues.flex || ""} 
-                                        placeholder="0"
-                                        autoComplete="off"
-                                    />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Big Flexers</td>
-                                <td>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
-                                <td>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
-                                <td>
-                                    <Form.Control 
-                                        className="unit-form"
-                                        id="big-flexers-input"
-                                        name="big_flex"
-                                        onChange={handleAttackerChange}
-                                        value={attackerValues.big_flex || ""} 
-                                        placeholder="0"
-                                        autoComplete="off"
-                                    />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Military Efficiency</td>
-                                <td></td>
-                                <td></td>
-                                <td>
-                                    <Form.Control 
-                                        className="unit-form"
-                                        id="military-efficiency-input"
-                                        name="military_bonus"
-                                        onChange={handleAttackerChange}
-                                        value={displayPercent(props.data.projects.current_bonuses?.military_bonus)} 
-                                        placeholder="0"
-                                        disabled
-                                        autoComplete="off"
-                                    />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Other Bonuses</td>
-                                <td></td>
-                                <td></td>
-                                <td>
-                                    <Form.Control 
-                                        className="unit-form"
-                                        id="other-bonuses-input"
-                                        name="other_bonuses"
-                                        value="0%" 
-                                        placeholder="0%"
-                                        disabled
-                                        autoComplete="off"
-                                    />
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Generals</td>
-                                <td>{props.data.kingdom?.generals_available}</td>
-                                <td></td>
-                                <td>
-                                    <Form.Control 
-                                        className="unit-form"
-                                        id="generals-input"
-                                        name="generals"
-                                        onChange={handleAttackerChange}
-                                        value={attackerValues.generals || ""} 
-                                        placeholder="0"
-                                        autoComplete="off"
-                                    />
-                                </td>
-                            </tr>
-                        </tbody>
-                    </Table>
-                    <div className="attacker-text-boxes">
-                        <div className="text-box attacker-losses-box">
-                            <h4>Your Losses</h4> 
-                            <div className="text-box-item">
-                                <span className="text-box-item-title">Attackers</span>
-                                <span className="text-box-item-value">{calcMessage.attacker_losses?.attack?.toLocaleString() || "--"}</span>
-                            </div>
-                            <div className="text-box-item">
-                                <span className="text-box-item-title">Flexers</span>
-                                <span className="text-box-item-value">{calcMessage.attacker_losses?.flex?.toLocaleString() || "--"}</span>
-                            </div>
-                            <div className="text-box-item">
-                                <span className="text-box-item-title">Big Flexers</span>
-                                <span className="text-box-item-value">{calcMessage.attacker_losses?.big_flex?.toLocaleString() || "--"}</span>
-                            </div>
-                            <br />
-                            <br />
-                            <br />
-                            <div className="text-box-item">
-                                <span className="text-box-item-title">Unit Loss Rate</span>
-                                <span className="text-box-item-value">{displayPercent(calcMessage.attacker_unit_losses_rate) || "--"}</span>
-                            </div>
-                        </div>
-                        <div className="text-box attacker-defense-box">
-                            <h4>Your Offense</h4> 
-                            <div className="text-box-item">
-                                <span className="attacker-offense">{calcMessage.attacker_offense?.toLocaleString() || "--"}</span>
+            <div className="primitives-content">
+                <div className="attack-primitives">
+                    <h2>Attack Primitives</h2>
+                    <div className="text-box primitives-box">
+                        <span className="box-span">Your military will exploit primitive galaxies to conquer distant stars.</span>
+                        <br />
+                        <span className="box-span">Primitives defense per star: 150</span>
+                    </div>
+                    <div className="primitives-battle-stats">
+                        <div className="primitives-attacker-detail">
+                            <Table className="attacker-table" striped bordered hover size="sm">
+                                <thead>
+                                    <tr>
+                                        <th>Unit</th>
+                                        <th>Available</th>
+                                        <th>Offense</th>
+                                        <th>Input</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Attackers</td>
+                                        <td>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
+                                        <td>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
+                                        <td>
+                                            <Form.Control 
+                                                className="unit-form"
+                                                id="attack-input"
+                                                name="attack"
+                                                onChange={handleAttackerChange}
+                                                value={attackerValues.attack || ""} 
+                                                placeholder="0"
+                                                autoComplete="off"
+                                            />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Flexers</td>
+                                        <td>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
+                                        <td>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
+                                        <td>
+                                            <Form.Control 
+                                                className="unit-form"
+                                                id="flexers-input"
+                                                name="flex"
+                                                onChange={handleAttackerChange}
+                                                value={attackerValues.flex || ""} 
+                                                placeholder="0"
+                                                autoComplete="off"
+                                            />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Big Flexers</td>
+                                        <td>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
+                                        <td>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
+                                        <td>
+                                            <Form.Control 
+                                                className="unit-form"
+                                                id="big-flexers-input"
+                                                name="big_flex"
+                                                onChange={handleAttackerChange}
+                                                value={attackerValues.big_flex || ""} 
+                                                placeholder="0"
+                                                autoComplete="off"
+                                            />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Military Efficiency</td>
+                                        <td></td>
+                                        <td></td>
+                                        <td>
+                                            <Form.Control 
+                                                className="unit-form"
+                                                id="military-efficiency-input"
+                                                name="military_bonus"
+                                                onChange={handleAttackerChange}
+                                                value={displayPercent(props.data.projects.current_bonuses?.military_bonus)} 
+                                                placeholder="0"
+                                                disabled
+                                                autoComplete="off"
+                                            />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Other Bonuses</td>
+                                        <td></td>
+                                        <td></td>
+                                        <td>
+                                            <Form.Control 
+                                                className="unit-form"
+                                                id="other-bonuses-input"
+                                                name="other_bonuses"
+                                                value="0%" 
+                                                placeholder="0%"
+                                                disabled
+                                                autoComplete="off"
+                                            />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Generals</td>
+                                        <td>{props.data.kingdom?.generals_available}</td>
+                                        <td></td>
+                                        <td>
+                                            <Form.Control 
+                                                className="unit-form"
+                                                id="generals-input"
+                                                name="generals"
+                                                onChange={handleAttackerChange}
+                                                value={attackerValues.generals || ""} 
+                                                placeholder="0"
+                                                autoComplete="off"
+                                            />
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </Table>
+                            <div className="attacker-text-boxes">
+                                <div className="text-box attacker-losses-box">
+                                    <h4>Your Losses</h4> 
+                                    <div className="text-box-item">
+                                        <span className="text-box-item-title">Attackers</span>
+                                        <span className="text-box-item-value">{calcMessage.attacker_losses?.attack?.toLocaleString() || "--"}</span>
+                                    </div>
+                                    <div className="text-box-item">
+                                        <span className="text-box-item-title">Flexers</span>
+                                        <span className="text-box-item-value">{calcMessage.attacker_losses?.flex?.toLocaleString() || "--"}</span>
+                                    </div>
+                                    <div className="text-box-item">
+                                        <span className="text-box-item-title">Big Flexers</span>
+                                        <span className="text-box-item-value">{calcMessage.attacker_losses?.big_flex?.toLocaleString() || "--"}</span>
+                                    </div>
+                                    <br />
+                                    <br />
+                                    <br />
+                                    <div className="text-box-item">
+                                        <span className="text-box-item-title">Unit Loss Rate</span>
+                                        <span className="text-box-item-value">{displayPercent(calcMessage.attacker_unit_losses_rate) || "--"}</span>
+                                    </div>
+                                </div>
+                                <div className="text-box attacker-defense-box">
+                                    <h4>Your Offense</h4> 
+                                    <div className="text-box-item">
+                                        <span className="attacker-offense">{calcMessage.attacker_offense?.toLocaleString() || "--"}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    <div className="text-box attack-results-box">
+                        <span className="box-span">{calcMessage.message}</span>
+                    </div>
+                    <div className="attack-buttons">
+                        {
+                            loadingCalc
+                            ? <Button className="calculate-button" variant="primary" type="submit" disabled>
+                                Loading...
+                            </Button>
+                            : <Button className="calculate-button" variant="primary" type="submit" onClick={onClickCalculate}>
+                                Calculate
+                            </Button>
+                        }
+                        {
+                            props.loading.kingdom
+                            ? <Button className="attack-button" variant="primary" type="submit" disabled>
+                                Loading...
+                            </Button>
+                            : <Button className="attack-button" variant="primary" type="submit" onClick={onClickAttack}>
+                                Attack
+                            </Button>
+                        }
+                    </div>
                 </div>
-            </div>
-            <div className="text-box attack-results-box">
-                <span className="box-span">{calcMessage.message}</span>
-            </div>
-            <div className="attack-buttons">
-                {
-                    loadingCalc
-                    ? <Button className="calculate-button" variant="primary" type="submit" disabled>
+                <div className="primitives-attack-auto">
+                    <h2>Auto Settings</h2>
+                    <Form>
+                        <Form.Check 
+                            type="switch"
+                            id="enable-auto-attack-switch"
+                            label="Enable Auto Attack"
+                            checked={props.data.kingdom.auto_attack_enabled}
+                            onChange={handleEnabledChange}
+                            disabled={props.loading.kingdom}
+                        />
+                    </Form>
+                    <InputGroup className="mb-3">
+                        <InputGroup.Text id="text-pure-percent">
+                            Pure Offense to Send (Current: {props.data.kingdom.auto_attack_settings?.pure * 100}%)
+                        </InputGroup.Text>
+                        <Form.Control 
+                            id="pure-percent"
+                            aria-describedby="basic-addon3" 
+                            onChange={handleAutoPureInput}
+                            value={autoPure} 
+                            placeholder={props.data.kingdom.auto_attack_settings?.pure * 100}
+                            autoComplete="off"
+                        />
+                        <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                            %
+                        </InputGroup.Text>
+                    </InputGroup>
+                    <InputGroup className="mb-3">
+                        <InputGroup.Text id="text-settle-percent">
+                            Flex Offense to Send (Current: {props.data.kingdom.auto_attack_settings?.flex * 100}%)
+                        </InputGroup.Text>
+                        <Form.Control 
+                            id="flex-percent"
+                            aria-describedby="basic-addon3" 
+                            onChange={handleAutoFlexInput}
+                            value={autoFlex} 
+                            placeholder={props.data.kingdom.auto_attack_settings?.flex * 100}
+                            autoComplete="off"
+                        />
+                        <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                            %
+                        </InputGroup.Text>
+                    </InputGroup>
+                    {props.loading.kingdom
+                    ? <Button className="auto-attack-settings-button" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
-                    : <Button className="calculate-button" variant="primary" type="submit" onClick={onClickCalculate}>
-                        Calculate
+                    : <Button className="auto-attack-settings-button" variant="primary" type="submit" onClick={onSubmitAutoSettingsClick}>
+                        Update
                     </Button>
-                }
-                {
-                    props.loading.kingdom
-                    ? <Button className="attack-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="attack-button" variant="primary" type="submit" onClick={onClickAttack}>
-                        Attack
-                    </Button>
-                }
+                    }
+                </div>
             </div>
         </div>
     )

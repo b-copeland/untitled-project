@@ -337,6 +337,11 @@ INITIAL_KINGDOM_STATE = {
             "military": 0,
             "engineers": 0,
         },
+        "auto_attack_enabled": False,
+        "auto_attack_settings": {
+            "flex": 0,
+            "pure": 0,
+        },
         "projects_points": {
             "pop_bonus": 1000,
             "fuel_bonus": 1000,
@@ -3823,8 +3828,6 @@ def calculate_attack_primitives():
 
 def _attack_primitives(req, kd_id):
     attacker_raw_values = req["attackerValues"]
-
-    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
@@ -3973,6 +3976,84 @@ def _validate_spy_request(
         return False, "You do not have any more spy attempts"
     
     return True, ""
+
+def _validate_auto_attack_settings(req_settings):
+    """Confirm that spending request is valid"""
+
+    values = req_settings.values()
+    if any((value < 0 for value in values)):
+        return False, "Unit percents must be greater than 0"
+    if any((value > 1 for value in values)):
+        return False, "Unit percents must be less than 100%"
+    
+    return True, ""
+
+
+@app.route('/api/attackprimitives/auto', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def auto_attack_primitives():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    
+    kd_id = flask_praetorian.current_user().kd_id
+    
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    
+    kd_info_parse = json.loads(kd_info.text)
+
+    if req.get("enabled", None) != None:
+        if kd_info_parse["auto_attack_settings"].get("pure", 0) == 0 and kd_info_parse["auto_attack_settings"].get("flex", 0) == 0:
+            return (flask.jsonify({"message": "Could not enable auto attack. You must first specify the percent of units to send"}), 400)
+        enabled = req["enabled"]
+        payload = {'auto_attack_enabled': enabled}
+
+        patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload),
+        )
+        if enabled:
+            message = "Enabled auto attacking primitives"
+        else:
+            message = "Disabled auto attacking primitives"
+        return (flask.jsonify({"message": message, "status": "success"}), 200)
+    
+    req_settings = {
+        "pure": float(
+            req.get("pure", kd_info_parse["auto_attack_settings"].get("pure", 0))
+        ) / 100,
+        "flex": float(
+            req.get("flex", kd_info_parse["auto_attack_settings"].get("flex", 0))
+        ) / 100,
+    }
+
+    current_settings = kd_info_parse['auto_attack_settings']
+    new_settings = {
+        **current_settings,
+        **req_settings,
+    }
+    valid_settings, message = _validate_auto_attack_settings(new_settings)
+    if not valid_settings:
+        return (flask.jsonify({"message": message}), 400)
+
+    payload = {'auto_attack_settings': new_settings}
+    patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(payload),
+    )
+    return (flask.jsonify({"message": "Updated auto attack settings", "status": "success"}), 200)
+
 
 def _calculate_spy_probability(
     drones_to_send,
@@ -5658,6 +5739,26 @@ def _resolve_auto_spending(
     )
     return kd_info_parse, next_resolve_time
 
+def _resolve_auto_attack(kd_info_parse):
+    pure_pct = kd_info_parse["auto_attack_settings"].get("pure", 0)
+    flex_pct = kd_info_parse["auto_attack_settings"].get("flex", 0)
+
+    req = {
+        "attackerValues": {
+            "generals": kd_info_parse["generals_available"]
+        }
+    }
+    for key_unit, value_unit in kd_info_parse["units"].items():
+        if UNITS[key_unit].get("offense", 0) == 0:
+            continue
+        else:
+            if UNITS[key_unit].get("defense", 0) == 0:
+                req["attackerValues"][key_unit] = math.floor(pure_pct * value_unit)
+            else:
+                req["attackerValues"][key_unit] = math.floor(flex_pct * value_unit)
+    _attack_primitives(req, kd_info_parse["kdId"])
+
+
 # @app.route('/api/testkdquery/<kd_id>')
 # def testkdquery(kd_id):
 #     query = db.session.query(User).filter_by(kd_id=kd_id).all()
@@ -5848,6 +5949,8 @@ def refresh_data():
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(new_kd_info, default=str),
         )
+        if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > 0:
+            _resolve_auto_attack(new_kd_info)
     return "Refreshed", 200
 
 

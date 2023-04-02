@@ -3,6 +3,30 @@
     flex-direction: column;
     align-items: center;
 }
+.primitives-content {
+    display: flex;
+    flex-direction: row;
+}
+.attack-primitives {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    width: 50%;
+    padding: 10px;
+}
+.primitives-attack-auto {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    width: 50%;
+    padding: 10px;
+}
+.primitives-attacker-detail {
+    display: flex;
+    flex-direction: row;
+}
 .primitives-box {
     margin: 10px;
 }
