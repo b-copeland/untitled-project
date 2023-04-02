@@ -262,6 +262,8 @@ AGGRO_OPERATIONS = [
     "suicidedrones"
 ]
 
+DATE_SENTINEL = "2099-01-01T00:00:00+00:00"
+
 INITIAL_KINGDOM_STARS = 300
 INITIAL_KINGDOM_STATE = {
     "kingdom": {
@@ -271,16 +273,16 @@ INITIAL_KINGDOM_STATE = {
         "status": "Active",
         "last_income": "",
         "next_resolve": {
-            "generals": "2099-01-01T00:00:00+00:00",
-            "spy_attempt": "2099-01-01T00:00:00+00:00",
-            "settles": "2099-01-01T00:00:00+00:00",
-            "mobis": "2099-01-01T00:00:00+00:00",
-            "missiles": "2099-01-01T00:00:00+00:00",
-            "engineers": "2099-01-01T00:00:00+00:00",
-            "structures": "2099-01-01T00:00:00+00:00",
-            "revealed": "2099-01-01T00:00:00+00:00",
-            "shared": "2099-01-01T00:00:00+00:00",
-            "auto_spending": "2099-01-01T00:00:00+00:00",
+            "generals": DATE_SENTINEL,
+            "spy_attempt": DATE_SENTINEL,
+            "settles": DATE_SENTINEL,
+            "mobis": DATE_SENTINEL,
+            "missiles": DATE_SENTINEL,
+            "engineers": DATE_SENTINEL,
+            "structures": DATE_SENTINEL,
+            "revealed": DATE_SENTINEL,
+            "shared": DATE_SENTINEL,
+            "auto_spending": DATE_SENTINEL,
         },
         "stars": INITIAL_KINGDOM_STARS,
         "fuel": 10000,
@@ -1439,7 +1441,7 @@ def spending():
         else:
             total_funding = sum(kd_info_parse["funding"].values())
             next_resolve = kd_info_parse["next_resolve"]
-            next_resolve["auto_spending"] = "2099-01-01T00:00:00+00:00"
+            next_resolve["auto_spending"] = DATE_SENTINEL
             payload["next_resolve"] = next_resolve
             payload["money"] = kd_info_parse["money"] + total_funding
             payload["funding"] = {
@@ -5652,6 +5654,7 @@ def _resolve_auto_spending(
 ):
     resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["auto_spending"]).astimezone(datetime.timezone.utc)
     kd_id = kd_info_parse["kdId"]
+    next_resolves = {}
 
     if settle_info is None:
         settle_info = _get_settle(kd_id)
@@ -5671,6 +5674,7 @@ def _resolve_auto_spending(
         kd_info_parse["funding"]["settle"] = settle_funding - new_settles * settle_price
         
         settle_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat()
+        next_resolves["settle"] = min(settle_time, kd_info_parse["next_resolve"]["settle"])
         settle_payload = {
             "new_settles": [
                 {
@@ -5739,6 +5743,7 @@ def _resolve_auto_spending(
         kd_info_parse["funding"]["structures"] = structures_funding - structures_to_build * structures_price
         
         structures_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat()
+        next_resolves["structures"] = min(structures_time, kd_info_parse["next_resolve"]["structures"])
         target_structures_to_build_nonzero = {
             k: v
             for k, v in target_structures_to_build.items()
@@ -5829,11 +5834,13 @@ def _resolve_auto_spending(
                 "time": recruits_time,
                 "recruits": recruits_to_train
             })
+            next_resolves["mobis"] = min(recruits_time, kd_info_parse["next_resolve"]["mobis"])
         if sum(target_units_to_build_nonzero.values()) > 0:
             mobis_payload["new_mobis"].append({
                 "time": mobis_time,
                 **target_units_to_build_nonzero,
             })
+            kd_info_parse["next_resolve"]["mobis"] = min(mobis_time, kd_info_parse["next_resolve"]["mobis"], next_resolves.get("mobis", DATE_SENTINEL))
         mobis_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -5848,6 +5855,7 @@ def _resolve_auto_spending(
         kd_info_parse["funding"]["engineers"] = engineers_funding - new_engineers * engineers_price
         
         engineers_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat()
+        next_resolves["engineers"] = min(engineers_time, kd_info_parse["next_resolve"]["engineers"])
         engineers_payload = {
             "new_engineers": [
                 {
@@ -5868,7 +5876,8 @@ def _resolve_auto_spending(
         ),
         time_update,
     )
-    return kd_info_parse, next_resolve_time
+    next_resolves["auto_spending"] = next_resolve_time
+    return kd_info_parse, next_resolves
 
 def _resolve_auto_attack(kd_info_parse):
     pure_pct = kd_info_parse["auto_attack_settings"].get("pure", 0)
@@ -5900,13 +5909,6 @@ def _resolve_auto_rob(kd_info_parse):
             "shielded": shielded,
         }
         _rob_primitives(req, kd_info_parse["kdId"])
-
-
-# @app.route('/api/testkdquery/<kd_id>')
-# def testkdquery(kd_id):
-#     query = db.session.query(User).filter_by(kd_id=kd_id).all()
-#     user = query[0]
-#     return flask.jsonify(str(user.__dict__))
 
 def _mark_kingdom_death(kd_id):
     query = db.session.query(User).filter_by(kd_id=kd_id).all()
@@ -6079,11 +6081,15 @@ def refresh_data():
                 current_bonuses,
             )
         if "auto_spending" in categories_to_resolve:
-            kd_info_parse, next_resolves["auto_spending"] = _resolve_auto_spending(
+            kd_info_parse, next_resolves_auto_spending = _resolve_auto_spending(
                 kd_info_parse,
                 time_update,
                 current_bonuses,
             )
+            next_resolves = {
+                k: min(v, next_resolves.get(k, DATE_SENTINEL))
+                for k, v in next_resolves_auto_spending.items()
+            }
 
         for category, next_resolve_datetime in next_resolves.items():
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
