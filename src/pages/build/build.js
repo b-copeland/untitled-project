@@ -27,6 +27,9 @@ function Build(props) {
     if (Object.keys(props.data.settle).length === 0) {
         return <h2>Loading...</h2> 
     }
+    if (Object.keys(props.data.engineers).length === 0) {
+        return <h2>Loading...</h2> 
+    }
     if (Object.keys(props.data.missiles).length === 0) {
         return <h2>Loading...</h2> 
     }
@@ -67,6 +70,12 @@ function Build(props) {
             <td>{queueItem.spans}</td>
         </tr>
     )
+    const engineersData = props.data.engineers.top_queue.map((queueItem) => 
+        <tr key={queueItem.time}>
+            <td>{getTimeString(queueItem.time)}</td>
+            <td>{queueItem.amount}</td>
+        </tr>
+    )
     const missilesData = getRemainingMultiSpans(props.data.missiles.top_queue).map((queueItem) => 
         <tr key={queueItem.time}>
             <td>{getTimeString(queueItem.time)}</td>
@@ -79,66 +88,86 @@ function Build(props) {
     <div className="queue-page">
         <Accordion defaultActiveKey={['0']} alwaysOpen className="queue-accordion">
             <Accordion.Item eventKey="0">
-            <Accordion.Header>Settle Queue ({props.data.settle.len_queue || 0})</Accordion.Header>
-            <Accordion.Body>
-                {
-                    settleData.length > 0
-                    ? <Table>
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Stars</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {settleData}
-                        </tbody>
-                    </Table>
-                    : null
-                }
-            </Accordion.Body>
+                <Accordion.Header>Settle Queue ({props.data.settle.len_queue || 0})</Accordion.Header>
+                <Accordion.Body>
+                    {
+                        settleData.length > 0
+                        ? <Table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Stars</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {settleData}
+                            </tbody>
+                        </Table>
+                        : null
+                    }
+                </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="1">
-            <Accordion.Header>Structures Queue ({props.data.structures.len_queue || 0})</Accordion.Header>
-            <Accordion.Body>
-                {
-                    structuresData.length > 0
-                    ? <Table>
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Structures</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {structuresData}
-                        </tbody>
-                    </Table>
-                    : null
-                }
-            </Accordion.Body>
+                <Accordion.Header>Structures Queue ({props.data.structures.len_queue || 0})</Accordion.Header>
+                <Accordion.Body>
+                    {
+                        structuresData.length > 0
+                        ? <Table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Structures</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {structuresData}
+                            </tbody>
+                        </Table>
+                        : null
+                    }
+                </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="2">
-            <Accordion.Header>Units Queue ({props.data.mobis.len_queue || 0})</Accordion.Header>
-            <Accordion.Body>
-                {
-                    unitsData.length > 0
-                    ? <Table>
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Units</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {unitsData}
-                        </tbody>
-                    </Table>
-                    : null
-                }
-            </Accordion.Body>
+                <Accordion.Header>Units Queue ({props.data.mobis.len_queue || 0})</Accordion.Header>
+                <Accordion.Body>
+                    {
+                        unitsData.length > 0
+                        ? <Table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Units</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {unitsData}
+                            </tbody>
+                        </Table>
+                        : null
+                    }
+                </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="3">
+                <Accordion.Header>Engineers Queue ({props.data.engineers.len_queue || 0})</Accordion.Header>
+                <Accordion.Body>
+                    {
+                        engineersData.length > 0
+                        ? <Table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Units</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {engineersData}
+                            </tbody>
+                        </Table>
+                        : null
+                    }
+                </Accordion.Body>
+            </Accordion.Item>
+            <Accordion.Item eventKey="4">
             <Accordion.Header>Missiles Queue ({props.data.missiles.len_queue || 0})</Accordion.Header>
             <Accordion.Body>
                 {

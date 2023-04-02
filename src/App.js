@@ -225,6 +225,7 @@ function Content(props) {
     "structures": ["structures"],
     "revealed": ["revealed"],
     "shared": ["shared"],
+    "auto_spending": ["kingdom", "settle", "structures", "mobis", "engineers"],
   }
   const refreshData = async () => {
     // console.log('Updating Data');

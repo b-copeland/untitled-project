@@ -11,6 +11,22 @@
     align-items: center;
 }
 
+.spending {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%
+}
+
+.spending-inputs {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 60%
+}
+.spending-input-pct {
+    width: 10%
+}
 .revealed {
     display: flex;
     flex-direction: column;

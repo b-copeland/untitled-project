@@ -242,6 +242,8 @@ BASE_VOTES_COST = 10000
 BASE_ELECTION_LENGTH_SECONDS = BASE_EPOCH_SECONDS * 24 * 1
 BASE_ELECTION_RESULTS_DURATION = BASE_EPOCH_SECONDS * 24 * 6
 
+BASE_AUTO_SPENDING_TIME_MULTIPLIER = 0.1
+
 REVEAL_OPERATIONS = [
     "spykingdom",
     "spymilitary",
@@ -276,6 +278,7 @@ INITIAL_KINGDOM_STATE = {
             "structures": "2099-01-01T00:00:00+00:00",
             "revealed": "2099-01-01T00:00:00+00:00",
             "shared": "2099-01-01T00:00:00+00:00",
+            "auto_spending": "2099-01-01T00:00:00+00:00",
         },
         "stars": INITIAL_KINGDOM_STARS,
         "fuel": 10000,
@@ -304,11 +307,18 @@ INITIAL_KINGDOM_STATE = {
             "workshops": 0,
         },
         "revealed_to": {},
+        "auto_spending_enabled": False,
         "auto_spending": {
             "settle": 0,
             "structures": 0,
             "military": 0,
-            "engineers": 0
+            "engineers": 0,
+        },
+        "funding": {
+            "settle": 0,
+            "structures": 0,
+            "military": 0,
+            "engineers": 0,
         },
         "projects_points": {
             "pop_bonus": 1000,
@@ -1320,13 +1330,13 @@ def _validate_spending(spending_input):
 
     values = spending_input.values()
     if any((value < 0 for value in values)):
-        return False
-    if any((value > 100 for value in values)):
-        return False
-    if sum(values) > 100:
-        return False
+        return False, "Spending values must be greater than 0"
+    if any((value > 1 for value in values)):
+        return False, "Spending values must be less than 100%"
+    if sum(values) > 1:
+        return False, "Spending values must be less than 100%"
     
-    return True
+    return True, ""
 
 
 @app.route('/api/spending', methods=['POST'])
@@ -1351,16 +1361,50 @@ def spending():
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
 
+    if req.get("enabled", None) != None:
+        enabled = req["enabled"]
+        payload = {'auto_spending_enabled': enabled}
+
+        if enabled:
+            next_resolve = kd_info_parse["next_resolve"]
+            next_resolve["auto_spending"] = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_AUTO_SPENDING_TIME_MULTIPLIER)).isoformat()
+            payload["next_resolve"] = next_resolve
+        else:
+            total_funding = sum(kd_info_parse["funding"].values())
+            next_resolve = kd_info_parse["next_resolve"]
+            next_resolve["auto_spending"] = "2099-01-01T00:00:00+00:00"
+            payload["next_resolve"] = next_resolve
+            payload["money"] = kd_info_parse["money"] + total_funding
+            payload["funding"] = {
+                k: 0
+                for k in kd_info_parse["funding"]
+            }
+
+        patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload),
+        )
+        if enabled:
+            message = "Enabled auto spending and released funding"
+        else:
+            message = "Disabled auto spending"
+        return (flask.jsonify({"message": message, "status": "success"}), 200)
+    
+    req_spending = {
+        key: float(value or 0) / 100
+        for key, value in req.items()
+        if (value or 0) != 0
+    }
+
     current_spending = kd_info_parse['auto_spending']
     new_spending = {
-        'settle': float(req.get('settleInput', current_spending['settle'])),
-        'structures': float(req.get('structuresInput', current_spending['structures'])),
-        'military': float(req.get('militaryInput', current_spending['military'])),
-        'engineers': float(req.get('engineersInput', current_spending['engineers'])),
+        **current_spending,
+        **req_spending,
     }
-    valid_spending = _validate_spending(new_spending)
+    valid_spending, message = _validate_spending(new_spending)
     if not valid_spending:
-        return (flask.jsonify('Please enter valid spending percents'), 400)
+        return (flask.jsonify({"message": message}), 400)
 
     payload = {'auto_spending': new_spending}
     patch_response = REQUESTS_SESSION.patch(
@@ -1368,7 +1412,7 @@ def spending():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(payload),
     )
-    return (flask.jsonify(patch_response.text), 200)
+    return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _calc_units(
     start_time,
@@ -1490,7 +1534,7 @@ def _calc_max_recruits(kd_info, units):
         current_available_recruits = 0
     return max_available_recruits, current_available_recruits
 
-def _get_mobis_info(kd_id):
+def _get_mobis_queue(kd_id):
     mobis_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
@@ -1514,17 +1558,7 @@ def _get_units_adjusted_costs(state):
 
     return units_desc
 
-@app.route('/api/mobis', methods=['GET'])
-@flask_praetorian.auth_required
-# @flask_praetorian.roles_required('verified')
-def mobis():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
-    kd_id = flask_praetorian.current_user().kd_id
+def _get_mobis(kd_id):
     print(kd_id, file=sys.stderr)
 
     kd_info = REQUESTS_SESSION.get(
@@ -1534,7 +1568,7 @@ def mobis():
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
 
-    mobis_info_parse = _get_mobis_info(kd_id)
+    mobis_info_parse = _get_mobis_queue(kd_id)
     current_units = kd_info_parse["units"]
     generals_units = kd_info_parse["generals_out"]
     mobis_units = mobis_info_parse
@@ -1572,6 +1606,20 @@ def mobis():
         'top_queue': top_queue,
         'len_queue': len_queue,
         }
+    return payload
+
+@app.route('/api/mobis', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def mobis():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    payload = _get_mobis(kd_id)
     return (flask.jsonify(payload), 200)
 
 def _validate_recruits(recruits_input, current_available_recruits):
@@ -1605,7 +1653,7 @@ def recruits():
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
 
-    mobis_info_parse = _get_mobis_info(kd_id)
+    mobis_info_parse = _get_mobis_queue(kd_id)
     current_units = kd_info_parse["units"]
     generals_units = kd_info_parse["generals_out"]
     mobis_units = mobis_info_parse
@@ -1781,18 +1829,7 @@ def _calc_available_structures(structure_price, kd_info, structures_info):
         current_available_structures = 0
     return max_available_structures, current_available_structures
 
-
-@app.route('/api/structures', methods=['GET'])
-@flask_praetorian.auth_required
-# @flask_praetorian.roles_required('verified')
-def structures():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
-    kd_id = flask_praetorian.current_user().kd_id
+def _get_structures_info(kd_id):
     print(kd_id, file=sys.stderr)
     structures_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
@@ -1831,6 +1868,21 @@ def structures():
         "top_queue": top_queue,
         "len_queue": len_queue,
     }
+    return payload
+
+
+@app.route('/api/structures', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def structures():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    payload = _get_structures_info(kd_id)
 
     return (flask.jsonify(payload), 200)
 
@@ -2025,7 +2077,7 @@ def galaxy(galaxy):
 
     return (flask.jsonify(galaxy_kd_info), 200)
 
-def _get_settle_info(kd_id):
+def _get_settle_queue(kd_id):
     settle_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
@@ -2055,17 +2107,7 @@ def _get_available_settle(kd_info, settle_info, is_expansionist):
         current_available_settle = 0
     return max_available_settle, current_available_settle
 
-@app.route('/api/settle', methods=['GET'])
-@flask_praetorian.auth_required
-# @flask_praetorian.roles_required('verified')
-def get_settle():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
-    kd_id = flask_praetorian.current_user().kd_id
+def _get_settle(kd_id):
     print(kd_id, file=sys.stderr)
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -2073,7 +2115,7 @@ def get_settle():
     )
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
-    settle_info = _get_settle_info(kd_id)
+    settle_info = _get_settle_queue(kd_id)
 
     top_queue = sorted(
         settle_info,
@@ -2094,7 +2136,21 @@ def get_settle():
         "top_queue": top_queue,
         "len_queue": len_queue,
     }
+    return payload
 
+
+@app.route('/api/settle', methods=['GET'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def get_settle():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    payload = _get_settle(kd_id)
     return (flask.jsonify(payload), 200)
 
 def _validate_settles(settle_input, kd_info, settle_info, is_expansionist):
@@ -2130,7 +2186,7 @@ def settle():
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
 
-    settle_info = _get_settle_info(kd_id)
+    settle_info = _get_settle_queue(kd_id)
     galaxies_inverted, _ = _get_galaxies_inverted()
     galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
     is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
@@ -2344,7 +2400,7 @@ def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
         current_available_engineers = 0
     return max_available_engineers, current_available_engineers
 
-def _get_engineers_info(kd_id):
+def _get_engineers_queue(kd_id):
     engineers_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
@@ -2352,6 +2408,39 @@ def _get_engineers_info(kd_id):
     print(engineers_info.text, file=sys.stderr)
     engineers_info_parse = json.loads(engineers_info.text)
     return engineers_info_parse["engineers"]
+
+def _get_engineers(kd_id):
+    print(kd_id, file=sys.stderr)
+
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    engineers_info = _get_engineers_queue(kd_id)
+    engineers_building = sum([training["amount"] for training in engineers_info])
+    max_workshop_capacity, current_workshop_capacity = _calc_workshop_capacity(kd_info_parse, engineers_building)
+    max_available_engineers, current_available_engineers = _calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
+    top_queue = sorted(
+        engineers_info,
+        key=lambda queue: queue["time"],
+    )[:10]
+    len_queue = len(engineers_info)
+
+    payload = {
+        'engineers_price': BASE_ENGINEER_COST,
+        'max_workshop_capacity': max_workshop_capacity,
+        'current_workshop_capacity': current_workshop_capacity,
+        'max_available_engineers': max_available_engineers,
+        'current_available_engineers': current_available_engineers,
+        'current_engineers': kd_info_parse["units"]["engineers"],
+        'engineers_building': engineers_building,
+        "top_queue": top_queue,
+        "len_queue": len_queue,
+        }
+    return payload
 
 @app.route('/api/engineers', methods=['GET'])
 @flask_praetorian.auth_required
@@ -2364,29 +2453,7 @@ def engineers():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
-
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    print(kd_info.text, file=sys.stderr)
-    kd_info_parse = json.loads(kd_info.text)
-
-    engineers_info = _get_engineers_info(kd_id)
-    engineers_building = sum([training["amount"] for training in engineers_info])
-    max_workshop_capacity, current_workshop_capacity = _calc_workshop_capacity(kd_info_parse, engineers_building)
-    max_available_engineers, current_available_engineers = _calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
-
-    payload = {
-        'engineers_price': BASE_ENGINEER_COST,
-        'max_workshop_capacity': max_workshop_capacity,
-        'current_workshop_capacity': current_workshop_capacity,
-        'max_available_engineers': max_available_engineers,
-        'current_available_engineers': current_available_engineers,
-        'current_engineers': kd_info_parse["units"]["engineers"],
-        'engineers_building': engineers_building,
-        }
+    payload = _get_engineers(kd_id)
     return (flask.jsonify(payload), 200)
 
 def _validate_engineers(engineers_input, current_available_engineers):
@@ -2420,7 +2487,7 @@ def train_engineers():
     print(kd_info.text, file=sys.stderr)
     kd_info_parse = json.loads(kd_info.text)
 
-    engineers_info = _get_engineers_info(kd_id)
+    engineers_info = _get_engineers_queue(kd_id)
     engineers_building = sum([training["amount"] for training in engineers_info])
     max_workshop_capacity, current_workshop_capacity = _calc_workshop_capacity(kd_info_parse, engineers_building)
     max_available_engineers, current_available_engineers = _calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
@@ -4676,7 +4743,7 @@ def _calc_pop_change_per_epoch(
 ):
     current_units = kd_info_parse["units"]
     generals_units = kd_info_parse["generals_out"]
-    mobis_info = _get_mobis_info(kd_info_parse["kdId"])
+    mobis_info = _get_mobis_queue(kd_info_parse["kdId"])
     mobis_units = mobis_info
     int_fuelless = int(fuelless)
 
@@ -4912,7 +4979,13 @@ def _kingdom_with_income(
             if new_kd_info["projects_points"][key_project] >= new_kd_info["projects_max_points"][key_project]:
                 new_kd_info["completed_projects"].append(key_project)
                 new_kd_info["projects_assigned"][key_project] = 0
-    new_kd_info["money"] += new_income
+    if new_kd_info["auto_spending_enabled"]:
+        pct_allocated = sum(new_kd_info["auto_spending"].values())
+        for key_spending, pct_spending in new_kd_info["auto_spending"].items():
+            new_kd_info["funding"][key_spending] += pct_spending * new_income
+        new_kd_info["money"] += new_income * (1 - pct_allocated)
+    else:
+        new_kd_info["money"] += new_income
     new_kd_info["fuel"] = max(min(max_fuel, new_kd_info["fuel"] + net_fuel), min_fuel)
     new_kd_info["drones"] += new_drones
     new_kd_info["population"] = new_kd_info["population"] + pop_change
@@ -5211,6 +5284,80 @@ def _resolve_spy(kd_info_parse, time_update, current_bonuses):
         kd_info_parse["spy_attempts"] += 1
     return kd_info_parse, next_resolve_time
 
+def _resolve_auto_spending(
+    kd_info_parse,
+    time_update,
+    current_bonuses,
+    settle_info=None,
+    structures_info=None,
+    mobis_info=None,
+    engineers_info=None,
+):
+    resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["auto_spending"]).astimezone(datetime.timezone.utc)
+    kd_id = kd_info_parse["kdId"]
+
+    if settle_info is None:
+        settle_info = _get_settle(kd_id)
+    if structures_info is None:
+        structures_info = _get_structures_info(kd_id)
+    if mobis_info is None:
+        mobis_info = _get_mobis(kd_id)
+    if engineers_info is None:
+        engineers_info = _get_engineers(kd_id)
+
+    settle_price = settle_info["settle_price"]
+    max_available_settle = settle_info["max_available_settle"]
+    settle_funding = kd_info_parse["funding"]["settle"]
+
+    new_settles = min(math.floor(settle_funding / settle_price), max_available_settle)
+    if new_settles:
+        kd_info_parse["funding"]["settle"] = settle_funding - new_settles * settle_price
+        
+        settle_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat()
+        settle_payload = {
+            "new_settles": [
+                {
+                    "time": settle_time,
+                    "amount": new_settles,
+                }
+            ]
+        }
+        settles_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(settle_payload),
+        )
+
+    engineers_price = engineers_info["engineers_price"]
+    max_available_engineers = engineers_info["max_available_engineers"]
+    engineers_funding = kd_info_parse["funding"]["engineers"]
+    new_engineers = min(math.floor(engineers_funding / engineers_price), max_available_engineers)
+    if new_engineers:
+        kd_info_parse["funding"]["engineers"] = engineers_funding - new_engineers * engineers_price
+        
+        engineers_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat()
+        engineers_payload = {
+            "new_engineers": [
+                {
+                    "time": engineers_time,
+                    "amount": new_engineers,
+                }
+            ]
+        }
+        engineers_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(engineers_payload),
+        )
+
+    next_resolve_time = max(
+        resolve_time + datetime.timedelta(
+            seconds=BASE_EPOCH_SECONDS * BASE_AUTO_SPENDING_TIME_MULTIPLIER
+        ),
+        time_update,
+    )
+    return kd_info_parse, next_resolve_time
+
 # @app.route('/api/testkdquery/<kd_id>')
 # def testkdquery(kd_id):
 #     query = db.session.query(User).filter_by(kd_id=kd_id).all()
@@ -5312,6 +5459,8 @@ def refresh_data():
 
     kingdoms = _get_kingdoms()
     for kd_id in kingdoms:
+        if kd_id != "0":
+            continue
         next_resolves = {}
         time_update = datetime.datetime.now(datetime.timezone.utc)
         kd_info = REQUESTS_SESSION.get(
@@ -5380,6 +5529,12 @@ def refresh_data():
         
         if "spy_attempt" in categories_to_resolve:
             kd_info_parse, next_resolves["spy_attempt"] = _resolve_spy(
+                kd_info_parse,
+                time_update,
+                current_bonuses,
+            )
+        if "auto_spending" in categories_to_resolve:
+            kd_info_parse, next_resolves["auto_spending"] = _resolve_auto_spending(
                 kd_info_parse,
                 time_update,
                 current_bonuses,

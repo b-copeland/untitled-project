@@ -363,8 +363,9 @@ function Spending(props) {
     const [structuresInput, setStructuresInput] = useState('');
     const [militaryInput, setMilitaryInput] = useState('');
     const [engineersInput, setEngineersInput] = useState('');
+    const [enabled, setEnabled] = useState(props.kingdom.auto_spending?.enabled)
+    const [results, setResults] = useState([]);
 
-    return <h2>Coming Soon...</h2>
     const spendingInfo = props.kingdom?.auto_spending;
     if (spendingInfo === undefined) {
         return null
@@ -385,87 +386,137 @@ function Spending(props) {
     const handleEngineersInput = (e) => {
         setEngineersInput(e.target.value)
     }
-
-    const onSubmitClick = async (e)=>{
+    const handleEnabledChange = (e) => {
         let opts = {
-            'settleInput': settleInput === '' ? undefined : settleInput,
-            'structuresInput': structuresInput === '' ? undefined : structuresInput,
-            'militaryInput': militaryInput === '' ? undefined : militaryInput,
-            'engineersInput': engineersInput === '' ? undefined : engineersInput,
+            'enabled': e.target.checked
         }
         const updateFunc = () => authFetch('api/spending', {
             method: 'post',
             body: JSON.stringify(opts)
-        })
+        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
+        props.updateData(['kingdom'], [updateFunc])
+        setEnabled(e.target.checked)
+    }
+
+    const onSubmitClick = async (e)=>{
+        let opts = {
+            'settle': settleInput === '' ? undefined : settleInput,
+            'structures': structuresInput === '' ? undefined : structuresInput,
+            'military': militaryInput === '' ? undefined : militaryInput,
+            'engineers': engineersInput === '' ? undefined : engineersInput,
+        }
+        const updateFunc = () => authFetch('api/spending', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
         props.updateData(['kingdom'], [updateFunc])
         setSettleInput('');
         setStructuresInput('');
         setMilitaryInput('');
         setEngineersInput('');
     }
+    const toasts = results.map((result, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
+            show={true}
+            bg={result.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Auto Spending Results</strong>
+            </Toast.Header>
+            <Toast.Body>{result.message}</Toast.Body>
+        </Toast>
+    )
     return (
         <div className="spending">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
             <h2>Update Auto Spending:</h2>
-            <InputGroup className="mb-3">
-                <InputGroup.Text id="text-settle-percent">
-                    Settle (Current: {spendingInfo.settle}%)
-                </InputGroup.Text>
-                <Form.Control 
-                    id="settle-percent"
-                    aria-describedby="basic-addon3" 
-                    onChange={handleSettleInput}
-                    value={settleInput} 
-                    placeholder={spendingInfo.settle}
-                    autoComplete="off"
+            <Form>
+                <Form.Check 
+                    type="switch"
+                    id="enable-auto-spending-switch"
+                    label="Enable"
+                    onChange={handleEnabledChange}
+                    disabled={props.loading.kingdom}
                 />
-            </InputGroup>
-            <InputGroup className="mb-3">
-                <InputGroup.Text id="text-structures-percent">
-                    Structures (Current: {spendingInfo.structures}%)
-                </InputGroup.Text>
-                <Form.Control 
-                    id="structures-percent"
-                    aria-describedby="basic-addon3" 
-                    onChange={handleStructuresInput}
-                    value={structuresInput} 
-                    placeholder={spendingInfo.structures}
-                    autoComplete="off"
-                />
-            </InputGroup>
-            <InputGroup className="mb-3">
-                <InputGroup.Text id="text-military-percent">
-                    Military (Current: {spendingInfo.military}%)
-                </InputGroup.Text>
-                <Form.Control 
-                    id="military-percent"
-                    aria-describedby="basic-addon3" 
-                    onChange={handleMilitaryInput}
-                    value={militaryInput} 
-                    placeholder={spendingInfo.military}
-                    autoComplete="off"
-                />
-            </InputGroup>
-            <InputGroup className="mb-3">
-                <InputGroup.Text id="text-engineers-percent">
-                    Engineers (Current: {spendingInfo.engineers}%)
-                </InputGroup.Text>
-                <Form.Control 
-                    id="engineers-percent"
-                    aria-describedby="basic-addon3" 
-                    onChange={handleEngineersInput}
-                    value={engineersInput} 
-                    placeholder={spendingInfo.engineers}
-                    autoComplete="off"
-                />
-            </InputGroup>
-            {props.loading.kingdom
-            ? <Button className="spending-button" variant="primary" type="submit" disabled>
-                Loading...
-            </Button>
-            : <Button className="spending-button" variant="primary" type="submit" onClick={onSubmitClick}>
-                Submit
-            </Button>
-            }
+            </Form>
+            <div className="spending-inputs">
+                <InputGroup className="mb-3">
+                    <InputGroup.Text id="text-settle-percent">
+                        Settle (Current: {spendingInfo.settle * 100}%)
+                    </InputGroup.Text>
+                    <Form.Control 
+                        id="settle-percent"
+                        aria-describedby="basic-addon3" 
+                        onChange={handleSettleInput}
+                        value={settleInput} 
+                        placeholder={spendingInfo.settle * 100}
+                        autoComplete="off"
+                    />
+                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                        %
+                    </InputGroup.Text>
+                </InputGroup>
+                <InputGroup className="mb-3">
+                    <InputGroup.Text id="text-structures-percent">
+                        Structures (Current: {spendingInfo.structures * 100}%)
+                    </InputGroup.Text>
+                    <Form.Control 
+                        id="structures-percent"
+                        aria-describedby="basic-addon3" 
+                        onChange={handleStructuresInput}
+                        value={structuresInput} 
+                        placeholder={spendingInfo.structures * 100}
+                        autoComplete="off"
+                    />
+                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                        %
+                    </InputGroup.Text>
+                </InputGroup>
+                <InputGroup className="mb-3">
+                    <InputGroup.Text id="text-military-percent">
+                        Military (Current: {spendingInfo.military * 100}%)
+                    </InputGroup.Text>
+                    <Form.Control 
+                        id="military-percent"
+                        aria-describedby="basic-addon3" 
+                        onChange={handleMilitaryInput}
+                        value={militaryInput} 
+                        placeholder={spendingInfo.military * 100}
+                        autoComplete="off"
+                    />
+                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                        %
+                    </InputGroup.Text>
+                </InputGroup>
+                <InputGroup className="mb-3">
+                    <InputGroup.Text id="text-engineers-percent">
+                        Engineers (Current: {spendingInfo.engineers * 100}%)
+                    </InputGroup.Text>
+                    <Form.Control 
+                        id="engineers-percent"
+                        aria-describedby="basic-addon3" 
+                        onChange={handleEngineersInput}
+                        value={engineersInput} 
+                        placeholder={spendingInfo.engineers * 100}
+                        autoComplete="off"
+                    />
+                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                        %
+                    </InputGroup.Text>
+                </InputGroup>
+                {props.loading.kingdom
+                ? <Button className="spending-button" variant="primary" type="submit" disabled>
+                    Loading...
+                </Button>
+                : <Button className="spending-button" variant="primary" type="submit" onClick={onSubmitClick}>
+                    Submit
+                </Button>
+                }
+            </div>
         </div>
     )
 }
