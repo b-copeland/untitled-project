@@ -14,6 +14,8 @@ import flask_sqlalchemy
 import flask_praetorian
 import flask_cors
 from flask_mail import Mail
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 
 db = flask_sqlalchemy.SQLAlchemy()
@@ -588,6 +590,20 @@ db.init_app(app)
 cors.init_app(app)
 
 mail.init_app(app)
+
+def _custom_limit_key_func():
+    try:
+        token = guard.read_token_from_header()
+    except:
+        token = get_remote_address()
+    return token
+
+limiter = Limiter(
+    _custom_limit_key_func,
+    app=app,
+    default_limits=["100 per minute",],
+    storage_uri="memory://",
+)
 
 # Add users for the example
 with app.app_context():

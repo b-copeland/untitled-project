@@ -4,6 +4,7 @@ Deprecated==1.2.10
 Flask==1.1.2
 flask-buzz==0.1.15
 Flask-Cors==3.0.9
+Flask-Limiter==3.3.0
 Flask-Mail==0.9.1
 flask-praetorian==1.0.0
 Flask-SQLAlchemy==2.4.4
