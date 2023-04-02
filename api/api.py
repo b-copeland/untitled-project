@@ -518,6 +518,7 @@ PRETTY_NAMES = {
     "sabotagefuelplants": "Sabotage Fuel Plants",
     "kidnappopulation": "Kidnap Population",
     "suicidedrones": "Suicide Drones",
+    "robprimitives": "Rob Primitives",
     "recruits": "Recruits",
     "attack": "Attackers",
     "defense": "Defenders",
