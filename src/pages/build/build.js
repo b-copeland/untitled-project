@@ -86,6 +86,26 @@ function Build(props) {
     <>
     <Header data={props.data} />
     <div className="queue-page">
+        <div className="text-box kingdom-card">
+            <h4>Auto Spending Funding</h4>
+            <br />
+            <div className="text-box-item">
+                <span className="text-box-item-title">Settle</span>
+                <span className="text-box-item-value">{Math.floor(props.data.kingdom.funding?.settle || 0).toLocaleString()}</span>
+            </div>
+            <div className="text-box-item">
+                <span className="text-box-item-title">Structures</span>
+                <span className="text-box-item-value">{Math.floor(props.data.kingdom.funding?.structures || 0).toLocaleString()}</span>
+            </div>
+            <div className="text-box-item">
+                <span className="text-box-item-title">Military</span>
+                <span className="text-box-item-value">{Math.floor(props.data.kingdom.funding?.military || 0).toLocaleString()}</span>
+            </div>
+            <div className="text-box-item">
+                <span className="text-box-item-title">Engineers</span>
+                <span className="text-box-item-value">{Math.floor(props.data.kingdom.funding?.engineers || 0).toLocaleString()}</span>
+            </div>
+        </div>
         <Accordion defaultActiveKey={['0']} alwaysOpen className="queue-accordion">
             <Accordion.Item eventKey="0">
                 <Accordion.Header>Settle Queue ({props.data.settle.len_queue || 0})</Accordion.Header>
