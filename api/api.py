@@ -290,6 +290,7 @@ INITIAL_KINGDOM_STATE = {
         "fuel": 10000,
         "population": 2500,
         "score": 0,
+        "votes": 0,
         "money": 100000,
         "drones": 1000,
         "spy_attempts": 10,
@@ -572,7 +573,7 @@ app = flask.Flask(__name__, static_folder='../build', static_url_path=None)
 app.debug = True
 app.config['SECRET_KEY'] = 'top secret'
 app.config['JWT_ACCESS_LIFESPAN'] = {'hours': 24}
-app.config['JWT_REFRESH_LIFESPAN'] = {'days': 30}
+app.config['JWT_REFRESH_LIFESPAN'] = {'hours': 24}
 app.config['MAIL_SERVER'] = 'smtp.sendgrid.net'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -624,13 +625,13 @@ with app.app_context():
             db.session.add(
                 User(**user)
             )
-    # if db.session.query(User).filter_by(username='admin').count() < 1:
-    #     db.session.add(User(
-    #       username='admin',
-    #       password=guard.hash_password('adminpass'),
-    #       roles='operator,admin',
-    #       kd_created=True,
-	# 	))
+    if db.session.query(User).filter_by(username='admin').count() < 1:
+        db.session.add(User(
+          username='admin',
+          password=guard.hash_password('adminpass'),
+          roles='operator,admin',
+          kd_created=True,
+		))
     # for i in range(0, 6):
     #     if db.session.query(User).filter_by(username=f'anewkd{i}').count() < 1:
     #         db.session.add(User(
@@ -685,6 +686,22 @@ def admin_login():
         return flask.jsonify({"message": "Not authorized"})
     ret = {'accessToken': guard.encode_jwt_token(user), 'refreshToken': guard.encode_jwt_token(user)}
     return (flask.jsonify(ret), 200)
+
+@app.route('/api/adminrefresh', methods=['POST'])
+@flask_praetorian.roles_required('admin')
+def admin_refresh():
+    """
+    Refreshes an existing JWT by creating a new one that is a copy of the old
+    except that it has a refrehsed access expiration.
+    .. example::
+       $ curl http://localhost:5000/refresh -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    
+    old_token = guard.read_token_from_header()
+    new_token = guard.refresh_jwt_token(old_token)
+    ret = {'accessToken': new_token}
+    return ret, 200
 
 @app.route('/api/refresh', methods=['POST'])
 def refresh():
@@ -793,13 +810,6 @@ def update_state():
         data=json.dumps(req)
     )
     return flask.jsonify(update_response.text), 200
-
-def _create_galaxy(galaxy_id):
-    create_galaxy_response = REQUESTS_SESSION.post(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-    )
-    return create_galaxy_response.text
 
 
 @app.route('/api/createstate', methods=["POST"])

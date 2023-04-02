@@ -64,8 +64,9 @@ function Admin(props) {
     let opts = {
         "game_start": gameStart,
         "game_end": gameEnd,
-        "election_start": "",
+        "election_start": electionStart,
         "election_end": "",
+        "active_policies": [],
     }
     adminAuth.authFetch('api/updatestate', {
         method: 'POST',

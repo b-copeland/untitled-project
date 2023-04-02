@@ -207,7 +207,16 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
             item="universe_votes",
             partition_key="universe_votes"
         )
-        universe_votes["votes"] = {}
+        universe_votes["votes"] = {
+            "policy_1": {
+                "option_1": {},
+                "option_2": {},
+            },
+            "policy_2": {
+                "option_1": {},
+                "option_2": {},
+            }
+        }
         CONTAINER.replace_item(
             "universe_votes",
             universe_votes,
@@ -292,7 +301,15 @@ def create_galaxy(req: func.HttpRequest) -> func.HttpResponse:
             CONTAINER.create_item(
                 {
                     "id": f"galaxy_votes_{galaxy_id}",
-                    "votes": {},
+                    "votes": {
+                        "policy_1": {},
+                        "policy_2": {},
+                        "leader": {},
+                    },
+                    "active_policies": [],
+                    "leader": "",
+                    "policy_1_winner": "",
+                    "policy_2_winner": "",
                 }
             )
         return func.HttpResponse(
