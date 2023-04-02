@@ -5674,7 +5674,7 @@ def _resolve_auto_spending(
         kd_info_parse["funding"]["settle"] = settle_funding - new_settles * settle_price
         
         settle_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat()
-        next_resolves["settle"] = min(settle_time, kd_info_parse["next_resolve"]["settle"])
+        next_resolves["settles"] = min(settle_time, kd_info_parse["next_resolve"]["settles"])
         settle_payload = {
             "new_settles": [
                 {
@@ -5876,7 +5876,7 @@ def _resolve_auto_spending(
         ),
         time_update,
     )
-    next_resolves["auto_spending"] = next_resolve_time
+    next_resolves["auto_spending"] = next_resolve_time.isoformat()
     return kd_info_parse, next_resolves
 
 def _resolve_auto_attack(kd_info_parse):
@@ -6087,7 +6087,10 @@ def refresh_data():
                 current_bonuses,
             )
             next_resolves = {
-                k: min(v, next_resolves.get(k, DATE_SENTINEL))
+                k: min(
+                    datetime.datetime.fromisoformat(v).astimezone(datetime.timezone.utc),
+                    next_resolves.get(k, datetime.datetime.fromisoformat(DATE_SENTINEL).astimezone(datetime.timezone.utc))
+                )
                 for k, v in next_resolves_auto_spending.items()
             }
 
