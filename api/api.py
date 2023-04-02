@@ -306,6 +306,15 @@ INITIAL_KINGDOM_STATE = {
             "missile_silos": 0,
             "workshops": 0,
         },
+        "structures_target": {
+            "homes": 0,
+            "mines": 0,
+            "fuel_plants": 0,
+            "hangars": 0,
+            "drone_factories": 0,
+            "missile_silos": 0,
+            "workshops": 0,
+        },
         "revealed_to": {},
         "auto_spending_enabled": False,
         "auto_spending": {
@@ -1971,6 +1980,58 @@ def build_structures():
         data=json.dumps(structures_payload),
     )
     return (flask.jsonify({"message": "Successfully began building structures", "status": "success"}), 200)
+
+def _validate_structures_target(req_targets):
+    """Confirm that spending request is valid"""
+
+    values = req_targets.values()
+    if any((value < 0 for value in values)):
+        return False, "Target values must be greater than 0"
+    if any((value > 1 for value in values)):
+        return False, "Target values must be less than 100%"
+    if sum(values) > 1:
+        return False, "Target values must be less than 100%"
+    
+    return True, ""
+
+@app.route('/api/structures/target', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def allocate_structures():
+    req = flask.request.get_json(force=True)
+    print(req, file=sys.stderr)
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+    
+    req_targets = {
+        key: float(value or 0) / 100
+        for key, value in req.items()
+        if (value or 0) != 0
+    }
+
+    current_targets = kd_info_parse['structures_target']
+    new_targets = {
+        **current_targets,
+        **req_targets,
+    }
+    valid_targets, message = _validate_structures_target(new_targets)
+    if not valid_targets:
+        return (flask.jsonify({"message": message}), 400)
+
+    payload = {'structures_target': new_targets}
+    patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(payload),
+    )
+    return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _get_kd_info(kd_id):
     kd_info = REQUESTS_SESSION.get(
@@ -5327,6 +5388,78 @@ def _resolve_auto_spending(
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(settle_payload),
         )
+    
+    structures_price = structures_info["price"]
+    max_available_structures = structures_info["max_available_structures"]
+    structures_funding = kd_info_parse["funding"]["structures"]
+    structures_to_build = min(math.floor(structures_funding / structures_price), max_available_structures)
+    if structures_to_build:
+        print("Structures to build", structures_to_build)
+        structures_current = structures_info["current"]
+        structures_building = structures_info["hour_24"]
+        total_structures = {
+            k: structures_current.get(k, 0) + structures_building.get(k, 0)
+            for k in STRUCTURES
+        }
+        print("Total structures", total_structures)
+        pct_total_structures = {
+            k: v / kd_info_parse["stars"]
+            for k, v in total_structures.items()
+        }
+        print("Pct total structures", pct_total_structures)
+        target_gap = {
+            k: kd_info_parse["structures_target"].get(k, 0) - v
+            for k, v in pct_total_structures.items()
+            if (kd_info_parse["structures_target"].get(k, 0) - v) > 0
+        }
+        print("Target gap", target_gap)
+        total_target_gap = sum(target_gap.values())
+        target_gap_pct = {
+            k: v / total_target_gap
+            for k, v in target_gap.items()
+        }
+        print("Target gap pct", target_gap_pct)
+        target_structures_to_build = {
+            k: math.floor(v * structures_to_build)
+            for k, v in target_gap_pct.items()
+        }
+        print("Target structures to build", target_structures_to_build)
+        leftover_structures = structures_to_build - sum(target_structures_to_build.values())
+        print("Leftover structures", leftover_structures)
+        def _weighted_random_by_dct(dct):
+            rand_val = random.random()
+            total = 0
+            for k, v in dct.items():
+                total += v
+                if rand_val <= total:
+                    return k
+        for _ in range(leftover_structures):
+            rand_structure = _weighted_random_by_dct(target_gap_pct)
+            target_structures_to_build[rand_structure] += 1
+        print("Leftover structures", leftover_structures)
+        
+        kd_info_parse["funding"]["structures"] = structures_funding - structures_to_build * structures_price
+        
+        structures_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat()
+        target_structures_to_build_nonzero = {
+            k: v
+            for k, v in target_structures_to_build.items()
+            if v > 0
+        }
+        structures_payload = {
+            "new_structures": [
+                {
+                    "time": structures_time,
+                    **target_structures_to_build_nonzero,
+                }
+            ]
+        }
+        structures_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(structures_payload),
+        )
+
 
     engineers_price = engineers_info["engineers_price"]
     max_available_engineers = engineers_info["max_available_engineers"]
