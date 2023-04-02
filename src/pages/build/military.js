@@ -34,6 +34,9 @@ function MilitaryContent(props) {
           <Tab eventKey="levy" title="Levy">
             <Levy kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
+          <Tab eventKey="allocate" title="Allocate">
+            <Allocate kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/>
+          </Tab>
         </Tabs>
     </>
     )
@@ -390,6 +393,256 @@ function Levy(props) {
             <h2>Levy</h2>
             <h3>Coming Soon...</h3>
         </div>
+    )
+}
+function Allocate(props) {
+    const [specialistsResults, setSpecialistsResults] = useState([]);
+    const [input, setInput] = useState(initialInput);
+    const [maxRecruits, setMaxRecruits] = useState("");
+    const [recruitsBeforeUnits, setRecruitsBeforeUnits] = useState(props.kdInfo?.recruits_before_units)
+
+    console.log(props.kdInfo.recruits_before_units)
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setInput({
+          ...input,
+          [name]: value,
+        });
+      };
+    const handleMaxRecruitsInput = (e) => {
+        setMaxRecruits(e.target.value);
+    }
+
+    const onSubmitClick = (e)=>{
+        let opts = {
+            "max_recruits": maxRecruits,
+            "targets": input,
+        };
+        const updateFunc = () => authFetch('api/mobis/target', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => setSpecialistsResults(specialistsResults.concat(r)))
+        props.updateData(['kingdom'], [updateFunc]);
+    }
+    const handleEnabledChange = (e) => {
+        let opts = {
+            'recruits_before_units': e.target.checked
+        }
+        const updateFunc = () => authFetch('api/mobis/target', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => {setSpecialistsResults(specialistsResults.concat(r))})
+        props.updateData(['kingdom'], [updateFunc])
+        setRecruitsBeforeUnits(e.target.checked)
+    }
+
+    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
+    if (Object.keys(props.mobisInfo).length === 0) {
+        return null;
+    }
+    if (Object.keys(props.kdInfo).length === 0) {
+        return null;
+    }
+    const toasts = specialistsResults.map((results, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setSpecialistsResults(specialistsResults.slice(0, index).concat(specialistsResults.slice(index + 1, 999)))}
+            show={true}
+            bg={results.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Recruits Results</strong>
+            </Toast.Header>
+            <Toast.Body>{results.message}</Toast.Body>
+        </Toast>
+    )
+    return (
+        <div className="specialists">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
+            <div className="text-box specialists-box">
+                <span>Choose the target allocation of units that you would like the auto-spender to build towards</span>
+            </div>
+            <Form>
+                <Form.Check 
+                    type="switch"
+                    id="recruits-before-units-switch"
+                    label="Train Recruits before Units?"
+                    defaultChecked={recruitsBeforeUnits}
+                    onChange={handleEnabledChange}
+                    disabled={props.loading.kingdom}
+                />
+            </Form>
+            <InputGroup className="max-recruits-input-group">
+                <InputGroup.Text id="recruits-input-display">
+                    Max Recruits
+                </InputGroup.Text>
+                <Form.Control 
+                    id="recruits-input"
+                    onChange={handleMaxRecruitsInput}
+                    value={maxRecruits || ""} 
+                    placeholder="0"
+                    autoComplete="off"
+                />
+            </InputGroup>
+            <Table className="specialists-table" striped bordered hover>
+                <thead>
+                    <tr>
+                        <th>Unit</th>
+                        <th>Cost</th>
+                        <th>Trained</th>
+                        <th>Training</th>
+                        <th>Offense</th>
+                        <th>Defense</th>
+                        <th>Hangar Usage</th>
+                        <th>Fuel</th>
+                        <th>Current Allocation</th>
+                        <th>New Allocation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Attackers</td>
+                        <td>{(props.mobisInfo.units_desc.attack.cost || 0).toLocaleString()}</td>
+                        <td>{(props.mobisInfo.units.current_total.attack || 0)}</td>
+                        <td>{(props.mobisInfo.units.hour_24.attack || 0).toLocaleString()}</td>
+                        <td>{(props.mobisInfo.units_desc.attack.offense || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.attack.defense || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.attack.hangar_capacity || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.attack.fuel || 0)}</td>
+                        <td>{displayPercent((props.kdInfo.units_target?.attack || 0))}</td>
+                        <td>{
+                            <InputGroup className="mb-3">
+                                <Form.Control 
+                                    className="specialists-form"
+                                    id="attackers-input"
+                                    name="attack"
+                                    onChange={handleInputChange}
+                                    value={input.attack || ""} 
+                                    placeholder="0"
+                                    autoComplete="off"
+                                />
+                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                            </InputGroup>
+                        }</td>
+                    </tr>
+                    <tr>
+                        <td>Defenders</td>
+                        <td>{(props.mobisInfo.units_desc.defense.cost || 0).toLocaleString()}</td>
+                        <td>{(props.mobisInfo.units.current_total.defense || 0)}</td>
+                        <td>{(props.mobisInfo.units.hour_24.defense || 0).toLocaleString()}</td>
+                        <td>{(props.mobisInfo.units_desc.defense.offense || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.defense.defense || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.defense.hangar_capacity || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.defense.fuel || 0)}</td>
+                        <td>{displayPercent((props.kdInfo.units_target?.defense || 0))}</td>
+                        <td>{
+                            <InputGroup className="mb-3">
+                                <Form.Control 
+                                    className="specialists-form"
+                                    id="defenders-input"
+                                    name="defense"
+                                    onChange={handleInputChange}
+                                    value={input.defense || ""} 
+                                    placeholder="0"
+                                    autoComplete="off"
+                                />
+                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                            </InputGroup>
+                        }</td>
+                    </tr>
+                    <tr>
+                        <td>Flexers</td>
+                        <td>{(props.mobisInfo.units_desc.flex.cost || 0).toLocaleString()}</td>
+                        <td>{(props.mobisInfo.units.current_total.flex || 0)}</td>
+                        <td>{(props.mobisInfo.units.hour_24.flex || 0).toLocaleString()}</td>
+                        <td>{(props.mobisInfo.units_desc.flex.offense || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.flex.defense || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.flex.hangar_capacity || 0)}</td>
+                        <td>{(props.mobisInfo.units_desc.flex.fuel || 0)}</td>
+                        <td>{displayPercent((props.kdInfo.units_target?.flex || 0))}</td>
+                        <td>{
+                            <InputGroup className="mb-3">
+                                <Form.Control 
+                                    className="specialists-form"
+                                    id="flexers-input"
+                                    name="flex"
+                                    onChange={handleInputChange}
+                                    value={input.flex || ""} 
+                                    placeholder="0"
+                                    autoComplete="off"
+                                />
+                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                            </InputGroup>
+                        }</td>
+                    </tr>
+                    {
+                        props.kdInfo.completed_projects.indexOf('big_flexers') >= 0
+                        ? <tr>
+                            <td>Big Flexers</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.cost || 0).toLocaleString()}</td>
+                            <td>{(props.mobisInfo.units.current_total.big_flex || 0)}</td>
+                            <td>{(props.mobisInfo.units.hour_24.big_flex || 0).toLocaleString()}</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.offense || 0)}</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.defense || 0)}</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td>
+                            <td>{displayPercent((props.kdInfo.units_target?.big_flex || 0))}</td>
+                            <td>{
+                                <InputGroup className="mb-3">
+                                    <Form.Control 
+                                        className="specialists-form"
+                                        id="big-flexers-input"
+                                        name="big_flex"
+                                        onChange={handleInputChange}
+                                        value={input.big_flex || ""} 
+                                        placeholder="0"
+                                        autoComplete="off"
+                                    />
+                                    <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                </InputGroup>
+                            }</td>
+                        </tr>
+                        : <tr className="disabled-table-row">
+                            <td>Big Flexers</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.cost || 0).toLocaleString()}</td>
+                            <td colSpan={2}>Research "Big Flexers" Project to Unlock</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.offense || 0).toLocaleString()}</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.defense || 0)}</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
+                            <td>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td>
+                            <td>{displayPercent((props.kdInfo.units_target?.big_flex || 0))}</td>
+                            <td>{
+                                <InputGroup className="mb-3">
+                                    <Form.Control 
+                                        className="specialists-form"
+                                        id="big-flexers-input"
+                                        name="big_flex"
+                                        onChange={handleInputChange}
+                                        value={input.big_flex || ""} 
+                                        placeholder="0"
+                                        disabled
+                                        autoComplete="off"
+                                    />
+                                    <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                </InputGroup>
+                            }</td>
+                        </tr>
+                    }
+                </tbody>
+            </Table>
+            {
+                props.loading.kingdom
+                ? <Button className="specialists-button" variant="primary" type="submit" disabled>
+                    Loading...
+                </Button>
+                : <Button className="specialists-button" variant="primary" type="submit" onClick={onSubmitClick}>
+                    Update
+                </Button>
+            }
+        </div>
+    
     )
 }
 

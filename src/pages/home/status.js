@@ -363,7 +363,7 @@ function Spending(props) {
     const [structuresInput, setStructuresInput] = useState('');
     const [militaryInput, setMilitaryInput] = useState('');
     const [engineersInput, setEngineersInput] = useState('');
-    const [enabled, setEnabled] = useState(props.kingdom.auto_spending?.enabled)
+    const [enabled, setEnabled] = useState(props.kingdom.auto_spending_enabled)
     const [results, setResults] = useState([]);
 
     const spendingInfo = props.kingdom?.auto_spending;
@@ -439,6 +439,7 @@ function Spending(props) {
                     type="switch"
                     id="enable-auto-spending-switch"
                     label="Enable"
+                    defaultChecked={enabled}
                     onChange={handleEnabledChange}
                     disabled={props.loading.kingdom}
                 />

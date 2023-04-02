@@ -297,6 +297,14 @@ INITIAL_KINGDOM_STATE = {
             "engineers": 0,
             "big_flex": 0,
         },
+        "max_recruits": 99999,
+        "recruits_before_units": True,
+        "units_target": {
+            "attack": 0,
+            "defense": 0,
+            "flex": 0,
+            "big_flex": 0,
+        },
         "structures": {
             "homes": 0,
             "mines": 0,
@@ -1796,6 +1804,78 @@ def train_mobis():
         data=json.dumps(mobis_payload),
     )
     return (flask.jsonify({"message": "Successfully began training specialists", "status": "success"}), 200)
+
+def _validate_mobis_target(req_targets, kd_info_parse):
+    """Confirm that spending request is valid"""
+
+    values = req_targets.values()
+    if any((value < 0 for value in values)):
+        return False, "Target values must be greater than 0"
+    if any((value > 1 for value in values)):
+        return False, "Target values must be less than 100%"
+    if sum(values) > 1:
+        return False, "Target values must be less than 100%"
+    if req_targets.get("big_flex", 0) > 0 and "big_flexers" not in kd_info_parse["completed_projects"]:
+        return False, "You have not unlocked big_flexers"
+    
+    return True, ""
+
+@app.route('/api/mobis/target', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def allocate_mobis():
+    req = flask.request.get_json(force=True)
+    print(req, file=sys.stderr)
+    kd_id = flask_praetorian.current_user().kd_id
+    print(kd_id, file=sys.stderr)
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    print(kd_info.text, file=sys.stderr)
+    kd_info_parse = json.loads(kd_info.text)
+
+    if req.get("recruits_before_units", None) is not None:
+        recruits_before_units = req["recruits_before_units"]
+        payload = {'recruits_before_units': recruits_before_units}
+
+        patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload),
+        )
+        if recruits_before_units:
+            message = "Recruits will be trained before units during auto spending"
+        else:
+            message = "Recruits will be trained after units during auto spending"
+        return (flask.jsonify({"message": message, "status": "success"}), 200)
+
+    
+    req_targets = {
+        key: float(value or 0) / 100
+        for key, value in req.get("targets", {}).items()
+        if (value or 0) != 0
+    }
+
+    current_targets = kd_info_parse['units_target']
+    new_targets = {
+        **current_targets,
+        **req_targets,
+    }
+    valid_targets, message = _validate_mobis_target(new_targets, kd_info_parse)
+    if not valid_targets:
+        return (flask.jsonify({"message": message}), 400)
+
+    payload = {'units_target': new_targets}
+    if req.get("max_recruits", "") != "":
+        payload["max_recruits"] = int(req["max_recruits"])
+    patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(payload),
+    )
+    return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _calc_structures(
     start_time,
@@ -5389,6 +5469,15 @@ def _resolve_auto_spending(
             data=json.dumps(settle_payload),
         )
     
+
+    def _weighted_random_by_dct(dct):
+        rand_val = random.random()
+        total = 0
+        for k, v in dct.items():
+            total += v
+            if rand_val <= total:
+                return k
+
     structures_price = structures_info["price"]
     max_available_structures = structures_info["max_available_structures"]
     structures_funding = kd_info_parse["funding"]["structures"]
@@ -5426,13 +5515,6 @@ def _resolve_auto_spending(
         print("Target structures to build", target_structures_to_build)
         leftover_structures = structures_to_build - sum(target_structures_to_build.values())
         print("Leftover structures", leftover_structures)
-        def _weighted_random_by_dct(dct):
-            rand_val = random.random()
-            total = 0
-            for k, v in dct.items():
-                total += v
-                if rand_val <= total:
-                    return k
         for _ in range(leftover_structures):
             rand_structure = _weighted_random_by_dct(target_gap_pct)
             target_structures_to_build[rand_structure] += 1
@@ -5460,6 +5542,87 @@ def _resolve_auto_spending(
             data=json.dumps(structures_payload),
         )
 
+    recruit_price = mobis_info["recruit_price"]
+    recruit_time = mobis_info["recruit_time"]
+    max_available_recruits = mobis_info["max_available_recruits"]
+    current_units = mobis_info["units"]["current"]
+    building_units = mobis_info["units"]["hour_24"]
+    units_desc = mobis_info["units_desc"]
+    military_funding = kd_info_parse["funding"]["military"]
+
+    if military_funding > 0:
+        recruits_to_train = min(math.floor(military_funding / recruit_price), max_available_recruits)
+        remaining_funding = military_funding - recruits_to_train * recruit_price
+        
+        total_units = {
+            k: current_units.get(k, 0) + building_units.get(k, 0)
+            for k in kd_info_parse["units_target"].keys()
+        }
+        print("Total units", total_units)
+        count_total_units = sum(total_units.values())
+        pct_total_units = {
+            k: v / count_total_units
+            for k, v in total_units.items()
+        }
+        print("Pct total units", pct_total_units)
+        target_units_gap = {
+            k: kd_info_parse["units_target"].get(k, 0) - v
+            for k, v in pct_total_units.items()
+            if (kd_info_parse["units_target"].get(k, 0) - v) > 0
+        }
+        print("Target units gap", target_units_gap)
+        total_target_units_gap = sum(target_units_gap.values())
+        target_units_gap_pct = {
+            k: v / total_target_units_gap
+            for k, v in target_units_gap.items()
+        }
+        print("Target units gap pct", target_units_gap_pct)
+        target_gap_weighted_funding = {
+            k: v * remaining_funding
+            for k, v in target_units_gap_pct.items()
+        }
+        print("Target units gap pct weighted funding", target_gap_weighted_funding)
+        target_gap_weighted_recruits = {
+            k: math.floor(v * kd_info_parse["units"]["recruits"])
+            for k, v in target_units_gap_pct.items()
+        }
+        print("Target units gap pct weighted recruits", target_gap_weighted_recruits)
+        target_units_to_build = {}
+        for key_unit, funding_unit in target_gap_weighted_funding.items():
+            units_to_build = min(math.floor(funding_unit / units_desc[key_unit]["cost"]), target_gap_weighted_recruits[key_unit])
+            remaining_funding = remaining_funding - units_to_build
+            kd_info_parse["units"]["recruits"] = kd_info_parse["units"]["recruits"] - units_to_build
+            target_units_to_build[key_unit] = units_to_build
+        print("Target units to build", target_units_to_build)
+        print("Remaining funding", remaining_funding)
+        
+        kd_info_parse["funding"]["military"] = remaining_funding
+        
+        recruits_time = (time_update + datetime.timedelta(seconds=recruit_time)).isoformat()
+        mobis_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPECIALIST_TIME_MULTIPLIER)).isoformat()
+        target_units_to_build_nonzero = {
+            k: v
+            for k, v in target_units_to_build.items()
+            if v > 0
+        }
+        mobis_payload = {
+            "new_mobis": []
+        }
+        if recruits_to_train:
+            mobis_payload["new_mobis"].append({
+                "time": recruits_time,
+                "recruits": recruits_to_train
+            })
+        if sum(target_units_to_build_nonzero.values()) > 0:
+            mobis_payload["new_mobis"].append({
+                "time": mobis_time,
+                **target_units_to_build_nonzero,
+            })
+        mobis_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(mobis_payload),
+        )
 
     engineers_price = engineers_info["engineers_price"]
     max_available_engineers = engineers_info["max_available_engineers"]
