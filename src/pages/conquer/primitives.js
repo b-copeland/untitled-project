@@ -118,7 +118,7 @@ function AttackPrimitives(props) {
         const updateFunc = () => authFetch('api/attackprimitives/auto', {
             method: 'post',
             body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("")})
+        }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r))})
         props.updateData(['kingdom'], [updateFunc])
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
@@ -384,11 +384,36 @@ function RobPrimitives(props) {
     const [results, setResults] = useState([]);
     const [drones, setDrones] = useState();
     const [shieldDrones, setShieldDrones] = useState(false);
+    const [enabled, setEnabled] = useState(props.data.kingdom.auto_rob_enabled)
+    const [autoDrones, setAutoDrones] = useState("");
+    const [autoSpyAttemptsKeep, setAutoSpyAttemptsKeep] = useState("");
+    const [autoShieldDrones, setAutoShieldDrones] = useState(false);
+
     const handleShieldChange = (e) => {
         setShieldDrones(e.target.checked)
     };
     const handleDronesChange = (e) => {
         setDrones(e.target.value);
+    };
+    const handleAutoSpyAttemptsKeepChange = (e) => {
+        setAutoSpyAttemptsKeep(e.target.value);
+    };
+    const handleEnabledChange = (e) => {
+        let opts = {
+            'enabled': e.target.checked
+        }
+        const updateFunc = () => authFetch('api/robprimitives/auto', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
+        props.updateData(['kingdom'], [updateFunc])
+        setEnabled(e.target.checked)
+    }
+    const handleAutoDronesInput = (e) => {
+        setAutoDrones(e.target.value)
+    }
+    const handleAutoShieldChange = (e) => {
+        setAutoShieldDrones(e.target.checked)
     };
     const onClickAttack = () => {
         const opts = {
@@ -401,6 +426,18 @@ function RobPrimitives(props) {
         }).then(r => r.json()).then(r => {setResults(results.concat(r))})
         props.updateData(['kingdom', 'spyhistory'], [updateFunc]);
     };
+    const onSubmitAutoSettingsClick = async (e)=>{
+        let opts = {
+            "drones": autoDrones,
+            "keep": autoSpyAttemptsKeep,
+            "shielded": autoShieldDrones,
+        }
+        const updateFunc = () => authFetch('api/robprimitives/auto', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
+        props.updateData(['kingdom'], [updateFunc])
+    }
     const toasts = results.map((result, index) =>
         <Toast
             key={index}
@@ -422,42 +459,109 @@ function RobPrimitives(props) {
             <ToastContainer position="bottom-end">
                 {toasts}
             </ToastContainer>
-            <h2>Rob Primitives</h2>
-            <div className="text-box primitives-box">
-                <span className="box-span">Your drones will exploit primitive galaxies to steal resources.</span>
-                <br />
-                <span className="box-span">Primitives money per drone: 2</span>
+            <div className="primitives-content">
+                <div className="rob-primitives">
+                <h2>Rob Primitives</h2>
+                <div className="text-box primitives-box">
+                    <span className="box-span">Your drones will exploit primitive galaxies to steal resources.</span>
+                    <br />
+                    <span className="box-span">Primitives money per drone: 2</span>
+                </div>
+                <InputGroup className="mb-3 rob-drones-input-group">
+                    <InputGroup.Text id="basic-addon2">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>
+                    <Form.Control 
+                        className="unit-form"
+                        id="drones-input"
+                        name="drones"
+                        onChange={handleDronesChange}
+                        value={drones || ""} 
+                        placeholder="0"
+                        autoComplete="off"
+                    />
+                </InputGroup>
+                <Form>
+                    <Form.Check 
+                        type="switch"
+                        id="shield-drones-switch"
+                        label="Shield Drones?"
+                        onChange={handleShieldChange}
+                    />
+                </Form>
+                <span>Spy Attempts Remaining: {props.data.kingdom["spy_attempts"]}</span>
+                {
+                    props.loading.kingdom
+                    ? <Button className="rob-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="rob-button" variant="primary" type="submit" onClick={onClickAttack}>
+                        Rob
+                    </Button>
+                }
+                </div>
+                <div className="auto-rob-primitives">
+                    <h2>Auto Settings</h2>
+                    <Form>
+                        <Form.Check 
+                            type="switch"
+                            id="enable-auto-rob-switch"
+                            label="Enable Auto Rob"
+                            checked={props.data.kingdom.auto_rob_enabled}
+                            onChange={handleEnabledChange}
+                            disabled={props.loading.kingdom}
+                        />
+                    </Form>
+                    <InputGroup className="mb-3">
+                        <InputGroup.Text id="text-drones-percent">
+                            Drones to Send (Current: {props.data.kingdom.auto_rob_settings?.drones * 100}%)
+                        </InputGroup.Text>
+                        <Form.Control 
+                            id="drones-percent"
+                            aria-describedby="basic-addon3" 
+                            onChange={handleAutoDronesInput}
+                            value={autoDrones} 
+                            placeholder={props.data.kingdom.auto_rob_settings?.drones * 100}
+                            autoComplete="off"
+                        />
+                        <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                            %
+                        </InputGroup.Text>
+                    </InputGroup>
+                    <InputGroup className="mb-3">
+                        <InputGroup.Text id="text-spy-attempts">
+                        Spy Attempts to Keep (Current: {props.data.kingdom.auto_rob_settings?.keep})
+                        </InputGroup.Text>
+                        <Form.Control 
+                            id="keep-attempts"
+                            aria-describedby="basic-addon3" 
+                            onChange={handleAutoSpyAttemptsKeepChange}
+                            value={autoSpyAttemptsKeep} 
+                            placeholder={props.data.kingdom.auto_rob_settings?.keep}
+                            autoComplete="off"
+                        />
+                        <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                            %
+                        </InputGroup.Text>
+                    </InputGroup>
+                    <Form>
+                        <Form.Check 
+                            type="switch"
+                            id="enable-auto-rob-shields-switch"
+                            label="Shield Auto Robs?"
+                            checked={autoShieldDrones}
+                            onChange={handleAutoShieldChange}
+                            disabled={props.loading.kingdom}
+                        />
+                    </Form>
+                    {props.loading.kingdom
+                    ? <Button className="auto-attack-settings-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="auto-attack-settings-button" variant="primary" type="submit" onClick={onSubmitAutoSettingsClick}>
+                        Update
+                    </Button>
+                    }
+                </div>
             </div>
-            <InputGroup className="mb-3 drones-input-group">
-                <InputGroup.Text id="basic-addon2">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>
-                <Form.Control 
-                    className="unit-form"
-                    id="drones-input"
-                    name="drones"
-                    onChange={handleDronesChange}
-                    value={drones || ""} 
-                    placeholder="0"
-                    autoComplete="off"
-                />
-            </InputGroup>
-            <Form>
-                <Form.Check 
-                    type="switch"
-                    id="shield-drones-switch"
-                    label="Shield Drones?"
-                    onChange={handleShieldChange}
-                />
-            </Form>
-            <span>Spy Attempts Remaining: {props.data.kingdom["spy_attempts"]}</span>
-            {
-                props.loading.kingdom
-                ? <Button className="rob-button" variant="primary" type="submit" disabled>
-                    Loading...
-                </Button>
-                : <Button className="rob-button" variant="primary" type="submit" onClick={onClickAttack}>
-                    Rob
-                </Button>
-            }
         </div>
     )
 }

@@ -342,6 +342,12 @@ INITIAL_KINGDOM_STATE = {
             "flex": 0,
             "pure": 0,
         },
+        "auto_rob_enabled": False,
+        "auto_rob_settings": {
+            "drones": 0,
+            "shielded": False,
+            "keep": 0,
+        },
         "projects_points": {
             "pop_bonus": 1000,
             "fuel_bonus": 1000,
@@ -4432,17 +4438,9 @@ def spy(target_kd):
     }
     return (flask.jsonify(payload), 200)
 
-@app.route('/api/robprimitives', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def rob_primitives():
-    req = flask.request.get_json(force=True)
+def _rob_primitives(req, kd_id):
     drones = int(req["drones"])
     shielded = req["shielded"]
-
-    kd_id = flask_praetorian.current_user().kd_id
-
     
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -4496,7 +4494,101 @@ def rob_primitives():
         "status": status,
         "message": message,
     }
+    return payload
+
+@app.route('/api/robprimitives', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def rob_primitives():
+    req = flask.request.get_json(force=True)
+
+    kd_id = flask_praetorian.current_user().kd_id
+    payload = _rob_primitives(req, kd_id)
     return (flask.jsonify(payload), 200)
+
+def _validate_auto_rob_settings(req_settings):
+    """Confirm that spending request is valid"""
+
+    if req_settings["drones"] < 0:
+        return False, "Drones percent must be greater than 0"
+    if req_settings["drones"] > 1:
+        return False, "Drones percent must be less than 100%"
+    if req_settings["keep"] < 0:
+        return False, "Keep spy attempts must be greater than 0"
+    if req_settings["keep"] >= 10:
+        return False, "Keep spy attempts must be less than 10"
+    
+    return True, ""
+
+
+@app.route('/api/robprimitives/auto', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def auto_rob_primitives():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    
+    kd_id = flask_praetorian.current_user().kd_id
+    
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    
+    kd_info_parse = json.loads(kd_info.text)
+
+    if req.get("enabled", None) != None:
+        if kd_info_parse["auto_rob_settings"].get("drones", 0) == 0:
+            return (flask.jsonify({"message": "Could not enable auto robs. You must first specify the percent of drones to send"}), 400)
+        enabled = req["enabled"]
+        payload = {'auto_rob_enabled': enabled}
+
+        patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload),
+        )
+        if enabled:
+            message = "Enabled auto robbing primitives"
+        else:
+            message = "Disabled auto robbing primitives"
+        return (flask.jsonify({"message": message, "status": "success"}), 200)
+    
+    req_settings = {
+        "drones": float(
+            req.get("drones", kd_info_parse["auto_rob_settings"].get("drones", 0))
+        ) / 100,
+        "keep": int(
+            req.get("keep", kd_info_parse["auto_rob_settings"].get("keep", 0))
+        ),
+        "shielded": bool(
+            req.get("shielded", kd_info_parse["auto_rob_settings"].get("shielded", False))
+        ),
+    }
+
+    current_settings = kd_info_parse['auto_rob_settings']
+    new_settings = {
+        **current_settings,
+        **req_settings,
+    }
+    valid_settings, message = _validate_auto_rob_settings(new_settings)
+    if not valid_settings:
+        return (flask.jsonify({"message": message}), 400)
+
+    payload = {'auto_rob_settings': new_settings}
+    patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(payload),
+    )
+    return (flask.jsonify({"message": "Updated auto attack settings", "status": "success"}), 200)
 
 
 
@@ -5758,6 +5850,18 @@ def _resolve_auto_attack(kd_info_parse):
                 req["attackerValues"][key_unit] = math.floor(flex_pct * value_unit)
     _attack_primitives(req, kd_info_parse["kdId"])
 
+def _resolve_auto_rob(kd_info_parse):
+    drones_pct = kd_info_parse["auto_rob_settings"].get("drones", 0)
+    keep_spy_attempts = kd_info_parse["auto_rob_settings"].get("keep", 10)
+    shielded = kd_info_parse["auto_rob_settings"].get("shielded", False)
+
+    if kd_info_parse["spy_attempts"] > keep_spy_attempts:
+        req = {
+            "drones": math.floor(drones_pct * kd_info_parse["drones"]),
+            "shielded": shielded,
+        }
+        _rob_primitives(req, kd_info_parse["kdId"])
+
 
 # @app.route('/api/testkdquery/<kd_id>')
 # def testkdquery(kd_id):
@@ -5951,6 +6055,8 @@ def refresh_data():
         )
         if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > 0:
             _resolve_auto_attack(new_kd_info)
+        if new_kd_info["auto_rob_enabled"]:
+            _resolve_auto_rob(new_kd_info)
     return "Refreshed", 200
 
 

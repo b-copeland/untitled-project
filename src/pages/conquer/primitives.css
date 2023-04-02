@@ -6,6 +6,7 @@
 .primitives-content {
     display: flex;
     flex-direction: row;
+    width: 100%;
 }
 .attack-primitives {
     display: flex;
@@ -13,7 +14,7 @@
     align-items: center;
     height: 100%;
     width: 50%;
-    padding: 10px;
+    padding: 20px;
 }
 .primitives-attack-auto {
     display: flex;
@@ -21,7 +22,7 @@
     align-items: center;
     height: 100%;
     width: 50%;
-    padding: 10px;
+    padding: 20px;
 }
 .primitives-attacker-detail {
     display: flex;
@@ -32,4 +33,20 @@
 }
 .rob-button {
     margin: 10px;
+}
+.rob-primitives {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    width: 50%;
+    padding: 20px;
+}
+.auto-rob-primitives {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    width: 50%;
+    padding: 20px;
 }
