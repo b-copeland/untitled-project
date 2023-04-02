@@ -401,7 +401,6 @@ function Allocate(props) {
     const [maxRecruits, setMaxRecruits] = useState("");
     const [recruitsBeforeUnits, setRecruitsBeforeUnits] = useState(props.kdInfo?.recruits_before_units)
 
-    console.log(props.kdInfo.recruits_before_units)
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setInput({

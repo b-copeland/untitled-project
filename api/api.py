@@ -154,7 +154,7 @@ BASE_SETTLE_COST = lambda stars: math.floor((stars ** 0.5) * 50)
 BASE_MAX_SETTLE = lambda stars: math.floor(stars * 0.15)
 BASE_SETTLE_TIME_MULTIPLIER = 12
 
-BASE_STRUCTURE_COST = lambda stars: math.floor((stars ** 0.5) * 60)
+BASE_STRUCTURE_COST = lambda stars: math.floor((stars ** 0.5) * 40)
 BASE_STRUCTURE_TIME_MULTIPLIER = 8
 
 BASE_MAX_RECRUITS = lambda pop: math.floor(pop * 0.12)
@@ -191,11 +191,11 @@ BASE_KINGDOM_LOSS_RATE = 0.10
 BASE_FUELLESS_STRENGTH_REDUCTION = 0.2
 BASE_ATTACK_MIN_STARS_GAIN = 25
 
-BASE_PRIMITIVES_DEFENSE_PER_STAR = 100
+BASE_PRIMITIVES_DEFENSE_PER_STAR = lambda seconds: 100 * math.sqrt(1 + seconds / 3600 / 24)
 BASE_PRIMITIVES_MONEY_PER_STAR = 1000
 BASE_PRIMITIVES_FUEL_PER_STAR = 100
 BASE_PRIMITIVES_POPULATION_PER_STAR = 10
-BASE_PRIMITIVES_ROB_PER_DRONE = 2
+BASE_PRIMITIVES_ROB_PER_DRONE = lambda seconds: 4 / math.sqrt(1 + seconds / 3600 / 24)
 
 BASE_STARS_DRONE_DEFENSE_MULTIPLIER = 4
 BASE_DRONES_DRONE_DEFENSE_MULTIPLIER = 1
@@ -747,6 +747,11 @@ def get_state():
     Get state
     """    
     get_response_json = _get_state()
+    start_time = datetime.datetime.fromisoformat(get_response_json["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    now_time = datetime.datetime.now(datetime.timezone.utc)
+    seconds_elapsed = (now_time - start_time).total_seconds()
+    primitives_defense_per_star = BASE_PRIMITIVES_DEFENSE_PER_STAR(max(seconds_elapsed, 0))
+    primitives_rob_per_drone = BASE_PRIMITIVES_ROB_PER_DRONE(max(seconds_elapsed, 0))
     return flask.jsonify({
         **get_response_json,
         "pretty_names": PRETTY_NAMES,
@@ -763,6 +768,8 @@ def get_state():
         },
         "income_per_pop": BASE_POP_INCOME_PER_EPOCH,
         "fuel_consumption_per_pop": BASE_POP_FUEL_CONSUMPTION_PER_EPOCH,
+        "primitives_defense_per_star": primitives_defense_per_star,
+        "primitives_rob_per_drone": primitives_rob_per_drone,
     }), 200
 
 def _create_galaxy(galaxy_id):
@@ -3812,6 +3819,13 @@ def calculate_attack_primitives():
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
+
+    state = _get_state()
+    
+    start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    now_time = datetime.datetime.now(datetime.timezone.utc)
+    seconds_elapsed = (now_time - start_time).total_seconds()
+    primitives_defense_per_star = BASE_PRIMITIVES_DEFENSE_PER_STAR(max(seconds_elapsed, 0))
     
     kd_info_parse = json.loads(kd_info.text)
     current_bonuses = {
@@ -3840,7 +3854,7 @@ def calculate_attack_primitives():
         generals=int(attacker_raw_values["generals"]),
         fuelless=attacker_fuelless
     )
-    stars = math.floor(attack / BASE_PRIMITIVES_DEFENSE_PER_STAR)
+    stars = math.floor(attack / primitives_defense_per_star)
     money = stars * BASE_PRIMITIVES_MONEY_PER_STAR
     fuel = stars * BASE_PRIMITIVES_FUEL_PER_STAR
     pop = stars * BASE_PRIMITIVES_POPULATION_PER_STAR
@@ -3900,6 +3914,12 @@ def _attack_primitives(req, kd_id):
         for project, project_dict in PROJECTS.items()
         if "max_bonus" in project_dict
     }
+    state = _get_state()
+    
+    start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    now_time = datetime.datetime.now(datetime.timezone.utc)
+    seconds_elapsed = (now_time - start_time).total_seconds()
+    primitives_defense_per_star = BASE_PRIMITIVES_DEFENSE_PER_STAR(max(seconds_elapsed, 0))
 
     valid_attack_request, attack_request_message = _validate_attack_request(
         attacker_raw_values,
@@ -3958,7 +3978,7 @@ def _attack_primitives(req, kd_id):
     ]
     next_return_time = min([general["return_time"] for general in generals])
 
-    stars = math.floor(attack / BASE_PRIMITIVES_DEFENSE_PER_STAR)
+    stars = math.floor(attack / primitives_defense_per_star)
     money = stars * BASE_PRIMITIVES_MONEY_PER_STAR
     fuel = stars * BASE_PRIMITIVES_FUEL_PER_STAR
     pop = stars * BASE_PRIMITIVES_POPULATION_PER_STAR
@@ -4504,6 +4524,12 @@ def _rob_primitives(req, kd_id):
     )
     
     kd_info_parse = json.loads(kd_info.text)
+    state = _get_state()
+    
+    start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    now_time = datetime.datetime.now(datetime.timezone.utc)
+    seconds_elapsed = (now_time - start_time).total_seconds()
+    primitives_rob_per_drone = BASE_PRIMITIVES_ROB_PER_DRONE(max(seconds_elapsed, 0))
 
     valid_request, message = _validate_spy_request(
         drones,
@@ -4516,7 +4542,7 @@ def _rob_primitives(req, kd_id):
     success_losses, _ = _calculate_spy_losses(drones, shielded)
 
     status = "success"
-    rob = drones * BASE_PRIMITIVES_ROB_PER_DRONE
+    rob = math.floor(drones * primitives_rob_per_drone)
     message = f"You have robbed {rob} money from primitives. You have lost {success_losses} drones."
     
 

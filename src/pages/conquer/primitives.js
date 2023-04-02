@@ -153,7 +153,7 @@ function AttackPrimitives(props) {
                     <div className="text-box primitives-box">
                         <span className="box-span">Your military will exploit primitive galaxies to conquer distant stars.</span>
                         <br />
-                        <span className="box-span">Primitives defense per star: 150</span>
+                        <span className="box-span">Primitives defense per star: {(props.data.state.primitives_defense_per_star || 100).toFixed(2)}</span>
                     </div>
                     <div className="primitives-battle-stats">
                         <div className="primitives-attacker-detail">
@@ -387,7 +387,7 @@ function RobPrimitives(props) {
     const [enabled, setEnabled] = useState(props.data.kingdom.auto_rob_enabled)
     const [autoDrones, setAutoDrones] = useState("");
     const [autoSpyAttemptsKeep, setAutoSpyAttemptsKeep] = useState("");
-    const [autoShieldDrones, setAutoShieldDrones] = useState(false);
+    const [autoShieldDrones, setAutoShieldDrones] = useState(props.data.kingdom.auto_rob_settings?.shielded || false);
 
     const handleShieldChange = (e) => {
         setShieldDrones(e.target.checked)
@@ -454,6 +454,7 @@ function RobPrimitives(props) {
     if (drones > props.data.kingdom["drones"]) {
         setDrones(Math.floor(props.data.kingdom["drones"]))
     }
+    console.log(props.data.state);
     return (
         <div className="primitives">
             <ToastContainer position="bottom-end">
@@ -465,7 +466,7 @@ function RobPrimitives(props) {
                 <div className="text-box primitives-box">
                     <span className="box-span">Your drones will exploit primitive galaxies to steal resources.</span>
                     <br />
-                    <span className="box-span">Primitives money per drone: 2</span>
+                    <span className="box-span">Primitives money per drone: {(props.data.state.primitives_rob_per_drone || 4).toFixed(2)}</span>
                 </div>
                 <InputGroup className="mb-3 rob-drones-input-group">
                     <InputGroup.Text id="basic-addon2">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>

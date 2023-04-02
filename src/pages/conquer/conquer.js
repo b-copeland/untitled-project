@@ -173,7 +173,6 @@ function Revealed(props) {
         const indirect_distance_2 = (coord_b) + (99 - coord_a)
         return Math.min(direct_distance, indirect_distance_1, indirect_distance_2);
     }
-    console.log(maxKdInfo);
     const revealedPrimeRows = Object.keys(props.revealed.revealed).map((kdId) => {
         return {
             "remaining": getRemainingSpans(kdId, props.revealed.revealed),
