@@ -583,7 +583,7 @@ app.config['AZURE_FUNCTION_KEY'] = os.environ.get('COSMOS_KEY')
 guard.init_app(app, User)
 
 # Initialize a local database for the example
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(os.getcwd(), 'database.db')}"
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ["SQLALCHEMY_DATABASE_URI"]
 db.init_app(app)
 
 # Initializes CORS so that the api_tool can talk to the example app
