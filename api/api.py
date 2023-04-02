@@ -653,7 +653,7 @@ def refresh():
        $ curl http://localhost:5000/refresh -X GET \
          -H "Authorization: Bearer <your_token>"
     """
-    print("refresh request")
+    
     old_token = guard.read_token_from_header()
     new_token = guard.refresh_jwt_token(old_token)
     ret = {'accessToken': new_token}
@@ -978,12 +978,12 @@ def kingdom():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     return (flask.jsonify(kd_info_parse), 200)
 
@@ -1079,12 +1079,12 @@ def news():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     news = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/news',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(news.text, file=sys.stderr)
+    
     news_parse = json.loads(news.text)
     return (flask.jsonify(news_parse["news"]), 200)
 
@@ -1093,7 +1093,7 @@ def _get_kingdoms():
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdoms',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     return kd_info_parse["kingdoms"]
 
@@ -1116,7 +1116,7 @@ def _get_galaxy_info():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     galaxy_info_parse = json.loads(galaxy_info.text)
-    print(galaxy_info_parse, file=sys.stderr)
+    
     return galaxy_info_parse["galaxies"]
 
 @app.route('/api/galaxies')
@@ -1160,7 +1160,7 @@ def _get_empire_info():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
     empire_info_parse = json.loads(empire_info.text)
-    print(empire_info_parse, file=sys.stderr)
+    
     return empire_info_parse["empires"]
 
 
@@ -1221,15 +1221,15 @@ def galaxy_news():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     galaxies_inverted, _ = _get_galaxies_inverted()
     galaxy = galaxies_inverted[kd_id]
-    print(galaxy)
+    
     news = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy}/news',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(news.text, file=sys.stderr)
+    
     news_parse = json.loads(news.text)
     return (flask.jsonify(news_parse["news"]), 200)
 
@@ -1245,16 +1245,16 @@ def empire_news():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     empires_inverted, _, _, _ = _get_empires_inverted()
-    print(empires_inverted)
+    
     kd_empire = empires_inverted[kd_id]
-    print(kd_empire)
+    
     news = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/news',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(news.text, file=sys.stderr)
+    
     news_parse = json.loads(news.text)
     return (flask.jsonify(news_parse["news"]), 200)
 
@@ -1273,7 +1273,7 @@ def universe_news():
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(news.text, file=sys.stderr)
+    
     news_parse = json.loads(news.text)
     return (flask.jsonify(news_parse["news"]), 200)
 
@@ -1290,12 +1290,12 @@ def attack_history():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     history = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(history.text, file=sys.stderr)
+    
     history_parse = json.loads(history.text)
     return (flask.jsonify(history_parse["attack_history"]), 200)
 
@@ -1311,12 +1311,12 @@ def spy_history():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     history = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(history.text, file=sys.stderr)
+    
     history_parse = json.loads(history.text)
     return (flask.jsonify(history_parse["spy_history"]), 200)
 
@@ -1332,12 +1332,12 @@ def missile_history():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     history = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missilehistory',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(history.text, file=sys.stderr)
+    
     history_parse = json.loads(history.text)
     return (flask.jsonify(history_parse["missile_history"]), 200)
 
@@ -1368,14 +1368,14 @@ def spending():
          -H "Authorization: Bearer <your_token>"
     """
     req = flask.request.get_json(force=True)
-    print(req, file=sys.stderr)
+    
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     if req.get("enabled", None) != None:
@@ -1460,9 +1460,9 @@ def _calc_units(
         }
         max_time = start_time + datetime.timedelta(hours=hours)
         for mobi in mobis_units:
-            print(mobi)
-            print(type(mobi))
-            print(mobi.keys())
+            
+            
+            
             if datetime.datetime.fromisoformat(mobi["time"]).astimezone(datetime.timezone.utc) < max_time:
                 for key_unit in hour_units.keys():
                     hour_units[key_unit] += mobi.get(key_unit, 0)
@@ -1556,7 +1556,7 @@ def _get_mobis_queue(kd_id):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(mobis_info.text, file=sys.stderr)
+    
     mobis_info_parse = json.loads(mobis_info.text)
     return mobis_info_parse["mobis"]
 
@@ -1576,13 +1576,13 @@ def _get_units_adjusted_costs(state):
     return units_desc
 
 def _get_mobis(kd_id):
-    print(kd_id, file=sys.stderr)
+    
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     mobis_info_parse = _get_mobis_queue(kd_id)
@@ -1659,15 +1659,15 @@ def recruits():
          -H "Authorization: Bearer <your_token>"
     """
     req = flask.request.get_json(force=True)
-    print(req, file=sys.stderr)
+    
     recruits_input = int(req["recruitsInput"])
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     mobis_info_parse = _get_mobis_queue(kd_id)
@@ -1749,15 +1749,15 @@ def train_mobis():
          -H "Authorization: Bearer <your_token>"
     """
     req = flask.request.get_json(force=True)
-    print(req, file=sys.stderr)
+    
     
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     current_units = kd_info_parse["units"]
@@ -1826,14 +1826,14 @@ def _validate_mobis_target(req_targets, kd_info_parse):
 # @flask_praetorian.roles_required('verified')
 def allocate_mobis():
     req = flask.request.get_json(force=True)
-    print(req, file=sys.stderr)
+    
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     if req.get("recruits_before_units", None) is not None:
@@ -1919,19 +1919,19 @@ def _calc_available_structures(structure_price, kd_info, structures_info):
     return max_available_structures, current_available_structures
 
 def _get_structures_info(kd_id):
-    print(kd_id, file=sys.stderr)
+    
     structures_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(structures_info.text, file=sys.stderr)
+    
     structures_info_parse = json.loads(structures_info.text)
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     top_queue = sorted(
@@ -2000,22 +2000,22 @@ def build_structures():
          -H "Authorization: Bearer <your_token>"
     """
     req = flask.request.get_json(force=True)
-    print(req, file=sys.stderr)
+    
     
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     
     structures_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(structures_info.text, file=sys.stderr)
+    
     structures_info_parse = json.loads(structures_info.text)
 
     current_price = _get_structure_price(kd_info_parse)
@@ -2080,14 +2080,14 @@ def _validate_structures_target(req_targets):
 # @flask_praetorian.roles_required('verified')
 def allocate_structures():
     req = flask.request.get_json(force=True)
-    print(req, file=sys.stderr)
+    
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     
     req_targets = {
@@ -2118,7 +2118,7 @@ def _get_kd_info(kd_id):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     return kd_info_parse
 
@@ -2140,7 +2140,7 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{other_kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     if max:
         return kd_info_parse
@@ -2186,7 +2186,7 @@ def max_kingdom(other_kd_id):
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
 
     revealed_info = _get_revealed(kd_id)
     max_kd_info = _get_max_kd_info(other_kd_id, kd_id, revealed_info)
@@ -2205,7 +2205,7 @@ def galaxy(galaxy):
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     galaxies_inverted, galaxy_info = _get_galaxies_inverted()
     current_galaxy = galaxy_info[galaxy]
     revealed_info = _get_revealed(kd_id)
@@ -2214,7 +2214,7 @@ def galaxy(galaxy):
         kd_info = _get_max_kd_info(galaxy_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted)
         galaxy_kd_info[galaxy_kd_id] = kd_info
     
-    print(galaxy_kd_info)
+    
 
     return (flask.jsonify(galaxy_kd_info), 200)
 
@@ -2223,7 +2223,7 @@ def _get_settle_queue(kd_id):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(settle_info.text, file=sys.stderr)
+    
     settle_info_parse = json.loads(settle_info.text)
     return settle_info_parse["settles"]
 
@@ -2249,12 +2249,12 @@ def _get_available_settle(kd_info, settle_info, is_expansionist):
     return max_available_settle, current_available_settle
 
 def _get_settle(kd_id):
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     settle_info = _get_settle_queue(kd_id)
 
@@ -2316,15 +2316,15 @@ def settle():
          -H "Authorization: Bearer <your_token>"
     """
     req = flask.request.get_json(force=True)
-    print(req, file=sys.stderr)
+    
     settle_input = int(req["settleInput"])
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     settle_info = _get_settle_queue(kd_id)
@@ -2367,7 +2367,7 @@ def _get_missiles_info(kd_id):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(missiles_info.text, file=sys.stderr)
+    
     missiles_info_parse = json.loads(missiles_info.text)
     return missiles_info_parse["missiles"]
 
@@ -2394,12 +2394,12 @@ def missiles():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     missiles_info = _get_missiles_info(kd_id)
@@ -2412,7 +2412,7 @@ def missiles():
 
     current_missiles = kd_info_parse["missiles"]
 
-    print(missiles_info)
+    
 
     payload = {
         "current": current_missiles,
@@ -2464,15 +2464,15 @@ def build_missiles():
          -H "Authorization: Bearer <your_token>"
     """
     req = flask.request.get_json(force=True)
-    print(req, file=sys.stderr)
+    
     
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     
     missiles_info = _get_missiles_info(kd_id)
@@ -2546,18 +2546,18 @@ def _get_engineers_queue(kd_id):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(engineers_info.text, file=sys.stderr)
+    
     engineers_info_parse = json.loads(engineers_info.text)
     return engineers_info_parse["engineers"]
 
 def _get_engineers(kd_id):
-    print(kd_id, file=sys.stderr)
+    
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     engineers_info = _get_engineers_queue(kd_id)
@@ -2617,15 +2617,15 @@ def train_engineers():
          -H "Authorization: Bearer <your_token>"
     """
     req = flask.request.get_json(force=True)
-    print(req, file=sys.stderr)
+    
     engineers_input = int(req["engineersInput"])
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     engineers_info = _get_engineers_queue(kd_id)
@@ -2673,13 +2673,13 @@ def projects():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     max_bonuses = {
@@ -2734,13 +2734,13 @@ def manage_projects():
     """
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     new_projects_assigned = kd_info_parse["projects_assigned"].copy()
@@ -2785,7 +2785,7 @@ def _get_revealed(kd_id):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(revealed_info.text, file=sys.stderr)
+    
     revealed_info_parse = json.loads(revealed_info.text)
     return revealed_info_parse
 
@@ -2800,7 +2800,7 @@ def revealed():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     revealed_info = _get_revealed(kd_id)
     return (flask.jsonify(revealed_info), 200)
 
@@ -2809,7 +2809,7 @@ def _get_shared(kd_id):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(shared_info.text, file=sys.stderr)
+    
     shared_info_parse = json.loads(shared_info.text)
     return shared_info_parse
 
@@ -2824,7 +2824,7 @@ def shared():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     shared_info = _get_shared(kd_id)
     return (flask.jsonify(shared_info), 200)
 
@@ -2841,10 +2841,10 @@ def accept_shared():
     """
     req = flask.request.get_json(force=True)
     accepted_kd = str(req["shared"])
-    print(accepted_kd)
+    
 
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     shared_info = _get_shared(kd_id)
 
     new_shared = shared_info["shared_requests"].pop(accepted_kd)
@@ -2895,7 +2895,7 @@ def offer_shared():
         return flask.jsonify({"message": "The request selections are not complete"}), 400
 
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
 
     galaxies_inverted, _ = _get_galaxies_inverted()
     revealed_info = _get_revealed(kd_id)
@@ -2975,7 +2975,7 @@ def _get_pinned(kd_id):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(pinned_info.text, file=sys.stderr)
+    
     pinned_info_parse = json.loads(pinned_info.text)
     return pinned_info_parse
 
@@ -2990,7 +2990,7 @@ def pinned():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     pinned_info = _get_pinned(kd_id)
     return (flask.jsonify(pinned_info["pinned"]), 200)
 
@@ -3006,9 +3006,9 @@ def update_pinned():
          -H "Authorization: Bearer <your_token>"
     """
     req = flask.request.get_json(force=True)
-    print(req)
+    
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     
     pinned_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
@@ -3095,7 +3095,7 @@ def max_kingdoms():
     kingdoms = req["kingdoms"]
 
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     revealed_info = _get_revealed(kd_id)
     galaxies_inverted, _ = _get_galaxies_inverted()
 
@@ -3117,13 +3117,13 @@ def reveal_random_galaxy():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info.text, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     if kd_info_parse["spy_attempts"] <= 0:
@@ -3137,12 +3137,12 @@ def reveal_random_galaxy():
     kd_empire = empires_inverted.get(kd_id, None)
     kd_galaxy = galaxies_inverted[kd_id]
 
-    print(empires)
-    print(kd_empire)
+    
+    
     excluded_galaxies = list(revealed_info["galaxies"].keys())
-    print(excluded_galaxies)
+    
     if kd_empire:
-        print(empires[kd_empire])
+        
         excluded_galaxies.extend(empires[kd_empire]["galaxies"])
     else:
         excluded_galaxies.append(kd_galaxy)
@@ -3168,13 +3168,13 @@ def reveal_random_galaxy():
         for kd_id in galaxy_info[galaxy_to_reveal]
     }
 
-    print(payload)
+    
     reveal_galaxy_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(payload),
     )
-    print(reveal_galaxy_response.text)
+    
 
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["revealed"] = min(next_resolve["revealed"], time)
@@ -3233,7 +3233,7 @@ def _calc_generals_return_time(
     is_warlike=False,
 ):
     return_time_with_bonus = datetime.timedelta(seconds=BASE_EPOCH_SECONDS * return_multiplier) * (1 - general_bonus - int(is_warlike) * BASE_WARLIKE_RETURN_REDUCTION)
-    print(return_time_with_bonus)
+    
     return_times = [
         base_time + (return_time_with_bonus / i)
         for i in range(generals, 0, -1)
@@ -3256,12 +3256,12 @@ def calculate_attack(target_kd):
     defender_raw_values = req["defenderValues"]
 
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     current_bonuses = {
         project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
@@ -3420,12 +3420,12 @@ def attack(target_kd):
     if str(target_kd) == str(kd_id):
         return (flask.jsonify("You cannot attack yourself!"), 400)
 
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     current_bonuses = {
         project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
@@ -3742,12 +3742,12 @@ def calculate_attack_primitives():
     attacker_raw_values = req["attackerValues"]
 
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     current_bonuses = {
         project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
@@ -3821,22 +3821,15 @@ def calculate_attack_primitives():
 
     return (flask.jsonify(payload), 200)
 
-@app.route('/api/attackprimitives', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def attack_primitives():
-    req = flask.request.get_json(force=True)
+def _attack_primitives(req, kd_id):
     attacker_raw_values = req["attackerValues"]
 
-    kd_id = flask_praetorian.current_user().kd_id
-
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
     current_bonuses = {
         project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
@@ -3951,6 +3944,17 @@ def attack_primitives():
         "status": attack_status,
         "message": attacker_message,
     }
+    return attack_results
+
+@app.route('/api/attackprimitives', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def attack_primitives():
+    req = flask.request.get_json(force=True)
+
+    kd_id = flask_praetorian.current_user().kd_id
+    attack_results = _attack_primitives(req, kd_id)
     return (flask.jsonify(attack_results), 200)
 
 def _validate_spy_request(
@@ -4013,12 +4017,12 @@ def calculate_spy(target_kd):
     if not operation:
         return (flask.jsonify({"message": "You must select an operation"}), 400)
     
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     valid_request, message = _validate_spy_request(
@@ -4124,12 +4128,12 @@ def spy(target_kd):
     if not operation:
         return (flask.jsonify({"message": "You must select an operation"}), 400)
 
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     valid_request, message = _validate_spy_request(
@@ -4155,7 +4159,7 @@ def spy(target_kd):
         defender_stars,
         defender_shields
     )
-    print(spy_probability)
+    
     success_losses, failure_losses = _calculate_spy_losses(drones, shielded)
 
     roll = random.uniform(0, 1)
@@ -4358,12 +4362,12 @@ def rob_primitives():
 
     kd_id = flask_praetorian.current_user().kd_id
 
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     valid_request, message = _validate_spy_request(
@@ -4458,12 +4462,12 @@ def calculate_missiles(target_kd):
     if str(target_kd) == str(kd_id):
         return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
 
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     attacker_missiles = {
@@ -4512,12 +4516,12 @@ def launch_missiles(target_kd):
     if str(target_kd) == str(kd_id):
         return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
 
-    print(kd_id, file=sys.stderr)
+    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(kd_info, file=sys.stderr)
+    
     kd_info_parse = json.loads(kd_info.text)
 
     attacker_missiles = {
@@ -4614,7 +4618,7 @@ def _get_galaxy_politics(kd_id, galaxy_id=None):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(galaxy_politics_info.text, file=sys.stderr)
+    
     galaxy_politics_info_parse = json.loads(galaxy_politics_info.text)
     return galaxy_politics_info_parse, galaxy_id
 
@@ -4629,7 +4633,7 @@ def galaxy_politics():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     galaxy_votes, _ = _get_galaxy_politics(kd_id)
     payload = {
         **galaxy_votes,
@@ -4650,7 +4654,7 @@ def galaxy_leader():
     """
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     galaxy_votes, galaxy_id = _get_galaxy_politics(kd_id)
 
     galaxy_votes["votes"]["leader"][kd_id] = req["selected"]
@@ -4692,7 +4696,7 @@ def galaxy_policies():
     """
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     galaxy_votes, galaxy_id = _get_galaxy_politics(kd_id)
 
     galaxy_votes["votes"][req["policy"]][kd_id] = req["option"].split('_')[-1]
@@ -4750,7 +4754,7 @@ def buy_votes():
     """
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = _get_kd_info(kd_id)
     
     votes = int(req["votes"])
@@ -4777,7 +4781,7 @@ def _get_universe_politics():
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universevotes',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print(universe_politics_info.text, file=sys.stderr)
+    
     universe_politics_info_parse = json.loads(universe_politics_info.text)
     return universe_politics_info_parse
 
@@ -4793,7 +4797,7 @@ def universe_politics():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     universe_politics = _get_universe_politics()
     kd_payload = {
         "policy_1": {
@@ -4840,7 +4844,7 @@ def universe_policies():
     """
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
-    print(kd_id, file=sys.stderr)
+    
     kd_info = _get_kd_info(kd_id)
     
     votes = int(req["votes"])
@@ -4922,7 +4926,7 @@ def _calc_structures_losses(
     #     os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
     #     headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     # )
-    # print(structures_info.text, file=sys.stderr)
+    # 
     # structures_info_parse = json.loads(structures_info.text)
 
     current_structures = kd_info_parse["structures"]
@@ -4972,7 +4976,7 @@ def _get_siphons_in(kd_id):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsin',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print("Siphons in text:", siphons_in_info.text, file=sys.stderr)
+    
     siphons_in_info_parse = json.loads(siphons_in_info.text)
     return siphons_in_info_parse["siphons_in"]
     
@@ -4981,7 +4985,7 @@ def _get_siphons_out(kd_id):
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsout',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
     )
-    print("Siphons out text:", siphons_out_info.text, file=sys.stderr)
+    
     siphons_out_info_parse = json.loads(siphons_out_info.text)
     return siphons_out_info_parse["siphons_out"]
     
@@ -5176,7 +5180,7 @@ def _resolve_settles(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(settles_payload),
     )
-    print(settles_patch.text)
+    
     return ready_settles, next_resolve
     
 def _resolve_mobis(kd_id, time_update):
@@ -5199,8 +5203,8 @@ def _resolve_mobis(kd_id, time_update):
             next_resolve = min(time, next_resolve)
             keep_mobis.append(mobi)
     
-    print(ready_mobis)
-    print(keep_mobis)
+    
+    
     mobis_payload = {
         "mobis": keep_mobis
     }
@@ -5209,7 +5213,7 @@ def _resolve_mobis(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(mobis_payload),
     )
-    print(mobis_patch.text)
+    
     return ready_mobis, next_resolve
     
 def _resolve_structures(kd_id, time_update):
@@ -5232,8 +5236,8 @@ def _resolve_structures(kd_id, time_update):
             next_resolve = min(time, next_resolve)
             keep_structures.append(structure)
     
-    print(ready_structures)
-    print(keep_structures)
+    
+    
     structures_payload = {
         "structures": keep_structures
     }
@@ -5242,7 +5246,7 @@ def _resolve_structures(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(structures_payload),
     )
-    print(structures_patch.text)
+    
     return ready_structures, next_resolve
     
 def _resolve_missiles(kd_id, time_update):
@@ -5273,7 +5277,7 @@ def _resolve_missiles(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(missiles_payload),
     )
-    print(missiles_patch.text)
+    
     return ready_missiles, next_resolve
     
 def _resolve_engineers(kd_id, time_update):
@@ -5303,7 +5307,7 @@ def _resolve_engineers(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(engineers_payload),
     )
-    print(engineers_patch.text)
+    
     return ready_engineers, next_resolve
     
 def _resolve_revealed(kd_id, time_update):
@@ -5339,7 +5343,7 @@ def _resolve_revealed(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(revealed_payload),
     )
-    print(revealed_patch.text)
+    
     return next_resolve
     
 def _resolve_shared(kd_id, time_update):
@@ -5382,7 +5386,7 @@ def _resolve_shared(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(shared_payload),
     )
-    print(shared_post.text)
+    
     return next_resolve
 
 def _resolve_generals(kd_info_parse, time_update):
