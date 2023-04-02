@@ -184,6 +184,7 @@ BASE_MISSILE_TIME_MULTIPLER = 24
 
 BASE_GENERALS_BONUS = lambda generals: (generals - 1) * 0.03
 BASE_GENERALS_RETURN_TIME_MULTIPLIER = 8
+BASE_RETURN_TIME_PENALTY_PER_COORDINATE = 0.01
 BASE_DEFENDER_UNIT_LOSS_RATE = 0.05
 BASE_ATTACKER_UNIT_LOSS_RATE = 0.05
 BASE_KINGDOM_LOSS_RATE = 0.10
@@ -271,6 +272,7 @@ INITIAL_KINGDOM_STATE = {
         "name": "",
         "race": "",
         "status": "Active",
+        "coordinate": random.randint(0, 99),
         "last_income": "",
         "next_resolve": {
             "generals": DATE_SENTINEL,
@@ -2178,7 +2180,7 @@ def _get_kd_info(kd_id):
 def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inverted=None):
     if galaxies_inverted == None:
         galaxies_inverted, _ = _get_galaxies_inverted()
-    always_allowed_keys = {"name", "race", "status"}
+    always_allowed_keys = {"name", "race", "status", "coordinate"}
     allowed_keys = {
         "stats": ["stars", "score"],
         "kingdom": ["stars", "fuel", "population", "score", "money", "spy_attempts", "auto_spending", "missiles"],
@@ -2259,13 +2261,8 @@ def galaxy(galaxy):
     kd_id = flask_praetorian.current_user().kd_id
     
     galaxies_inverted, galaxy_info = _get_galaxies_inverted()
-    current_galaxy = galaxy_info[galaxy]
-    revealed_info = _get_revealed(kd_id)
-    galaxy_kd_info = {}
-    for galaxy_kd_id in current_galaxy:
-        kd_info = _get_max_kd_info(galaxy_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted)
-        galaxy_kd_info[galaxy_kd_id] = kd_info
-    
+    current_galaxy_kingdoms = galaxy_info[galaxy]
+    galaxy_kd_info = _get_max_kingdoms(kd_id, current_galaxy_kingdoms)  
     
 
     return (flask.jsonify(galaxy_kd_info), 200)
@@ -3131,6 +3128,15 @@ def unshare_kd(share_to):
     )
     return (flask.jsonify(kd_response.text)), 200
 
+def _get_max_kingdoms(kd_id, kingdoms):
+    revealed_info = _get_revealed(kd_id)
+    galaxies_inverted, _ = _get_galaxies_inverted()
+
+    payload = {
+        other_kd_id: _get_max_kd_info(other_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted)
+        for other_kd_id in kingdoms
+    }
+    return payload
 
 @app.route('/api/kingdomsinfo', methods=['POST'])
 @flask_praetorian.auth_required
@@ -3147,14 +3153,7 @@ def max_kingdoms():
     kingdoms = req["kingdoms"]
 
     kd_id = flask_praetorian.current_user().kd_id
-    
-    revealed_info = _get_revealed(kd_id)
-    galaxies_inverted, _ = _get_galaxies_inverted()
-
-    payload = {
-        other_kd_id: _get_max_kd_info(other_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted)
-        for other_kd_id in kingdoms
-    }
+    payload = _get_max_kingdoms(kd_id, kingdoms)
     return (flask.jsonify(payload), 200)
 
 @app.route('/api/revealrandomgalaxy', methods=['GET'])
@@ -3277,14 +3276,26 @@ def _calc_losses(
     }
     return losses
 
+def _calc_coordinate_distance(
+    coord_a,
+    coord_b,
+):
+    direct_distance = abs(coord_a - coord_b)
+    indirect_distance_1 = (coord_a) + (99 - coord_b)
+    indirect_distance_2 = (coord_b) + (99 - coord_a)
+    return min(direct_distance, indirect_distance_1, indirect_distance_2)
+
 def _calc_generals_return_time(
     generals,
     return_multiplier,
     base_time,
     general_bonus=0,
     is_warlike=False,
+    coordinate_distance=25,
 ):
-    return_time_with_bonus = datetime.timedelta(seconds=BASE_EPOCH_SECONDS * return_multiplier) * (1 - general_bonus - int(is_warlike) * BASE_WARLIKE_RETURN_REDUCTION)
+    coordinate_distance_norm = coordinate_distance - 25
+    coordinate_effect = coordinate_distance_norm * BASE_RETURN_TIME_PENALTY_PER_COORDINATE
+    return_time_with_bonus = datetime.timedelta(seconds=BASE_EPOCH_SECONDS * return_multiplier) * (1 - general_bonus - int(is_warlike) * BASE_WARLIKE_RETURN_REDUCTION + coordinate_effect)
     
     return_times = [
         base_time + (return_time_with_bonus / i)
@@ -3397,7 +3408,8 @@ def calculate_attack(target_kd):
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
         time_now,
         current_bonuses["general_bonus"],
-        is_warlike=is_warlike
+        is_warlike=is_warlike,
+        coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], max_target_kd_info["coordinate"]),
     )
     generals_strftime = ', '.join([
         str(general_return_time - time_now)
@@ -3550,7 +3562,8 @@ def attack(target_kd):
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
         time_now,
         current_bonuses["general_bonus"],
-        is_warlike=is_warlike
+        is_warlike=is_warlike,
+        coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], target_kd_info["coordinate"]),
     )
     new_home_attacker_units = {
         key_unit: value_unit - attacker_units.get(key_unit, 0)
@@ -3844,7 +3857,8 @@ def calculate_attack_primitives():
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
         time_now,
         current_bonuses["general_bonus"],
-        is_warlike=is_warlike
+        is_warlike=is_warlike,
+        coordinate_distance=25,
     )
     generals_strftime = ', '.join([
         str(general_return_time - time_now)
@@ -3921,7 +3935,8 @@ def _attack_primitives(req, kd_id):
         BASE_GENERALS_RETURN_TIME_MULTIPLIER,
         time_now,
         current_bonuses["general_bonus"],
-        is_warlike=is_warlike
+        is_warlike=is_warlike,
+        coordinate_distance=25,
     )
     new_home_attacker_units = {
         key_unit: value_unit - attacker_units.get(key_unit, 0)

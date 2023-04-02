@@ -107,7 +107,8 @@ function Revealed(props) {
         galaxy: { value: null, matchMode: FilterMatchMode.CONTAINS },
         empire: { value: null, matchMode: FilterMatchMode.CONTAINS },
         stars: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
-        score: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
+        // score: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
+        coordinate_distance: { value: null, matchMode: FilterMatchMode.CONTAINS },
     });
 
     useEffect(() => {
@@ -165,6 +166,14 @@ function Revealed(props) {
         )
         return remainingSpans;
     }
+    const calcCoordinateDistance = (coord_a, coord_b) => {
+
+        const direct_distance = Math.abs(coord_a - coord_b)
+        const indirect_distance_1 = (coord_a) + (99 - coord_b)
+        const indirect_distance_2 = (coord_b) + (99 - coord_a)
+        return Math.min(direct_distance, indirect_distance_1, indirect_distance_2);
+    }
+    console.log(maxKdInfo);
     const revealedPrimeRows = Object.keys(props.revealed.revealed).map((kdId) => {
         return {
             "remaining": getRemainingSpans(kdId, props.revealed.revealed),
@@ -172,7 +181,7 @@ function Revealed(props) {
             "galaxy": props.galaxies_inverted[kdId] || "",
             "empire": props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || "",
             "stars": maxKdInfo[kdId]?.stars || null,
-            "score": maxKdInfo[kdId]?.score || null,
+            "coordinate_distance": calcCoordinateDistance(maxKdInfo[kdId]?.coordinate || 0, props.data.kingdom?.coordinate || 0).toString().padStart(2, '0') + ' (' + (maxKdInfo[kdId]?.coordinate || 0).toString().padStart(2, '0') + ')',
             "actions": <>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
                     View
@@ -376,7 +385,8 @@ function Revealed(props) {
                 <Column field="galaxy" header="Galaxy" sortable filter showFilterMenu={false} style={{ width: '7.5%' }}/>
                 <Column field="empire" header="Empire" sortable showFilterMenu={false} filter style={{ width: '10%' }}/>
                 <Column field="stars" header="Stars" sortable filter dataType="numeric" body={formatStars} style={{ width: '10%' }}/>
-                <Column field="score" header="Score" sortable filter body={formatScore} style={{ width: '10%' }}/>
+                {/* <Column field="score" header="Score" sortable filter body={formatScore} style={{ width: '10%' }}/> */}
+                <Column field="coordinate_distance" header="Distance" sortable filter style={{ width: '10%' }}/>
                 <Column field="actions" header="Actions" style={{ width: '50%' }}/>
             </DataTable>
             <Table className="revealed-table" striped bordered hover>

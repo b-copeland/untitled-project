@@ -148,6 +148,13 @@ function Galaxy(props) {
         })
         props.updateData(['revealed'], [updateFunc])
     }
+    const calcCoordinateDistance = (coord_a, coord_b) => {
+
+        const direct_distance = Math.abs(coord_a - coord_b)
+        const indirect_distance_1 = (coord_a) + (99 - coord_b)
+        const indirect_distance_2 = (coord_b) + (99 - coord_a)
+        return Math.min(direct_distance, indirect_distance_1, indirect_distance_2);
+    }
     const galaxyRows = Object.keys(galaxyInfo).map((kdId) =>
         <tr key={kdId}>
             <td>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</td>
@@ -155,7 +162,7 @@ function Galaxy(props) {
             <td>{galaxyInfo[kdId].stars?.toLocaleString() || ""}</td>
             <td>{galaxyInfo[kdId].score != undefined ? Math.floor(galaxyInfo[kdId].score).toLocaleString() : ""}</td>
             <td>{galaxyInfo[kdId].aggression || ""}</td>
-            <td>07:59:59</td>
+            <td>{calcCoordinateDistance(galaxyInfo[kdId].coordinate || 0, props.data.kingdom.coordinate || 0).toString().padStart(2, '0') + ' (' + (galaxyInfo[kdId].coordinate || 0).toString().padStart(2, '0') + ')'}</td>
             <td>{galaxyInfo[kdId].status}</td>
             <td>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
@@ -398,7 +405,7 @@ function Galaxy(props) {
                         <th>Stars</th>
                         <th>Score</th>
                         <th>Aggression</th>
-                        <th>Return Time</th>
+                        <th>Distance</th>
                         <th>Status</th>
                         <th colSpan={5}>Actions</th>
                         </tr>
