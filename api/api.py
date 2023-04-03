@@ -6171,8 +6171,6 @@ def refresh_data():
 
     kingdoms = _get_kingdoms()
     for kd_id in kingdoms:
-        if kd_id != "0":
-            continue
         next_resolves = {}
         time_update = datetime.datetime.now(datetime.timezone.utc)
         kd_info = REQUESTS_SESSION.get(
