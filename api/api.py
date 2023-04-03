@@ -6208,106 +6208,113 @@ def refresh_data():
 
     kingdoms = _get_kingdoms()
     for kd_id in kingdoms:
-        next_resolves = {}
-        time_update = datetime.datetime.now(datetime.timezone.utc)
-        kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-        )
-        kd_info_parse = json.loads(kd_info.text)
-        if kd_info_parse["status"].lower() == "dead":
-            continue
-        current_bonuses = {
-            project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-            for project, project_dict in PROJECTS.items()
-            if "max_bonus" in project_dict
-        }
-
-        categories_to_resolve = [cat for cat, time in kd_info_parse["next_resolve"].items() if datetime.datetime.fromisoformat(time).astimezone(datetime.timezone.utc) < time_update]
-        if "settles" in categories_to_resolve:
-            new_stars, next_resolves["settles"] = _resolve_settles(
-                kd_id,
-                time_update,
+        try:
+            query = db.session.query(User).filter_by(kd_id=kd_id).all()
+            user = query[0]
+            if not user.kd_created:
+                continue
+            next_resolves = {}
+            time_update = datetime.datetime.now(datetime.timezone.utc)
+            kd_info = REQUESTS_SESSION.get(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
             )
-            kd_info_parse["stars"] += new_stars
-            for key_project, project_dict in PROJECTS.items():
-                project_max_func = project_dict["max_points"]
-                kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
-        
-        if "mobis" in categories_to_resolve:
-            new_units, next_resolves["mobis"] = _resolve_mobis(kd_id, time_update)
-            for key_unit, amt_unit in new_units.items():
-                kd_info_parse["units"][key_unit] += amt_unit
-        
-        if "structures" in categories_to_resolve:
-            new_structures, next_resolves["structures"] = _resolve_structures(kd_id, time_update)
-            for key_structure, amt_structure in new_structures.items():
-                kd_info_parse["structures"][key_structure] += amt_structure
-        
-        if "missiles" in categories_to_resolve:
-            new_missiles, next_resolves["missiles"] = _resolve_missiles(kd_id, time_update)
-            for key_missiles, amt_missiles in new_missiles.items():
-                kd_info_parse["missiles"][key_missiles] += amt_missiles
-
-        if "engineers" in categories_to_resolve:
-            new_engineers, next_resolves["engineers"] = _resolve_engineers(
-                kd_id,
-                time_update,
-            )
-            kd_info_parse["units"]["engineers"] += new_engineers
-        
-        if "revealed" in categories_to_resolve:
-            next_resolves["revealed"] = _resolve_revealed(
-                kd_id,
-                time_update,
-            )
-        
-        if "shared" in categories_to_resolve:
-            next_resolves["shared"] = _resolve_shared(
-                kd_id,
-                time_update,
-            )
-
-        if "generals" in categories_to_resolve:
-            kd_info_parse, next_resolves["generals"] = _resolve_generals(
-                kd_info_parse,
-                time_update,
-            )
-        
-        if "spy_attempt" in categories_to_resolve:
-            kd_info_parse, next_resolves["spy_attempt"] = _resolve_spy(
-                kd_info_parse,
-                time_update,
-                current_bonuses,
-            )
-        if "auto_spending" in categories_to_resolve:
-            kd_info_parse, next_resolves_auto_spending = _resolve_auto_spending(
-                kd_info_parse,
-                time_update,
-                current_bonuses,
-            )
-            next_resolves = {
-                k: min(
-                    datetime.datetime.fromisoformat(v).astimezone(datetime.timezone.utc),
-                    next_resolves.get(k, datetime.datetime.fromisoformat(DATE_SENTINEL).astimezone(datetime.timezone.utc))
-                )
-                for k, v in next_resolves_auto_spending.items()
+            kd_info_parse = json.loads(kd_info.text)
+            if kd_info_parse["status"].lower() == "dead":
+                continue
+            current_bonuses = {
+                project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
+                for project, project_dict in PROJECTS.items()
+                if "max_bonus" in project_dict
             }
-        if kd_info_parse["auto_assign_projects"] and (kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values()) > 0):
-            kd_info_parse = _resolve_auto_projects(kd_info_parse)
 
-        for category, next_resolve_datetime in next_resolves.items():
-            kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
-        new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state)
-        kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps(new_kd_info, default=str),
-        )
-        if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > 0:
-            _resolve_auto_attack(new_kd_info)
-        if new_kd_info["auto_rob_enabled"]:
-            _resolve_auto_rob(new_kd_info)
+            categories_to_resolve = [cat for cat, time in kd_info_parse["next_resolve"].items() if datetime.datetime.fromisoformat(time).astimezone(datetime.timezone.utc) < time_update]
+            if "settles" in categories_to_resolve:
+                new_stars, next_resolves["settles"] = _resolve_settles(
+                    kd_id,
+                    time_update,
+                )
+                kd_info_parse["stars"] += new_stars
+                for key_project, project_dict in PROJECTS.items():
+                    project_max_func = project_dict["max_points"]
+                    kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
+            
+            if "mobis" in categories_to_resolve:
+                new_units, next_resolves["mobis"] = _resolve_mobis(kd_id, time_update)
+                for key_unit, amt_unit in new_units.items():
+                    kd_info_parse["units"][key_unit] += amt_unit
+            
+            if "structures" in categories_to_resolve:
+                new_structures, next_resolves["structures"] = _resolve_structures(kd_id, time_update)
+                for key_structure, amt_structure in new_structures.items():
+                    kd_info_parse["structures"][key_structure] += amt_structure
+            
+            if "missiles" in categories_to_resolve:
+                new_missiles, next_resolves["missiles"] = _resolve_missiles(kd_id, time_update)
+                for key_missiles, amt_missiles in new_missiles.items():
+                    kd_info_parse["missiles"][key_missiles] += amt_missiles
+
+            if "engineers" in categories_to_resolve:
+                new_engineers, next_resolves["engineers"] = _resolve_engineers(
+                    kd_id,
+                    time_update,
+                )
+                kd_info_parse["units"]["engineers"] += new_engineers
+            
+            if "revealed" in categories_to_resolve:
+                next_resolves["revealed"] = _resolve_revealed(
+                    kd_id,
+                    time_update,
+                )
+            
+            if "shared" in categories_to_resolve:
+                next_resolves["shared"] = _resolve_shared(
+                    kd_id,
+                    time_update,
+                )
+
+            if "generals" in categories_to_resolve:
+                kd_info_parse, next_resolves["generals"] = _resolve_generals(
+                    kd_info_parse,
+                    time_update,
+                )
+            
+            if "spy_attempt" in categories_to_resolve:
+                kd_info_parse, next_resolves["spy_attempt"] = _resolve_spy(
+                    kd_info_parse,
+                    time_update,
+                    current_bonuses,
+                )
+            if "auto_spending" in categories_to_resolve:
+                kd_info_parse, next_resolves_auto_spending = _resolve_auto_spending(
+                    kd_info_parse,
+                    time_update,
+                    current_bonuses,
+                )
+                next_resolves = {
+                    k: min(
+                        datetime.datetime.fromisoformat(v).astimezone(datetime.timezone.utc),
+                        next_resolves.get(k, datetime.datetime.fromisoformat(DATE_SENTINEL).astimezone(datetime.timezone.utc))
+                    )
+                    for k, v in next_resolves_auto_spending.items()
+                }
+            if kd_info_parse["auto_assign_projects"] and (kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values()) > 0):
+                kd_info_parse = _resolve_auto_projects(kd_info_parse)
+
+            for category, next_resolve_datetime in next_resolves.items():
+                kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
+            new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state)
+            kd_patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(new_kd_info, default=str),
+            )
+            if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > 0:
+                _resolve_auto_attack(new_kd_info)
+            if new_kd_info["auto_rob_enabled"]:
+                _resolve_auto_rob(new_kd_info)
+        except:
+            pass
     return "Refreshed", 200
 
 
