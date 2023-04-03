@@ -3761,7 +3761,16 @@ def attack(target_kd):
 
     target_kd_info["units"] = new_defender_units
     for key_spoil, value_spoil in spoils_values.items():
-        kd_info_parse[key_spoil] += value_spoil
+        if key_spoil != "money":
+            kd_info_parse[key_spoil] += value_spoil
+        else:
+            if kd_info_parse["auto_spending_enabled"]:
+                pct_allocated = sum(kd_info_parse["auto_spending"].values())
+                for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
+                    kd_info_parse["funding"][key_spending] += pct_spending * value_spoil
+                kd_info_parse["money"] += value_spoil * (1 - pct_allocated)
+            else:
+                kd_info_parse["money"] += value_spoil
         target_kd_info[key_spoil] -= value_spoil
 
     target_kd_info["stars"] = max(target_kd_info["stars"], 0)
@@ -3773,6 +3782,16 @@ def attack(target_kd):
     if sharer:
         sharer_kd_info = _get_kd_info(sharer)
         for key_spoil, value_spoil in sharer_spoils_values.items():
+            if key_spoil != "money":
+                sharer_kd_info[key_spoil] += value_spoil
+            else:
+                if sharer_kd_info["auto_spending_enabled"]:
+                    pct_allocated = sum(sharer_kd_info["auto_spending"].values())
+                    for key_spending, pct_spending in sharer_kd_info["auto_spending"].items():
+                        sharer_kd_info["funding"][key_spending] += pct_spending * value_spoil
+                    sharer_kd_info["money"] += value_spoil * (1 - pct_allocated)
+                else:
+                    sharer_kd_info["money"] += value_spoil
             sharer_kd_info[key_spoil] += value_spoil
             target_kd_info[key_spoil] -= value_spoil
         sharer_patch_response = REQUESTS_SESSION.patch(
@@ -4096,7 +4115,16 @@ def _attack_primitives(req, kd_id):
     kd_info_parse["next_resolve"]["generals"] = min(kd_info_parse["next_resolve"]["generals"], next_return_time)
 
     for key_spoil, value_spoil in spoils_values.items():
-        kd_info_parse[key_spoil] += value_spoil
+        if key_spoil != "money":
+            kd_info_parse[key_spoil] += value_spoil
+        else:
+            if kd_info_parse["auto_spending_enabled"]:
+                pct_allocated = sum(kd_info_parse["auto_spending"].values())
+                for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
+                    kd_info_parse["funding"][key_spending] += pct_spending * value_spoil
+                kd_info_parse["money"] += value_spoil * (1 - pct_allocated)
+            else:
+                kd_info_parse["money"] += value_spoil
 
     for key_project, project_dict in PROJECTS.items():
         project_max_func = project_dict["max_points"]
@@ -4641,10 +4669,19 @@ def _rob_primitives(req, kd_id):
 
     losses = success_losses
 
+    if kd_info_parse["auto_spending_enabled"]:
+        pct_allocated = sum(kd_info_parse["auto_spending"].values())
+        new_funding = kd_info_parse["funding"]
+        for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
+            new_funding[key_spending] += pct_spending * rob
+        new_money = rob * (1 - pct_allocated)
+    else:
+        new_money = rob
     kd_patch_payload = {
         "drones": kd_info_parse["drones"] - losses,
         "spy_attempts": kd_info_parse["spy_attempts"] - 1,
-        "money": kd_info_parse["money"] + rob,
+        "money": kd_info_parse["money"] + new_money,
+        "funding": new_funding,
     }
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -4656,7 +4693,7 @@ def _rob_primitives(req, kd_id):
     history_payload = {
         "time": time_now.isoformat(),
         "to": "",
-        "operation": "robprimitives",
+        "operation": PRETTY_NAMES.get("robprimitives", "robprimitives"),
         "news": message,
     }
     kd_spy_history_patch_response = REQUESTS_SESSION.patch(
