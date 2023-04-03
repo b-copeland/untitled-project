@@ -367,6 +367,19 @@ INITIAL_KINGDOM_STATE = {
             "galaxy_busters": 0,
             "drone_gadgets": 0
         },
+        "auto_assign_projects": False,
+        "projects_target": {
+            "pop_bonus": 0,
+            "fuel_bonus": 0,
+            "military_bonus": 0,
+            "money_bonus": 0,
+            "general_bonus": 0,
+            "spy_bonus": 0,
+            "big_flexers": 0,
+            "star_busters": 0,
+            "galaxy_busters": 0,
+            "drone_gadgets": 0
+        },
         "projects_max_points": {
             "pop_bonus": PROJECTS["pop_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
             "fuel_bonus": PROJECTS["fuel_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
@@ -2767,6 +2780,75 @@ def projects():
         "available_engineers": available_engineers,
     }
     return (flask.jsonify(payload), 200)
+
+def _validate_projects_target(req_targets, kd_info_parse):
+    """Confirm that spending request is valid"""
+
+    values = req_targets.values()
+    if any((value < 0 for value in values)):
+        return False, "Target values must be greater than 0"
+    if any((value > 1 for value in values)):
+        return False, "Target values must be less than 100%"
+    if sum(values) > 1:
+        return False, "Target values must be less than 100%"
+    if req_targets.get("spy_bonus", 0) > 0 and "drone_gadgets" not in kd_info_parse["completed_projects"]:
+        return False
+    
+    return True, ""
+
+@app.route('/api/projects/target', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def allocate_projects():
+    req = flask.request.get_json(force=True)
+    
+    kd_id = flask_praetorian.current_user().kd_id
+    
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    
+    kd_info_parse = json.loads(kd_info.text)
+
+    if req.get("enabled", None) is not None:
+        payload = {'auto_assign_projects': req["enabled"]}
+
+        patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload),
+        )
+        if req["enabled"]:
+            message = "Auto assigning engineers enabled"
+        else:
+            message = "Auto assigning engineers disabled"
+        return (flask.jsonify({"message": message, "status": "success"}), 200)
+
+    
+    req_targets = {
+        key: float(value or 0) / 100
+        for key, value in req.get("targets", {}).items()
+        if (value or 0) != 0
+    }
+
+    current_targets = kd_info_parse['projects_target']
+    new_targets = {
+        **current_targets,
+        **req_targets,
+    }
+    valid_targets, message = _validate_projects_target(new_targets, kd_info_parse)
+    if not valid_targets:
+        return (flask.jsonify({"message": message}), 400)
+
+    payload = {'projects_target': new_targets}
+    patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(payload),
+    )
+    return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_assign_projects(req, kd_info_parse):
     engineers_assigned = sum(req["assign"].values())
@@ -5962,6 +6044,37 @@ def _resolve_auto_rob(kd_info_parse):
         }
         _rob_primitives(req, kd_info_parse["kdId"])
 
+def _resolve_auto_projects(kd_info_parse):
+    engineers_to_assign = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
+    total_engineers = kd_info_parse["units"]["engineers"]
+
+    pct_assigned = {
+        k: v / total_engineers
+        for k, v in kd_info_parse["projects_assigned"].items()
+    }
+    target_gap = {
+        k: kd_info_parse["projects_target"].get(k, 0) - v
+        for k, v in pct_assigned.items()
+        if (kd_info_parse["projects_target"].get(k, 0) - v) > 0
+    }
+    total_target_gap = sum(target_gap.values())
+    target_gap_pct = {
+        k: v / total_target_gap
+        for k, v in target_gap.items()
+    }
+    target_engineers_to_assign = {
+        k: math.floor(v * engineers_to_assign)
+        for k, v in target_gap_pct.items()
+    }
+    leftover_engineers = engineers_to_assign - sum(target_engineers_to_assign.values())
+    highest_gap_pct = max(target_gap_pct, key=target_gap_pct.get)
+    target_engineers_to_assign[highest_gap_pct] += leftover_engineers
+    
+    new_projects_assigned = kd_info_parse["projects_assigned"]
+    for key_project, value_engineers in target_engineers_to_assign.items():
+        kd_info_parse["projects_assigned"][key_project] += value_engineers
+    return kd_info_parse
+
 def _mark_kingdom_death(kd_id):
     query = db.session.query(User).filter_by(kd_id=kd_id).all()
     user = query[0]
@@ -6145,6 +6258,8 @@ def refresh_data():
                 )
                 for k, v in next_resolves_auto_spending.items()
             }
+        if kd_info_parse["auto_assign_projects"] and (kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values()) > 0):
+            kd_info_parse = _resolve_auto_projects(kd_info_parse)
 
         for category, next_resolve_datetime in next_resolves.items():
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
