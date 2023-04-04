@@ -159,10 +159,10 @@ function Galaxy(props) {
         <tr key={kdId}>
             <td>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</td>
             <td>{galaxyInfo[kdId].race || ""}</td>
-            <td>{galaxyInfo[kdId].stars?.toLocaleString() || ""}</td>
-            <td>{galaxyInfo[kdId].score != undefined ? Math.floor(galaxyInfo[kdId].score).toLocaleString() : ""}</td>
-            <td>{galaxyInfo[kdId].aggression || ""}</td>
-            <td>{calcCoordinateDistance(galaxyInfo[kdId].coordinate || 0, props.data.kingdom.coordinate || 0).toString().padStart(2, '0') + ' (' + (galaxyInfo[kdId].coordinate || 0).toString().padStart(2, '0') + ')'}</td>
+            <td style={{textAlign: "right"}}>{galaxyInfo[kdId].stars?.toLocaleString() || ""}</td>
+            <td style={{textAlign: "right"}}>{galaxyInfo[kdId].score != undefined ? Math.floor(galaxyInfo[kdId].score).toLocaleString() : ""}</td>
+            <td style={{textAlign: "right"}}>{galaxyInfo[kdId].aggression || ""}</td>
+            <td style={{textAlign: "right"}}>{calcCoordinateDistance(galaxyInfo[kdId].coordinate || 0, props.data.kingdom.coordinate || 0).toString().padStart(2, '0') + ' (' + (galaxyInfo[kdId].coordinate || 0).toString().padStart(2, '0') + ')'}</td>
             <td>{galaxyInfo[kdId].status}</td>
             <td>
                 <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
@@ -402,10 +402,10 @@ function Galaxy(props) {
                         <tr>
                         <th>Kingdom</th>
                         <th>Race</th>
-                        <th>Stars</th>
-                        <th>Score</th>
-                        <th>Aggression</th>
-                        <th>Distance</th>
+                        <th style={{textAlign: "right"}}>Stars</th>
+                        <th style={{textAlign: "right"}}>Score</th>
+                        <th style={{textAlign: "right"}}>Aggression</th>
+                        <th style={{textAlign: "right"}}>Distance</th>
                         <th>Status</th>
                         <th colSpan={5}>Actions</th>
                         </tr>

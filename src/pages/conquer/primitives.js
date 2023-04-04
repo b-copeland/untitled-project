@@ -161,17 +161,17 @@ function AttackPrimitives(props) {
                                 <thead>
                                     <tr>
                                         <th>Unit</th>
-                                        <th>Available</th>
-                                        <th>Offense</th>
-                                        <th>Input</th>
+                                        <th style={{textAlign: "right"}}>Available</th>
+                                        <th style={{textAlign: "right"}}>Offense</th>
+                                        <th style={{textAlign: "right"}}>Input</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td>Attackers</td>
-                                        <td>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
-                                        <td>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
-                                        <td>
+                                        <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
+                                        <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
+                                        <td style={{textAlign: "right"}}>
                                             <Form.Control 
                                                 className="unit-form"
                                                 id="attack-input"
@@ -185,9 +185,9 @@ function AttackPrimitives(props) {
                                     </tr>
                                     <tr>
                                         <td>Flexers</td>
-                                        <td>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
-                                        <td>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
-                                        <td>
+                                        <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
+                                        <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
+                                        <td style={{textAlign: "right"}}>
                                             <Form.Control 
                                                 className="unit-form"
                                                 id="flexers-input"
@@ -201,9 +201,9 @@ function AttackPrimitives(props) {
                                     </tr>
                                     <tr>
                                         <td>Big Flexers</td>
-                                        <td>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
-                                        <td>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
-                                        <td>
+                                        <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
+                                        <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
+                                        <td style={{textAlign: "right"}}>
                                             <Form.Control 
                                                 className="unit-form"
                                                 id="big-flexers-input"
@@ -217,9 +217,9 @@ function AttackPrimitives(props) {
                                     </tr>
                                     <tr>
                                         <td>Military Efficiency</td>
-                                        <td></td>
-                                        <td></td>
-                                        <td>
+                                        <td style={{textAlign: "right"}}></td>
+                                        <td style={{textAlign: "right"}}></td>
+                                        <td style={{textAlign: "right"}}>
                                             <Form.Control 
                                                 className="unit-form"
                                                 id="military-efficiency-input"
@@ -234,9 +234,9 @@ function AttackPrimitives(props) {
                                     </tr>
                                     <tr>
                                         <td>Other Bonuses</td>
-                                        <td></td>
-                                        <td></td>
-                                        <td>
+                                        <td style={{textAlign: "right"}}></td>
+                                        <td style={{textAlign: "right"}}></td>
+                                        <td style={{textAlign: "right"}}>
                                             <Form.Control 
                                                 className="unit-form"
                                                 id="other-bonuses-input"
@@ -250,9 +250,9 @@ function AttackPrimitives(props) {
                                     </tr>
                                     <tr>
                                         <td>Generals</td>
-                                        <td>{props.data.kingdom?.generals_available}</td>
-                                        <td></td>
-                                        <td>
+                                        <td style={{textAlign: "right"}}>{props.data.kingdom?.generals_available}</td>
+                                        <td style={{textAlign: "right"}}></td>
+                                        <td style={{textAlign: "right"}}>
                                             <Form.Control 
                                                 className="unit-form"
                                                 id="generals-input"

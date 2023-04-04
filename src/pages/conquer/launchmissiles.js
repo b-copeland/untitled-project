@@ -186,21 +186,21 @@ function LaunchMissiles(props) {
                     <thead>
                         <tr>
                             <th>Missile</th>
-                            <th>Available</th>
-                            <th>Stars Damage</th>
-                            <th>Fuel Damage</th>
-                            <th>Pop Damage</th>
-                            <th>To Send</th>
+                            <th style={{textAlign: "right"}}>Available</th>
+                            <th style={{textAlign: "right"}}>Stars Damage</th>
+                            <th style={{textAlign: "right"}}>Fuel Damage</th>
+                            <th style={{textAlign: "right"}}>Pop Damage</th>
+                            <th style={{textAlign: "right"}}>To Send</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
                             <td>Planet Busters</td>
-                            <td>{props.data.kingdom.missiles?.planet_busters?.toLocaleString()}</td>
-                            <td>{(props.data.missiles.desc?.planet_busters?.stars_damage || 0)}</td>
-                            <td>{(props.data.missiles.desc?.planet_busters?.fuel_damage || 0)}</td>
-                            <td>{(props.data.missiles.desc?.planet_busters?.pop_damage || 0)}</td>
-                            <td>
+                            <td style={{textAlign: "right"}}>{props.data.kingdom.missiles?.planet_busters?.toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.planet_busters?.stars_damage || 0)}</td>
+                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.planet_busters?.fuel_damage || 0)}</td>
+                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.planet_busters?.pop_damage || 0)}</td>
+                            <td style={{textAlign: "right"}}>
                                 <Form.Control 
                                     className="unit-form"
                                     id="planet-busters-input"
@@ -214,11 +214,11 @@ function LaunchMissiles(props) {
                         </tr>
                         <tr>
                             <td>Star Busters</td>
-                            <td>{props.data.kingdom.missiles?.star_busters?.toLocaleString()}</td>
-                            <td>{(props.data.missiles.desc?.star_busters?.stars_damage || 0)}</td>
-                            <td>{(props.data.missiles.desc?.star_busters?.fuel_damage || 0)}</td>
-                            <td>{(props.data.missiles.desc?.star_busters?.pop_damage || 0)}</td>
-                            <td>
+                            <td style={{textAlign: "right"}}>{props.data.kingdom.missiles?.star_busters?.toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.star_busters?.stars_damage || 0)}</td>
+                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.star_busters?.fuel_damage || 0)}</td>
+                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.star_busters?.pop_damage || 0)}</td>
+                            <td style={{textAlign: "right"}}>
                                 <Form.Control 
                                     className="unit-form"
                                     id="star-busters-input"
@@ -232,11 +232,11 @@ function LaunchMissiles(props) {
                         </tr>
                         <tr>
                             <td>Galaxy Busters</td>
-                            <td>{props.data.kingdom.missiles?.galaxy_busters?.toLocaleString()}</td>
-                            <td>{(props.data.missiles.desc?.galaxy_busters?.stars_damage || 0)}</td>
-                            <td>{(props.data.missiles.desc?.galaxy_busters?.fuel_damage || 0)}</td>
-                            <td>{(props.data.missiles.desc?.galaxy_busters?.pop_damage || 0)}</td>
-                            <td>
+                            <td style={{textAlign: "right"}}>{props.data.kingdom.missiles?.galaxy_busters?.toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.galaxy_busters?.stars_damage || 0)}</td>
+                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.galaxy_busters?.fuel_damage || 0)}</td>
+                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.galaxy_busters?.pop_damage || 0)}</td>
+                            <td style={{textAlign: "right"}}>
                                 <Form.Control 
                                     className="unit-form"
                                     id="galaxy-busters-input"

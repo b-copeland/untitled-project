@@ -189,15 +189,15 @@ function Attack(props) {
                             <thead>
                                 <tr>
                                     <th>Input</th>
-                                    <th>Defense</th>
-                                    <th>Value</th>
+                                    <th style={{textAlign: "right"}}>Defense</th>
+                                    <th style={{textAlign: "right"}}>Value</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
                                     <td>Recruits</td>
-                                    <td>{props.data.mobis?.units_desc?.recruits?.defense || "--"}</td>
-                                    <td>
+                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.recruits?.defense || "--"}</td>
+                                    <td style={{textAlign: "right"}}>
                                         {   targetKdInfo.hasOwnProperty("units")
                                             ? <Form.Control 
                                                 className="unit-form"
@@ -222,8 +222,8 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Defenders</td>
-                                    <td>{props.data.mobis?.units_desc?.defense?.defense || "--"}</td>
-                                    <td>
+                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.defense?.defense || "--"}</td>
+                                    <td style={{textAlign: "right"}}>
                                         {   targetKdInfo.hasOwnProperty("units")
                                             ? <Form.Control 
                                                 className="unit-form"
@@ -249,8 +249,8 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Flexers</td>
-                                    <td>{props.data.mobis?.units_desc?.flex?.defense || "--"}</td>
-                                    <td>
+                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.flex?.defense || "--"}</td>
+                                    <td style={{textAlign: "right"}}>
                                         {   targetKdInfo.hasOwnProperty("units")
                                             ? <Form.Control 
                                                 className="unit-form"
@@ -275,8 +275,8 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Big Flexers</td>
-                                    <td>{props.data.mobis?.units_desc?.big_flex?.defense || "--"}</td>
-                                    <td>
+                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.big_flex?.defense || "--"}</td>
+                                    <td style={{textAlign: "right"}}>
                                         {   targetKdInfo.hasOwnProperty("units")
                                             ? <Form.Control 
                                                 className="unit-form"
@@ -301,8 +301,8 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Military Efficiency</td>
-                                    <td></td>
-                                    <td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}>
                                         {   targetKdInfo.hasOwnProperty("current_bonuses")
                                             ? <InputGroup className="mb-3">
                                                 <Form.Control
@@ -333,8 +333,8 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Shields</td>
-                                    <td></td>
-                                    <td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}>
                                         {   targetKdInfo.hasOwnProperty("shields")
                                             ? <InputGroup className="mb-3">
                                                 <Form.Control
@@ -365,8 +365,8 @@ function Attack(props) {
                                 </tr>
                                 <tr>
                                     <td>Other Bonuses</td>
-                                    <td></td>
-                                    <td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}>
                                         <InputGroup className="mb-3">
                                             <Form.Control
                                             className="unit-form"
@@ -458,15 +458,15 @@ function Attack(props) {
                         <Table className="attacker-table" striped bordered hover size="sm">
                             <thead>
                                 <tr>
-                                    <th>Value</th>
-                                    <th>Offense</th>
-                                    <th>Available</th>
+                                    <th style={{textAlign: "right"}}>Value</th>
+                                    <th style={{textAlign: "right"}}>Offense</th>
+                                    <th style={{textAlign: "right"}}>Available</th>
                                     <th>Input</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td>
+                                    <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
                                             id="attack-input"
@@ -477,12 +477,12 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
-                                    <td>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
+                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
+                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
                                     <td>Attackers</td>
                                 </tr>
                                 <tr>
-                                    <td>
+                                    <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
                                             id="flexers-input"
@@ -493,12 +493,12 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
-                                    <td>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
+                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
+                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
                                     <td>Flexers</td>
                                 </tr>
                                 <tr>
-                                    <td>
+                                    <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
                                             id="big-flexers-input"
@@ -509,12 +509,12 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
-                                    <td>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
+                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
+                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
                                     <td>Big Flexers</td>
                                 </tr>
                                 <tr>
-                                    <td>
+                                    <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
                                             id="military-efficiency-input"
@@ -526,12 +526,12 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td></td>
-                                    <td></td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}></td>
                                     <td>Military Efficiency</td>
                                 </tr>
                                 <tr>
-                                    <td>
+                                    <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
                                             id="other-bonuses-input"
@@ -542,12 +542,12 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td></td>
-                                    <td></td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}></td>
                                     <td>Other Bonuses</td>
                                 </tr>
                                 <tr>
-                                    <td>
+                                    <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
                                             id="generals-input"
@@ -558,8 +558,8 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td></td>
-                                    <td>{props.data.kingdom?.generals_available}</td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.generals_available}</td>
                                     <td>Generals</td>
                                 </tr>
                             </tbody>

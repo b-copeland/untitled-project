@@ -7,8 +7,10 @@
 .shields {
     display: flex;
     flex-direction: column;
-    justify-items: center;
     align-items: center;
+}
+.shields-content {
+    width: 60%;
 }
 
 .spending {
@@ -127,9 +129,9 @@
 }
 
 .structures-info {
-    width: 95%
+    width: 70%
 }
 
-.table {
+/* .table {
     width: 95%;
-}
+} */

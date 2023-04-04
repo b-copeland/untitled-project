@@ -135,19 +135,19 @@ function BuildStructures(props) {
             <Table className="structures-table" striped bordered hover>
                 <thead>
                     <tr>
-                        <th>Structure</th>
-                        <th>% Built</th>
-                        <th># Built</th>
-                        <th># Building</th>
-                        <th>To Build</th>
+                        <th style={{textAlign: "left"}}>Structure</th>
+                        <th style={{textAlign: "right"}}>% Built</th>
+                        <th style={{textAlign: "right"}}># Built</th>
+                        <th style={{textAlign: "right"}}># Building</th>
+                        <th style={{textAlign: "right"}}>To Build</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Homes</td>
-                        <td>{displayPercent((structuresInfo.current.homes || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.homes || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.homes || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "left"}}>Homes</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.homes || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.homes || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.homes || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -161,10 +161,10 @@ function BuildStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Mines</td>
-                        <td>{displayPercent((structuresInfo.current.mines || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.mines || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.mines || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "left"}}>Mines</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.mines || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.mines || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.mines || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -178,10 +178,10 @@ function BuildStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Fuel Plants</td>
-                        <td>{displayPercent((structuresInfo.current.fuel_plants || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.fuel_plants || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.fuel_plants || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "left"}}>Fuel Plants</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.fuel_plants || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.fuel_plants || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.fuel_plants || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -195,10 +195,10 @@ function BuildStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Hangars</td>
-                        <td>{displayPercent((structuresInfo.current.hangars || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.hangars || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.hangars || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "left"}}>Hangars</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.hangars || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.hangars || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.hangars || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -212,10 +212,10 @@ function BuildStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Drone Factories</td>
-                        <td>{displayPercent((structuresInfo.current.drone_factories || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.drone_factories || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.drone_factories || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "left"}}>Drone Factories</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.drone_factories || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.drone_factories || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.drone_factories || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -229,10 +229,10 @@ function BuildStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Missile Silos</td>
-                        <td>{displayPercent((structuresInfo.current.missile_silos || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.missile_silos || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.missile_silos || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "left"}}>Missile Silos</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.missile_silos || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.missile_silos || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.missile_silos || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -246,10 +246,10 @@ function BuildStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Workshops</td>
-                        <td>{displayPercent((structuresInfo.current.workshops || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.workshops || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.workshops || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "left"}}>Workshops</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.workshops || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.workshops || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.workshops || 0).toLocaleString()}</td>
                         <td className="structures-form-data">{
                             <Form.Control 
                                 className="structures-form"
@@ -342,21 +342,21 @@ function AllocateStructures(props) {
             <Table className="structures-allocation-table" striped bordered hover>
                 <thead>
                     <tr>
-                        <th>Structure</th>
-                        <th>% Built</th>
-                        <th># Built</th>
-                        <th># Building</th>
-                        <th>Current Allocation</th>
-                        <th>New Allocation</th>
+                        <th style={{textAlign: "left"}}>Structure</th>
+                        <th style={{textAlign: "right"}}>% Built</th>
+                        <th style={{textAlign: "right"}}># Built</th>
+                        <th style={{textAlign: "right"}}># Building</th>
+                        <th style={{textAlign: "right"}}>Current Allocation</th>
+                        <th style={{textAlign: "right"}}>New Allocation</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Homes</td>
-                        <td>{displayPercent((structuresInfo.current.homes || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.homes || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.homes || 0).toLocaleString()}</td>
-                        <td>{displayPercent((kdInfo.structures_target?.homes || 0))}</td>
+                        <td style={{textAlign: "left"}}>Homes</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.homes || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.homes || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.homes || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.homes || 0))}</td>
                         <td className="structures-form-data">{
                             <InputGroup className="mb-3">
                                 <Form.Control 
@@ -373,11 +373,11 @@ function AllocateStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Mines</td>
-                        <td>{displayPercent((structuresInfo.current.mines || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.mines || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.mines || 0).toLocaleString()}</td>
-                        <td>{displayPercent((kdInfo.structures_target?.mines || 0))}</td>
+                        <td style={{textAlign: "left"}}>Mines</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.mines || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.mines || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.mines || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.mines || 0))}</td>
                         <td className="structures-form-data">{
                             <InputGroup className="mb-3">
                                 <Form.Control 
@@ -394,11 +394,11 @@ function AllocateStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Fuel Plants</td>
-                        <td>{displayPercent((structuresInfo.current.fuel_plants || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.fuel_plants || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.fuel_plants || 0).toLocaleString()}</td>
-                        <td>{displayPercent((kdInfo.structures_target?.fuel_plants || 0))}</td>
+                        <td style={{textAlign: "left"}}>Fuel Plants</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.fuel_plants || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.fuel_plants || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.fuel_plants || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.fuel_plants || 0))}</td>
                         <td className="structures-form-data">{
                             <InputGroup className="mb-3">
                                 <Form.Control 
@@ -415,11 +415,11 @@ function AllocateStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Hangars</td>
-                        <td>{displayPercent((structuresInfo.current.hangars || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.hangars || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.hangars || 0).toLocaleString()}</td>
-                        <td>{displayPercent((kdInfo.structures_target?.hangars || 0))}</td>
+                        <td style={{textAlign: "left"}}>Hangars</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.hangars || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.hangars || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.hangars || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.hangars || 0))}</td>
                         <td className="structures-form-data">{
                             <InputGroup className="mb-3">
                                 <Form.Control 
@@ -436,11 +436,11 @@ function AllocateStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Drone Factories</td>
-                        <td>{displayPercent((structuresInfo.current.drone_factories || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.drone_factories || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.drone_factories || 0).toLocaleString()}</td>
-                        <td>{displayPercent((kdInfo.structures_target?.drone_factories || 0))}</td>
+                        <td style={{textAlign: "left"}}>Drone Factories</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.drone_factories || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.drone_factories || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.drone_factories || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.drone_factories || 0))}</td>
                         <td className="structures-form-data">{
                             <InputGroup className="mb-3">
                                 <Form.Control 
@@ -457,11 +457,11 @@ function AllocateStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Missile Silos</td>
-                        <td>{displayPercent((structuresInfo.current.missile_silos || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.missile_silos || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.missile_silos || 0).toLocaleString()}</td>
-                        <td>{displayPercent((kdInfo.structures_target?.missile_silos || 0))}</td>
+                        <td style={{textAlign: "left"}}>Missile Silos</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.missile_silos || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.missile_silos || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.missile_silos || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.missile_silos || 0))}</td>
                         <td className="structures-form-data">{
                             <InputGroup className="mb-3">
                                 <Form.Control 
@@ -478,11 +478,11 @@ function AllocateStructures(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Workshops</td>
-                        <td>{displayPercent((structuresInfo.current.workshops || 0) / kdInfo["stars"])}</td>
-                        <td>{Math.floor(structuresInfo.current.workshops || 0).toLocaleString()}</td>
-                        <td>{Math.floor(structuresInfo.hour_24.workshops || 0).toLocaleString()}</td>
-                        <td>{displayPercent((kdInfo.structures_target?.workshops || 0))}</td>
+                        <td style={{textAlign: "left"}}>Workshops</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((structuresInfo.current.workshops || 0) / kdInfo["stars"])}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.current.workshops || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.workshops || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.workshops || 0))}</td>
                         <td className="structures-form-data">{
                             <InputGroup className="mb-3">
                                 <Form.Control 

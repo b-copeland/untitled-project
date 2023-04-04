@@ -301,28 +301,28 @@ function Assign(props) {
                 <thead>
                     <tr><th colSpan={10}>Continuous Projects</th></tr>
                     <tr>
-                        <th>Project</th>
-                        <th>Assigned Engineers</th>
-                        <th>Assigned %</th>
-                        <th>Current Pts</th>
-                        <th>Max Pts</th>
-                        <th>Current Bonus</th>
-                        <th>Max Bonus</th>
-                        <th>Assign</th>
-                        <th>Add</th>
-                        <th>Remove</th>
+                        <th style={{textAlign: "left"}}>Project</th>
+                        <th style={{textAlign: "right"}}>Assigned Engineers</th>
+                        <th style={{textAlign: "right"}}>Assigned %</th>
+                        <th style={{textAlign: "right"}}>Current Pts</th>
+                        <th style={{textAlign: "right"}}>Max Pts</th>
+                        <th style={{textAlign: "right"}}>Current Bonus</th>
+                        <th style={{textAlign: "right"}}>Max Bonus</th>
+                        <th style={{textAlign: "right"}}>Assign</th>
+                        <th style={{textAlign: "right"}}>Add</th>
+                        <th style={{textAlign: "right"}}>Remove</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Pop Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.pop_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.pop_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{Math.floor(props.kdInfo.projects_points.pop_bonus || 0).toLocaleString()}</td>
-                        <td>{Math.floor(props.kdInfo.projects_max_points.pop_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent(props.projectsInfo.current_bonuses.pop_bonus || 0)}</td>
-                        <td>{displayPercent(props.projectsInfo.max_bonuses.pop_bonus || 0)}</td>
-                        <td>{
+                        <td style={{textAlign: "left"}}>Pop Bonus</td>
+                        <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.pop_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.pop_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.pop_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.pop_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.pop_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.pop_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="projects-assign-form"
                                 id="pop-bonus-assign-input"
@@ -333,7 +333,7 @@ function Assign(props) {
                                 autoComplete="off"
                             />
                         }</td>
-                        <td>{
+                        <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="projects-add-form"
                                 id="pop-bonus-add-input"
@@ -344,7 +344,7 @@ function Assign(props) {
                                 autoComplete="off"
                             />
                         }</td>
-                        <td>{
+                        <td style={{textAlign: "right"}}>{
                             props.loading.projects
                             ? <Button className="remove-button" name="pop_bonus" variant="primary" type="submit" disabled>
                                 Loading...
@@ -355,14 +355,14 @@ function Assign(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Fuel Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.fuel_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.fuel_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{Math.floor(props.kdInfo.projects_points.fuel_bonus || 0).toLocaleString()}</td>
-                        <td>{Math.floor(props.kdInfo.projects_max_points.fuel_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent(props.projectsInfo.current_bonuses.fuel_bonus || 0)}</td>
-                        <td>{displayPercent(props.projectsInfo.max_bonuses.fuel_bonus || 0)}</td>
-                        <td>{
+                        <td style={{textAlign: "left"}}>Fuel Bonus</td>
+                        <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.fuel_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.fuel_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.fuel_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.fuel_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.fuel_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.fuel_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="projects-assign-form"
                                 id="fuel-bonus-assign-input"
@@ -373,7 +373,7 @@ function Assign(props) {
                                 autoComplete="off"
                             />
                         }</td>
-                        <td>{
+                        <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="projects-add-form"
                                 id="fuel-bonus-add-input"
@@ -384,7 +384,7 @@ function Assign(props) {
                                 autoComplete="off"
                             />
                         }</td>
-                        <td>{
+                        <td style={{textAlign: "right"}}>{
                             props.loading.projects
                             ? <Button className="remove-button" name="fuel_bonus" variant="primary" type="submit" disabled>
                                 Loading...
@@ -395,14 +395,14 @@ function Assign(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Military Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.military_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.military_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{Math.floor(props.kdInfo.projects_points.military_bonus || 0).toLocaleString()}</td>
-                        <td>{Math.floor(props.kdInfo.projects_max_points.military_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent(props.projectsInfo.current_bonuses.military_bonus || 0)}</td>
-                        <td>{displayPercent(props.projectsInfo.max_bonuses.military_bonus || 0)}</td>
-                        <td>{
+                        <td style={{textAlign: "left"}}>Military Bonus</td>
+                        <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.military_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.military_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.military_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.military_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.military_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.military_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="projects-assign-form"
                                 id="military-bonus-assign-input"
@@ -413,7 +413,7 @@ function Assign(props) {
                                 autoComplete="off"
                             />
                         }</td>
-                        <td>{
+                        <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="projects-add-form"
                                 id="military-bonus-add-input"
@@ -424,7 +424,7 @@ function Assign(props) {
                                 autoComplete="off"
                             />
                         }</td>
-                        <td>{
+                        <td style={{textAlign: "right"}}>{
                             props.loading.projects
                             ? <Button className="remove-button" name="military_bonus" variant="primary" type="submit" disabled>
                                 Loading...
@@ -435,14 +435,14 @@ function Assign(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Money Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.money_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.money_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{Math.floor(props.kdInfo.projects_points.money_bonus || 0).toLocaleString()}</td>
-                        <td>{Math.floor(props.kdInfo.projects_max_points.money_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent(props.projectsInfo.current_bonuses.money_bonus || 0)}</td>
-                        <td>{displayPercent(props.projectsInfo.max_bonuses.money_bonus || 0)}</td>
-                        <td>{
+                        <td style={{textAlign: "left"}}>Money Bonus</td>
+                        <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.money_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.money_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.money_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.money_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.money_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.money_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="projects-assign-form"
                                 id="money-bonus-assign-input"
@@ -453,7 +453,7 @@ function Assign(props) {
                                 autoComplete="off"
                             />
                         }</td>
-                        <td>{
+                        <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="projects-add-form"
                                 id="money-bonus-add-input"
@@ -464,7 +464,7 @@ function Assign(props) {
                                 autoComplete="off"
                             />
                         }</td>
-                        <td>{
+                        <td style={{textAlign: "right"}}>{
                             props.loading.projects
                             ? <Button className="remove-button" name="money_bonus" variant="primary" type="submit" disabled>
                                 Loading...
@@ -475,14 +475,14 @@ function Assign(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Generals Speed Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.general_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.general_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{Math.floor(props.kdInfo.projects_points.general_bonus || 0).toLocaleString()}</td>
-                        <td>{Math.floor(props.kdInfo.projects_max_points.general_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent(props.projectsInfo.current_bonuses.general_bonus || 0)}</td>
-                        <td>{displayPercent(props.projectsInfo.max_bonuses.general_bonus || 0)}</td>
-                        <td>{
+                        <td style={{textAlign: "left"}}>Generals Speed Bonus</td>
+                        <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.general_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.general_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.general_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.general_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.general_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.general_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="projects-assign-form"
                                 id="general-bonus-assign-input"
@@ -493,7 +493,7 @@ function Assign(props) {
                                 autoComplete="off"
                             />
                         }</td>
-                        <td>{
+                        <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="projects-add-form"
                                 id="general-bonus-add-input"
@@ -504,7 +504,7 @@ function Assign(props) {
                                 autoComplete="off"
                             />
                         }</td>
-                        <td>{
+                        <td style={{textAlign: "right"}}>{
                             props.loading.projects
                             ? <Button className="remove-button" name="general_bonus" variant="primary" type="submit" disabled>
                                 Loading...
@@ -517,14 +517,14 @@ function Assign(props) {
                     {
                         props.kdInfo.completed_projects.indexOf('drone_gadgets') >= 0
                         ? <tr>
-                            <td>Spy Bonus</td>
-                            <td>{(props.kdInfo.projects_assigned.spy_bonus || 0).toLocaleString()}</td>
-                            <td>{displayPercent((props.kdInfo.projects_assigned.spy_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}</td>
-                            <td>{displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)}</td>
-                            <td>{displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}</td>
-                            <td>{
+                            <td style={{textAlign: "left"}}>Spy Bonus</td>
+                            <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.spy_bonus || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.spy_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}</td>
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="spy-bonus-assign-input"
@@ -535,7 +535,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-add-form"
                                     id="spy-bonus-add-input"
@@ -546,7 +546,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 props.loading.projects
                                 ? <Button className="remove-button" name="spy_bonus" variant="primary" type="submit" disabled>
                                     Loading...
@@ -557,13 +557,13 @@ function Assign(props) {
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
-                            <td>Spy Bonus</td>
+                            <td style={{textAlign: "left"}}>Spy Bonus</td>
                             <td colSpan={2}>Complete "Drone Gadgets" Project to Unlock</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}</td>
-                            <td>{displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)}</td>
-                            <td>{displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}</td>
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="spy-bonus-assign-input"
@@ -575,7 +575,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-add-form"
                                     id="spy-bonus-add-input"
@@ -587,22 +587,22 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td></td>
+                            <td style={{textAlign: "right"}}></td>
                         </tr>
                     }
                 </tbody>
                 <thead>
                     <tr><th colSpan={10}>One-Time Projects</th></tr>
                     <tr>
-                        <th>Project</th>
-                        <th>Assigned Engineers</th>
-                        <th>Assigned %</th>
-                        <th>Current Pts</th>
-                        <th>Max Pts</th>
-                        <th colSpan={2}>% Completed</th>
-                        <th>Assign</th>
-                        <th>Add</th>
-                        <th>Remove</th>
+                        <th style={{textAlign: "left"}}>Project</th>
+                        <th style={{textAlign: "right"}}>Assigned Engineers</th>
+                        <th style={{textAlign: "right"}}>Assigned %</th>
+                        <th style={{textAlign: "right"}}>Current Pts</th>
+                        <th style={{textAlign: "right"}}>Max Pts</th>
+                        <th colSpan={2} style={{textAlign: "right"}}>% Completed</th>
+                        <th style={{textAlign: "right"}}>Assign</th>
+                        <th style={{textAlign: "right"}}>Add</th>
+                        <th style={{textAlign: "right"}}>Remove</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -610,13 +610,13 @@ function Assign(props) {
                     {
                         props.kdInfo.completed_projects.indexOf('big_flexers') < 0
                         ? <tr>
-                            <td>Big Flexers</td>
-                            <td>{(props.kdInfo.projects_assigned.big_flexers || 0).toLocaleString()}</td>
-                            <td>{displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
-                            <td>{
+                            <td style={{textAlign: "left"}}>Big Flexers</td>
+                            <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.big_flexers || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="big-flexers-assign-input"
@@ -627,7 +627,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-add-form"
                                     id="big-flexers-add-input"
@@ -638,7 +638,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 props.loading.projects
                                 ? <Button className="remove-button" name="big_flexers" variant="primary" type="submit" disabled>
                                     Loading...
@@ -649,12 +649,12 @@ function Assign(props) {
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
-                            <td>Big Flexers</td>
+                            <td style={{textAlign: "left"}}>Big Flexers</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="big-flexers-assign-input"
@@ -665,7 +665,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-add-form"
                                     id="big-flexers-add-input"
@@ -676,7 +676,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 props.loading.projects
                                 ? <Button className="remove-button" name="big_flexers" variant="primary" type="submit" disabled>
                                     Loading...
@@ -690,13 +690,13 @@ function Assign(props) {
                     {
                         props.kdInfo.completed_projects.indexOf('star_busters') < 0
                         ? <tr>
-                            <td>Star Busters</td>
-                            <td>{(props.kdInfo.projects_assigned.star_busters || 0).toLocaleString()}</td>
-                            <td>{displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
-                            <td>{
+                            <td style={{textAlign: "left"}}>Star Busters</td>
+                            <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.star_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="star-busters-assign-input"
@@ -707,7 +707,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-add-form"
                                     id="star-busters-add-input"
@@ -718,7 +718,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 props.loading.projects
                                 ? <Button className="remove-button" name="star_busters" variant="primary" type="submit" disabled>
                                     Loading...
@@ -729,12 +729,12 @@ function Assign(props) {
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
-                            <td>Star Busters</td>
+                            <td style={{textAlign: "left"}}>Star Busters</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="star-busters-assign-input"
@@ -745,7 +745,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-add-form"
                                     id="star-busters-add-input"
@@ -756,7 +756,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 props.loading.projects
                                 ? <Button className="remove-button" name="star_busters" variant="primary" type="submit" disabled>
                                     Loading...
@@ -770,13 +770,13 @@ function Assign(props) {
                     {
                         props.kdInfo.completed_projects.indexOf('galaxy_busters') < 0
                         ? <tr>
-                            <td>Galaxy Busters</td>
-                            <td>{(props.kdInfo.projects_assigned.galaxy_busters || 0).toLocaleString()}</td>
-                            <td>{displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
-                            <td>{
+                            <td style={{textAlign: "left"}}>Galaxy Busters</td>
+                            <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.galaxy_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="galaxy-busters-assign-input"
@@ -787,7 +787,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-add-form"
                                     id="galaxy-busters-add-input"
@@ -798,7 +798,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 props.loading.projects
                                 ? <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" disabled>
                                     Loading...
@@ -809,12 +809,12 @@ function Assign(props) {
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
-                            <td>Galaxy Busters</td>
+                            <td style={{textAlign: "left"}}>Galaxy Busters</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="galaxy-busters-assign-input"
@@ -825,7 +825,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-add-form"
                                     id="galaxy-busters-add-input"
@@ -836,7 +836,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 props.loading.projects
                                 ? <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" disabled>
                                     Loading...
@@ -850,13 +850,13 @@ function Assign(props) {
                     {
                         props.kdInfo.completed_projects.indexOf('drone_gadgets') < 0
                         ? <tr>
-                            <td>Drone Gadgets</td>
-                            <td>{(props.kdInfo.projects_assigned.drone_gadgets || 0).toLocaleString()}</td>
-                            <td>{displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
-                            <td>{
+                            <td style={{textAlign: "left"}}>Drone Gadgets</td>
+                            <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.drone_gadgets || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="drone-gadgets-assign-input"
@@ -867,7 +867,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-add-form"
                                     id="drone-gadgets-add-input"
@@ -878,7 +878,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 props.loading.projects
                                 ? <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" disabled>
                                     Loading...
@@ -889,12 +889,12 @@ function Assign(props) {
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
-                            <td>Drone Gadgets</td>
+                            <td style={{textAlign: "left"}}>Drone Gadgets</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="drone-gadgets-assign-input"
@@ -905,7 +905,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="projects-add-form"
                                     id="drone-gadgets-add-input"
@@ -916,7 +916,7 @@ function Assign(props) {
                                     autoComplete="off"
                                 />
                             }</td>
-                            <td>{
+                            <td style={{textAlign: "right"}}>{
                                 props.loading.projects
                                 ? <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" disabled>
                                     Loading...
@@ -1046,29 +1046,29 @@ function Allocate(props) {
                 <thead>
                     <tr><th colSpan={10}>Continuous Projects</th></tr>
                     <tr>
-                        <th>Project</th>
-                        <th>Assigned Engineers</th>
-                        <th>Assigned %</th>
-                        <th>Current Pts</th>
-                        <th>Max Pts</th>
-                        <th>Current Bonus</th>
-                        <th>Max Bonus</th>
-                        <th>Current Allocation</th>
-                        <th>New Allocation</th>
+                        <th style={{textAlign: "left"}}>Project</th>
+                        <th style={{textAlign: "right"}}>Assigned Engineers</th>
+                        <th style={{textAlign: "right"}}>Assigned %</th>
+                        <th style={{textAlign: "right"}}>Current Pts</th>
+                        <th style={{textAlign: "right"}}>Max Pts</th>
+                        <th style={{textAlign: "right"}}>Current Bonus</th>
+                        <th style={{textAlign: "right"}}>Max Bonus</th>
+                        <th style={{textAlign: "right"}}>Current Allocation</th>
+                        <th style={{textAlign: "right"}}>New Allocation</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Pop Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.pop_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.pop_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{Math.floor(props.kdInfo.projects_points.pop_bonus || 0).toLocaleString()}</td>
-                        <td>{Math.floor(props.kdInfo.projects_max_points.pop_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent(props.projectsInfo.current_bonuses.pop_bonus || 0)}</td>
-                        <td>{displayPercent(props.projectsInfo.max_bonuses.pop_bonus || 0)}</td>
-                        <td>{displayPercent((props.kdInfo.projects_target?.pop_bonus || 0))}</td>
-                        <td>{
-                            <InputGroup className="mb-3">
+                        <td style={{textAlign: "left"}}>Pop Bonus</td>
+                        <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.pop_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.pop_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.pop_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.pop_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.pop_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.pop_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.pop_bonus || 0))}</td>
+                        <td style={{textAlign: "right"}}>{
+                            <InputGroup className="mb-3" size="sm">
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="pop-bonus-assign-input"
@@ -1083,16 +1083,16 @@ function Allocate(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Fuel Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.fuel_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.fuel_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{Math.floor(props.kdInfo.projects_points.fuel_bonus || 0).toLocaleString()}</td>
-                        <td>{Math.floor(props.kdInfo.projects_max_points.fuel_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent(props.projectsInfo.current_bonuses.fuel_bonus || 0)}</td>
-                        <td>{displayPercent(props.projectsInfo.max_bonuses.fuel_bonus || 0)}</td>
-                        <td>{displayPercent((props.kdInfo.projects_target?.fuel_bonus || 0))}</td>
-                        <td>{
-                            <InputGroup className="mb-3">
+                        <td style={{textAlign: "left"}}>Fuel Bonus</td>
+                        <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.fuel_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.fuel_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.fuel_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.fuel_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.fuel_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.fuel_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.fuel_bonus || 0))}</td>
+                        <td style={{textAlign: "right"}}>{
+                            <InputGroup className="mb-3" size="sm">
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="fuel-bonus-assign-input"
@@ -1107,16 +1107,16 @@ function Allocate(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Military Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.military_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.military_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{Math.floor(props.kdInfo.projects_points.military_bonus || 0).toLocaleString()}</td>
-                        <td>{Math.floor(props.kdInfo.projects_max_points.military_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent(props.projectsInfo.current_bonuses.military_bonus || 0)}</td>
-                        <td>{displayPercent(props.projectsInfo.max_bonuses.military_bonus || 0)}</td>
-                        <td>{displayPercent((props.kdInfo.projects_target?.military_bonus || 0))}</td>
-                        <td>{
-                            <InputGroup className="mb-3">
+                        <td style={{textAlign: "left"}}>Military Bonus</td>
+                        <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.military_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.military_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.military_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.military_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.military_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.military_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.military_bonus || 0))}</td>
+                        <td style={{textAlign: "right"}}>{
+                            <InputGroup className="mb-3" size="sm">
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="military-bonus-assign-input"
@@ -1131,16 +1131,16 @@ function Allocate(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Money Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.money_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.money_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{Math.floor(props.kdInfo.projects_points.money_bonus || 0).toLocaleString()}</td>
-                        <td>{Math.floor(props.kdInfo.projects_max_points.money_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent(props.projectsInfo.current_bonuses.money_bonus || 0)}</td>
-                        <td>{displayPercent(props.projectsInfo.max_bonuses.money_bonus || 0)}</td>
-                        <td>{displayPercent((props.kdInfo.projects_target?.money_bonus || 0))}</td>
-                        <td>{
-                            <InputGroup className="mb-3">
+                        <td style={{textAlign: "left"}}>Money Bonus</td>
+                        <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.money_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.money_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.money_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.money_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.money_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.money_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.money_bonus || 0))}</td>
+                        <td style={{textAlign: "right"}}>{
+                            <InputGroup className="mb-3" size="sm">
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="money-bonus-assign-input"
@@ -1155,16 +1155,16 @@ function Allocate(props) {
                         }</td>
                     </tr>
                     <tr>
-                        <td>Generals Speed Bonus</td>
-                        <td>{(props.kdInfo.projects_assigned.general_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent((props.kdInfo.projects_assigned.general_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                        <td>{Math.floor(props.kdInfo.projects_points.general_bonus || 0).toLocaleString()}</td>
-                        <td>{Math.floor(props.kdInfo.projects_max_points.general_bonus || 0).toLocaleString()}</td>
-                        <td>{displayPercent(props.projectsInfo.current_bonuses.general_bonus || 0)}</td>
-                        <td>{displayPercent(props.projectsInfo.max_bonuses.general_bonus || 0)}</td>
-                        <td>{displayPercent((props.kdInfo.projects_target?.general_bonus || 0))}</td>
-                        <td>{
-                            <InputGroup className="mb-3">
+                        <td style={{textAlign: "left"}}>Generals Speed Bonus</td>
+                        <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.general_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.general_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.general_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.general_bonus || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.general_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.general_bonus || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.general_bonus || 0))}</td>
+                        <td style={{textAlign: "right"}}>{
+                            <InputGroup className="mb-3" size="sm">
                                 <Form.Control 
                                     className="projects-assign-form"
                                     id="general-bonus-assign-input"
@@ -1181,16 +1181,16 @@ function Allocate(props) {
                     {
                         props.kdInfo.completed_projects.indexOf('drone_gadgets') >= 0
                         ? <tr>
-                            <td>Spy Bonus</td>
-                            <td>{(props.kdInfo.projects_assigned.spy_bonus || 0).toLocaleString()}</td>
-                            <td>{displayPercent((props.kdInfo.projects_assigned.spy_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}</td>
-                            <td>{displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)}</td>
-                            <td>{displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}</td>
-                            <td>{displayPercent((props.kdInfo.projects_target?.spy_bonus || 0))}</td>
-                            <td>{
-                                <InputGroup className="mb-3">
+                            <td style={{textAlign: "left"}}>Spy Bonus</td>
+                            <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.spy_bonus || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.spy_bonus || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.spy_bonus || 0))}</td>
+                            <td style={{textAlign: "right"}}>{
+                                <InputGroup className="mb-3" size="sm">
                                     <Form.Control 
                                         className="projects-assign-form"
                                         id="spy-bonus-assign-input"
@@ -1205,15 +1205,15 @@ function Allocate(props) {
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
-                            <td>Spy Bonus</td>
+                            <td style={{textAlign: "left"}}>Spy Bonus</td>
                             <td colSpan={2}>Complete "Drone Gadgets" Project to Unlock</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}</td>
-                            <td>{displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)}</td>
-                            <td>{displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}</td>
-                            <td>{displayPercent((props.kdInfo.projects_target?.spy_bonus || 0))}</td>
-                            <td>{
-                                <InputGroup className="mb-3">
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.spy_bonus || 0))}</td>
+                            <td style={{textAlign: "right"}}>{
+                                <InputGroup className="mb-3" size="sm">
                                     <Form.Control 
                                         className="projects-assign-form"
                                         id="spy-bonus-assign-input"
@@ -1233,14 +1233,14 @@ function Allocate(props) {
                 <thead>
                     <tr><th colSpan={10}>One-Time Projects</th></tr>
                     <tr>
-                        <th>Project</th>
-                        <th>Assigned Engineers</th>
-                        <th>Assigned %</th>
-                        <th>Current Pts</th>
-                        <th>Max Pts</th>
-                        <th colSpan={2}>% Completed</th>
-                        <th>Current Allocation</th>
-                        <th>New Allocation</th>
+                        <th style={{textAlign: "left"}}>Project</th>
+                        <th style={{textAlign: "right"}}>Assigned Engineers</th>
+                        <th style={{textAlign: "right"}}>Assigned %</th>
+                        <th style={{textAlign: "right"}}>Current Pts</th>
+                        <th style={{textAlign: "right"}}>Max Pts</th>
+                        <th colSpan={2} style={{textAlign: "right"}}>% Completed</th>
+                        <th style={{textAlign: "right"}}>Current Allocation</th>
+                        <th style={{textAlign: "right"}}>New Allocation</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1248,15 +1248,15 @@ function Allocate(props) {
                     {
                         props.kdInfo.completed_projects.indexOf('big_flexers') < 0
                         ? <tr>
-                            <td>Big Flexers</td>
-                            <td>{(props.kdInfo.projects_assigned.big_flexers || 0).toLocaleString()}</td>
-                            <td>{displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
-                            <td>{displayPercent((props.kdInfo.projects_target?.big_flexers || 0))}</td>
-                            <td>{
-                                <InputGroup className="mb-3">
+                            <td style={{textAlign: "left"}}>Big Flexers</td>
+                            <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.big_flexers || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.big_flexers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{
+                                <InputGroup className="mb-3" size="sm">
                                     <Form.Control 
                                         className="projects-assign-form"
                                         id="big-flexers-assign-input"
@@ -1271,14 +1271,14 @@ function Allocate(props) {
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
-                            <td>Big Flexers</td>
+                            <td style={{textAlign: "left"}}>Big Flexers</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
-                            <td>{displayPercent((props.kdInfo.projects_target?.big_flexers || 0))}</td>
-                            <td>{
-                                <InputGroup className="mb-3">
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.big_flexers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{
+                                <InputGroup className="mb-3" size="sm">
                                     <Form.Control 
                                         className="projects-assign-form"
                                         id="big-flexers-assign-input"
@@ -1296,15 +1296,15 @@ function Allocate(props) {
                     {
                         props.kdInfo.completed_projects.indexOf('star_busters') < 0
                         ? <tr>
-                            <td>Star Busters</td>
-                            <td>{(props.kdInfo.projects_assigned.star_busters || 0).toLocaleString()}</td>
-                            <td>{displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
-                            <td>{displayPercent((props.kdInfo.projects_target?.star_busters || 0))}</td>
-                            <td>{
-                                <InputGroup className="mb-3">
+                            <td style={{textAlign: "left"}}>Star Busters</td>
+                            <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.star_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.star_busters || 0))}</td>
+                            <td style={{textAlign: "right"}}>{
+                                <InputGroup className="mb-3" size="sm">
                                     <Form.Control 
                                         className="projects-assign-form"
                                         id="star-busters-assign-input"
@@ -1319,14 +1319,14 @@ function Allocate(props) {
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
-                            <td>Star Busters</td>
+                            <td style={{textAlign: "left"}}>Star Busters</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
-                            <td>{displayPercent((props.kdInfo.projects_target?.star_busters || 0))}</td>
-                            <td>{
-                                <InputGroup className="mb-3">
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.star_busters || 0))}</td>
+                            <td style={{textAlign: "right"}}>{
+                                <InputGroup className="mb-3" size="sm">
                                     <Form.Control 
                                         className="projects-assign-form"
                                         id="star-busters-assign-input"
@@ -1344,15 +1344,15 @@ function Allocate(props) {
                     {
                         props.kdInfo.completed_projects.indexOf('galaxy_busters') < 0
                         ? <tr>
-                            <td>Galaxy Busters</td>
-                            <td>{(props.kdInfo.projects_assigned.galaxy_busters || 0).toLocaleString()}</td>
-                            <td>{displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
-                            <td>{displayPercent((props.kdInfo.projects_target?.galaxy_busters || 0))}</td>
-                            <td>{
-                                <InputGroup className="mb-3">
+                            <td style={{textAlign: "left"}}>Galaxy Busters</td>
+                            <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.galaxy_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.galaxy_busters || 0))}</td>
+                            <td style={{textAlign: "right"}}>{
+                                <InputGroup className="mb-3" size="sm">
                                     <Form.Control 
                                         className="projects-assign-form"
                                         id="galaxy-busters-assign-input"
@@ -1367,14 +1367,14 @@ function Allocate(props) {
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
-                            <td>Galaxy Busters</td>
+                            <td style={{textAlign: "left"}}>Galaxy Busters</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
-                            <td>{displayPercent((props.kdInfo.projects_target?.galaxy_busters || 0))}</td>
-                            <td>{
-                                <InputGroup className="mb-3">
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.galaxy_busters || 0))}</td>
+                            <td style={{textAlign: "right"}}>{
+                                <InputGroup className="mb-3" size="sm">
                                     <Form.Control 
                                         className="projects-assign-form"
                                         id="galaxy-busters-assign-input"
@@ -1392,15 +1392,15 @@ function Allocate(props) {
                     {
                         props.kdInfo.completed_projects.indexOf('drone_gadgets') < 0
                         ? <tr>
-                            <td>Drone Gadgets</td>
-                            <td>{(props.kdInfo.projects_assigned.drone_gadgets || 0).toLocaleString()}</td>
-                            <td>{displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))}</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
-                            <td>{displayPercent((props.kdInfo.projects_target?.drone_gadgets || 0))}</td>
-                            <td>{
-                                <InputGroup className="mb-3">
+                            <td style={{textAlign: "left"}}>Drone Gadgets</td>
+                            <td style={{textAlign: "right"}}>{(props.kdInfo.projects_assigned.drone_gadgets || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.drone_gadgets || 0))}</td>
+                            <td style={{textAlign: "right"}}>{
+                                <InputGroup className="mb-3" size="sm">
                                     <Form.Control 
                                         className="projects-assign-form"
                                         id="drone-gadgets-assign-input"
@@ -1415,14 +1415,14 @@ function Allocate(props) {
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
-                            <td>Drone Gadgets</td>
+                            <td style={{textAlign: "left"}}>Drone Gadgets</td>
                             <td colSpan={2}>Project Complete!</td>
-                            <td>{Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()}</td>
-                            <td>{Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}</td>
-                            <td colSpan={2}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
-                            <td>{displayPercent((props.kdInfo.projects_target?.drone_gadgets || 0))}</td>
-                            <td>{
-                                <InputGroup className="mb-3">
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}</td>
+                            <td colSpan={2} style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.drone_gadgets || 0))}</td>
+                            <td style={{textAlign: "right"}}>{
+                                <InputGroup className="mb-3" size="sm">
                                     <Form.Control 
                                         className="projects-assign-form"
                                         id="drone-gadgets-assign-input"

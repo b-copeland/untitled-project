@@ -246,13 +246,13 @@ function Spy(props) {
                         <thead>
                             <tr>
                                 <th>Input</th>
-                                <th>Value</th>
+                                <th style={{textAlign: "right"}}>Value</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>Drones</td>
-                                <td>
+                                <td style={{textAlign: "right"}}>
                                     {   targetKdInfo.hasOwnProperty("drones")
                                         ? <Form.Control 
                                             className="unit-form"
@@ -277,7 +277,7 @@ function Spy(props) {
                             </tr>
                             <tr>
                                 <td>Stars</td>
-                                <td>
+                                <td style={{textAlign: "right"}}>
                                     {   targetKdInfo.hasOwnProperty("stars")
                                         ? <Form.Control
                                             className="unit-form"
@@ -302,7 +302,7 @@ function Spy(props) {
                             </tr>
                             <tr>
                                 <td>Spy Shields</td>
-                                <td>
+                                <td style={{textAlign: "right"}}>
                                     {   targetKdInfo.hasOwnProperty("shields")
                                         ? <InputGroup className="mb-3">
                                             <Form.Control
@@ -339,21 +339,21 @@ function Spy(props) {
                             <thead>
                                 <tr>
                                     <th>Type</th>
-                                    <th>Value</th>
+                                    <th style={{textAlign: "right"}}>Value</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
                                     <td>Stars-based defense</td>
-                                    <td>{(calcMessage.stars_defense || 0).toLocaleString()}</td>
+                                    <td style={{textAlign: "right"}}>{(calcMessage.stars_defense || 0).toLocaleString()}</td>
                                 </tr>
                                 <tr>
                                     <td>Drones-based defense</td>
-                                    <td>{Math.floor(calcMessage.drones_defense || 0)?.toLocaleString()}</td>
+                                    <td style={{textAlign: "right"}}>{Math.floor(calcMessage.drones_defense || 0)?.toLocaleString()}</td>
                                 </tr>
                                 <tr>
                                     <td>Max success threshold</td>
-                                    <td>{Math.floor(calcMessage.total_defense || 0)?.toLocaleString()}</td>
+                                    <td style={{textAlign: "right"}}>{Math.floor(calcMessage.total_defense || 0)?.toLocaleString()}</td>
                                 </tr>
                             </tbody>
                         </Table>

@@ -383,9 +383,9 @@ function Revealed(props) {
                 <Column field="kingdom" header="Kingdom" filter showFilterMenu={false} style={{ width: '10%' }}/>
                 <Column field="galaxy" header="Galaxy" sortable filter showFilterMenu={false} style={{ width: '7.5%' }}/>
                 <Column field="empire" header="Empire" sortable showFilterMenu={false} filter style={{ width: '10%' }}/>
-                <Column field="stars" header="Stars" sortable filter dataType="numeric" body={formatStars} style={{ width: '10%' }}/>
+                <Column field="stars" header="Stars" sortable filter dataType="numeric" body={formatStars} style={{ width: '10%' , textAlign:"right"}}/>
                 {/* <Column field="score" header="Score" sortable filter body={formatScore} style={{ width: '10%' }}/> */}
-                <Column field="coordinate_distance" header="Distance" sortable filter style={{ width: '10%' }}/>
+                <Column field="coordinate_distance" header="Distance" sortable filter style={{ width: '10%' , textAlign:"right"}}/>
                 <Column field="actions" header="Actions" style={{ width: '50%' }}/>
             </DataTable>
             <Table className="revealed-table" striped bordered hover>
