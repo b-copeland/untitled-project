@@ -26,7 +26,7 @@ function StatusContent(props) {
         variant="tabs"
       >
         <Tab eventKey="kingdom" title="Kingdom">
-          <Status kingdom={props.data.kingdom} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} state={props.data.state}/>
+          <Status kingdom={props.data.kingdom} mobis={props.data.mobis} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} state={props.data.state}/>
         </Tab>
         <Tab eventKey="shields" title="Shields">
           <Shields data={props.data} loading={props.loading} updateData={props.updateData}/>
@@ -94,7 +94,7 @@ function Status(props) {
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Engineers</span>
-                    <span className="text-box-item-value">{props.kingdom["units"]?.engineers.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom.units?.engineers.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Drones</span>
@@ -103,15 +103,15 @@ function Status(props) {
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Attackers</span>
-                    <span className="text-box-item-value">{props.kingdom["units"]?.attack.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.mobis.units?.current_total?.attack.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Defenders</span>
-                    <span className="text-box-item-value">{props.kingdom["units"]?.defense.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.mobis.units?.current_total?.defense.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Flexers</span>
-                    <span className="text-box-item-value">{props.kingdom["units"]?.flex.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.mobis.units?.current_total?.flex.toLocaleString()}</span>
                 </div>
             </div>
             <div className="text-box income-box">

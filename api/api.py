@@ -5468,10 +5468,17 @@ def _kingdom_with_income(
     income["money"]["net"] = (income["money"]["gross"] + income["money"]["siphons_in"] - income["money"]["siphons_out"])
     new_income = income["money"]["net"] * epoch_elapsed
 
+    total_units = kd_info_parse["units"]
+    for general in kd_info_parse["generals_out"]:
+        for key_unit, value_unit in general.items():
+            if key_unit == "return_time":
+                continue
+            total_units[key_unit] += value_unit
+
     income["fuel"]["fuel_plants"] = math.floor(kd_info_parse["structures"]["fuel_plants"]) * BASE_FUEL_PLANTS_INCOME_PER_EPOCH
     income["fuel"]["bonus"] = current_bonuses["fuel_bonus"]
     income["fuel"]["units"] = {}
-    for key_unit, value_units in kd_info_parse["units"].items():
+    for key_unit, value_units in total_units.items():
         income["fuel"]["units"][key_unit] = value_units * UNITS[key_unit]["fuel"]
     income["fuel"]["population"] = kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH
     income["fuel"]["shields"] = {}
@@ -5953,6 +5960,11 @@ def _resolve_auto_spending(
             k: current_units.get(k, 0) + building_units.get(k, 0)
             for k in kd_info_parse["units_target"].keys()
         }
+        for general in kd_info_parse["generals_out"]:
+            for key_unit, value_unit in general.items():
+                if key_unit == "return_time":
+                    continue
+                total_units[key_unit] += value_unit
         print("Total units", total_units)
         count_total_units = sum(total_units.values())
         pct_total_units = {
