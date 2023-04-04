@@ -5468,7 +5468,10 @@ def _kingdom_with_income(
     income["money"]["net"] = (income["money"]["gross"] + income["money"]["siphons_in"] - income["money"]["siphons_out"])
     new_income = income["money"]["net"] * epoch_elapsed
 
-    total_units = kd_info_parse["units"]
+    total_units = {
+        k: v
+        for k, v in kd_info_parse["units"].items()
+    }
     for general in kd_info_parse["generals_out"]:
         for key_unit, value_unit in general.items():
             if key_unit == "return_time":
