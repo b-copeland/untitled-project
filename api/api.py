@@ -635,7 +635,9 @@ with app.app_context():
     accounts = accounts_json["accounts"]
     print(accounts)
     for user in accounts:
+        print("user:", user)
         if db.session.query(User).filter_by(username=user["username"]).count() < 1:
+            print('Adding user:', user["username"])
             db.session.add(
                 User(**user)
             )
@@ -1988,7 +1990,7 @@ def _calc_structures(
     return structures
 
 def _get_structure_price(kd_info):
-    return BASE_SETTLE_COST(int(kd_info["stars"]))
+    return BASE_STRUCTURE_COST(int(kd_info["stars"]))
 
 def _calc_available_structures(structure_price, kd_info, structures_info):
     total_structures = math.ceil(sum(structures_info["current"].values()) + sum(structures_info["hour_24"].values()))
@@ -4676,6 +4678,7 @@ def _rob_primitives(req, kd_id):
             new_funding[key_spending] += pct_spending * rob
         new_money = rob * (1 - pct_allocated)
     else:
+        new_funding = kd_info_parse["funding"]
         new_money = rob
     kd_patch_payload = {
         "drones": kd_info_parse["drones"] - losses,
@@ -6214,6 +6217,7 @@ def refresh_data():
             if not user.kd_created:
                 continue
         except:
+            print(f"Could not query kd_id {kd_id}")
             pass
         next_resolves = {}
         time_update = datetime.datetime.now(datetime.timezone.utc)
