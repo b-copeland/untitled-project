@@ -11,6 +11,7 @@ import {
   redirect,
 } from "react-router-dom";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "./auth";
+import Button from 'react-bootstrap/Button';
 import SideNavbar from "./components/navbar";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css";
@@ -172,6 +173,7 @@ function Content(props) {
   const [loading, setLoading] = useState(initLoadingData);
   const [initLoadComplete, setInitLoadComplete] = useState(false);
   const [lastResolves, setLastResolves] = useState({});
+  const [showNav, setShowNav] = useState(false);
   // console.log(data);
   // console.log(loading);
 
@@ -272,6 +274,10 @@ function Content(props) {
     }
   }, 10000)
 
+  const handleShowNav = () => {
+    setShowNav(true);
+  }
+
   // console.log(data);
   // console.log(lastResolves);
   if (Object.keys(lastResolves || {}).length == 0 && data.kingdom.hasOwnProperty("next_resolve")) {
@@ -279,11 +285,12 @@ function Content(props) {
   }
   return (
     <div className="main">
-      <div className="navdiv">
-        <SideNavbar logged={props.logged} setData={setData}/>
-      </div>
+      <div className="d-lg-none"><Button variant="primary" type="submit" onClick={handleShowNav}>Nav</Button></div>
+
+      {/* <div className="navdiv"> */}
+      {/* </div> */}
       <div className="main-body">
-        {/* <Header data={data}/> */}
+        <SideNavbar logged={props.logged} setData={setData} showNav={showNav} setShowNav={setShowNav}/>
         <div className="router">
           {/* <Router> */}
             <div className="router-body">

@@ -1,8 +1,4 @@
 .sidenav {
-    height: 100%;
-    width: 100%;
-    padding: 50px;
-    font-size: larger;
     display: flex;
     flex-direction: column;
 }
@@ -11,6 +7,9 @@
     display: flex;
     flex-direction: column;
     align-items: left;
+    width: 100%;
+    padding: 50px;
+    font-size: larger;
 }
 
 .nav-logout {

@@ -40,7 +40,7 @@
 .main {
   display: flex;
   /* height: 100%; */
-  /* flex-direction: column; */
+  flex-direction: column;
   /* overflow-y: auto; */
   position: relative;
   min-width: 1280px;
@@ -58,11 +58,15 @@
   top: 0;
 }
 
+/* @media screen and (min-width: 480px) {
+  .navdiv {
+     width: clamp(300px,24rem,800px);
+  }
+} */
+
 .main-body {
   display: flex;
-  flex-direction: column;
-  width: 100%;
-  align-items: center;
+  flex-direction: row;
 }
 
 .router {
