@@ -224,7 +224,7 @@ function Shields(props) {
             <ToastContainer position="bottom-end">
                 {toasts}
             </ToastContainer>
-            <Table className="projects-table" striped bordered hover>
+            <Table className="shields-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Shield</th>
@@ -243,7 +243,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.kingdom.shields?.military * props.data.shields.desc?.military?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.military?.max * props.data.shields.desc?.military?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 shields-input-group">
                                 <Form.Control
                                 className="shields-assign-form"
                                 id="military-input"
@@ -264,7 +264,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.kingdom.shields?.spy * props.data.shields.desc?.spy?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.spy?.max * props.data.shields.desc?.spy?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 shields-input-group">
                                 <Form.Control
                                 className="shields-assign-form"
                                 id="spy-input"
@@ -285,7 +285,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.kingdom.shields?.spy_radar * props.data.shields.desc?.spy_radar?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.spy_radar?.max * props.data.shields.desc?.spy_radar?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 shields-input-group">
                                 <Form.Control
                                 className="shields-assign-form"
                                 id="spy-radar-input"
@@ -306,7 +306,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.kingdom.shields?.missiles * props.data.shields.desc?.missiles?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.missiles?.max * props.data.shields.desc?.missiles?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 shields-input-group">
                                 <Form.Control
                                 className="shields-assign-form"
                                 id="missiles-input"
@@ -448,7 +448,7 @@ function Spending(props) {
             </Form>
             <div className="spending-inputs">
                 <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-settle-percent">
+                    <InputGroup.Text id="text-settle-percent" className="spending-title">
                         Settle (Current: {spendingInfo.settle * 100}%)
                     </InputGroup.Text>
                     <Form.Control 
@@ -464,7 +464,7 @@ function Spending(props) {
                     </InputGroup.Text>
                 </InputGroup>
                 <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-structures-percent">
+                    <InputGroup.Text id="text-structures-percent" className="spending-title">
                         Structures (Current: {spendingInfo.structures * 100}%)
                     </InputGroup.Text>
                     <Form.Control 
@@ -480,7 +480,7 @@ function Spending(props) {
                     </InputGroup.Text>
                 </InputGroup>
                 <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-military-percent">
+                    <InputGroup.Text id="text-military-percent" className="spending-title">
                         Military (Current: {spendingInfo.military * 100}%)
                     </InputGroup.Text>
                     <Form.Control 
@@ -496,7 +496,7 @@ function Spending(props) {
                     </InputGroup.Text>
                 </InputGroup>
                 <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-engineers-percent">
+                    <InputGroup.Text id="text-engineers-percent" className="spending-title">
                         Engineers (Current: {spendingInfo.engineers * 100}%)
                     </InputGroup.Text>
                     <Form.Control 
@@ -545,7 +545,7 @@ function Military(props) {
         <div className="status">
             <div className="army-info">
                 <h2>Armies</h2>
-                <Table striped bordered hover>
+                <Table striped bordered hover className="army-table" size="sm">
                     <thead>
                         <tr>
                         <th colSpan={2}></th>
@@ -605,7 +605,7 @@ function Military(props) {
                         </tr>
                     </tbody>
                 </Table>
-                <Table striped bordered hover>
+                <Table striped bordered hover className="army-table" size="sm">
                     <thead>
                         <tr>
                         <th colSpan={2}></th>
@@ -644,7 +644,7 @@ function Military(props) {
             </div>
             <div className="mobi-info">
                 <h2>Mobilization</h2>
-                <Table striped bordered hover>
+                <Table striped bordered hover className="mobis-table" size="sm">
                     <thead>
                         <tr>
                         <th style={{textAlign: "right"}}></th>
@@ -704,7 +704,7 @@ function Military(props) {
                         </tr>
                     </tbody>
                 </Table>
-                <Table striped bordered hover>
+                <Table striped bordered hover className="mobis-table" size="sm">
                     <thead>
                         <tr>
                         <th style={{textAlign: "right"}}></th>
@@ -748,10 +748,10 @@ function Structures(props) {
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
-        <div className="revealed">
+        <div className="status">
             <h2>Structures</h2>
             <div className="structures-info">
-                <Table striped bordered hover>
+                <Table striped bordered hover className="structures-status-table" size="sm">
                     <thead>
                         <tr>
                         <th style={{textAlign: "right"}}></th>

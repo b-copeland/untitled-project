@@ -41,20 +41,17 @@
   display: flex;
   /* height: 100%; */
   flex-direction: column;
-  /* overflow-y: auto; */
-  position: relative;
-  min-width: 1280px;
-  max-width: 1920px;
+  /* overflow-y: hidden; */
 }
 
 .navdiv {
   display: flex;
   flex-direction: column;
   border-right: 1px solid #9e9e9e;
-  height: 100vh;
+  height: 100%;
   width: clamp(300px,24rem,800px);
   position: sticky;
-  align-items: center;
+  /* align-items: center; */
   top: 0;
 }
 
@@ -74,8 +71,6 @@
   flex-direction: column;
   width: 100%;
   align-items: center;
-  min-height: 720px;
-  max-height: 1080px;
 }
 
 .router-body {
@@ -85,24 +80,24 @@
 
 .header-container {
   width: 100%;
+  /* max-height: 10%; */
   align-items: center;
   justify-content: center;
   display: flex;
-  padding: 20px;
+  padding: 5px;
   align-self: center;
 }
 
 .header-contents {
-  width: 90%;
-  height: 90%;
   align-items: center;
   display: flex;
   flex-wrap: wrap;
+  padding: 5px;
 }
 .header-item {
-  height: 50%;
-  width: 25%;
+  width: 50%;
   border: 1px solid var(--bs-border-color);
   box-sizing: border-box;
   padding: 3px;
+  font-size: smaller;
 }

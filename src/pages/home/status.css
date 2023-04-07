@@ -2,6 +2,7 @@
     display: flex;
     flex-direction: row;
     justify-content: center;
+    flex-wrap: wrap;
 }
 
 .shields {
@@ -10,7 +11,20 @@
     align-items: center;
 }
 .shields-content {
-    width: 60%;
+    width: 100%;
+}
+
+.shields-table {
+    font-size: 10px;
+}
+
+.shields-input-group {
+    max-height: 20px;
+}
+
+.shields-assign-form {
+    /* height: 100%; */
+    /* max-height: 20px; */
 }
 
 .spending {
@@ -24,10 +38,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 60%
+    width: 100%
 }
 .spending-input-pct {
     width: 10%
+}
+.spending-title {
+    width: 60%;
 }
 .revealed {
     display: flex;
@@ -68,16 +85,18 @@
 }
 
 .kingdom-card {
-    width: 30%
+    /* width: 30% */
+    width: 100%;
 }
 
 .income-box {
-    width: 30%
+    /* width: 30% */
+    width: 100%;
 }
 
-.revealed-box {
+/* .revealed-box {
     width: 30%
-}
+} */
 
 .text-box {
     border: 2px solid var(--bs-border-color);
@@ -106,30 +125,39 @@
     margin-right: 5px;
 }
 
-.revealed-box {
+/* .revealed-box {
     border: 2px solid var(--bs-border-color);
     display: flex;
     flex-direction: column;
     width: 60%;
     margin: 5px;
     padding: 5px;
-}
+} */
 
-.input-group-text {
+/* .input-group-text {
     width: 50%
-}
+} */
 
 .army-info {
-    margin: 30px;
-    width: 45%;
+    margin: 10px;
+    width: 100%;
+}
+.army-table {
+    font-size: 10px;
+}
+.mobis-table {
+    font-size: 8px;
 }
 .mobi-info {
-    margin: 30px;
-    width: 45%;
+    margin: 10px;
+    width: 100%;
 }
 
 .structures-info {
-    width: 70%
+    width: 100%
+}
+.structures-status-table {
+    font-size: 10px;
 }
 
 /* .table {
