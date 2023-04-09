@@ -8,14 +8,14 @@
     border: 2px solid var(--bs-border-color);
     padding: 5px;
     margin: 5px;
-    width: 45%;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
 .settle-input-group {
-    width: 45%;
+    width: 75%;
     margin: 5px;
 }
 

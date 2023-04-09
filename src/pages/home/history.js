@@ -114,14 +114,14 @@ function Attack(props) {
                 removableSort
                 filters={filters}
                 filterDisplay="row"
-                style={{ minWidth: '100%'}}
+                style={{ width: '100%'}}
                 header={"Attack History"}
             >
-                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '70%' }}/>
+                {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
+                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
                 <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
-                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '50%' }}/>
             </DataTable>
         </div>
     );
@@ -163,15 +163,15 @@ function Spy(props) {
                 removableSort
                 filters={filters}
                 filterDisplay="row"
-                style={{ minWidth: '100%'}}
+                style={{ width: '100%'}}
                 header={"Spy History"}
             >
                 <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '45%'}}/>
+                {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
                 <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
                 <Column field="operation" header="Operation" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '35%' }}/>
+                <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
             </DataTable>
         </div>
     );
@@ -211,14 +211,14 @@ function Missiles(props) {
                 removableSort
                 filters={filters}
                 filterDisplay="row"
-                style={{ minWidth: '100%'}}
+                style={{ width: '100%'}}
                 header={"Missile History"}
             >
                 <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '60%' }}/>
+                {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
                 <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '55%' }}/>
+                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
             </DataTable>
         </div>
     );

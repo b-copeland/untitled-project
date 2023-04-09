@@ -176,13 +176,13 @@ function LaunchMissiles(props) {
                             placeholder="Missile Shields"
                             autoComplete="off"
                         />
-                        <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                        <InputGroup.Text id="basic-addon2" className="missile-shields-input-group-text">%</InputGroup.Text>
                     </InputGroup>
                 }
             </div>
             <div className="attacker-stats">
                 <h3>Missiles to Send</h3>
-                <Table striped bordered hover>
+                <Table striped bordered hover size="sm" className="launch-missiles-table">
                     <thead>
                         <tr>
                             <th>Missile</th>
@@ -202,7 +202,7 @@ function LaunchMissiles(props) {
                             <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.planet_busters?.pop_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>
                                 <Form.Control 
-                                    className="unit-form"
+                                    className="launch-missile-form"
                                     id="planet-busters-input"
                                     name="planet_busters"
                                     onChange={handleAttackerChange}
@@ -220,7 +220,7 @@ function LaunchMissiles(props) {
                             <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.star_busters?.pop_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>
                                 <Form.Control 
-                                    className="unit-form"
+                                    className="launch-missile-form"
                                     id="star-busters-input"
                                     name="star_busters"
                                     onChange={handleAttackerChange}
@@ -238,7 +238,7 @@ function LaunchMissiles(props) {
                             <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.galaxy_busters?.pop_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>
                                 <Form.Control 
-                                    className="unit-form"
+                                    className="launch-missile-form"
                                     id="galaxy-busters-input"
                                     name="galaxy_busters"
                                     onChange={handleAttackerChange}

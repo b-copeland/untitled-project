@@ -211,7 +211,7 @@ function Spy(props) {
                         <label id="aria-label" htmlFor="aria-example-input">
                             Select a Spy Operation
                         </label>
-                        <Select id="select-operation" className="attack-kingdom-select" options={spyOptions} onChange={handleOperationChange} autoFocus={false} 
+                        <Select id="select-operation" className="operation-select" options={spyOptions} onChange={handleOperationChange} autoFocus={false} 
                             styles={{
                                 control: (baseStyles, state) => ({
                                     ...baseStyles,
@@ -304,7 +304,7 @@ function Spy(props) {
                                 <td>Spy Shields</td>
                                 <td style={{textAlign: "right"}}>
                                     {   targetKdInfo.hasOwnProperty("shields")
-                                        ? <InputGroup className="mb-3">
+                                        ? <InputGroup className="mb-3 spy-input-group">
                                             <Form.Control
                                                 className="unit-form"
                                                 id="spy-shields-input"
@@ -314,9 +314,9 @@ function Spy(props) {
                                                 disabled
                                                 autoComplete="off"
                                             />
-                                            <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                            <InputGroup.Text id="basic-addon2" className="drones-input-group-text">%</InputGroup.Text>
                                         </InputGroup>
-                                        : <InputGroup className="mb-3">
+                                        : <InputGroup className="mb-3 spy-input-group">
                                             <Form.Control
                                                 className="unit-form"
                                                 id="spy-shields-input"
@@ -326,7 +326,7 @@ function Spy(props) {
                                                 placeholder="0"
                                                 autoComplete="off"
                                             />
-                                            <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                            <InputGroup.Text id="basic-addon2" className="spy-input-group-text">%</InputGroup.Text>
                                         </InputGroup>
                                     }
                                 </td>
@@ -335,7 +335,7 @@ function Spy(props) {
                     </Table>
                     <div className="operation-details">
                         <h3>Operation Details</h3>
-                        <Table striped bordered hover>
+                        <Table striped bordered hover size="sm" className="operation-table">
                             <thead>
                                 <tr>
                                     <th>Type</th>
@@ -362,7 +362,7 @@ function Spy(props) {
                 <div className="spy-attacker-stats">
                     <h3>{kdFullLabel(props.data.kingdom.kdId)}</h3>
                     <InputGroup className="mb-3 drones-input-group">
-                        <InputGroup.Text id="basic-addon2">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>
+                        <InputGroup.Text id="basic-addon2" className="drones-input-group-text">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>
                         <Form.Control 
                             className="unit-form"
                             id="drones-input"

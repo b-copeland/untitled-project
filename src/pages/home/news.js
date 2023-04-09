@@ -107,6 +107,7 @@ function Kingdom(props) {
     return (
         <div className="kingdom">
             <DataTable
+                className="news-table"
                 value={newsRowsPrime}
                 paginator
                 size="small"
@@ -117,14 +118,14 @@ function Kingdom(props) {
                 removableSort
                 filters={filters}
                 filterDisplay="row"
-                style={{ minWidth: '100%'}}
+                style={{ width: '100%'}}
                 header={"Kingdom News"}
             >
-                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '70%' }}/>
+                {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
                 <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '55%' }}/>
+                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
             </DataTable>
         </div>
     );
@@ -160,22 +161,21 @@ function Galaxy(props) {
                 value={newsRowsPrime}
                 paginator
                 size="small"
-                columnResizeMode="expand"
                 rows={10}
                 rowsPerPageOptions={[5, 10, 25, 50]}
                 sortMode="multiple"
                 removableSort
                 filters={filters}
                 filterDisplay="row"
-                style={{ minWidth: '100%'}}
+                style={{ width: '100%'}}
                 header={"Galaxy News"}
             >
                 <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '45%' }}/>
+                {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
                 <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
                 <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '45%' }}/>
+                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
             </DataTable>
         </div>
     );

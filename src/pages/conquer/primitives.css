@@ -7,13 +7,14 @@
     display: flex;
     flex-direction: row;
     width: 100%;
+    flex-wrap: wrap;
 }
 .attack-primitives {
     display: flex;
     flex-direction: column;
     align-items: center;
     height: 100%;
-    width: 50%;
+    width: 100%;
     padding: 20px;
 }
 .primitives-attack-auto {
@@ -21,12 +22,13 @@
     flex-direction: column;
     align-items: center;
     height: 100%;
-    width: 50%;
+    width: 100%;
     padding: 20px;
 }
 .primitives-attacker-detail {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
 }
 .primitives-box {
     margin: 10px;
@@ -39,7 +41,7 @@
     flex-direction: column;
     align-items: center;
     height: 100%;
-    width: 50%;
+    width: 100%;
     padding: 20px;
 }
 .auto-rob-primitives {
@@ -47,6 +49,23 @@
     flex-direction: column;
     align-items: center;
     height: 100%;
-    width: 50%;
+    width: 100%;
     padding: 20px;
+}
+
+.auto-attack-percent {
+    width: 95%;
+}
+
+.auto-attack-percent-text {
+    font-size: 10px;
+    width: 65%;
+}
+
+.rob-drones-input-text {
+    max-height: 30px;
+}
+.auto-drones-input-text {
+    font-size: 10px;
+    width: 65%;
 }

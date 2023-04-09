@@ -160,50 +160,50 @@ function Galaxy(props) {
             <td>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</td>
             <td>{galaxyInfo[kdId].race || ""}</td>
             <td style={{textAlign: "right"}}>{galaxyInfo[kdId].stars?.toLocaleString() || ""}</td>
-            <td style={{textAlign: "right"}}>{galaxyInfo[kdId].score != undefined ? Math.floor(galaxyInfo[kdId].score).toLocaleString() : ""}</td>
-            <td style={{textAlign: "right"}}>{galaxyInfo[kdId].aggression || ""}</td>
+            {/* <td style={{textAlign: "right"}}>{galaxyInfo[kdId].score != undefined ? Math.floor(galaxyInfo[kdId].score).toLocaleString() : ""}</td>
+            <td style={{textAlign: "right"}}>{galaxyInfo[kdId].aggression || ""}</td> */}
             <td style={{textAlign: "right"}}>{calcCoordinateDistance(galaxyInfo[kdId].coordinate || 0, props.data.kingdom.coordinate || 0).toString().padStart(2, '0') + ' (' + (galaxyInfo[kdId].coordinate || 0).toString().padStart(2, '0') + ')'}</td>
             <td>{galaxyInfo[kdId].status}</td>
             <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
                     View
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
                     Attack
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
                     Spy
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
                     Missile
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => setShowMessage(true)}>
                     Message
                 </Button>
                 {
                     props.loading.pinned
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" disabled>
+                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" disabled>
                         Loading...
                     </Button>
                     : props.data.pinned.indexOf(kdId) >= 0
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitUnpin}>
+                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={onSubmitUnpin}>
                         Unpin
                     </Button>
-                    : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={onSubmitPin}>
+                    : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={onSubmitPin}>
                         Pin
                     </Button>
                 }
                 {
                     props.data.galaxies_inverted[kdId] == props.data.galaxies_inverted[props.data.kingdom.kdId]
                     ? props.loading.revealed
-                        ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" disabled>
+                        ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" disabled>
                             Loading...
                         </Button>
                         : props.data.revealed.revealed_to_galaxymates?.indexOf(kdId) >= 0
-                        ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={() => onSubmitUnShare(kdId)}>
+                        ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => onSubmitUnShare(kdId)}>
                             Stop Sharing
                         </Button>
-                        : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowShareInfo(true)}}>
+                        : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowShareInfo(true)}}>
                             Share 
                         </Button>
                     : null
@@ -397,14 +397,14 @@ function Galaxy(props) {
             
             {!(galaxiesArray[galaxyIndex] != undefined)
                 ? <NonexistentGalaxy />
-                : <Table striped bordered hover>
+                : <Table striped bordered hover className="galaxies-table" size="sm" >
                     <thead>
                         <tr>
                         <th>Kingdom</th>
                         <th>Race</th>
                         <th style={{textAlign: "right"}}>Stars</th>
-                        <th style={{textAlign: "right"}}>Score</th>
-                        <th style={{textAlign: "right"}}>Aggression</th>
+                        {/* <th style={{textAlign: "right"}}>Score</th>
+                        <th style={{textAlign: "right"}}>Aggression</th> */}
                         <th style={{textAlign: "right"}}>Distance</th>
                         <th>Status</th>
                         <th colSpan={5}>Actions</th>

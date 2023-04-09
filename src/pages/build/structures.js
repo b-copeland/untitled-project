@@ -132,7 +132,7 @@ function BuildStructures(props) {
                     <span className="text-box-item-value">{structuresInfo["current_available_structures"].toLocaleString()}</span>
                 </div>
             </div>
-            <Table className="structures-table" striped bordered hover>
+            <Table className="structures-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Structure</th>
@@ -339,7 +339,7 @@ function AllocateStructures(props) {
             <div className="text-box structures-box">
                 <span>Choose the target allocation of structures that you would like the auto-spender to build towards</span>
             </div>
-            <Table className="structures-allocation-table" striped bordered hover>
+            <Table className="structures-allocation-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Structure</th>
@@ -358,7 +358,7 @@ function AllocateStructures(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.homes || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.homes || 0))}</td>
                         <td className="structures-form-data">{
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 structures-input-group">
                                 <Form.Control 
                                     className="structures-form"
                                     id="homes-input"
@@ -368,7 +368,7 @@ function AllocateStructures(props) {
                                     placeholder="0"
                                     autoComplete="off"
                                 />
-                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                <InputGroup.Text id="basic-addon2" className="structures-pct-text">%</InputGroup.Text>
                             </InputGroup>
                         }</td>
                     </tr>
@@ -379,7 +379,7 @@ function AllocateStructures(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.mines || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.mines || 0))}</td>
                         <td className="structures-form-data">{
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 structures-input-group">
                                 <Form.Control 
                                     className="structures-form"
                                     id="mines-input"
@@ -389,7 +389,7 @@ function AllocateStructures(props) {
                                     placeholder="0"
                                     autoComplete="off"
                                 />
-                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                <InputGroup.Text id="basic-addon2" className="structures-pct-text">%</InputGroup.Text>
                             </InputGroup>
                         }</td>
                     </tr>
@@ -400,7 +400,7 @@ function AllocateStructures(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.fuel_plants || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.fuel_plants || 0))}</td>
                         <td className="structures-form-data">{
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 structures-input-group">
                                 <Form.Control 
                                     className="structures-form"
                                     id="fuel-plants-input"
@@ -410,7 +410,7 @@ function AllocateStructures(props) {
                                     placeholder="0"
                                     autoComplete="off"
                                 />
-                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                <InputGroup.Text id="basic-addon2" className="structures-pct-text">%</InputGroup.Text>
                             </InputGroup>
                         }</td>
                     </tr>
@@ -421,7 +421,7 @@ function AllocateStructures(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.hangars || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.hangars || 0))}</td>
                         <td className="structures-form-data">{
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 structures-input-group">
                                 <Form.Control 
                                     className="structures-form"
                                     id="hangars-input"
@@ -431,7 +431,7 @@ function AllocateStructures(props) {
                                     placeholder="0"
                                     autoComplete="off"
                                 />
-                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                <InputGroup.Text id="basic-addon2" className="structures-pct-text">%</InputGroup.Text>
                             </InputGroup>
                         }</td>
                     </tr>
@@ -442,7 +442,7 @@ function AllocateStructures(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.drone_factories || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.drone_factories || 0))}</td>
                         <td className="structures-form-data">{
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 structures-input-group">
                                 <Form.Control 
                                     className="structures-form"
                                     id="drone-factories-input"
@@ -452,7 +452,7 @@ function AllocateStructures(props) {
                                     placeholder="0"
                                     autoComplete="off"
                                 />
-                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                <InputGroup.Text id="basic-addon2" className="structures-pct-text">%</InputGroup.Text>
                             </InputGroup>
                         }</td>
                     </tr>
@@ -463,7 +463,7 @@ function AllocateStructures(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.missile_silos || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.missile_silos || 0))}</td>
                         <td className="structures-form-data">{
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 structures-input-group">
                                 <Form.Control 
                                     className="structures-form"
                                     id="missile-silos-input"
@@ -473,7 +473,7 @@ function AllocateStructures(props) {
                                     placeholder="0"
                                     autoComplete="off"
                                 />
-                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                <InputGroup.Text id="basic-addon2" className="structures-pct-text">%</InputGroup.Text>
                             </InputGroup>
                         }</td>
                     </tr>
@@ -484,7 +484,7 @@ function AllocateStructures(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(structuresInfo.hour_24.workshops || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{displayPercent((kdInfo.structures_target?.workshops || 0))}</td>
                         <td className="structures-form-data">{
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 structures-input-group">
                                 <Form.Control 
                                     className="structures-form"
                                     id="workshops-input"
@@ -494,7 +494,7 @@ function AllocateStructures(props) {
                                     placeholder="0"
                                     autoComplete="off"
                                 />
-                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                <InputGroup.Text id="basic-addon2" className="structures-pct-text">%</InputGroup.Text>
                             </InputGroup>
                         }</td>
                     </tr>

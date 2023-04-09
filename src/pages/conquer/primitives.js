@@ -334,8 +334,8 @@ function AttackPrimitives(props) {
                             disabled={props.loading.kingdom}
                         />
                     </Form>
-                    <InputGroup className="mb-3">
-                        <InputGroup.Text id="text-pure-percent">
+                    <InputGroup className="mb-3 auto-attack-percent">
+                        <InputGroup.Text id="text-pure-percent" className="auto-attack-percent-text">
                             Pure Offense to Send (Current: {props.data.kingdom.auto_attack_settings?.pure * 100}%)
                         </InputGroup.Text>
                         <Form.Control 
@@ -346,12 +346,12 @@ function AttackPrimitives(props) {
                             placeholder={props.data.kingdom.auto_attack_settings?.pure * 100}
                             autoComplete="off"
                         />
-                        <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                        <InputGroup.Text id="pure-offense-pct" style={{width: '12%'}}>
                             %
                         </InputGroup.Text>
                     </InputGroup>
-                    <InputGroup className="mb-3">
-                        <InputGroup.Text id="text-settle-percent">
+                    <InputGroup className="mb-3 auto-attack-percent">
+                        <InputGroup.Text id="text-settle-percent" className="auto-attack-percent-text">
                             Flex Offense to Send (Current: {props.data.kingdom.auto_attack_settings?.flex * 100}%)
                         </InputGroup.Text>
                         <Form.Control 
@@ -362,7 +362,7 @@ function AttackPrimitives(props) {
                             placeholder={props.data.kingdom.auto_attack_settings?.flex * 100}
                             autoComplete="off"
                         />
-                        <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                        <InputGroup.Text id="flex-offense-pct" style={{width: '12%'}}>
                             %
                         </InputGroup.Text>
                     </InputGroup>
@@ -413,7 +413,16 @@ function RobPrimitives(props) {
         setAutoDrones(e.target.value)
     }
     const handleAutoShieldChange = (e) => {
-        setAutoShieldDrones(e.target.checked)
+        setAutoShieldDrones(e.target.checked);
+        let opts = {
+            'shielded': e.target.checked
+        }
+        const updateFunc = () => authFetch('api/robprimitives/auto', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
+        props.updateData(['kingdom'], [updateFunc])
+        setEnabled(e.target.checked)
     };
     const onClickAttack = () => {
         const opts = {
@@ -454,7 +463,6 @@ function RobPrimitives(props) {
     if (drones > props.data.kingdom["drones"]) {
         setDrones(Math.floor(props.data.kingdom["drones"]))
     }
-    console.log(props.data.state);
     return (
         <div className="primitives">
             <ToastContainer position="bottom-end">
@@ -469,7 +477,7 @@ function RobPrimitives(props) {
                     <span className="box-span">Primitives money per drone: {(props.data.state.primitives_rob_per_drone || 4).toFixed(2)}</span>
                 </div>
                 <InputGroup className="mb-3 rob-drones-input-group">
-                    <InputGroup.Text id="basic-addon2">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>
+                    <InputGroup.Text id="basic-addon2" className="rob-drones-input-text">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>
                     <Form.Control 
                         className="unit-form"
                         id="drones-input"
@@ -512,7 +520,7 @@ function RobPrimitives(props) {
                         />
                     </Form>
                     <InputGroup className="mb-3">
-                        <InputGroup.Text id="text-drones-percent">
+                        <InputGroup.Text id="text-drones-percent" className="auto-drones-input-text">
                             Drones to Send (Current: {props.data.kingdom.auto_rob_settings?.drones * 100}%)
                         </InputGroup.Text>
                         <Form.Control 
@@ -523,12 +531,12 @@ function RobPrimitives(props) {
                             placeholder={props.data.kingdom.auto_rob_settings?.drones * 100}
                             autoComplete="off"
                         />
-                        <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
+                        <InputGroup.Text id="text-engineers-percent" style={{width: '12%'}}>
                             %
                         </InputGroup.Text>
                     </InputGroup>
                     <InputGroup className="mb-3">
-                        <InputGroup.Text id="text-spy-attempts">
+                        <InputGroup.Text id="text-spy-attempts" className="auto-drones-input-text">
                         Spy Attempts to Keep (Current: {props.data.kingdom.auto_rob_settings?.keep})
                         </InputGroup.Text>
                         <Form.Control 
@@ -539,9 +547,6 @@ function RobPrimitives(props) {
                             placeholder={props.data.kingdom.auto_rob_settings?.keep}
                             autoComplete="off"
                         />
-                        <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
-                            %
-                        </InputGroup.Text>
                     </InputGroup>
                     <Form>
                         <Form.Check 

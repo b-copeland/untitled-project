@@ -174,11 +174,16 @@ function Revealed(props) {
         return Math.min(direct_distance, indirect_distance_1, indirect_distance_2);
     }
     const revealedPrimeRows = Object.keys(props.revealed.revealed).map((kdId) => {
+        const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
         return {
             "remaining": getRemainingSpans(kdId, props.revealed.revealed),
             "kingdom": props.kingdoms[kdId] || "",
-            "galaxy": props.galaxies_inverted[kdId] || "",
-            "empire": props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || "",
+            "galaxy": (
+                empireName !== undefined
+                ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
+                : props.galaxies_inverted[kdId] || ""
+            ),
+            // "empire": props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || "",
             "stars": maxKdInfo[kdId]?.stars || null,
             "coordinate_distance": calcCoordinateDistance(maxKdInfo[kdId]?.coordinate || 0, props.data.kingdom?.coordinate || 0).toString().padStart(2, '0') + ' (' + (maxKdInfo[kdId]?.coordinate || 0).toString().padStart(2, '0') + ')',
             "actions": <>
@@ -198,10 +203,10 @@ function Revealed(props) {
                     Message
                 </Button>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowShareIntel(true)}}>
-                    Share Intel
+                    Intel
                 </Button>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
-                    View Galaxy
+                    Galaxy
                 </Button>
                 {
                     props.loading.pinned
@@ -368,27 +373,29 @@ function Revealed(props) {
                 value={revealedPrimeRows}
                 paginator
                 size="small"
-                columnResizeMode="expand"
+                // columnResizeMode="expand"
                 rows={10}
                 rowsPerPageOptions={[5, 10, 25, 50]}
                 sortMode="multiple"
                 removableSort
                 filters={filters}
                 filterDisplay="row"
-                style={{ minWidth: '100%'}}
+                // style={{ minWidth: '100%'}}
                 header={"Revealed Kingdoms"}
                 showGridlines={true}
+                scrollable
+                
             >
-                <Column field="remaining" header="Remaining" style={{ width: '12.5%' }}/>
-                <Column field="kingdom" header="Kingdom" filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="galaxy" header="Galaxy" sortable filter showFilterMenu={false} style={{ width: '7.5%' }}/>
-                <Column field="empire" header="Empire" sortable showFilterMenu={false} filter style={{ width: '10%' }}/>
-                <Column field="stars" header="Stars" sortable filter dataType="numeric" body={formatStars} style={{ width: '10%' , textAlign:"right"}}/>
+                <Column field="kingdom" header="Kingdom" filter frozen showFilterMenu={false} style={{ maxWidth: '60px' }}/>
+                <Column field="remaining" header="Remaining" style={{ maxWidth: '80px' }}/>
+                <Column field="galaxy" header="Galaxy" sortable filter showFilterMenu={false} style={{ maxWidth: '65px' }}/>
+                {/* <Column field="empire" header="Empire" sortable showFilterMenu={false} filter style={{ width: '10%' }}/> */}
+                <Column field="stars" header="Stars" sortable /*filter*/ dataType="numeric" body={formatStars} style={{ maxWidth: '60px' , textAlign:"right"}}/>
                 {/* <Column field="score" header="Score" sortable filter body={formatScore} style={{ width: '10%' }}/> */}
-                <Column field="coordinate_distance" header="Distance" sortable filter style={{ width: '10%' , textAlign:"right"}}/>
-                <Column field="actions" header="Actions" style={{ width: '50%' }}/>
+                <Column field="coordinate_distance" header="Distance" sortable /*filter*/ style={{ maxWidth: '70px' , textAlign:"right"}}/>
+                <Column field="actions" header="Actions" style={{ minWidth: '110px' }}/>
             </DataTable>
-            <Table className="revealed-table" striped bordered hover>
+            <Table className="revealed-galaxy-table" striped bordered hover>
                 <thead>
                     <tr>
                         <th>Remaining</th>
@@ -487,12 +494,17 @@ function Shared(props) {
         return remainingSpans;
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
-    const sharedRows = Object.keys(props.shared.shared).map((kdId) =>
-        <tr key={kdId}>
+    const sharedRows = Object.keys(props.shared.shared).map((kdId) => {
+        const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
+        const galaxyEmpire = (
+            empireName !== undefined
+            ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
+            : props.galaxies_inverted[kdId] || ""
+        )
+        return <tr key={kdId}>
             <td>{getRemainingSharedSpans(kdId, props.revealed.revealed, props.shared.shared[kdId].shared_stat)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
-            <td>{props.galaxies_inverted[kdId] || ""}</td>
-            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
+            <td>{galaxyEmpire}</td>
             <td>{props.kingdoms[props.shared.shared[kdId].shared_by] || ""}</td>
             <td>{displayPercent(props.shared.shared[kdId].cut) || ""}</td>
             <td>
@@ -512,7 +524,7 @@ function Shared(props) {
                     Message
                 </Button>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
-                    View Galaxy
+                    Galaxy
                 </Button>
                 {
                     props.loading.pinned
@@ -529,13 +541,19 @@ function Shared(props) {
                 }
             </td>
         </tr>
+    }
     );
-    const sharedRequestRows = Object.keys(props.shared.shared_requests).map((kdId) =>
-        <tr key={kdId}>
+    const sharedRequestRows = Object.keys(props.shared.shared_requests).map((kdId) => {
+        const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
+        const galaxyEmpire = (
+            empireName !== undefined
+            ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
+            : props.galaxies_inverted[kdId] || ""
+        )
+        return <tr key={kdId}>
             <td>{getRemainingSpans(kdId, props.revealed.revealed)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
-            <td>{props.galaxies_inverted[kdId] || ""}</td>
-            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
+            <td>{galaxyEmpire}</td>
             <td>{props.kingdoms[props.shared.shared_requests[kdId].shared_by] || ""}</td>
             <td>{displayPercent(props.shared.shared_requests[kdId].cut) || ""}</td>
             <td>{props.shared.shared_requests[kdId].shared_stat || ""}</td>
@@ -551,7 +569,7 @@ function Shared(props) {
                 }
                 
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
-                    View Galaxy
+                    Galaxy
                 </Button>
                 {
                     props.loading.pinned
@@ -568,19 +586,25 @@ function Shared(props) {
                 }
             </td>
         </tr>
+    }
     );
-    const sharedOfferRows = Object.keys(props.shared.shared_offers).map((kdId) =>
-        <tr key={kdId}>
+    const sharedOfferRows = Object.keys(props.shared.shared_offers).map((kdId) => {
+        const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
+        const galaxyEmpire = (
+            empireName !== undefined
+            ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
+            : props.galaxies_inverted[kdId] || ""
+        )
+        return <tr key={kdId}>
             <td>{getTimeString(props.shared.shared_offers[kdId].time)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
-            <td>{props.galaxies_inverted[kdId] || ""}</td>
-            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
+            <td>{galaxyEmpire}</td>
             <td>{props.kingdoms[props.shared.shared_offers[kdId].shared_to]}</td>
             <td>{displayPercent(props.shared.shared_offers[kdId].cut) || ""}</td>
             <td>{props.shared.shared_offers[kdId].shared_stat || ""}</td>
             <td>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
-                    View Galaxy
+                    Galaxy
                 </Button>
                 {
                     props.loading.pinned
@@ -597,6 +621,7 @@ function Shared(props) {
                 }
             </td>
         </tr>
+    }
     );
     return (
         <div className="revealed">
@@ -709,13 +734,12 @@ function Shared(props) {
                 </Modal.Footer>
             </Modal>
             <h2>Accepted</h2>
-            <Table className="shared-table" striped bordered hover>
+            <Table className="shared-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th>Remaining</th>
                         <th>Kingdom</th>
                         <th>Galaxy</th>
-                        <th>Empire</th>
                         <th>Shared By</th>
                         <th>Their Cut</th>
                         <th>Actions</th>
@@ -727,13 +751,12 @@ function Shared(props) {
             </Table>
             <br />
             <h2>Pending</h2>
-            <Table className="shared-requests-table" striped bordered hover>
+            <Table className="shared-requests-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th>Remaining</th>
                         <th>Kingdom</th>
                         <th>Galaxy</th>
-                        <th>Empire</th>
                         <th>Shared By</th>
                         <th>Their Cut</th>
                         <th>Shared Stat</th>
@@ -746,13 +769,12 @@ function Shared(props) {
             </Table>
             <br />
             <h2>Offers</h2>
-            <Table className="shared-offers-table" striped bordered hover>
+            <Table className="shared-offers-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th>Remaining</th>
                         <th>Kingdom</th>
                         <th>Galaxy</th>
-                        <th>Empire</th>
                         <th>Shared To</th>
                         <th>Your Cut</th>
                         <th>Shared Stat</th>
@@ -820,12 +842,17 @@ function Pinned(props) {
         )
         return remainingSpans;
     }
-    const revealedRows = props.pinned.map((kdId) =>
-        <tr key={kdId}>
+    const revealedRows = props.pinned.map((kdId) => {
+        const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
+        const galaxyEmpire = (
+            empireName !== undefined
+            ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
+            : props.galaxies_inverted[kdId] || ""
+        )
+        return <tr key={kdId}>
             <td>{getRemainingSpans(kdId, props.revealed.revealed)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
-            <td>{props.galaxies_inverted[kdId] || ""}</td>
-            <td>{props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || ""}</td>
+            <td>{galaxyEmpire}</td>
             <td>{maxKdInfo[kdId]?.stars || ""}</td>
             <td>{maxKdInfo[kdId]?.score || ""}</td>
             <td>
@@ -845,7 +872,7 @@ function Pinned(props) {
                     Message
                 </Button>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
-                    View Galaxy
+                    Galaxy
                 </Button>
                 {
                     props.loading.pinned
@@ -862,6 +889,7 @@ function Pinned(props) {
                 }
             </td>
         </tr>
+    }
     );
     return (
         <div className="revealed">
@@ -973,13 +1001,12 @@ function Pinned(props) {
                     </Button>
                 </Modal.Footer>
             </Modal>
-            <Table className="revealed-table" striped bordered hover>
+            <Table className="pinned-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th>Remaining</th>
                         <th>Kingdom</th>
                         <th>Galaxy</th>
-                        <th>Empire</th>
                         <th>Stars</th>
                         <th>Score</th>
                         <th>Actions</th>

@@ -1,10 +1,24 @@
 
-
+.spy-operation-form {
+    margin: 10px;
+}
 .spy-defender-stats {
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
+    margin: 10px;
+}
+
+.operation-details {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.operation-table {
+    width: 100%;
+    margin: 10px;
 }
 
 .spy-attacker-stats {
@@ -12,16 +26,26 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    margin: 10px;
 }
 
 .spy-results-box {
     min-height: 20%;
-    min-width: 20%;
-    max-width: 90%;
+    width: 90%;
+    margin: 10px;
 }
 
 .drones-input-group {
-    width: 50%;
+    width: 75%;
+}
+.drones-input-group-text {
+    max-height: 30px;
+}
+.spy-input-group-text {
+    max-height: 30px;
+}
+.spy-input-group {
+    max-height: 20px;
 }
 
 .box-span {

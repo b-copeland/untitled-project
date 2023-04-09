@@ -20,10 +20,11 @@
     width: 100%;
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
 }
 
 .defender-stats {
-    width: 50%;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -32,20 +33,23 @@
 .defender-detail {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
 }
 
 .defender-text-boxes {
     display: flex;
     flex-direction: column;
     flex: 1;
+    font-size: 12px;
 }
 
 .defender-table {
-    width: 50%;
+    width: 100%;
+    font-size: 12px;
 }
 
 .attacker-stats {
-    width: 50%;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -54,15 +58,28 @@
 .attacker-detail {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
 }
 
 .attacker-text-boxes {
     display: flex;
     flex-direction: column;
     flex: 1;
+    font-size: 12px;
 }
 .attacker-table {
-    width: 50%;
+    width: 100%;
+    font-size: 12px;
+}
+
+.unit-form {
+    max-height: 30px;
+}
+.unit-input-group-text {
+    max-height: 30px;
+}
+.unit-input-group {
+    max-height: 15px;
 }
 
 .attack-results {
@@ -74,8 +91,7 @@
 
 .attack-results-box {
     min-height: 100%;
-    min-width: 20%;
-    max-width: 50%;
+    width: 90%;
 }
 
 .calculate-button {

@@ -9,3 +9,16 @@
 .missiles-input-pct {
     width: 25%;
 }
+
+.launch-missiles-table {
+    width: 100%;
+    font-size: 10px;
+}
+
+.missile-shields-input-group-text {
+    max-height: 30px;
+}
+.launch-missile-form {
+    max-height: 30px;
+    min-width: 60px;
+}

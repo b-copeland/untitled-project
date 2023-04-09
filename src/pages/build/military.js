@@ -240,17 +240,17 @@ function Specialists(props) {
                     <span className="text-box-item-value">{props.mobisInfo.units.current.recruits?.toLocaleString()}</span>
                 </div>
             </div>
-            <Table className="specialists-table" striped bordered hover>
+            <Table className="specialists-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Unit</th>
                         <th style={{textAlign: "right"}}>Cost</th>
                         <th style={{textAlign: "right"}}>Trained</th>
                         <th style={{textAlign: "right"}}>Training</th>
-                        <th style={{textAlign: "right"}}>Offense</th>
+                        {/* <th style={{textAlign: "right"}}>Offense</th>
                         <th style={{textAlign: "right"}}>Defense</th>
                         <th style={{textAlign: "right"}}>Hangar Usage</th>
-                        <th style={{textAlign: "right"}}>Fuel</th>
+                        <th style={{textAlign: "right"}}>Fuel</th> */}
                         <th style={{textAlign: "right"}}>To Train</th>
                     </tr>
                 </thead>
@@ -260,10 +260,10 @@ function Specialists(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.cost || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.current_total.attack || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.hour_24.attack || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.offense || 0)}</td>
+                        {/* <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.offense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.defense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.hangar_capacity || 0)}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.fuel || 0)}</td>
+                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="specialists-form"
@@ -281,10 +281,10 @@ function Specialists(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.cost || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.current_total.defense || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.hour_24.defense || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.offense || 0)}</td>
+                        {/* <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.offense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.defense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.hangar_capacity || 0)}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.fuel || 0)}</td>
+                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="specialists-form"
@@ -302,10 +302,10 @@ function Specialists(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.cost || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.current_total.flex || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.hour_24.flex || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.offense || 0)}</td>
+                        {/* <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.offense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.defense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.hangar_capacity || 0)}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.fuel || 0)}</td>
+                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{
                             <Form.Control 
                                 className="specialists-form"
@@ -325,10 +325,10 @@ function Specialists(props) {
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.cost || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units.current_total.big_flex || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units.hour_24.big_flex || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.offense || 0)}</td>
+                            {/* <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.offense || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.defense || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td>
+                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="specialists-form"
@@ -345,10 +345,10 @@ function Specialists(props) {
                             <td style={{textAlign: "left"}}>Big Flexers</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.cost || 0).toLocaleString()}</td>
                             <td colSpan={2}>Research "Big Flexers" Project to Unlock</td>
-                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.offense || 0).toLocaleString()}</td>
+                            {/* <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.offense || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.defense || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td>
+                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{
                                 <Form.Control 
                                     className="specialists-form"
@@ -485,17 +485,17 @@ function Allocate(props) {
                     autoComplete="off"
                 />
             </InputGroup>
-            <Table className="specialists-table" striped bordered hover>
+            <Table className="specialists-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Unit</th>
                         <th style={{textAlign: "right"}}>Cost</th>
                         <th style={{textAlign: "right"}}>Trained</th>
                         <th style={{textAlign: "right"}}>Training</th>
-                        <th style={{textAlign: "right"}}>Offense</th>
+                        {/* <th style={{textAlign: "right"}}>Offense</th>
                         <th style={{textAlign: "right"}}>Defense</th>
                         <th style={{textAlign: "right"}}>Hangar Usage</th>
-                        <th style={{textAlign: "right"}}>Fuel</th>
+                        <th style={{textAlign: "right"}}>Fuel</th> */}
                         <th style={{textAlign: "right"}}>Current Allocation</th>
                         <th style={{textAlign: "right"}}>New Allocation</th>
                     </tr>
@@ -506,13 +506,13 @@ function Allocate(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.cost || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.current_total.attack || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.hour_24.attack || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.offense || 0)}</td>
+                        {/* <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.offense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.defense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.hangar_capacity || 0)}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.fuel || 0)}</td>
+                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.attack || 0))}</td>
                         <td style={{textAlign: "right"}}>{
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 allocate-input-group">
                                 <Form.Control 
                                     className="specialists-form"
                                     id="attackers-input"
@@ -522,7 +522,7 @@ function Allocate(props) {
                                     placeholder="0"
                                     autoComplete="off"
                                 />
-                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                <InputGroup.Text id="basic-addon2" className="allocate-input-group-text">%</InputGroup.Text>
                             </InputGroup>
                         }</td>
                     </tr>
@@ -531,13 +531,13 @@ function Allocate(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.cost || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.current_total.defense || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.hour_24.defense || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.offense || 0)}</td>
+                        {/* <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.offense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.defense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.hangar_capacity || 0)}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.fuel || 0)}</td>
+                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.defense || 0))}</td>
                         <td style={{textAlign: "right"}}>{
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 allocate-input-group">
                                 <Form.Control 
                                     className="specialists-form"
                                     id="defenders-input"
@@ -547,7 +547,7 @@ function Allocate(props) {
                                     placeholder="0"
                                     autoComplete="off"
                                 />
-                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                <InputGroup.Text id="basic-addon2" className="allocate-input-group-text">%</InputGroup.Text>
                             </InputGroup>
                         }</td>
                     </tr>
@@ -556,13 +556,13 @@ function Allocate(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.cost || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.current_total.flex || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units.hour_24.flex || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.offense || 0)}</td>
+                        {/* <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.offense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.defense || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.hangar_capacity || 0)}</td>
-                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.fuel || 0)}</td>
+                        <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.flex || 0))}</td>
                         <td style={{textAlign: "right"}}>{
-                            <InputGroup className="mb-3">
+                            <InputGroup className="mb-3 allocate-input-group">
                                 <Form.Control 
                                     className="specialists-form"
                                     id="flexers-input"
@@ -572,7 +572,7 @@ function Allocate(props) {
                                     placeholder="0"
                                     autoComplete="off"
                                 />
-                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                <InputGroup.Text id="basic-addon2" className="allocate-input-group-text">%</InputGroup.Text>
                             </InputGroup>
                         }</td>
                     </tr>
@@ -583,13 +583,13 @@ function Allocate(props) {
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.cost || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units.current_total.big_flex || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units.hour_24.big_flex || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.offense || 0)}</td>
+                            {/* <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.offense || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.defense || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td>
+                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.big_flex || 0))}</td>
                             <td style={{textAlign: "right"}}>{
-                                <InputGroup className="mb-3">
+                                <InputGroup className="mb-3 allocate-input-group">
                                     <Form.Control 
                                         className="specialists-form"
                                         id="big-flexers-input"
@@ -599,7 +599,7 @@ function Allocate(props) {
                                         placeholder="0"
                                         autoComplete="off"
                                     />
-                                    <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                    <InputGroup.Text id="basic-addon2" className="allocate-input-group-text">%</InputGroup.Text>
                                 </InputGroup>
                             }</td>
                         </tr>
@@ -607,13 +607,13 @@ function Allocate(props) {
                             <td style={{textAlign: "left"}}>Big Flexers</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.cost || 0).toLocaleString()}</td>
                             <td colSpan={2}>Research "Big Flexers" Project to Unlock</td>
-                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.offense || 0).toLocaleString()}</td>
+                            {/* <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.offense || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.defense || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td>
+                            <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.big_flex || 0))}</td>
                             <td style={{textAlign: "right"}}>{
-                                <InputGroup className="mb-3">
+                                <InputGroup className="mb-3 allocate-input-group">
                                     <Form.Control 
                                         className="specialists-form"
                                         id="big-flexers-input"
@@ -624,7 +624,7 @@ function Allocate(props) {
                                         disabled
                                         autoComplete="off"
                                     />
-                                    <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                    <InputGroup.Text id="basic-addon2" className="allocate-input-group-text">%</InputGroup.Text>
                                 </InputGroup>
                             }</td>
                         </tr>

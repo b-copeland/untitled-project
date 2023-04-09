@@ -163,3 +163,7 @@
 /* .table {
     width: 95%;
 } */
+
+.toast {
+    max-width: 80%;
+}

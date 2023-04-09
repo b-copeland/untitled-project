@@ -3,6 +3,14 @@
     flex-direction: column;
     justify-items: center;
     align-items: center;
+    width: 100%;
+}
+
+.p-datatable-table {
+    font-size: 9px;
+}
+.p-datatable-tbody {
+    width: 100%;
 }
 
 .p-datatable-tbody tr {

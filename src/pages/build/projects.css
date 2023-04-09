@@ -7,14 +7,14 @@
 
 .engineers-box {
     margin: 5px;
-    width: 50%;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
 .engineers-input-group {
-    width: 50%;
+    width: 75%;
     margin: 5px;
 }
 
@@ -29,17 +29,45 @@
     align-items: center;
 }
 
+.projects-assign-form {
+    max-height: 25px;
+    min-width: 40px;
+    font-size: 9px !important;
+}
+.projects-add-form {
+    max-height: 25px;
+    min-width: 40px;
+    font-size: 9px !important;
+}
+
 .projects-box {
-    width: 45%;
+    width: 100%;
     margin: 5px;
 }
 
 .projects-table {
     /* width: 80%; */
     margin: 5px;
-    /* font-size: smaller; */
+    font-size: 8px;
+}
+
+.remove-button {
+    margin: 1px;
+    width: 40px;
+    height: 20px;
+    font-size: 6px;
 }
 
 .projects-button {
     margin: 5px;
+}
+
+.projects-input-group {
+    max-height: 10px;
+    min-width: 60px;
+}
+
+.projects-input-group-text {
+    max-height: 25px;
+    font-size: 9px !important;
 }

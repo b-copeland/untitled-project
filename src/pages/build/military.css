@@ -7,14 +7,14 @@
 
 .recruits-box {
     margin: 5px;
-    width: 50%;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
 .recruits-input-group {
-    width: 50%;
+    width: 75%;
     margin: 5px;
 }
 
@@ -34,19 +34,37 @@
 }
 
 .specialists-box {
-    width: 45%;
+    width: 100%;
     margin: 5px;
 }
 
 .specialists-table {
-    width: 80%;
+    width: 100%;
     margin: 5px;
+    font-size: 9px;
+}
+
+.specialists-form {
+    max-height: 30px;
+    /* max-width: 75px; */
+    font-size: 10px;
 }
 
 .specialists-button {
     margin: 5px;
 }
 .max-recruits-input-group {
-    width: 25%;
+    width: 75%;
     margin: 5px;
+    font-size: 10px;
+}
+
+.allocate-input-group {
+    max-height: 15px;
+    min-width: 70px;
+}
+
+.allocate-input-group-text {
+    max-height: 30px;
+    font-size: 10px;
 }

@@ -11,6 +11,11 @@
 
 .revealed-table {
     margin: 10px;
+    width: 100%;
+}
+.revealed-galaxy-table {
+    margin: 10px;
+    width: 100%;
 }
 
 .remaining-timer {
@@ -40,17 +45,33 @@
     margin-right: 5px;
 }
 
+.shared-table {
+    font-size: 9px;
+    width: 100%;
+}
+.shared-requests-table {
+    font-size: 9px;
+    width: 100%;
+}
+.shared-offers-table {
+    font-size: 9px;
+    width: 100%;
+}
+.pinned-table {
+    font-size: 9px;
+    width: 100%;
+}
+
 .galaxy-modal {
-    width: 80%;
+    width: 100%;
     max-width: none;
 }
 
 .view-modal {
-    width: 60%;
-    max-width: none;
+    width: 100%;
 }
 
 .share-intel-modal {
-    width: 80%;
+    width: 100%;
     max-width: none;
 }

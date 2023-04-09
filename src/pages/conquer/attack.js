@@ -304,7 +304,7 @@ function Attack(props) {
                                     <td style={{textAlign: "right"}}></td>
                                     <td style={{textAlign: "right"}}>
                                         {   targetKdInfo.hasOwnProperty("current_bonuses")
-                                            ? <InputGroup className="mb-3">
+                                            ? <InputGroup className="mb-3 unit-input-group">
                                                 <Form.Control
                                                     className="unit-form"
                                                     id="military-efficiency-input"
@@ -314,9 +314,9 @@ function Attack(props) {
                                                     disabled
                                                     autoComplete="off"
                                                 />
-                                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                                <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
                                             </InputGroup>
-                                            : <InputGroup className="mb-3">
+                                            : <InputGroup className="mb-3 unit-input-group">
                                                 <Form.Control
                                                     className="unit-form"
                                                     id="military-efficiency-input"
@@ -326,7 +326,7 @@ function Attack(props) {
                                                     placeholder="0"
                                                     autoComplete="off"
                                                 />
-                                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                                <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
                                             </InputGroup>
                                         }
                                     </td>
@@ -336,7 +336,7 @@ function Attack(props) {
                                     <td style={{textAlign: "right"}}></td>
                                     <td style={{textAlign: "right"}}>
                                         {   targetKdInfo.hasOwnProperty("shields")
-                                            ? <InputGroup className="mb-3">
+                                            ? <InputGroup className="mb-3 unit-input-group">
                                                 <Form.Control
                                                     className="unit-form"
                                                     id="shields-input"
@@ -346,9 +346,9 @@ function Attack(props) {
                                                     disabled
                                                     autoComplete="off"
                                                 />
-                                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                                <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
                                             </InputGroup>
-                                            : <InputGroup className="mb-3">
+                                            : <InputGroup className="mb-3 unit-input-group">
                                                 <Form.Control
                                                     className="unit-form"
                                                     id="shields-input"
@@ -358,7 +358,7 @@ function Attack(props) {
                                                     placeholder="0"
                                                     autoComplete="off"
                                                 />
-                                                <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                                <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
                                             </InputGroup>
                                         }
                                     </td>
@@ -367,7 +367,7 @@ function Attack(props) {
                                     <td>Other Bonuses</td>
                                     <td style={{textAlign: "right"}}></td>
                                     <td style={{textAlign: "right"}}>
-                                        <InputGroup className="mb-3">
+                                        <InputGroup className="mb-3 unit-input-group">
                                             <Form.Control
                                             className="unit-form"
                                             id="other-bonuses-input"
@@ -377,7 +377,7 @@ function Attack(props) {
                                             disabled
                                             autoComplete="off"
                                             />
-                                            <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
+                                            <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
                                         </InputGroup>
                                     </td>
                                 </tr>
@@ -458,14 +458,17 @@ function Attack(props) {
                         <Table className="attacker-table" striped bordered hover size="sm">
                             <thead>
                                 <tr>
-                                    <th style={{textAlign: "right"}}>Value</th>
+                                    <th>Input</th>
                                     <th style={{textAlign: "right"}}>Offense</th>
                                     <th style={{textAlign: "right"}}>Available</th>
-                                    <th>Input</th>
+                                    <th style={{textAlign: "right"}}>Value</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
+                                    <td>Attackers</td>
+                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
+                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
                                     <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
@@ -477,11 +480,11 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
-                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
-                                    <td>Attackers</td>
                                 </tr>
                                 <tr>
+                                    <td>Flexers</td>
+                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
+                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
                                     <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
@@ -493,11 +496,11 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
-                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
-                                    <td>Flexers</td>
                                 </tr>
                                 <tr>
+                                    <td>Big Flexers</td>
+                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
+                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
                                     <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
@@ -509,11 +512,11 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
-                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
-                                    <td>Big Flexers</td>
                                 </tr>
                                 <tr>
+                                    <td>Military Efficiency</td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}></td>
                                     <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
@@ -526,11 +529,11 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td>Military Efficiency</td>
                                 </tr>
                                 <tr>
+                                    <td>Other Bonuses</td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}></td>
                                     <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
@@ -542,11 +545,11 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td>Other Bonuses</td>
                                 </tr>
                                 <tr>
+                                    <td>Generals</td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.generals_available}</td>
                                     <td style={{textAlign: "right"}}>
                                         <Form.Control 
                                             className="unit-form"
@@ -558,9 +561,6 @@ function Attack(props) {
                                             autoComplete="off"
                                         />
                                     </td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.generals_available}</td>
-                                    <td>Generals</td>
                                 </tr>
                             </tbody>
                         </Table>

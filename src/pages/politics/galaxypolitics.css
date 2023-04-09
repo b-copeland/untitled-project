@@ -5,6 +5,11 @@
     align-items: center;
 }
 
+.galaxy-leader-button {
+    margin: 10px;
+    width: 25%;
+}
+
 .galaxy-policies {
     min-height: 480px;
     display: flex;
@@ -12,23 +17,25 @@
     align-items: center;
 }
 .galaxy-policy {
-    width: 80%;
+    width: 90%;
     margin: 20px;
 }
 .galaxy-policy-options {
     display: flex;
     flex-direction: row;
     align-items: center;
+    flex-wrap: wrap;
 }
 .galaxy-policy-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 50%;
+    width: 100%;
     padding: 15px;
 }
 .galaxy-policy-button {
-    width: 25%;
+    width: 50%;
+    margin: 10px;
 }
 .galaxy-policy-winner {
     border: 5px solid var(--bs-primary);
