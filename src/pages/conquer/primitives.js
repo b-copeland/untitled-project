@@ -266,8 +266,8 @@ function AttackPrimitives(props) {
                                     </tr>
                                 </tbody>
                             </Table>
-                            <div className="attacker-text-boxes">
-                                <div className="text-box attacker-losses-box">
+                            <div className="primitives-attacker-text-boxes">
+                                <div className="text-box primitives-losses-box">
                                     <h4>Your Losses</h4> 
                                     <div className="text-box-item">
                                         <span className="text-box-item-title">Attackers</span>
@@ -289,7 +289,7 @@ function AttackPrimitives(props) {
                                         <span className="text-box-item-value">{displayPercent(calcMessage.attacker_unit_losses_rate) || "--"}</span>
                                     </div>
                                 </div>
-                                <div className="text-box attacker-defense-box">
+                                <div className="text-box primitives-offense-box">
                                     <h4>Your Offense</h4> 
                                     <div className="text-box-item">
                                         <span className="attacker-offense">{calcMessage.attacker_offense?.toLocaleString() || "--"}</span>

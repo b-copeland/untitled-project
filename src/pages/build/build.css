@@ -9,3 +9,9 @@
     margin: 10px;
     width: 100%;
 }
+
+@media (min-width: 768px) {
+    .queue-accordion {
+        width: 50%;
+    }
+}

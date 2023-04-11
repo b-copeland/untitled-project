@@ -121,11 +121,11 @@ function Kingdom(props) {
                 style={{ width: '100%'}}
                 header={"Kingdom News"}
             >
-                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '70%' }}/>
+                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '55%' }}/>
                 {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '15%' }}/>
             </DataTable>
         </div>
     );

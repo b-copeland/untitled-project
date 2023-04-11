@@ -12,6 +12,11 @@
 .p-datatable-tbody {
     width: 100%;
 }
+@media (min-width: 756px) {
+    .p-datatable-table {
+        font-size: 16px;
+    }
+}
 
 .p-datatable-tbody tr {
     background: var(--bs-body-bg) !important

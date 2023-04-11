@@ -9,6 +9,12 @@
     align-items: center;
     margin: 10px;
 }
+@media (min-width: 756px) {
+    .spy-defender-stats {
+      width: 45%;
+      min-width: 400px;
+    }
+}
 
 .operation-details {
     display: flex;
@@ -28,11 +34,23 @@
     align-items: center;
     margin: 10px;
 }
+@media (min-width: 756px) {
+    .spy-attacker-stats {
+      width: 45%;
+      min-width: 400px;
+    }
+}
 
 .spy-results-box {
     min-height: 20%;
     width: 90%;
     margin: 10px;
+}
+@media (min-width: 756px) {
+    .spy-results-box {
+      width: 40%;
+      min-width: 400px;
+    }
 }
 
 .drones-input-group {

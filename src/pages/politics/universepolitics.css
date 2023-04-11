@@ -11,7 +11,19 @@
     width: 90%;
     padding: 15px;
 }
+@media (min-width: 756px) {
+    .universe-votes-box {
+        width: 40%;
+        min-width: 400px;
+    }
+}
 .buy-votes-button {
     width: 50%;
     margin: 10px;
+}
+@media (min-width: 756px) {
+    .universe-votes-box {
+        width: 25%;
+        min-width: 250px;
+    }
 }

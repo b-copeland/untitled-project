@@ -425,36 +425,6 @@ function Attack(props) {
                 <div className="attacker-stats">
                     <h3>{kdFullLabel(props.data.kingdom.kdId)}</h3>
                     <div className="attacker-detail">
-                        <div className="attacker-text-boxes">
-                            <div className="text-box attacker-losses-box">
-                                <h4>Your Losses</h4> 
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Attackers</span>
-                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.attack?.toLocaleString() || "--"}</span>
-                                </div>
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Flexers</span>
-                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.flex?.toLocaleString() || "--"}</span>
-                                </div>
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Big Flexers</span>
-                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.big_flex?.toLocaleString() || "--"}</span>
-                                </div>
-                                <br />
-                                <br />
-                                <br />
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Unit Loss Rate</span>
-                                    <span className="text-box-item-value">{displayPercent(calcMessage.attacker_unit_losses_rate) || "--"}</span>
-                                </div>
-                            </div>
-                            <div className="text-box attacker-defense-box">
-                                <h4>Your Offense</h4> 
-                                <div className="text-box-item">
-                                    <span className="attacker-offense">{calcMessage.attacker_offense?.toLocaleString() || "--"}</span>
-                                </div>
-                            </div>
-                        </div>
                         <Table className="attacker-table" striped bordered hover size="sm">
                             <thead>
                                 <tr>
@@ -564,6 +534,36 @@ function Attack(props) {
                                 </tr>
                             </tbody>
                         </Table>
+                        <div className="attacker-text-boxes">
+                            <div className="text-box attacker-losses-box">
+                                <h4>Your Losses</h4> 
+                                <div className="text-box-item">
+                                    <span className="text-box-item-title">Attackers</span>
+                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.attack?.toLocaleString() || "--"}</span>
+                                </div>
+                                <div className="text-box-item">
+                                    <span className="text-box-item-title">Flexers</span>
+                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.flex?.toLocaleString() || "--"}</span>
+                                </div>
+                                <div className="text-box-item">
+                                    <span className="text-box-item-title">Big Flexers</span>
+                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.big_flex?.toLocaleString() || "--"}</span>
+                                </div>
+                                <br />
+                                <br />
+                                <br />
+                                <div className="text-box-item">
+                                    <span className="text-box-item-title">Unit Loss Rate</span>
+                                    <span className="text-box-item-value">{displayPercent(calcMessage.attacker_unit_losses_rate) || "--"}</span>
+                                </div>
+                            </div>
+                            <div className="text-box attacker-defense-box">
+                                <h4>Your Offense</h4> 
+                                <div className="text-box-item">
+                                    <span className="attacker-offense">{calcMessage.attacker_offense?.toLocaleString() || "--"}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

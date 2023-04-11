@@ -302,7 +302,7 @@ function Assign(props) {
                     <tr><th colSpan={7}>Continuous Projects</th></tr>
                     <tr>
                         <th style={{textAlign: "left"}}>Project</th>
-                        <th style={{textAlign: "right"}}>Assigned</th>
+                        <th className="assigned-col" style={{textAlign: "right"}}>Assigned</th>
                         <th style={{textAlign: "right"}}>Points</th>
                         <th style={{textAlign: "right"}}>Bonus</th>
                         <th style={{textAlign: "right"}}>Assign</th>
@@ -313,7 +313,7 @@ function Assign(props) {
                 <tbody>
                     <tr>
                         <td style={{textAlign: "left"}}>Pop Bonus</td>
-                        <td style={{textAlign: "right"}}>
+                        <td className="assigned-col" style={{textAlign: "right"}}>
                             {(props.kdInfo.projects_assigned.pop_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.pop_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                         </td>
                         <td style={{textAlign: "right"}}>
@@ -356,7 +356,7 @@ function Assign(props) {
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Fuel Bonus</td>
-                        <td style={{textAlign: "right"}}>
+                        <td className="assigned-col" style={{textAlign: "right"}}>
                             {(props.kdInfo.projects_assigned.fuel_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.fuel_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                         </td>
                         <td style={{textAlign: "right"}}>
@@ -399,7 +399,7 @@ function Assign(props) {
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Military Bonus</td>
-                        <td style={{textAlign: "right"}}>
+                        <td className="assigned-col" style={{textAlign: "right"}}>
                             {(props.kdInfo.projects_assigned.military_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.military_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                         </td>
                         <td style={{textAlign: "right"}}>
@@ -442,7 +442,7 @@ function Assign(props) {
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Money Bonus</td>
-                        <td style={{textAlign: "right"}}>
+                        <td className="assigned-col" style={{textAlign: "right"}}>
                             {(props.kdInfo.projects_assigned.money_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.money_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                         </td>
                         <td style={{textAlign: "right"}}>
@@ -485,7 +485,7 @@ function Assign(props) {
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Generals Speed Bonus</td>
-                        <td style={{textAlign: "right"}}>
+                        <td className="assigned-col" style={{textAlign: "right"}}>
                             {(props.kdInfo.projects_assigned.general_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.general_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                         </td>
                         <td style={{textAlign: "right"}}>
@@ -530,7 +530,7 @@ function Assign(props) {
                         props.kdInfo.completed_projects.indexOf('drone_gadgets') >= 0
                         ? <tr>
                             <td style={{textAlign: "left"}}>Spy Bonus</td>
-                            <td style={{textAlign: "right"}}>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
                                 {(props.kdInfo.projects_assigned.spy_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.spy_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                             </td>
                             <td style={{textAlign: "right"}}>
@@ -573,7 +573,7 @@ function Assign(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td style={{textAlign: "left"}}>Spy Bonus</td>
-                            <td>Complete "Drone Gadgets" Project to Unlock</td>
+                            <td className="assigned-col">Complete "Drone Gadgets" Project to Unlock</td>
                             <td style={{textAlign: "right"}}>
                                 {Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}
                             </td>
@@ -612,7 +612,7 @@ function Assign(props) {
                     <tr><th colSpan={7}>One-Time Projects</th></tr>
                     <tr>
                         <th style={{textAlign: "left"}}>Project</th>
-                        <th style={{textAlign: "right"}}>Assigned</th>
+                        <th className="assigned-col" style={{textAlign: "right"}}>Assigned</th>
                         <th style={{textAlign: "right"}}>Points</th>
                         <th style={{textAlign: "right"}}>% Completed</th>
                         <th style={{textAlign: "right"}}>Assign</th>
@@ -626,7 +626,7 @@ function Assign(props) {
                         props.kdInfo.completed_projects.indexOf('big_flexers') < 0
                         ? <tr>
                             <td style={{textAlign: "left"}}>Big Flexers</td>
-                            <td style={{textAlign: "right"}}>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
                                 {(props.kdInfo.projects_assigned.big_flexers || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))})
                             </td>
                             <td style={{textAlign: "right"}}>
@@ -667,7 +667,7 @@ function Assign(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td style={{textAlign: "left"}}>Big Flexers</td>
-                            <td>Project Complete!</td>
+                            <td className="assigned-col">Project Complete!</td>
                             <td style={{textAlign: "right"}}>
                                 {Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}
                             </td>
@@ -709,7 +709,7 @@ function Assign(props) {
                         props.kdInfo.completed_projects.indexOf('star_busters') < 0
                         ? <tr>
                             <td style={{textAlign: "left"}}>Star Busters</td>
-                            <td style={{textAlign: "right"}}>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
                                 {(props.kdInfo.projects_assigned.star_busters || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))})
                             </td>
                             <td style={{textAlign: "right"}}>
@@ -750,7 +750,7 @@ function Assign(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td style={{textAlign: "left"}}>Star Busters</td>
-                            <td >Project Complete!</td>
+                            <td className="assigned-col" >Project Complete!</td>
                             <td style={{textAlign: "right"}}>
                                 {Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}
                             </td>
@@ -792,7 +792,7 @@ function Assign(props) {
                         props.kdInfo.completed_projects.indexOf('galaxy_busters') < 0
                         ? <tr>
                             <td style={{textAlign: "left"}}>Galaxy Busters</td>
-                            <td style={{textAlign: "right"}}>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
                                 {(props.kdInfo.projects_assigned.galaxy_busters || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))})
                             </td>
                             <td style={{textAlign: "right"}}>
@@ -833,7 +833,7 @@ function Assign(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td style={{textAlign: "left"}}>Galaxy Busters</td>
-                            <td>Project Complete!</td>
+                            <td className="assigned-col">Project Complete!</td>
                             <td style={{textAlign: "right"}}>
                                 {Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}
                             </td>
@@ -875,7 +875,7 @@ function Assign(props) {
                         props.kdInfo.completed_projects.indexOf('drone_gadgets') < 0
                         ? <tr>
                             <td style={{textAlign: "left"}}>Drone Gadgets</td>
-                            <td style={{textAlign: "right"}}>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
                                 {(props.kdInfo.projects_assigned.drone_gadgets || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))})
                             </td>
                             <td style={{textAlign: "right"}}>
@@ -916,7 +916,7 @@ function Assign(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td style={{textAlign: "left"}}>Drone Gadgets</td>
-                            <td>Project Complete!</td>
+                            <td className="assigned-col">Project Complete!</td>
                             <td style={{textAlign: "right"}}>
                                 {Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}
                             </td>
@@ -1074,7 +1074,7 @@ function Allocate(props) {
                     <tr><th colSpan={6}>Continuous Projects</th></tr>
                     <tr>
                         <th style={{textAlign: "left"}}>Project</th>
-                        <th style={{textAlign: "right"}}>Assigned Engineers</th>
+                        <th className="assigned-col" style={{textAlign: "right"}}>Assigned Engineers</th>
                         <th style={{textAlign: "right"}}>Points</th>
                         <th style={{textAlign: "right"}}>Bonus</th>
                         <th style={{textAlign: "right"}}>Current Allocation</th>
@@ -1084,7 +1084,7 @@ function Allocate(props) {
                 <tbody>
                     <tr>
                         <td style={{textAlign: "left"}}>Pop Bonus</td>
-                        <td style={{textAlign: "right"}}>
+                        <td className="assigned-col" style={{textAlign: "right"}}>
                             {(props.kdInfo.projects_assigned.pop_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.pop_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                         </td>
                         <td style={{textAlign: "right"}}>
@@ -1111,7 +1111,7 @@ function Allocate(props) {
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Fuel Bonus</td>
-                        <td style={{textAlign: "right"}}>
+                        <td className="assigned-col" style={{textAlign: "right"}}>
                             {(props.kdInfo.projects_assigned.fuel_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.fuel_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                         </td>
                         <td style={{textAlign: "right"}}>
@@ -1138,7 +1138,7 @@ function Allocate(props) {
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Military Bonus</td>
-                        <td style={{textAlign: "right"}}>
+                        <td className="assigned-col" style={{textAlign: "right"}}>
                             {(props.kdInfo.projects_assigned.military_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.military_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                         </td>
                         <td style={{textAlign: "right"}}>
@@ -1165,7 +1165,7 @@ function Allocate(props) {
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Money Bonus</td>
-                        <td style={{textAlign: "right"}}>
+                        <td className="assigned-col" style={{textAlign: "right"}}>
                             {(props.kdInfo.projects_assigned.money_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.money_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                         </td>
                         <td style={{textAlign: "right"}}>
@@ -1192,7 +1192,7 @@ function Allocate(props) {
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Generals Speed Bonus</td>
-                        <td style={{textAlign: "right"}}>
+                        <td className="assigned-col" style={{textAlign: "right"}}>
                             {(props.kdInfo.projects_assigned.general_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.general_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                         </td>
                         <td style={{textAlign: "right"}}>
@@ -1221,7 +1221,7 @@ function Allocate(props) {
                         props.kdInfo.completed_projects.indexOf('drone_gadgets') >= 0
                         ? <tr>
                             <td style={{textAlign: "left"}}>Spy Bonus</td>
-                            <td style={{textAlign: "right"}}>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
                                 {(props.kdInfo.projects_assigned.spy_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.spy_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
                             </td>
                             <td style={{textAlign: "right"}}>
@@ -1248,7 +1248,7 @@ function Allocate(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td style={{textAlign: "left"}}>Spy Bonus</td>
-                            <td >Complete "Drone Gadgets" Project to Unlock</td>
+                            <td className="assigned-col" >Complete "Drone Gadgets" Project to Unlock</td>
                             <td style={{textAlign: "right"}}>
                                 {Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}
                             </td>
@@ -1278,7 +1278,7 @@ function Allocate(props) {
                     <tr><th colSpan={6}>One-Time Projects</th></tr>
                     <tr>
                         <th style={{textAlign: "left"}}>Project</th>
-                        <th style={{textAlign: "right"}}>Assigned</th>
+                        <th className="assigned-col" style={{textAlign: "right"}}>Assigned</th>
                         <th style={{textAlign: "right"}}>Points</th>
                         <th style={{textAlign: "right"}}>% Completed</th>
                         <th style={{textAlign: "right"}}>Current Allocation</th>
@@ -1291,7 +1291,7 @@ function Allocate(props) {
                         props.kdInfo.completed_projects.indexOf('big_flexers') < 0
                         ? <tr>
                             <td style={{textAlign: "left"}}>Big Flexers</td>
-                            <td style={{textAlign: "right"}}>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
                                 {(props.kdInfo.projects_assigned.big_flexers || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))})
                             </td>
                             <td style={{textAlign: "right"}}>
@@ -1316,7 +1316,7 @@ function Allocate(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td style={{textAlign: "left"}}>Big Flexers</td>
-                            <td>Project Complete!</td>
+                            <td className="assigned-col">Project Complete!</td>
                             <td style={{textAlign: "right"}}>
                                 {Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}
                             </td>
@@ -1342,7 +1342,7 @@ function Allocate(props) {
                         props.kdInfo.completed_projects.indexOf('star_busters') < 0
                         ? <tr>
                             <td style={{textAlign: "left"}}>Star Busters</td>
-                            <td style={{textAlign: "right"}}>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
                                 {(props.kdInfo.projects_assigned.star_busters || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))})
                             </td>
                             <td style={{textAlign: "right"}}>
@@ -1367,7 +1367,7 @@ function Allocate(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td style={{textAlign: "left"}}>Star Busters</td>
-                            <td>Project Complete!</td>
+                            <td className="assigned-col">Project Complete!</td>
                             <td style={{textAlign: "right"}}>
                                 {Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}
                             </td>
@@ -1393,7 +1393,7 @@ function Allocate(props) {
                         props.kdInfo.completed_projects.indexOf('galaxy_busters') < 0
                         ? <tr>
                             <td style={{textAlign: "left"}}>Galaxy Busters</td>
-                            <td style={{textAlign: "right"}}>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
                                 {(props.kdInfo.projects_assigned.galaxy_busters || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))})
                             </td>
                             <td style={{textAlign: "right"}}>
@@ -1418,7 +1418,7 @@ function Allocate(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td style={{textAlign: "left"}}>Galaxy Busters</td>
-                            <td>Project Complete!</td>
+                            <td className="assigned-col">Project Complete!</td>
                             <td style={{textAlign: "right"}}>
                                 {Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}
                             </td>
@@ -1444,7 +1444,7 @@ function Allocate(props) {
                         props.kdInfo.completed_projects.indexOf('drone_gadgets') < 0
                         ? <tr>
                             <td style={{textAlign: "left"}}>Drone Gadgets</td>
-                            <td style={{textAlign: "right"}}>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
                                 {(props.kdInfo.projects_assigned.drone_gadgets || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))})
                             </td>
                             <td style={{textAlign: "right"}}>
@@ -1469,7 +1469,7 @@ function Allocate(props) {
                         </tr>
                         : <tr className="disabled-table-row">
                             <td style={{textAlign: "left"}}>Drone Gadgets</td>
-                            <td>Project Complete!</td>
+                            <td className="assigned-col">Project Complete!</td>
                             <td style={{textAlign: "right"}}>
                                 {Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}
                             </td>

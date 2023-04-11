@@ -386,14 +386,14 @@ function Revealed(props) {
                 scrollable
                 
             >
-                <Column field="kingdom" header="Kingdom" filter frozen showFilterMenu={false} style={{ maxWidth: '60px' }}/>
-                <Column field="remaining" header="Remaining" style={{ maxWidth: '80px' }}/>
-                <Column field="galaxy" header="Galaxy" sortable filter showFilterMenu={false} style={{ maxWidth: '65px' }}/>
+                <Column field="kingdom" header="Kingdom" filter frozen showFilterMenu={false} style={{ width: "15%" }}/>
+                <Column field="remaining" header="Remaining" style={{ width: "15%" }}/>
+                <Column field="galaxy" header="Galaxy" sortable filter showFilterMenu={false} style={{ width: "15%" }}/>
                 {/* <Column field="empire" header="Empire" sortable showFilterMenu={false} filter style={{ width: '10%' }}/> */}
-                <Column field="stars" header="Stars" sortable /*filter*/ dataType="numeric" body={formatStars} style={{ maxWidth: '60px' , textAlign:"right"}}/>
+                <Column field="stars" header="Stars" sortable /*filter*/ dataType="numeric" body={formatStars} style={{ width: "15%" , textAlign:"right"}}/>
                 {/* <Column field="score" header="Score" sortable filter body={formatScore} style={{ width: '10%' }}/> */}
-                <Column field="coordinate_distance" header="Distance" sortable /*filter*/ style={{ maxWidth: '70px' , textAlign:"right"}}/>
-                <Column field="actions" header="Actions" style={{ minWidth: '110px' }}/>
+                <Column field="coordinate_distance" header="Distance" sortable /*filter*/ style={{ width: "10%" , textAlign:"right"}}/>
+                <Column field="actions" header="Actions" style={{ minWidth: '110px', width: "30%" }}/>
             </DataTable>
             <Table className="revealed-galaxy-table" striped bordered hover>
                 <thead>
@@ -484,7 +484,7 @@ function Shared(props) {
             <div key={kdId.toString() + '_' + category} className="remaining-timer">
                 {
                     (category === sharedStat)
-                    ? <span className="remaining-time-title-shared">{category}</span>
+                    ? <span className="remaining-time-title remaining-time-title-shared">{category}</span>
                     : <span className="remaining-time-title">{category}</span>
                 }
                 <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>

@@ -8,6 +8,15 @@
 .galaxy-leader-button {
     margin: 10px;
     width: 25%;
+    max-width: 150px;
+}
+
+
+@media (min-width: 756px) {
+    .galaxy-leader-table {
+        width: 40%;
+        min-width: 400px;
+    }
 }
 
 .galaxy-policies {
@@ -25,6 +34,7 @@
     flex-direction: row;
     align-items: center;
     flex-wrap: wrap;
+    justify-content: center;
 }
 .galaxy-policy-card {
     display: flex;
@@ -32,6 +42,12 @@
     align-items: center;
     width: 100%;
     padding: 15px;
+}
+@media (min-width: 756px) {
+    .galaxy-policy-card {
+        width: 48%;
+        min-width: 350px;
+    }
 }
 .galaxy-policy-button {
     width: 50%;

@@ -117,10 +117,10 @@ function Attack(props) {
                 style={{ width: '100%'}}
                 header={"Attack History"}
             >
-                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '70%' }}/>
+                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '60%' }}/>
                 {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
                 <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
             </DataTable>
         </div>

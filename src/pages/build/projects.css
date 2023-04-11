@@ -13,6 +13,12 @@
     align-items: center;
 }
 
+@media (min-width: 756px) {
+    .engineers-box {
+        width: 50%;
+        min-width: 450px;
+    }
+}
 .engineers-input-group {
     width: 75%;
     margin: 5px;
@@ -34,15 +40,33 @@
     min-width: 40px;
     font-size: 9px !important;
 }
+@media (min-width: 756px) {
+    .projects-assign-form {
+        font-size: 16px !important;
+        max-height: 32px;
+    }
+}
 .projects-add-form {
     max-height: 25px;
     min-width: 40px;
     font-size: 9px !important;
 }
+@media (min-width: 756px) {
+    .projects-add-form {
+        font-size: 16px !important;
+        max-height: 32px;
+    }
+}
 
 .projects-box {
     width: 100%;
     margin: 5px;
+}
+@media (min-width: 756px) {
+    .projects-box {
+        width: 50%;
+        min-width: 450px;
+    }
 }
 
 .projects-table {
@@ -50,12 +74,30 @@
     margin: 5px;
     font-size: 8px;
 }
+@media (min-width: 756px) {
+    .projects-table {
+        font-size: 16px;
+        width: 100%;
+    }
+}
+@media (min-width: 756px) {
+    .assigned-col {
+        max-width: 125px;
+    }
+}
 
 .remove-button {
     margin: 1px;
     width: 40px;
     height: 20px;
     font-size: 6px;
+}
+@media (min-width: 756px) {
+    .remove-button {
+        width: 70px;
+        height: 35px;
+        font-size: 14px;
+    }
 }
 
 .projects-button {
@@ -66,8 +108,19 @@
     max-height: 10px;
     min-width: 60px;
 }
+@media (min-width: 756px) {
+    .projects-input-group {
+        max-height: 20px;
+    }
+}
 
 .projects-input-group-text {
     max-height: 25px;
     font-size: 9px !important;
+}
+@media (min-width: 756px) {
+    .projects-input-group-text {
+        font-size: 16px !important;
+        max-height: 32px;
+    }
 }

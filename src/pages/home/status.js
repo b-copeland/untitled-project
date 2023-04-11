@@ -748,7 +748,7 @@ function Structures(props) {
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
-        <div className="status">
+        <div className="structures-status">
             <h2>Structures</h2>
             <div className="structures-info">
                 <Table striped bordered hover className="structures-status-table" size="sm">

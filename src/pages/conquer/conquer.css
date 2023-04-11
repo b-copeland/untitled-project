@@ -22,19 +22,26 @@
     display: flex;
     flex-direction: row;
 }
+@media (min-width: 756px) {
+    .remaining-timer {
+        flex-wrap: wrap;
+    }
+}
 
 .remaining-time-title {
     width: 45%;
+    min-width: 40px;
     float: left;
     text-align: left;
     margin-left: 5px;
 }
+@media (min-width: 756px) {
+    .remaining-time-title {
+        min-width: 65px;
+    }
+}
 
 .remaining-time-title-shared {
-    width: 45%;
-    float: left;
-    text-align: left;
-    margin-left: 5px;
     color: green;
 }
 
@@ -44,34 +51,78 @@
     text-align: right;
     margin-right: 5px;
 }
+@media (min-width: 756px) {
+    .remaining-time-value {
+        min-width: 55px;
+    }
+}
+
 
 .shared-table {
     font-size: 9px;
     width: 100%;
 }
+@media (min-width: 756px) {
+    .shared-table {
+        font-size: 16px;
+    }
+}
 .shared-requests-table {
     font-size: 9px;
     width: 100%;
+}
+@media (min-width: 756px) {
+    .shared-requests-table {
+        font-size: 16px;
+    }
 }
 .shared-offers-table {
     font-size: 9px;
     width: 100%;
 }
+@media (min-width: 756px) {
+    .shared-offers-table {
+        font-size: 16px;
+    }
+}
 .pinned-table {
     font-size: 9px;
     width: 100%;
+}
+@media (min-width: 756px) {
+    .pinned-table {
+        font-size: 16px;
+    }
 }
 
 .galaxy-modal {
     width: 100%;
     max-width: none;
 }
+@media (min-width: 756px) {
+    .galaxy-modal {
+        width: 80%;
+        min-width: 750px;
+    }
+}
 
 .view-modal {
     width: 100%;
+}
+@media (min-width: 756px) {
+    .view-modal {
+        width: 80%;
+        min-width: 750px;
+    }
 }
 
 .share-intel-modal {
     width: 100%;
     max-width: none;
+}
+@media (min-width: 756px) {
+    .share-intel-modal {
+        width: 80%;
+        min-width: 750px;
+    }
 }

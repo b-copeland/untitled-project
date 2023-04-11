@@ -14,11 +14,22 @@
     align-items: center;
 }
 
+@media (min-width: 756px) {
+    .settle-input {
+        width: 45%;
+    }
+}
+
 .settle-input-group {
     width: 75%;
     margin: 5px;
 }
 
+@media (min-width: 756px) {
+    .settle-input-group {
+        width: 75%;
+    }
+}
 .settle-button {
     margin: 5px;
 }

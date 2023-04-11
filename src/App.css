@@ -54,6 +54,11 @@
   /* align-items: center; */
   top: 0;
 }
+@media (min-width: 756px) {
+    .navdiv {
+      width: 300px;
+    }
+}
 
 /* @media screen and (min-width: 480px) {
   .navdiv {
@@ -100,4 +105,11 @@
   box-sizing: border-box;
   padding: 3px;
   font-size: smaller;
+}
+@media (min-width: 756px) {
+    .header-item {
+        width: 25%;
+        font-size: 16px;
+        min-width: 175px;
+    }
 }

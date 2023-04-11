@@ -1,5 +1,6 @@
 .missiles-input {
     width: 50%;
+    min-width: 200px;
 }
 
 .missiles-input-title {
@@ -14,6 +15,14 @@
     width: 100%;
     font-size: 10px;
 }
+@media (min-width: 756px) {
+    .launch-missiles-table {
+        width: 45%;
+        min-width: 450px;
+        font-size: 16px;
+    }
+}
+
 
 .missile-shields-input-group-text {
     max-height: 30px;

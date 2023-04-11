@@ -8,6 +8,7 @@
     flex-direction: row;
     width: 100%;
     flex-wrap: wrap;
+    justify-content: center;
 }
 .attack-primitives {
     display: flex;
@@ -17,6 +18,13 @@
     width: 100%;
     padding: 20px;
 }
+@media (min-width: 756px) {
+    .attack-primitives {
+        width: 70%;
+        min-width: 400px;
+    }
+}
+
 .primitives-attack-auto {
     display: flex;
     flex-direction: column;
@@ -25,11 +33,60 @@
     width: 100%;
     padding: 20px;
 }
+@media (min-width: 756px) {
+    .primitives-attack-auto {
+        width: 30%;
+        min-width: 250px;
+    }
+}
 .primitives-attacker-detail {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
+    justify-content: center;
 }
+.primitives-battle-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.primitives-attacker-text-boxes {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    font-size: 12px;
+}
+@media (min-width: 756px) {
+    .primitives-attacker-text-boxes {
+      font-size: 16px;
+      min-width: 200px;
+      width: 50%;
+    }
+}
+.primitives-losses-box {
+    width: 100%;
+    min-width: 200px;
+    margin: 0px;
+}
+/* @media (min-width: 756px) {
+    .primitives-losses-box {
+        width: 100%;
+        min-width: 200px;
+    }
+} */
+.primitives-offense-box {
+    width: 100%;
+    min-width: 200px;
+    margin: 0px;
+}
+/* @media (min-width: 756px) {
+    .primitives-offense-box {
+        width: 50%;
+        min-width: 200px;
+    }
+} */
 .primitives-box {
     margin: 10px;
 }
@@ -44,6 +101,12 @@
     width: 100%;
     padding: 20px;
 }
+@media (min-width: 756px) {
+    .rob-primitives {
+        width: 50%;
+        min-width: 300px;
+    }
+}
 .auto-rob-primitives {
     display: flex;
     flex-direction: column;
@@ -52,20 +115,45 @@
     width: 100%;
     padding: 20px;
 }
+@media (min-width: 756px) {
+    .auto-rob-primitives {
+        width: 50%;
+        min-width: 250px;
+    }
+}
 
 .auto-attack-percent {
     width: 95%;
+    min-width: 250px;
 }
 
 .auto-attack-percent-text {
-    font-size: 10px;
+    font-size: 12px;
     width: 65%;
+    white-space: normal;
+}
+@media (min-width: 756px) {
+    .auto-attack-percent-text {
+      font-size: 16px;
+    }
 }
 
 .rob-drones-input-text {
     max-height: 30px;
 }
+@media (min-width: 756px) {
+    .rob-drones-input-group {
+        width: 40%;
+        min-width: 300px;
+    }
+}
 .auto-drones-input-text {
-    font-size: 10px;
+    font-size: 12px;
     width: 65%;
+    white-space: normal;
+}
+@media (min-width: 756px) {
+    .auto-drones-input-text {
+      font-size: 16px;
+    }
 }

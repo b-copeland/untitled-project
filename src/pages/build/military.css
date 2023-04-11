@@ -13,9 +13,22 @@
     align-items: center;
 }
 
+@media (min-width: 756px) {
+    .recruits-box {
+        width: 50%;
+        min-width: 450px;
+    }
+}
+
 .recruits-input-group {
     width: 75%;
     margin: 5px;
+}
+
+@media (min-width: 756px) {
+    .recruits-input-group {
+        width: 50%;
+    }
 }
 
 .recruits-button {
@@ -37,11 +50,23 @@
     width: 100%;
     margin: 5px;
 }
+@media (min-width: 756px) {
+    .specialists-box {
+        width: 45%;
+        min-width: 450px;
+    }
+}
 
 .specialists-table {
     width: 100%;
     margin: 5px;
     font-size: 9px;
+}
+@media (min-width: 756px) {
+    .specialists-table {
+        font-size: 16px;
+        max-width: 600px;
+    }
 }
 
 .specialists-form {
@@ -57,6 +82,12 @@
     width: 75%;
     margin: 5px;
     font-size: 10px;
+}
+@media (min-width: 756px) {
+    .max-recruits-input-group {
+        width: 25%;
+        min-width: 200px;
+    }
 }
 
 .allocate-input-group {

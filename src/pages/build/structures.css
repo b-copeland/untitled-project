@@ -9,10 +9,26 @@
     width: 100%;
     font-size: 12px;
 }
+
+@media (min-width: 756px) {
+    .structures-table {
+        width: 50%;
+        min-width: 450px;
+        font-size: 16px;
+    }
+}
 .structures-allocation-table {
     margin: 5px;
     width: 100%;
     font-size: 10px;
+}
+
+@media (min-width: 756px) {
+    .structures-allocation-table {
+        width: 60%;
+        min-width: 550px;
+        font-size: 16px;
+    }
 }
 
 .structures-form-data {
@@ -36,4 +52,11 @@
 .structures-box {
     width: 100%;
     margin: 5px;
+}
+
+@media (min-width: 756px) {
+    .structures-box {
+        width: 45%;
+        min-width: 400px;
+    }
 }

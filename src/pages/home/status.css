@@ -13,9 +13,19 @@
 .shields-content {
     width: 100%;
 }
+@media (min-width: 756px) {
+    .shields-content {
+        width: 60%;
+    }
+}
 
 .shields-table {
     font-size: 10px;
+}
+@media (min-width: 756px) {
+    .shields-table {
+        font-size: 16px;
+    }
 }
 
 .shields-input-group {
@@ -39,6 +49,11 @@
     flex-direction: column;
     align-items: center;
     width: 100%
+}
+@media (min-width: 756px) {
+    .spending-inputs {
+        width: 60%;
+    }
 }
 .spending-input-pct {
     width: 10%
@@ -88,10 +103,22 @@
     /* width: 30% */
     width: 100%;
 }
+@media (min-width: 756px) {
+    .kingdom-card {
+        width: 30%;
+        min-width: 300px;
+    }
+}
 
 .income-box {
     /* width: 30% */
     width: 100%;
+}
+@media (min-width: 756px) {
+    .income-box {
+        min-width: 300px;
+        width: 30%;
+    }
 }
 
 /* .revealed-box {
@@ -108,7 +135,10 @@
 }
 
 .text-box-item {
-    width: 95%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
 }
 
 .text-box-item-title {
@@ -141,23 +171,66 @@
 .army-info {
     margin: 10px;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+@media (min-width: 756px) {
+    .army-info {
+        width: 45%;
+    }
 }
 .army-table {
     font-size: 10px;
 }
+@media (min-width: 756px) {
+    .army-table {
+        font-size: 16px;
+    }
+}
 .mobis-table {
     font-size: 8px;
+}
+@media (min-width: 756px) {
+    .mobis-table {
+        font-size: 16px;
+    }
 }
 .mobi-info {
     margin: 10px;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+@media (min-width: 756px) {
+    .mobi-info {
+        min-width: 450px;
+        width: 45%;
+    }
 }
 
+.structures-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 .structures-info {
     width: 100%
 }
+@media (min-width: 756px) {
+    .structures-info {
+        min-width: 550px;
+        width: 70%;
+    }
+}
 .structures-status-table {
     font-size: 10px;
+}
+@media (min-width: 756px) {
+    .structures-status-table {
+        font-size: 16px;
+    }
 }
 
 /* .table {

@@ -149,7 +149,7 @@ function GalaxyPoliticsLeader(props) {
                     Vote
                 </Button>
             }
-            <Table striped bordered hover>
+            <Table striped bordered hover className="galaxy-leader-table">
                 <thead>
                     <tr>
                         <th>Kingdom</th>

@@ -21,6 +21,8 @@
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
+    justify-content: center;
+    align-content: center;
 }
 
 .defender-stats {
@@ -29,11 +31,19 @@
     flex-direction: column;
     align-items: center;
 }
+@media (min-width: 756px) {
+    .defender-stats {
+      width: 50%;
+      min-width: 300px;
+    }
+}
+
 
 .defender-detail {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 .defender-text-boxes {
@@ -41,11 +51,27 @@
     flex-direction: column;
     flex: 1;
     font-size: 12px;
+    max-width: 250px;
+}
+@media (min-width: 756px) {
+    .defender-text-boxes {
+      font-size: 16px;
+      min-width: 300px;
+      width: 50%;
+    }
 }
 
 .defender-table {
     width: 100%;
     font-size: 12px;
+}
+@media (min-width: 756px) {
+    .defender-table {
+      width: 50%;
+      font-size: 16px;
+      min-width: 300px;
+      height: 350px;
+    }
 }
 
 .attacker-stats {
@@ -54,11 +80,18 @@
     flex-direction: column;
     align-items: center;
 }
+@media (min-width: 756px) {
+    .attacker-stats {
+      width: 50%;
+      min-width: 300px;
+    }
+}
 
 .attacker-detail {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 .attacker-text-boxes {
@@ -66,10 +99,26 @@
     flex-direction: column;
     flex: 1;
     font-size: 12px;
+    max-width: 250px;
+}
+@media (min-width: 756px) {
+    .attacker-text-boxes {
+      font-size: 16px;
+      min-width: 300px;
+      width: 50%;
+    }
 }
 .attacker-table {
     width: 100%;
     font-size: 12px;
+}
+@media (min-width: 756px) {
+    .attacker-table {
+      width: 50%;
+      font-size: 16px;
+      min-width: 400px;
+      height: 350px;
+    }
 }
 
 .unit-form {
