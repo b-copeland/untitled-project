@@ -7,6 +7,7 @@ import requests
 import sys
 import json
 import copy
+import time
 from functools import wraps
 
 import flask
@@ -16,6 +17,7 @@ import flask_cors
 from flask_mail import Mail
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_sock import Sock
 
 
 db = flask_sqlalchemy.SQLAlchemy()
@@ -547,6 +549,8 @@ PRETTY_NAMES = {
     "workshops": "Workshops",
 }
 
+SOCK_HANDLERS = {}
+
 # A generic user model that might be used by an app powered by flask-praetorian
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -609,6 +613,8 @@ db.init_app(app)
 cors.init_app(app)
 
 mail.init_app(app)
+
+sock = Sock(app)
 
 def _custom_limit_key_func():
     try:
@@ -855,6 +861,22 @@ def create_state():
     )
     return flask.jsonify(update_response.text), 200
 
+
+@sock.route('/ws/listen')
+# @flask_praetorian.auth_required
+def listen(ws):
+    while True:
+        data = ws.receive()
+        json_data = json.loads(data)
+
+        jwt = json_data.get('jwt', None)
+        if jwt:
+            id = guard.extract_jwt_token(jwt)["id"]
+            query = db.session.query(User).filter_by(id=id).all()
+            user = query[0]
+            SOCK_HANDLERS[user.kd_id] = ws
+
+        time.sleep(5)
 
 @app.route('/api/kingdomid')
 @flask_praetorian.auth_required
@@ -5578,6 +5600,12 @@ def _resolve_settles(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(settles_payload),
     )
+    try:
+        print("Getting Sock Handlers", SOCK_HANDLERS)
+        ws = SOCK_HANDLERS[kd_id]
+        ws.send(json.dumps({"message": f"Finished settling {ready_settles} stars", "status": "info", "category": "Settles"}))
+    except KeyError:
+        pass
     
     return ready_settles, next_resolve
     
@@ -6445,7 +6473,7 @@ def blacklist_token():
 
 @app.route('/api/time')
 @flask_praetorian.auth_required
-def time():
+def get_time():
     return (flask.jsonify(datetime.datetime.now(datetime.timezone.utc).isoformat()), 200)
 
 @app.route('/', defaults={'path': ''})

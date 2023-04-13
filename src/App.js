@@ -10,8 +10,11 @@ import {
   useNavigate,
   redirect,
 } from "react-router-dom";
+import useWebSocket, { ReadyState } from 'react-use-websocket';
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "./auth";
 import Button from 'react-bootstrap/Button';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer'
 import SideNavbar from "./components/navbar";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css";
@@ -169,6 +172,9 @@ function useInterval(callback, delay) {
 }
 
 function Content(props) {
+  const [socketUrl, setSocketUrl] = useState('ws://127.0.0.1:5000/ws/listen');
+  const [messageHistory, setMessageHistory] = useState([]);
+  const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
   const [data, setData] = useState(initGlobalData);
   const [loading, setLoading] = useState(initLoadingData);
   const [initLoadComplete, setInitLoadComplete] = useState(false);
@@ -249,6 +255,15 @@ function Content(props) {
     }
   }
 
+
+  useEffect(() => {
+    if (lastMessage !== null) {
+      setMessageHistory((prev) => prev.concat(lastMessage));
+    }
+  }, [lastMessage, setMessageHistory]);
+
+  console.log(messageHistory);
+
   useEffect(() => {
     if (props.logged) {
       const keys = Object.keys(initGlobalData);
@@ -263,6 +278,12 @@ function Content(props) {
       // }, 10000);
 
       // return () => clearInterval(interval);
+
+      sendMessage(
+        JSON.stringify({
+          "jwt": props.session.accessToken,
+        })
+      );
     }
   }, [props.logged])
 
@@ -283,6 +304,24 @@ function Content(props) {
   if (Object.keys(lastResolves || {}).length == 0 && data.kingdom.hasOwnProperty("next_resolve")) {
     setLastResolves(data.kingdom.next_resolve);
   }
+
+  
+  const toasts = messageHistory.map((message, index) =>
+    <Toast
+        key={index}
+        onClose={(e) => setMessageHistory(messageHistory.slice(0, index).concat(messageHistory.slice(index + 1, 999)))}
+        show={true}
+        bg={JSON.parse(message.data).status === "warning" ? "warning" : "info"}
+        // className="d-inline-block m-1"
+        delay={JSON.parse(message.data).delay || 5000}
+        autohide
+    >
+        <Toast.Header>
+            <strong className="me-auto">Notification - {JSON.parse(message.data).category}</strong>
+        </Toast.Header>
+        <Toast.Body className="text-black">{JSON.parse(message.data).message}</Toast.Body>
+    </Toast>
+  )
   return (
     <div className="main">
       <div className="d-lg-none"><Button variant="primary" type="submit" onClick={handleShowNav}>Nav</Button></div>
@@ -290,6 +329,9 @@ function Content(props) {
       {/* <div className="navdiv"> */}
       {/* </div> */}
       <div className="main-body">
+        <ToastContainer position="top-end">
+            {toasts}
+        </ToastContainer>
         <SideNavbar logged={props.logged} setData={setData} showNav={showNav} setShowNav={setShowNav}/>
         <div className="router">
           {/* <Router> */}
