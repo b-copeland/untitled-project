@@ -258,6 +258,10 @@ function Content(props) {
 
   useEffect(() => {
     if (lastMessage !== null) {
+      const jsonMessage = JSON.parse(lastMessage.data);
+      if ((jsonMessage.update || []).length > 0) {
+        updateData(jsonMessage.update);
+      }
       setMessageHistory((prev) => prev.concat(lastMessage));
     }
   }, [lastMessage, setMessageHistory]);
@@ -306,21 +310,23 @@ function Content(props) {
   }
 
   
-  const toasts = messageHistory.map((message, index) =>
-    <Toast
+  const toasts = messageHistory.map((message, index) => {
+    const jsonMessage = JSON.parse(message.data);
+    return <Toast
         key={index}
         onClose={(e) => setMessageHistory(messageHistory.slice(0, index).concat(messageHistory.slice(index + 1, 999)))}
         show={true}
-        bg={JSON.parse(message.data).status === "warning" ? "warning" : "info"}
+        bg={jsonMessage.status === "warning" ? "warning" : "info"}
         // className="d-inline-block m-1"
-        delay={JSON.parse(message.data).delay || 5000}
+        delay={jsonMessage.delay || 5000}
         autohide
     >
         <Toast.Header>
-            <strong className="me-auto">Notification - {JSON.parse(message.data).category}</strong>
+            <strong className="me-auto">Notification - {jsonMessage.category}</strong>
         </Toast.Header>
-        <Toast.Body className="text-black">{JSON.parse(message.data).message}</Toast.Body>
+        <Toast.Body className="text-black">{jsonMessage.message}</Toast.Body>
     </Toast>
+    }
   )
   return (
     <div className="main">

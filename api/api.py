@@ -3017,6 +3017,7 @@ def accept_shared():
     
 
     kd_id = flask_praetorian.current_user().kd_id
+    kingdoms = _get_kingdoms()
     
     shared_info = _get_shared(kd_id)
 
@@ -3041,6 +3042,18 @@ def accept_shared():
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(revealed_payload),
     )
+    
+    try:
+        ws = SOCK_HANDLERS[shared_info["shared"][accepted_kd]["shared_by"]]
+        ws.send(json.dumps({
+            "message": f"{kingdoms[kd_id]} accepted intel {shared_info['shared'][accepted_kd]['shared_stat']} for target {kingdoms[accepted_kd]}",
+            "status": "info",
+            "category": "Galaxy",
+            "delay": 15000,
+            "update": [],
+        }))
+    except KeyError:
+        pass
     return (flask.jsonify(shared_info_response.text), 200)
 
 @app.route('/api/offershared', methods=['POST'])
@@ -3059,6 +3072,7 @@ def offer_shared():
     shared_stat = req["shared_stat"]
     shared_to_kd = str(req["shared_to"])
     cut = float(req.get("cut", 0)) / 100
+    kingdoms = _get_kingdoms()
 
     if (
         shared_kd == "" or shared_kd == None
@@ -3141,6 +3155,19 @@ def offer_shared():
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps({"next_resolve": shared_to_next_resolve}),
         )
+
+    
+    try:
+        ws = SOCK_HANDLERS[shared_to_kd]
+        ws.send(json.dumps({
+            "message": f"{kingdoms[shared_to_kd]} offered intel {shared_stat} for target {kingdoms[shared_kd]} with a cut of {cut:.1%}",
+            "status": "info",
+            "category": "Galaxy",
+            "delay": 15000,
+            "update": [],
+        }))
+    except KeyError:
+        pass
     return (flask.jsonify({"message": "Succesfully shared intel", "status": "success"}), 200)
 
 def _get_pinned(kd_id):
@@ -3751,6 +3778,8 @@ def attack(target_kd):
                 headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
                 data=json.dumps(sharer_news),
             )
+        else:
+            sharer_spoils_values = {}
 
         units_destroyed = sum(defender_losses.values())
         attack_status = "success"
@@ -3771,7 +3800,7 @@ def attack(target_kd):
         attack_status = "failure"
         attacker_message = "Failure! You have lost " + ', '.join([f"{value} {PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
         defender_message = (
-            f"Your kingdom was successfully defended an attack by {kd_info_parse['name']}. You have lost "
+            f"Your kingdom successfully defended an attack by {kd_info_parse['name']}. You have lost "
             + ', '.join([f"{value} {PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
         )
         spoils_values = {}
@@ -3803,7 +3832,7 @@ def attack(target_kd):
         kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
         target_kd_info["projects_max_points"][key_project] = project_max_func(target_kd_info["stars"])
 
-    if sharer:
+    if sharer and sharer_spoils_values:
         sharer_kd_info = _get_kd_info(sharer)
         for key_spoil, value_spoil in sharer_spoils_values.items():
             if key_spoil != "money":
@@ -3823,6 +3852,18 @@ def attack(target_kd):
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(sharer_kd_info),
         )
+        try:
+            ws = SOCK_HANDLERS[sharer]
+            ws.send(json.dumps({
+                "message": f"You have gained {sharer_spoils_values['stars']} from an attack by your galaxymate {kd_info_parse['name']}",
+                "status": "info",
+                "category": "Galaxy",
+                "delay": 15000,
+                "update": [],
+            }))
+        except KeyError:
+            pass
+    
     if target_kd_info["stars"] <= 0:
         target_kd_info["status"] = "Dead"
         _mark_kingdom_death(target_kd)
@@ -3836,6 +3877,17 @@ def attack(target_kd):
         "from": kd_id,
         "news": defender_message,
     }
+    try:
+        ws = SOCK_HANDLERS[target_kd]
+        ws.send(json.dumps({
+            "message": defender_message,
+            "status": "warning",
+            "category": "Attack",
+            "delay": 60000,
+            "update": ["news", "galaxynews"],
+        }))
+    except KeyError:
+        pass
     target_news_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -3897,6 +3949,18 @@ def attack(target_kd):
                     headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
                     data=json.dumps(kd_revealed_to_patch_payload),
                 )
+            if kd_revealed_to != target_kd:
+                try:
+                    ws = SOCK_HANDLERS[kd_revealed_to]
+                    ws.send(json.dumps({
+                        "message": f"Your galaxymate {target_kd_info['name']} was attacked by {kd_info_parse['name']}. Galaxy {attacker_galaxy} will be revealed for {BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER / 3600} hours",
+                        "status": "info",
+                        "category": "Galaxy",
+                        "delay": 15000,
+                        "update": ["galaxynews"],
+                    }))
+                except KeyError:
+                    pass
 
     attacker_galaxy_payload = {
         "time": time_now.isoformat(),
@@ -4652,6 +4716,17 @@ def spy(target_kd):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(target_news_payload),
     )
+    try:
+        ws = SOCK_HANDLERS[target_kd]
+        ws.send(json.dumps({
+            "message": target_message,
+            "status": "warning",
+            "category": "Spy",
+            "delay": 15000,
+            "update": ["news"],
+        }))
+    except KeyError:
+        pass
 
     payload = {
         "status": status,
@@ -4947,7 +5022,6 @@ def launch_missiles(target_kd):
     if not valid_request:
         return (flask.jsonify({"message": message}), 400)
     
-    revealed = _get_revealed(kd_id)["revealed"]
     max_target_kd_info = _get_kd_info(target_kd)
     defender_shields = max_target_kd_info["shields"]["missiles"]
     if max_target_kd_info["status"].lower() == "dead":
@@ -5014,6 +5088,17 @@ def launch_missiles(target_kd):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(history_payload, default=str),
     )
+    try:
+        ws = SOCK_HANDLERS[target_kd]
+        ws.send(json.dumps({
+            "message": defender_message,
+            "status": "warning",
+            "category": "Missiles",
+            "delay": 30000,
+            "update": [],
+        }))
+    except KeyError:
+        pass
 
     payload = {
         "message": message,
@@ -5544,6 +5629,18 @@ def _kingdom_with_income(
             if new_kd_info["projects_points"][key_project] >= new_kd_info["projects_max_points"][key_project]:
                 new_kd_info["completed_projects"].append(key_project)
                 new_kd_info["projects_assigned"][key_project] = 0
+                try:
+                    ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
+                    ws.send(json.dumps({
+                        "message": f"Completed project {key_project}!",
+                        "status": "info",
+                        "category": "Projects",
+                        "delay": 15000,
+                        "update": [],
+                    }))
+                except KeyError:
+                    pass
+
     if new_kd_info["auto_spending_enabled"]:
         pct_allocated = sum(new_kd_info["auto_spending"].values())
         for key_spending, pct_spending in new_kd_info["auto_spending"].items():
@@ -5601,9 +5698,14 @@ def _resolve_settles(kd_id, time_update):
         data=json.dumps(settles_payload),
     )
     try:
-        print("Getting Sock Handlers", SOCK_HANDLERS)
         ws = SOCK_HANDLERS[kd_id]
-        ws.send(json.dumps({"message": f"Finished settling {ready_settles} stars", "status": "info", "category": "Settles"}))
+        ws.send(json.dumps({
+            "message": f"Finished settling {ready_settles} stars",
+            "status": "info",
+            "category": "Settles",
+            "delay": 5000,
+            "update": [],
+        }))
     except KeyError:
         pass
     
@@ -5639,6 +5741,18 @@ def _resolve_mobis(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(mobis_payload),
     )
+    try:
+        ws = SOCK_HANDLERS[kd_id]
+        count_mobis = sum(ready_mobis.values())
+        ws.send(json.dumps({
+            "message": f"Finished mobilizing {count_mobis} units",
+            "status": "info",
+            "category": "Mobis",
+            "delay": 5000,
+            "update": [],
+        }))
+    except KeyError:
+        pass
     
     return ready_mobis, next_resolve
     
@@ -5672,6 +5786,18 @@ def _resolve_structures(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(structures_payload),
     )
+    try:
+        ws = SOCK_HANDLERS[kd_id]
+        count_structures = sum(ready_structures.values())
+        ws.send(json.dumps({
+            "message": f"Finished building {count_structures} structures",
+            "status": "info",
+            "category": "Structures",
+            "delay": 5000,
+            "update": [],
+        }))
+    except KeyError:
+        pass
     
     return ready_structures, next_resolve
     
@@ -5703,6 +5829,18 @@ def _resolve_missiles(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(missiles_payload),
     )
+    try:
+        ws = SOCK_HANDLERS[kd_id]
+        count_missiles = sum(ready_missiles.values())
+        ws.send(json.dumps({
+            "message": f"Finished building {count_missiles} missiles",
+            "status": "info",
+            "category": "Missiles",
+            "delay": 5000,
+            "update": [],
+        }))
+    except KeyError:
+        pass
     
     return ready_missiles, next_resolve
     
@@ -5733,6 +5871,17 @@ def _resolve_engineers(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(engineers_payload),
     )
+    try:
+        ws = SOCK_HANDLERS[kd_id]
+        ws.send(json.dumps({
+            "message": f"Finished training {ready_engineers} engineers",
+            "status": "info",
+            "category": "Engineers",
+            "delay": 5000,
+            "update": [],
+        }))
+    except KeyError:
+        pass
     
     return ready_engineers, next_resolve
     
@@ -5837,6 +5986,19 @@ def _resolve_generals(kd_info_parse, time_update):
         kd_info_parse["units"][key_unit] += value_unit
 
     kd_info_parse["generals_out"] = generals_keep
+    
+    try:
+        ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
+        count_returning_units = sum(returning_units.values())
+        ws.send(json.dumps({
+            "message": f"{returning_generals} generals returned with {count_returning_units} units",
+            "status": "info",
+            "category": "Generals",
+            "delay": 15000,
+            "update": [],
+        }))
+    except KeyError:
+        pass
     return kd_info_parse, next_resolve
 
 
@@ -5853,6 +6015,17 @@ def _resolve_spy(kd_info_parse, time_update, current_bonuses):
     )
     if kd_info_parse["spy_attempts"] < BASE_SPY_ATTEMPTS_MAX:
         kd_info_parse["spy_attempts"] += 1
+        try:
+            ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
+            ws.send(json.dumps({
+                "message": f"A new spy attempt is available",
+                "status": "info",
+                "category": "Spy",
+                "delay": 15000,
+                "update": [],
+            }))
+        except KeyError:
+            pass
     return kd_info_parse, next_resolve_time
 
 def _resolve_auto_spending(
@@ -5914,7 +6087,7 @@ def _resolve_auto_spending(
     max_available_structures = structures_info["max_available_structures"]
     structures_funding = kd_info_parse["funding"]["structures"]
     structures_to_build = min(math.floor(structures_funding / structures_price), max_available_structures)
-    if structures_to_build:
+    if structures_to_build and sum(kd_info_parse["structures_target"].values()) > 0:
         print("Structures to build", structures_to_build)
         structures_current = structures_info["current"]
         structures_building = structures_info["hour_24"]
@@ -5983,7 +6156,7 @@ def _resolve_auto_spending(
     units_desc = mobis_info["units_desc"]
     military_funding = kd_info_parse["funding"]["military"]
 
-    if military_funding > 0:
+    if military_funding > 0 and sum(kd_info_parse["units_target"].values()) > 0:
         recruits_to_train = min(math.floor(military_funding / recruit_price), max_available_recruits)
         remaining_funding = military_funding - recruits_to_train * recruit_price
         
@@ -6114,6 +6287,23 @@ def _resolve_auto_attack(kd_info_parse):
             else:
                 req["attackerValues"][key_unit] = math.floor(flex_pct * value_unit)
     _attack_primitives(req, kd_info_parse["kdId"])
+    try:
+        ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
+        units = {
+            k: v
+            for k, v in req["attackerValues"].items()
+            if k != "generals"
+        }
+        count_units = sum(units.values())
+        ws.send(json.dumps({
+            "message": f"Automatically attacked primitives with {req['attackerValues']['generals']} generals and {count_units} units",
+            "status": "info",
+            "category": "Auto Primitives",
+            "delay": 15000,
+            "update": ["mobis", "attackhistory"],
+        }))
+    except KeyError:
+        pass
 
 def _resolve_auto_rob(kd_info_parse):
     drones_pct = kd_info_parse["auto_rob_settings"].get("drones", 0)
@@ -6126,6 +6316,17 @@ def _resolve_auto_rob(kd_info_parse):
             "shielded": shielded,
         }
         _rob_primitives(req, kd_info_parse["kdId"])
+        try:
+            ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
+            ws.send(json.dumps({
+                "message": f"Automatically robbed primitives with {req['drones']} drones",
+                "status": "info",
+                "category": "Auto Primitives",
+                "delay": 15000,
+                "update": ["spyhistory"],
+            }))
+        except KeyError:
+            pass
 
 def _resolve_auto_projects(kd_info_parse):
     engineers_to_assign = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
@@ -6164,6 +6365,17 @@ def _mark_kingdom_death(kd_id):
     user.kd_death_date = datetime.datetime.now(datetime.timezone.utc).isoformat()
     db.session.commit()
     _update_accounts()
+    try:
+        ws = SOCK_HANDLERS[kd_id]
+        ws.send(json.dumps({
+            "message": f"You died!",
+            "status": "warning",
+            "category": "Dead",
+            "delay": 999999,
+            "update": [],
+        }))
+    except KeyError:
+        pass
     return flask.jsonify(str(user.__dict__))
 
 def _begin_election(state):
