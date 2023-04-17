@@ -4783,6 +4783,8 @@ def _rob_primitives(req, kd_id):
         "money": kd_info_parse["money"] + new_money,
         "funding": new_funding,
     }
+    if shielded:
+        kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
