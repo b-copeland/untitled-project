@@ -45,8 +45,18 @@ const politicsPaths = [
   "/universepolitics",
 ]
 
+const doubleClickRoutes = {
+  "/": 0,
+  "/login": 0,
+  "/status": 0,
+  "/build": 0,
+  "/conquer": 0,
+  "/galaxypolitics": 0,
+}
+
 function SideNavbar(props) {
   // const [show, setShow] = useState(props.showNav);
+  const [doubleClicks, setDoubleClicks] = useState(JSON.parse(JSON.stringify(doubleClickRoutes)));
 
   const handleClose = () => props.setShowNav(false);
   const handleShow = () => props.setShowNav(true);
@@ -60,6 +70,17 @@ function SideNavbar(props) {
     navigate('/login');
     props.setData(initGlobalData);
   }
+
+  const handleDoubleClick = (route) => {
+    if (doubleClicks[route] == 1) {
+      props.setShowNav(false);
+      setDoubleClicks(doubleClickRoutes);
+    } else {
+      var newDoubleClicks = JSON.parse(JSON.stringify(doubleClickRoutes));
+      newDoubleClicks[route]++;
+      setDoubleClicks(newDoubleClicks);
+    }
+  }
   return (
     <>
       {/* <Button variant="primary" className="d-lg-none" onClick={handleShow}>
@@ -70,12 +91,12 @@ function SideNavbar(props) {
       <Offcanvas.Body>
       <div className="navdiv">
         <Nav className="mainnav">
-          <Nav.Link as={Link} to="/" onClick={() => props.setShowNav(false)} style={{"fontWeight": "bold"}}>Landing</Nav.Link>
+          <Nav.Link as={Link} to="/" onClick={() => handleDoubleClick("/")} style={{"fontWeight": "bold"}}>Landing</Nav.Link>
           {
             !props.logged
             ? <>
               <br />
-              <Nav.Link as={Link} to="/login" onClick={() => props.setShowNav(false)} style={{"fontWeight": "bold"}}>Login</Nav.Link>
+              <Nav.Link as={Link} to="/login" onClick={() => handleDoubleClick("/login")} style={{"fontWeight": "bold"}}>Login</Nav.Link>
             </>
             : null
           }
@@ -83,7 +104,7 @@ function SideNavbar(props) {
             props.logged
             ? <>
               <br />
-              <Nav.Link as={Link} to="/status" onClick={() => props.setShowNav(false)} style={{"fontWeight": "bold"}}>Home</Nav.Link>
+              <Nav.Link as={Link} to="/status" onClick={() => handleDoubleClick("/status")} style={{"fontWeight": "bold"}}>Home</Nav.Link>
               {
                 homePaths.includes(pathname)
                 ? <>
@@ -95,7 +116,7 @@ function SideNavbar(props) {
                 : null
               }
               <br />
-              <Nav.Link as={Link} to="/build" onClick={() => props.setShowNav(false)} style={{"fontWeight": "bold"}}>Build</Nav.Link>
+              <Nav.Link as={Link} to="/build" onClick={() => handleDoubleClick("/build")} style={{"fontWeight": "bold"}}>Build</Nav.Link>
               {
                 buildPaths.includes(pathname)
                 ? <>
@@ -108,7 +129,7 @@ function SideNavbar(props) {
                 : null
               }
               <br />
-              <Nav.Link as={Link} to="/conquer" onClick={() => props.setShowNav(false)} style={{"fontWeight": "bold"}}>Conquer</Nav.Link>
+              <Nav.Link as={Link} to="/conquer" onClick={() => handleDoubleClick("/conquer")} style={{"fontWeight": "bold"}}>Conquer</Nav.Link>
               {
                 conquerPaths.includes(pathname)
                 ? <>
@@ -121,7 +142,7 @@ function SideNavbar(props) {
                 : null
               }
               <br />
-              <Nav.Link as={Link} to="/galaxypolitics" onClick={() => props.setShowNav(false)} style={{"fontWeight": "bold"}}>Politics</Nav.Link>
+              <Nav.Link as={Link} to="/galaxypolitics" onClick={() => handleDoubleClick("/galaxypolitics")} style={{"fontWeight": "bold"}}>Politics</Nav.Link>
               {
                 politicsPaths.includes(pathname)
                 ? <>

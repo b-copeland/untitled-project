@@ -36,6 +36,7 @@ import Attack from "./pages/conquer/attack.js";
 import Spy from "./pages/conquer/spy.js";
 import ShareIntel from "./pages/conquer/shareintel.js";
 import LaunchMissiles from "./pages/conquer/launchmissiles.js";
+import Schedule from "./pages/conquer/schedule.js";
 import Primitives from "./pages/conquer/primitives.js";
 import GalaxyPolitics from "./pages/politics/galaxypolitics.js";
 import EmpirePolitics from "./pages/politics/empirepolitics.js";
@@ -363,6 +364,7 @@ function Content(props) {
                   <Route path="/spy" element={<Spy data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/shareintel" element={<ShareIntel data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/launchmissiles" element={<LaunchMissiles data={data} loading={loading} updateData={updateData}/>}/>
+                  <Route path="/Schedule" element={<Schedule data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/primitives" element={<Primitives data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/galaxypolitics" element={<GalaxyPolitics data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/empirepolitics" element={<EmpirePolitics data={data} loading={loading} updateData={updateData}/>}/>
