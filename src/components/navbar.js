@@ -137,6 +137,7 @@ function SideNavbar(props) {
                   <Nav.Link as={Link} to="/spy" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Spy</Nav.Link>
                   <Nav.Link as={Link} to="/shareintel" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Share Intel</Nav.Link>
                   <Nav.Link as={Link} to="/launchmissiles" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Launch Missiles</Nav.Link>
+                  <Nav.Link as={Link} to="/schedule" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Schedule</Nav.Link>
                   <Nav.Link as={Link} to="/primitives" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Primitives</Nav.Link>
                 </>
                 : null

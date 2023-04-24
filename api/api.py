@@ -8,6 +8,7 @@ import sys
 import json
 import copy
 import time
+import uuid
 from functools import wraps
 
 import flask
@@ -418,6 +419,7 @@ INITIAL_KINGDOM_STATE = {
             "spy_radar": 0.0,
             "missiles": 0.0
         },
+        "schedule": [],
     },
     "siphons_in": {"siphons_in": []},
     "siphons_out": {"siphons_out": []},
@@ -547,6 +549,9 @@ PRETTY_NAMES = {
     "missile_silos": "Missile Silos",
     "drone_factories": "Drone Factories",
     "workshops": "Workshops",
+    "planet_busters": "Planet Busters",
+    "star_busters": "Star Busters",
+    "galaxy_busters": "Galaxy Busters",
 }
 
 SOCK_HANDLERS = {}
@@ -4904,6 +4909,277 @@ def auto_rob_primitives():
     )
     return (flask.jsonify({"message": "Updated auto attack settings", "status": "success"}), 200)
 
+def _validate_schedule_attack(
+    options,
+    kd_id,
+):
+    if options["target"] is None:
+        return False, "Target must be selected"
+    if options["generals"] < 1 or options["generals"] > 4:
+        return False, "Generals must be between 1 and 4"
+    if options["pure_offense"] < 0 or options["pure_offense"] > 1:
+        return False, "Pure offense must be between 0% and 100%"
+    if options["flex_offense"] < 0 or options["flex_offense"] > 1:
+        return False, "Pure offense must be between 0% and 100%"
+    if options["target"] == kd_id:
+        return False, "You can not schedule an attack against yourself"
+    
+    return True, ""
+
+def _schedule_attack(
+    id,
+    time,
+    options,
+    kd_info,
+):
+    options["generals"] = int(options["generals"] or 0)
+    options["pure_offense"] = float(options["pure_offense"] or 0) / 100
+    options["flex_offense"] = float(options["flex_offense"] or 0) / 100
+    valid_schedule, message = _validate_schedule_attack(options, kd_info["kdId"])
+    if not valid_schedule:
+        return False, {}, message
+
+    
+    new_schedule = {
+        "id": id,
+        "time": time,
+        "type": "attack",
+        "options": options,
+    }
+    return True, new_schedule, ""
+
+def _validate_schedule_attackprimitives(
+    options,
+):
+    if options["generals"] < 1 or options["generals"] > 4:
+        return False, "Generals must be between 1 and 4"
+    if options["pure_offense"] < 0 or options["pure_offense"] > 1:
+        return False, "Pure offense must be between 0% and 100%"
+    if options["flex_offense"] < 0 or options["flex_offense"] > 1:
+        return False, "Flex offense must be between 0% and 100%"
+    
+    return True, ""
+
+def _schedule_attackprimitives(
+    id,
+    time,
+    options,
+    kd_info,
+):
+    options["generals"] = int(options["generals"] or 0)
+    options["pure_offense"] = float(options["pure_offense"] or 0) / 100
+    options["flex_offense"] = float(options["flex_offense"] or 0) / 100
+    valid_schedule, message = _validate_schedule_attackprimitives(options)
+    if not valid_schedule:
+        return False, {}, message
+    
+    new_schedule = {
+        "id": id,
+        "time": time,
+        "type": "attackprimitives",
+        "options": options,
+    }
+    return True, new_schedule, ""
+
+def _validate_schedule_intelspy(
+    options,
+    kd_id,
+):
+    if options["target"] is None:
+        return False, "Target must be selected"
+    if options["operation"] is None:
+        return False, "Operation must be selected"
+    if options["max_tries"] < 1 or options["max_tries"] > 10:
+        return False, "Max tries must be between 1 and 10"
+    if options["drones_pct"] < 0 or options["drones_pct"] > 1:
+        return False, "Drones percent must be between 0% and 100%"
+    if options["target"] == kd_id:
+        return False, "You can not schedule a spy attempt against yourself"
+    if options["operation"] not in REVEAL_OPERATIONS:
+        return False, "Intel schedules must be intel operations"
+    
+    return True, ""
+
+def _schedule_intelspy(
+    id,
+    time,
+    options,
+    kd_info,
+):
+    options["max_tries"] = int(options["max_tries"] or 0)
+    options["drones_pct"] = float(options["drones_pct"] or 0) / 100
+    valid_schedule, message = _validate_schedule_intelspy(options, kd_info["kdId"])
+    if not valid_schedule:
+        return False, {}, message
+    
+    new_schedule = {
+        "id": id,
+        "time": time,
+        "type": "intelspy",
+        "options": options,
+    }
+    return True, new_schedule, ""
+
+def _validate_schedule_aggressivespy(
+    options,
+    kd_id,
+):
+    if options["target"] is None:
+        return False, "Target must be selected"
+    if options["operation"] is None:
+        return False, "Operation must be selected"
+    if options["attempts"] < 1 or options["attempts"] > 10:
+        return False, "Attempts must be between 1 and 10"
+    if options["drones_pct"] <= 0 or options["drones_pct"] > 1:
+        return False, "Drones percent must be between 0% and 100%"
+    if options["target"] == kd_id:
+        return False, "You can not schedule a spy attempt against yourself"
+    if options["operation"] not in AGGRO_OPERATIONS:
+        return False, "Aggressive schedules must be aggressive operations"
+    
+    return True, ""
+
+def _schedule_aggressivespy(
+    id,
+    time,
+    options,
+    kd_info,
+):
+    options["attempts"] = int(options["attempts"] or 0)
+    options["drones_pct"] = float(options["drones_pct"] or 0) / 100
+    valid_schedule, message = _validate_schedule_aggressivespy(options, kd_info["kdId"])
+    if not valid_schedule:
+        return False, {}, message
+    
+    new_schedule = {
+        "id": id,
+        "time": time,
+        "type": "aggressivespy",
+        "options": options,
+    }
+    return True, new_schedule, ""
+
+def _validate_schedule_missiles(
+    options,
+    kd_id,
+):
+    if options["target"] is None:
+        return False, "Target must be selected"
+    if (options["planet_busters"] + options["star_busters"] + options["galaxy_busters"]) <= 0:
+        return False, "Missiles amount must be greater than 0"
+    if options["planet_busters"] < 0:
+        return False, "Missiles amount must be greater than 0"
+    if options["star_busters"] < 0:
+        return False, "Missiles amount must be greater than 0"
+    if options["galaxy_busters"] < 0:
+        return False, "Missiles amount must be greater than 0"
+    if options["target"] == kd_id:
+        return False, "You can not schedule missiles against yourself"
+    
+    return True, ""
+
+def _schedule_missiles(
+    id,
+    time,
+    options,
+    kd_info,
+):
+    options["planet_busters"] = int(options["planet_busters"] or 0)
+    options["star_busters"] = int(options["star_busters"] or 0)
+    options["galaxy_busters"] = int(options["galaxy_busters"] or 0)
+    valid_schedule, message = _validate_schedule_missiles(options, kd_info["kdId"])
+    if not valid_schedule:
+        return False, {}, message
+    
+    new_schedule = {
+        "id": id,
+        "time": time,
+        "type": "missiles",
+        "options": options,
+    }
+    return True, new_schedule, ""
+    
+
+@app.route('/api/schedule', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def add_schedule():
+    req = flask.request.get_json(force=True)
+
+    kd_id = flask_praetorian.current_user().kd_id
+    kd_info = _get_kd_info(kd_id)
+
+    schedule_type = req.get("type")
+    schedule_time = datetime.datetime.fromisoformat(req["time"].replace('Z', '+00:00')).isoformat()
+    schedule_options = req.get("options", {})
+    schedule_id = uuid.uuid4()
+    
+    state = _get_state()
+
+    if schedule_time < state["state"]["game_start"] or schedule_time > state["state"]["game_end"]:
+        return flask.jsonify({"message": "Scheduled time occurs outside of game duration"}), 400
+    
+    if len(kd_info["schedule"]) >= 10:
+        return flask.jsonify({"message": "You can not schedule more than 10 actions"}), 400
+
+    handler_funcs = {
+        "attack": _schedule_attack,
+        "attackprimitives": _schedule_attackprimitives,
+        "intelspy": _schedule_intelspy,
+        "aggressivespy": _schedule_aggressivespy,
+        "missiles": _schedule_missiles,
+    }
+    scheduled, new_schedule, message = handler_funcs[schedule_type](
+        id=schedule_id,
+        time=schedule_time,
+        options=schedule_options,
+        kd_info=kd_info,
+    )
+    if not scheduled:
+        return flask.jsonify({"message": message}), 400
+    
+    schedule_payload = kd_info["schedule"]
+    schedule_payload.append(new_schedule)
+    schedule_payload_sorted = sorted(schedule_payload, key=lambda item: item["time"])
+
+    kd_payload = {
+        "schedule": schedule_payload_sorted,
+    }
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_payload, default=str),
+    )
+
+    return (flask.jsonify({"message": "Successfully scheduled", "status": "success"}), 200)
+
+@app.route('/api/schedule/cancel', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def cancel_schedule():
+    req = flask.request.get_json(force=True)
+
+    kd_id = flask_praetorian.current_user().kd_id
+    kd_info = _get_kd_info(kd_id)
+
+    schedule_id = req.get("id")
+
+    new_schedule = [
+        item
+        for item in kd_info["schedule"]
+        if item["id"] != schedule_id
+    ]
+    kd_payload = {
+        "schedule": new_schedule,
+    }
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_payload, default=str),
+    )
+    return (flask.jsonify({"message": "Cancelled scheduled action", "status": "success"}), 200)
 
 
 def _validate_missiles_request(

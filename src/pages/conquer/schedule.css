@@ -1,0 +1,16 @@
+.add-schedule {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
+    min-height: 500px;
+    /* padding: 5px; */
+}
+
+.schedule-queue {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
+    /* padding: 5px; */
+}
