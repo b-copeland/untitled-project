@@ -145,6 +145,7 @@ function Add(props) {
             const kingdomOptions = Object.keys(props.data.kingdoms).map((kdId) => {
                 return {"value": kdId, "label": kdFullLabel(kdId)}
             })
+            const selectedKingdomOption = (options.target != null) ? kingdomOptions.filter(selectOption => selectOption.value == options.target)[0] : null;
             return <>
                 <form className="attack-kingdom-form">
                     <label id="aria-label" htmlFor="aria-example-input">
@@ -152,9 +153,9 @@ function Add(props) {
                     </label>
                     <Select
                         className="attack-kingdom-select"
+                        value={selectedKingdomOption}
                         options={kingdomOptions}
                         onChange={(selected) => handleOptionChangeExplicit("target", selected.value)}
-                        val
                         // onChange={handleOptionChange}
                         styles={{
                             control: (baseStyles, state) => ({
@@ -329,6 +330,7 @@ function Add(props) {
             const kingdomOptions = Object.keys(props.data.kingdoms).map((kdId) => {
                 return {"value": kdId, "label": kdFullLabel(kdId)}
             })
+            const selectedKingdomOption = (options.target != null) ? kingdomOptions.filter(selectOption => selectOption.value == options.target)[0] : null;
             const spyOptions = [
                 {value: "spykingdom", "label": "Spy on Kingdom"},
                 {value: "spymilitary", "label": "Spy on Military"},
@@ -337,6 +339,7 @@ function Add(props) {
                 {value: "spystructures", "label": "Spy on Structures"},
                 {value: "spydrones", "label": "Spy on Drones"},
             ];
+            const selectedOperationOption = (options.operation != null) ? spyOptions.filter(selectOption => selectOption.value == options.operation)[0] : null;
             return <>
                 <form className="attack-kingdom-form">
                     <label id="aria-label" htmlFor="aria-example-input">
@@ -345,6 +348,7 @@ function Add(props) {
                     <Select
                         className="attack-kingdom-select"
                         options={kingdomOptions}
+                        value={selectedKingdomOption}
                         onChange={(selected) => handleOptionChangeExplicit("target", selected.value)}
                         defaultValue={null}
                         styles={{
@@ -386,6 +390,7 @@ function Add(props) {
                         id="select-operation"
                         className="operation-select"
                         options={spyOptions}
+                        value={selectedOperationOption}
                         onChange={(selected) => handleOptionChangeExplicit("operation", selected.value)}
                         autoFocus={false} 
                         styles={{
@@ -497,6 +502,7 @@ function Add(props) {
             const kingdomOptions = Object.keys(props.data.kingdoms).map((kdId) => {
                 return {"value": kdId, "label": kdFullLabel(kdId)}
             })
+            const selectedKingdomOption = (options.target != null) ? kingdomOptions.filter(selectOption => selectOption.value == options.target)[0] : null;
             const spyOptions = [
                 {value: "siphonfunds", "label": "Siphon Funds"},
                 {value: "bombhomes", "label": "Bomb Homes"},
@@ -504,6 +510,7 @@ function Add(props) {
                 {value: "kidnappopulation", "label": "Kidnap Population"},
                 {value: "suicidedrones", "label": "Suicide Drones"},
             ];
+            const selectedOperationOption = (options.operation != null) ? spyOptions.filter(selectOption => selectOption.value == options.operation)[0] : null;
             return <>
                 <form className="kingdom-form">
                     <label id="aria-label" htmlFor="aria-example-input">
@@ -512,6 +519,7 @@ function Add(props) {
                     <Select
                         className="kingdom-select"
                         options={kingdomOptions}
+                        value={selectedKingdomOption}
                         onChange={(selected) => handleOptionChangeExplicit("target", selected.value)}
                         // onChange={handleOptionChange}
                         styles={{
@@ -553,6 +561,7 @@ function Add(props) {
                         id="select-operation"
                         className="operation-select"
                         options={spyOptions}
+                        value={selectedOperationOption}
                         onChange={(selected) => handleOptionChangeExplicit("operation", selected.value)}
                         autoFocus={false} 
                         styles={{
@@ -651,7 +660,8 @@ function Add(props) {
         } else if (selectedSchedule == "missiles") {
             const kingdomOptions = Object.keys(props.data.kingdoms).map((kdId) => {
                 return {"value": kdId, "label": kdFullLabel(kdId)}
-            })
+            });
+            const selectedKingdomOption = (options.target != null) ? kingdomOptions.filter(selectOption => selectOption.value == options.target)[0] : null;
             return <>
                 <form className="attack-kingdom-form">
                     <label id="aria-label" htmlFor="aria-example-input">
@@ -661,6 +671,7 @@ function Add(props) {
                         className="attack-kingdom-select"
                         name="target"
                         options={kingdomOptions}
+                        value={selectedKingdomOption}
                         onChange={(selected) => handleOptionChangeExplicit("target", selected.value)}
                         // onChange={handleOptionChange}
                         styles={{
@@ -772,7 +783,6 @@ function Add(props) {
             <Toast.Body>{result.message}</Toast.Body>
         </Toast>
     )
-    console.log(new Date(selectedScheduleTimeLocal).toISOString());
     return (
         <div className="add-schedule">
             <ToastContainer position="bottom-end">
