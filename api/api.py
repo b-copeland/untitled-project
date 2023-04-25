@@ -1361,8 +1361,10 @@ def empire_news():
     kd_id = flask_praetorian.current_user().kd_id
     
     empires_inverted, _, _, _ = _get_empires_inverted()
-    
-    kd_empire = empires_inverted[kd_id]
+    try:
+        kd_empire = empires_inverted[kd_id]
+    except KeyError:
+        return (flask.jsonify([]), 200)
     
     news = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/news',
