@@ -6556,14 +6556,39 @@ def _resolve_auto_attack(kd_info_parse):
             "generals": kd_info_parse["generals_available"]
         }
     }
+    total_units = kd_info_parse["units"].copy()
+    total_general_units = {
+        k: 0
+        for k in UNITS
+    }
+    for general_units in kd_info_parse["generals_out"]:
+        for key_unit, value_unit in general_units.items():
+            if key_unit == "return_time":
+                continue
+            total_units[key_unit] += value_unit
+            total_general_units[key_unit] += value_unit
+
+    pct_units_out = {
+        k: v / max(total_units.get(k), 1)
+        for k, v in total_general_units.items()
+    }
+    pct_units_available_pure = {
+        k: max(pure_pct - v, 0)
+        for k, v in pct_units_out.items()
+    }
+    pct_units_available_flex = {
+        k: max(flex_pct - v, 0)
+        for k, v in pct_units_out.items()
+    }
+    
     for key_unit, value_unit in kd_info_parse["units"].items():
         if UNITS[key_unit].get("offense", 0) == 0:
             continue
         else:
             if UNITS[key_unit].get("defense", 0) == 0:
-                req["attackerValues"][key_unit] = math.floor(pure_pct * value_unit)
+                req["attackerValues"][key_unit] = math.floor(pct_units_available_pure[key_unit] * value_unit)
             else:
-                req["attackerValues"][key_unit] = math.floor(flex_pct * value_unit)
+                req["attackerValues"][key_unit] = math.floor(pct_units_available_flex[key_unit] * value_unit)
     _attack_primitives(req, kd_info_parse["kdId"])
     try:
         ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
