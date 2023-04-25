@@ -18,7 +18,7 @@ import flask_cors
 from flask_mail import Mail
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_sock import Sock
+from flask_sock import Sock, ConnectionClosed
 
 
 db = flask_sqlalchemy.SQLAlchemy()
@@ -3057,7 +3057,7 @@ def accept_shared():
             "delay": 15000,
             "update": [],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     return (flask.jsonify(shared_info_response.text), 200)
 
@@ -3171,7 +3171,7 @@ def offer_shared():
             "delay": 15000,
             "update": [],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     return (flask.jsonify({"message": "Succesfully shared intel", "status": "success"}), 200)
 
@@ -3866,7 +3866,7 @@ def attack(target_kd):
                 "delay": 15000,
                 "update": [],
             }))
-        except KeyError:
+        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
     
     if target_kd_info["stars"] <= 0:
@@ -3891,7 +3891,7 @@ def attack(target_kd):
             "delay": 60000,
             "update": ["news", "galaxynews"],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     target_news_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
@@ -3964,7 +3964,7 @@ def attack(target_kd):
                         "delay": 15000,
                         "update": ["galaxynews"],
                     }))
-                except KeyError:
+                except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
                     pass
 
     attacker_galaxy_payload = {
@@ -4730,7 +4730,7 @@ def spy(target_kd):
             "delay": 15000,
             "update": ["news"],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
 
     payload = {
@@ -5375,7 +5375,7 @@ def launch_missiles(target_kd):
             "delay": 30000,
             "update": [],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
 
     payload = {
@@ -5916,7 +5916,7 @@ def _kingdom_with_income(
                         "delay": 15000,
                         "update": [],
                     }))
-                except KeyError:
+                except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
                     pass
 
     if new_kd_info["auto_spending_enabled"]:
@@ -5984,7 +5984,7 @@ def _resolve_settles(kd_id, time_update):
             "delay": 5000,
             "update": [],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     
     return ready_settles, next_resolve
@@ -6029,7 +6029,7 @@ def _resolve_mobis(kd_id, time_update):
             "delay": 5000,
             "update": [],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     
     return ready_mobis, next_resolve
@@ -6074,7 +6074,7 @@ def _resolve_structures(kd_id, time_update):
             "delay": 5000,
             "update": [],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     
     return ready_structures, next_resolve
@@ -6117,7 +6117,7 @@ def _resolve_missiles(kd_id, time_update):
             "delay": 5000,
             "update": [],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     
     return ready_missiles, next_resolve
@@ -6158,7 +6158,7 @@ def _resolve_engineers(kd_id, time_update):
             "delay": 5000,
             "update": [],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     
     return ready_engineers, next_resolve
@@ -6275,7 +6275,7 @@ def _resolve_generals(kd_info_parse, time_update):
             "delay": 15000,
             "update": [],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     return kd_info_parse, next_resolve
 
@@ -6302,7 +6302,7 @@ def _resolve_spy(kd_info_parse, time_update, current_bonuses):
                 "delay": 15000,
                 "update": [],
             }))
-        except KeyError:
+        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
     return kd_info_parse, next_resolve_time
 
@@ -6580,7 +6580,7 @@ def _resolve_auto_attack(kd_info_parse):
             "delay": 15000,
             "update": ["mobis", "attackhistory"],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
 
 def _resolve_auto_rob(kd_info_parse):
@@ -6603,7 +6603,7 @@ def _resolve_auto_rob(kd_info_parse):
                 "delay": 15000,
                 "update": ["spyhistory"],
             }))
-        except KeyError:
+        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
 
 def _resolve_auto_projects(kd_info_parse):
@@ -6652,7 +6652,7 @@ def _mark_kingdom_death(kd_id):
             "delay": 999999,
             "update": [],
         }))
-    except KeyError:
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     return flask.jsonify(str(user.__dict__))
 
