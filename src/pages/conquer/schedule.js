@@ -778,7 +778,7 @@ function Add(props) {
             bg={result.status === "success" ? "success" : "warning"}
         >
             <Toast.Header>
-                <strong className="me-auto">Rob Results</strong>
+                <strong className="me-auto">Schedule Results</strong>
             </Toast.Header>
             <Toast.Body>{result.message}</Toast.Body>
         </Toast>

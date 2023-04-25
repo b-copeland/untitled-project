@@ -3628,19 +3628,10 @@ def calculate_attack(target_kd):
 
     return (flask.jsonify(payload), 200)
 
-@app.route('/api/attack/<target_kd>', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def attack(target_kd):
-    req = flask.request.get_json(force=True)
+def _attack(req, kd_id, target_kd):
+    
     attacker_raw_values = req["attackerValues"]
 
-    kd_id = flask_praetorian.current_user().kd_id
-    if str(target_kd) == str(kd_id):
-        return (flask.jsonify("You cannot attack yourself!"), 400)
-
-    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
@@ -3653,7 +3644,6 @@ def attack(target_kd):
         if "max_bonus" in project_dict
     }
 
-    revealed = _get_revealed(kd_id)["revealed"]
     shared = _get_shared(kd_id)["shared"]
     galaxies_inverted, _ = _get_galaxies_inverted()
     target_kd_info = _get_kd_info(target_kd)
@@ -3670,7 +3660,7 @@ def attack(target_kd):
         kd_info_parse,
     )
     if not valid_attack_request:
-        return (flask.jsonify({"message": attack_request_message}), 400)
+        return kd_info_parse, {"message": attack_request_message}, 400
 
     attacker_units = {
         key: int(value)
@@ -4002,7 +3992,20 @@ def attack(target_kd):
         "status": attack_status,
         "message": attacker_message,
     }
-    return (flask.jsonify(attack_results), 200)
+    return kd_info_parse, attack_results, 200
+
+@app.route('/api/attack/<target_kd>', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def attack(target_kd):
+    req = flask.request.get_json(force=True)
+    kd_id = flask_praetorian.current_user().kd_id
+    if str(target_kd) == str(kd_id):
+        return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
+
+    _, payload, status_code = _attack(req, kd_id, target_kd)
+    return (flask.jsonify(payload), status_code)
 
 @app.route('/api/calculateprimitives', methods=['POST'])
 @flask_praetorian.auth_required
@@ -4131,7 +4134,7 @@ def _attack_primitives(req, kd_id):
         kd_info_parse,
     )
     if not valid_attack_request:
-        return (flask.jsonify({"message": attack_request_message}), 400)
+        return kd_info_parse, {"message": attack_request_message}, 400
 
     attacker_units = {
         key: int(value)
@@ -4243,7 +4246,7 @@ def _attack_primitives(req, kd_id):
         "status": attack_status,
         "message": attacker_message,
     }
-    return attack_results
+    return kd_info_parse, attack_results, 200
 
 @app.route('/api/attackprimitives', methods=['POST'])
 @flask_praetorian.auth_required
@@ -4253,8 +4256,8 @@ def attack_primitives():
     req = flask.request.get_json(force=True)
 
     kd_id = flask_praetorian.current_user().kd_id
-    attack_results = _attack_primitives(req, kd_id)
-    return (flask.jsonify(attack_results), 200)
+    _, attack_results, status_code = _attack_primitives(req, kd_id)
+    return (flask.jsonify(attack_results), status_code)
 
 def _validate_spy_request(
     drones,
@@ -4487,25 +4490,12 @@ def calculate_spy(target_kd):
     }
     return (flask.jsonify(payload), 200)
     
-        
-@app.route('/api/spy/<target_kd>', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def spy(target_kd):
-    req = flask.request.get_json(force=True)
+def _spy(req, kd_id, target_kd):
+    
     drones = int(req["drones"])
     shielded = req["shielded"]
     operation = req["operation"]
 
-    kd_id = flask_praetorian.current_user().kd_id
-    if str(target_kd) == str(kd_id):
-        return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
-    
-    if not operation:
-        return (flask.jsonify({"message": "You must select an operation"}), 400)
-
-    
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
@@ -4519,7 +4509,7 @@ def spy(target_kd):
         shielded,
     )
     if not valid_request:
-        return (flask.jsonify({"message": message}), 400)
+        return kd_info_parse, {"message": message}, 400, False
     
     revealed = _get_revealed(kd_id)["revealed"]
     max_target_kd_info = _get_kd_info(target_kd)
@@ -4733,11 +4723,32 @@ def spy(target_kd):
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
 
+    new_kd_info = {
+        **kd_info_parse,
+        **kd_patch_payload,
+    }
     payload = {
         "status": status,
         "message": message,
     }
-    return (flask.jsonify(payload), 200)
+    return new_kd_info, payload, 200, success
+        
+@app.route('/api/spy/<target_kd>', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def spy(target_kd):
+    req = flask.request.get_json(force=True)
+
+    kd_id = flask_praetorian.current_user().kd_id
+    if str(target_kd) == str(kd_id):
+        return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
+    if not req["operation"]:
+        return (flask.jsonify({"message": "You must select an operation"}), 400)
+    
+    _, payload, status_code, success = _spy(req, kd_id, target_kd)
+
+    return (flask.jsonify(payload), status_code)
 
 def _rob_primitives(req, kd_id):
     drones = int(req["drones"])
@@ -4762,7 +4773,7 @@ def _rob_primitives(req, kd_id):
         shielded,
     )
     if not valid_request:
-        return (flask.jsonify({"message": message}), 400)
+        return kd_info_parse, {"message": message}, 400
 
     success_losses, _ = _calculate_spy_losses(drones, shielded)
 
@@ -4809,11 +4820,15 @@ def _rob_primitives(req, kd_id):
         data=json.dumps(history_payload, default=str),
     )
 
+    new_kd_info = {
+        **kd_info_parse,
+        **kd_patch_payload,
+    }
     payload = {
         "status": status,
         "message": message,
     }
-    return payload
+    return new_kd_info, payload, 200
 
 @app.route('/api/robprimitives', methods=['POST'])
 @flask_praetorian.auth_required
@@ -4823,8 +4838,8 @@ def rob_primitives():
     req = flask.request.get_json(force=True)
 
     kd_id = flask_praetorian.current_user().kd_id
-    payload = _rob_primitives(req, kd_id)
-    return (flask.jsonify(payload), 200)
+    _, payload, status_code = _rob_primitives(req, kd_id)
+    return (flask.jsonify(payload), status_code)
 
 def _validate_auto_rob_settings(req_settings):
     """Confirm that spending request is valid"""
@@ -5266,19 +5281,9 @@ def calculate_missiles(target_kd):
     }
     return (flask.jsonify(payload), 200)         
     
+def _launch_missiles(req, kd_id, target_kd):
 
-@app.route('/api/launchmissiles/<target_kd>', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def launch_missiles(target_kd):
-    req = flask.request.get_json(force=True)
     attacker_raw_values = req["attackerValues"]
-
-    kd_id = flask_praetorian.current_user().kd_id
-    if str(target_kd) == str(kd_id):
-        return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
-
     
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -5298,7 +5303,7 @@ def launch_missiles(target_kd):
         kd_info_parse,
     )
     if not valid_request:
-        return (flask.jsonify({"message": message}), 400)
+        return kd_info_parse, {"message": message}, 400
     
     max_target_kd_info = _get_kd_info(target_kd)
     defender_shields = max_target_kd_info["shields"]["missiles"]
@@ -5378,10 +5383,28 @@ def launch_missiles(target_kd):
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
 
+    new_kd_info = {
+        **kd_info_parse,
+        **kd_patch_payload,
+    }
     payload = {
         "message": message,
     }
-    return (flask.jsonify(payload), 200)
+    return new_kd_info, payload, 200
+
+@app.route('/api/launchmissiles/<target_kd>', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def launch_missiles(target_kd):
+    req = flask.request.get_json(force=True)
+
+    kd_id = flask_praetorian.current_user().kd_id
+    if str(target_kd) == str(kd_id):
+        return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
+    
+    _, payload, status_code = _launch_missiles(req, kd_id, target_kd)
+    return (flask.jsonify(payload), status_code)
 
 def _get_galaxy_politics(kd_id, galaxy_id=None):
     if not galaxy_id:
@@ -6662,6 +6685,176 @@ def _resolve_auto_projects(kd_info_parse):
         kd_info_parse["projects_assigned"][key_project] += value_engineers
     return kd_info_parse
 
+def _resolve_schedule_attack(new_kd_info, schedule):
+    pure_pct = schedule["options"].get("pure_offense", 0)
+    flex_pct = schedule["options"].get("flex_offense", 0)
+
+    req = {
+        "attackerValues": {
+            "generals": schedule["options"].get("generals", 0)
+        }
+    }
+    total_units = new_kd_info["units"].copy()
+    total_general_units = {
+        k: 0
+        for k in UNITS
+    }
+    for general_units in new_kd_info["generals_out"]:
+        for key_unit, value_unit in general_units.items():
+            if key_unit == "return_time":
+                continue
+            total_units[key_unit] += value_unit
+            total_general_units[key_unit] += value_unit
+
+    pct_units_out = {
+        k: v / max(total_units.get(k), 1)
+        for k, v in total_general_units.items()
+    }
+    pct_units_available_pure = {
+        k: max(pure_pct - v, 0)
+        for k, v in pct_units_out.items()
+    }
+    pct_units_available_flex = {
+        k: max(flex_pct - v, 0)
+        for k, v in pct_units_out.items()
+    }
+    
+    for key_unit, value_unit in new_kd_info["units"].items():
+        if UNITS[key_unit].get("offense", 0) == 0:
+            continue
+        else:
+            if UNITS[key_unit].get("defense", 0) == 0:
+                req["attackerValues"][key_unit] = math.floor(pct_units_available_pure[key_unit] * value_unit)
+            else:
+                req["attackerValues"][key_unit] = math.floor(pct_units_available_flex[key_unit] * value_unit)
+    new_kd_info, payload, status_code = _attack(req, new_kd_info["kdId"], schedule["options"]["target"])
+    return new_kd_info
+
+def _resolve_schedule_attackprimitives(new_kd_info, schedule):
+    pure_pct = schedule["options"].get("pure_offense", 0)
+    flex_pct = schedule["options"].get("flex_offense", 0)
+
+    req = {
+        "attackerValues": {
+            "generals": schedule["options"].get("generals", 0)
+        }
+    }
+    total_units = new_kd_info["units"].copy()
+    total_general_units = {
+        k: 0
+        for k in UNITS
+    }
+    for general_units in new_kd_info["generals_out"]:
+        for key_unit, value_unit in general_units.items():
+            if key_unit == "return_time":
+                continue
+            total_units[key_unit] += value_unit
+            total_general_units[key_unit] += value_unit
+
+    pct_units_out = {
+        k: v / max(total_units.get(k), 1)
+        for k, v in total_general_units.items()
+    }
+    pct_units_available_pure = {
+        k: max(pure_pct - v, 0)
+        for k, v in pct_units_out.items()
+    }
+    pct_units_available_flex = {
+        k: max(flex_pct - v, 0)
+        for k, v in pct_units_out.items()
+    }
+    
+    for key_unit, value_unit in new_kd_info["units"].items():
+        if UNITS[key_unit].get("offense", 0) == 0:
+            continue
+        else:
+            if UNITS[key_unit].get("defense", 0) == 0:
+                req["attackerValues"][key_unit] = math.floor(pct_units_available_pure[key_unit] * value_unit)
+            else:
+                req["attackerValues"][key_unit] = math.floor(pct_units_available_flex[key_unit] * value_unit)
+    new_kd_info, payload, status_code = _attack_primitives(req, new_kd_info["kdId"])
+    return new_kd_info
+
+def _resolve_schedule_intelspy(new_kd_info, schedule):
+    drones_pct = schedule["options"].get("drones_pct", 0)
+    max_tries = schedule["options"].get("max_tries", 0)
+    shielded = schedule["options"].get("shielded", False)
+    operation = schedule["options"].get("operation", "")
+    target_kd = schedule["options"].get("target", "")
+    share_to_galaxy = schedule["options"].get("share_to_galaxy", False)
+
+    for _ in range(max_tries):
+        req = {
+            "drones": math.floor(drones_pct * new_kd_info["drones"]),
+            "shielded": shielded,
+            "operation": operation
+        }
+        new_kd_info, payload, status_code, success = _spy(req, new_kd_info["kdId"], target_kd)
+        if success:
+            if share_to_galaxy:
+                pass
+            break
+    return new_kd_info
+
+def _resolve_schedule_aggressivespy(new_kd_info, schedule):
+    drones_pct = schedule["options"].get("drones_pct", 0)
+    attempts = schedule["options"].get("attempts", 0)
+    shielded = schedule["options"].get("shielded", False)
+    operation = schedule["options"].get("operation", "")
+    target_kd = schedule["options"].get("target", "")
+
+    for _ in range(attempts):
+        req = {
+            "drones": math.floor(drones_pct * new_kd_info["drones"]),
+            "shielded": shielded,
+            "operation": operation
+        }
+        new_kd_info, payload, status_code, success = _spy(req, new_kd_info["kdId"], target_kd)
+    return new_kd_info
+
+def _resolve_schedule_missiles(new_kd_info, schedule):
+    planet_busters = schedule["options"].get("planet_busters", 0)
+    star_busters = schedule["options"].get("star_busters", 0)
+    galaxy_busters = schedule["options"].get("galaxy_busters", 0)
+    target_kd = schedule["options"].get("target", "")
+
+    req = {
+        "attackerValues": {
+            "planet_busters": planet_busters,
+            "star_busters": star_busters,
+            "galaxy_busters": galaxy_busters,
+        }
+    }
+    new_kd_info, payload, status_code = _launch_missiles(req, new_kd_info["kdId"], target_kd)
+    return new_kd_info
+
+def _resolve_schedules(new_kd_info, time_update):
+    keep_schedules = []
+    ready_schedules = []
+    for schedule in new_kd_info["schedule"]:
+        if datetime.datetime.fromisoformat(schedule["time"]).astimezone(datetime.timezone.utc) < time_update:
+            ready_schedules.append(schedule)
+        else:
+            keep_schedules.append(schedule)
+    
+    handler_funcs = {
+        "attack": _resolve_schedule_attack,
+        "attackprimitives": _resolve_schedule_attackprimitives,
+        "intelspy": _resolve_schedule_intelspy,
+        "aggressivespy": _resolve_schedule_aggressivespy,
+        "missiles": _resolve_schedule_missiles,
+    }
+    for ready_sched in ready_schedules:
+        new_kd_info = handler_funcs[ready_sched["type"]](new_kd_info, ready_sched)
+
+    new_kd_info["schedule"] = keep_schedules
+    kd_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{new_kd_info["kdId"]}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(new_kd_info, default=str),
+    )
+    return new_kd_info
+
 def _mark_kingdom_death(kd_id):
     query = db.session.query(User).filter_by(kd_id=kd_id).all()
     user = query[0]
@@ -6873,6 +7066,7 @@ def refresh_data():
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(new_kd_info, default=str),
         )
+        new_kd_info = _resolve_schedules(new_kd_info, time_update)
         if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > 0:
             _resolve_auto_attack(new_kd_info)
         if new_kd_info["auto_rob_enabled"]:
