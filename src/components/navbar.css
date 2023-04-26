@@ -8,8 +8,8 @@
     flex-direction: column;
     align-items: left;
     width: 100%;
-    padding: 50px;
-    font-size: larger;
+    padding: 40px;
+    /* font-size: medium; */
 }
 
 .nav-logout {
