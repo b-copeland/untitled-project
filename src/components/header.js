@@ -63,7 +63,7 @@ return (
         <span>Money: {Math.floor(kdInfo.money).toLocaleString()}</span>
         </div>
         <div className="header-item">
-        <span>Score: {Math.floor(kdInfo.score).toLocaleString()}</span>
+        <span>Networth: {Math.floor(kdInfo.networth).toLocaleString()}</span>
         </div>
         <div className="header-item">
         <span>Spy Attempts: {kdInfo.spy_attempts}</span>

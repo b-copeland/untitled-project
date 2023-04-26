@@ -107,7 +107,7 @@ function Revealed(props) {
         galaxy: { value: null, matchMode: FilterMatchMode.CONTAINS },
         empire: { value: null, matchMode: FilterMatchMode.CONTAINS },
         stars: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
-        // score: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
+        // networth: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
         coordinate_distance: { value: null, matchMode: FilterMatchMode.CONTAINS },
     });
 
@@ -153,7 +153,7 @@ function Revealed(props) {
         return rowData.stars !== null ? rowData.stars.toLocaleString() : null
     }
     const formatScore = (rowData) => {
-        return rowData.score !== null ? rowData.score.toLocaleString() : null
+        return rowData.networth !== null ? rowData.networth.toLocaleString() : null
     }
     
     const getRemainingSpans = (kdId, revealed) => {
@@ -391,7 +391,7 @@ function Revealed(props) {
                 <Column field="galaxy" header="Galaxy" sortable filter showFilterMenu={false} style={{ width: "15%" }}/>
                 {/* <Column field="empire" header="Empire" sortable showFilterMenu={false} filter style={{ width: '10%' }}/> */}
                 <Column field="stars" header="Stars" sortable /*filter*/ dataType="numeric" body={formatStars} style={{ width: "15%" , textAlign:"right"}}/>
-                {/* <Column field="score" header="Score" sortable filter body={formatScore} style={{ width: '10%' }}/> */}
+                {/* <Column field="networth" header="Networth" sortable filter body={formatScore} style={{ width: '10%' }}/> */}
                 <Column field="coordinate_distance" header="Distance" sortable /*filter*/ style={{ width: "10%" , textAlign:"right"}}/>
                 <Column field="actions" header="Actions" style={{ minWidth: '110px', width: "30%" }}/>
             </DataTable>
@@ -854,7 +854,7 @@ function Pinned(props) {
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{galaxyEmpire}</td>
             <td>{maxKdInfo[kdId]?.stars || ""}</td>
-            <td>{maxKdInfo[kdId]?.score || ""}</td>
+            <td>{maxKdInfo[kdId]?.networth || ""}</td>
             <td>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
                     View
@@ -1008,7 +1008,7 @@ function Pinned(props) {
                         <th>Kingdom</th>
                         <th>Galaxy</th>
                         <th>Stars</th>
-                        <th>Score</th>
+                        <th>Networth</th>
                         <th>Actions</th>
                     </tr>
                 </thead>

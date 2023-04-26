@@ -292,7 +292,7 @@ INITIAL_KINGDOM_STATE = {
         "stars": INITIAL_KINGDOM_STARS,
         "fuel": 10000,
         "population": 2500,
-        "score": 0,
+        "networth": 0,
         "votes": 0,
         "money": 100000,
         "drones": 1000,
@@ -455,6 +455,18 @@ KINGDOM_CREATOR_POINTS = {
     "defense": 5,
     "flex": 10,
     "engineers": 10,
+}
+
+NETWORTH_VALUES = {
+    "stars": 25,
+    "structures": 25,
+    "money": 0.002,
+    "attack": 7,
+    "defense": 8,
+    "flex": 16,
+    "big_flex": 24,
+    "recruits": 2,
+    "engineers": 18,
 }
 
 GALAXY_POLICIES = {
@@ -2309,8 +2321,8 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
         galaxies_inverted, _ = _get_galaxies_inverted()
     always_allowed_keys = {"name", "race", "status", "coordinate"}
     allowed_keys = {
-        "stats": ["stars", "score"],
-        "kingdom": ["stars", "fuel", "population", "score", "money", "spy_attempts", "auto_spending", "missiles"],
+        "stats": ["stars", "networth"],
+        "kingdom": ["stars", "fuel", "population", "networth", "money", "spy_attempts", "auto_spending", "missiles"],
         "military": ["units", "generals_available", "generals_out"],
         "structures": ["structures"],
         "shields": ["shields"],
@@ -5910,12 +5922,38 @@ def _calc_siphons(
     )
     return siphon_pool, siphon_in_income
 
+def _calc_networth(
+    kd_info_parse,
+    total_units=None,
+):
+    if not total_units:
+        total_units = {
+            k: v
+            for k, v in kd_info_parse["units"].items()
+        }
+        for general in kd_info_parse["generals_out"]:
+            for key_unit, value_unit in general.items():
+                if key_unit == "return_time":
+                    continue
+                total_units[key_unit] += value_unit
+
+    total_structures = sum(kd_info_parse["structures"].values())
+    total_money = sum(kd_info_parse["funding"].values()) + kd_info_parse["money"]
+
+    networth = kd_info_parse["stars"] * NETWORTH_VALUES["stars"]
+    networth += (total_structures * NETWORTH_VALUES["structures"])
+    networth += (total_money * NETWORTH_VALUES["money"])
+    for key_unit, value_unit in total_units.items():
+        networth += (value_unit * NETWORTH_VALUES[key_unit])
+    return networth
+    
+
 def _kingdom_with_income(
     kd_info_parse,
     current_bonuses,
     state,
+    time_now,
 ):
-    time_now = datetime.datetime.now(datetime.timezone.utc)
     time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_now - time_last_income).total_seconds()
     epoch_elapsed = seconds_elapsed / BASE_EPOCH_SECONDS
@@ -6021,6 +6059,10 @@ def _kingdom_with_income(
     new_kd_info["population"] = new_kd_info["population"] + pop_change
     new_kd_info["last_income"] = time_now.isoformat()
     new_kd_info["income"] = income
+    new_kd_info["networth"] = math.floor(_calc_networth(
+        new_kd_info,
+        total_units,
+    ))
 
     if new_kd_info["population"] <= 0:
         new_kd_info["status"] = "Dead"
@@ -7028,6 +7070,7 @@ def refresh_data():
         state = _begin_election(state)
 
     kingdoms = _get_kingdoms()
+    time_update = datetime.datetime.now(datetime.timezone.utc)
     for kd_id in kingdoms:
         try:
             query = db.session.query(User).filter_by(kd_id=kd_id).all()
@@ -7038,7 +7081,6 @@ def refresh_data():
             print(f"Could not query kd_id {kd_id}")
             pass
         next_resolves = {}
-        time_update = datetime.datetime.now(datetime.timezone.utc)
         kd_info = REQUESTS_SESSION.get(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
@@ -7127,7 +7169,7 @@ def refresh_data():
 
         for category, next_resolve_datetime in next_resolves.items():
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
-        new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state)
+        new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update)
         kd_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
