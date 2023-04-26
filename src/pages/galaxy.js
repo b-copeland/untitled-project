@@ -177,7 +177,7 @@ function Galaxy(props) {
                 <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
                     Missile
                 </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => setShowMessage(true)}>
+                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowMessage(true)}}>
                     Message
                 </Button>
                 {
@@ -301,7 +301,7 @@ function Galaxy(props) {
                     <Modal.Title>Message</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Message data={props.data}/>
+                    <Message data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowMessage(false)}>

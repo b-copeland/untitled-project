@@ -199,7 +199,7 @@ function Revealed(props) {
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
                     Missile
                 </Button>
-                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); {setKdToShow(kdId); setShowMessage(true)}}}>
                     Message
                 </Button>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowShareIntel(true)}}>
@@ -315,7 +315,7 @@ function Revealed(props) {
                     <Modal.Title>Message</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Message data={props.data}/>
+                    <Message data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowMessage(false)}>
@@ -520,7 +520,7 @@ function Shared(props) {
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
                     Missile
                 </Button>
-                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMessage(true)}}>
                     Message
                 </Button>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
@@ -707,7 +707,7 @@ function Shared(props) {
                     <Modal.Title>Message</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Message data={props.data}/>
+                    <Message data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowMessage(false)}>
@@ -868,7 +868,7 @@ function Pinned(props) {
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
                     Missile
                 </Button>
-                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => setShowMessage(true)}>
+                <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowMessage(true)}}>
                     Message
                 </Button>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
@@ -975,7 +975,7 @@ function Pinned(props) {
                     <Modal.Title>Message</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Message data={props.data}/>
+                    <Message data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowMessage(false)}>

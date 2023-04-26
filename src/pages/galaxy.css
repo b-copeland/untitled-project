@@ -94,6 +94,12 @@
 }
 
 .message-modal {
-    width: 100%;
+    width: 95%;
     max-width: none;
+}
+@media (min-width: 756px) {
+    .message-modal {
+        width: 80%;
+        min-width: 750px;
+    }
 }
