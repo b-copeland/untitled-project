@@ -444,6 +444,7 @@ INITIAL_KINGDOM_STATE = {
     "spy_history": {"spy_history": []},
     "attack_history": {"attack_history": []},
     "missile_history": {"missile_history": []},
+    "messages": {"messages": []},
 }
 
 KINGDOM_CREATOR_STARTING_POINTS = 20000
@@ -1201,6 +1202,70 @@ def news():
     
     news_parse = json.loads(news.text)
     return (flask.jsonify(news_parse["news"]), 200)
+
+@app.route('/api/messages')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def messages():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    
+    messages = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/messages',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    
+    messages_parse = json.loads(messages.text)
+    return (flask.jsonify(messages_parse["messages"]), 200)
+
+@app.route('/api/messages/<target_kd>', methods=['POST'])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def send_message(target_kd):
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    req = flask.request.get_json(force=True)
+
+    if len(req.get("message", "")) > 1024:
+        return flask.jsonify({"message": "Messages must be less than 1024 characters"}), 400
+
+    payload_from = {
+        "time": req.get("time", ""),
+        "with": target_kd,
+        "from": True,
+        "message": req.get("message", " "),
+    }
+
+    payload_to = {
+        "time": req.get("time", ""),
+        "with": kd_id,
+        "from": False,
+        "message": req.get("message", " "),
+    }
+    
+    message_response_from = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/messages',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(payload_from)
+    )
+    message_response_to = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/messages',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(payload_to)
+    )
+    
+    return (flask.jsonify({"message": "Message sent!", "status": "success"}), 200)
+
 
 def _get_kingdoms():
     kd_info = REQUESTS_SESSION.get(

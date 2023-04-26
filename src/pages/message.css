@@ -1,0 +1,80 @@
+.messages {
+    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
+}
+@media (min-width: 756px) {
+    .messages {
+        max-width: 80vw;
+    }
+}
+
+.message {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    align-items: center;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+@media (min-width: 756px) {
+    .message {
+        font-size: 16px;
+    }
+}
+
+.title-span {
+    width: 30%;
+    white-space: "break-spaces";
+}
+@media (min-width: 756px) {
+    .title-span {
+        max-width: 180px;
+    }
+}
+
+.message-box {
+    /* width: 70%; */
+    width: clamp(200px, 70%, 400px);
+    /* max-width: 70%; */
+}
+
+.message-text {
+    overflow-wrap: break-word;
+    /* max-width: 100%; */
+}
+
+.send-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 95%;
+    margin: 10px;
+}
+@media (min-width: 756px) {
+    .send-message {
+        width: 40%;
+        min-width: 400px;
+    }
+}
+
+.latest-messages {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 95%;
+    margin: 10px;
+}
+@media (min-width: 756px) {
+    .latest-messages {
+        width: 50%;
+        min-width: 500px;
+    }
+}
+
+.message-button {
+    margin: 10px;
+}

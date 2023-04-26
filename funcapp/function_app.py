@@ -373,6 +373,7 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             "spy_history",
             "attack_history",
             "missile_history",
+            "messages",
         ]:
             CONTAINER.create_item(
                 {
@@ -935,6 +936,58 @@ def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The Empire news was not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetMessages")
+@APP.route(route="kingdom/{kdId:int}/messages", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_messages(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get messages request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"messages_{kd_id}"
+    try:
+        messages = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(messages),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve kingdom messages",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateMessages")
+@APP.route(route="kingdom/{kdId:int}/messages", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_messages(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update messages request.')    
+    req_body = req.get_json()
+    new_messages = req_body
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"messages_{kd_id}"
+    messages = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        if isinstance(new_messages, dict):
+            messages["messages"] = [new_messages] + messages["messages"][0:99]
+        else:
+            messages["messages"] = new_messages + messages["messages"][0:99]
+        CONTAINER.replace_item(
+            item_id,
+            messages,
+        )
+        return func.HttpResponse(
+            "Kingdom messages updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom messages was not updated",
             status_code=500,
         )
 

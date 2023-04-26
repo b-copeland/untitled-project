@@ -23,6 +23,7 @@ import CreateKingdom from "./pages/createkingdom.js";
 import StatusContent from "./pages/home/status.js";
 import NewsContent from "./pages/home/news.js";
 import Galaxy from "./pages/galaxy.js";
+import Message from "./pages/message.js";
 import Forums from "./pages/home/forums.js";
 import History from "./pages/home/history.js";
 import Build from "./pages/build/build.js";
@@ -92,6 +93,7 @@ const initGlobalData = {
   'galaxynews': [],
   'empirenews': [],
   'universenews': [],
+  'messages': [],
 }
 const initLoadingData = {
   'kingdomid': true,
@@ -121,6 +123,7 @@ const initLoadingData = {
   'attackhistory': true,
   'spyhistory': true,
   'missilehistory': true,
+  'messages': true,
 }
 const endpoints = {
   'kingdomid': 'api/kingdomid',
@@ -150,6 +153,7 @@ const endpoints = {
   'attackhistory': 'api/attackhistory',
   'spyhistory': 'api/spyhistory',
   'missilehistory': 'api/missilehistory',
+  'messages': 'api/messages',
 }
 
 function useInterval(callback, delay) {
@@ -351,6 +355,7 @@ function Content(props) {
                   <Route path="/status" element={<StatusContent data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/news" element={<NewsContent data={data}/>}/>
                   <Route path="/galaxy" element={<Galaxy data={data} loading={loading} updateData={updateData} initialGalaxyId={data.galaxies_inverted[data.kingdomid.kd_id]}/>}/>
+                  <Route path="/message" element={<Message data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/forums" element={<Forums data={data} loading={loading}/>}/>
                   <Route path="/history" element={<History data={data} loading={loading}/>}/>
                   <Route path="/build" element={<Build data={data} loading={loading} updateData={updateData}/>}/>
