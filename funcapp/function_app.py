@@ -27,6 +27,7 @@ RESET_KEEP_IDS = [
     "empires",
     "universe_news",
     "universe_votes",
+    "scores",
 ]
 
 @APP.function_name(name="CreateState")
@@ -75,6 +76,15 @@ def init_state(req: func.HttpRequest) -> func.HttpResponse:
             {
                 "id": "accounts",
                 "accounts": [],
+            }
+        )
+        CONTAINER.create_item(
+            {
+                "id": "scores",
+                "points": {},
+                "stars": {},
+                "networth": {},
+                "last_update": "",
             }
         )
         return func.HttpResponse(
@@ -221,6 +231,20 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
             "universe_votes",
             universe_votes,
         )
+
+        scores = CONTAINER.read_item(
+            item="scores",
+            partition_key="scores"
+        )
+        scores["last_update"] = ""
+        scores["points"] = {}
+        scores["stars"] = {}
+        scores["networth"] = {}
+
+        CONTAINER.replace_item(
+            "scores",
+            scores,
+        )
         return func.HttpResponse(
             "Reset state",
             status_code=200,
@@ -271,6 +295,51 @@ def update_accounts(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "Failed to update accounts",
+            status_code=500,
+        )
+    
+@APP.function_name(name="GetScores")
+@APP.route(route="scores", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_scores(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        scores = CONTAINER.read_item(
+            item="scores",
+            partition_key="scores",
+        )
+        return func.HttpResponse(
+            json.dumps(scores),
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "Failed to get scores",
+            status_code=500,
+        )
+    
+@APP.function_name(name="UpdateScores")
+@APP.route(route="scores", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_scores(req: func.HttpRequest) -> func.HttpResponse:
+    req_body = req.get_json()
+    try:
+        scores = CONTAINER.read_item(
+            item="scores",
+            partition_key="scores",
+        )
+        new_scores = {
+            **scores,
+            **req_body,
+        }
+        CONTAINER.replace_item(
+            "scores",
+            new_scores,
+        )
+        return func.HttpResponse(
+            "Updated scores",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "Failed to update scores",
             status_code=500,
         )
 

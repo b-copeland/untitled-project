@@ -469,6 +469,19 @@ NETWORTH_VALUES = {
     "engineers": 18,
 }
 
+NETWORTH_POINTS = [
+    25,
+    18,
+    15,
+    12,
+    10,
+    8,
+    6,
+    4,
+    2,
+    1,
+]
+
 GALAXY_POLICIES = {
     "policy_1": {
         "name": "Growth Doctrine",
@@ -828,6 +841,27 @@ def get_state():
         "primitives_defense_per_star": primitives_defense_per_star,
         "primitives_rob_per_drone": primitives_rob_per_drone,
     }), 200
+
+def _get_scores():
+    get_response = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/scores',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+    )
+    get_response_json = json.loads(get_response.text)
+    return get_response_json
+
+
+def _get_scores_redacted(revealed):
+    return _get_scores()
+
+@app.route('/api/scores', methods=["GET"])
+# @flask_praetorian.roles_required('verified')
+def get_scores():
+    
+    kd_id = flask_praetorian.current_user().kd_id
+    revealed = _get_revealed(kd_id)
+    scores_redacted = _get_scores_redacted(revealed)
+    return flask.jsonify(scores_redacted), 200
 
 def _create_galaxy(galaxy_id):
     create_galaxy_response = REQUESTS_SESSION.post(
@@ -6721,7 +6755,7 @@ def _resolve_auto_attack(kd_info_parse):
                 req["attackerValues"][key_unit] = math.floor(pct_units_available_pure[key_unit] * value_unit)
             else:
                 req["attackerValues"][key_unit] = math.floor(pct_units_available_flex[key_unit] * value_unit)
-    _attack_primitives(req, kd_info_parse["kdId"])
+    kd_info_parse, _, _ = _attack_primitives(req, kd_info_parse["kdId"])
     try:
         ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
         units = {
@@ -6739,6 +6773,7 @@ def _resolve_auto_attack(kd_info_parse):
         }))
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
+    return kd_info_parse
 
 def _resolve_auto_rob(kd_info_parse):
     drones_pct = kd_info_parse["auto_rob_settings"].get("drones", 0)
@@ -6750,7 +6785,7 @@ def _resolve_auto_rob(kd_info_parse):
             "drones": math.floor(drones_pct * kd_info_parse["drones"]),
             "shielded": shielded,
         }
-        _rob_primitives(req, kd_info_parse["kdId"])
+        kd_info_parse, _, _ = _rob_primitives(req, kd_info_parse["kdId"])
         try:
             ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
             ws.send(json.dumps({
@@ -6762,6 +6797,7 @@ def _resolve_auto_rob(kd_info_parse):
             }))
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
+    return kd_info_parse
 
 def _resolve_auto_projects(kd_info_parse):
     engineers_to_assign = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
@@ -7054,6 +7090,39 @@ def _resolve_election(state):
     )
     return state
 
+def _resolve_scores(kd_scores, time_update):
+
+    scores = _get_scores()
+
+    new_scores = {
+        **scores,
+        **kd_scores,
+    }
+    time_last_update = datetime.datetime.fromisoformat(scores["last_update"]).astimezone(datetime.timezone.utc)
+    seconds_elapsed = (time_update - time_last_update).total_seconds()
+    epoch_elapsed = seconds_elapsed / BASE_EPOCH_SECONDS
+    
+    new_scores["last_update"] = time_update.isoformat()
+
+    top_kds = sorted(
+        new_scores["networth"],
+        key=lambda x: -new_scores["networth"][x]
+    )[:len(NETWORTH_POINTS)]
+    for i_points, kd_scoring in enumerate(top_kds):
+        points_value = NETWORTH_POINTS[i_points]
+        epoch_points = epoch_elapsed * points_value
+        try:
+            new_scores["points"][kd_scoring] += epoch_points
+        except KeyError:
+            new_scores["points"][kd_scoring] = epoch_points
+
+    
+    update_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/scores',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(new_scores)
+    )
+
 
 @app.route('/api/refreshdata')
 def refresh_data():
@@ -7071,6 +7140,11 @@ def refresh_data():
 
     kingdoms = _get_kingdoms()
     time_update = datetime.datetime.now(datetime.timezone.utc)
+
+    kd_scores = {
+        "stars": {},
+        "networth": {},
+    }
     for kd_id in kingdoms:
         try:
             query = db.session.query(User).filter_by(kd_id=kd_id).all()
@@ -7177,9 +7251,15 @@ def refresh_data():
         )
         new_kd_info = _resolve_schedules(new_kd_info, time_update)
         if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > 0:
-            _resolve_auto_attack(new_kd_info)
+            new_kd_info = _resolve_auto_attack(new_kd_info)
         if new_kd_info["auto_rob_enabled"]:
-            _resolve_auto_rob(new_kd_info)
+            new_kd_info = _resolve_auto_rob(new_kd_info)
+
+        kd_scores["stars"][kd_id] = new_kd_info["stars"]
+        kd_scores["networth"][kd_id] = new_kd_info["networth"]
+    
+    _resolve_scores(kd_scores, time_update)
+        
     return "Refreshed", 200
 
 
