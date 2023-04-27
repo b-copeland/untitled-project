@@ -80,6 +80,10 @@ function Status(props) {
                 </div>
                 <br />
                 <div className="text-box-item">
+                    <span className="text-box-item-title">Networth</span>
+                    <span className="text-box-item-value">{props.kingdom.networth?.toLocaleString()}</span>
+                </div>
+                <div className="text-box-item">
                     <span className="text-box-item-title">Stars</span>
                     <span className="text-box-item-value">{props.kingdom.stars?.toLocaleString()}</span>
                 </div>

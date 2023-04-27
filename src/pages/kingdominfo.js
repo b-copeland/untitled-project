@@ -48,16 +48,20 @@ function Kingdom(props) {
                 </div>
                 <br />
                 <div className="text-box-item">
+                    <span className="text-box-item-title">Networth</span>
+                    <span className="text-box-item-value">{props.kingdom?.networth?.toLocaleString()}</span>
+                </div>
+                <div className="text-box-item">
                     <span className="text-box-item-title">Stars</span>
                     <span className="text-box-item-value">{props.kingdom?.stars?.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Population</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom?.population).toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom?.population != undefined ? Math.floor(props.kingdom?.population).toLocaleString() : null}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Fuel</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom?.fuel).toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom?.fuel != undefined ? Math.floor(props.kingdom?.fuel).toLocaleString() : null}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
@@ -66,7 +70,7 @@ function Kingdom(props) {
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom?.drones).toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.kingdom?.drones != undefined ? Math.floor(props.kingdom?.drones).toLocaleString() : null}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
@@ -137,43 +141,43 @@ function Military(props) {
                 <tbody>
                     <tr>
                         <td style={{textAlign: "left"}}>Recruits</td>
-                        <td style={{textAlign: "right"}}>{units?.recruits || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_0?.recruits?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_1?.recruits?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_2?.recruits?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_3?.recruits?.toLocaleString() || 0}</td>
+                        <td style={{textAlign: "right"}}>{units?.recruits || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_0?.recruits?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_1?.recruits?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_2?.recruits?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_3?.recruits?.toLocaleString() || null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Attackers</td>
-                        <td style={{textAlign: "right"}}>{units?.attack || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_0?.attack?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_1?.attack?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_2?.attack?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_3?.attack?.toLocaleString() || 0}</td>
+                        <td style={{textAlign: "right"}}>{units?.attack || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_0?.attack?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_1?.attack?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_2?.attack?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_3?.attack?.toLocaleString() || null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Defenders</td>
-                        <td style={{textAlign: "right"}}>{units?.defense || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_0?.defense?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_1?.defense?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_2?.defense?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_3?.defense?.toLocaleString() || 0}</td>
+                        <td style={{textAlign: "right"}}>{units?.defense || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_0?.defense?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_1?.defense?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_2?.defense?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_3?.defense?.toLocaleString() || null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Flexers</td>
-                        <td style={{textAlign: "right"}}>{units?.flex || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_0?.flex?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_1?.flex?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_2?.flex?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_3?.flex?.toLocaleString() || 0}</td>
+                        <td style={{textAlign: "right"}}>{units?.flex || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_0?.flex?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_1?.flex?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_2?.flex?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_3?.flex?.toLocaleString() || null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Big Flexers</td>
-                        <td style={{textAlign: "right"}}>{units?.big_flex || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_0?.big_flex?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_1?.big_flex?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_2?.big_flex?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{generals.general_3?.big_flex?.toLocaleString() || 0}</td>
+                        <td style={{textAlign: "right"}}>{units?.big_flex || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_0?.big_flex?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_1?.big_flex?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_2?.big_flex?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{generals.general_3?.big_flex?.toLocaleString() || null}</td>
                     </tr>
                 </tbody>
             </Table>
@@ -182,7 +186,7 @@ function Military(props) {
 }
 function Structures(props) {
     const structures = props.kingdom?.structures;
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
+    const displayPercent = (percent) => percent != null ? `${(percent * 100).toFixed(1)}%` : null;
     return (
         
         <div className="kingdom-structures-info">
@@ -197,38 +201,38 @@ function Structures(props) {
                 <tbody>
                     <tr>
                         <td style={{textAlign: "left"}}>Homes</td>
-                        <td style={{textAlign: "right"}}>{structures?.homes?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{displayPercent((structures?.homes || 0) / (props.kingdom?.stars || 1))}</td>
+                        <td style={{textAlign: "right"}}>{structures?.homes?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{structures?.homes != undefined ? displayPercent((structures?.homes || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Mines</td>
-                        <td style={{textAlign: "right"}}>{structures?.mines?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{displayPercent((structures?.mines || 0) / (props.kingdom?.stars || 1))}</td>
+                        <td style={{textAlign: "right"}}>{structures?.mines?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{structures?.mines != undefined ? displayPercent((structures?.mines || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Fuel Plants</td>
-                        <td style={{textAlign: "right"}}>{structures?.fuel_plants?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{displayPercent((structures?.fuel_plants || 0) / (props.kingdom?.stars || 1))}</td>
+                        <td style={{textAlign: "right"}}>{structures?.fuel_plants?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{structures?.fuel_plants != undefined ? displayPercent((structures?.fuel_plants || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Hangars</td>
-                        <td style={{textAlign: "right"}}>{structures?.hangars?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{displayPercent((structures?.hangars || 0) / (props.kingdom?.stars || 1))}</td>
+                        <td style={{textAlign: "right"}}>{structures?.hangars?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{structures?.hangars != undefined ? displayPercent((structures?.hangars || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Drone Factories</td>
-                        <td style={{textAlign: "right"}}>{structures?.drone_factories?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{displayPercent((structures?.drone_factories || 0) / (props.kingdom?.stars || 1))}</td>
+                        <td style={{textAlign: "right"}}>{structures?.drone_factories?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{structures?.drone_factories != undefined ? displayPercent((structures?.drone_factories || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Missile Silos</td>
-                        <td style={{textAlign: "right"}}>{structures?.missile_silos?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{displayPercent((structures?.missile_silos || 0) / (props.kingdom?.stars || 1))}</td>
+                        <td style={{textAlign: "right"}}>{structures?.missile_silos?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{structures?.missile_silos != undefined ? displayPercent((structures?.missile_silos || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Workshops</td>
-                        <td style={{textAlign: "right"}}>{structures?.workshops?.toLocaleString() || 0}</td>
-                        <td style={{textAlign: "right"}}>{displayPercent((structures?.workshops || 0) / (props.kingdom?.stars || 1))}</td>
+                        <td style={{textAlign: "right"}}>{structures?.workshops?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{structures?.workshops != undefined ? displayPercent((structures?.workshops || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                 </tbody>
             </Table>

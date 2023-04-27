@@ -851,16 +851,52 @@ def _get_scores():
     return get_response_json
 
 
-def _get_scores_redacted(revealed):
-    return _get_scores()
+def _get_scores_redacted(revealed, kd_id):
+    scores = _get_scores()
+
+    top_nw = sorted(scores["networth"].items(), key=lambda item: -item[1])
+    top_stars = sorted(scores["stars"].items(), key=lambda item: -item[1])
+    top_points = sorted(scores["points"].items(), key=lambda item: -item[1])
+
+    top_nw_redacted = []
+    top_stars_redacted = []
+    top_points_redacted = []
+    for item in top_nw:
+        if "stats" in revealed["revealed"].get(item[0], {}) or item[0] == kd_id:
+            top_nw_redacted.append(item)
+        else:
+            top_nw_redacted.append(
+                ("", item[1])
+            )
+    for item in top_stars:
+        if "stats" in revealed["revealed"].get(item[0], {}) or item[0] == kd_id:
+            top_stars_redacted.append(item)
+        else:
+            top_stars_redacted.append(
+                ("", item[1])
+            )
+    for item in top_points:
+        if item[0] == kd_id:
+            top_points_redacted.append(item)
+        else:
+            top_points_redacted.append(
+                ("", item[1])
+            )
+    payload = {
+        "networth": top_nw_redacted,
+        "stars": top_stars_redacted,
+        "points": top_points_redacted
+    }
+    return payload
 
 @app.route('/api/scores', methods=["GET"])
+@flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def get_scores():
     
     kd_id = flask_praetorian.current_user().kd_id
     revealed = _get_revealed(kd_id)
-    scores_redacted = _get_scores_redacted(revealed)
+    scores_redacted = _get_scores_redacted(revealed, kd_id)
     return flask.jsonify(scores_redacted), 200
 
 def _create_galaxy(galaxy_id):

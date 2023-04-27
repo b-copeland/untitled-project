@@ -22,6 +22,7 @@ const homePaths = [
   "/message",
   "/forums",
   "/history",
+  "/scores",
 ];
 const buildPaths = [
   "/build",
@@ -114,6 +115,7 @@ function SideNavbar(props) {
                   <Nav.Link as={Link} to="/message" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Message</Nav.Link>
                   {/* <Nav.Link as={Link} to="/forums" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Forums</Nav.Link> */}
                   <Nav.Link as={Link} to="/history" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;History</Nav.Link>
+                  <Nav.Link as={Link} to="/scores" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Scores</Nav.Link>
                 </>
                 : null
               }
