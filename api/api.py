@@ -7194,6 +7194,8 @@ def refresh_data():
     
     state = _get_state()
     time_now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    if time_now < state["state"]["game_start"]:
+        return ("Not started", 200)
     if time_now > state["state"]["election_end"] and state["state"]["election_end"] != "":
         state = _resolve_election(state)
     elif time_now > state["state"]["election_start"] and state["state"]["election_end"] == "":
