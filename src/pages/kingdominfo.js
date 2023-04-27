@@ -30,6 +30,9 @@ function KingdomContent(props) {
         <Tab eventKey="projects" title="Projects">
           <Projects kingdom={props.data.kingdom}/>
         </Tab>
+        <Tab eventKey="shields" title="Shields">
+          <Shields kingdom={props.data.kingdom} shields={props.data.shields}/>
+        </Tab>
       </Tabs>
     );
 }
@@ -474,6 +477,60 @@ function Projects(props) {
             
         </div>
         )
+}
+
+function Shields(props) {
+    const displayPercent = (percent) => percent != null ? `${(percent * 100).toFixed(1)}%` : null;
+
+    return (
+        <div className="shields">
+            {
+                props.kingdom?.shields?.military != undefined
+                ? <Table className="shields-table" striped bordered hover size="sm">
+                    <thead>
+                        <tr>
+                            <th style={{textAlign: "left"}}>Shield</th>
+                            <th style={{textAlign: "right"}}>Current %</th>
+                            <th style={{textAlign: "right"}}>Max %</th>
+                            <th style={{textAlign: "right"}}>Current Power Cost</th>
+                            <th style={{textAlign: "right"}}>Max Power Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style={{textAlign: "left"}}>Military</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.kingdom?.shields?.military || 0)}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.shields?.desc?.military?.max || 0)}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kingdom?.shields?.military * props.shields?.desc?.military?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.shields?.desc?.military?.max * props.shields?.desc?.military?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                            <td style={{textAlign: "left"}}>Spy</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.kingdom?.shields?.spy || 0)}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.shields?.desc?.spy?.max || 0)}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kingdom?.shields?.spy * props.shields?.desc?.spy?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.shields?.desc?.spy?.max * props.shields?.desc?.spy?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                            <td style={{textAlign: "left"}}>Spy Radar</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.kingdom?.shields?.spy_radar || 0)}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.shields?.desc?.spy_radar?.max || 0)}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kingdom?.shields?.spy_radar * props.shields?.desc?.spy_radar?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.shields?.desc?.spy_radar?.max * props.shields?.desc?.spy_radar?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                            <td style={{textAlign: "left"}}>Missiles</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.kingdom?.shields?.missiles || 0)}</td>
+                            <td style={{textAlign: "right"}}>{displayPercent(props.shields?.desc?.missiles?.max || 0)}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.kingdom?.shields?.missiles * props.shields?.desc?.missiles?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor(props.shields?.desc?.missiles?.max * props.shields?.desc?.missiles?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
+                        </tr>
+                    </tbody>
+                </Table>
+                : <h3>Not Revealed!</h3>
+            }
+        </div>
+    )
 }
 
 export default KingdomContent;

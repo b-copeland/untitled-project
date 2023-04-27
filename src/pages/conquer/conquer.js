@@ -243,7 +243,7 @@ function Revealed(props) {
                     <Modal.Title>View</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "kdId": kdToShow}}/>
+                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "shields": props.data.shields, "kdId": kdToShow}}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowView(false)}>
@@ -635,7 +635,7 @@ function Shared(props) {
                     <Modal.Title>View</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "kdId": kdToShow}}/>
+                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "shields": props.data.shields, "kdId": kdToShow}}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowView(false)}>
@@ -903,7 +903,7 @@ function Pinned(props) {
                     <Modal.Title>View</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "kdId": kdToShow}}/>
+                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "shields": props.data.shields, "kdId": kdToShow}}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowView(false)}>

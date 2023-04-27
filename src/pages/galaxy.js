@@ -229,7 +229,7 @@ function Galaxy(props) {
                     <Modal.Title>View</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Kingdom data={{"kingdom": galaxyInfo[kdToShow], "kingdoms": props.data.kingdoms, "galaxies_inverted": props.data.galaxies_inverted, "kdId": kdToShow}}/>
+                    <Kingdom data={{"kingdom": galaxyInfo[kdToShow], "kingdoms": props.data.kingdoms, "galaxies_inverted": props.data.galaxies_inverted, "shields": props.data.shields, "kdId": kdToShow}}/>
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={() => setShowView(false)}>
