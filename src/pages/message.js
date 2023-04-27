@@ -70,7 +70,7 @@ function Message(props) {
             <Toast.Header>
                 <strong className="me-auto">Message Results</strong>
             </Toast.Header>
-            <Toast.Body>{result.message}</Toast.Body>
+            <Toast.Body  className="text-black">{result.message}</Toast.Body>
         </Toast>
     );
     return (

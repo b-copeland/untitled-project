@@ -80,7 +80,7 @@ function Train(props) {
             <Toast.Header>
                 <strong className="me-auto">Structures Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     return (
@@ -279,7 +279,7 @@ function Assign(props) {
             <Toast.Header>
                 <strong className="me-auto">Structures Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     return (
@@ -1048,7 +1048,7 @@ function Allocate(props) {
             <Toast.Header>
                 <strong className="me-auto">Structures Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     return (

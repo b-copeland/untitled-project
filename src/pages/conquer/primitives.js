@@ -139,7 +139,7 @@ function AttackPrimitives(props) {
             <Toast.Header>
                 <strong className="me-auto">Attack Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     return (
@@ -457,7 +457,7 @@ function RobPrimitives(props) {
             <Toast.Header>
                 <strong className="me-auto">Rob Results</strong>
             </Toast.Header>
-            <Toast.Body>{result.message}</Toast.Body>
+            <Toast.Body  className="text-black">{result.message}</Toast.Body>
         </Toast>
     )
     if (drones > props.data.kingdom["drones"]) {

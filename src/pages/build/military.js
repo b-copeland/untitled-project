@@ -88,7 +88,7 @@ function Recruits(props) {
             <Toast.Header>
                 <strong className="me-auto">Recruits Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     return (
@@ -220,7 +220,7 @@ function Specialists(props) {
             <Toast.Header>
                 <strong className="me-auto">Recruits Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     return (
@@ -452,7 +452,7 @@ function Allocate(props) {
             <Toast.Header>
                 <strong className="me-auto">Recruits Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     return (

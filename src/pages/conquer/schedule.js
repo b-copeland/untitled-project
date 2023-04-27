@@ -780,7 +780,7 @@ function Add(props) {
             <Toast.Header>
                 <strong className="me-auto">Schedule Results</strong>
             </Toast.Header>
-            <Toast.Body>{result.message}</Toast.Body>
+            <Toast.Body  className="text-black">{result.message}</Toast.Body>
         </Toast>
     )
     return (
@@ -943,7 +943,7 @@ function Queue(props) {
             <Toast.Header>
                 <strong className="me-auto">Rob Results</strong>
             </Toast.Header>
-            <Toast.Body>{result.message}</Toast.Body>
+            <Toast.Body  className="text-black">{result.message}</Toast.Body>
         </Toast>
     )
 

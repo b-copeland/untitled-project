@@ -129,7 +129,7 @@ function Attack(props) {
             <Toast.Header>
                 <strong className="me-auto">Attack Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     return (

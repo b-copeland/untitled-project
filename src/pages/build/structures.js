@@ -95,7 +95,7 @@ function BuildStructures(props) {
             <Toast.Header>
                 <strong className="me-auto">Structures Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     const calcStructuresStarsUsed = (structuresInput) => {
@@ -327,7 +327,7 @@ function AllocateStructures(props) {
             <Toast.Header>
                 <strong className="me-auto">Structures Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     return (

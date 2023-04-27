@@ -100,7 +100,7 @@ function ShareIntel(props) {
             <Toast.Header>
                 <strong className="me-auto">Share Intel Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     return (

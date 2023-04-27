@@ -197,7 +197,7 @@ function UniversePolitics(props) {
             <Toast.Header>
                 <strong className="me-auto">Votes Result</strong>
             </Toast.Header>
-            <Toast.Body>{result.message}</Toast.Body>
+            <Toast.Body  className="text-black">{result.message}</Toast.Body>
         </Toast>
     )
     return (

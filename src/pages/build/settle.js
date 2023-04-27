@@ -42,7 +42,7 @@ function Settle(props) {
             <Toast.Header>
                 <strong className="me-auto">Settle Results</strong>
             </Toast.Header>
-            <Toast.Body>{results.message}</Toast.Body>
+            <Toast.Body  className="text-black">{results.message}</Toast.Body>
         </Toast>
     )
     const calcSettleCosts = (input) => parseInt(input) * settleInfo.settle_price
