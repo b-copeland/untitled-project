@@ -706,6 +706,16 @@ def alive_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def start_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        state = _get_state()
+        time_now = datetime.datetime.now(datetime.timezone.utc)
+        if time_now.isoformat() < state["state"]["game_start"]:
+            return flask.jsonify({"message": "The game has not yet started!"}), 400
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/api/login', methods=['POST'])
 def login():
     """
@@ -3471,6 +3481,7 @@ def max_kingdoms():
 @app.route('/api/revealrandomgalaxy', methods=['GET'])
 @flask_praetorian.auth_required
 @alive_required
+@start_required
 # @flask_praetorian.roles_required('verified')
 def reveal_random_galaxy():
     """
@@ -3490,7 +3501,7 @@ def reveal_random_galaxy():
     kd_info_parse = json.loads(kd_info.text)
 
     if kd_info_parse["spy_attempts"] <= 0:
-        return (flask.jsonify('You do not have any spy attempts remaining'), 400)
+        return (flask.jsonify({"message": 'You do not have any spy attempts remaining'}), 400)
 
     revealed_info = _get_revealed(kd_id)
 
@@ -3513,7 +3524,7 @@ def reveal_random_galaxy():
     potential_galaxies = set(galaxy_info.keys()) - set(excluded_galaxies)
 
     if not len(potential_galaxies):
-        return (flask.jsonify('There are no more galaxies to reveal'), 400)
+        return (flask.jsonify({"message": 'There are no more galaxies to reveal'}), 400)
 
     galaxy_to_reveal = random.choice(list(potential_galaxies))
 
@@ -3548,7 +3559,7 @@ def reveal_random_galaxy():
         data=json.dumps(kd_payload),
     )
 
-    return (flask.jsonify(reveal_galaxy_response.text), 200)
+    return (flask.jsonify({"message": f"Reveavled galaxy {galaxy_to_reveal}", "status": "success"}), 200)
 
 def _validate_attack_request(
     attacker_raw_values,
@@ -4153,6 +4164,7 @@ def _attack(req, kd_id, target_kd):
 @app.route('/api/attack/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
+@start_required
 # @flask_praetorian.roles_required('verified')
 def attack(target_kd):
     req = flask.request.get_json(force=True)
@@ -4407,6 +4419,7 @@ def _attack_primitives(req, kd_id):
 @app.route('/api/attackprimitives', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
+@start_required
 # @flask_praetorian.roles_required('verified')
 def attack_primitives():
     req = flask.request.get_json(force=True)
@@ -4892,6 +4905,7 @@ def _spy(req, kd_id, target_kd):
 @app.route('/api/spy/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
+@start_required
 # @flask_praetorian.roles_required('verified')
 def spy(target_kd):
     req = flask.request.get_json(force=True)
@@ -4989,6 +5003,7 @@ def _rob_primitives(req, kd_id):
 @app.route('/api/robprimitives', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
+@start_required
 # @flask_praetorian.roles_required('verified')
 def rob_primitives():
     req = flask.request.get_json(force=True)
@@ -5551,6 +5566,7 @@ def _launch_missiles(req, kd_id, target_kd):
 @app.route('/api/launchmissiles/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
+@start_required
 # @flask_praetorian.roles_required('verified')
 def launch_missiles(target_kd):
     req = flask.request.get_json(force=True)
@@ -5696,6 +5712,7 @@ def _validate_buy_votes(
 @app.route('/api/votes', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
+@start_required
 # @flask_praetorian.roles_required('verified')
 def buy_votes():
     """
@@ -5786,6 +5803,7 @@ def _validate_cast_votes(
 @app.route('/api/universepolitics/policies', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
+@start_required
 # @flask_praetorian.roles_required('verified')
 def universe_policies():
     """

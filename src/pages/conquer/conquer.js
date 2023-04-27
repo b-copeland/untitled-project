@@ -5,6 +5,8 @@ import Tabs from 'react-bootstrap/Tabs';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Modal from 'react-bootstrap/Modal';
+import Toast from 'react-bootstrap/Toast';
+import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./conquer.css";
 import Galaxy from "../galaxy.js";
 import Attack from "./attack.js";
@@ -110,6 +112,7 @@ function Revealed(props) {
         // networth: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
         coordinate_distance: { value: null, matchMode: FilterMatchMode.CONTAINS },
     });
+    const [results, setResults] = useState([]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -130,7 +133,7 @@ function Revealed(props) {
     }
 
     const onSubmitClick = (e)=>{
-        const updateFunc = () => authFetch('api/revealrandomgalaxy')
+        const updateFunc = () => authFetch('api/revealrandomgalaxy').then(r => r.json()).then(r => {setResults(results.concat(r))})
         props.updateData(['revealed', 'kingdom'], [updateFunc])
     }
 
@@ -156,6 +159,19 @@ function Revealed(props) {
         return rowData.networth !== null ? rowData.networth.toLocaleString() : null
     }
     
+    const toasts = results.map((result, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
+            show={true}
+            bg={result.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Reveal Results</strong>
+            </Toast.Header>
+            <Toast.Body>{result.message}</Toast.Body>
+        </Toast>
+    )
     const getRemainingSpans = (kdId, revealed) => {
         const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
             <div key={kdId.toString() + '_' + category} className="remaining-timer">
@@ -233,6 +249,9 @@ function Revealed(props) {
     );
     return (
         <div className="revealed">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
             <Modal
                 show={showView}
                 onHide={() => setShowView(false)}
