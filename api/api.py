@@ -2392,12 +2392,12 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
     always_allowed_keys = {"name", "race", "status", "coordinate"}
     allowed_keys = {
         "stats": ["stars", "networth"],
-        "kingdom": ["stars", "fuel", "population", "networth", "money", "spy_attempts", "auto_spending", "missiles"],
+        "kingdom": ["stars", "fuel", "population", "networth", "money", "missiles"],
         "military": ["units", "generals_available", "generals_out"],
         "structures": ["structures"],
         "shields": ["shields"],
         "projects": ["projects_points", "projects_max_points", "projects_assigned", "completed_projects"],
-        "drones": ["drones"],
+        "drones": ["drones", "spy_attempts"],
     }
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{other_kd_id}',

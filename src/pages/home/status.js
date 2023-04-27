@@ -95,6 +95,10 @@ function Status(props) {
                     <span className="text-box-item-title">Fuel</span>
                     <span className="text-box-item-value">{Math.floor(props.kingdom.fuel)?.toLocaleString()}</span>
                 </div>
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Money</span>
+                    <span className="text-box-item-value">{Math.floor(props.kingdom.money)?.toLocaleString()}</span>
+                </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Engineers</span>
@@ -106,6 +110,10 @@ function Status(props) {
                 </div>
                 <br />
                 <div className="text-box-item">
+                    <span className="text-box-item-title">Recruits</span>
+                    <span className="text-box-item-value">{props.mobis.units?.current_total?.recruits.toLocaleString()}</span>
+                </div>
+                <div className="text-box-item">
                     <span className="text-box-item-title">Attackers</span>
                     <span className="text-box-item-value">{props.mobis.units?.current_total?.attack.toLocaleString()}</span>
                 </div>
@@ -116,6 +124,23 @@ function Status(props) {
                 <div className="text-box-item">
                     <span className="text-box-item-title">Flexers</span>
                     <span className="text-box-item-value">{props.mobis.units?.current_total?.flex.toLocaleString()}</span>
+                </div>
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Big Flexers</span>
+                    <span className="text-box-item-value">{props.mobis.units?.current_total?.big_flex.toLocaleString()}</span>
+                </div>
+                <br />
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Planet Busters</span>
+                    <span className="text-box-item-value">{props.kingdom.missiles?.planet_busters.toLocaleString()}</span>
+                </div>
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Star Busters</span>
+                    <span className="text-box-item-value">{props.kingdom.missiles?.star_busters.toLocaleString()}</span>
+                </div>
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Galaxy Busters</span>
+                    <span className="text-box-item-value">{props.kingdom.missiles?.galaxy_busters.toLocaleString()}</span>
                 </div>
             </div>
             <div className="text-box income-box">
