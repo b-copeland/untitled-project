@@ -2435,6 +2435,13 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
             for project, project_dict in PROJECTS.items()
             if "max_bonus" in project_dict
         }
+        kd_info_parse_allowed["engineers"] = kd_info_parse["units"]["engineers"]
+        try:
+            kd_info_parse_allowed["units"]["engineers"] = kd_info_parse["units"]["engineers"]
+        except KeyError:
+            kd_info_parse_allowed["units"] = {
+                "engineers": kd_info_parse["units"]["engineers"]
+            }
     return kd_info_parse_allowed
 
 

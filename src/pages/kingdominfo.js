@@ -27,6 +27,9 @@ function KingdomContent(props) {
         <Tab eventKey="structures" title="Structures">
           <Structures kingdom={props.data.kingdom}/>
         </Tab>
+        <Tab eventKey="projects" title="Projects">
+          <Projects kingdom={props.data.kingdom}/>
+        </Tab>
       </Tabs>
     );
 }
@@ -146,7 +149,7 @@ function Military(props) {
     return (
         <div className="military">
             <h2>Armies</h2>
-            <Table striped bordered hover>
+            <Table striped bordered hover className="army-table" size="sm">
                 <thead>
                     <tr>
                     <th colSpan={2}></th>
@@ -263,6 +266,214 @@ function Structures(props) {
             </Table>
         </div>
     )
+}
+
+function Projects(props) {
+    const displayPercent = (percent) => percent != null ? `${(percent * 100).toFixed(1)}%` : null;
+    
+    return (
+        <div className="projects">
+            {
+                props.kingdom?.projects_assigned?.pop_bonus != undefined
+                ? <Table className="projects-table" striped bordered hover size="sm">
+                    <thead>
+                        <tr><th colSpan={4}>Continuous Projects</th></tr>
+                        <tr>
+                            <th style={{textAlign: "left"}}>Project</th>
+                            <th className="assigned-col" style={{textAlign: "right"}}>Assigned</th>
+                            <th style={{textAlign: "right"}}>Points</th>
+                            <th style={{textAlign: "right"}}>Bonus</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style={{textAlign: "left"}}>Pop Bonus</td>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
+                                {(props.kingdom?.projects_assigned?.pop_bonus || 0).toLocaleString()}
+                            </td>
+                            <td style={{textAlign: "right"}}>
+                                {Math.floor(props.kingdom?.projects_points?.pop_bonus || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.pop_bonus || 0).toLocaleString()}
+                            </td>
+                            <td style={{textAlign: "right"}}>
+                                {displayPercent(props.kingdom?.current_bonuses?.pop_bonus || 0)} / {displayPercent(props.kingdom?.max_bonuses?.pop_bonus || 0)}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style={{textAlign: "left"}}>Fuel Bonus</td>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
+                                {(props.kingdom?.projects_assigned?.fuel_bonus || 0).toLocaleString()}
+                            </td>
+                            <td style={{textAlign: "right"}}>
+                                {Math.floor(props.kingdom?.projects_points?.fuel_bonus || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.fuel_bonus || 0).toLocaleString()}
+                            </td>
+                            <td style={{textAlign: "right"}}>
+                                {displayPercent(props.kingdom?.current_bonuses?.fuel_bonus || 0)} / {displayPercent(props.kingdom?.max_bonuses?.fuel_bonus || 0)}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style={{textAlign: "left"}}>Military Bonus</td>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
+                                {(props.kingdom?.projects_assigned?.military_bonus || 0).toLocaleString()}
+                            </td>
+                            <td style={{textAlign: "right"}}>
+                                {Math.floor(props.kingdom?.projects_points?.military_bonus || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.military_bonus || 0).toLocaleString()}
+                            </td>
+                            <td style={{textAlign: "right"}}>
+                                {displayPercent(props.kingdom?.current_bonuses?.military_bonus || 0)} / {displayPercent(props.kingdom?.max_bonuses?.military_bonus || 0)}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style={{textAlign: "left"}}>Money Bonus</td>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
+                                {(props.kingdom?.projects_assigned?.money_bonus || 0).toLocaleString()}
+                            </td>
+                            <td style={{textAlign: "right"}}>
+                                {Math.floor(props.kingdom?.projects_points?.money_bonus || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.money_bonus || 0).toLocaleString()}
+                            </td>
+                            <td style={{textAlign: "right"}}>
+                                {displayPercent(props.kingdom?.current_bonuses?.money_bonus || 0)} / {displayPercent(props.kingdom?.max_bonuses?.money_bonus || 0)}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style={{textAlign: "left"}}>Generals Speed Bonus</td>
+                            <td className="assigned-col" style={{textAlign: "right"}}>
+                                {(props.kingdom?.projects_assigned?.general_bonus || 0).toLocaleString()}
+                            </td>
+                            <td style={{textAlign: "right"}}>
+                                {Math.floor(props.kingdom?.projects_points?.general_bonus || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.general_bonus || 0).toLocaleString()}
+                            </td>
+                            <td style={{textAlign: "right"}}>
+                                {displayPercent(props.kingdom?.current_bonuses?.general_bonus || 0)} / {displayPercent(props.kingdom?.max_bonuses?.general_bonus || 0)}
+                            </td>
+                        </tr>
+                        {
+                            props.kingdom?.completed_projects?.indexOf('drone_gadgets') >= 0
+                            ? <tr>
+                                <td style={{textAlign: "left"}}>Spy Bonus</td>
+                                <td className="assigned-col" style={{textAlign: "right"}}>
+                                    {(props.kingdom?.projects_assigned?.spy_bonus || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>
+                                    {Math.floor(props.kingdom?.projects_points?.spy_bonus || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.spy_bonus || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>
+                                    {displayPercent(props.kingdom?.current_bonuses?.spy_bonus || 0)} / {displayPercent(props.kingdom?.max_bonuses?.spy_bonus || 0)}
+                                </td>
+                            </tr>
+                            : <tr className="disabled-table-row">
+                                <td style={{textAlign: "left"}}>Spy Bonus</td>
+                                <td className="assigned-col">Complete "Drone Gadgets" Project to Unlock</td>
+                                <td style={{textAlign: "right"}}>
+                                    {Math.floor(props.kingdom?.projects_points?.spy_bonus || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.spy_bonus || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>
+                                    {displayPercent(props.kingdom?.current_bonuses?.spy_bonus || 0)} / {displayPercent(props.kingdom?.max_bonuses?.spy_bonus || 0)}
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <thead>
+                        <tr><th colSpan={4}>One-Time Projects</th></tr>
+                        <tr>
+                            <th style={{textAlign: "left"}}>Project</th>
+                            <th className="assigned-col" style={{textAlign: "right"}}>Assigned</th>
+                            <th style={{textAlign: "right"}}>Points</th>
+                            <th style={{textAlign: "right"}}>% Completed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        
+                        {
+                            props.kingdom?.completed_projects?.indexOf('big_flexers') < 0
+                            ? <tr>
+                                <td style={{textAlign: "left"}}>Big Flexers</td>
+                                <td className="assigned-col" style={{textAlign: "right"}}>
+                                    {(props.kingdom?.projects_assigned?.big_flexers || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>
+                                    {Math.floor(props.kingdom?.projects_points?.big_flexers || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.big_flexers || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>{displayPercent((props.kingdom?.projects_points?.big_flexers || 0)/(props.kingdom?.projects_max_points?.big_flexers))}</td>
+                            </tr>
+                            : <tr className="disabled-table-row">
+                                <td style={{textAlign: "left"}}>Big Flexers</td>
+                                <td className="assigned-col">Project Complete!</td>
+                                <td style={{textAlign: "right"}}>
+                                    {Math.floor(props.kingdom?.projects_points?.big_flexers || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.big_flexers || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>{displayPercent((props.kingdom?.projects_points?.big_flexers || 0)/(props.kingdom?.projects_max_points?.big_flexers))}</td>
+                            </tr>
+                        }
+                        {
+                            props.kingdom?.completed_projects?.indexOf('star_busters') < 0
+                            ? <tr>
+                                <td style={{textAlign: "left"}}>Star Busters</td>
+                                <td className="assigned-col" style={{textAlign: "right"}}>
+                                    {(props.kingdom?.projects_assigned?.star_busters || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>
+                                    {Math.floor(props.kingdom?.projects_points?.star_busters || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.star_busters || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>{displayPercent((props.kingdom?.projects_points?.star_busters || 0)/(props.kingdom?.projects_max_points?.star_busters))}</td>
+                            </tr>
+                            : <tr className="disabled-table-row">
+                                <td style={{textAlign: "left"}}>Star Busters</td>
+                                <td className="assigned-col" >Project Complete!</td>
+                                <td style={{textAlign: "right"}}>
+                                    {Math.floor(props.kingdom?.projects_points?.star_busters || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.star_busters || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>{displayPercent((props.kingdom?.projects_points?.star_busters || 0)/(props.kingdom?.projects_max_points?.star_busters))}</td>
+                            </tr>
+                        }
+                        {
+                            props.kingdom?.completed_projects?.indexOf('galaxy_busters') < 0
+                            ? <tr>
+                                <td style={{textAlign: "left"}}>Galaxy Busters</td>
+                                <td className="assigned-col" style={{textAlign: "right"}}>
+                                    {(props.kingdom?.projects_assigned?.galaxy_busters || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>
+                                    {Math.floor(props.kingdom?.projects_points?.galaxy_busters || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.galaxy_busters || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>{displayPercent((props.kingdom?.projects_points?.galaxy_busters || 0)/(props.kingdom?.projects_max_points?.galaxy_busters))}</td>
+                            </tr>
+                            : <tr className="disabled-table-row">
+                                <td style={{textAlign: "left"}}>Galaxy Busters</td>
+                                <td className="assigned-col">Project Complete!</td>
+                                <td style={{textAlign: "right"}}>
+                                    {Math.floor(props.kingdom?.projects_points?.galaxy_busters || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.galaxy_busters || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>{displayPercent((props.kingdom?.projects_points?.galaxy_busters || 0)/(props.kingdom?.projects_max_points?.galaxy_busters))}</td>
+                            </tr>
+                        }
+                        {
+                            props.kingdom?.completed_projects?.indexOf('drone_gadgets') < 0
+                            ? <tr>
+                                <td style={{textAlign: "left"}}>Drone Gadgets</td>
+                                <td className="assigned-col" style={{textAlign: "right"}}>
+                                    {(props.kingdom?.projects_assigned?.drone_gadgets || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>
+                                    {Math.floor(props.kingdom?.projects_points?.drone_gadgets || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.drone_gadgets || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>{displayPercent((props.kingdom?.projects_points?.drone_gadgets || 0)/(props.kingdom?.projects_max_points?.drone_gadgets))}</td>
+                            </tr>
+                            : <tr className="disabled-table-row">
+                                <td style={{textAlign: "left"}}>Drone Gadgets</td>
+                                <td className="assigned-col">Project Complete!</td>
+                                <td style={{textAlign: "right"}}>
+                                    {Math.floor(props.kingdom?.projects_points?.drone_gadgets || 0).toLocaleString()} / {Math.floor(props.kingdom?.projects_max_points?.drone_gadgets || 0).toLocaleString()}
+                                </td>
+                                <td style={{textAlign: "right"}}>{displayPercent((props.kingdom?.projects_points?.drone_gadgets || 0)/(props.kingdom?.projects_max_points?.drone_gadgets))}</td>
+                            </tr>
+                        }
+                    </tbody>
+                </Table>
+                : <h3>Not Revealed!</h3>
+            }
+            
+        </div>
+        )
 }
 
 export default KingdomContent;
