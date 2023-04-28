@@ -444,11 +444,10 @@ function Shared(props) {
     useEffect(() => {
         const fetchData = async () => {
             var sharedKds = Array();
-            sharedKds.push.apply(
-                Object.keys(props.shared.shared || {}),
-                // Object.keys(props.shared.shared_requests),
-                // Object.keys(props.shared.shared_offers),
-            )
+            for (const sharedKey in props.shared.shared) {
+                const kdId = sharedKey.split('_')[0];
+                sharedKds.push(kdId);
+            }
             const opts = {"kingdoms": sharedKds}
             if (sharedKds.length > 0) {
                 await authFetch("api/kingdomsinfo", {
@@ -513,19 +512,20 @@ function Shared(props) {
         return remainingSpans;
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
-    const sharedRows = Object.keys(props.shared.shared).map((kdId) => {
+    const sharedRows = Object.keys(props.shared.shared).map((sharedKey) => {
+        const kdId = sharedKey?.split('_')[0];
         const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
         const galaxyEmpire = (
             empireName !== undefined
             ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
             : props.galaxies_inverted[kdId] || ""
         )
-        return <tr key={kdId}>
-            <td>{getRemainingSharedSpans(kdId, props.revealed.revealed, props.shared.shared[kdId].shared_stat)}</td>
+        return <tr key={sharedKey}>
+            <td>{getRemainingSharedSpans(kdId, props.revealed.revealed, props.shared.shared[sharedKey].shared_stat)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{galaxyEmpire}</td>
-            <td>{props.kingdoms[props.shared.shared[kdId].shared_by] || ""}</td>
-            <td>{displayPercent(props.shared.shared[kdId].cut) || ""}</td>
+            <td>{props.kingdoms[props.shared.shared[sharedKey].shared_by] || ""}</td>
+            <td>{displayPercent(props.shared.shared[sharedKey].cut) || ""}</td>
             <td>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
                     View
@@ -562,27 +562,28 @@ function Shared(props) {
         </tr>
     }
     );
-    const sharedRequestRows = Object.keys(props.shared.shared_requests).map((kdId) => {
+    const sharedRequestRows = Object.keys(props.shared.shared_requests).map((sharedKey) => {
+        const kdId = sharedKey?.split('_')[0];
         const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
         const galaxyEmpire = (
             empireName !== undefined
             ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
             : props.galaxies_inverted[kdId] || ""
         )
-        return <tr key={kdId}>
-            <td>{getRemainingSpans(kdId, props.revealed.revealed)}</td>
+        return <tr key={sharedKey}>
+            <td>{getTimeString(props.shared.shared_requests[sharedKey].time)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{galaxyEmpire}</td>
-            <td>{props.kingdoms[props.shared.shared_requests[kdId].shared_by] || ""}</td>
-            <td>{displayPercent(props.shared.shared_requests[kdId].cut) || ""}</td>
-            <td>{props.shared.shared_requests[kdId].shared_stat || ""}</td>
+            <td>{props.kingdoms[props.shared.shared_requests[sharedKey].shared_by] || ""}</td>
+            <td>{displayPercent(props.shared.shared_requests[sharedKey].cut) || ""}</td>
+            <td>{props.shared.shared_requests[sharedKey].shared_stat || ""}</td>
             <td>
                 {
                     props.loading.shared
                     ? <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
-                    : <Button name={kdId} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onAcceptShared}>
+                    : <Button name={sharedKey} className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={onAcceptShared}>
                         Accept
                     </Button>
                 }
@@ -607,20 +608,21 @@ function Shared(props) {
         </tr>
     }
     );
-    const sharedOfferRows = Object.keys(props.shared.shared_offers).map((kdId) => {
+    const sharedOfferRows = Object.keys(props.shared.shared_offers).map((sharedKey) => {
+        const kdId = sharedKey?.split('_')[0];
         const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
         const galaxyEmpire = (
             empireName !== undefined
             ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
             : props.galaxies_inverted[kdId] || ""
         )
-        return <tr key={kdId}>
-            <td>{getTimeString(props.shared.shared_offers[kdId].time)}</td>
+        return <tr key={sharedKey}>
+            <td>{getTimeString(props.shared.shared_offers[sharedKey].time)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{galaxyEmpire}</td>
-            <td>{props.kingdoms[props.shared.shared_offers[kdId].shared_to]}</td>
-            <td>{displayPercent(props.shared.shared_offers[kdId].cut) || ""}</td>
-            <td>{props.shared.shared_offers[kdId].shared_stat || ""}</td>
+            <td>{props.kingdoms[props.shared.shared_offers[sharedKey].shared_to]}</td>
+            <td>{displayPercent(props.shared.shared_offers[sharedKey].cut) || ""}</td>
+            <td>{props.shared.shared_offers[sharedKey].shared_stat || ""}</td>
             <td>
                 <Button className="inline-galaxy-button" size="sm" variant="primary" type="submit" onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
                     Galaxy

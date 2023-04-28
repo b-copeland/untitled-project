@@ -2646,7 +2646,7 @@ def _get_missiles_info(kd_id):
     missiles_info_parse = json.loads(missiles_info.text)
     return missiles_info_parse["missiles"]
 
-def _get_missiles_building(missiles_info): # TODO: Make this not mutate
+def _get_missiles_building(missiles_info):
     missiles_building = {
         k: 0
         for k in MISSILES
@@ -3184,7 +3184,8 @@ def accept_shared():
          -H "Authorization: Bearer <your_token>"
     """
     req = flask.request.get_json(force=True)
-    accepted_kd = str(req["shared"])
+    accepted_shared_from = str(req["shared"])
+    accepted_kd, shared_from_kd = accepted_shared_from.split('_')
     
 
     kd_id = flask_praetorian.current_user().kd_id
@@ -3192,7 +3193,7 @@ def accept_shared():
     
     shared_info = _get_shared(kd_id)
 
-    new_shared = shared_info["shared_requests"].pop(accepted_kd)
+    new_shared = shared_info["shared_requests"].pop(accepted_shared_from)
     shared_info["shared"][accepted_kd] = new_shared
 
     shared_info_response = REQUESTS_SESSION.post(
@@ -3215,7 +3216,7 @@ def accept_shared():
     )
     
     try:
-        ws = SOCK_HANDLERS[shared_info["shared"][accepted_kd]["shared_by"]]
+        ws = SOCK_HANDLERS[shared_from_kd]
         ws.send(json.dumps({
             "message": f"{kingdoms[kd_id]} accepted intel {shared_info['shared'][accepted_kd]['shared_stat']} for target {kingdoms[accepted_kd]}",
             "status": "info",
@@ -3255,59 +3256,93 @@ def offer_shared():
     kd_id = flask_praetorian.current_user().kd_id
     
 
-    galaxies_inverted, _ = _get_galaxies_inverted()
+    galaxies_inverted, galaxies = _get_galaxies_inverted()
     revealed_info = _get_revealed(kd_id)
     
     your_shared_info = _get_shared(kd_id)
-    shared_to_shared_info = _get_shared(shared_to_kd)
-
-    if shared_stat not in revealed_info["revealed"][shared_kd].keys():
-        return flask.jsonify({"message": "You do not have that revealed stat to share"}), 400
-    
-    if shared_stat == your_shared_info["shared"].get(shared_kd, {}).get("shared_stat"):
-        return flask.jsonify({"message": "You can not share intel that was shared with you"}), 400
-
     your_galaxy = galaxies_inverted[kd_id]
     shared_to_galaxy = galaxies_inverted.get(shared_to_kd, None)
 
     if your_galaxy != shared_to_galaxy and shared_to_kd != "galaxy":
         return flask.jsonify({"message": "You can not share to kingdoms outside of your galaxy"}), 400
 
-    shared_resolve_time = revealed_info["revealed"][shared_kd][shared_stat]
-    your_payload = { # TODO: this needs to support offers to multiple KDs
-        "shared_offers": {
-            **your_shared_info["shared_offers"],
-            shared_kd: {
-                "shared_to": shared_to_kd,
-                "shared_stat": shared_stat,
-                "cut": cut,
-                "time": shared_resolve_time,
-            }
-        }
-    }
-    shared_to_payload = { # TODO: this needs to support offers from multiple KDs
-        "shared_requests": {
-            **shared_to_shared_info["shared_requests"],
-            shared_kd: {
-                "shared_by": kd_id,
-                "shared_stat": shared_stat,
-                "cut": cut,
-                "time": shared_resolve_time,
-            }
-        }
-    }
+    if shared_stat not in revealed_info["revealed"][shared_kd].keys():
+        return flask.jsonify({"message": "You do not have that revealed stat to share"}), 400
+    
+    previously_shared_stats = []
+    for shared_key, shared_dict in your_shared_info["shared"].items():
+        if shared_key.split("_")[0] == shared_kd:
+            previously_shared_stats.append(shared_dict["shared_stat"])
+    if shared_stat in previously_shared_stats:
+        return flask.jsonify({"message": "You can not share intel that was shared with you"}), 400
 
+    shared_resolve_time = revealed_info["revealed"][shared_kd][shared_stat]
+    your_payload = {
+        "shared_offers": your_shared_info["shared_offers"]
+    }
+    if shared_to_kd == "galaxy":
+        kds_to_update = [
+            _id
+            for _id in galaxies[your_galaxy]
+            if _id != kd_id
+        ]
+    else:
+        kds_to_update = [shared_to_kd]
+    for kd_to_update in kds_to_update:
+        shared_to_shared_info = _get_shared(kd_to_update)
+        shared_from_key = f"{shared_kd}_{kd_id}"
+        shared_to_key = f"{shared_kd}_{kd_to_update}"
+        shared_to_payload = {
+            "shared_requests": shared_to_shared_info["shared_requests"]
+        }
+
+        your_payload["shared_offers"][shared_to_key] = {
+            "shared_to": kd_to_update,
+            "shared_stat": shared_stat,
+            "cut": cut,
+            "time": shared_resolve_time,
+        }
+        shared_to_payload["shared_requests"][shared_from_key] = {
+            "shared_by": kd_id,
+            "shared_stat": shared_stat,
+            "cut": cut,
+            "time": shared_resolve_time,
+        }
+
+        shared_to_shared_info_response = REQUESTS_SESSION.post(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_to_update}/shared',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(shared_to_payload),
+        )
+
+        shared_to_kd_info = _get_kd_info(kd_to_update)
+        if shared_resolve_time < shared_to_kd_info["next_resolve"]["shared"]:
+            shared_to_next_resolve = shared_to_kd_info["next_resolve"]
+            shared_to_next_resolve["shared"] = shared_resolve_time
+            REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_to_update}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps({"next_resolve": shared_to_next_resolve}),
+            )
+
+        
+        try:
+            ws = SOCK_HANDLERS[kd_to_update]
+            ws.send(json.dumps({
+                "message": f"{kingdoms[kd_id]} offered intel {shared_stat} for target {kingdoms[shared_kd]} with a cut of {cut:.1%}",
+                "status": "info",
+                "category": "Galaxy",
+                "delay": 15000,
+                "update": [],
+            }))
+        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+            pass
+    
     your_shared_info_response = REQUESTS_SESSION.post(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(your_payload),
     )
-    shared_to_shared_info_response = REQUESTS_SESSION.post(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{shared_to_kd}/shared',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(shared_to_payload),
-    )
-
     your_info = _get_kd_info(kd_id)
     if shared_resolve_time < your_info["next_resolve"]["shared"]:
         your_next_resolve = your_info["next_resolve"]
@@ -3317,28 +3352,6 @@ def offer_shared():
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps({"next_resolve": your_next_resolve}),
         )
-    shared_to_kd_info = _get_kd_info(shared_to_kd)
-    if shared_resolve_time < shared_to_kd_info["next_resolve"]["shared"]:
-        shared_to_next_resolve = shared_to_kd_info["next_resolve"]
-        shared_to_next_resolve["shared"] = shared_resolve_time
-        REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{shared_to_kd}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps({"next_resolve": shared_to_next_resolve}),
-        )
-
-    
-    try:
-        ws = SOCK_HANDLERS[shared_to_kd]
-        ws.send(json.dumps({
-            "message": f"{kingdoms[shared_to_kd]} offered intel {shared_stat} for target {kingdoms[shared_kd]} with a cut of {cut:.1%}",
-            "status": "info",
-            "category": "Galaxy",
-            "delay": 15000,
-            "update": [],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
     return (flask.jsonify({"message": "Succesfully shared intel", "status": "success"}), 200)
 
 def _get_pinned(kd_id):
