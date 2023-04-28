@@ -981,18 +981,21 @@ def listen(ws):
             data = ws.receive()
             json_data = json.loads(data)
 
-            logging.info('Got data %s', str(data))
+            app.logger.info('Got data %s', str(data))
             jwt = json_data.get('jwt', None)
             if jwt:
                 id = guard.extract_jwt_token(jwt)["id"]
                 query = db.session.query(User).filter_by(id=id).all()
                 user = query[0]
-                logging.info('Added %s to listeners', user.kd_id)
+                app.logger.info('Added %s to listeners', user.kd_id)
                 SOCK_HANDLERS[user.kd_id] = ws
 
-            logging.info('Current handlers %s', SOCK_HANDLERS)
+            app.logger.info('Current handlers %s', SOCK_HANDLERS)
+        except ConnectionClosed:
+            app.logger.info('Breaking handler')
+            break
         except Exception as e:
-            logging.warning('Error handling listener %s', str(e))
+            app.logger.warning('Error handling listener %s', str(e))
 
         time.sleep(5)
 
@@ -7512,6 +7515,11 @@ def catch_all(path):
         return app.send_static_file(path)
     else:
         return app.send_static_file('index.html')
+
+if __name__ != '__main__':
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
 
 # Run the example
 if __name__ == '__main__':
