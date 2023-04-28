@@ -49,53 +49,54 @@ function SignUp(props) {
 
     return (
         <div className="signup">
-            {
-                created
-                ? <>
-                    <h2>Created!</h2>
-                    <Button variant="primary" type="submit" onClick={onClickGoLogin}>Go to Login</Button>
-                </>
-                : <>
-                    <h2>Create an accout</h2>
-                    <InputGroup className="account-form">
-                        <InputGroup.Text>
-                            Username
-                        </InputGroup.Text>
-                        <Form.Control 
-                            id="username"
-                            name="username"
-                            value={username} 
-                            onChange={handleUsername}
-                            placeholder=""
-                            autoComplete="off"
-                        />
-                    </InputGroup>
-                    <InputGroup className="account-form">
-                        <InputGroup.Text>
-                            Password
-                        </InputGroup.Text>
-                        <Form.Control 
-                            id="password"
-                            name="password"
-                            value={password} 
-                            onChange={handlePassword}
-                            placeholder=""
-                            autoComplete="off"
-                        />
-                    </InputGroup>
-                    {
-                        loading
-                        ? <Button className="signup-button" variant="primary" type="submit" disabled>
-                            Loading...
-                        </Button>
-                        : <Button className="signup-button" variant="primary" type="submit" onClick={onClickSubmit}>
-                            Submit
-                        </Button>
-                    }
-                    <span>{message}</span>
-                </>
-            }
-            
+            <div className="signup-content">
+                {
+                    created
+                    ? <>
+                        <h2>Created!</h2>
+                        <Button variant="primary" type="submit" onClick={onClickGoLogin}>Go to Login</Button>
+                    </>
+                    : <>
+                        <h2>Create an accout</h2>
+                        <InputGroup className="account-form">
+                            <InputGroup.Text>
+                                Username
+                            </InputGroup.Text>
+                            <Form.Control 
+                                id="username"
+                                name="username"
+                                value={username} 
+                                onChange={handleUsername}
+                                placeholder=""
+                                autoComplete="off"
+                            />
+                        </InputGroup>
+                        <InputGroup className="account-form">
+                            <InputGroup.Text>
+                                Password
+                            </InputGroup.Text>
+                            <Form.Control 
+                                id="password"
+                                name="password"
+                                value={password} 
+                                onChange={handlePassword}
+                                placeholder=""
+                                autoComplete="new-password"
+                            />
+                        </InputGroup>
+                        {
+                            loading
+                            ? <Button className="signup-button" variant="primary" type="submit" disabled>
+                                Loading...
+                            </Button>
+                            : <Button className="signup-button" variant="primary" type="submit" onClick={onClickSubmit}>
+                                Submit
+                            </Button>
+                        }
+                        <span>{message}</span>
+                    </>
+                }
+            </div>
         </div>
     )
 }

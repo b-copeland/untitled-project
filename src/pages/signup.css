@@ -6,6 +6,19 @@
     padding: 20px;
 }
 
+.signup-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+@media (min-width: 756px) {
+    .signup-content {
+        width: 45%;
+        max-width: 450px;
+    }
+}
+
 .account-form {
     margin: 10px;
 }
