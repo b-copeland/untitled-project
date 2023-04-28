@@ -923,6 +923,18 @@ def update_state():
     Update initial state
     """
     req = flask.request.get_json(force=True)
+
+    if "game_start" in req:
+        create_response = REQUESTS_SESSION.post(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps({
+                "item": "scores",
+                "state": {
+                    "last_update": req["game_start"]
+                },
+            }),
+        )        
     
     update_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
@@ -1155,7 +1167,8 @@ def create_kingdom_choices():
         k: v + structures_choices.get(k, 0)
         for k, v in kd_info["structures"].items()
     }
-    payload["last_income"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    state = _get_state()
+    payload["last_income"] = max(state["state"]["game_start"], datetime.datetime.now(datetime.timezone.utc).isoformat())
     payload["next_resolve"] = kd_info["next_resolve"]
     payload["next_resolve"]["spy_attempt"] = (
         datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPY_ATTEMPT_TIME_MULTIPLIER)
