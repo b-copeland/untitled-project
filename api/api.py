@@ -10,6 +10,8 @@ import copy
 import time
 import uuid
 import logging
+from logging.config import dictConfig
+
 from functools import wraps
 
 import flask
@@ -21,6 +23,21 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_sock import Sock, ConnectionClosed
 
+dictConfig({
+    'version': 1,
+    'formatters': {'default': {
+        'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+    }},
+    'handlers': {'wsgi': {
+        'class': 'logging.StreamHandler',
+        'stream': 'ext://flask.logging.wsgi_errors_stream',
+        'formatter': 'default'
+    }},
+    'root': {
+        'level': 'INFO',
+        'handlers': ['wsgi']
+    }
+})
 
 db = flask_sqlalchemy.SQLAlchemy()
 guard = flask_praetorian.Praetorian()
@@ -1214,7 +1231,7 @@ def kingdom():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    
+
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
@@ -7515,7 +7532,6 @@ def get_time():
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def catch_all(path):
-    print("Hello from catch all")
     if path != "" and os.path.exists(os.path.join('..','build',path)):
         return app.send_static_file(path)
     else:
