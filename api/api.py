@@ -9,6 +9,7 @@ import json
 import copy
 import time
 import uuid
+import logging
 from functools import wraps
 
 import flask
@@ -976,15 +977,22 @@ def create_state():
 # @flask_praetorian.auth_required
 def listen(ws):
     while True:
-        data = ws.receive()
-        json_data = json.loads(data)
+        try:
+            data = ws.receive()
+            json_data = json.loads(data)
 
-        jwt = json_data.get('jwt', None)
-        if jwt:
-            id = guard.extract_jwt_token(jwt)["id"]
-            query = db.session.query(User).filter_by(id=id).all()
-            user = query[0]
-            SOCK_HANDLERS[user.kd_id] = ws
+            logging.info('Got data %s', str(data))
+            jwt = json_data.get('jwt', None)
+            if jwt:
+                id = guard.extract_jwt_token(jwt)["id"]
+                query = db.session.query(User).filter_by(id=id).all()
+                user = query[0]
+                logging.info('Added %s to listeners', user.kd_id)
+                SOCK_HANDLERS[user.kd_id] = ws
+
+            logging.info('Current handlers %s', SOCK_HANDLERS)
+        except Exception as e:
+            logging.warning('Error handling listener %s', str(e))
 
         time.sleep(5)
 
