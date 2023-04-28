@@ -648,6 +648,11 @@ mail.init_app(app)
 
 sock = Sock(app)
 
+if __name__ != '__main__':
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
+
 def _custom_limit_key_func():
     try:
         token = guard.read_token_from_header()
@@ -7515,11 +7520,6 @@ def catch_all(path):
         return app.send_static_file(path)
     else:
         return app.send_static_file('index.html')
-
-if __name__ != '__main__':
-    gunicorn_logger = logging.getLogger('gunicorn.error')
-    app.logger.handlers = gunicorn_logger.handlers
-    app.logger.setLevel(gunicorn_logger.level)
 
 # Run the example
 if __name__ == '__main__':
