@@ -19,6 +19,8 @@ import SideNavbar from "./components/navbar";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css";
 import Admin from "./pages/admin.js";
+import Landing from "./pages/landing.js";
+import SignUp from "./pages/signup.js";
 import CreateKingdom from "./pages/createkingdom.js";
 import StatusContent from "./pages/home/status.js";
 import NewsContent from "./pages/home/news.js";
@@ -378,8 +380,8 @@ function Content(props) {
                   <Route path="/empirepolitics" element={<EmpirePolitics data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/universepolitics" element={<UniversePolitics data={data} loading={loading} updateData={updateData}/>}/>
                 </Route>
-                <Route path="/finalize" element={<Finalize />}/>
-                <Route path="/" element={<Home logged={props.logged}/>}/>
+                <Route path="/signup" element={<SignUp logged={props.logged}/>}/>
+                <Route path="/" element={<Landing logged={props.logged}/>}/>
               </Routes>
             </div>
           {/* </Router> */}
@@ -462,6 +464,7 @@ function Login(props) {
             placeholder="Password"
             onChange={handlePasswordChange}
             value={password}
+            autoComplete="current-password"
           />
         </div>
         <button onClick={onSubmitClick} type="submit">

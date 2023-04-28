@@ -7359,7 +7359,40 @@ def disable_user():
     _update_accounts()
     return flask.jsonify(message='disabled user {}'.format(usr.username))
 
+def _validate_signup(
+    username,
+    password,
+):
+    if db.session.query(User).filter_by(username=username).count() >= 1:
+        return False, "Account already exists"
+    if len(username) == 0:
+        return False, "Username must be at least 1 character"
+    if len(password) == 0:
+        return False, "Password must be at least 1 character"
+    
+    return True, ""
 
+@app.route('/api/signup', methods=['POST'])
+def signup():
+    req = flask.request.get_json(force=True)
+    username = req.get('username', None)
+    password = req.get('password', None)
+
+    valid_signup, message = _validate_signup(username, password)
+    if not valid_signup:
+        ret = {'message': message}
+        return (flask.jsonify(ret), 400)
+    new_user = User(
+        username=username,
+        password=guard.hash_password(password),
+        roles='verified',
+        is_active=True,
+    )
+    db.session.add(new_user)
+    db.session.commit()
+    _update_accounts()
+    ret = {'message': 'Successfully created!', "status": "success"}
+    return (flask.jsonify(ret), 201)
 
 @app.route('/api/register', methods=['POST'])
 def register():

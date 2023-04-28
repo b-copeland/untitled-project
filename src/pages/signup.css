@@ -1,0 +1,11 @@
+.signup {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    padding: 20px;
+}
+
+.account-form {
+    margin: 10px;
+}
