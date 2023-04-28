@@ -10,8 +10,8 @@ from azure.cosmos import CosmosClient, PartitionKey
 ENDPOINT = os.environ["COSMOS_ENDPOINT"]
 KEY = os.environ["COSMOS_KEY"]
 
-DATABASE_NAME = "dev"
-CONTAINER_NAME = "data"
+DATABASE_NAME = os.environ.get("COSMOS_DATABASE_NAME", "dev")
+CONTAINER_NAME = os.environ.get("COSMOS_CONTAINER_NAME", "data")
 
 CLIENT = CosmosClient(url=ENDPOINT, credential=KEY)
 DATABASE = CLIENT.create_database_if_not_exists(id=DATABASE_NAME)
