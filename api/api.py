@@ -1007,7 +1007,6 @@ def listen(ws):
             json_data = json.loads(data)
 
             app.logger.info('Got data %s', str(data))
-            logger.info('Got data %s', str(data))
             jwt = json_data.get('jwt', None)
             if jwt:
                 id = guard.extract_jwt_token(jwt)["id"]
@@ -1017,14 +1016,11 @@ def listen(ws):
                 SOCK_HANDLERS[user.kd_id] = ws
 
             app.logger.info('Current handlers %s', SOCK_HANDLERS)
-            logger.info('Current handlers %s', SOCK_HANDLERS)
         except ConnectionClosed:
             app.logger.info('Breaking handler')
-            logger.info('Breaking handler')
             break
         except Exception as e:
             app.logger.warning('Error handling listener %s', str(e))
-            logger.info('Breaking handler')
 
         time.sleep(5)
 
@@ -1238,8 +1234,6 @@ def kingdom():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
-    logger.info('Fetching kingdom %s', kd_id)
-    app.logger.info('Fetching kingdom %s', kd_id)
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
