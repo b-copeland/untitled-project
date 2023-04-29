@@ -666,7 +666,7 @@ mail.init_app(app)
 sock = Sock(app)
 
 if __name__ != '__main__':
-    gunicorn_logger = logging.getLogger('gunicorn.error')
+    gunicorn_logger = logging.getLogger('gunicorn.glogging.Logger')
     app.logger.handlers = gunicorn_logger.handlers
     app.logger.setLevel(gunicorn_logger.level)
 
