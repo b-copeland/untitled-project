@@ -291,12 +291,12 @@ function Content(props) {
       // }, 10000);
 
       // return () => clearInterval(interval);
-
       sendMessage(
         JSON.stringify({
           "jwt": props.session.accessToken,
         })
       );
+
     }
   }, [props.logged])
 
@@ -307,6 +307,13 @@ function Content(props) {
       }
     }
   }, 10000)
+  useInterval(() => {
+    sendMessage(
+      JSON.stringify({
+        "jwt": props.session.accessToken,
+      })
+    );
+  }, 60000)
 
   const handleShowNav = () => {
     setShowNav(true);
