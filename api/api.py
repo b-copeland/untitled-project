@@ -38,8 +38,6 @@ dictConfig({
         'handlers': ['wsgi']
     }
 })
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.StreamHandler())
 
 db = flask_sqlalchemy.SQLAlchemy()
 guard = flask_praetorian.Praetorian()
@@ -652,6 +650,8 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 app.config['AZURE_FUNCTION_ENDPOINT'] = os.environ.get('COSMOS_ENDPOINT')
 app.config['AZURE_FUNCTION_KEY'] = os.environ.get('COSMOS_KEY')
 
+app.logger.addHandler(logging.StreamHandler())
+
 
 # Initialize the flask-praetorian instance for the app
 guard.init_app(app, User)
@@ -669,8 +669,9 @@ sock = Sock(app)
 
 if __name__ != '__main__':
     gunicorn_logger = logging.getLogger('gunicorn.glogging.Logger')
+    gunicorn_error_handlers = logging.getLogger('gunicorn.error').handlers
     app.logger.handlers.extend(gunicorn_logger.handlers)
-    app.logger.handlers.extend(logger.handlers)
+    app.logger.handlers.extend(gunicorn_error_handlers)
     app.logger.setLevel(gunicorn_logger.level)
 
 def _custom_limit_key_func():
