@@ -1007,21 +1007,21 @@ def listen(ws):
             data = ws.receive()
             json_data = json.loads(data)
 
-            app.logger.info('Got data %s', str(data))
+            sock.app.logger.info('Got data %s', str(data))
             jwt = json_data.get('jwt', None)
             if jwt:
                 id = guard.extract_jwt_token(jwt)["id"]
                 query = db.session.query(User).filter_by(id=id).all()
                 user = query[0]
-                app.logger.info('Added %s to listeners', user.kd_id)
+                sock.app.logger.info('Added %s to listeners', user.kd_id)
                 SOCK_HANDLERS[user.kd_id] = ws
 
-            app.logger.info('Current handlers %s', SOCK_HANDLERS)
+            sock.app.logger.info('Current handlers %s', SOCK_HANDLERS)
         except ConnectionClosed:
-            app.logger.info('Breaking handler')
+            sock.app.logger.info('Breaking handler')
             break
         except Exception as e:
-            app.logger.warning('Error handling listener %s', str(e))
+            sock.app.logger.warning('Error handling listener %s', str(e))
 
         time.sleep(5)
 
