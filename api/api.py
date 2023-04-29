@@ -1234,6 +1234,7 @@ def kingdom():
          -H "Authorization: Bearer <your_token>"
     """
     kd_id = flask_praetorian.current_user().kd_id
+    app.logger.info('Fetching kingdom %s', kd_id)
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
