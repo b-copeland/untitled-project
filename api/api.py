@@ -4562,10 +4562,10 @@ def auto_attack_primitives():
     
     req_settings = {
         "pure": float(
-            req.get("pure", (kd_info_parse["auto_attack_settings"].get("pure", 0) * 100) or 0)
+            req.get("pure") or (kd_info_parse["auto_attack_settings"].get("pure", 0) * 100)
         ) / 100,
         "flex": float(
-            req.get("flex", (kd_info_parse["auto_attack_settings"].get("flex", 0)) * 100) or 0
+            req.get("flex") or (kd_info_parse["auto_attack_settings"].get("flex", 0) * 100)
         ) / 100,
     }
 
@@ -5132,13 +5132,13 @@ def auto_rob_primitives():
     
     req_settings = {
         "drones": float(
-            req.get("drones", (kd_info_parse["auto_rob_settings"].get("drones", 0) * 100)) or 0
+            req.get("drones") or (kd_info_parse["auto_rob_settings"].get("drones", 0) * 100)
         ) / 100,
         "keep": int(
-            req.get("keep", kd_info_parse["auto_rob_settings"].get("keep", 0)) or 0
+            req.get("keep") or kd_info_parse["auto_rob_settings"].get("keep", 0)
         ),
         "shielded": bool(
-            req.get("shielded", kd_info_parse["auto_rob_settings"].get("shielded", False)) or False
+            req.get("shielded", kd_info_parse["auto_rob_settings"].get("shielded", False))
         ),
     }
 
