@@ -6912,6 +6912,7 @@ def _resolve_auto_rob(kd_info_parse):
         }
         kd_info_parse, _, _ = _rob_primitives(req, kd_info_parse["kdId"])
         try:
+            app.logger.info('Sock handlers before auto rob: %s', str(SOCK_HANDLERS))
             ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
             ws.send(json.dumps({
                 "message": f"Automatically robbed primitives with {req['drones']} drones",
