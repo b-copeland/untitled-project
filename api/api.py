@@ -38,6 +38,8 @@ dictConfig({
         'handlers': ['wsgi']
     }
 })
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.StreamHandler())
 
 db = flask_sqlalchemy.SQLAlchemy()
 guard = flask_praetorian.Praetorian()
@@ -667,7 +669,8 @@ sock = Sock(app)
 
 if __name__ != '__main__':
     gunicorn_logger = logging.getLogger('gunicorn.glogging.Logger')
-    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.handlers.extend(gunicorn_logger.handlers)
+    app.logger.handlers.extend(logger.handlers)
     app.logger.setLevel(gunicorn_logger.level)
 
 def _custom_limit_key_func():
