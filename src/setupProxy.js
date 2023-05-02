@@ -9,18 +9,11 @@ module.exports = function(app) {
     })
   );
   app.use(
-      createProxyMiddleware('ws',{
-          target: 'http://127.0.0.1:8000',
-          changeOrigin: true,
-      })
-  );
-  app.use(
     'ws',
     createProxyMiddleware({
       target: 'ws://127.0.0.1:8000',
       changeOrigin: true,
       ws: true,
-      secure: false,
     })
   );
 };
