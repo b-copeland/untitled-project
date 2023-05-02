@@ -183,7 +183,7 @@ function useInterval(callback, delay) {
 }
 
 function Content(props) {
-  const [socketUrl, setSocketUrl] = useState('ws://127.0.0.1:8000/ws/listen');
+  const [socketUrl, setSocketUrl] = useState('ws/listen');
   const [messageHistory, setMessageHistory] = useState([]);
   const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
   const [data, setData] = useState(initGlobalData);
