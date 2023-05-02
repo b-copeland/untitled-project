@@ -25,21 +25,21 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_sock import Sock, ConnectionClosed
 
-dictConfig({
-    'version': 1,
-    'formatters': {'default': {
-        'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
-    }},
-    'handlers': {'wsgi': {
-        'class': 'logging.StreamHandler',
-        'stream': 'ext://flask.logging.wsgi_errors_stream',
-        'formatter': 'default'
-    }},
-    'root': {
-        'level': 'INFO',
-        'handlers': ['wsgi']
-    }
-})
+# dictConfig({
+#     'version': 1,
+#     'formatters': {'default': {
+#         'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+#     }},
+#     'handlers': {'wsgi': {
+#         'class': 'logging.StreamHandler',
+#         'stream': 'ext://flask.logging.wsgi_errors_stream',
+#         'formatter': 'default'
+#     }},
+#     'root': {
+#         'level': 'INFO',
+#         'handlers': ['wsgi']
+#     }
+# })
 
 db = flask_sqlalchemy.SQLAlchemy()
 guard = flask_praetorian.Praetorian()
@@ -672,8 +672,10 @@ sock = Sock(app)
 if __name__ != '__main__':
     gunicorn_logger = logging.getLogger('gunicorn.glogging.Logger')
     gunicorn_error_handlers = logging.getLogger('gunicorn.error').handlers
+    gunicorn_access_handlers = logging.getLogger('gunicorn.access').handlers
     app.logger.handlers.extend(gunicorn_logger.handlers)
     app.logger.handlers.extend(gunicorn_error_handlers)
+    app.logger.handlers.extend(gunicorn_access_handlers)
     app.logger.setLevel(gunicorn_logger.level)
 
 def _custom_limit_key_func():
