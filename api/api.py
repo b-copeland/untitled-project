@@ -1001,6 +1001,7 @@ def create_state():
 @sock.route('/ws/listen')
 # @flask_praetorian.auth_required
 def listen(ws):
+    print('Started websocket')
     kd_id = None
     while True:
         if kd_id:
