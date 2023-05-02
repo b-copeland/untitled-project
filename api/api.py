@@ -10,9 +10,7 @@ import copy
 import time
 import uuid
 import logging
-import threading
 from logging.config import dictConfig
-from pathlib import Path
 
 from functools import wraps
 
@@ -1003,18 +1001,7 @@ def create_state():
 @sock.route('/ws/listen')
 # @flask_praetorian.auth_required
 def listen(ws):
-    print('Started websocket')
-    kd_id = None
     while True:
-        if kd_id:
-            tmp_files = [file for file in Path('/tmp').iterdir()]
-            for _file in tmp_files:
-                if _file.name.startswith(f"kd_{kd_id}_"):
-                    with _file.open('r') as fh_json:
-                        contents = json.load(fh_json)
-                        
-                        ws.send(json.dumps(contents))
-                    _file.unlink()
         try:
             data = ws.receive()
             json_data = json.loads(data)
@@ -1025,13 +1012,10 @@ def listen(ws):
                 id = guard.extract_jwt_token(jwt)["id"]
                 query = db.session.query(User).filter_by(id=id).all()
                 user = query[0]
-                kd_id = user.kd_id
                 sock.app.logger.info('Added %s to listeners', user.kd_id)
                 SOCK_HANDLERS[user.kd_id] = ws
 
             sock.app.logger.info('Current handlers %s', SOCK_HANDLERS)
-
-
         except ConnectionClosed:
             sock.app.logger.info('Breaking handler')
             break
@@ -6912,25 +6896,14 @@ def _resolve_auto_rob(kd_info_parse):
         kd_info_parse, _, _ = _rob_primitives(req, kd_info_parse["kdId"])
         try:
             app.logger.info('Sock handlers before auto rob: %s', str(SOCK_HANDLERS))
-            # ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-            # ws.send(json.dumps({
-            #     "message": f"Automatically robbed primitives with {req['drones']} drones",
-            #     "status": "info",
-            #     "category": "Auto Primitives",
-            #     "delay": 15000,
-            #     "update": ["spyhistory"],
-            # }))
-            
-            name_crumb = f"kd_{kd_info_parse['kdId']}_{uuid.uuid4()}.json"
-            path_crumb = Path('/tmp') / name_crumb
-            with path_crumb.open('w') as fh_crumb:
-                json.dump({
+            ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
+            ws.send(json.dumps({
                 "message": f"Automatically robbed primitives with {req['drones']} drones",
                 "status": "info",
                 "category": "Auto Primitives",
                 "delay": 15000,
                 "update": ["spyhistory"],
-            }, fh_crumb)
+            }))
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
     return kd_info_parse
