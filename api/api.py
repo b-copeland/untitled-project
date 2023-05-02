@@ -699,11 +699,8 @@ with app.app_context():
     )
     accounts_json = json.loads(accounts_response.text)
     accounts = accounts_json["accounts"]
-    print(accounts)
     for user in accounts:
-        print("user:", user)
         if db.session.query(User).filter_by(username=user["username"]).count() < 1:
-            print('Adding user:', user["username"])
             db.session.add(
                 User(**user)
             )
@@ -6672,42 +6669,34 @@ def _resolve_auto_spending(
     structures_funding = kd_info_parse["funding"]["structures"]
     structures_to_build = min(math.floor(structures_funding / structures_price), max_available_structures)
     if structures_to_build and sum(kd_info_parse["structures_target"].values()) > 0:
-        print("Structures to build", structures_to_build)
         structures_current = structures_info["current"]
         structures_building = structures_info["hour_24"]
         total_structures = {
             k: structures_current.get(k, 0) + structures_building.get(k, 0)
             for k in STRUCTURES
         }
-        print("Total structures", total_structures)
         pct_total_structures = {
             k: v / kd_info_parse["stars"]
             for k, v in total_structures.items()
         }
-        print("Pct total structures", pct_total_structures)
         target_gap = {
             k: kd_info_parse["structures_target"].get(k, 0) - v
             for k, v in pct_total_structures.items()
             if (kd_info_parse["structures_target"].get(k, 0) - v) > 0
         }
-        print("Target gap", target_gap)
         total_target_gap = sum(target_gap.values())
         target_gap_pct = {
             k: v / total_target_gap
             for k, v in target_gap.items()
         }
-        print("Target gap pct", target_gap_pct)
         target_structures_to_build = {
             k: math.floor(v * structures_to_build)
             for k, v in target_gap_pct.items()
         }
-        print("Target structures to build", target_structures_to_build)
         leftover_structures = structures_to_build - sum(target_structures_to_build.values())
-        print("Leftover structures", leftover_structures)
         for _ in range(leftover_structures):
             rand_structure = _weighted_random_by_dct(target_gap_pct)
             target_structures_to_build[rand_structure] += 1
-        print("Leftover structures", leftover_structures)
         
         kd_info_parse["funding"]["structures"] = structures_funding - structures_to_build * structures_price
         
@@ -6753,43 +6742,35 @@ def _resolve_auto_spending(
                 if key_unit == "return_time":
                     continue
                 total_units[key_unit] += value_unit
-        print("Total units", total_units)
         count_total_units = sum(total_units.values())
         pct_total_units = {
             k: v / count_total_units
             for k, v in total_units.items()
         }
-        print("Pct total units", pct_total_units)
         target_units_gap = {
             k: kd_info_parse["units_target"].get(k, 0) - v
             for k, v in pct_total_units.items()
             if (kd_info_parse["units_target"].get(k, 0) - v) > 0
         }
-        print("Target units gap", target_units_gap)
         total_target_units_gap = sum(target_units_gap.values())
         target_units_gap_pct = {
             k: v / total_target_units_gap
             for k, v in target_units_gap.items()
         }
-        print("Target units gap pct", target_units_gap_pct)
         target_gap_weighted_funding = {
             k: v * remaining_funding
             for k, v in target_units_gap_pct.items()
         }
-        print("Target units gap pct weighted funding", target_gap_weighted_funding)
         target_gap_weighted_recruits = {
             k: math.floor(v * kd_info_parse["units"]["recruits"])
             for k, v in target_units_gap_pct.items()
         }
-        print("Target units gap pct weighted recruits", target_gap_weighted_recruits)
         target_units_to_build = {}
         for key_unit, funding_unit in target_gap_weighted_funding.items():
             units_to_build = min(math.floor(funding_unit / units_desc[key_unit]["cost"]), target_gap_weighted_recruits[key_unit])
             remaining_funding = remaining_funding - units_to_build * units_desc[key_unit]["cost"]
             kd_info_parse["units"]["recruits"] = kd_info_parse["units"]["recruits"] - units_to_build
             target_units_to_build[key_unit] = units_to_build
-        print("Target units to build", target_units_to_build)
-        print("Remaining funding", remaining_funding)
         
         kd_info_parse["funding"]["military"] = remaining_funding
         
