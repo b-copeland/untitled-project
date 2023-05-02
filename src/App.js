@@ -183,9 +183,10 @@ function useInterval(callback, delay) {
 }
 
 function Content(props) {
-  let hostname = window.location.hostname;
-  let port = hostname === 'localhost' ? ':8000' : ''
-  const [socketUrl, setSocketUrl] = useState('ws://' + hostname + port + '/ws/listen');
+  const hostname = window.location.hostname;
+  const port = hostname === 'localhost' ? ':8000' : ''
+  const protocolPrefix = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const [socketUrl, setSocketUrl] = useState(protocolPrefix + '//' + hostname + port + '/ws/listen');
   const [messageHistory, setMessageHistory] = useState([]);
   const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
   const [data, setData] = useState(initGlobalData);
