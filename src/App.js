@@ -183,7 +183,9 @@ function useInterval(callback, delay) {
 }
 
 function Content(props) {
-  const [socketUrl, setSocketUrl] = useState('ws/listen');
+  let hostname = window.location.hostname;
+  let port = hostname === 'localhost' ? ':8000' : ''
+  const [socketUrl, setSocketUrl] = useState('ws://' + hostname + port + '/ws/listen');
   const [messageHistory, setMessageHistory] = useState([]);
   const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
   const [data, setData] = useState(initGlobalData);
@@ -433,6 +435,7 @@ function Login(props) {
     }
     fetch('api/login', {
       method: 'post',
+
       body: JSON.stringify(opts)
     }).then(r => r.json())
       .then(session => {
