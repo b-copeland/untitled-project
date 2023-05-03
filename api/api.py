@@ -6863,18 +6863,12 @@ def _resolve_auto_attack(kd_info_parse):
                 req["attackerValues"][key_unit] = math.floor(pct_units_available_pure[key_unit] * value_unit)
             else:
                 req["attackerValues"][key_unit] = math.floor(pct_units_available_flex[key_unit] * value_unit)
-    kd_info_parse, _, _ = _attack_primitives(req, kd_info_parse["kdId"])
+    kd_info_parse, payload, _ = _attack_primitives(req, kd_info_parse["kdId"])
     try:
         ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-        units = {
-            k: v
-            for k, v in req["attackerValues"].items()
-            if k != "generals"
-        }
-        count_units = sum(units.values())
         ws.send(json.dumps({
-            "message": f"Automatically attacked primitives with {req['attackerValues']['generals']} generals and {count_units} units",
-            "status": "info",
+            "message": payload["message"],
+            "status": payload.get("status", "info"),
             "category": "Auto Primitives",
             "delay": 15000,
             "update": ["mobis", "attackhistory"],
@@ -6893,13 +6887,13 @@ def _resolve_auto_rob(kd_info_parse):
             "drones": math.floor(drones_pct * kd_info_parse["drones"]),
             "shielded": shielded,
         }
-        kd_info_parse, _, _ = _rob_primitives(req, kd_info_parse["kdId"])
+        kd_info_parse, payload, _ = _rob_primitives(req, kd_info_parse["kdId"])
         try:
             app.logger.info('Sock handlers before auto rob: %s', str(SOCK_HANDLERS))
             ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
             ws.send(json.dumps({
-                "message": f"Automatically robbed primitives with {req['drones']} drones",
-                "status": "info",
+                "message": payload["message"],
+                "status": payload.get("status", "info"),
                 "category": "Auto Primitives",
                 "delay": 15000,
                 "update": ["spyhistory"],
