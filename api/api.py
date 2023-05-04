@@ -894,6 +894,7 @@ def get_state():
         "fuel_consumption_per_pop": GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"],
         "primitives_defense_per_star": primitives_defense_per_star,
         "primitives_rob_per_drone": primitives_rob_per_drone,
+        "game_config": GAME_CONFIG,
     }), 200
 
 def _get_scores():
