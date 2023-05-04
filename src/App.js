@@ -45,6 +45,7 @@ import Primitives from "./pages/conquer/primitives.js";
 import GalaxyPolitics from "./pages/politics/galaxypolitics.js";
 import EmpirePolitics from "./pages/politics/empirepolitics.js";
 import UniversePolitics from "./pages/politics/universepolitics.js";
+import Help from "./pages/help/help.js";
 
 
 const ProtectedRoute = ({ logged, session, kingdomid, redirectPath = '/login', children }) => {
@@ -390,6 +391,7 @@ function Content(props) {
                   <Route path="/empirepolitics" element={<EmpirePolitics data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/universepolitics" element={<UniversePolitics data={data} loading={loading} updateData={updateData}/>}/>
                 </Route>
+                <Route path="/help" element={<Help/>}/>
                 <Route path="/signup" element={<SignUp logged={props.logged}/>}/>
                 <Route path="/" element={<Landing logged={props.logged}/>}/>
               </Routes>

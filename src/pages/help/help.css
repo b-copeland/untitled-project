@@ -1,0 +1,31 @@
+.help {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 600px;
+}
+
+.help-contents {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+@media (min-width: 756px) {
+    .help-contents {
+        width: 50%;
+        max-width: 500px;
+    }
+}
+
+.help-dropdown-button {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.help-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 90%;
+}

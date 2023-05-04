@@ -281,6 +281,31 @@ GAME_CONFIG = {
     "BASE_TREATIED_COST_INCREASE": 0.2,
     "BASE_FREE_TRADE_INCREASE": 0.1,
     "BASE_ISOLATIONIST_DECREASE": 0.1,
+
+    "NETWORTH_VALUES": {
+        "stars": 25,
+        "structures": 25,
+        "money": 0.002,
+        "attack": 7,
+        "defense": 8,
+        "flex": 16,
+        "big_flex": 24,
+        "recruits": 2,
+        "engineers": 18,
+    },
+
+    "NETWORTH_POINTS": [
+        25,
+        18,
+        15,
+        12,
+        10,
+        8,
+        6,
+        4,
+        2,
+        1,
+    ],
 }
 
 GAME_FUNCS = {
@@ -501,31 +526,6 @@ KINGDOM_CREATOR_POINTS = {
     "flex": 10,
     "engineers": 10,
 }
-
-NETWORTH_VALUES = {
-    "stars": 25,
-    "structures": 25,
-    "money": 0.002,
-    "attack": 7,
-    "defense": 8,
-    "flex": 16,
-    "big_flex": 24,
-    "recruits": 2,
-    "engineers": 18,
-}
-
-NETWORTH_POINTS = [
-    25,
-    18,
-    15,
-    12,
-    10,
-    8,
-    6,
-    4,
-    2,
-    1,
-]
 
 GALAXY_POLICIES = {
     "policy_1": {
@@ -6117,11 +6117,11 @@ def _calc_networth(
     total_structures = sum(kd_info_parse["structures"].values())
     total_money = sum(kd_info_parse["funding"].values()) + kd_info_parse["money"]
 
-    networth = kd_info_parse["stars"] * NETWORTH_VALUES["stars"]
-    networth += (total_structures * NETWORTH_VALUES["structures"])
-    networth += (total_money * NETWORTH_VALUES["money"])
+    networth = kd_info_parse["stars"] * GAME_CONFIG["NETWORTH_VALUES"]["stars"]
+    networth += (total_structures * GAME_CONFIG["NETWORTH_VALUES"]["structures"])
+    networth += (total_money * GAME_CONFIG["NETWORTH_VALUES"]["money"])
     for key_unit, value_unit in total_units.items():
-        networth += (value_unit * NETWORTH_VALUES[key_unit])
+        networth += (value_unit * GAME_CONFIG["NETWORTH_VALUES"][key_unit])
     return networth
     
 
@@ -7229,9 +7229,9 @@ def _resolve_scores(kd_scores, time_update):
     top_kds = sorted(
         new_scores["networth"],
         key=lambda x: -new_scores["networth"][x]
-    )[:len(NETWORTH_POINTS)]
+    )[:len(GAME_CONFIG["NETWORTH_POINTS"])]
     for i_points, kd_scoring in enumerate(top_kds):
-        points_value = NETWORTH_POINTS[i_points]
+        points_value = GAME_CONFIG["NETWORTH_POINTS"][i_points]
         epoch_points = epoch_elapsed * points_value
         try:
             new_scores["points"][kd_scoring] += epoch_points
