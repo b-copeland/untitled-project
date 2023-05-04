@@ -172,14 +172,16 @@ ONE_TIME_PROJECTS = [
 GAME_CONFIG = {
     "BASE_EPOCH_SECONDS": 60 * 60, 
 
-    "BASE_SETTLE_COST": lambda stars: math.floor((stars ** 0.5) * 50), 
-    "BASE_MAX_SETTLE": lambda stars: math.floor(stars * 0.15), 
+    "BASE_SETTLE_STARS_POWER": 0.5,
+    "BASE_SETTLE_COST_CONSTANT": 50,
+    "BASE_MAX_SETTLE_CAP": 0.15,
     "BASE_SETTLE_TIME_MULTIPLIER": 12, 
 
-    "BASE_STRUCTURE_COST": lambda stars: math.floor((stars ** 0.5) * 40), 
+    "BASE_STRUCTURE_STARS_POWER": 0.5,
+    "BASE_STRUCTURE_COST_CONSTANT": 50,
     "BASE_STRUCTURE_TIME_MULTIPLIER": 8, 
 
-    "BASE_MAX_RECRUITS": lambda pop: math.floor(pop * 0.12), 
+    "BASE_MAX_RECRUITS_CAP": 0.12,
     "BASE_RECRUIT_COST": 100, 
     "BASE_RECRUIT_TIME_MULTIPLIER": 12, 
 
@@ -188,7 +190,7 @@ GAME_CONFIG = {
     "BASE_ENGINEER_COST": 1000, 
     "BASE_ENGINEER_TIME_MULTIPLIER": 12, 
     "BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH": 1, 
-    "BASE_MAX_ENGINEERS": lambda pop: math.floor(pop * 0.05), 
+    "BASE_MAX_ENGINEERS_POP_CAP": 0.05,
 
     "BASE_HOMES_CAPACITY": 50, 
     "BASE_HANGAR_CAPACITY": 75, 
@@ -204,7 +206,7 @@ GAME_CONFIG = {
 
     "BASE_MISSILE_TIME_MULTIPLER": 24, 
 
-    "BASE_GENERALS_BONUS": lambda generals: (generals - 1) * 0.03, 
+    "BASE_GENERALS_ATTACK_MODIFIER": 0.03,
     "BASE_GENERALS_RETURN_TIME_MULTIPLIER": 8, 
     "BASE_RETURN_TIME_PENALTY_PER_COORDINATE": 0.01, 
     "BASE_DEFENDER_UNIT_LOSS_RATE": 0.05, 
@@ -213,11 +215,13 @@ GAME_CONFIG = {
     "BASE_FUELLESS_STRENGTH_REDUCTION": 0.2, 
     "BASE_ATTACK_MIN_STARS_GAIN": 25, 
 
-    "BASE_PRIMITIVES_DEFENSE_PER_STAR": lambda seconds: 100 * math.sqrt(1 + seconds / 3600 / 24), 
+    "BASE_PRIMITIVES_DEFENSE_PER_STAR": 100,
+    "BASE_PRIMITIVES_DEFENSE_EPOCH_MULTIPLER": 24,
     "BASE_PRIMITIVES_MONEY_PER_STAR": 1000, 
     "BASE_PRIMITIVES_FUEL_PER_STAR": 100, 
     "BASE_PRIMITIVES_POPULATION_PER_STAR": 10, 
-    "BASE_PRIMITIVES_ROB_PER_DRONE": lambda seconds: 4 / math.sqrt(1 + seconds / 3600 / 24), 
+    "BASE_PRIMITIVES_ROB_PER_DRONE": 4,
+    "BASE_PRIMITIVES_ROB_EPOCH_MULTIPLIER": 24,
 
     "BASE_STARS_DRONE_DEFENSE_MULTIPLIER": 4, 
     "BASE_DRONES_DRONE_DEFENSE_MULTIPLIER": 1, 
@@ -246,7 +250,7 @@ GAME_CONFIG = {
     "BASE_POP_GROWTH_PER_STAR_PER_EPOCH": 0.5, 
     "BASE_FUELLESS_POP_GROWTH_REDUCTION": 0.9, 
     "BASE_FUELLESS_POP_CAP_REDUCTION": 0.2, 
-    "BASE_NEGATIVE_FUEL_CAP": lambda stars: stars * -5, 
+    "BASE_NEGATIVE_FUEL_PER_STAR": 5,
 
     "BASE_PCT_POP_LOSS_PER_EPOCH": 0.10, 
     "BASE_POP_LOSS_PER_STAR_PER_EPOCH": 0.2, 
@@ -268,7 +272,6 @@ GAME_CONFIG = {
     "BASE_ELECTION_RESULTS_DURATION_MULTIPLIER": 24 * 6, 
 
     "BASE_AUTO_SPENDING_TIME_MULTIPLIER": 0.1, 
-    
 
     "BASE_EXPANSIONIST_SETTLE_REDUCTION": 0.15,
     "BASE_WARLIKE_RETURN_REDUCTION": 0.1,
@@ -278,6 +281,18 @@ GAME_CONFIG = {
     "BASE_TREATIED_COST_INCREASE": 0.2,
     "BASE_FREE_TRADE_INCREASE": 0.1,
     "BASE_ISOLATIONIST_DECREASE": 0.1,
+}
+
+GAME_FUNCS = {
+    "BASE_SETTLE_COST": lambda stars: math.floor((stars ** GAME_CONFIG["BASE_SETTLE_STARS_POWER"]) * GAME_CONFIG["BASE_SETTLE_COST_CONSTANT"]), 
+    "BASE_MAX_SETTLE": lambda stars: math.floor(stars * GAME_CONFIG["BASE_MAX_SETTLE_CAP"]), 
+    "BASE_STRUCTURE_COST": lambda stars: math.floor((stars ** GAME_CONFIG["BASE_STRUCTURE_STARS_POWER"]) * GAME_CONFIG["BASE_STRUCTURE_COST_CONSTANT"]), 
+    "BASE_MAX_RECRUITS": lambda pop: math.floor(pop * GAME_CONFIG["BASE_MAX_RECRUITS_CAP"]), 
+    "BASE_MAX_ENGINEERS": lambda pop: math.floor(pop * GAME_CONFIG["BASE_MAX_ENGINEERS_POP_CAP"]), 
+    "BASE_GENERALS_BONUS": lambda generals: (generals - 1) * GAME_CONFIG["BASE_GENERALS_ATTACK_MODIFIER"], 
+    "BASE_PRIMITIVES_DEFENSE_PER_STAR": lambda seconds: GAME_CONFIG["BASE_PRIMITIVES_DEFENSE_PER_STAR"] * math.sqrt(1 + seconds / (GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_PRIMITIVES_DEFENSE_EPOCH_MULTIPLER"])), 
+    "BASE_PRIMITIVES_ROB_PER_DRONE": lambda seconds: GAME_CONFIG["BASE_PRIMITIVES_ROB_PER_DRONE"] / math.sqrt(1 + seconds / (GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_PRIMITIVES_DEFENSE_EPOCH_MULTIPLER"])), 
+    "BASE_NEGATIVE_FUEL_CAP": lambda stars: stars * -GAME_CONFIG["BASE_NEGATIVE_FUEL_PER_STAR"], 
 }
 
 REVEAL_OPERATIONS = [
@@ -859,8 +874,8 @@ def get_state():
     start_time = datetime.datetime.fromisoformat(get_response_json["state"]["game_start"]).astimezone(datetime.timezone.utc)
     now_time = datetime.datetime.now(datetime.timezone.utc)
     seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_defense_per_star = GAME_CONFIG["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
-    primitives_rob_per_drone = GAME_CONFIG["BASE_PRIMITIVES_ROB_PER_DRONE"](max(seconds_elapsed, 0))
+    primitives_defense_per_star = GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
+    primitives_rob_per_drone = GAME_FUNCS["BASE_PRIMITIVES_ROB_PER_DRONE"](max(seconds_elapsed, 0))
     return flask.jsonify({
         **get_response_json,
         "pretty_names": PRETTY_NAMES,
@@ -1808,7 +1823,7 @@ def _calc_max_offense(
         stat_map["offense"] * unit_dict.get(key, 0)
         for key, stat_map in UNITS.items() 
     ])
-    attack_w_bonuses = raw_attack * (1 + GAME_CONFIG["BASE_GENERALS_BONUS"](generals) + military_bonus + other_bonuses - (int_fuelless * GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"]))
+    attack_w_bonuses = raw_attack * (1 + GAME_FUNCS["BASE_GENERALS_BONUS"](generals) + military_bonus + other_bonuses - (int_fuelless * GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"]))
     return math.floor(attack_w_bonuses)
 
 def _calc_max_defense(
@@ -1865,7 +1880,7 @@ def _calc_hangar_capacity(kd_info, units):
 
 def _calc_max_recruits(kd_info, units):
     recruits_training = units["hour_24"]["recruits"]
-    max_total_recruits = GAME_CONFIG["BASE_MAX_RECRUITS"](int(kd_info["population"]))
+    max_total_recruits = GAME_FUNCS["BASE_MAX_RECRUITS"](int(kd_info["population"]))
     max_available_recruits = max(max_total_recruits - recruits_training, 0)
     max_recruits_cost = GAME_CONFIG["BASE_RECRUIT_COST"] * max_available_recruits
     try:
@@ -2229,7 +2244,7 @@ def _calc_structures(
     return structures
 
 def _get_structure_price(kd_info):
-    return GAME_CONFIG["BASE_STRUCTURE_COST"](int(kd_info["stars"]))
+    return GAME_FUNCS["BASE_STRUCTURE_COST"](int(kd_info["stars"]))
 
 def _calc_available_structures(structure_price, kd_info, structures_info):
     total_structures = math.ceil(sum(structures_info["current"].values()) + sum(structures_info["hour_24"].values()))
@@ -2556,10 +2571,10 @@ def _get_settle_queue(kd_id):
     return settle_info_parse["settles"]
 
 def _get_settle_price(kd_info, is_expansionist):
-    return GAME_CONFIG["BASE_SETTLE_COST"](int(kd_info["stars"])) * (1 - int(is_expansionist) * GAME_CONFIG["BASE_EXPANSIONIST_SETTLE_REDUCTION"])
+    return GAME_FUNCS["BASE_SETTLE_COST"](int(kd_info["stars"])) * (1 - int(is_expansionist) * GAME_CONFIG["BASE_EXPANSIONIST_SETTLE_REDUCTION"])
 
 def _get_available_settle(kd_info, settle_info, is_expansionist):
-    max_settle = GAME_CONFIG["BASE_MAX_SETTLE"](int(kd_info["stars"]))
+    max_settle = GAME_FUNCS["BASE_MAX_SETTLE"](int(kd_info["stars"]))
     current_settle = sum([
         int(settle_item["amount"])
         for settle_item in settle_info
@@ -2857,7 +2872,7 @@ def _calc_workshop_capacity(kd_info, engineers_building):
 def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
     engineers_total = kd_info["units"]["engineers"] + engineers_building
     available_workshop_capacity = max(max_workshop_capacity - engineers_total, 0)
-    max_trainable_engineers = GAME_CONFIG["BASE_MAX_ENGINEERS"](int(kd_info["population"]))
+    max_trainable_engineers = GAME_FUNCS["BASE_MAX_ENGINEERS"](int(kd_info["population"]))
     untrained_engineers = max(max_trainable_engineers - engineers_building, 0)
     max_available_engineers = min(available_workshop_capacity, untrained_engineers)
     try:
@@ -4267,7 +4282,7 @@ def calculate_attack_primitives():
     start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
     now_time = datetime.datetime.now(datetime.timezone.utc)
     seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_defense_per_star = GAME_CONFIG["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
+    primitives_defense_per_star = GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
     
     kd_info_parse = json.loads(kd_info.text)
     current_bonuses = {
@@ -4361,7 +4376,7 @@ def _attack_primitives(req, kd_id):
     start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
     now_time = datetime.datetime.now(datetime.timezone.utc)
     seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_defense_per_star = GAME_CONFIG["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
+    primitives_defense_per_star = GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
 
     valid_attack_request, attack_request_message = _validate_attack_request(
         attacker_raw_values,
@@ -4781,7 +4796,7 @@ def _spy(req, kd_id, target_kd):
     revealed = False
 
     if operation == "suicidedrones":
-        burnable_fuel = max_target_kd_info["fuel"] - GAME_CONFIG["BASE_NEGATIVE_FUEL_CAP"](max_target_kd_info["stars"])
+        burnable_fuel = max_target_kd_info["fuel"] - GAME_FUNCS["BASE_NEGATIVE_FUEL_CAP"](max_target_kd_info["stars"])
         fuel_damage = min(burnable_fuel, drones * GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"])
         losses = drones
         status = "success"
@@ -5001,7 +5016,7 @@ def _rob_primitives(req, kd_id):
     start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
     now_time = datetime.datetime.now(datetime.timezone.utc)
     seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_rob_per_drone = GAME_CONFIG["BASE_PRIMITIVES_ROB_PER_DRONE"](max(seconds_elapsed, 0))
+    primitives_rob_per_drone = GAME_FUNCS["BASE_PRIMITIVES_ROB_PER_DRONE"](max(seconds_elapsed, 0))
 
     valid_request, message = _validate_spy_request(
         drones,
@@ -6173,7 +6188,7 @@ def _kingdom_with_income(
     income["fuel"]["net"] = new_fuel - raw_fuel_consumption
     net_fuel = income["fuel"]["net"] * epoch_elapsed
     max_fuel = math.floor(kd_info_parse["structures"]["fuel_plants"]) * GAME_CONFIG["BASE_FUEL_PLANTS_CAPACITY"]
-    min_fuel = GAME_CONFIG["BASE_NEGATIVE_FUEL_CAP"](kd_info_parse["stars"])
+    min_fuel = GAME_FUNCS["BASE_NEGATIVE_FUEL_CAP"](kd_info_parse["stars"])
 
     income["drones"] = math.floor(kd_info_parse["structures"]["drone_factories"]) * GAME_CONFIG["BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH"]
     new_drones = income["drones"] * epoch_elapsed
