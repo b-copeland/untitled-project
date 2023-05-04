@@ -169,104 +169,116 @@ ONE_TIME_PROJECTS = [
     "drone_gadgets",
 ]
 
-BASE_EPOCH_SECONDS = 60 * 60
+GAME_CONFIG = {
+    "BASE_EPOCH_SECONDS": 60 * 60, 
 
-BASE_SETTLE_COST = lambda stars: math.floor((stars ** 0.5) * 50)
-BASE_MAX_SETTLE = lambda stars: math.floor(stars * 0.15)
-BASE_SETTLE_TIME_MULTIPLIER = 12
+    "BASE_SETTLE_COST": lambda stars: math.floor((stars ** 0.5) * 50), 
+    "BASE_MAX_SETTLE": lambda stars: math.floor(stars * 0.15), 
+    "BASE_SETTLE_TIME_MULTIPLIER": 12, 
 
-BASE_STRUCTURE_COST = lambda stars: math.floor((stars ** 0.5) * 40)
-BASE_STRUCTURE_TIME_MULTIPLIER = 8
+    "BASE_STRUCTURE_COST": lambda stars: math.floor((stars ** 0.5) * 40), 
+    "BASE_STRUCTURE_TIME_MULTIPLIER": 8, 
 
-BASE_MAX_RECRUITS = lambda pop: math.floor(pop * 0.12)
-BASE_RECRUIT_COST = 100
-BASE_RECRUIT_TIME_MULTIPLIER = 12
+    "BASE_MAX_RECRUITS": lambda pop: math.floor(pop * 0.12), 
+    "BASE_RECRUIT_COST": 100, 
+    "BASE_RECRUIT_TIME_MULTIPLIER": 12, 
 
-BASE_SPECIALIST_TIME_MULTIPLIER = 12
+    "BASE_SPECIALIST_TIME_MULTIPLIER": 12, 
 
-BASE_ENGINEER_COST = 1000
-BASE_ENGINEER_TIME_MULTIPLIER = 12
-BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH = 1
-BASE_MAX_ENGINEERS = lambda pop: math.floor(pop * 0.05)
+    "BASE_ENGINEER_COST": 1000, 
+    "BASE_ENGINEER_TIME_MULTIPLIER": 12, 
+    "BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH": 1, 
+    "BASE_MAX_ENGINEERS": lambda pop: math.floor(pop * 0.05), 
 
-BASE_HOMES_CAPACITY = 50
-BASE_HANGAR_CAPACITY = 75
-BASE_MISSILE_SILO_CAPACITY = 1
-BASE_WORKSHOP_CAPACITY = 50
-BASE_MINES_INCOME_PER_EPOCH = 150
-BASE_FUEL_PLANTS_INCOME_PER_EPOCH = 200
-BASE_FUEL_PLANTS_CAPACITY = 1000
-BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH = 1
+    "BASE_HOMES_CAPACITY": 50, 
+    "BASE_HANGAR_CAPACITY": 75, 
+    "BASE_MISSILE_SILO_CAPACITY": 1, 
+    "BASE_WORKSHOP_CAPACITY": 50, 
+    "BASE_MINES_INCOME_PER_EPOCH": 150, 
+    "BASE_FUEL_PLANTS_INCOME_PER_EPOCH": 200, 
+    "BASE_FUEL_PLANTS_CAPACITY": 1000, 
+    "BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH": 1, 
 
-BASE_STRUCTURES_LOSS_RETURN_RATE = 0.2
-BASE_STRUCTURES_LOSS_PER_STAR_PER_EPOCH = 0.02
+    "BASE_STRUCTURES_LOSS_RETURN_RATE": 0.2, 
+    "BASE_STRUCTURES_LOSS_PER_STAR_PER_EPOCH": 0.02, 
 
-BASE_MISSILE_TIME_MULTIPLER = 24
+    "BASE_MISSILE_TIME_MULTIPLER": 24, 
 
-BASE_GENERALS_BONUS = lambda generals: (generals - 1) * 0.03
-BASE_GENERALS_RETURN_TIME_MULTIPLIER = 8
-BASE_RETURN_TIME_PENALTY_PER_COORDINATE = 0.01
-BASE_DEFENDER_UNIT_LOSS_RATE = 0.05
-BASE_ATTACKER_UNIT_LOSS_RATE = 0.05
-BASE_KINGDOM_LOSS_RATE = 0.10
-BASE_FUELLESS_STRENGTH_REDUCTION = 0.2
-BASE_ATTACK_MIN_STARS_GAIN = 25
+    "BASE_GENERALS_BONUS": lambda generals: (generals - 1) * 0.03, 
+    "BASE_GENERALS_RETURN_TIME_MULTIPLIER": 8, 
+    "BASE_RETURN_TIME_PENALTY_PER_COORDINATE": 0.01, 
+    "BASE_DEFENDER_UNIT_LOSS_RATE": 0.05, 
+    "BASE_ATTACKER_UNIT_LOSS_RATE": 0.05, 
+    "BASE_KINGDOM_LOSS_RATE": 0.10, 
+    "BASE_FUELLESS_STRENGTH_REDUCTION": 0.2, 
+    "BASE_ATTACK_MIN_STARS_GAIN": 25, 
 
-BASE_PRIMITIVES_DEFENSE_PER_STAR = lambda seconds: 100 * math.sqrt(1 + seconds / 3600 / 24)
-BASE_PRIMITIVES_MONEY_PER_STAR = 1000
-BASE_PRIMITIVES_FUEL_PER_STAR = 100
-BASE_PRIMITIVES_POPULATION_PER_STAR = 10
-BASE_PRIMITIVES_ROB_PER_DRONE = lambda seconds: 4 / math.sqrt(1 + seconds / 3600 / 24)
+    "BASE_PRIMITIVES_DEFENSE_PER_STAR": lambda seconds: 100 * math.sqrt(1 + seconds / 3600 / 24), 
+    "BASE_PRIMITIVES_MONEY_PER_STAR": 1000, 
+    "BASE_PRIMITIVES_FUEL_PER_STAR": 100, 
+    "BASE_PRIMITIVES_POPULATION_PER_STAR": 10, 
+    "BASE_PRIMITIVES_ROB_PER_DRONE": lambda seconds: 4 / math.sqrt(1 + seconds / 3600 / 24), 
 
-BASE_STARS_DRONE_DEFENSE_MULTIPLIER = 4
-BASE_DRONES_DRONE_DEFENSE_MULTIPLIER = 1
-BASE_SPY_MIN_SUCCESS_CHANCE = 0.10
-BASE_DRONES_SUCCESS_LOSS_RATE = 0.01
-BASE_DRONES_FAILURE_LOSS_RATE = 0.02
-BASE_DRONES_SHIELDING_LOSS_REDUCTION = 0.5
-BASE_REVEAL_DURATION_MULTIPLIER = 8
+    "BASE_STARS_DRONE_DEFENSE_MULTIPLIER": 4, 
+    "BASE_DRONES_DRONE_DEFENSE_MULTIPLIER": 1, 
+    "BASE_SPY_MIN_SUCCESS_CHANCE": 0.10, 
+    "BASE_DRONES_SUCCESS_LOSS_RATE": 0.01, 
+    "BASE_DRONES_FAILURE_LOSS_RATE": 0.02, 
+    "BASE_DRONES_SHIELDING_LOSS_REDUCTION": 0.5, 
+    "BASE_REVEAL_DURATION_MULTIPLIER": 8, 
 
-BASE_DRONES_SIPHON_PER_DRONE = 8
-BASE_DRONES_SIPHON_TIME_MULTIPLIER = 8
-BASE_DRONES_PER_HOME_DAMAGE = 1500
-BASE_DRONES_MAX_HOME_DAMAGE = 0.05
-BASE_DRONES_PER_FUEL_PLANT_DAMAGE = 1500
-BASE_DRONES_MAX_FUEL_PLANT_DAMAGE = 0.05
-BASE_DRONES_PER_KIDNAP = 10
-BASE_DRONES_MAX_KIDNAP_DAMAGE = 0.05
-BASE_DRONES_SUICIDE_FUEL_DAMAGE = 5
-BASE_KIDNAP_RETURN_RATE = 0.4
+    "BASE_DRONES_SIPHON_PER_DRONE": 8, 
+    "BASE_DRONES_SIPHON_TIME_MULTIPLIER": 8, 
+    "BASE_DRONES_PER_HOME_DAMAGE": 1500, 
+    "BASE_DRONES_MAX_HOME_DAMAGE": 0.05, 
+    "BASE_DRONES_PER_FUEL_PLANT_DAMAGE": 1500, 
+    "BASE_DRONES_MAX_FUEL_PLANT_DAMAGE": 0.05, 
+    "BASE_DRONES_PER_KIDNAP": 10, 
+    "BASE_DRONES_MAX_KIDNAP_DAMAGE": 0.05, 
+    "BASE_DRONES_SUICIDE_FUEL_DAMAGE": 5, 
+    "BASE_KIDNAP_RETURN_RATE": 0.4, 
 
-BASE_MAX_SIPHON = 0.10
+    "BASE_MAX_SIPHON": 0.10, 
 
-BASE_POP_INCOME_PER_EPOCH = 2
-BASE_POP_FUEL_CONSUMPTION_PER_EPOCH = 0.5
-BASE_PCT_POP_GROWTH_PER_EPOCH = 0.10
-BASE_POP_GROWTH_PER_STAR_PER_EPOCH = 0.5
-BASE_FUELLESS_POP_GROWTH_REDUCTION = 0.9
-BASE_FUELLESS_POP_CAP_REDUCTION = 0.2
-BASE_NEGATIVE_FUEL_CAP = lambda stars: stars * -5
+    "BASE_POP_INCOME_PER_EPOCH": 2, 
+    "BASE_POP_FUEL_CONSUMPTION_PER_EPOCH": 0.5, 
+    "BASE_PCT_POP_GROWTH_PER_EPOCH": 0.10, 
+    "BASE_POP_GROWTH_PER_STAR_PER_EPOCH": 0.5, 
+    "BASE_FUELLESS_POP_GROWTH_REDUCTION": 0.9, 
+    "BASE_FUELLESS_POP_CAP_REDUCTION": 0.2, 
+    "BASE_NEGATIVE_FUEL_CAP": lambda stars: stars * -5, 
 
-BASE_PCT_POP_LOSS_PER_EPOCH = 0.10
-BASE_POP_LOSS_PER_STAR_PER_EPOCH = 0.2
+    "BASE_PCT_POP_LOSS_PER_EPOCH": 0.10, 
+    "BASE_POP_LOSS_PER_STAR_PER_EPOCH": 0.2, 
 
-BASE_SPY_ATTEMPT_TIME_MULTIPLIER = 1
-BASE_SPY_ATTEMPTS_MAX = 10
+    "BASE_SPY_ATTEMPT_TIME_MULTIPLIER": 1, 
+    "BASE_SPY_ATTEMPTS_MAX": 10, 
 
-BASE_MILITARY_SHIELDS_MAX = 0.10
-BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT = 0.1
-BASE_SPY_SHIELDS_MAX = 0.20
-BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT = 0.05
-BASE_SPY_RADAR_MAX = 0.20
-BASE_SPY_RADAR_COST_PER_LAND_PER_PCT = 0.05
-BASE_MISSILES_SHIELDS_MAX = 1.0
-BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT = 0.005
+    "BASE_MILITARY_SHIELDS_MAX": 0.10, 
+    "BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT": 0.1, 
+    "BASE_SPY_SHIELDS_MAX": 0.20, 
+    "BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT": 0.05, 
+    "BASE_SPY_RADAR_MAX": 0.20, 
+    "BASE_SPY_RADAR_COST_PER_LAND_PER_PCT": 0.05, 
+    "BASE_MISSILES_SHIELDS_MAX": 1.0, 
+    "BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT": 0.005, 
 
-BASE_VOTES_COST = 10000
-BASE_ELECTION_LENGTH_SECONDS = BASE_EPOCH_SECONDS * 24 * 1
-BASE_ELECTION_RESULTS_DURATION = BASE_EPOCH_SECONDS * 24 * 6
+    "BASE_VOTES_COST": 10000, 
+    "BASE_ELECTION_LENGTH_MULTIPLIER": 24, 
+    "BASE_ELECTION_RESULTS_DURATION_MULTIPLIER": 24 * 6, 
 
-BASE_AUTO_SPENDING_TIME_MULTIPLIER = 0.1
+    "BASE_AUTO_SPENDING_TIME_MULTIPLIER": 0.1, 
+    
+
+    "BASE_EXPANSIONIST_SETTLE_REDUCTION": 0.15,
+    "BASE_WARLIKE_RETURN_REDUCTION": 0.1,
+    "BASE_INTELLIGENCE_RETURN_REDUCTION": 0.1,
+    "BASE_CONSCRIPTION_TIME_REDUCTION": 0.2,
+    "BASE_UNREGULATED_COST_REDUCTION": 0.2,
+    "BASE_TREATIED_COST_INCREASE": 0.2,
+    "BASE_FREE_TRADE_INCREASE": 0.1,
+    "BASE_ISOLATIONIST_DECREASE": 0.1,
+}
 
 REVEAL_OPERATIONS = [
     "spykingdom",
@@ -558,15 +570,6 @@ UNIVERSE_POLICIES = {
     },
 }
 
-BASE_EXPANSIONIST_SETTLE_REDUCTION = 0.15
-BASE_WARLIKE_RETURN_REDUCTION = 0.1
-BASE_INTELLIGENCE_RETURN_REDUCTION = 0.1
-BASE_CONSCRIPTION_TIME_REDUCTION = 0.2
-BASE_UNREGULATED_COST_REDUCTION = 0.2
-BASE_TREATIED_COST_INCREASE = 0.2
-BASE_FREE_TRADE_INCREASE = 0.1
-BASE_ISOLATIONIST_DECREASE = 0.1
-
 PRETTY_NAMES = {
     "spykingdom": "Spy on Kingdom",
     "spymilitary": "Spy on Military",
@@ -856,24 +859,24 @@ def get_state():
     start_time = datetime.datetime.fromisoformat(get_response_json["state"]["game_start"]).astimezone(datetime.timezone.utc)
     now_time = datetime.datetime.now(datetime.timezone.utc)
     seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_defense_per_star = BASE_PRIMITIVES_DEFENSE_PER_STAR(max(seconds_elapsed, 0))
-    primitives_rob_per_drone = BASE_PRIMITIVES_ROB_PER_DRONE(max(seconds_elapsed, 0))
+    primitives_defense_per_star = GAME_CONFIG["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
+    primitives_rob_per_drone = GAME_CONFIG["BASE_PRIMITIVES_ROB_PER_DRONE"](max(seconds_elapsed, 0))
     return flask.jsonify({
         **get_response_json,
         "pretty_names": PRETTY_NAMES,
         "units": UNITS,
         "structures": {
-            "pop_per_home": BASE_HOMES_CAPACITY,
-            "income_per_mine": BASE_MINES_INCOME_PER_EPOCH,
-            "fuel_per_fuel_plant": BASE_FUEL_PLANTS_INCOME_PER_EPOCH,
-            "fuel_cap_per_fuel_plant": BASE_FUEL_PLANTS_CAPACITY,
-            "hangar_capacity": BASE_HANGAR_CAPACITY,
-            "drone_production_per_drone_plant": BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH,
-            "missile_capacity_per_missile_silo": BASE_MISSILE_SILO_CAPACITY,
-            "engineers_capacity_per_workshop": BASE_WORKSHOP_CAPACITY,
+            "pop_per_home": GAME_CONFIG["BASE_HOMES_CAPACITY"],
+            "income_per_mine": GAME_CONFIG["BASE_MINES_INCOME_PER_EPOCH"],
+            "fuel_per_fuel_plant": GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"],
+            "fuel_cap_per_fuel_plant": GAME_CONFIG["BASE_FUEL_PLANTS_CAPACITY"],
+            "hangar_capacity": GAME_CONFIG["BASE_HANGAR_CAPACITY"],
+            "drone_production_per_drone_plant": GAME_CONFIG["BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH"],
+            "missile_capacity_per_missile_silo": GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"],
+            "engineers_capacity_per_workshop": GAME_CONFIG["BASE_WORKSHOP_CAPACITY"],
         },
-        "income_per_pop": BASE_POP_INCOME_PER_EPOCH,
-        "fuel_consumption_per_pop": BASE_POP_FUEL_CONSUMPTION_PER_EPOCH,
+        "income_per_pop": GAME_CONFIG["BASE_POP_INCOME_PER_EPOCH"],
+        "fuel_consumption_per_pop": GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"],
         "primitives_defense_per_star": primitives_defense_per_star,
         "primitives_rob_per_drone": primitives_rob_per_drone,
     }), 200
@@ -1207,7 +1210,7 @@ def create_kingdom_choices():
     payload["last_income"] = max(state["state"]["game_start"], datetime.datetime.now(datetime.timezone.utc).isoformat())
     payload["next_resolve"] = kd_info["next_resolve"]
     payload["next_resolve"]["spy_attempt"] = (
-        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPY_ATTEMPT_TIME_MULTIPLIER)
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"])
     ).isoformat()
 
     patch_response = REQUESTS_SESSION.patch(
@@ -1251,33 +1254,33 @@ def shields():
     return {
         "desc": {
             "military": {
-                "max": BASE_MILITARY_SHIELDS_MAX,
-                "cost": BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT,
+                "max": GAME_CONFIG["BASE_MILITARY_SHIELDS_MAX"],
+                "cost": GAME_CONFIG["BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT"],
             },
             "spy": {
-                "max": BASE_SPY_SHIELDS_MAX,
-                "cost": BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT,
+                "max": GAME_CONFIG["BASE_SPY_SHIELDS_MAX"],
+                "cost": GAME_CONFIG["BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT"],
             },
             "spy_radar": {
-                "max": BASE_SPY_RADAR_MAX,
-                "cost": BASE_SPY_RADAR_COST_PER_LAND_PER_PCT,
+                "max": GAME_CONFIG["BASE_SPY_RADAR_MAX"],
+                "cost": GAME_CONFIG["BASE_SPY_RADAR_COST_PER_LAND_PER_PCT"],
             },
             "missiles": {
-                "max": BASE_MISSILES_SHIELDS_MAX,
-                "cost": BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT,
+                "max": GAME_CONFIG["BASE_MISSILES_SHIELDS_MAX"],
+                "cost": GAME_CONFIG["BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT"],
             },
         }
     }
 
 def _validate_shields(req_values):
 
-    if req_values.get("military", 0) > BASE_MILITARY_SHIELDS_MAX:
+    if req_values.get("military", 0) > GAME_CONFIG["BASE_MILITARY_SHIELDS_MAX"]:
         return False, "Military shields must be at or below max shields value"
-    if req_values.get("spy", 0) > BASE_SPY_SHIELDS_MAX:
+    if req_values.get("spy", 0) > GAME_CONFIG["BASE_SPY_SHIELDS_MAX"]:
         return False, "Spy shields must be at or below max shields value"
-    if req_values.get("spy_radar", 0) > BASE_SPY_RADAR_MAX:
+    if req_values.get("spy_radar", 0) > GAME_CONFIG["BASE_SPY_RADAR_MAX"]:
         return False, "Spy radar must be at or below max value"
-    if req_values.get("missiles", 0) > BASE_MISSILES_SHIELDS_MAX:
+    if req_values.get("missiles", 0) > GAME_CONFIG["BASE_MISSILES_SHIELDS_MAX"]:
         return False, "Missiles shields must be at or below max shields value"
     if any((value < 0 for value in req_values.values())):
         return False, "Shields value must be non-negative"
@@ -1707,7 +1710,7 @@ def spending():
 
         if enabled:
             next_resolve = kd_info_parse["next_resolve"]
-            next_resolve["auto_spending"] = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_AUTO_SPENDING_TIME_MULTIPLIER)).isoformat()
+            next_resolve["auto_spending"] = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_AUTO_SPENDING_TIME_MULTIPLIER"])).isoformat()
             payload["next_resolve"] = next_resolve
         else:
             total_funding = sum(kd_info_parse["funding"].values())
@@ -1805,7 +1808,7 @@ def _calc_max_offense(
         stat_map["offense"] * unit_dict.get(key, 0)
         for key, stat_map in UNITS.items() 
     ])
-    attack_w_bonuses = raw_attack * (1 + BASE_GENERALS_BONUS(generals) + military_bonus + other_bonuses - (int_fuelless * BASE_FUELLESS_STRENGTH_REDUCTION))
+    attack_w_bonuses = raw_attack * (1 + GAME_CONFIG["BASE_GENERALS_BONUS"](generals) + military_bonus + other_bonuses - (int_fuelless * GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"]))
     return math.floor(attack_w_bonuses)
 
 def _calc_max_defense(
@@ -1821,7 +1824,7 @@ def _calc_max_defense(
         stat_map["defense"] * unit_dict.get(key, 0)
         for key, stat_map in UNITS.items() 
     ])
-    defense_w_bonuses = raw_defense * (1 + shields + military_bonus + other_bonuses - (int_fuelless * BASE_FUELLESS_STRENGTH_REDUCTION))
+    defense_w_bonuses = raw_defense * (1 + shields + military_bonus + other_bonuses - (int_fuelless * GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"]))
     return math.floor(defense_w_bonuses)
 
 def _calc_maxes(
@@ -1853,7 +1856,7 @@ def _calc_maxes(
     return maxes
 
 def _calc_hangar_capacity(kd_info, units):
-    max_hangar_capacity = math.floor(kd_info["structures"]["hangars"]) * BASE_HANGAR_CAPACITY
+    max_hangar_capacity = math.floor(kd_info["structures"]["hangars"]) * GAME_CONFIG["BASE_HANGAR_CAPACITY"]
     current_hangar_capacity = sum([
         stat_map["hangar_capacity"] * (units["current_total"].get(key, 0) + units["hour_24"].get(key, 0))
         for key, stat_map in UNITS.items()
@@ -1862,9 +1865,9 @@ def _calc_hangar_capacity(kd_info, units):
 
 def _calc_max_recruits(kd_info, units):
     recruits_training = units["hour_24"]["recruits"]
-    max_total_recruits = BASE_MAX_RECRUITS(int(kd_info["population"]))
+    max_total_recruits = GAME_CONFIG["BASE_MAX_RECRUITS"](int(kd_info["population"]))
     max_available_recruits = max(max_total_recruits - recruits_training, 0)
-    max_recruits_cost = BASE_RECRUIT_COST * max_available_recruits
+    max_recruits_cost = GAME_CONFIG["BASE_RECRUIT_COST"] * max_available_recruits
     try:
         current_available_recruits = min(
             math.floor((kd_info["money"] / max_recruits_cost) * max_available_recruits),
@@ -1884,13 +1887,13 @@ def _get_mobis_queue(kd_id):
     return mobis_info_parse["mobis"]
 
 def _calc_recruit_time(is_conscription):
-    return BASE_EPOCH_SECONDS * BASE_RECRUIT_TIME_MULTIPLIER * (1 - int(is_conscription) * BASE_CONSCRIPTION_TIME_REDUCTION)
+    return GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_RECRUIT_TIME_MULTIPLIER"] * (1 - int(is_conscription) * GAME_CONFIG["BASE_CONSCRIPTION_TIME_REDUCTION"])
 
 def _get_units_adjusted_costs(state):
     is_unregulated = "Unregulated" in state["state"]["active_policies"]
     is_treatied = "Treatied" in state["state"]["active_policies"]
     
-    cost_modifier = 1.0 - is_unregulated * BASE_UNREGULATED_COST_REDUCTION + is_treatied * BASE_TREATIED_COST_INCREASE
+    cost_modifier = 1.0 - is_unregulated * GAME_CONFIG["BASE_UNREGULATED_COST_REDUCTION"] + is_treatied * GAME_CONFIG["BASE_TREATIED_COST_INCREASE"]
     units_desc = copy.deepcopy(UNITS)
     for unit, unit_dict in units_desc.items():
         if "cost" in unit_dict:
@@ -1936,7 +1939,7 @@ def _get_mobis(kd_id):
     payload = {
         'units': units,
         'maxes': maxes,
-        'recruit_price': BASE_RECRUIT_COST,
+        'recruit_price': GAME_CONFIG["BASE_RECRUIT_COST"],
         'recruit_time': recruit_time,
         'max_hangar_capacity': max_hangar_capacity,
         'current_hangar_capacity': current_hangar_capacity,
@@ -2014,7 +2017,7 @@ def recruits():
     mobis_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=recruit_time)).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["mobis"] = min(next_resolve["mobis"], mobis_time)
-    new_money = kd_info_parse["money"] - BASE_RECRUIT_COST * recruits_input
+    new_money = kd_info_parse["money"] - GAME_CONFIG["BASE_RECRUIT_COST"] * recruits_input
     kd_payload = {'money': new_money, 'next_resolve': next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -2097,7 +2100,7 @@ def train_mobis():
 
     new_money = kd_info_parse["money"] - mobis_cost
     new_recruits = kd_info_parse["units"]["recruits"] - sum(mobis_request.values())
-    mobis_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPECIALIST_TIME_MULTIPLIER)).isoformat()
+    mobis_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_SPECIALIST_TIME_MULTIPLIER"])).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["mobis"] = min(next_resolve["mobis"], mobis_time)
     kd_payload = {
@@ -2211,7 +2214,7 @@ def _calc_structures(
     }
 
     for hours in epochs:
-        epoch_seconds = hours * BASE_EPOCH_SECONDS
+        epoch_seconds = hours * GAME_CONFIG["BASE_EPOCH_SECONDS"]
         hour_structures = {
             key: 0
             for key in STRUCTURES
@@ -2226,7 +2229,7 @@ def _calc_structures(
     return structures
 
 def _get_structure_price(kd_info):
-    return BASE_STRUCTURE_COST(int(kd_info["stars"]))
+    return GAME_CONFIG["BASE_STRUCTURE_COST"](int(kd_info["stars"]))
 
 def _calc_available_structures(structure_price, kd_info, structures_info):
     total_structures = math.ceil(sum(structures_info["current"].values()) + sum(structures_info["hour_24"].values()))
@@ -2359,7 +2362,7 @@ def build_structures():
     if not valid_structures:
         return (flask.jsonify({"message": 'Please enter valid structures values'}), 400)
 
-    structures_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat()
+    structures_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_STRUCTURE_TIME_MULTIPLIER"])).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["structures"] = min(next_resolve["structures"], structures_time)
     new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
@@ -2553,10 +2556,10 @@ def _get_settle_queue(kd_id):
     return settle_info_parse["settles"]
 
 def _get_settle_price(kd_info, is_expansionist):
-    return BASE_SETTLE_COST(int(kd_info["stars"])) * (1 - int(is_expansionist) * BASE_EXPANSIONIST_SETTLE_REDUCTION)
+    return GAME_CONFIG["BASE_SETTLE_COST"](int(kd_info["stars"])) * (1 - int(is_expansionist) * GAME_CONFIG["BASE_EXPANSIONIST_SETTLE_REDUCTION"])
 
 def _get_available_settle(kd_info, settle_info, is_expansionist):
-    max_settle = BASE_MAX_SETTLE(int(kd_info["stars"]))
+    max_settle = GAME_CONFIG["BASE_MAX_SETTLE"](int(kd_info["stars"]))
     current_settle = sum([
         int(settle_item["amount"])
         for settle_item in settle_info
@@ -2663,7 +2666,7 @@ def settle():
 
     settle_price = _get_settle_price(kd_info_parse, is_expansionist)
     new_money = kd_info_parse["money"] - settle_price * settle_input
-    settle_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat()
+    settle_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_SETTLE_TIME_MULTIPLIER"])).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["settles"] = min(next_resolve["settles"], settle_time)
     kd_payload = {'money': new_money, "next_resolve": next_resolve}
@@ -2742,8 +2745,8 @@ def missiles():
     payload = {
         "current": current_missiles,
         "building": missiles_building,
-        "build_time": BASE_MISSILE_TIME_MULTIPLER * BASE_EPOCH_SECONDS,
-        "capacity": math.floor(kd_info_parse["structures"]["missile_silos"]) * BASE_MISSILE_SILO_CAPACITY,
+        "build_time": GAME_CONFIG["BASE_MISSILE_TIME_MULTIPLER"] * GAME_CONFIG["BASE_EPOCH_SECONDS"],
+        "capacity": math.floor(kd_info_parse["structures"]["missile_silos"]) * GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"],
         "desc": MISSILES,
         "top_queue": top_queue,
         "len_queue": len_queue,
@@ -2803,7 +2806,7 @@ def build_missiles():
     missiles_info = _get_missiles_info(kd_id)
     missiles_building = _get_missiles_building(missiles_info)
 
-    max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * BASE_MISSILE_SILO_CAPACITY
+    max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
 
     missiles_request = {
         k: int(v or 0)
@@ -2817,7 +2820,7 @@ def build_missiles():
     fuel_costs = sum([MISSILES[key_missile]["fuel_cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
     new_money = kd_info_parse["money"] - costs
     new_fuel = kd_info_parse["fuel"] - fuel_costs
-    missiles_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_MISSILE_TIME_MULTIPLER)).isoformat()
+    missiles_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_MISSILE_TIME_MULTIPLER"])).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["missiles"] = min(next_resolve["missiles"], missiles_time)
     kd_payload = {
@@ -2846,7 +2849,7 @@ def build_missiles():
     return (flask.jsonify({"message": "Successfully began building missiles", "status": "success"}), 200)
 
 def _calc_workshop_capacity(kd_info, engineers_building):
-    max_workshop_capacity = math.floor(kd_info["structures"]["workshops"]) * BASE_WORKSHOP_CAPACITY
+    max_workshop_capacity = math.floor(kd_info["structures"]["workshops"]) * GAME_CONFIG["BASE_WORKSHOP_CAPACITY"]
     current_engineers = kd_info["units"]["engineers"]
     current_workshop_capacity = current_engineers + engineers_building
     return max_workshop_capacity, current_workshop_capacity
@@ -2854,12 +2857,12 @@ def _calc_workshop_capacity(kd_info, engineers_building):
 def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
     engineers_total = kd_info["units"]["engineers"] + engineers_building
     available_workshop_capacity = max(max_workshop_capacity - engineers_total, 0)
-    max_trainable_engineers = BASE_MAX_ENGINEERS(int(kd_info["population"]))
+    max_trainable_engineers = GAME_CONFIG["BASE_MAX_ENGINEERS"](int(kd_info["population"]))
     untrained_engineers = max(max_trainable_engineers - engineers_building, 0)
     max_available_engineers = min(available_workshop_capacity, untrained_engineers)
     try:
         current_available_engineers = min(
-            math.floor(kd_info["money"] / BASE_ENGINEER_COST),
+            math.floor(kd_info["money"] / GAME_CONFIG["BASE_ENGINEER_COST"]),
             max_available_engineers,
         )
     except ZeroDivisionError:
@@ -2896,7 +2899,7 @@ def _get_engineers(kd_id):
     len_queue = len(engineers_info)
 
     payload = {
-        'engineers_price': BASE_ENGINEER_COST,
+        'engineers_price': GAME_CONFIG["BASE_ENGINEER_COST"],
         'max_workshop_capacity': max_workshop_capacity,
         'current_workshop_capacity': current_workshop_capacity,
         'max_available_engineers': max_available_engineers,
@@ -2962,10 +2965,10 @@ def train_engineers():
     if not valid_engineers:
         return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
 
-    engineers_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat()
+    engineers_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_ENGINEER_TIME_MULTIPLIER"])).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["engineers"] = min(next_resolve["engineers"], engineers_time)
-    new_money = kd_info_parse["money"] - BASE_ENGINEER_COST * engineers_input
+    new_money = kd_info_parse["money"] - GAME_CONFIG["BASE_ENGINEER_COST"] * engineers_input
     kd_payload = {'money': new_money, 'next_resolve': next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -3591,7 +3594,7 @@ def reveal_random_galaxy():
 
     galaxy_to_reveal = random.choice(list(potential_galaxies))
 
-    time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER)).isoformat()
+    time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
     payload = {
         "new_galaxies": {
             galaxy_to_reveal: time
@@ -3680,8 +3683,8 @@ def _calc_generals_return_time(
     coordinate_distance=25,
 ):
     coordinate_distance_norm = coordinate_distance - 25
-    coordinate_effect = coordinate_distance_norm * BASE_RETURN_TIME_PENALTY_PER_COORDINATE
-    return_time_with_bonus = datetime.timedelta(seconds=BASE_EPOCH_SECONDS * return_multiplier) * (1 - general_bonus - int(is_warlike) * BASE_WARLIKE_RETURN_REDUCTION + coordinate_effect)
+    coordinate_effect = coordinate_distance_norm * GAME_CONFIG["BASE_RETURN_TIME_PENALTY_PER_COORDINATE"]
+    return_time_with_bonus = datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * return_multiplier) * (1 - general_bonus - int(is_warlike) * GAME_CONFIG["BASE_WARLIKE_RETURN_REDUCTION"] + coordinate_effect)
     
     return_times = [
         base_time + (return_time_with_bonus / i)
@@ -3779,11 +3782,11 @@ def calculate_attack(target_kd):
         attack_ratio = 1.0
     attacker_losses = _calc_losses(
         attacker_units,
-        BASE_ATTACKER_UNIT_LOSS_RATE,
+        GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
     )
     defender_losses = _calc_losses(
         defender_units,
-        BASE_DEFENDER_UNIT_LOSS_RATE * attack_ratio,
+        GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxies_inverted, _ = _get_galaxies_inverted()
@@ -3791,7 +3794,7 @@ def calculate_attack(target_kd):
     is_warlike = "Warlike" in galaxy_policies["active_policies"]
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
-        BASE_GENERALS_RETURN_TIME_MULTIPLIER,
+        GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
         current_bonuses["general_bonus"],
         is_warlike=is_warlike,
@@ -3811,12 +3814,12 @@ def calculate_attack(target_kd):
             cut = 0
             sharer = None
         spoils_values = {
-            key_spoil: math.floor(value_spoil * BASE_KINGDOM_LOSS_RATE * (1 - cut))
+            key_spoil: math.floor(value_spoil * GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (1 - cut))
             for key_spoil, value_spoil in max_target_kd_info.items()
             if key_spoil in {"stars", "population", "money", "fuel"}
         }
         try:
-            spoils_values["stars"] = max(spoils_values["stars"], BASE_ATTACK_MIN_STARS_GAIN * (1 - cut))
+            spoils_values["stars"] = max(spoils_values["stars"], GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (1 - cut))
         except KeyError:
             pass
         if spoils_values:
@@ -3825,12 +3828,12 @@ def calculate_attack(target_kd):
             message += '. \n'
             if sharer:
                 sharer_spoils_values = {
-                    key_spoil: math.floor(value_spoil * BASE_KINGDOM_LOSS_RATE * cut)
+                    key_spoil: math.floor(value_spoil * GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * cut)
                     for key_spoil, value_spoil in max_target_kd_info.items()
                     if key_spoil in {"stars", "population", "money", "fuel"}
                 }
                 try:
-                    sharer_spoils_values["stars"] = max(sharer_spoils_values["stars"], BASE_ATTACK_MIN_STARS_GAIN * (cut))
+                    sharer_spoils_values["stars"] = max(sharer_spoils_values["stars"], GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (cut))
                 except KeyError:
                     pass
                 kingdoms = _get_kingdoms()
@@ -3849,9 +3852,9 @@ def calculate_attack(target_kd):
         "attacker_offense": attack,
         "defender_losses": defender_losses,
         "attacker_losses": attacker_losses,
-        "defender_unit_losses_rate": BASE_DEFENDER_UNIT_LOSS_RATE,
-        "attacker_unit_losses_rate": BASE_ATTACKER_UNIT_LOSS_RATE,
-        "defender_stars_loss_rate": BASE_KINGDOM_LOSS_RATE,
+        "defender_unit_losses_rate": GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"],
+        "attacker_unit_losses_rate": GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        "defender_stars_loss_rate": GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"],
         "generals_return_times": generals_return_times,
         "message": message
     }
@@ -3924,18 +3927,18 @@ def _attack(req, kd_id, target_kd):
     attack_ratio = min(attack / defense, 1.0)
     attacker_losses = _calc_losses(
         attacker_units,
-        BASE_ATTACKER_UNIT_LOSS_RATE,
+        GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
     )
     defender_losses = _calc_losses(
         defender_units,
-        BASE_DEFENDER_UNIT_LOSS_RATE * attack_ratio,
+        GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
     is_warlike = "Warlike" in galaxy_policies["active_policies"]
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
-        BASE_GENERALS_RETURN_TIME_MULTIPLIER,
+        GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
         current_bonuses["general_bonus"],
         is_warlike=is_warlike,
@@ -3972,11 +3975,11 @@ def _attack(req, kd_id, target_kd):
         sharer = None
     if attack > defense:
         total_spoils = {
-            key_spoil: math.floor(value_spoil * BASE_KINGDOM_LOSS_RATE)
+            key_spoil: math.floor(value_spoil * GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"])
             for key_spoil, value_spoil in target_kd_info.items()
             if key_spoil in {"stars", "population", "money", "fuel"}
         }
-        total_spoils["stars"] = max(total_spoils["stars"], BASE_ATTACK_MIN_STARS_GAIN)
+        total_spoils["stars"] = max(total_spoils["stars"], GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"])
         spoils_values = {
             key_spoil: math.floor(value_spoil * (1 - cut))
             for key_spoil, value_spoil in total_spoils.items()
@@ -4139,7 +4142,7 @@ def _attack(req, kd_id, target_kd):
     attacker_galaxy = galaxies_inverted[kd_id]
     kds_to_reveal = galaxy_info[attacker_galaxy]
 
-    revealed_until = (time_now + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER)).isoformat()
+    revealed_until = (time_now + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
     payload = {
         "new_galaxies": {
             attacker_galaxy: revealed_until
@@ -4178,7 +4181,7 @@ def _attack(req, kd_id, target_kd):
                 try:
                     ws = SOCK_HANDLERS[kd_revealed_to]
                     ws.send(json.dumps({
-                        "message": f"Your galaxymate {target_kd_info['name']} was attacked by {kd_info_parse['name']}. Galaxy {attacker_galaxy} will be revealed for {BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER / 3600} hours",
+                        "message": f"Your galaxymate {target_kd_info['name']} was attacked by {kd_info_parse['name']}. Galaxy {attacker_galaxy} will be revealed for {GAME_CONFIG['BASE_EPOCH_SECONDS'] * GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours",
                         "status": "info",
                         "category": "Galaxy",
                         "delay": 15000,
@@ -4264,7 +4267,7 @@ def calculate_attack_primitives():
     start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
     now_time = datetime.datetime.now(datetime.timezone.utc)
     seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_defense_per_star = BASE_PRIMITIVES_DEFENSE_PER_STAR(max(seconds_elapsed, 0))
+    primitives_defense_per_star = GAME_CONFIG["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
     
     kd_info_parse = json.loads(kd_info.text)
     current_bonuses = {
@@ -4294,12 +4297,12 @@ def calculate_attack_primitives():
         fuelless=attacker_fuelless
     )
     stars = math.floor(attack / primitives_defense_per_star)
-    money = stars * BASE_PRIMITIVES_MONEY_PER_STAR
-    fuel = stars * BASE_PRIMITIVES_FUEL_PER_STAR
-    pop = stars * BASE_PRIMITIVES_POPULATION_PER_STAR
+    money = stars * GAME_CONFIG["BASE_PRIMITIVES_MONEY_PER_STAR"]
+    fuel = stars * GAME_CONFIG["BASE_PRIMITIVES_FUEL_PER_STAR"]
+    pop = stars * GAME_CONFIG["BASE_PRIMITIVES_POPULATION_PER_STAR"]
     attacker_losses = _calc_losses(
         attacker_units,
-        BASE_ATTACKER_UNIT_LOSS_RATE,
+        GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxies_inverted, _ = _get_galaxies_inverted()
@@ -4307,7 +4310,7 @@ def calculate_attack_primitives():
     is_warlike = "Warlike" in galaxy_policies["active_policies"]
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
-        BASE_GENERALS_RETURN_TIME_MULTIPLIER,
+        GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
         current_bonuses["general_bonus"],
         is_warlike=is_warlike,
@@ -4333,7 +4336,7 @@ def calculate_attack_primitives():
     payload = {
         "attacker_offense": attack,
         "attacker_losses": attacker_losses,
-        "attacker_unit_losses_rate": BASE_ATTACKER_UNIT_LOSS_RATE,
+        "attacker_unit_losses_rate": GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
         "generals_return_times": generals_return_times,
         "message": message
     }
@@ -4358,7 +4361,7 @@ def _attack_primitives(req, kd_id):
     start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
     now_time = datetime.datetime.now(datetime.timezone.utc)
     seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_defense_per_star = BASE_PRIMITIVES_DEFENSE_PER_STAR(max(seconds_elapsed, 0))
+    primitives_defense_per_star = GAME_CONFIG["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
 
     valid_attack_request, attack_request_message = _validate_attack_request(
         attacker_raw_values,
@@ -4383,7 +4386,7 @@ def _attack_primitives(req, kd_id):
     )
     attacker_losses = _calc_losses(
         attacker_units,
-        BASE_ATTACKER_UNIT_LOSS_RATE,
+        GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxies_inverted, _ = _get_galaxies_inverted()
@@ -4391,7 +4394,7 @@ def _attack_primitives(req, kd_id):
     is_warlike = "Warlike" in galaxy_policies["active_policies"]
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
-        BASE_GENERALS_RETURN_TIME_MULTIPLIER,
+        GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
         current_bonuses["general_bonus"],
         is_warlike=is_warlike,
@@ -4418,9 +4421,9 @@ def _attack_primitives(req, kd_id):
     next_return_time = min([general["return_time"] for general in generals])
 
     stars = math.floor(attack / primitives_defense_per_star)
-    money = stars * BASE_PRIMITIVES_MONEY_PER_STAR
-    fuel = stars * BASE_PRIMITIVES_FUEL_PER_STAR
-    pop = stars * BASE_PRIMITIVES_POPULATION_PER_STAR
+    money = stars * GAME_CONFIG["BASE_PRIMITIVES_MONEY_PER_STAR"]
+    fuel = stars * GAME_CONFIG["BASE_PRIMITIVES_FUEL_PER_STAR"]
+    pop = stars * GAME_CONFIG["BASE_PRIMITIVES_POPULATION_PER_STAR"]
     spoils_values = {
         "stars": stars,
         "money": money,
@@ -4592,11 +4595,11 @@ def _calculate_spy_probability(
     target_stars,
     target_shields,
 ):
-    drones_defense = target_drones * BASE_DRONES_DRONE_DEFENSE_MULTIPLIER
-    stars_defense = target_stars * BASE_STARS_DRONE_DEFENSE_MULTIPLIER
+    drones_defense = target_drones * GAME_CONFIG["BASE_DRONES_DRONE_DEFENSE_MULTIPLIER"]
+    stars_defense = target_stars * GAME_CONFIG["BASE_STARS_DRONE_DEFENSE_MULTIPLIER"]
     total_defense = max(drones_defense + stars_defense, 1)
 
-    base_probability = min(max(drones_to_send / total_defense, BASE_SPY_MIN_SUCCESS_CHANCE), 1.0)
+    base_probability = min(max(drones_to_send / total_defense, GAME_CONFIG["BASE_SPY_MIN_SUCCESS_CHANCE"]), 1.0)
     shielded_probability = base_probability * (1 - target_shields)
 
     return shielded_probability, drones_defense, stars_defense
@@ -4605,9 +4608,9 @@ def _calculate_spy_losses(
     drones_to_send,
     shielded,
 ):
-    shielded_reduction = 1 - (int(shielded) * BASE_DRONES_SHIELDING_LOSS_REDUCTION)
-    success_loss = math.floor(drones_to_send * BASE_DRONES_SUCCESS_LOSS_RATE * shielded_reduction)
-    failure_loss = math.floor(drones_to_send * BASE_DRONES_FAILURE_LOSS_RATE * shielded_reduction)
+    shielded_reduction = 1 - (int(shielded) * GAME_CONFIG["BASE_DRONES_SHIELDING_LOSS_REDUCTION"])
+    success_loss = math.floor(drones_to_send * GAME_CONFIG["BASE_DRONES_SUCCESS_LOSS_RATE"] * shielded_reduction)
+    failure_loss = math.floor(drones_to_send * GAME_CONFIG["BASE_DRONES_FAILURE_LOSS_RATE"] * shielded_reduction)
     return success_loss, failure_loss
     
         
@@ -4675,36 +4678,36 @@ def calculate_spy(target_kd):
 
     if operation in REVEAL_OPERATIONS:
         revealed_stat = operation.replace('spy', '')
-        reveal_duration_seconds = BASE_REVEAL_DURATION_MULTIPLIER * BASE_EPOCH_SECONDS
+        reveal_duration_seconds = GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"] * GAME_CONFIG["BASE_EPOCH_SECONDS"]
         reveal_duration_hours = reveal_duration_seconds / 3600
         message += f"If successful, the target's {revealed_stat} will be revealed for {reveal_duration_hours} hours.\n"
     if operation == "siphonfunds":
-        siphon_damage = math.floor(drones * BASE_DRONES_SIPHON_PER_DRONE)
-        siphon_seconds = BASE_DRONES_SIPHON_TIME_MULTIPLIER * BASE_EPOCH_SECONDS
+        siphon_damage = math.floor(drones * GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"])
+        siphon_seconds = GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"] * GAME_CONFIG["BASE_EPOCH_SECONDS"]
         siphon_hours = siphon_seconds / 3600
         message = f"If successful, you will siphon up to {siphon_damage} money over the next {siphon_hours} hours."
     if operation == "bombhomes":
         if "structures" in max_target_kd_info.keys():
-            homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * BASE_DRONES_MAX_HOME_DAMAGE), math.floor(drones / BASE_DRONES_PER_HOME_DAMAGE))
+            homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * GAME_CONFIG["BASE_DRONES_MAX_HOME_DAMAGE"]), math.floor(drones / GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"]))
             message = f"If successful, you will destroy {homes_damage} homes."
         else:
-            homes_damage = math.floor(drones / BASE_DRONES_PER_HOME_DAMAGE)
+            homes_damage = math.floor(drones / GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"])
             message = f"If successful, you will destroy up to {homes_damage} homes."
     if operation == "sabotagefuelplants":
         if "structures" in max_target_kd_info.keys():
-            fuel_plant_damage = min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * BASE_DRONES_MAX_FUEL_PLANT_DAMAGE), math.floor(drones / BASE_DRONES_PER_FUEL_PLANT_DAMAGE))
+            fuel_plant_damage = min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * GAME_CONFIG["BASE_DRONES_MAX_FUEL_PLANT_DAMAGE"]), math.floor(drones / GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"]))
             message = f"If successful, you will destroy {fuel_plant_damage} fuel plants."
         else:
-            fuel_plant_damage = math.floor(drones / BASE_DRONES_PER_FUEL_PLANT_DAMAGE)
+            fuel_plant_damage = math.floor(drones / GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"])
             message = f"If successful, you will destroy up to {fuel_plant_damage} fuel plants."
     if operation == "kidnappopulation":
         if "population" in max_target_kd_info.keys():
-            kidnap_damage = min(math.floor(max_target_kd_info["population"] * BASE_DRONES_MAX_KIDNAP_DAMAGE), math.floor(drones / BASE_DRONES_PER_KIDNAP))
-            kidnap_return = math.floor(kidnap_damage * BASE_KIDNAP_RETURN_RATE)
+            kidnap_damage = min(math.floor(max_target_kd_info["population"] * GAME_CONFIG["BASE_DRONES_MAX_KIDNAP_DAMAGE"]), math.floor(drones / GAME_CONFIG["BASE_DRONES_PER_KIDNAP"]))
+            kidnap_return = math.floor(kidnap_damage * GAME_CONFIG["BASE_KIDNAP_RETURN_RATE"])
             message = f"If successful, you will kidnap {kidnap_damage} civilians. {kidnap_return} civilians will join your population."
         else:
-            kidnap_damage = math.floor(drones / BASE_DRONES_PER_KIDNAP)
-            kidnap_return = math.floor(kidnap_damage * BASE_KIDNAP_RETURN_RATE)
+            kidnap_damage = math.floor(drones / GAME_CONFIG["BASE_DRONES_PER_KIDNAP"])
+            kidnap_return = math.floor(kidnap_damage * GAME_CONFIG["BASE_KIDNAP_RETURN_RATE"])
             message = f"If successful, you will kidnap up to {kidnap_damage} civilians. Up to {kidnap_return} civilians will join your population."
     if operation == "suicidedrones":
         fuel_damage = drones * 5
@@ -4778,8 +4781,8 @@ def _spy(req, kd_id, target_kd):
     revealed = False
 
     if operation == "suicidedrones":
-        burnable_fuel = max_target_kd_info["fuel"] - BASE_NEGATIVE_FUEL_CAP(max_target_kd_info["stars"])
-        fuel_damage = min(burnable_fuel, drones * BASE_DRONES_SUICIDE_FUEL_DAMAGE)
+        burnable_fuel = max_target_kd_info["fuel"] - GAME_CONFIG["BASE_NEGATIVE_FUEL_CAP"](max_target_kd_info["stars"])
+        fuel_damage = min(burnable_fuel, drones * GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"])
         losses = drones
         status = "success"
         message = f"You have destroyed {fuel_damage} fuel. You have lost {losses} drones"
@@ -4789,7 +4792,7 @@ def _spy(req, kd_id, target_kd):
             status = "success"
             if operation in REVEAL_OPERATIONS:
                 revealed_stat = operation.replace('spy', '')
-                reveal_duration_seconds = BASE_REVEAL_DURATION_MULTIPLIER * BASE_EPOCH_SECONDS
+                reveal_duration_seconds = GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"] * GAME_CONFIG["BASE_EPOCH_SECONDS"]
                 revealed_until = time_now + datetime.timedelta(seconds=reveal_duration_seconds)
                 reveal_duration_hours = reveal_duration_seconds / 3600
 
@@ -4809,23 +4812,23 @@ def _spy(req, kd_id, target_kd):
                 target_message = "You were infiltrated by drones on a spy operation."
             
             if operation == "siphonfunds":
-                siphon_damage = drones * BASE_DRONES_SIPHON_PER_DRONE
-                siphon_seconds = BASE_DRONES_SIPHON_TIME_MULTIPLIER * BASE_EPOCH_SECONDS
+                siphon_damage = drones * GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"]
+                siphon_seconds = GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"] * GAME_CONFIG["BASE_EPOCH_SECONDS"]
                 siphon_hours = siphon_seconds / 3600
                 siphon_until = time_now + datetime.timedelta(seconds=siphon_seconds)
                 message = f"Success! Your drones will siphon up to {siphon_damage} money over the next {siphon_hours} hours. You have lost {success_losses} drones."
                 target_message = f"Enemy drones have begun siphoning up to {siphon_damage} money over the next {siphon_hours} hours."
             if operation == "bombhomes":
-                homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * BASE_DRONES_MAX_HOME_DAMAGE), math.floor(drones / BASE_DRONES_PER_HOME_DAMAGE))
+                homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * GAME_CONFIG["BASE_DRONES_MAX_HOME_DAMAGE"]), math.floor(drones / GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"]))
                 message = f"Success! You have destroyed {homes_damage} homes. You have lost {success_losses} drones."
                 target_message = f"Enemy drones have destroyed {homes_damage} homes."
             if operation == "sabotagefuelplants":
-                fuel_plant_damage = min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * BASE_DRONES_MAX_FUEL_PLANT_DAMAGE), math.floor(drones / BASE_DRONES_PER_FUEL_PLANT_DAMAGE))
+                fuel_plant_damage = min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * GAME_CONFIG["BASE_DRONES_MAX_FUEL_PLANT_DAMAGE"]), math.floor(drones / GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"]))
                 message = f"Success! You have destroyed {fuel_plant_damage} fuel plants. You have lost {success_losses} drones."
                 target_message = f"Enemy drones have destroyed {fuel_plant_damage} fuel plants."
             if operation == "kidnappopulation":
-                kidnap_damage = min(math.floor(max_target_kd_info["population"] * BASE_DRONES_MAX_KIDNAP_DAMAGE), math.floor(drones / BASE_DRONES_PER_KIDNAP))
-                kidnap_return = math.floor(kidnap_damage * BASE_KIDNAP_RETURN_RATE)
+                kidnap_damage = min(math.floor(max_target_kd_info["population"] * GAME_CONFIG["BASE_DRONES_MAX_KIDNAP_DAMAGE"]), math.floor(drones / GAME_CONFIG["BASE_DRONES_PER_KIDNAP"]))
+                kidnap_return = math.floor(kidnap_damage * GAME_CONFIG["BASE_KIDNAP_RETURN_RATE"])
                 message = f"Success! You have kidnapped {kidnap_damage} civilians. {kidnap_return} civilians have joined your population. You have lost {success_losses} drones."
                 target_message = f"Enemy drones have kidnapped {kidnap_damage} civilians."
 
@@ -4894,7 +4897,7 @@ def _spy(req, kd_id, target_kd):
 
 
     if revealed:
-        revealed_until = (time_now + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER)).isoformat()
+        revealed_until = (time_now + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
         if revealed_until < max_target_kd_info["next_resolve"]["revealed"]:
             next_resolve = max_target_kd_info["next_resolve"]
             next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until)
@@ -4913,7 +4916,7 @@ def _spy(req, kd_id, target_kd):
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(revealed_payload),
         )
-        target_message += f" Their kingdom 'stats' and 'drones' will be revealed for {BASE_EPOCH_SECONDS * BASE_REVEAL_DURATION_MULTIPLIER / 3600} hours"
+        target_message += f" Their kingdom 'stats' and 'drones' will be revealed for {GAME_CONFIG['BASE_EPOCH_SECONDS'] * GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours"
 
     if target_patch_payload:
         target_kd_patch_response = REQUESTS_SESSION.patch(
@@ -4998,7 +5001,7 @@ def _rob_primitives(req, kd_id):
     start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
     now_time = datetime.datetime.now(datetime.timezone.utc)
     seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_rob_per_drone = BASE_PRIMITIVES_ROB_PER_DRONE(max(seconds_elapsed, 0))
+    primitives_rob_per_drone = GAME_CONFIG["BASE_PRIMITIVES_ROB_PER_DRONE"](max(seconds_elapsed, 0))
 
     valid_request, message = _validate_spy_request(
         drones,
@@ -5766,7 +5769,7 @@ def _validate_buy_votes(
 ):
     if votes <= 0:
         return False, "Votes must be greater than 0"
-    votes_cost = votes * BASE_VOTES_COST
+    votes_cost = votes * GAME_CONFIG["BASE_VOTES_COST"]
     if votes_cost > kd_info["money"]:
         return False, "Not enough money"
     
@@ -5790,7 +5793,7 @@ def buy_votes():
     kd_info = _get_kd_info(kd_id)
     
     votes = int(req["votes"])
-    votes_cost = votes * BASE_VOTES_COST
+    votes_cost = votes * GAME_CONFIG["BASE_VOTES_COST"]
 
     valid_votes, message = _validate_buy_votes(kd_info, votes)
     if not valid_votes:
@@ -5930,20 +5933,20 @@ def _calc_pop_change_per_epoch(
     max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
 
     overflow = max(current_hangar_capacity - max_hangar_capacity, 0)
-    pop_capacity = math.floor(kd_info_parse["structures"]["homes"] * BASE_HOMES_CAPACITY * (1 - int_fuelless * BASE_FUELLESS_POP_CAP_REDUCTION))
+    pop_capacity = math.floor(kd_info_parse["structures"]["homes"] * GAME_CONFIG["BASE_HOMES_CAPACITY"] * (1 - int_fuelless * GAME_CONFIG["BASE_FUELLESS_POP_CAP_REDUCTION"]))
     
     pop_capacity_less_overflow = max(pop_capacity - overflow, 0)
 
     pop_difference = pop_capacity_less_overflow - kd_info_parse["population"]
     if pop_difference < 0:
-        pct_pop_loss = BASE_PCT_POP_LOSS_PER_EPOCH * kd_info_parse["population"] * epoch_elapsed
-        stars_pop_loss = BASE_POP_LOSS_PER_STAR_PER_EPOCH * kd_info_parse["stars"] * epoch_elapsed
+        pct_pop_loss = GAME_CONFIG["BASE_PCT_POP_LOSS_PER_EPOCH"] * kd_info_parse["population"] * epoch_elapsed
+        stars_pop_loss = GAME_CONFIG["BASE_POP_LOSS_PER_STAR_PER_EPOCH"] * kd_info_parse["stars"] * epoch_elapsed
         greater_pop_loss = max(pct_pop_loss, stars_pop_loss)
         pop_change = -1 *min(greater_pop_loss, abs(pop_difference))
     elif pop_difference > 0:
-        pct_pop_gain = BASE_PCT_POP_GROWTH_PER_EPOCH * kd_info_parse["population"] * epoch_elapsed
-        stars_pop_gain = BASE_POP_GROWTH_PER_STAR_PER_EPOCH * kd_info_parse["stars"] * epoch_elapsed
-        greater_pop_gain = max(pct_pop_gain, stars_pop_gain) * (1 - int_fuelless * BASE_FUELLESS_POP_GROWTH_REDUCTION)
+        pct_pop_gain = GAME_CONFIG["BASE_PCT_POP_GROWTH_PER_EPOCH"] * kd_info_parse["population"] * epoch_elapsed
+        stars_pop_gain = GAME_CONFIG["BASE_POP_GROWTH_PER_STAR_PER_EPOCH"] * kd_info_parse["stars"] * epoch_elapsed
+        greater_pop_gain = max(pct_pop_gain, stars_pop_gain) * (1 - int_fuelless * GAME_CONFIG["BASE_FUELLESS_POP_GROWTH_REDUCTION"])
         pop_change = min(greater_pop_gain, pop_difference)
     else:
         pop_change = 0
@@ -5994,8 +5997,8 @@ def _calc_structures_losses(
         }
     
     structures_to_reduce = count_total_structures - kd_info_parse["stars"]
-    reduction_per_epoch = structures_to_reduce * BASE_STRUCTURES_LOSS_RETURN_RATE * epoch_elapsed
-    reduction_per_stars = min(kd_info_parse["stars"] * BASE_STRUCTURES_LOSS_PER_STAR_PER_EPOCH * epoch_elapsed, structures_to_reduce, count_current_structures)
+    reduction_per_epoch = structures_to_reduce * GAME_CONFIG["BASE_STRUCTURES_LOSS_RETURN_RATE"] * epoch_elapsed
+    reduction_per_stars = min(kd_info_parse["stars"] * GAME_CONFIG["BASE_STRUCTURES_LOSS_PER_STAR_PER_EPOCH"] * epoch_elapsed, structures_to_reduce, count_current_structures)
     greater_reduction = max(reduction_per_epoch, reduction_per_stars)
 
     structures_to_reduce = {
@@ -6033,7 +6036,7 @@ def _calc_siphons(
     siphons_in = _get_siphons_in(kd_id)
 
     total_siphons = sum([siphon["siphon"] for siphon in siphons_out])
-    siphon_pool = min(gross_income * BASE_MAX_SIPHON, total_siphons)
+    siphon_pool = min(gross_income * GAME_CONFIG["BASE_MAX_SIPHON"], total_siphons)
     keep_siphons = []
     for siphon_out in siphons_out:
         from_kd = siphon_out["from"]
@@ -6114,7 +6117,7 @@ def _kingdom_with_income(
 ):
     time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_now - time_last_income).total_seconds()
-    epoch_elapsed = seconds_elapsed / BASE_EPOCH_SECONDS
+    epoch_elapsed = seconds_elapsed / GAME_CONFIG["BASE_EPOCH_SECONDS"]
 
     is_isolationist = "Isolationist" in state["state"]["active_policies"]
     is_free_trade = "Free Trade" in state["state"]["active_policies"]
@@ -6123,9 +6126,9 @@ def _kingdom_with_income(
         "money": {},
         "fuel": {},
     }
-    income["money"]["mines"] = math.floor(kd_info_parse["structures"]["mines"]) * BASE_MINES_INCOME_PER_EPOCH
-    income["money"]["population"] = math.floor(kd_info_parse["population"]) * BASE_POP_INCOME_PER_EPOCH
-    income["money"]["bonus"] = current_bonuses["money_bonus"] - is_isolationist * BASE_ISOLATIONIST_DECREASE + is_free_trade * BASE_FREE_TRADE_INCREASE
+    income["money"]["mines"] = math.floor(kd_info_parse["structures"]["mines"]) * GAME_CONFIG["BASE_MINES_INCOME_PER_EPOCH"]
+    income["money"]["population"] = math.floor(kd_info_parse["population"]) * GAME_CONFIG["BASE_POP_INCOME_PER_EPOCH"]
+    income["money"]["bonus"] = current_bonuses["money_bonus"] - is_isolationist * GAME_CONFIG["BASE_ISOLATIONIST_DECREASE"] + is_free_trade * GAME_CONFIG["BASE_FREE_TRADE_INCREASE"]
     income["money"]["gross"] = (
         income["money"]["mines"]
         + income["money"]["population"]
@@ -6149,17 +6152,17 @@ def _kingdom_with_income(
                 continue
             total_units[key_unit] += value_unit
 
-    income["fuel"]["fuel_plants"] = math.floor(kd_info_parse["structures"]["fuel_plants"]) * BASE_FUEL_PLANTS_INCOME_PER_EPOCH
+    income["fuel"]["fuel_plants"] = math.floor(kd_info_parse["structures"]["fuel_plants"]) * GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"]
     income["fuel"]["bonus"] = current_bonuses["fuel_bonus"]
     income["fuel"]["units"] = {}
     for key_unit, value_units in total_units.items():
         income["fuel"]["units"][key_unit] = value_units * UNITS[key_unit]["fuel"]
-    income["fuel"]["population"] = kd_info_parse["population"] * BASE_POP_FUEL_CONSUMPTION_PER_EPOCH
+    income["fuel"]["population"] = kd_info_parse["population"] * GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"]
     income["fuel"]["shields"] = {}
-    income["fuel"]["shields"]["military"] = kd_info_parse["shields"]["military"] * 100 * kd_info_parse["stars"] * BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT
-    income["fuel"]["shields"]["spy"] = kd_info_parse["shields"]["spy"] * 100 * kd_info_parse["stars"] * BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT
-    income["fuel"]["shields"]["spy_radar"] = kd_info_parse["shields"]["spy_radar"] * 100 * kd_info_parse["stars"] * BASE_SPY_RADAR_COST_PER_LAND_PER_PCT
-    income["fuel"]["shields"]["missiles"] = kd_info_parse["shields"]["missiles"] * 100 * kd_info_parse["stars"] * BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT
+    income["fuel"]["shields"]["military"] = kd_info_parse["shields"]["military"] * 100 * kd_info_parse["stars"] * GAME_CONFIG["BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT"]
+    income["fuel"]["shields"]["spy"] = kd_info_parse["shields"]["spy"] * 100 * kd_info_parse["stars"] * GAME_CONFIG["BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT"]
+    income["fuel"]["shields"]["spy_radar"] = kd_info_parse["shields"]["spy_radar"] * 100 * kd_info_parse["stars"] * GAME_CONFIG["BASE_SPY_RADAR_COST_PER_LAND_PER_PCT"]
+    income["fuel"]["shields"]["missiles"] = kd_info_parse["shields"]["missiles"] * 100 * kd_info_parse["stars"] * GAME_CONFIG["BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT"]
 
     new_fuel = income["fuel"]["fuel_plants"] * (1 + income["fuel"]["bonus"])
     raw_fuel_consumption = (
@@ -6169,10 +6172,10 @@ def _kingdom_with_income(
     )
     income["fuel"]["net"] = new_fuel - raw_fuel_consumption
     net_fuel = income["fuel"]["net"] * epoch_elapsed
-    max_fuel = math.floor(kd_info_parse["structures"]["fuel_plants"]) * BASE_FUEL_PLANTS_CAPACITY
-    min_fuel = BASE_NEGATIVE_FUEL_CAP(kd_info_parse["stars"])
+    max_fuel = math.floor(kd_info_parse["structures"]["fuel_plants"]) * GAME_CONFIG["BASE_FUEL_PLANTS_CAPACITY"]
+    min_fuel = GAME_CONFIG["BASE_NEGATIVE_FUEL_CAP"](kd_info_parse["stars"])
 
-    income["drones"] = math.floor(kd_info_parse["structures"]["drone_factories"]) * BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH
+    income["drones"] = math.floor(kd_info_parse["structures"]["drone_factories"]) * GAME_CONFIG["BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH"]
     new_drones = income["drones"] * epoch_elapsed
 
     fuelless = kd_info_parse["fuel"] <= 0
@@ -6182,7 +6185,7 @@ def _kingdom_with_income(
     structures_to_reduce = _calc_structures_losses(kd_info_parse, epoch_elapsed)
 
     new_project_points = {
-        key_project: assigned_engineers * BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH * epoch_elapsed
+        key_project: assigned_engineers * GAME_CONFIG["BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH"] * epoch_elapsed
         for key_project, assigned_engineers in kd_info_parse["projects_assigned"].items()
     }
     new_kd_info = kd_info_parse.copy()
@@ -6577,11 +6580,11 @@ def _resolve_spy(kd_info_parse, time_update, current_bonuses):
     is_intelligence = "Intelligence" in galaxy_policies["active_policies"]
     next_resolve_time = max(
         resolve_time + datetime.timedelta(
-            seconds=BASE_EPOCH_SECONDS * BASE_SPY_ATTEMPT_TIME_MULTIPLIER * (1 - current_bonuses["spy_bonus"] - int(is_intelligence) * BASE_INTELLIGENCE_RETURN_REDUCTION)
+            seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"] * (1 - current_bonuses["spy_bonus"] - int(is_intelligence) * GAME_CONFIG["BASE_INTELLIGENCE_RETURN_REDUCTION"])
         ),
         time_update,
     )
-    if kd_info_parse["spy_attempts"] < BASE_SPY_ATTEMPTS_MAX:
+    if kd_info_parse["spy_attempts"] < GAME_CONFIG["BASE_SPY_ATTEMPTS_MAX"]:
         kd_info_parse["spy_attempts"] += 1
         try:
             ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
@@ -6626,7 +6629,7 @@ def _resolve_auto_spending(
     if new_settles:
         kd_info_parse["funding"]["settle"] = settle_funding - new_settles * settle_price
         
-        settle_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SETTLE_TIME_MULTIPLIER)).isoformat()
+        settle_time = (time_update + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_SETTLE_TIME_MULTIPLIER"])).isoformat()
         next_resolves["settles"] = min(settle_time, kd_info_parse["next_resolve"]["settles"])
         settle_payload = {
             "new_settles": [
@@ -6687,7 +6690,7 @@ def _resolve_auto_spending(
         
         kd_info_parse["funding"]["structures"] = structures_funding - structures_to_build * structures_price
         
-        structures_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_STRUCTURE_TIME_MULTIPLIER)).isoformat()
+        structures_time = (time_update + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_STRUCTURE_TIME_MULTIPLIER"])).isoformat()
         next_resolves["structures"] = min(structures_time, kd_info_parse["next_resolve"]["structures"])
         target_structures_to_build_nonzero = {
             k: v
@@ -6762,7 +6765,7 @@ def _resolve_auto_spending(
         kd_info_parse["funding"]["military"] = remaining_funding
         
         recruits_time = (time_update + datetime.timedelta(seconds=recruit_time)).isoformat()
-        mobis_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_SPECIALIST_TIME_MULTIPLIER)).isoformat()
+        mobis_time = (time_update + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_SPECIALIST_TIME_MULTIPLIER"])).isoformat()
         target_units_to_build_nonzero = {
             k: v
             for k, v in target_units_to_build.items()
@@ -6796,7 +6799,7 @@ def _resolve_auto_spending(
     if new_engineers:
         kd_info_parse["funding"]["engineers"] = engineers_funding - new_engineers * engineers_price
         
-        engineers_time = (time_update + datetime.timedelta(seconds=BASE_EPOCH_SECONDS * BASE_ENGINEER_TIME_MULTIPLIER)).isoformat()
+        engineers_time = (time_update + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_ENGINEER_TIME_MULTIPLIER"])).isoformat()
         next_resolves["engineers"] = min(engineers_time, kd_info_parse["next_resolve"]["engineers"])
         engineers_payload = {
             "new_engineers": [
@@ -6814,7 +6817,7 @@ def _resolve_auto_spending(
 
     next_resolve_time = max(
         resolve_time + datetime.timedelta(
-            seconds=BASE_EPOCH_SECONDS * BASE_AUTO_SPENDING_TIME_MULTIPLIER
+            seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_AUTO_SPENDING_TIME_MULTIPLIER"]
         ),
         time_update,
     )
@@ -7124,7 +7127,7 @@ def _mark_kingdom_death(kd_id):
 
 def _begin_election(state):
     election_start = datetime.datetime.fromisoformat(state["state"]["election_start"]).astimezone(datetime.timezone.utc)
-    election_end = election_start + datetime.timedelta(seconds=BASE_ELECTION_LENGTH_SECONDS)
+    election_end = election_start + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_ELECTION_LENGTH_MULTIPLIER"])
 
     state_payload = {
         "election_end": election_end.isoformat(),
@@ -7158,7 +7161,7 @@ def _begin_election(state):
 
 def _resolve_election(state):
     election_end = datetime.datetime.fromisoformat(state["state"]["election_end"]).astimezone(datetime.timezone.utc)
-    next_election_start = election_end + datetime.timedelta(seconds=BASE_ELECTION_RESULTS_DURATION)
+    next_election_start = election_end + datetime.timedelta(seconds=GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_ELECTION_RESULTS_DURATION_MULTIPLIER"])
 
 
     universe_politics = _get_universe_politics()
@@ -7203,7 +7206,7 @@ def _resolve_scores(kd_scores, time_update):
     }
     time_last_update = datetime.datetime.fromisoformat(scores["last_update"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_update - time_last_update).total_seconds()
-    epoch_elapsed = seconds_elapsed / BASE_EPOCH_SECONDS
+    epoch_elapsed = seconds_elapsed / GAME_CONFIG["BASE_EPOCH_SECONDS"]
     
     new_scores["last_update"] = time_update.isoformat()
 
