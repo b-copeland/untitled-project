@@ -13,6 +13,12 @@ import Galaxy from "./home/galaxy.js";
 import Message from "./home/message.js";
 import History from "./home/history.js";
 import Scores from "./home/scores.js";
+import Build from "./build/build.js";
+import Settle from "./build/settle.js";
+import Structures from "./build/structures.js";
+import Military from "./build/military.js";
+import Projects from "./build/projects.js";
+import BuildMissiles from "./build/buildmissiles.js";
 import "./help.css";
 
 const ScrollToHashElement = () => {
@@ -120,6 +126,12 @@ function Help(props) {
                 <Message state={state}/>
                 <History state={state}/>
                 <Scores state={state}/>
+                <Build state={state}/>
+                <Settle state={state}/>
+                <Structures state={state}/>
+                <Military state={state}/>
+                <Projects state={state}/>
+                <BuildMissiles state={state}/>
             </div>
         </div>
     )

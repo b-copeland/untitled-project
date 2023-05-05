@@ -125,41 +125,76 @@ MISSILES = {
 
 PROJECTS = {
     "pop_bonus": {
-        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
-        "max_bonus": 0.25
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases homes capacity by the current bonus",
+        "name": "Pop Bonus",
     },
     "fuel_bonus": {
-        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
-        "max_bonus": 0.25
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases fuel production by the current bonus",
+        "name": "Fuel Bonus",
     },
     "military_bonus": {
-        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
-        "max_bonus": 0.25
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases offensive and defensive strength by the current bonus",
+        "name": "Military Bonus",
     },
     "money_bonus": {
-        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
-        "max_bonus": 0.25
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases income from population and mines by the current bonus",
+        "name": "Money Bonus",
     },
     "general_bonus": {
-        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
-        "max_bonus": 0.25
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Decreases generals time to return by the current bonus",
+        "name": "Generals Speed Bonus",
     },
     "spy_bonus": {
-        "max_points": lambda stars: math.floor((stars ** 1.5) / 10),
-        "max_bonus": 0.25
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Decreases cooldown of spy attempts by the current bonus",
+        "name": "Spy Bonus",
     },
     "big_flexers": {
-        "max_points": lambda stars: 100000
+        "stars_power": 0,
+        "constant": 100000,
+        "desc": "Unlocks the Big Flexer unit",
+        "name": "Big Flexers",
     },
     "star_busters": {
-        "max_points": lambda stars: 100000
+        "stars_power": 0,
+        "constant": 100000,
+        "desc": "Unlocks the Star Buster missile",
+        "name": "Star Busters",
     },
     "galaxy_busters": {
-        "max_points": lambda stars: 250000
+        "stars_power": 0,
+        "constant": 250000,
+        "desc": "Unlocks the Galaxy Buster missile",
+        "name": "Galaxy Busters",
     },
     "drone_gadgets": {
-        "max_points": lambda stars: 50000
+        "stars_power": 0,
+        "constant": 50000,
+        "desc": "Unlocks the Spy Bonus project",
+        "name": "Drone Gadgets",
     },
+}
+
+PROJECTS_FUNCS = {
+    key: lambda stars: (stars ** PROJECTS.get(key, {}).get("stars_power", 0)) * PROJECTS.get(key, {}).get("constant", 1)
+    for key in PROJECTS
 }
 
 ONE_TIME_PROJECTS = [
@@ -454,16 +489,16 @@ INITIAL_KINGDOM_STATE = {
             "drone_gadgets": 0
         },
         "projects_max_points": {
-            "pop_bonus": PROJECTS["pop_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
-            "fuel_bonus": PROJECTS["fuel_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
-            "military_bonus": PROJECTS["military_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
-            "money_bonus": PROJECTS["money_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
-            "general_bonus": PROJECTS["general_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
-            "spy_bonus": PROJECTS["spy_bonus"]["max_points"](INITIAL_KINGDOM_STARS),
-            "big_flexers": PROJECTS["big_flexers"]["max_points"](0),
-            "star_busters": PROJECTS["star_busters"]["max_points"](0),
-            "galaxy_busters": PROJECTS["galaxy_busters"]["max_points"](0),
-            "drone_gadgets": PROJECTS["drone_gadgets"]["max_points"](0),
+            "pop_bonus": PROJECTS_FUNCS["pop_bonus"](INITIAL_KINGDOM_STARS),
+            "fuel_bonus": PROJECTS_FUNCS["fuel_bonus"](INITIAL_KINGDOM_STARS),
+            "military_bonus": PROJECTS_FUNCS["military_bonus"](INITIAL_KINGDOM_STARS),
+            "money_bonus": PROJECTS_FUNCS["money_bonus"](INITIAL_KINGDOM_STARS),
+            "general_bonus": PROJECTS_FUNCS["general_bonus"](INITIAL_KINGDOM_STARS),
+            "spy_bonus": PROJECTS_FUNCS["spy_bonus"](INITIAL_KINGDOM_STARS),
+            "big_flexers": PROJECTS_FUNCS["big_flexers"](0),
+            "star_busters": PROJECTS_FUNCS["star_busters"](0),
+            "galaxy_busters": PROJECTS_FUNCS["galaxy_busters"](0),
+            "drone_gadgets": PROJECTS_FUNCS["drone_gadgets"](0),
         },
         "projects_assigned": {
             "pop_bonus": 0,
@@ -890,6 +925,8 @@ def get_state():
             "missile_capacity_per_missile_silo": GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"],
             "engineers_capacity_per_workshop": GAME_CONFIG["BASE_WORKSHOP_CAPACITY"],
         },
+        "projects": PROJECTS,
+        "missiles": MISSILES,
         "income_per_pop": GAME_CONFIG["BASE_POP_INCOME_PER_EPOCH"],
         "fuel_consumption_per_pop": GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"],
         "primitives_defense_per_star": primitives_defense_per_star,
@@ -4072,7 +4109,7 @@ def _attack(req, kd_id, target_kd):
 
     target_kd_info["stars"] = max(target_kd_info["stars"], 0)
     for key_project, project_dict in PROJECTS.items():
-        project_max_func = project_dict["max_points"]
+        project_max_func = PROJECTS_FUNCS[key_project]
         kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
         target_kd_info["projects_max_points"][key_project] = project_max_func(target_kd_info["stars"])
 
@@ -4473,7 +4510,7 @@ def _attack_primitives(req, kd_id):
                 kd_info_parse["money"] += value_spoil
 
     for key_project, project_dict in PROJECTS.items():
-        project_max_func = project_dict["max_points"]
+        project_max_func = PROJECTS_FUNCS[key_project]
         kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
 
     kd_patch_response = REQUESTS_SESSION.patch(
@@ -5596,7 +5633,7 @@ def _launch_missiles(req, kd_id, target_kd):
     defender_patch_payload["stars"] = max(defender_patch_payload["stars"], 0)
     defender_patch_payload["projects_max_points"] = {}
     for key_project, project_dict in PROJECTS.items():
-        project_max_func = project_dict["max_points"]
+        project_max_func = PROJECTS_FUNCS[key_project]
         defender_patch_payload["projects_max_points"][key_project] = project_max_func(max_target_kd_info["stars"])
     defender_kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
@@ -7300,7 +7337,7 @@ def refresh_data():
             )
             kd_info_parse["stars"] += new_stars
             for key_project, project_dict in PROJECTS.items():
-                project_max_func = project_dict["max_points"]
+                project_max_func = PROJECTS_FUNCS[key_project]
                 kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
         
         if "mobis" in categories_to_resolve:
