@@ -26,6 +26,11 @@ import ShareIntel from "./conquer/shareintel.js";
 import LaunchMissiles from "./conquer/launchmissiles.js";
 import Schedule from "./conquer/schedule.js";
 import Primitives from "./conquer/primitives.js";
+import Politics from "./politics/politics.js";
+import EmpirePolitics from "./politics/empirepolitics.js";
+import UniversePolitics from "./politics/universepolitics.js";
+import CreateKingdom from "./other/createkingdom.js";
+import ViewKingdom from "./other/viewkingdom.js";
 import "./help.css";
 
 const ScrollToHashElement = () => {
@@ -145,6 +150,11 @@ function Help(props) {
                 <LaunchMissiles state={state}/>
                 <Schedule state={state}/>
                 <Primitives state={state}/>
+                <Politics state={state}/>
+                <EmpirePolitics state={state}/>
+                <UniversePolitics state={state}/>
+                <CreateKingdom state={state}/>
+                <ViewKingdom state={state}/>
             </div>
         </div>
     )

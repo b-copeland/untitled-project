@@ -54,6 +54,7 @@ const doubleClickRoutes = {
   "/build": 0,
   "/conquer": 0,
   "/galaxypolitics": 0,
+  "/help": 0,
 }
 
 function SideNavbar(props) {
@@ -156,6 +157,8 @@ function SideNavbar(props) {
                 </>
                 : null
               }
+              <br />
+              <Nav.Link as={Link} to="/help" onClick={() => handleDoubleClick("/help")} style={{"fontWeight": "bold"}}>Help</Nav.Link>
             </>
             : null
           }
