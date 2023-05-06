@@ -11,6 +11,7 @@ import time
 import uuid
 import logging
 from logging.config import dictConfig
+from functools import partial
 
 from functools import wraps
 
@@ -192,9 +193,15 @@ PROJECTS = {
     },
 }
 
+PROJECTS_MAX_POINTS_FUNC = lambda stars, stars_power, constant: (stars ** stars_power) * constant
+
 PROJECTS_FUNCS = {
-    key: lambda stars: (stars ** PROJECTS.get(key, {}).get("stars_power", 0)) * PROJECTS.get(key, {}).get("constant", 1)
-    for key in PROJECTS
+    key: partial(
+        PROJECTS_MAX_POINTS_FUNC,
+        stars_power=project_dict["stars_power"],
+        constant=project_dict["constant"]
+    )
+    for key, project_dict in PROJECTS.items()
 }
 
 ONE_TIME_PROJECTS = [
