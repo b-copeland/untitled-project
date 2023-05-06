@@ -329,7 +329,7 @@ function AttackPrimitives(props) {
                             type="switch"
                             id="enable-auto-attack-switch"
                             label="Enable Auto Attack"
-                            checked={props.data.kingdom.auto_attack_enabled}
+                            checked={props.data.kingdom.auto_attack_enabled || false}
                             onChange={handleEnabledChange}
                             disabled={props.loading.kingdom}
                         />
@@ -343,7 +343,7 @@ function AttackPrimitives(props) {
                             aria-describedby="basic-addon3" 
                             onChange={handleAutoPureInput}
                             value={autoPure} 
-                            placeholder={props.data.kingdom.auto_attack_settings?.pure * 100}
+                            placeholder={(props.data.kingdom.auto_attack_settings?.pure || 0) * 100}
                             autoComplete="off"
                         />
                         <InputGroup.Text id="pure-offense-pct" style={{width: '12%'}}>
@@ -359,7 +359,7 @@ function AttackPrimitives(props) {
                             aria-describedby="basic-addon3" 
                             onChange={handleAutoFlexInput}
                             value={autoFlex} 
-                            placeholder={props.data.kingdom.auto_attack_settings?.flex * 100}
+                            placeholder={(props.data.kingdom.auto_attack_settings?.flex || 0) * 100}
                             autoComplete="off"
                         />
                         <InputGroup.Text id="flex-offense-pct" style={{width: '12%'}}>
@@ -382,9 +382,9 @@ function AttackPrimitives(props) {
 
 function RobPrimitives(props) {
     const [results, setResults] = useState([]);
-    const [drones, setDrones] = useState();
+    const [drones, setDrones] = useState("");
     const [shieldDrones, setShieldDrones] = useState(false);
-    const [enabled, setEnabled] = useState(props.data.kingdom.auto_rob_enabled)
+    const [enabled, setEnabled] = useState(props.data.kingdom.auto_rob_enabled || false)
     const [autoDrones, setAutoDrones] = useState("");
     const [autoSpyAttemptsKeep, setAutoSpyAttemptsKeep] = useState("");
     const [autoShieldDrones, setAutoShieldDrones] = useState(props.data.kingdom.auto_rob_settings?.shielded || false);
@@ -493,6 +493,7 @@ function RobPrimitives(props) {
                         type="switch"
                         id="shield-drones-switch"
                         label="Shield Drones?"
+                        checked={shieldDrones}
                         onChange={handleShieldChange}
                     />
                 </Form>
@@ -514,7 +515,7 @@ function RobPrimitives(props) {
                             type="switch"
                             id="enable-auto-rob-switch"
                             label="Enable Auto Rob"
-                            checked={props.data.kingdom.auto_rob_enabled}
+                            checked={props.data.kingdom.auto_rob_enabled || false}
                             onChange={handleEnabledChange}
                             disabled={props.loading.kingdom}
                         />
@@ -528,7 +529,7 @@ function RobPrimitives(props) {
                             aria-describedby="basic-addon3" 
                             onChange={handleAutoDronesInput}
                             value={autoDrones} 
-                            placeholder={props.data.kingdom.auto_rob_settings?.drones * 100}
+                            placeholder={(props.data.kingdom.auto_rob_settings?.drones || 0) * 100}
                             autoComplete="off"
                         />
                         <InputGroup.Text id="text-engineers-percent" style={{width: '12%'}}>
@@ -544,7 +545,7 @@ function RobPrimitives(props) {
                             aria-describedby="basic-addon3" 
                             onChange={handleAutoSpyAttemptsKeepChange}
                             value={autoSpyAttemptsKeep} 
-                            placeholder={props.data.kingdom.auto_rob_settings?.keep}
+                            placeholder={props.data.kingdom.auto_rob_settings?.keep || 0}
                             autoComplete="off"
                         />
                     </InputGroup>
