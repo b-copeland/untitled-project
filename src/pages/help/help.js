@@ -80,56 +80,58 @@ function Help(props) {
         fetchData();
     }, []);
     return (
+      <>
+        <div className="help-dropdown-div">
+          <Dropdown
+              id={`help-dropdown`}
+              size="sm"
+              variant="secondary"
+              >
+              <Dropdown.Toggle>
+                  Go To
+              </Dropdown.Toggle>
+
+              <Dropdown.Menu
+                  className="help-dropdown-button"
+              >
+                  <Dropdown.Header>Home</Dropdown.Header>
+                  <Dropdown.Item href="#home">Home</Dropdown.Item>
+                  <Dropdown.Item href="#news">News</Dropdown.Item>
+                  <Dropdown.Item href="#galaxy">Galaxy</Dropdown.Item>
+                  <Dropdown.Item href="#message">Message</Dropdown.Item>
+                  <Dropdown.Item href="#history">History</Dropdown.Item>
+                  <Dropdown.Item href="#scores">Scores</Dropdown.Item>
+                  <Dropdown.Divider />
+                  <Dropdown.Header>Build</Dropdown.Header>
+                  <Dropdown.Item href="#build">Build</Dropdown.Item>
+                  <Dropdown.Item href="#settle">Settle</Dropdown.Item>
+                  <Dropdown.Item href="#structures">Structures</Dropdown.Item>
+                  <Dropdown.Item href="#military">Military</Dropdown.Item>
+                  <Dropdown.Item href="#projects">Projects</Dropdown.Item>
+                  <Dropdown.Item href="#buildmissiles">Build Missiles</Dropdown.Item>
+                  <Dropdown.Divider />
+                  <Dropdown.Header>Conquer</Dropdown.Header>
+                  <Dropdown.Item href="#conquer">Conquer</Dropdown.Item>
+                  <Dropdown.Item href="#attack">Attack</Dropdown.Item>
+                  <Dropdown.Item href="#spy">Spy</Dropdown.Item>
+                  <Dropdown.Item href="#shareintel">Share Intel</Dropdown.Item>
+                  <Dropdown.Item href="#launchmissiles">Launch Missiles</Dropdown.Item>
+                  <Dropdown.Item href="#schedule">Schedule</Dropdown.Item>
+                  <Dropdown.Item href="#primitives">Primitives</Dropdown.Item>
+                  <Dropdown.Divider />
+                  <Dropdown.Header>Politics</Dropdown.Header>
+                  <Dropdown.Item href="#politics">Politics</Dropdown.Item>
+                  <Dropdown.Item href="#empirepolitics">Empire Politics</Dropdown.Item>
+                  <Dropdown.Item href="#universepolitics">Universe Politics</Dropdown.Item>
+                  <Dropdown.Divider />
+                  <Dropdown.Header>Other</Dropdown.Header>
+                  <Dropdown.Item href="#createkingdom">Create Kingdom</Dropdown.Item>
+                  <Dropdown.Item href="#viewkingdom">View Kingdom</Dropdown.Item>
+              </Dropdown.Menu>
+          </Dropdown>
+        </div>
         <div className="help">
             <ScrollToHashElement />
-            <h1>Help</h1>
-            <Dropdown
-                id={`help-dropdown`}
-                size="sm"
-                variant="secondary"
-                >
-                <Dropdown.Toggle>
-                    Go To
-                </Dropdown.Toggle>
-
-                <Dropdown.Menu
-                    className="help-dropdown-button"
-                >
-                    <Dropdown.Header>Home</Dropdown.Header>
-                    <Dropdown.Item href="#home">Home</Dropdown.Item>
-                    <Dropdown.Item href="#news">News</Dropdown.Item>
-                    <Dropdown.Item href="#galaxy">Galaxy</Dropdown.Item>
-                    <Dropdown.Item href="#message">Message</Dropdown.Item>
-                    <Dropdown.Item href="#history">History</Dropdown.Item>
-                    <Dropdown.Item href="#scores">Scores</Dropdown.Item>
-                    <Dropdown.Divider />
-                    <Dropdown.Header>Build</Dropdown.Header>
-                    <Dropdown.Item href="#build">Build</Dropdown.Item>
-                    <Dropdown.Item href="#settle">Settle</Dropdown.Item>
-                    <Dropdown.Item href="#structures">Structures</Dropdown.Item>
-                    <Dropdown.Item href="#military">Military</Dropdown.Item>
-                    <Dropdown.Item href="#projects">Projects</Dropdown.Item>
-                    <Dropdown.Item href="#buildmissiles">Build Missiles</Dropdown.Item>
-                    <Dropdown.Divider />
-                    <Dropdown.Header>Conquer</Dropdown.Header>
-                    <Dropdown.Item href="#conquer">Conquer</Dropdown.Item>
-                    <Dropdown.Item href="#attack">Attack</Dropdown.Item>
-                    <Dropdown.Item href="#spy">Spy</Dropdown.Item>
-                    <Dropdown.Item href="#shareintel">Share Intel</Dropdown.Item>
-                    <Dropdown.Item href="#launchmissiles">Launch Missiles</Dropdown.Item>
-                    <Dropdown.Item href="#schedule">Schedule</Dropdown.Item>
-                    <Dropdown.Item href="#primitives">Primitives</Dropdown.Item>
-                    <Dropdown.Divider />
-                    <Dropdown.Header>Politics</Dropdown.Header>
-                    <Dropdown.Item href="#politics">Politics</Dropdown.Item>
-                    <Dropdown.Item href="#empirepolitics">Empire Politics</Dropdown.Item>
-                    <Dropdown.Item href="#universepolitics">Universe Politics</Dropdown.Item>
-                    <Dropdown.Divider />
-                    <Dropdown.Header>Other</Dropdown.Header>
-                    <Dropdown.Item href="#createkingdom">Create Kingdom</Dropdown.Item>
-                    <Dropdown.Item href="#viewkingdom">View Kingdom</Dropdown.Item>
-                </Dropdown.Menu>
-            </Dropdown>
             <div className="help-contents">
                 <Home state={state}/>
                 <News state={state}/>
@@ -157,6 +159,7 @@ function Help(props) {
                 <ViewKingdom state={state}/>
             </div>
         </div>
+      </>
     )
 }
 

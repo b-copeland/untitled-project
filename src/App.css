@@ -80,7 +80,7 @@
 
 .router-body {
   width: 95%;
-  overflow-y: auto;
+  /* overflow-y: auto; */
 }
 
 .header-container {
@@ -112,4 +112,13 @@
         font-size: 16px;
         min-width: 175px;
     }
+}
+
+.nav-button {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 999;
+  width: 30%;
 }

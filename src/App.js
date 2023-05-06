@@ -350,7 +350,7 @@ function Content(props) {
   )
   return (
     <div className="main">
-      <div className="d-lg-none"><Button variant="primary" type="submit" onClick={handleShowNav}>Nav</Button></div>
+      <div className="d-lg-none nav-button"><Button variant="primary" type="submit" onClick={handleShowNav}>Nav</Button></div>
 
       {/* <div className="navdiv"> */}
       {/* </div> */}

@@ -5,6 +5,18 @@
     min-height: 600px;
 }
 
+.help-dropdown-div {
+    position: -webkit-sticky;
+    position: fixed;
+    top: 0;
+    right: 0;
+    padding: 10px;
+    width: 100%;
+    display: flex;
+    justify-content: right;
+    z-index: 998;
+}
+
 .help-contents {
     display: flex;
     flex-direction: column;
