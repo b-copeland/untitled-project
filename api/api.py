@@ -242,7 +242,7 @@ GAME_CONFIG = {
     "BASE_MISSILE_TIME_MULTIPLER": 24, 
 
     "BASE_GENERALS_ATTACK_MODIFIER": 0.03,
-    "BASE_GENERALS_RETURN_TIME_MULTIPLIER": 8, 
+    "BASE_GENERALS_RETURN_TIME_MULTIPLIER": 12, 
     "BASE_RETURN_TIME_PENALTY_PER_COORDINATE": 0.01, 
     "BASE_DEFENDER_UNIT_LOSS_RATE": 0.05, 
     "BASE_ATTACKER_UNIT_LOSS_RATE": 0.05, 
@@ -265,6 +265,8 @@ GAME_CONFIG = {
     "BASE_DRONES_FAILURE_LOSS_RATE": 0.02, 
     "BASE_DRONES_SHIELDING_LOSS_REDUCTION": 0.5, 
     "BASE_REVEAL_DURATION_MULTIPLIER": 8, 
+
+    "BASE_MAX_SHARE_CUT": 0.15, 
 
     "BASE_DRONES_SIPHON_PER_DRONE": 8, 
     "BASE_DRONES_SIPHON_TIME_MULTIPLIER": 8, 
@@ -3358,6 +3360,11 @@ def offer_shared():
         or shared_to_kd == "" or shared_to_kd == None
     ):
         return flask.jsonify({"message": "The request selections are not complete"}), 400
+    
+    if (
+        cut > GAME_CONFIG["BASE_MAX_SHARE_CUT"]
+    ):
+        return flask.jsonify({"message": f"Cut must be less than {GAME_CONFIG['BASE_MAX_SHARE_CUT']:.1%}"}), 400
 
     kd_id = flask_praetorian.current_user().kd_id
     
