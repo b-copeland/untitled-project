@@ -277,7 +277,7 @@ function Content(props) {
       if ((jsonMessage.update || []).length > 0) {
         updateData(jsonMessage.update);
       }
-      setMessageHistory((prev) => prev.concat(lastMessage));
+      setMessageHistory((prev) => [lastMessage, ...prev.slice(0, 9)]);
     }
   }, [lastMessage, setMessageHistory]);
 
