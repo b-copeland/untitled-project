@@ -47,7 +47,6 @@
 .navdiv {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #9e9e9e;
   height: 100%;
   width: clamp(300px,24rem,800px);
   position: sticky;

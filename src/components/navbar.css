@@ -16,3 +16,11 @@
     margin-top: auto;
     align-self: center;
 }
+
+.nav-canvas {
+    min-height: 100vh;
+    /* position: sticky; */
+    /* top: 0; */
+    border-right: 1px solid #9e9e9e;
+    max-width: 80vw;
+}

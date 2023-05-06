@@ -89,7 +89,7 @@ function SideNavbar(props) {
       {/* <Button variant="primary" className="d-lg-none" onClick={handleShow}>
         Launch
       </Button> */}
-      <Offcanvas show={props.showNav} onHide={handleClose} responsive="lg" style={{minWidth: "300px"}}>
+      <Offcanvas className="nav-canvas" show={props.showNav} onHide={handleClose} responsive="lg" style={{minWidth: "300px"}}>
       <Offcanvas.Header closeButton />
       <Offcanvas.Body>
       <div className="navdiv">
