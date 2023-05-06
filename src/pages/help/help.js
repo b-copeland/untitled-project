@@ -19,6 +19,13 @@ import Structures from "./build/structures.js";
 import Military from "./build/military.js";
 import Projects from "./build/projects.js";
 import BuildMissiles from "./build/buildmissiles.js";
+import Conquer from "./conquer/conquer.js";
+import Attack from "./conquer/attack.js";
+import Spy from "./conquer/spy.js";
+import ShareIntel from "./conquer/shareintel.js";
+import LaunchMissiles from "./conquer/launchmissiles.js";
+import Schedule from "./conquer/schedule.js";
+import Primitives from "./conquer/primitives.js";
 import "./help.css";
 
 const ScrollToHashElement = () => {
@@ -115,8 +122,7 @@ function Help(props) {
                     <Dropdown.Divider />
                     <Dropdown.Header>Other</Dropdown.Header>
                     <Dropdown.Item href="#createkingdom">Create Kingdom</Dropdown.Item>
-                    <Dropdown.Item href="#empirepolitics">View Kingdom</Dropdown.Item>
-                    <Dropdown.Item href="#universepolitics">Universe Politics</Dropdown.Item>
+                    <Dropdown.Item href="#viewkingdom">View Kingdom</Dropdown.Item>
                 </Dropdown.Menu>
             </Dropdown>
             <div className="help-contents">
@@ -132,6 +138,13 @@ function Help(props) {
                 <Military state={state}/>
                 <Projects state={state}/>
                 <BuildMissiles state={state}/>
+                <Conquer state={state}/>
+                <Attack state={state}/>
+                <Spy state={state}/>
+                <ShareIntel state={state}/>
+                <LaunchMissiles state={state}/>
+                <Schedule state={state}/>
+                <Primitives state={state}/>
             </div>
         </div>
     )
