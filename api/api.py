@@ -933,6 +933,7 @@ def get_state():
         "fuel_consumption_per_pop": GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"],
         "primitives_defense_per_star": primitives_defense_per_star,
         "primitives_rob_per_drone": primitives_rob_per_drone,
+        "aggro_operations": AGGRO_OPERATIONS,
         "game_config": GAME_CONFIG,
     }), 200
 
@@ -3336,18 +3337,7 @@ def accept_shared():
         pass
     return (flask.jsonify(shared_info_response.text), 200)
 
-@app.route('/api/offershared', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def offer_shared():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
-    req = flask.request.get_json(force=True)
+def _offer_shared(req, kd_id):
     shared_kd = str(req["shared"])
     shared_stat = req["shared_stat"]
     shared_to_kd = str(req["shared_to"])
@@ -3359,14 +3349,12 @@ def offer_shared():
         or shared_stat == "" or shared_stat == None
         or shared_to_kd == "" or shared_to_kd == None
     ):
-        return flask.jsonify({"message": "The request selections are not complete"}), 400
+        return {"message": "The request selections are not complete"}, 400
     
     if (
         cut > GAME_CONFIG["BASE_MAX_SHARE_CUT"]
     ):
-        return flask.jsonify({"message": f"Cut must be less than {GAME_CONFIG['BASE_MAX_SHARE_CUT']:.1%}"}), 400
-
-    kd_id = flask_praetorian.current_user().kd_id
+        return {"message": f"Cut must be less than {GAME_CONFIG['BASE_MAX_SHARE_CUT']:.1%}"}, 400
     
 
     galaxies_inverted, galaxies = _get_galaxies_inverted()
@@ -3377,17 +3365,17 @@ def offer_shared():
     shared_to_galaxy = galaxies_inverted.get(shared_to_kd, None)
 
     if your_galaxy != shared_to_galaxy and shared_to_kd != "galaxy":
-        return flask.jsonify({"message": "You can not share to kingdoms outside of your galaxy"}), 400
+        return {"message": "You can not share to kingdoms outside of your galaxy"}, 400
 
     if shared_stat not in revealed_info["revealed"][shared_kd].keys():
-        return flask.jsonify({"message": "You do not have that revealed stat to share"}), 400
+        return {"message": "You do not have that revealed stat to share"}, 400
     
     previously_shared_stats = []
     for shared_key, shared_dict in your_shared_info["shared"].items():
         if shared_key.split("_")[0] == shared_kd:
             previously_shared_stats.append(shared_dict["shared_stat"])
     if shared_stat in previously_shared_stats:
-        return flask.jsonify({"message": "You can not share intel that was shared with you"}), 400
+        return {"message": "You can not share intel that was shared with you"}, 400
 
     shared_resolve_time = revealed_info["revealed"][shared_kd][shared_stat]
     your_payload = {
@@ -3465,7 +3453,25 @@ def offer_shared():
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps({"next_resolve": your_next_resolve}),
         )
-    return (flask.jsonify({"message": "Succesfully shared intel", "status": "success"}), 200)
+    payload = {
+        "message": "Succesfully shared intel", "status": "success"
+    }
+    return payload, 200
+
+@app.route('/api/offershared', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def offer_shared():
+    """
+    Ret
+    .. example::
+       $ curl http://localhost:5000/api/protected -X GET \
+         -H "Authorization: Bearer <your_token>"
+    """
+    req = flask.request.get_json(force=True)
+    payload, status_code = _offer_shared(req)
+    return (flask.jsonify(payload), status_code)
 
 def _get_pinned(kd_id):
     pinned_info = REQUESTS_SESSION.get(
@@ -7103,7 +7109,13 @@ def _resolve_schedule_intelspy(new_kd_info, schedule):
         new_kd_info, payload, status_code, success = _spy(req, new_kd_info["kdId"], target_kd)
         if success:
             if share_to_galaxy:
-                pass
+                req_share = {
+                    "shared": target_kd,
+                    "shared_stat": operation.replace("spy", ""),
+                    "shared_to": "galaxy",
+                    "cut": 0.0,
+                }
+                _offer_shared(req_share, new_kd_info["kdId"])
             break
     return new_kd_info
 
