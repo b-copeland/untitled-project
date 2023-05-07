@@ -1,8 +1,15 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
 
 function BuildMissiles(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "buildmissiles") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const prettyNames = props.state.pretty_names || {};
     const missilesDesc = props.state.missiles || {};
     const missilesRows = Object.keys(missilesDesc).map((missilesKey, iter) => {
@@ -16,7 +23,7 @@ function BuildMissiles(props) {
         </tr>
     })
     return (
-        <div id="buildmissiles" className="help-section">
+        <div id="buildmissiles" ref={yourElementRef} className="help-section">
             <h2>Build - Missiles</h2>
             <p>
                 You can build up to {props.state.game_config?.BASE_MISSILE_SILO_CAPACITY} missiles per Missile Silo that you own.

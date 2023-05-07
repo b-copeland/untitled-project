@@ -1,8 +1,15 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
 
 function Projects(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "projects") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const prettyNames = props.state.pretty_names || {};
     const projectsDesc = props.state.projects || {};
@@ -13,7 +20,7 @@ function Projects(props) {
         </tr>
     })
     return (
-        <div id="projects" className="help-section">
+        <div id="projects" ref={yourElementRef} className="help-section">
             <h2>Build - Projects</h2>
             <p>
                 The Train page allows you to train engineers. You can train 

@@ -1,10 +1,17 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 
 function Settle(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "settle") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
-        <div id="settle" className="help-section">
+        <div id="settle" ref={yourElementRef} className="help-section">
             <h2>Build - Settle</h2>
             <p>
                 The settle page allows you to explore stars to expand your kingdom. You can explore 

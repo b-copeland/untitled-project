@@ -1,10 +1,17 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 
 function Attack(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "attack") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
-        <div id="attack" className="help-section">
+        <div id="attack" ref={yourElementRef} className="help-section">
             <h2>Conquer - Attack</h2>
             <p>
                 The attack page is used to carry out attacks on other kingdoms. The first section of the page is used to 

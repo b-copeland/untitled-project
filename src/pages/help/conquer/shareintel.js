@@ -1,10 +1,17 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 
 function ShareIntel(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "shareintel") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
-        <div id="shareintel" className="help-section">
+        <div id="shareintel" ref={yourElementRef} className="help-section">
             <h2>Conquer - Share Intel</h2>
             <p>
                 The Share Intel page allows you to share intel that you have acquired with your 

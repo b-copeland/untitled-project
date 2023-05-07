@@ -1,8 +1,15 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
 
 function Military(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "military") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const unitsDesc = props.state.units || {};
     const prettyNames = props.state.pretty_names || {};
@@ -17,7 +24,7 @@ function Military(props) {
         </tr>
     })
     return (
-        <div id="military" className="help-section">
+        <div id="military" ref={yourElementRef} className="help-section">
             <h2>Build - Military</h2>
             <p>
                 The Recruits page allows you to train recruits. You can train 

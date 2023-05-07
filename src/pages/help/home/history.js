@@ -1,9 +1,16 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 
 function History(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "history") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     return (
-        <div id="history" className="help-section">
+        <div id="history" ref={yourElementRef} className="help-section">
             <h2>History</h2>
             <p>
                 The history page shows actions that you have taken against other kingdoms. 

@@ -1,8 +1,15 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
 
 function Spy(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "spy") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const siphonDurationHours = props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_DRONES_SIPHON_TIME_MULTIPLIER / 3600
     const siphonMax = displayPercent(props.state.game_config?.BASE_MAX_SIPHON);
@@ -28,7 +35,7 @@ function Spy(props) {
         </tr>
     })
     return (
-        <div id="spy" className="help-section">
+        <div id="spy" ref={yourElementRef} className="help-section">
             <h2>Conquer - Spy</h2>
             <p>
                 The spy page is used to carry out spy operations on other kingdoms. The first section of the page is used to 

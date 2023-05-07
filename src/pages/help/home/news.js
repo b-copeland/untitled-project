@@ -1,9 +1,16 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 
 function News(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "news") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     return (
-        <div id="news" className="help-section">
+        <div id="news" ref={yourElementRef} className="help-section">
             <h2>News</h2>
             <h4>News - Kingdom</h4>
             <p>

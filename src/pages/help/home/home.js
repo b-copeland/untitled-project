@@ -1,11 +1,18 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
 
 function Home(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "home") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
-        <div id="home" className="help-section">
+        <div id="home" ref={yourElementRef} className="help-section">
             <h2>Home</h2>
             <h4>Home - Kingdom</h4>
             <p>The kingdom page displays information about your kingdom's status, such as networth, stars, and units.</p>

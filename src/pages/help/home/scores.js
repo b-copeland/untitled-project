@@ -1,8 +1,15 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
 
 function Scores(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "scores") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const pointsRows = props.state.game_config?.NETWORTH_POINTS.map((points, iter) => {
         return <tr key={iter}>
             <td style={{textAlign: "left"}}>{iter + 1}</td>
@@ -10,7 +17,7 @@ function Scores(props) {
         </tr>
     })
     return (
-        <div id="scores" className="help-section">
+        <div id="scores" ref={yourElementRef} className="help-section">
             <h2>Scores</h2>
             <p>
                 The scores page displays the current leaders in Points, Networth, or Stars. 

@@ -1,9 +1,16 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 
 function Galaxy(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "galaxy") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     return (
-        <div id="galaxy" className="help-section">
+        <div id="galaxy" ref={yourElementRef} className="help-section">
             <h2>Galaxy</h2>
             <p>
                 The galaxy page allows you to view the different galaxies in the universe. 

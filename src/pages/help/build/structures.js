@@ -1,8 +1,15 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
 
 function Structures(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "structures") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const structuresDescs = {
         "homes": `Houses ${props.state.game_config?.BASE_HOMES_CAPACITY} population`,
@@ -21,7 +28,7 @@ function Structures(props) {
         </tr>
     })
     return (
-        <div id="structures" className="help-section">
+        <div id="structures" ref={yourElementRef} className="help-section">
             <h2>Build - Structures</h2>
             <p>
                 The structures page allows you to build structures to support your kingdom. You can build one structure 

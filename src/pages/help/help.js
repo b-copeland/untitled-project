@@ -33,39 +33,11 @@ import CreateKingdom from "./other/createkingdom.js";
 import ViewKingdom from "./other/viewkingdom.js";
 import "./help.css";
 
-const ScrollToHashElement = () => {
-    let location = useLocation();
-  
-    let hashElement = useMemo(() => {
-      let hash = location.hash;
-      const removeHashCharacter = (str) => {
-        const result = str.slice(1);
-        return result;
-      };
-  
-      if (hash) {
-        let element = document.getElementById(removeHashCharacter(hash));
-        return element;
-      } else {
-        return null;
-      }
-    }, [location]);
-  
-    useEffect(() => {
-      if (hashElement) {
-        hashElement.scrollIntoView({
-          behavior: "smooth",
-          // block: "end",
-          inline: "nearest",
-        });
-      }
-    }, [hashElement]);
-  
-    return null;
-  };
-
 function Help(props) {
+    let location = useLocation();
     const [state, setState] = useState({});
+    const [scrollTarget, setScrollTarget] = useState(props.scrollTarget || location.hash.slice(1));
+
     useEffect(() => {
         const fetchData = () => {
             fetch('api/state', {keepalive: true}).then(
@@ -79,6 +51,7 @@ function Help(props) {
         }
         fetchData();
     }, []);
+    console.log(scrollTarget);
     return (
       <>
         <div className="help-dropdown-div">
@@ -131,32 +104,31 @@ function Help(props) {
           </Dropdown>
         </div>
         <div className="help">
-            <ScrollToHashElement />
             <div className="help-contents">
-                <Home state={state}/>
-                <News state={state}/>
-                <Galaxy state={state}/>
-                <Message state={state}/>
-                <History state={state}/>
-                <Scores state={state}/>
-                <Build state={state}/>
-                <Settle state={state}/>
-                <Structures state={state}/>
-                <Military state={state}/>
-                <Projects state={state}/>
-                <BuildMissiles state={state}/>
-                <Conquer state={state}/>
-                <Attack state={state}/>
-                <Spy state={state}/>
-                <ShareIntel state={state}/>
-                <LaunchMissiles state={state}/>
-                <Schedule state={state}/>
-                <Primitives state={state}/>
-                <Politics state={state}/>
-                <EmpirePolitics state={state}/>
-                <UniversePolitics state={state}/>
-                <CreateKingdom state={state}/>
-                <ViewKingdom state={state}/>
+                <Home state={state} scrollTarget={scrollTarget}/>
+                <News state={state} scrollTarget={scrollTarget}/>
+                <Galaxy state={state} scrollTarget={scrollTarget}/>
+                <Message state={state} scrollTarget={scrollTarget}/>
+                <History state={state} scrollTarget={scrollTarget}/>
+                <Scores state={state} scrollTarget={scrollTarget}/>
+                <Build state={state} scrollTarget={scrollTarget}/>
+                <Settle state={state} scrollTarget={scrollTarget}/>
+                <Structures state={state} scrollTarget={scrollTarget}/>
+                <Military state={state} scrollTarget={scrollTarget}/>
+                <Projects state={state} scrollTarget={scrollTarget}/>
+                <BuildMissiles state={state} scrollTarget={scrollTarget}/>
+                <Conquer state={state} scrollTarget={scrollTarget}/>
+                <Attack state={state} scrollTarget={scrollTarget}/>
+                <Spy state={state} scrollTarget={scrollTarget}/>
+                <ShareIntel state={state} scrollTarget={scrollTarget}/>
+                <LaunchMissiles state={state} scrollTarget={scrollTarget}/>
+                <Schedule state={state} scrollTarget={scrollTarget}/>
+                <Primitives state={state} scrollTarget={scrollTarget}/>
+                <Politics state={state} scrollTarget={scrollTarget}/>
+                <EmpirePolitics state={state} scrollTarget={scrollTarget}/>
+                <UniversePolitics state={state} scrollTarget={scrollTarget}/>
+                <CreateKingdom state={state} scrollTarget={scrollTarget}/>
+                <ViewKingdom state={state} scrollTarget={scrollTarget}/>
             </div>
         </div>
       </>
