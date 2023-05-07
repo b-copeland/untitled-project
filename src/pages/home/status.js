@@ -67,6 +67,15 @@ function Status(props) {
             <span className="text-box-item-value">-{props.kingdom.income?.fuel?.shields[shield].toLocaleString()}</span>
         </div>
     )
+    function getTimeString(date) {
+        if (date === undefined) {
+            return "--"
+        }
+        const hours = Math.abs(Date.parse(date) - Date.now()) / 3.6e6;
+        var n = new Date(0, 0);
+        n.setSeconds(+hours * 60 * 60);
+        return n.toTimeString().slice(0, 8);
+    }
     return (
         <div className="status">
             <div className="text-box kingdom-card">
@@ -109,6 +118,10 @@ function Status(props) {
                 <div className="text-box-item">
                     <span className="text-box-item-title">Drones</span>
                     <span className="text-box-item-value">{Math.floor(props.kingdom.drones)?.toLocaleString()}</span>
+                </div>
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Next Spy Attempt</span>
+                    <span className="text-box-item-value">{getTimeString(props.kingdom.next_resolve?.spy_attempt)}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
