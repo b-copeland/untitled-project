@@ -25,7 +25,7 @@ function HelpButton(props) {
                 animation={false}
                 dialogClassName="help-modal"
             >
-                <Modal.Header className="help-modal-header" closeButton>
+                <Modal.Header closeButton>
                     <Modal.Title>Help</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
