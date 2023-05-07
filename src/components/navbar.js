@@ -38,6 +38,7 @@ const conquerPaths = [
   "/spy",
   "/shareintel",
   "/launchmissiles",
+  "/schedule",
   "/primitives",
 ]
 
