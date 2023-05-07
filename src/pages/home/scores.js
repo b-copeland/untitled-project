@@ -6,6 +6,7 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import "./scores.css";
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 function Scores(props) {
     const [key, setKey] = useState('points');
@@ -34,6 +35,7 @@ function Scores(props) {
             data={props.data}/>
         </Tab>
       </Tabs>
+      <HelpButton scrollTarget={"scores"}/>
     </>
     );
 }

@@ -13,6 +13,7 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";     
 import "primeicons/primeicons.css";
 import 'bootstrap/dist/css/bootstrap.css';
+import HelpButton from "../../components/helpbutton";
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -76,6 +77,7 @@ function HistoryContent(props) {
           <Stats />
         </Tab>
       </Tabs>
+      <HelpButton scrollTarget={"history"}/>
     </>
     )
 }

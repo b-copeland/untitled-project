@@ -17,6 +17,7 @@ import Spy from "./conquer/spy.js";
 import LaunchMissiles from "./conquer/launchmissiles.js";
 import Message from "./message.js";
 import Header from "../components/header";
+import HelpButton from "../components/helpbutton";
 
 function getTimeString(date) {
     if (date === undefined) {
@@ -415,6 +416,7 @@ function Galaxy(props) {
                     </tbody>
                 </Table>
             }
+            <HelpButton scrollTarget={"galaxy"}/>
         </div>
     </>
     );

@@ -8,6 +8,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer';
 import Select from 'react-select';
 import Header from "../components/header";
 import "./message.css";
+import HelpButton from "../components/helpbutton";
 
 function Message(props) {
     const [selected, setSelected] = useState(props.initialKd || undefined);
@@ -151,6 +152,7 @@ function Message(props) {
                     <span>Only last 100 messages are saved</span>
                     {messageDivs}
                 </div>
+                <HelpButton scrollTarget={"message"}/>
             </div>
         </>
     )

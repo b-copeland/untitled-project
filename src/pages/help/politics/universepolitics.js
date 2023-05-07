@@ -1,10 +1,17 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 
 function UniversePolitics(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "universepolitics") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
-        <div id="universepolitics" className="help-section">
+        <div id="universepolitics" ref={yourElementRef} className="help-section">
             <h2>Politics - Universe</h2>
             <p>
                 The Universe Politics page allows you periodically participate in universal elections. 

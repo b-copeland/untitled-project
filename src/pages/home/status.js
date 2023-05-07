@@ -11,6 +11,7 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./status.css";
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 function StatusContent(props) {
     const [key, setKey] = useState('kingdom');
@@ -41,6 +42,7 @@ function StatusContent(props) {
           <Structures kingdom={props.data.kingdom} structures={props.data.structures}/>
         </Tab>
       </Tabs>
+      <HelpButton scrollTarget={"home"}/>
     </>
     );
 }

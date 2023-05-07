@@ -7,12 +7,14 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import "./empirepolitics.css";
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 function EmpirePolitics(props) {
     return (
         <>
         <Header data={props.data} />
         <h2>Coming Soon</h2>
+        <HelpButton scrollTarget={"empirepolitics"}/>
         </>
     )
 }

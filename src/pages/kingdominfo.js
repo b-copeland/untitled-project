@@ -5,35 +5,39 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Table from 'react-bootstrap/Table';
 import "./kingdominfo.css";
+import HelpButton from "../components/helpbutton";
 
 
 function KingdomContent(props) {
     const [key, setKey] = useState('kingdom');
 
     return (
-      <Tabs
-        id="controlled-tab-example"
-        defaultActiveKey="kingdom"
-        justify
-        fill
-        variant="tabs"
-      >
-        <Tab eventKey="kingdom" title="Kingdom">
-          <Kingdom kingdom={props.data.kingdom} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} kdId={props.data.kdId}/>
-        </Tab>
-        <Tab eventKey="military" title="Military">
-          <Military kingdom={props.data.kingdom} />
-        </Tab>
-        <Tab eventKey="structures" title="Structures">
-          <Structures kingdom={props.data.kingdom}/>
-        </Tab>
-        <Tab eventKey="projects" title="Projects">
-          <Projects kingdom={props.data.kingdom}/>
-        </Tab>
-        <Tab eventKey="shields" title="Shields">
-          <Shields kingdom={props.data.kingdom} shields={props.data.shields}/>
-        </Tab>
-      </Tabs>
+        <>
+        <Tabs
+            id="controlled-tab-example"
+            defaultActiveKey="kingdom"
+            justify
+            fill
+            variant="tabs"
+        >
+            <Tab eventKey="kingdom" title="Kingdom">
+            <Kingdom kingdom={props.data.kingdom} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} kdId={props.data.kdId}/>
+            </Tab>
+            <Tab eventKey="military" title="Military">
+            <Military kingdom={props.data.kingdom} />
+            </Tab>
+            <Tab eventKey="structures" title="Structures">
+            <Structures kingdom={props.data.kingdom}/>
+            </Tab>
+            <Tab eventKey="projects" title="Projects">
+            <Projects kingdom={props.data.kingdom}/>
+            </Tab>
+            <Tab eventKey="shields" title="Shields">
+            <Shields kingdom={props.data.kingdom} shields={props.data.shields}/>
+            </Tab>
+        </Tabs>
+        <HelpButton scrollTarget={"viewkingdom"}/>
+        </>
     );
 }
 

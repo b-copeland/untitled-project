@@ -9,6 +9,7 @@ import InputGroup from 'react-bootstrap/InputGroup';
 import "./shareintel.css";
 import Select from 'react-select';
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 function ShareIntel(props) {
     const [selected, setSelected] = useState(props.initialKd || undefined);
@@ -265,6 +266,7 @@ function ShareIntel(props) {
                 </div>
                 : null
             }
+            <HelpButton scrollTarget={"shareintel"}/>
         </div>
         </>
     )

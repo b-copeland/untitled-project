@@ -10,6 +10,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./launchmissiles.css";
 import Select from 'react-select';
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 const initialAttackerValues = {
     "planet_busters": "",
@@ -274,6 +275,7 @@ function LaunchMissiles(props) {
                     }
                 </div>
             </div>
+            <HelpButton scrollTarget={"launchmissiles"}/>
         </div>
         </>
     )

@@ -8,6 +8,7 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./missiles.css";
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 const initialInput = {
     "planet_busters": "",
@@ -248,6 +249,7 @@ function Missiles(props) {
                 </div>
                 : null
             }
+            <HelpButton scrollTarget={"buildmissiles"}/>
         </div>
         </>
     )

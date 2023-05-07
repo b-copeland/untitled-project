@@ -11,6 +11,7 @@ import Tabs from 'react-bootstrap/Tabs';
 import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./primitives.css";
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 
 
@@ -41,6 +42,7 @@ function Primitives(props) {
             data={props.data}/>
         </Tab>
       </Tabs>
+      <HelpButton scrollTarget={"primitives"}/>
     </>
     );
 }

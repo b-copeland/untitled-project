@@ -5,7 +5,8 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
-import "./createkingdom.css"
+import "./createkingdom.css";
+import HelpButton from "../components/helpbutton";
 
 const initialStructuresChoices = {
     "homes": 60,
@@ -453,6 +454,7 @@ function CreateKingdom(props) {
                 <Button variant="primary" type="submit" onClick={onClickGoHome}>Go to Home</Button>
             </div>
         }
+            <HelpButton scrollTarget={"createkingdom"}/>
         </div>
     )
 }

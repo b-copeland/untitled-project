@@ -8,6 +8,7 @@ import Tabs from 'react-bootstrap/Tabs';
 import "./galaxypolitics.css";
 import Select from 'react-select';
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 function GalaxyPolitics(props) {
     const [key, setKey] = useState('leader');
@@ -36,6 +37,7 @@ function GalaxyPolitics(props) {
             data={props.data}/>
         </Tab>
       </Tabs>
+      <HelpButton scrollTarget={"politics"}/>
     </>
     );
 }

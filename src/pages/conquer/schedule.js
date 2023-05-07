@@ -13,6 +13,7 @@ import Accordion from 'react-bootstrap/Accordion';
 import Select from 'react-select';
 import "./schedule.css";
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 function Schedule(props) {
     const [key, setKey] = useState('add');
@@ -40,6 +41,7 @@ function Schedule(props) {
                     data={props.data}/>
                 </Tab>
             </Tabs>
+            <HelpButton scrollTarget={"schedule"}/>
         </>
     )
 }

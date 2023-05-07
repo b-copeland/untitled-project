@@ -10,6 +10,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./attack.css";
 import Select from 'react-select';
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 
 const initialDefenderValues = {
@@ -592,6 +593,7 @@ function Attack(props) {
                     </Button>
                 }
             </div>
+            <HelpButton scrollTarget={"attack"}/>
         </div>
     </>
     )

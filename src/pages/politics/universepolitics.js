@@ -12,6 +12,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./universepolitics.css";
 import Select from 'react-select';
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -62,6 +63,7 @@ function UniversePolitics(props) {
                     <br />
                     <span>Voting will last for 1 day</span>
                 </div>
+                <HelpButton scrollTarget={"universepolitics"}/>
             </div>
             </>
         )
@@ -105,6 +107,7 @@ function UniversePolitics(props) {
                         </div>
                     </div>
                 </div>
+                <HelpButton scrollTarget={"universepolitics"}/>
             </div>
             </>
         )
@@ -395,6 +398,7 @@ function UniversePolitics(props) {
                     </div>
                 </div>
             </div>
+            <HelpButton scrollTarget={"universepolitics"}/>
         </div>
         </>
     )

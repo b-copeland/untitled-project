@@ -11,6 +11,7 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./structures.css"
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 function Structures(props) {
     const [key, setKey] = useState('build');
@@ -39,6 +40,7 @@ function Structures(props) {
             data={props.data}/>
         </Tab>
       </Tabs>
+      <HelpButton scrollTarget={"structures"}/>
     </>
     );
 }

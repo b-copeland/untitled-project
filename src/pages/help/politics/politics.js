@@ -1,10 +1,17 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 
 function Politics(props) {
+    const yourElementRef = useRef(null);
+  
+    useEffect(() => {
+      if (Object.keys(props.state).length > 0 && props.scrollTarget === "politics") {
+        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, [props.state]);
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
-        <div id="politics" className="help-section">
+        <div id="politics" ref={yourElementRef} className="help-section">
             <h2>Politics - Galaxy</h2>
             <p>
                 The Politics page allows you to interact with your galaxy's politics. The 

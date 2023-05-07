@@ -11,6 +11,7 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./projects.css";
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 function ProjectsContent(props) {
     const kdInfo = props.data.kingdom;
@@ -36,6 +37,7 @@ function ProjectsContent(props) {
             <Allocate kdInfo={kdInfo} engineersInfo={engineersInfo} projectsInfo={projectsInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
         </Tabs>
+        <HelpButton scrollTarget={"projects"}/>
     </>
     )
 }

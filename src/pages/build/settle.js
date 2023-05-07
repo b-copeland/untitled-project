@@ -8,6 +8,7 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./settle.css"
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 
 function Settle(props) {
@@ -99,6 +100,7 @@ function Settle(props) {
                     : null
                 }   
             </div>
+            <HelpButton scrollTarget={"settle"}/>
         </div>
         </>
         )

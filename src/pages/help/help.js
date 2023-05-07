@@ -54,6 +54,7 @@ function Help(props) {
     console.log(scrollTarget);
     return (
       <>
+        <div id="top" />
         <div className="help-dropdown-div">
           <Dropdown
               id={`help-dropdown`}
@@ -67,6 +68,8 @@ function Help(props) {
               <Dropdown.Menu
                   className="help-dropdown-button"
               >
+                  <Dropdown.Item href="#top">Top</Dropdown.Item>
+                  <Dropdown.Divider />
                   <Dropdown.Header>Home</Dropdown.Header>
                   <Dropdown.Item href="#home">Home</Dropdown.Item>
                   <Dropdown.Item href="#news">News</Dropdown.Item>

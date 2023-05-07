@@ -11,6 +11,7 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./military.css";
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 function MilitaryContent(props) {
     const kdInfo = props.data.kingdom;
@@ -38,6 +39,7 @@ function MilitaryContent(props) {
             <Allocate kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
         </Tabs>
+        <HelpButton scrollTarget={"military"}/>
     </>
     )
 }

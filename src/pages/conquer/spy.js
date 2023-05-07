@@ -10,6 +10,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./spy.css";
 import Select from 'react-select';
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 const initialDefenderValues = {
     "drones": "",
@@ -415,6 +416,7 @@ function Spy(props) {
                     }
                 </div>
             </div>
+            <HelpButton scrollTarget={"spy"}/>
         </div>
         </>
     )

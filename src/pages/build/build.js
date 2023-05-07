@@ -5,6 +5,7 @@ import Accordion from 'react-bootstrap/Accordion';
 import Table from 'react-bootstrap/Table';
 import "./build.css";
 import Header from "../../components/header";
+import HelpButton from "../../components/helpbutton";
 
 
 function getTimeString(date) {
@@ -208,6 +209,7 @@ function Build(props) {
             </Accordion.Body>
             </Accordion.Item>
         </Accordion>
+        <HelpButton scrollTarget={"build"}/>
     </div>
     </>
     );

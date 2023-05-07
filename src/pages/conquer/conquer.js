@@ -23,6 +23,7 @@ import "primereact/resources/primereact.min.css";
 import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";     
 import "primeicons/primeicons.css";
 import 'bootstrap/dist/css/bootstrap.css';
+import HelpButton from "../../components/helpbutton";
 
 
 function ConquerContent(props) {
@@ -77,6 +78,7 @@ function ConquerContent(props) {
             data={props.data}/>
         </Tab>
       </Tabs>
+      <HelpButton scrollTarget={"conquer"}/>
     </>
     );
 }
