@@ -10,7 +10,6 @@ import copy
 import time
 import uuid
 import logging
-from logging.config import dictConfig
 from functools import partial
 
 from functools import wraps
@@ -23,22 +22,6 @@ from flask_mail import Mail
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_sock import Sock, ConnectionClosed
-
-# dictConfig({
-#     'version': 1,
-#     'formatters': {'default': {
-#         'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
-#     }},
-#     'handlers': {'wsgi': {
-#         'class': 'logging.StreamHandler',
-#         'stream': 'ext://flask.logging.wsgi_errors_stream',
-#         'formatter': 'default'
-#     }},
-#     'root': {
-#         'level': 'INFO',
-#         'handlers': ['wsgi']
-#     }
-# })
 
 db = flask_sqlalchemy.SQLAlchemy()
 guard = flask_praetorian.Praetorian()
@@ -773,16 +756,6 @@ with app.app_context():
           roles='operator,admin',
           kd_created=True,
 		))
-    # for i in range(0, 6):
-    #     if db.session.query(User).filter_by(username=f'anewkd{i}').count() < 1:
-    #         db.session.add(User(
-    #         username=f'anewkd{i}',
-    #         password=guard.hash_password(f'anewkd{i}'),
-    #         roles='verified',
-    #         # kd_id=str(i),
-    #         # kd_created=True,
-    #         # kd_death_date=None if i != 4 else "populated"
-    #         ))
     db.session.commit()
 
 def alive_required(f):
@@ -806,13 +779,6 @@ def start_required(f):
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    """
-    Logs a user in by parsing a POST request containing user credentials and
-    issuing a JWT token.
-    .. example::
-       $ curl http://localhost:5000/api/login -X POST \
-         -d '{"username":"Yasoob","password":"strongpassword"}'
-    """
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
     password = req.get('password', None)
@@ -822,13 +788,6 @@ def login():
 
 @app.route('/api/adminlogin', methods=['POST'])
 def admin_login():
-    """
-    Logs a user in by parsing a POST request containing user credentials and
-    issuing a JWT token.
-    .. example::
-       $ curl http://localhost:5000/api/login -X POST \
-         -d '{"username":"Yasoob","password":"strongpassword"}'
-    """
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
     password = req.get('password', None)
@@ -841,13 +800,6 @@ def admin_login():
 @app.route('/api/adminrefresh', methods=['POST'])
 @flask_praetorian.roles_required('admin')
 def admin_refresh():
-    """
-    Refreshes an existing JWT by creating a new one that is a copy of the old
-    except that it has a refrehsed access expiration.
-    .. example::
-       $ curl http://localhost:5000/refresh -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     
     old_token = guard.read_token_from_header()
     new_token = guard.refresh_jwt_token(old_token)
@@ -856,13 +808,6 @@ def admin_refresh():
 
 @app.route('/api/refresh', methods=['POST'])
 def refresh():
-    """
-    Refreshes an existing JWT by creating a new one that is a copy of the old
-    except that it has a refrehsed access expiration.
-    .. example::
-       $ curl http://localhost:5000/refresh -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     
     old_token = guard.read_token_from_header()
     new_token = guard.refresh_jwt_token(old_token)
@@ -1094,12 +1039,6 @@ def listen(ws):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def kingdomid():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     kd_created = flask_praetorian.current_user().kd_created
     if kd_id == None:
@@ -1126,12 +1065,6 @@ def _validate_kingdom_name(
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def create_initial_kingdom():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     user = flask_praetorian.current_user()
 
@@ -1230,12 +1163,6 @@ def _validate_kingdom_choices(
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def create_kingdom_choices():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     user = flask_praetorian.current_user()
 
@@ -1293,12 +1220,6 @@ def create_kingdom_choices():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def kingdom():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     app.logger.info('Fetching kingdom %s', kd_id)
 
@@ -1355,12 +1276,6 @@ def _validate_shields(req_values):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def set_shields():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     req_values = {
         k: int(v or 0) / 100
@@ -1395,12 +1310,6 @@ def set_shields():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def news():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     news = REQUESTS_SESSION.get(
@@ -1415,12 +1324,6 @@ def news():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def messages():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     messages = REQUESTS_SESSION.get(
@@ -1435,12 +1338,6 @@ def messages():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def send_message(target_kd):
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
 
@@ -1488,12 +1385,6 @@ def _get_kingdoms():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def kingdoms():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kingdoms = _get_kingdoms()
     return (flask.jsonify(kingdoms), 200)
 
@@ -1510,12 +1401,6 @@ def _get_galaxy_info():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxies():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     galaxy_info = _get_galaxy_info()
     return (flask.jsonify(galaxy_info), 200)
 
@@ -1532,12 +1417,6 @@ def _get_galaxies_inverted():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxies_inverted():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     galaxies_inverted, _ = _get_galaxies_inverted()
     return (flask.jsonify(galaxies_inverted), 200)
 
@@ -1569,12 +1448,6 @@ def _get_empires_inverted():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def empires():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     empires = _get_empire_info()
     return (flask.jsonify(empires), 200)
 
@@ -1582,12 +1455,6 @@ def empires():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def empires_inverted():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     empires_inverted, _, galaxy_empires, _ = _get_empires_inverted()
     payload = {
         "empires_inverted": empires_inverted,
@@ -1601,12 +1468,6 @@ def empires_inverted():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_news():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     galaxies_inverted, _ = _get_galaxies_inverted()
@@ -1625,12 +1486,6 @@ def galaxy_news():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def empire_news():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     empires_inverted, _, _, _ = _get_empires_inverted()
@@ -1652,12 +1507,6 @@ def empire_news():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def universe_news():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     news = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
@@ -1672,12 +1521,6 @@ def universe_news():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def attack_history():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     history = REQUESTS_SESSION.get(
@@ -1693,12 +1536,6 @@ def attack_history():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def spy_history():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     history = REQUESTS_SESSION.get(
@@ -1714,12 +1551,6 @@ def spy_history():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def missile_history():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     history = REQUESTS_SESSION.get(
@@ -1750,12 +1581,6 @@ def _validate_spending(spending_input):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def spending():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -1894,24 +1719,10 @@ def _calc_maxes(
     units,
 ):
     maxes = {}
-    # maxes["defense"] = {
-    #     type_max: {
-    #         key: stat_map["defense"] * type_units.get(key, 0)
-    #         for key, stat_map in UNITS.items() 
-    #     }
-    #     for type_max, type_units in units.items() 
-    # }
     maxes["defense"] = {
         type_max: _calc_max_defense(type_units)
         for type_max, type_units in units.items() 
     }
-    # maxes["offense"] = {
-    #     type_max: {
-    #         key: stat_map["offense"] * type_units.get(key, 0)
-    #         for key, stat_map in UNITS.items() 
-    #     }
-    #     for type_max, type_units in units.items() 
-    # }
     maxes["offense"] = {
         type_max: _calc_max_offense(type_units)
         for type_max, type_units in units.items() 
@@ -2018,12 +1829,6 @@ def _get_mobis(kd_id):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def mobis():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     payload = _get_mobis(kd_id)
     return (flask.jsonify(payload), 200)
@@ -2041,12 +1846,6 @@ def _validate_recruits(recruits_input, current_available_recruits):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def recruits():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     
     recruits_input = int(req["recruitsInput"])
@@ -2131,12 +1930,6 @@ def _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cos
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def train_mobis():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     
     
@@ -2353,12 +2146,6 @@ def _get_structures_info(kd_id):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def structures():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     payload = _get_structures_info(kd_id)
 
@@ -2382,12 +2169,6 @@ def _validate_structures(structures_input, current_available_structures):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def build_structures():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     
     
@@ -2575,12 +2356,6 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def max_kingdom(other_kd_id):
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
 
@@ -2594,12 +2369,6 @@ def max_kingdom(other_kd_id):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxy(galaxy):
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     galaxies_inverted, galaxy_info = _get_galaxies_inverted()
@@ -2675,12 +2444,6 @@ def _get_settle(kd_id):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def get_settle():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     payload = _get_settle(kd_id)
     return (flask.jsonify(payload), 200)
@@ -2700,12 +2463,6 @@ def _validate_settles(settle_input, kd_info, settle_info, is_expansionist):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def settle():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     
     settle_input = int(req["settleInput"])
@@ -2778,12 +2535,6 @@ def _get_missiles_building(missiles_info):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def missiles():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     kd_info = REQUESTS_SESSION.get(
@@ -2848,12 +2599,6 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def build_missiles():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     
     
@@ -3001,12 +2746,6 @@ def _validate_engineers(engineers_input, current_available_engineers):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def train_engineers():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     
     engineers_input = int(req["engineersInput"])
@@ -3057,12 +2796,6 @@ def train_engineers():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def projects():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
 
@@ -3186,12 +2919,6 @@ def _validate_add_projects(req, available_engineers, kd_info_parse):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def manage_projects():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
@@ -3253,12 +2980,6 @@ def _get_revealed(kd_id):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def revealed():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     revealed_info = _get_revealed(kd_id)
@@ -3277,12 +2998,6 @@ def _get_shared(kd_id):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def shared():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     shared_info = _get_shared(kd_id)
@@ -3293,12 +3008,6 @@ def shared():
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def accept_shared():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     accepted_shared_from = str(req["shared"])
     accepted_kd, shared_from_kd = accepted_shared_from.split('_')
@@ -3470,12 +3179,6 @@ def _offer_shared(req, kd_id):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def offer_shared():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     payload, status_code = _offer_shared(req)
     return (flask.jsonify(payload), status_code)
@@ -3493,12 +3196,6 @@ def _get_pinned(kd_id):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def pinned():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     pinned_info = _get_pinned(kd_id)
@@ -3509,12 +3206,6 @@ def pinned():
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def update_pinned():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -3604,12 +3295,6 @@ def _get_max_kingdoms(kd_id, kingdoms):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def max_kingdoms():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     kingdoms = req["kingdoms"]
 
@@ -3623,12 +3308,6 @@ def max_kingdoms():
 @start_required
 # @flask_praetorian.roles_required('verified')
 def reveal_random_galaxy():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
 
@@ -3770,12 +3449,6 @@ def _calc_generals_return_time(
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def calculate_attack(target_kd):
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     attacker_raw_values = req["attackerValues"]
     defender_raw_values = req["defenderValues"]
@@ -4319,12 +3992,6 @@ def attack(target_kd):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def calculate_attack_primitives():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     attacker_raw_values = req["attackerValues"]
 
@@ -4601,12 +4268,6 @@ def _validate_auto_attack_settings(req_settings):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def auto_attack_primitives():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -5171,12 +4832,6 @@ def _validate_auto_rob_settings(req_settings):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def auto_rob_primitives():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -5733,12 +5388,6 @@ def _get_galaxy_politics(kd_id, galaxy_id=None):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_politics():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     galaxy_votes, _ = _get_galaxy_politics(kd_id)
@@ -5753,12 +5402,6 @@ def galaxy_politics():
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_leader():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
@@ -5795,12 +5438,6 @@ def galaxy_leader():
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_policies():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
@@ -5854,12 +5491,6 @@ def _validate_buy_votes(
 @start_required
 # @flask_praetorian.roles_required('verified')
 def buy_votes():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
@@ -5898,12 +5529,6 @@ def _get_universe_politics():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def universe_politics():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     kd_id = flask_praetorian.current_user().kd_id
     
     universe_politics = _get_universe_politics()
@@ -5945,12 +5570,6 @@ def _validate_cast_votes(
 @start_required
 # @flask_praetorian.roles_required('verified')
 def universe_policies():
-    """
-    Ret
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
@@ -6030,31 +5649,17 @@ def _calc_structures_losses(
     kd_info_parse,
     epoch_elapsed
 ):
-    # kd_id = kd_info_parse['kdId']
-    # structures_info = REQUESTS_SESSION.get(
-    #     os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-    #     headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    # )
-    # 
-    # structures_info_parse = json.loads(structures_info.text)
 
     current_structures = kd_info_parse["structures"]
-    # building_structures = structures_info_parse["structures"]
-
-    # start_time = datetime.datetime.now(datetime.timezone.utc)
-    # structures = _calc_structures(start_time, current_structures, building_structures, epochs=[999])
     count_current_structures = sum(current_structures.values())
-    # all_building_structures = sum(structures["hour_999"].values())
     total_structures = {
         k: (
             kd_info_parse["structures"].get(k, 0)
-            # + all_building_structures.get(k, 0) 
         )
         for k in STRUCTURES
     }
     count_total_structures = (
         count_current_structures
-        # + all_building_structures
     )
     if count_total_structures <= kd_info_parse["stars"]:
         return None
@@ -7311,7 +6916,7 @@ def _resolve_scores(kd_scores, time_update):
 
 @app.route('/api/refreshdata')
 def refresh_data():
-    """Performance periodic refresh tasks"""
+    """Perform periodic refresh tasks"""
     headers = flask.request.headers
     if headers.get("Refresh-Secret", "") != "domnusrefresh":
         return ("Not Authorized", 401)
@@ -7450,21 +7055,6 @@ def refresh_data():
     return "Refreshed", 200
 
 
-
-@app.route('/api/protected')
-@flask_praetorian.auth_required
-@flask_praetorian.roles_required('verified')
-def protected():
-    """
-    A protected endpoint. The auth_required decorator will require a header
-    containing a valid JWT
-    .. example::
-       $ curl http://localhost:5000/api/protected -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
-    return {"message": f'protected endpoint (allowed user {flask_praetorian.current_user().username})'}
-
-
 @app.route('/api/disable_user', methods=['POST'])
 @flask_praetorian.auth_required
 @flask_praetorian.roles_required('admin')
@@ -7520,17 +7110,6 @@ def signup():
 
 @app.route('/api/register', methods=['POST'])
 def register():
-    """
-    Registers a new user by parsing a POST request containing new user info and
-    dispatching an email with a registration token
-    .. example::
-       $ curl http://localhost:5000/register -X POST \
-         -d '{
-           "username":"Brandt", \
-           "password":"herlifewasinyourhands" \
-           "email":"brandt@biglebowski.com"
-         }'
-    """
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
     email = req.get('email', None)
@@ -7559,13 +7138,6 @@ def register():
 
 @app.route('/api/finalize')
 def finalize():
-    """
-    Finalizes a user registration with the token that they were issued in their
-    registration email
-    .. example::
-       $ curl http://localhost:5000/finalize -X GET \
-         -H "Authorization: Bearer <your_token>"
-    """
     registration_token = guard.read_token_from_header()
     user = guard.get_user_from_registration_token(registration_token)
     user.roles = 'operator,verified'
@@ -7573,21 +7145,6 @@ def finalize():
     _update_accounts()
     ret = {'access_token': guard.encode_jwt_token(user)}
     return (flask.jsonify(ret), 200)
-
-@app.route('/api/blacklist_token', methods=['POST'])
-@flask_praetorian.auth_required
-@flask_praetorian.roles_required('admin')
-def blacklist_token():
-    """
-    Blacklists an existing JWT by registering its jti claim in the blacklist.
-    .. example::
-       $ curl http://localhost:5000/blacklist_token -X POST \
-         -d '{"token":"<your_token>"}'
-    """
-    req = flask.request.get_json(force=True)
-    data = guard.extract_jwt_token(req['token'])
-    blacklist.add(data['jti'])
-    return flask.jsonify(message='token blacklisted ({})'.format(req['token']))
 
 @app.route('/api/time')
 @flask_praetorian.auth_required
