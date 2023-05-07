@@ -683,7 +683,7 @@ class User(db.Model):
 # Initialize flask app for the example
 app = flask.Flask(__name__, static_folder='../build', static_url_path=None)
 app.debug = True
-app.config['SECRET_KEY'] = 'top secret'
+app.config['SECRET_KEY'] = os.environ["SECRET_KEY"]
 app.config['JWT_ACCESS_LIFESPAN'] = {'hours': 24}
 app.config['JWT_REFRESH_LIFESPAN'] = {'hours': 24}
 app.config['MAIL_SERVER'] = 'smtp.sendgrid.net'
@@ -752,7 +752,7 @@ with app.app_context():
     if db.session.query(User).filter_by(username='admin').count() < 1:
         db.session.add(User(
           username='admin',
-          password=guard.hash_password('adminpass'),
+          password=guard.hash_password(os.environ["ADMIN_PASSWORD"]),
           roles='operator,admin',
           kd_created=True,
 		))
