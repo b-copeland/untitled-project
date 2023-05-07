@@ -51,7 +51,6 @@ function Help(props) {
         }
         fetchData();
     }, []);
-    console.log(scrollTarget);
     return (
       <>
         <div id="top" />

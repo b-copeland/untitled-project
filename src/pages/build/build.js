@@ -53,32 +53,32 @@ function Build(props) {
         })
         return remainingSpans;
     }
-    const settleData = props.data.settle.top_queue.map((queueItem) => 
-        <tr key={queueItem.time}>
+    const settleData = props.data.settle.top_queue.map((queueItem, iter) => 
+        <tr key={iter + "_" + queueItem.time}>
             <td>{getTimeString(queueItem.time)}</td>
             <td>{queueItem.amount}</td>
         </tr>
     )
-    const structuresData = getRemainingMultiSpans(props.data.structures.top_queue).map((queueItem) => 
-        <tr key={queueItem.time}>
+    const structuresData = getRemainingMultiSpans(props.data.structures.top_queue).map((queueItem, iter) => 
+        <tr key={iter + "_" + queueItem.time}>
             <td>{getTimeString(queueItem.time)}</td>
             <td>{queueItem.spans}</td>
         </tr>
     )
-    const unitsData = getRemainingMultiSpans(props.data.mobis.top_queue).map((queueItem) => 
-        <tr key={queueItem.time}>
+    const unitsData = getRemainingMultiSpans(props.data.mobis.top_queue).map((queueItem, iter) => 
+        <tr key={iter + "_" + queueItem.time}>
             <td>{getTimeString(queueItem.time)}</td>
             <td>{queueItem.spans}</td>
         </tr>
     )
-    const engineersData = props.data.engineers.top_queue.map((queueItem) => 
-        <tr key={queueItem.time}>
+    const engineersData = props.data.engineers.top_queue.map((queueItem, iter) => 
+        <tr key={iter + "_" + queueItem.time}>
             <td>{getTimeString(queueItem.time)}</td>
             <td>{queueItem.amount}</td>
         </tr>
     )
-    const missilesData = getRemainingMultiSpans(props.data.missiles.top_queue).map((queueItem) => 
-        <tr key={queueItem.time}>
+    const missilesData = getRemainingMultiSpans(props.data.missiles.top_queue).map((queueItem, iter) => 
+        <tr key={iter + "_" + queueItem.time}>
             <td>{getTimeString(queueItem.time)}</td>
             <td>{queueItem.spans}</td>
         </tr>
