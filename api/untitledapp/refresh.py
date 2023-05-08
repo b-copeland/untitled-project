@@ -929,9 +929,15 @@ def _resolve_auto_attack(kd_info_parse):
             continue
         else:
             if uas.UNITS[key_unit].get("defense", 0) == 0:
-                req["attackerValues"][key_unit] = math.floor(pct_units_available_pure[key_unit] * value_unit)
+                req["attackerValues"][key_unit] = min(
+                    math.floor(pct_units_available_pure[key_unit] * total_units.get(key_unit, 0)),
+                    value_unit,
+                )
             else:
-                req["attackerValues"][key_unit] = math.floor(pct_units_available_flex[key_unit] * value_unit)
+                req["attackerValues"][key_unit] = min(
+                    math.floor(pct_units_available_flex[key_unit] * total_units.get(key_unit, 0)),
+                    value_unit,
+                )
     kd_info_parse, payload, _ = uac._attack_primitives(req, kd_info_parse["kdId"])
     try:
         ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
@@ -1041,9 +1047,15 @@ def _resolve_schedule_attack(new_kd_info, schedule):
             continue
         else:
             if uas.UNITS[key_unit].get("defense", 0) == 0:
-                req["attackerValues"][key_unit] = math.floor(pct_units_available_pure[key_unit] * value_unit)
+                req["attackerValues"][key_unit] = min(
+                    math.floor(pct_units_available_pure[key_unit] * total_units.get(key_unit, 0)),
+                    value_unit,
+                )
             else:
-                req["attackerValues"][key_unit] = math.floor(pct_units_available_flex[key_unit] * value_unit)
+                req["attackerValues"][key_unit] = min(
+                    math.floor(pct_units_available_flex[key_unit] * total_units.get(key_unit, 0)),
+                    value_unit,
+                )
     new_kd_info, payload, status_code = uac._attack(req, new_kd_info["kdId"], schedule["options"]["target"])
     return new_kd_info
 
@@ -1086,9 +1098,15 @@ def _resolve_schedule_attackprimitives(new_kd_info, schedule):
             continue
         else:
             if uas.UNITS[key_unit].get("defense", 0) == 0:
-                req["attackerValues"][key_unit] = math.floor(pct_units_available_pure[key_unit] * value_unit)
+                req["attackerValues"][key_unit] = min(
+                    math.floor(pct_units_available_pure[key_unit] * total_units.get(key_unit, 0)),
+                    value_unit,
+                )
             else:
-                req["attackerValues"][key_unit] = math.floor(pct_units_available_flex[key_unit] * value_unit)
+                req["attackerValues"][key_unit] = min(
+                    math.floor(pct_units_available_flex[key_unit] * total_units.get(key_unit, 0)),
+                    value_unit,
+                )
     new_kd_info, payload, status_code = uac._attack_primitives(req, new_kd_info["kdId"])
     return new_kd_info
 
