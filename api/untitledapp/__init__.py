@@ -63,7 +63,7 @@ class User(db.Model):
 
 
 # Initialize flask app for the example
-app = flask.Flask(__name__, static_folder='../build', static_url_path=None)
+app = flask.Flask(__name__, static_folder='../../build', static_url_path=None)
 app.debug = True
 app.config['SECRET_KEY'] = os.environ["SECRET_KEY"]
 app.config['JWT_ACCESS_LIFESPAN'] = {'hours': 24}
