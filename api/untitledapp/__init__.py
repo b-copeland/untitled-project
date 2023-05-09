@@ -186,6 +186,7 @@ with app.app_context():
           kd_created=True,
 		))
     db.session.commit()
+
 @app.route('/api/resetstate', methods=["POST"])
 @flask_praetorian.roles_required('admin')
 def reset_state():
@@ -453,6 +454,7 @@ def create_kingdom_choices():
     payload["next_resolve"]["spy_attempt"] = (
         datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"])
     ).isoformat()
+    payload["coordinate"] = random.randint(0, 99)
 
     patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',

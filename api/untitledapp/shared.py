@@ -344,7 +344,7 @@ INITIAL_KINGDOM_STATE = {
         "name": "",
         "race": "",
         "status": "Active",
-        "coordinate": random.randint(0, 99),
+        "coordinate": 0,
         "last_income": "",
         "next_resolve": {
             "generals": DATE_SENTINEL,
