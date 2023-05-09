@@ -990,22 +990,23 @@ def _resolve_auto_projects(kd_info_parse):
         for k, v in pct_assigned.items()
         if (kd_info_parse["projects_target"].get(k, 0) - v) > 0
     }
-    total_target_gap = sum(target_gap.values())
-    target_gap_pct = {
-        k: v / total_target_gap
-        for k, v in target_gap.items()
-    }
-    target_engineers_to_assign = {
-        k: math.floor(v * engineers_to_assign)
-        for k, v in target_gap_pct.items()
-    }
-    leftover_engineers = engineers_to_assign - sum(target_engineers_to_assign.values())
-    highest_gap_pct = max(target_gap_pct, key=target_gap_pct.get)
-    target_engineers_to_assign[highest_gap_pct] += leftover_engineers
-    
-    new_projects_assigned = kd_info_parse["projects_assigned"]
-    for key_project, value_engineers in target_engineers_to_assign.items():
-        kd_info_parse["projects_assigned"][key_project] += value_engineers
+    if target_gap:
+        total_target_gap = sum(target_gap.values())
+        target_gap_pct = {
+            k: v / total_target_gap
+            for k, v in target_gap.items()
+        }
+        target_engineers_to_assign = {
+            k: math.floor(v * engineers_to_assign)
+            for k, v in target_gap_pct.items()
+        }
+        leftover_engineers = engineers_to_assign - sum(target_engineers_to_assign.values())
+        highest_gap_pct = max(target_gap_pct, key=target_gap_pct.get)
+        target_engineers_to_assign[highest_gap_pct] += leftover_engineers
+        
+        new_projects_assigned = kd_info_parse["projects_assigned"]
+        for key_project, value_engineers in target_engineers_to_assign.items():
+            kd_info_parse["projects_assigned"][key_project] += value_engineers
     return kd_info_parse
 
 def _resolve_schedule_attack(new_kd_info, schedule):
