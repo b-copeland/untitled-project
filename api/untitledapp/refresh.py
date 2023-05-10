@@ -800,9 +800,13 @@ def _resolve_auto_spending(
     units_desc = mobis_info["units_desc"]
     military_funding = kd_info_parse["funding"]["military"]
 
-    if military_funding > 0 and sum(kd_info_parse["units_target"].values()) > 0:
-        recruits_to_train = min(math.floor(military_funding / recruit_price), max_available_recruits)
-        remaining_funding = military_funding - recruits_to_train * recruit_price
+    if military_funding > 0 and (sum(kd_info_parse["units_target"].values()) > 0 or max_available_recruits > 0):
+        if kd_info_parse["recruits_before_units"]:
+            recruits_til_cap = max(kd_info_parse["max_recruits"] - kd_info_parse["units"]["recruits"], 0)
+            recruits_to_train = min(math.floor(military_funding / recruit_price), max_available_recruits, recruits_til_cap)
+            remaining_funding = military_funding - recruits_to_train * recruit_price
+        else:
+            remaining_funding = military_funding
         
         total_units = {
             k: current_units.get(k, 0) + building_units.get(k, 0)
@@ -843,6 +847,12 @@ def _resolve_auto_spending(
             kd_info_parse["units"]["recruits"] = kd_info_parse["units"]["recruits"] - units_to_build
             target_units_to_build[key_unit] = units_to_build
         
+
+        if not kd_info_parse["recruits_before_units"]:
+            recruits_til_cap = max(kd_info_parse["max_recruits"] - kd_info_parse["units"]["recruits"], 0)
+            recruits_to_train = min(math.floor(remaining_funding / recruit_price), max_available_recruits, recruits_til_cap)
+            remaining_funding = remaining_funding - recruits_to_train * recruit_price
+
         kd_info_parse["funding"]["military"] = remaining_funding
         
         recruits_time = (time_update + datetime.timedelta(seconds=recruit_time)).isoformat()
