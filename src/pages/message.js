@@ -57,7 +57,7 @@ function Message(props) {
                 <div className="text-box message-box">
                     <span>{message.message}</span>
                 </div>
-                <span className="title-span" style={{textAlign: "right"}}>{kdFullLabel(props.data.kingdom.kdId) + "\n" + new Date(message.time).toLocaleString()}</span>
+                <span className="title-span" style={{textAlign: "right"}}>{kdFullLabel(message.with) + "\n" + new Date(message.time).toLocaleString()}</span>
             </div>
         }
     });
