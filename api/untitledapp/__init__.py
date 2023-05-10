@@ -532,6 +532,8 @@ def send_message(target_kd):
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
 
+    kingdoms = uag._get_kingdoms()
+
     if len(req.get("message", "")) > 1024:
         return flask.jsonify({"message": "Messages must be less than 1024 characters"}), 400
 
@@ -559,6 +561,17 @@ def send_message(target_kd):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(payload_to)
     )
+    try:
+        ws = SOCK_HANDLERS[target_kd]
+        ws.send(json.dumps({
+            "message": f"New message from {kingdoms[kd_id]}!",
+            "status": "info",
+            "category": "Message",
+            "delay": 30000,
+            "update": ["messages"],
+        }))
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+        pass
     
     return (flask.jsonify({"message": "Message sent!", "status": "success"}), 200)
 
