@@ -41,3 +41,12 @@
     align-items: center;
     width: 90%;
 }
+
+.races-table {
+    font-size: 12px;
+}
+@media (min-width: 756px) {
+    .specialists-table {
+        font-size: 16px;
+    }
+}

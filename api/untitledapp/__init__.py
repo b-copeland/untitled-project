@@ -385,7 +385,8 @@ def create_kingdom_data():
 
 def _validate_kingdom_choices(
     unit_choices,
-    structures_choices,    
+    structures_choices,
+    race,
 ):
     sum_units_points = sum([
         value_unit * uas.KINGDOM_CREATOR_POINTS[key_unit]
@@ -409,6 +410,9 @@ def _validate_kingdom_choices(
     if sum_structures != uas.INITIAL_KINGDOM_STATE["kingdom"]["stars"]:
         return False, "You must use all stars for structures"
     
+    if race not in uas.RACES:
+        return False, "You must select a valid race"
+    
     return True, ""
 
 @app.route('/api/createkingdomchoices', methods=["POST"])
@@ -429,8 +433,9 @@ def create_kingdom_choices():
         k: int(v or 0)
         for k, v in req["structuresChoices"].items()
     }
+    race = req["race"]
 
-    valid_kd, message = _validate_kingdom_choices(unit_choices, structures_choices)
+    valid_kd, message = _validate_kingdom_choices(unit_choices, structures_choices, race)
     if not valid_kd:
         return (flask.jsonify(message), 400)
     
@@ -455,6 +460,7 @@ def create_kingdom_choices():
         datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"])
     ).isoformat()
     payload["coordinate"] = random.randint(0, 99)
+    payload["race"] = race
 
     patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',

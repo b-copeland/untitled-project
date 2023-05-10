@@ -58,7 +58,7 @@ function Settle(props) {
                 <div className="text-box settle-box">
                     <div className="text-box-item">
                         <span className="text-box-item-title">Settle Time</span>
-                        <span className="text-box-item-value">12h</span>
+                        <span className="text-box-item-value">{(settleInfo.settle_time || 0) / 3600}h</span>
                     </div>
                     <div className="text-box-item">
                         <span className="text-box-item-title">Settle Cost</span>

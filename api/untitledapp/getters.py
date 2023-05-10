@@ -53,6 +53,7 @@ def get_state():
         "primitives_rob_per_drone": primitives_rob_per_drone,
         "aggro_operations": uas.AGGRO_OPERATIONS,
         "game_config": uas.GAME_CONFIG,
+        "races": uas.RACES,
     }), 200
 
 def _get_scores():
@@ -430,13 +431,22 @@ def _calc_max_offense(
     other_bonuses=0.0,
     generals=4,
     fuelless=False,
+    lumina=False,
 ):
     int_fuelless = int(fuelless)
+    int_lumina = int(lumina)
     raw_attack = sum([
         stat_map["offense"] * unit_dict.get(key, 0)
         for key, stat_map in uas.UNITS.items() 
     ])
-    attack_w_bonuses = raw_attack * (1 + uas.GAME_FUNCS["BASE_GENERALS_BONUS"](generals) + military_bonus + other_bonuses - (int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"]))
+    attack_w_bonuses = raw_attack * (
+        1
+        + uas.GAME_FUNCS["BASE_GENERALS_BONUS"](generals)
+        + military_bonus
+        + other_bonuses
+        - (int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"])
+        - (int_lumina * uas.GAME_CONFIG["LUMINA_OFFENSE_REDUCTION"])
+    )
     return math.floor(attack_w_bonuses)
 
 def _calc_max_defense(
@@ -445,26 +455,36 @@ def _calc_max_defense(
     other_bonuses=0.0,
     shields=0.10,
     fuelless=False,
+    gaian=False,
 ):
 
     int_fuelless = int(fuelless)
+    int_gaian = int(gaian)
     raw_defense = sum([
         stat_map["defense"] * unit_dict.get(key, 0)
         for key, stat_map in uas.UNITS.items() 
     ])
-    defense_w_bonuses = raw_defense * (1 + shields + military_bonus + other_bonuses - (int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"]))
+    defense_w_bonuses = raw_defense * (
+        1
+        + shields
+        + military_bonus
+        + other_bonuses
+        - (int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"])
+        - (int_gaian * uas.GAME_CONFIG["GAIAN_DEFENSE_REDUCTION"])
+    )
     return math.floor(defense_w_bonuses)
 
 def _calc_maxes(
     units,
+    kd_info_parse,
 ):
     maxes = {}
     maxes["defense"] = {
-        type_max: _calc_max_defense(type_units)
+        type_max: _calc_max_defense(type_units, gaian=kd_info_parse["race"] == "Gaian")
         for type_max, type_units in units.items() 
     }
     maxes["offense"] = {
-        type_max: _calc_max_offense(type_units)
+        type_max: _calc_max_offense(type_units, lumina=kd_info_parse["race"] == "Lumina")
         for type_max, type_units in units.items() 
     }
     return maxes
@@ -532,7 +552,7 @@ def _get_mobis(kd_id):
 
     start_time = datetime.datetime.now(datetime.timezone.utc)
     units = _calc_units(start_time, current_units, generals_units, mobis_units)
-    maxes = _calc_maxes(units)
+    maxes = _calc_maxes(units, kd_info_parse)
 
     top_queue = sorted(
         mobis_info_parse,
@@ -774,7 +794,20 @@ def _get_settle_queue(kd_id):
 
 
 def _get_settle_price(kd_info, is_expansionist):
-    return uas.GAME_FUNCS["BASE_SETTLE_COST"](int(kd_info["stars"])) * (1 - int(is_expansionist) * uas.GAME_CONFIG["BASE_EXPANSIONIST_SETTLE_REDUCTION"])
+    return (
+        uas.GAME_FUNCS["BASE_SETTLE_COST"](int(kd_info["stars"]))
+        * (
+            1
+            - (int(is_expansionist) * uas.GAME_CONFIG["BASE_EXPANSIONIST_SETTLE_REDUCTION"])
+            - (int(kd_info["race"] == "Gaian") * uas.GAME_CONFIG["GAIAN_SETTLE_COST_REDUCTION"])
+        )
+    )
+
+def _get_settle_time(kd_info):
+    seconds = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SETTLE_TIME_MULTIPLIER"] * (
+        1 - (int(kd_info["race"] == "Gaian") * uas.GAME_CONFIG["GAIAN_SETTLE_TIME_REDUCTION"])
+    )
+    return seconds
 
 def _get_available_settle(kd_info, settle_info, is_expansionist):
     max_settle = uas.GAME_FUNCS["BASE_MAX_SETTLE"](int(kd_info["stars"]))
@@ -817,9 +850,11 @@ def _get_settle(kd_id):
     is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
     settle_price = _get_settle_price(kd_info_parse, is_expansionist)
     max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info, is_expansionist)
+    settle_time = _get_settle_time(kd_info_parse)
 
     payload = {
         "settle_price": settle_price,
+        "settle_time": settle_time,
         "max_available_settle": max_settle,
         "current_available_settle": available_settle,
         "top_queue": top_queue,
@@ -881,16 +916,28 @@ def missiles():
 
     current_missiles = kd_info_parse["missiles"]
 
-    
+    max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * math.floor(
+        uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
+        * (
+            1
+            + int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_SILO_CAPACITY_INCREASE"]
+        )
+    )
+
+    cost_modifier = (
+        1
+        - int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_COST_REDUCTION"]
+    )
 
     payload = {
         "current": current_missiles,
         "building": missiles_building,
         "build_time": uas.GAME_CONFIG["BASE_MISSILE_TIME_MULTIPLER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"],
-        "capacity": math.floor(kd_info_parse["structures"]["missile_silos"]) * uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"],
+        "capacity": max_available_missiles,
         "desc": uas.MISSILES,
         "top_queue": top_queue,
         "len_queue": len_queue,
+        "cost_modifier": cost_modifier,
     }
 
     return (flask.jsonify(payload), 200)
@@ -906,7 +953,13 @@ def _get_engineers_queue(kd_id):
     return engineers_info_parse["engineers"]
 
 def _calc_workshop_capacity(kd_info, engineers_building):
-    max_workshop_capacity = math.floor(kd_info["structures"]["workshops"]) * uas.GAME_CONFIG["BASE_WORKSHOP_CAPACITY"]
+    max_workshop_capacity = math.floor(kd_info["structures"]["workshops"]) * math.floor(
+        uas.GAME_CONFIG["BASE_WORKSHOP_CAPACITY"]
+        * (
+            1
+            - int(kd_info["race"] == "Xo") * uas.GAME_CONFIG["XO_WORKSHOP_CAPACITY_REDUCTION"]
+        )
+    )
     current_engineers = kd_info["units"]["engineers"]
     current_workshop_capacity = current_engineers + engineers_building
     return max_workshop_capacity, current_workshop_capacity

@@ -59,14 +59,14 @@ function Missiles(props) {
     const calcMissilesCosts = (input, desc) => {
         var total = 0
         for (const missile in input) {
-            total += (parseInt(input[missile] || 0) * desc[missile]["cost"]);
+            total += (parseInt(input[missile] || 0) * desc[missile]["cost"] * missilesInfo.cost_modifier);
         }
         return total
     }
     const calcMissilesFuelCosts = (input, desc) => {
         var total = 0
         for (const missile in input) {
-            total += (parseInt(input[missile] || 0) * desc[missile]["fuel_cost"]);
+            total += (parseInt(input[missile] || 0) * desc[missile]["fuel_cost"] * missilesInfo.cost_modifier);
         }
         return total
     }
@@ -115,8 +115,8 @@ function Missiles(props) {
                         <td style={{textAlign: "right"}}>{(missilesInfo.building.planet_busters || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{(missilesInfo.capacity || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                        <td style={{textAlign: "right"}}>{Math.floor(missilesInfo.desc.planet_busters.cost || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{Math.floor(missilesInfo.desc.planet_busters.fuel_cost || 0).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.planet_busters.cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
+                        <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.planet_busters.fuel_cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
                         {/* <td style={{textAlign: "right"}}>{(missilesInfo.desc.planet_busters.stars_damage || 0)}</td>
                         <td style={{textAlign: "right"}}>{(missilesInfo.desc.planet_busters.fuel_damage || 0)}</td>
                         <td style={{textAlign: "right"}}>{(missilesInfo.desc.planet_busters.pop_damage || 0)}</td> */}
@@ -140,8 +140,8 @@ function Missiles(props) {
                             <td style={{textAlign: "right"}}>{(missilesInfo.building.star_busters || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.capacity || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(missilesInfo.desc.star_busters.cost || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(missilesInfo.desc.star_busters.fuel_cost || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.star_busters.cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.star_busters.fuel_cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
                             {/* <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.stars_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.fuel_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.pop_damage || 0)}</td> */}
@@ -162,8 +162,8 @@ function Missiles(props) {
                             <td colSpan={2}>Research "Star Busters" Project to Unlock</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.capacity || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(missilesInfo.desc.star_busters.cost || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(missilesInfo.desc.star_busters.fuel_cost || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.star_busters.cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.star_busters.fuel_cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
                             {/* <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.stars_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.fuel_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.pop_damage || 0)}</td> */}
@@ -189,8 +189,8 @@ function Missiles(props) {
                             <td style={{textAlign: "right"}}>{(missilesInfo.building.galaxy_busters || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.capacity || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(missilesInfo.desc.galaxy_busters.cost || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(missilesInfo.desc.galaxy_busters.fuel_cost || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.galaxy_busters.cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.galaxy_busters.fuel_cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
                             {/* <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.stars_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.fuel_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.pop_damage || 0)}</td> */}
@@ -211,8 +211,8 @@ function Missiles(props) {
                             <td colSpan={2}>Research "Galaxy Busters" Project to Unlock</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.capacity || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(missilesInfo.desc.galaxy_busters.cost || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(missilesInfo.desc.galaxy_busters.fuel_cost || 0).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.galaxy_busters.cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
+                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.galaxy_busters.fuel_cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
                             {/* <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.stars_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.fuel_damage || 0)}</td>
                             <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.pop_damage || 0)}</td> */}

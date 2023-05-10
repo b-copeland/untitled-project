@@ -408,7 +408,12 @@ def settle():
 
     settle_price = uag._get_settle_price(kd_info_parse, is_expansionist)
     new_money = kd_info_parse["money"] - settle_price * settle_input
-    settle_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SETTLE_TIME_MULTIPLIER"])).isoformat()
+    settle_time = (
+        datetime.datetime.now(datetime.timezone.utc)
+        + datetime.timedelta(
+            seconds=uag._get_settle_time(kd_info_parse)
+        )
+    ).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["settles"] = min(next_resolve["settles"], settle_time)
     kd_payload = {'money': new_money, "next_resolve": next_resolve}
@@ -479,7 +484,13 @@ def build_missiles():
     missiles_info = uag._get_missiles_info(kd_id)
     missiles_building = uag._get_missiles_building(missiles_info)
 
-    max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
+    max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * math.floor(
+        uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
+        * (
+            1
+            + int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_SILO_CAPACITY_INCREASE"]
+        )
+    )
 
     missiles_request = {
         k: int(v or 0)
@@ -489,8 +500,12 @@ def build_missiles():
     if not valid_missiles:
         return (flask.jsonify({"message": 'Please enter valid missiles values'}), 400)
 
-    costs = sum([uas.MISSILES[key_missile]["cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
-    fuel_costs = sum([uas.MISSILES[key_missile]["fuel_cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
+    cost_multiplier = (
+        1
+        - int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_COST_REDUCTION"]
+    )
+    costs = sum([uas.MISSILES[key_missile]["cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
+    fuel_costs = sum([uas.MISSILES[key_missile]["fuel_cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
     new_money = kd_info_parse["money"] - costs
     new_fuel = kd_info_parse["fuel"] - fuel_costs
     missiles_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_MISSILE_TIME_MULTIPLER"])).isoformat()

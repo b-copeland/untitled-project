@@ -33,7 +33,15 @@ def _calc_pop_change_per_epoch(
     max_hangar_capacity, current_hangar_capacity = uag._calc_hangar_capacity(kd_info_parse, units)
 
     overflow = max(current_hangar_capacity - max_hangar_capacity, 0)
-    pop_capacity = math.floor(kd_info_parse["structures"]["homes"] * uas.GAME_CONFIG["BASE_HOMES_CAPACITY"] * (1 - int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_POP_CAP_REDUCTION"]))
+    pop_capacity = math.floor(
+        kd_info_parse["structures"]["homes"]
+        * uas.GAME_CONFIG["BASE_HOMES_CAPACITY"]
+        * (
+            1 
+            - (int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_POP_CAP_REDUCTION"])
+            - (int(kd_info_parse["race"] == "Vult") * uas.GAME_CONFIG["VULT_POPULATION_REDUCTION"])
+        )
+    )
     
     pop_capacity_less_overflow = max(pop_capacity - overflow, 0)
 
@@ -219,7 +227,7 @@ def _kingdom_with_income(
             total_units[key_unit] += value_unit
 
     income["fuel"]["fuel_plants"] = math.floor(kd_info_parse["structures"]["fuel_plants"]) * uas.GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"]
-    income["fuel"]["bonus"] = current_bonuses["fuel_bonus"]
+    income["fuel"]["bonus"] = current_bonuses["fuel_bonus"] + (int(kd_info_parse["race"] == "Lumina") * uas.GAME_CONFIG["LUMINA_FUEL_PRODUCTION_INCREASE"])
     income["fuel"]["units"] = {}
     for key_unit, value_units in total_units.items():
         income["fuel"]["units"][key_unit] = value_units * uas.UNITS[key_unit]["fuel"]
@@ -241,7 +249,14 @@ def _kingdom_with_income(
     max_fuel = math.floor(kd_info_parse["structures"]["fuel_plants"]) * uas.GAME_CONFIG["BASE_FUEL_PLANTS_CAPACITY"]
     min_fuel = uas.GAME_FUNCS["BASE_NEGATIVE_FUEL_CAP"](kd_info_parse["stars"])
 
-    income["drones"] = math.floor(kd_info_parse["structures"]["drone_factories"]) * uas.GAME_CONFIG["BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH"]
+    income["drones"] = (
+        math.floor(kd_info_parse["structures"]["drone_factories"])
+        * uas.GAME_CONFIG["BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH"]
+        * (
+            1
+            + (int(kd_info_parse["race"] == "Vult") * uas.GAME_CONFIG["VULT_DRONE_PRODUCTION_INCREASE"])
+        )
+    )
     new_drones = income["drones"] * epoch_elapsed
 
     fuelless = kd_info_parse["fuel"] <= 0
