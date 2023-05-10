@@ -18,8 +18,8 @@ const initialDefenderValues = {
     "defense": "",
     "flex": "",
     "big_flex": "",
-    "military_bonus": "",
-    "shields": "",
+    "military_bonus": "25",
+    "shields": "10",
 }
 const initialAttackerValues = {
     "recruits": "",
