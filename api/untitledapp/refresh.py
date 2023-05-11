@@ -1316,7 +1316,7 @@ def _resolve_scores(kd_scores, time_update):
 def refresh_data():
     """Perform periodic refresh tasks"""
     headers = flask.request.headers
-    if headers.get("Refresh-Secret", "") != "domnusrefresh":
+    if headers.get("Refresh-Secret", "") != os.environ["REFRESH_SECRET"]:
         return ("Not Authorized", 401)
     
     state = uag._get_state()
