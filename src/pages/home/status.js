@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import {useNavigate} from "react-router-dom";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Tab from 'react-bootstrap/Tab';
@@ -27,7 +28,7 @@ function StatusContent(props) {
         variant="tabs"
       >
         <Tab eventKey="kingdom" title="Kingdom">
-          <Status kingdom={props.data.kingdom} mobis={props.data.mobis} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} state={props.data.state}/>
+          <Status kingdom={props.data.kingdom} mobis={props.data.mobis} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} state={props.data.state} loading={props.loading} updateData={props.updateData}/>
         </Tab>
         <Tab eventKey="shields" title="Shields">
           <Shields data={props.data} loading={props.loading} updateData={props.updateData}/>
@@ -51,9 +52,23 @@ function capitalizeFirstLetter(string) {
 }
 
 function Status(props) {
+    const navigate = useNavigate();
+    const [clickedReset, setClickedReset] = useState(false);
     if (Object.keys(props.kingdom).length === 0 || Object.keys(props.state).length === 0) {
         return null;
     }
+    
+    if (clickedReset && !props.loading.kingdomid ) {
+        navigate("/createkingdom")
+    }
+    const onClickReset = (e)=>{
+        setClickedReset(true);
+        const updateFunc = () => authFetch('api/resetkingdom', {
+            method: 'post'
+        })
+        props.updateData(['kingdom', 'kingdomid'], [updateFunc]);
+    }
+
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const unitsFuelCosts = Object.keys(props.kingdom.income?.fuel?.units || {}).sort().map((unit) => 
         <div className="text-box-item" key={unit}>
@@ -76,145 +91,192 @@ function Status(props) {
         n.setSeconds(+hours * 60 * 60);
         return n.toTimeString().slice(0, 8);
     }
+    function getTimeSinceString(date) {
+        if (date === undefined) {
+            return "--"
+        }
+        const hours = Math.floor(Math.abs(Date.parse(date) - Date.now()) / 3.6e6);
+        const days = Math.floor(hours / 24);
+        if (hours > 48) {
+            return days.toString() + 'd'
+        }
+        return hours.toString() + 'h';
+    }
+    function getLongTimeString(date) {
+        if (date === undefined) {
+            return "--"
+        }
+        const hours = Math.abs(Date.parse(date) - Date.now()) / 3.6e6;
+        if (hours > 24) {
+            return getTimeSinceString(date)
+        }
+        var n = new Date(0, 0);
+        n.setSeconds(+hours * 60 * 60);
+        return n.toTimeString().slice(0, 8);
+    }
+    const timeNow = new Date()
+
+    const gameStart = new Date(props.state.state?.game_start);
+
     return (
         <div className="status">
-            <div className="text-box kingdom-card">
-                <h4>{props.kingdoms[props.kingdom.kdId] || ""} ({props.galaxies_inverted[props.kingdom.kdId] || ""})</h4>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Name</span>
-                    <span className="text-box-item-value">{props.kingdoms[props.kingdom.kdId] || ""}</span>
+            {
+                timeNow < gameStart
+                ? <div className="text-box kingdom-card game-start-card">
+                    <span>The game will begin in {getLongTimeString(gameStart)}</span>
+                    <br />
+                    <span>You can reset your kingdom to its initial state until that time.</span>
+                    
+                    {props.loading.kingdom
+                    ? <Button className="reset-kingdom-button" variant="warning" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="reset-kingdom-button" variant="warning" type="submit" onClick={onClickReset}>
+                        Reset Kingdom
+                    </Button>
+                    }
                 </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Race</span>
-                    <span className="text-box-item-value">{props.kingdom.race}</span>
+                : null 
+            }
+            <div className="status-kingdom-content">
+                <div className="text-box kingdom-card">
+                    <h4>{props.kingdoms[props.kingdom.kdId] || ""} ({props.galaxies_inverted[props.kingdom.kdId] || ""})</h4>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Name</span>
+                        <span className="text-box-item-value">{props.kingdoms[props.kingdom.kdId] || ""}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Race</span>
+                        <span className="text-box-item-value">{props.kingdom.race}</span>
+                    </div>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Networth</span>
+                        <span className="text-box-item-value">{props.kingdom.networth?.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Stars</span>
+                        <span className="text-box-item-value">{props.kingdom.stars?.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Population</span>
+                        <span className="text-box-item-value">{Math.floor(props.kingdom.population)?.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Fuel</span>
+                        <span className="text-box-item-value">{Math.floor(props.kingdom.fuel)?.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Money</span>
+                        <span className="text-box-item-value">{Math.floor(props.kingdom.money)?.toLocaleString()}</span>
+                    </div>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Engineers</span>
+                        <span className="text-box-item-value">{props.kingdom.units?.engineers.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Drones</span>
+                        <span className="text-box-item-value">{Math.floor(props.kingdom.drones)?.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Next Spy Attempt</span>
+                        <span className="text-box-item-value">{getTimeString(props.kingdom.next_resolve?.spy_attempt)}</span>
+                    </div>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Recruits</span>
+                        <span className="text-box-item-value">{props.mobis.units?.current_total?.recruits.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Attackers</span>
+                        <span className="text-box-item-value">{props.mobis.units?.current_total?.attack.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Defenders</span>
+                        <span className="text-box-item-value">{props.mobis.units?.current_total?.defense.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Flexers</span>
+                        <span className="text-box-item-value">{props.mobis.units?.current_total?.flex.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Big Flexers</span>
+                        <span className="text-box-item-value">{props.mobis.units?.current_total?.big_flex.toLocaleString()}</span>
+                    </div>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Planet Busters</span>
+                        <span className="text-box-item-value">{props.kingdom.missiles?.planet_busters.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Star Busters</span>
+                        <span className="text-box-item-value">{props.kingdom.missiles?.star_busters.toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Galaxy Busters</span>
+                        <span className="text-box-item-value">{props.kingdom.missiles?.galaxy_busters.toLocaleString()}</span>
+                    </div>
                 </div>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Networth</span>
-                    <span className="text-box-item-value">{props.kingdom.networth?.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Stars</span>
-                    <span className="text-box-item-value">{props.kingdom.stars?.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Population</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.population)?.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Fuel</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.fuel)?.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Money</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.money)?.toLocaleString()}</span>
-                </div>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Engineers</span>
-                    <span className="text-box-item-value">{props.kingdom.units?.engineers.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.drones)?.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Next Spy Attempt</span>
-                    <span className="text-box-item-value">{getTimeString(props.kingdom.next_resolve?.spy_attempt)}</span>
-                </div>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Recruits</span>
-                    <span className="text-box-item-value">{props.mobis.units?.current_total?.recruits.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Attackers</span>
-                    <span className="text-box-item-value">{props.mobis.units?.current_total?.attack.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Defenders</span>
-                    <span className="text-box-item-value">{props.mobis.units?.current_total?.defense.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Flexers</span>
-                    <span className="text-box-item-value">{props.mobis.units?.current_total?.flex.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Big Flexers</span>
-                    <span className="text-box-item-value">{props.mobis.units?.current_total?.big_flex.toLocaleString()}</span>
-                </div>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Planet Busters</span>
-                    <span className="text-box-item-value">{props.kingdom.missiles?.planet_busters.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Star Busters</span>
-                    <span className="text-box-item-value">{props.kingdom.missiles?.star_busters.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Galaxy Busters</span>
-                    <span className="text-box-item-value">{props.kingdom.missiles?.galaxy_busters.toLocaleString()}</span>
-                </div>
-            </div>
-            <div className="text-box income-box">
-                <h3>Income (per hour)</h3>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Money</span>
-                    <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.money?.net).toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Mines</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.income?.money?.mines).toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Population</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.income?.money?.population).toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Bonus</span>
-                    <span className="text-box-item-value">{displayPercent(props.kingdom.income?.money?.bonus)}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Siphons In</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.income?.money?.siphons_in).toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Siphons Out</span>
-                    <span className="text-box-item-value">-{Math.floor(props.kingdom.income?.money?.siphons_out).toLocaleString()}</span>
-                </div>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Fuel</span>
-                    <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.fuel?.net).toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Fuel Plants</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.income?.fuel?.fuel_plants).toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Bonus</span>
-                    <span className="text-box-item-value">{displayPercent(props.kingdom.income?.fuel?.bonus)}</span>
-                </div>
-                <br />
-                {unitsFuelCosts}
-                <br />
-                {shieldsFuelCosts}
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Population</span>
-                    <span className="text-box-item-value">-{Math.floor(props.kingdom.income?.fuel?.population).toLocaleString()}</span>
-                </div>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Population</span>
-                    <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.population).toLocaleString()}</span>
-                </div>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.drones).toLocaleString()}</span>
+                <div className="text-box income-box">
+                    <h3>Income (per hour)</h3>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Money</span>
+                        <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.money?.net).toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Mines</span>
+                        <span className="text-box-item-value">{Math.floor(props.kingdom.income?.money?.mines).toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Population</span>
+                        <span className="text-box-item-value">{Math.floor(props.kingdom.income?.money?.population).toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Bonus</span>
+                        <span className="text-box-item-value">{displayPercent(props.kingdom.income?.money?.bonus)}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Siphons In</span>
+                        <span className="text-box-item-value">{Math.floor(props.kingdom.income?.money?.siphons_in).toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Siphons Out</span>
+                        <span className="text-box-item-value">-{Math.floor(props.kingdom.income?.money?.siphons_out).toLocaleString()}</span>
+                    </div>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Fuel</span>
+                        <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.fuel?.net).toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Fuel Plants</span>
+                        <span className="text-box-item-value">{Math.floor(props.kingdom.income?.fuel?.fuel_plants).toLocaleString()}</span>
+                    </div>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Bonus</span>
+                        <span className="text-box-item-value">{displayPercent(props.kingdom.income?.fuel?.bonus)}</span>
+                    </div>
+                    <br />
+                    {unitsFuelCosts}
+                    <br />
+                    {shieldsFuelCosts}
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;Population</span>
+                        <span className="text-box-item-value">-{Math.floor(props.kingdom.income?.fuel?.population).toLocaleString()}</span>
+                    </div>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Population</span>
+                        <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.population).toLocaleString()}</span>
+                    </div>
+                    <br />
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Drones</span>
+                        <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.drones).toLocaleString()}</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -586,7 +648,7 @@ function Military(props) {
     const maxOffense = props.mobis?.maxes?.offense || {};
     const maxDefense = props.mobis?.maxes?.defense || {};
     return (
-        <div className="status">
+        <div className="status-kingdom-content">
             <div className="army-info">
                 <h2>Armies</h2>
                 <Table striped bordered hover className="army-table" size="sm">

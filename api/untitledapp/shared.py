@@ -524,6 +524,7 @@ INITIAL_KINGDOM_STATE = {
             "spy_radar": 0.0,
             "missiles": 0.0
         },
+        "income": {},
         "schedule": [],
     },
     "siphons_in": {"siphons_in": []},

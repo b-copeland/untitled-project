@@ -1,8 +1,24 @@
 .status {
     display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.game-start-card {
+    align-items: center;
+}
+
+.reset-kingdom-button {
+    width: 50%;
+    margin: 10px;
+}
+
+.status-kingdom-content {
+    display: flex;
     flex-direction: row;
     justify-content: center;
     flex-wrap: wrap;
+    width: 100%;
 }
 
 .shields {

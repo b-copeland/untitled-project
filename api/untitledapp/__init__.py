@@ -113,6 +113,16 @@ def start_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def before_start_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        state = uag._get_state()
+        time_now = datetime.datetime.now(datetime.timezone.utc)
+        if time_now.isoformat() > state["state"]["game_start"]:
+            return flask.jsonify({"message": "The game has already started!"}), 400
+        return f(*args, **kwargs)
+    return decorated_function
+
 def _mark_kingdom_death(kd_id):
     query = db.session.query(User).filter_by(kd_id=kd_id).all()
     user = query[0]
@@ -367,6 +377,36 @@ def create_initial_kingdom():
     uaa._update_accounts()
     
     return kd_id, 200
+
+
+@app.route('/api/resetkingdom', methods=["POST"])
+@flask_praetorian.auth_required
+@before_start_required
+# @flask_praetorian.roles_required('verified')
+def reset_initial_kingdom():    
+    user = flask_praetorian.current_user()
+    kd_id = user.kd_id
+    kd_info = uag._get_kd_info(kd_id)
+    for table, initial_state in uas.INITIAL_KINGDOM_STATE.items():
+        item_id = f"{table}_{kd_id}"
+        state = initial_state.copy()
+        if table == "kingdom":
+            state["kdId"] = kd_id
+            state["name"] = kd_info["name"]
+
+        create_response = REQUESTS_SESSION.post(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps({
+                "item": item_id,
+                "state": state,
+            }),
+        )
+        
+    user.kd_created = False
+    db.session.commit()
+    uaa._update_accounts()
+    return (flask.jsonify("Reset kingdom"), 200)
 
 @app.route('/api/createkingdomdata')
 @flask_praetorian.auth_required

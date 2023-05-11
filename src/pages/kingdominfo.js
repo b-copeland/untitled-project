@@ -44,7 +44,7 @@ function KingdomContent(props) {
 function Kingdom(props) {
     
     return (
-        <div className="status">
+        <div className="status-kingdom-content">
             <div className="text-box kingdom-card">
                 <h4>{props.kingdoms[props.kdId] || ""} ({props.galaxies_inverted[props.kdId] || ""})</h4>
                 <br />
