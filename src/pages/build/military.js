@@ -400,7 +400,7 @@ function Levy(props) {
 function Allocate(props) {
     const [specialistsResults, setSpecialistsResults] = useState([]);
     const [input, setInput] = useState(initialInput);
-    const [maxRecruits, setMaxRecruits] = useState("");
+    const [maxRecruits, setMaxRecruits] = useState(props.kdInfo.max_recruits || "");
     const [recruitsBeforeUnits, setRecruitsBeforeUnits] = useState(props.kdInfo?.recruits_before_units)
 
     const handleInputChange = (e) => {
