@@ -854,7 +854,7 @@ def _resolve_auto_spending(
             "new_mobis": []
         }
         if recruits_to_train:
-            new_recruits, min_recruits_time = uab._get_new_recruits(kd_info_parse, recruits_to_train, mobis_info["is_conscription"])
+            new_recruits, min_recruits_time = uab._get_new_recruits(recruits_to_train, mobis_info["is_conscription"])
             mobis_payload["new_mobis"].extend(new_recruits)
             next_resolves["mobis"] = min(min_recruits_time, kd_info_parse["next_resolve"]["mobis"])
         if sum(target_units_to_build_nonzero.values()) > 0:
@@ -874,15 +874,10 @@ def _resolve_auto_spending(
     if new_engineers:
         kd_info_parse["funding"]["engineers"] = engineers_funding - new_engineers * engineers_price
         
-        engineers_time = (time_update + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_ENGINEER_TIME_MULTIPLIER"])).isoformat()
-        next_resolves["engineers"] = min(engineers_time, kd_info_parse["next_resolve"]["engineers"])
+        new_engineers_payload, min_engineers_time = uab._get_new_engineers(new_engineers)
+        next_resolves["engineers"] = min(min_engineers_time, kd_info_parse["next_resolve"]["engineers"])
         engineers_payload = {
-            "new_engineers": [
-                {
-                    "time": engineers_time,
-                    "amount": new_engineers,
-                }
-            ]
+            "new_engineers": new_engineers_payload
         }
         engineers_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',

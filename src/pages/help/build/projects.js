@@ -29,7 +29,7 @@ function Projects(props) {
             </p>
             <p>
                 Base engineers training cost is {props.state.game_config?.BASE_ENGINEER_COST}. 
-                The base training time is {props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_ENGINEER_TIME_MULTIPLIER / 3600} hours.
+                The base average training time is {props.state.game_config?.BASE_EPOCH_SECONDS * (props.state.game_config?.BASE_ENGINEER_TIME_MIN_MULTIPLIER + props.state.game_config?.BASE_ENGINEER_TIME_MAX_MUTLIPLIER) / 2 / 3600} hours.
             </p>
             <p>
                 Each engineer produces {props.state.game_config?.BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH} project points

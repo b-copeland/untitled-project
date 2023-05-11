@@ -59,11 +59,11 @@ def _validate_recruits(recruits_input, current_available_recruits):
 
 
 
-def _get_new_recruits(kd_info_parse, recruits_input, is_conscription):
+def _get_new_recruits(recruits_input, is_conscription):
     time_splits = _make_time_splits(
-        uas.GAME_CONFIG["BASE_RECRUITS_TIME_MIN_MULTIPLIER"],
-        uas.GAME_CONFIG["BASE_RECRUITS_TIME_MAX_MUTLIPLIER"],
-        uas.GAME_CONFIG["BASE_RECRUITS_TIME_SPLITS"],
+        uas.GAME_CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"],
+        uas.GAME_CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"],
+        uas.GAME_CONFIG["BASE_RECRUIT_TIME_SPLITS"],
     )
     input_splits = _divide_across_splits(time_splits, recruits_input)
 
@@ -127,7 +127,7 @@ def recruits():
     galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
     is_conscription = "Conscription" in galaxy_policies["active_policies"]
 
-    new_recruits, min_recruits_time = _get_new_recruits(kd_info_parse, recruits_input, is_conscription)
+    new_recruits, min_recruits_time = _get_new_recruits(recruits_input, is_conscription)
 
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["mobis"] = min(next_resolve["mobis"], min_recruits_time)
@@ -694,6 +694,33 @@ def _validate_engineers(engineers_input, current_available_engineers):
 
     return True
 
+
+def _get_new_engineers(engineers_input):
+    time_splits = _make_time_splits(
+        uas.GAME_CONFIG["BASE_ENGINEER_TIME_MIN_MULTIPLIER"],
+        uas.GAME_CONFIG["BASE_ENGINEER_TIME_MAX_MUTLIPLIER"],
+        uas.GAME_CONFIG["BASE_ENGINEER_TIME_SPLITS"],
+    )
+    input_splits = _divide_across_splits(time_splits, engineers_input)
+
+    min_time = (
+        datetime.datetime.now(datetime.timezone.utc)
+        + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * min(input_splits.keys()))
+    ).isoformat()
+    new_engineers = [
+        {
+            "time": (
+                datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(
+                    seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier,
+                )
+            ).isoformat(),
+            "amount": amount,
+        }
+        for time_multiplier, amount in input_splits.items()
+    ]
+    return new_engineers, min_time
+
 @app.route('/api/engineers', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -720,9 +747,9 @@ def train_engineers():
     if not valid_engineers:
         return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
 
-    engineers_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_ENGINEER_TIME_MULTIPLIER"])).isoformat()
+    new_engineers, min_engineers_time = _get_new_engineers(engineers_input)
     next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["engineers"] = min(next_resolve["engineers"], engineers_time)
+    next_resolve["engineers"] = min(next_resolve["engineers"], min_engineers_time)
     new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_ENGINEER_COST"] * engineers_input
     kd_payload = {'money': new_money, 'next_resolve': next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
@@ -731,12 +758,7 @@ def train_engineers():
         data=json.dumps(kd_payload),
     )
     engineers_payload = {
-        "new_engineers": [
-            {
-                "time": engineers_time,
-                "amount": engineers_input,
-            }
-        ]
+        "new_engineers": new_engineers
     }
     engineers_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
