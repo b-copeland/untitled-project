@@ -15,43 +15,43 @@ function CreateKingdom(props) {
     const racesDesc = {
         "Gaian": {
             pros: <div>
-                <span>{`Settle Cost -${displayPercent(props.state.game_config.GAIAN_SETTLE_COST_REDUCTION)}`}</span>
+                <span>{`Settle Cost -${displayPercent(props.state.game_config?.GAIAN_SETTLE_COST_REDUCTION || 0)}`}</span>
                 <br/>
-                <span>{`Settle Time -${displayPercent(props.state.game_config.GAIAN_SETTLE_TIME_REDUCTION)}`}</span>
+                <span>{`Settle Time -${displayPercent(props.state.game_config?.GAIAN_SETTLE_TIME_REDUCTION || 0)}`}</span>
             </div>,
-            cons: <span>{`Defense -${displayPercent(props.state.game_config.GAIAN_DEFENSE_REDUCTION)}`}</span>,
+            cons: <span>{`Defense -${displayPercent(props.state.game_config?.GAIAN_DEFENSE_REDUCTION || 0)}`}</span>,
         },
         "Vult": {
             pros: <div>
-                <span>{`Drone Production +${displayPercent(props.state.game_config.VULT_DRONE_PRODUCTION_INCREASE)}`}</span>
+                <span>{`Drone Production +${displayPercent(props.state.game_config?.VULT_DRONE_PRODUCTION_INCREASE || 0)}`}</span>
                 <br/>
                 <span>Aggressive spy operations ignore spy shields and spy radar</span>
             </div>,
-            cons: <span>{`Population -${displayPercent(props.state.game_config.VULT_POPULATION_REDUCTION)}`}</span>,
+            cons: <span>{`Population -${displayPercent(props.state.game_config?.VULT_POPULATION_REDUCTION || 0)}`}</span>,
         },
         "Lumina": {
             pros: <div>
-                <span>{`Fuel Production +${displayPercent(props.state.game_config.LUMINA_FUEL_PRODUCTION_INCREASE)}`}</span>
+                <span>{`Fuel Production +${displayPercent(props.state.game_config?.LUMINA_FUEL_PRODUCTION_INCREASE || 0)}`}</span>
                 <br/>
                 <span>Intel spy operations do not consume spy attempts</span>
             </div>,
-            cons: <span>{`Offense -${displayPercent(props.state.game_config.LUMINA_OFFENSE_REDUCTION)}`}</span>,
+            cons: <span>{`Offense -${displayPercent(props.state.game_config?.LUMINA_OFFENSE_REDUCTION || 0)}`}</span>,
         },
         "Xo": {
             pros: <div>
-                <span>{`Attack Gains +${displayPercent(props.state.game_config.XO_ATTACK_GAINS_INCREASE)}`}</span>
+                <span>{`Attack Gains +${displayPercent(props.state.game_config?.XO_ATTACK_GAINS_INCREASE || 0)}`}</span>
                 <br/>
-                <span>{`Attack Unit Losses -${displayPercent(props.state.game_config.XO_ATTACK_UNIT_LOSSES_REDUCTION)}`}</span>
+                <span>{`Attack Unit Losses -${displayPercent(props.state.game_config?.XO_ATTACK_UNIT_LOSSES_REDUCTION || 0)}`}</span>
             </div>,
-            cons: <span>{`Workshop Capacity -${displayPercent(props.state.game_config.XO_WORKSHOP_CAPACITY_REDUCTION)}`}</span>,
+            cons: <span>{`Workshop Capacity -${displayPercent(props.state.game_config?.XO_WORKSHOP_CAPACITY_REDUCTION || 0)}`}</span>,
         },
         "Fuzi": {
             pros: <div>
-                <span>{`Missiles Cost -${displayPercent(props.state.game_config.FUZI_MISSILE_COST_REDUCTION)}`}</span>
+                <span>{`Missiles Cost -${displayPercent(props.state.game_config?.FUZI_MISSILE_COST_REDUCTION || 0)}`}</span>
                 <br/>
-                <span>{`Missiles Silo Capacity +${displayPercent(props.state.game_config.FUZI_MISSILE_SILO_CAPACITY_INCREASE)}`}</span>
+                <span>{`Missiles Silo Capacity +${displayPercent(props.state.game_config?.FUZI_MISSILE_SILO_CAPACITY_INCREASE || 0)}`}</span>
                 <br/>
-                <span>{`Ignores missile shields beyond ${displayPercent(props.state.game_config.FUZI_MISSILE_SHIELDS_MAX)}`}</span>
+                <span>{`Ignores missile shields beyond ${displayPercent(props.state.game_config?.FUZI_MISSILE_SHIELDS_MAX || 0)}`}</span>
             </div>,
             cons: null
         },
