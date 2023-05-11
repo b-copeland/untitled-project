@@ -11,6 +11,43 @@ import untitledapp.getters as uag
 import untitledapp.shared as uas
 from untitledapp import app, alive_required, REQUESTS_SESSION, SOCK_HANDLERS
 
+def _make_time_splits(min_time, max_time, num_splits):
+    assert num_splits % 2 == 0, "num_splits must be even"
+
+    splits = []
+    step = (min_time + max_time) / num_splits
+    for i in range(num_splits):
+        splits.append(min_time + step * i)
+
+    n_half = int(num_splits / 2)
+    middle_out_low_end = splits[(n_half - 1)::-1]
+    middle_out_high_end = splits[n_half:]
+
+    splits_middle_out = []
+    for i in range(n_half):
+        splits_middle_out.append(middle_out_high_end[i])
+        splits_middle_out.append(middle_out_low_end[i])
+    return splits_middle_out
+
+def _divide_across_splits(splits, amount):
+    len_splits = len(splits)
+    remainder = amount % len_splits
+    whole_splits = int(amount / len_splits)
+
+    remainder_splits = splits[:remainder]
+    if whole_splits:
+        map_splits = {
+            split: whole_splits + int(split in remainder_splits)
+            for split in splits
+        }
+    else:
+        map_splits = {
+            split: 1
+            for split in remainder_splits
+        }
+    return map_splits
+
+
 def _validate_recruits(recruits_input, current_available_recruits):
     if recruits_input > current_available_recruits:
         return False
@@ -379,6 +416,39 @@ def _validate_settles(settle_input, kd_info, settle_info, is_expansionist):
 
     return True
 
+def _get_new_settles(kd_info_parse, settle_input):
+    settle_time_splits = _make_time_splits(
+        uas.GAME_CONFIG["BASE_SETTLE_TIME_MIN_MULTIPLIER"],
+        uas.GAME_CONFIG["BASE_SETTLE_TIME_MAX_MUTLIPLIER"],
+        uas.GAME_CONFIG["BASE_SETTLE_TIME_SPLITS"],
+    )
+    settle_splits = _divide_across_splits(settle_time_splits, settle_input)
+
+    min_settle_time = (
+        datetime.datetime.now(datetime.timezone.utc)
+        + datetime.timedelta(
+            seconds=uag._get_settle_time(
+                kd_info_parse,
+                min(settle_splits.keys()),
+            )
+        )
+    ).isoformat()
+    new_settles = [
+        {
+            "time": (
+                datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(
+                    seconds=uag._get_settle_time(
+                        kd_info_parse,
+                        time_multiplier,
+                    )
+                )
+            ).isoformat(),
+            "amount": amount,
+        }
+        for time_multiplier, amount in settle_splits.items()
+    ]
+    return new_settles, min_settle_time
 
 @app.route('/api/settle', methods=['POST'])
 @flask_praetorian.auth_required
@@ -406,16 +476,12 @@ def settle():
         return (flask.jsonify({"message": 'Please enter valid settle value'}), 400)
 
 
+    new_settles, min_settle_time = _get_new_settles(kd_info_parse, settle_input)
+
     settle_price = uag._get_settle_price(kd_info_parse, is_expansionist)
     new_money = kd_info_parse["money"] - settle_price * settle_input
-    settle_time = (
-        datetime.datetime.now(datetime.timezone.utc)
-        + datetime.timedelta(
-            seconds=uag._get_settle_time(kd_info_parse)
-        )
-    ).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["settles"] = min(next_resolve["settles"], settle_time)
+    next_resolve["settles"] = min(next_resolve["settles"], min_settle_time)
     kd_payload = {'money': new_money, "next_resolve": next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -423,12 +489,7 @@ def settle():
         data=json.dumps(kd_payload),
     )
     settle_payload = {
-        "new_settles": [
-            {
-                "time": settle_time,
-                "amount": settle_input,
-            }
-        ]
+        "new_settles": new_settles,
     }
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',

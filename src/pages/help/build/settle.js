@@ -19,7 +19,7 @@ function Settle(props) {
             </p>
             <p>
                 Settle cost increases with your stars at a rate of `(stars ^ {props.state.game_config?.BASE_SETTLE_STARS_POWER}) * {props.state.game_config?.BASE_SETTLE_COST_CONSTANT}`. 
-                The base settle time is {props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_SETTLE_TIME_MULTIPLIER / 3600} hours.
+                The base average settle time is {props.state.game_config?.BASE_EPOCH_SECONDS * (props.state.game_config?.BASE_SETTLE_TIME_MIN_MULTIPLIER + props.state.game_config?.BASE_SETTLE_TIME_MAX_MUTLIPLIER) / 2 / 3600} hours.
             </p>
         </div>
     )

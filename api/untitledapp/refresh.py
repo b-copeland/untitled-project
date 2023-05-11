@@ -710,15 +710,10 @@ def _resolve_auto_spending(
     if new_settles:
         kd_info_parse["funding"]["settle"] = settle_funding - new_settles * settle_price
         
-        settle_time = (time_update + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SETTLE_TIME_MULTIPLIER"])).isoformat()
-        next_resolves["settles"] = min(settle_time, kd_info_parse["next_resolve"]["settles"])
+        new_settles_payload, min_settle_time = uab._get_new_settles(kd_info_parse, new_settles)
+        next_resolves["settles"] = min(min_settle_time, kd_info_parse["next_resolve"]["settles"])
         settle_payload = {
-            "new_settles": [
-                {
-                    "time": settle_time,
-                    "amount": new_settles,
-                }
-            ]
+            "new_settles": new_settles_payload
         }
         settles_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',

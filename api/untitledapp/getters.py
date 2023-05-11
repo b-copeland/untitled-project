@@ -803,8 +803,8 @@ def _get_settle_price(kd_info, is_expansionist):
         )
     )
 
-def _get_settle_time(kd_info):
-    seconds = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SETTLE_TIME_MULTIPLIER"] * (
+def _get_settle_time(kd_info, time_multiplier):
+    seconds = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier * (
         1 - (int(kd_info["race"] == "Gaian") * uas.GAME_CONFIG["GAIAN_SETTLE_TIME_REDUCTION"])
     )
     return seconds
@@ -850,7 +850,14 @@ def _get_settle(kd_id):
     is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
     settle_price = _get_settle_price(kd_info_parse, is_expansionist)
     max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info, is_expansionist)
-    settle_time = _get_settle_time(kd_info_parse)
+    avg_settle_time = (
+        uas.GAME_CONFIG["BASE_SETTLE_TIME_MIN_MULTIPLIER"]
+        + uas.GAME_CONFIG["BASE_SETTLE_TIME_MAX_MUTLIPLIER"]
+    ) / 2
+    settle_time = _get_settle_time(
+        kd_info_parse, 
+        avg_settle_time,
+    )
 
     payload = {
         "settle_price": settle_price,
