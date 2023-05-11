@@ -1,3 +1,4 @@
+import collections
 import datetime
 import json
 import math
@@ -288,6 +289,38 @@ def _validate_structures(structures_input, current_available_structures):
     
     return True
 
+def _get_new_structures(structures_request):
+    structure_time_splits = _make_time_splits(
+        uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MIN_MULTIPLIER"],
+        uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MAX_MUTLIPLIER"],
+        uas.GAME_CONFIG["BASE_STRUCTURE_TIME_SPLITS"],
+    )
+    structures_request_split = collections.defaultdict(dict)
+    for key_structure, amt_structure in structures_request.items():
+        split_amt_structure = _divide_across_splits(
+            structure_time_splits,
+            amt_structure,
+        )
+        for time_multiplier, amt_split in split_amt_structure.items():
+            structures_request_split[time_multiplier][key_structure] = amt_split
+    
+    min_structure_time = (
+        datetime.datetime.now(datetime.timezone.utc)
+        + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * min(structures_request_split.keys()))
+    ).isoformat()
+
+    new_structures = [
+        {
+            "time": (
+                datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier)
+            ).isoformat(),
+            **time_structures,
+        }
+        for time_multiplier, time_structures in structures_request_split.items()
+    ]
+    return new_structures, min_structure_time
+
 @app.route('/api/structures', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -330,9 +363,9 @@ def build_structures():
     if not valid_structures:
         return (flask.jsonify({"message": 'Please enter valid structures values'}), 400)
 
-    structures_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MULTIPLIER"])).isoformat()
+    new_structures, min_structures_time = _get_new_structures(structures_request)
     next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["structures"] = min(next_resolve["structures"], structures_time)
+    next_resolve["structures"] = min(next_resolve["structures"], min_structures_time)
     new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
     kd_payload = {'money': new_money, 'next_resolve': next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
@@ -341,12 +374,7 @@ def build_structures():
         data=json.dumps(kd_payload),
     )
     structures_payload = {
-        "new_structures": [
-            {
-                "time": structures_time,
-                **structures_request,
-            }
-        ]
+        "new_structures": new_structures
     }
     structures_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',

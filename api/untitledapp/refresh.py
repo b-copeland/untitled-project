@@ -766,20 +766,15 @@ def _resolve_auto_spending(
         
         kd_info_parse["funding"]["structures"] = structures_funding - structures_to_build * structures_price
         
-        structures_time = (time_update + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MULTIPLIER"])).isoformat()
-        next_resolves["structures"] = min(structures_time, kd_info_parse["next_resolve"]["structures"])
         target_structures_to_build_nonzero = {
             k: v
             for k, v in target_structures_to_build.items()
             if v > 0
         }
+        new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero)
+        next_resolves["structures"] = min(min_structures_time, kd_info_parse["next_resolve"]["structures"])
         structures_payload = {
-            "new_structures": [
-                {
-                    "time": structures_time,
-                    **target_structures_to_build_nonzero,
-                }
-            ]
+            "new_structures": new_structures_payload
         }
         structures_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',

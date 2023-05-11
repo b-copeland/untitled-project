@@ -36,7 +36,7 @@ function Structures(props) {
             </p>
             <p>
                 Structure cost increases with your stars at a rate of `(stars ^ {props.state.game_config?.BASE_STRUCTURE_STARS_POWER}) * {props.state.game_config?.BASE_STRUCTURE_COST_CONSTANT}`. 
-                The base construction time is {props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_STRUCTURE_TIME_MULTIPLIER / 3600} hours.
+                The base average construction time is {props.state.game_config?.BASE_EPOCH_SECONDS * (props.state.game_config?.BASE_STRUCTURE_TIME_MIN_MULTIPLIER + props.state.game_config?.BASE_STRUCTURE_TIME_MAX_MUTLIPLIER) / 2 / 3600} hours.
             </p>
             <p>
                 When you have more structures than land (such as when you get attacked), your structures decrease at a rate of 

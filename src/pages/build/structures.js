@@ -117,8 +117,8 @@ function BuildStructures(props) {
             </ToastContainer>
             <div className="text-box structures-box">
                 <div className="text-box-item">
-                    <span className="text-box-item-title">Build Time</span>
-                    <span className="text-box-item-value">8h</span>
+                    <span className="text-box-item-title">Average Build Time</span>
+                    <span className="text-box-item-value">{props.data.state.game_config?.BASE_EPOCH_SECONDS * (props.data.state.game_config?.BASE_STRUCTURE_TIME_MIN_MULTIPLIER + props.data.state.game_config?.BASE_STRUCTURE_TIME_MAX_MUTLIPLIER) / 2 / 3600}h</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Build Cost</span>
