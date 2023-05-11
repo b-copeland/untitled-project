@@ -116,8 +116,8 @@
 .nav-button {
   position: -webkit-sticky;
   position: sticky;
-  top: 0;
-  left: 0;
+  top: 10px;
+  left: 10px;
   z-index: 999;
   width: 30%;
   margin: 10px;
