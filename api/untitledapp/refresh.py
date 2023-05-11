@@ -349,17 +349,18 @@ def _resolve_settles(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(settles_payload),
     )
-    try:
-        ws = SOCK_HANDLERS[kd_id]
-        ws.send(json.dumps({
-            "message": f"Finished settling {ready_settles} stars",
-            "status": "info",
-            "category": "Settles",
-            "delay": 5000,
-            "update": [],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    if ready_settles:
+        try:
+            ws = SOCK_HANDLERS[kd_id]
+            ws.send(json.dumps({
+                "message": f"Finished settling {ready_settles} stars",
+                "status": "info",
+                "category": "Settles",
+                "delay": 5000,
+                "update": [],
+            }))
+        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+            pass
     
     return ready_settles, next_resolve
     
@@ -396,13 +397,14 @@ def _resolve_mobis(kd_id, time_update):
     try:
         ws = SOCK_HANDLERS[kd_id]
         count_mobis = sum(ready_mobis.values())
-        ws.send(json.dumps({
-            "message": f"Finished mobilizing {count_mobis} units",
-            "status": "info",
-            "category": "Mobis",
-            "delay": 5000,
-            "update": [],
-        }))
+        if count_mobis:
+            ws.send(json.dumps({
+                "message": f"Finished mobilizing {count_mobis} units",
+                "status": "info",
+                "category": "Mobis",
+                "delay": 5000,
+                "update": [],
+            }))
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     
@@ -441,13 +443,14 @@ def _resolve_structures(kd_id, time_update):
     try:
         ws = SOCK_HANDLERS[kd_id]
         count_structures = sum(ready_structures.values())
-        ws.send(json.dumps({
-            "message": f"Finished building {count_structures} structures",
-            "status": "info",
-            "category": "Structures",
-            "delay": 5000,
-            "update": [],
-        }))
+        if count_structures:
+            ws.send(json.dumps({
+                "message": f"Finished building {count_structures} structures",
+                "status": "info",
+                "category": "Structures",
+                "delay": 5000,
+                "update": [],
+            }))
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     
@@ -484,13 +487,14 @@ def _resolve_missiles(kd_id, time_update):
     try:
         ws = SOCK_HANDLERS[kd_id]
         count_missiles = sum(ready_missiles.values())
-        ws.send(json.dumps({
-            "message": f"Finished building {count_missiles} missiles",
-            "status": "info",
-            "category": "Missiles",
-            "delay": 5000,
-            "update": [],
-        }))
+        if count_missiles:
+            ws.send(json.dumps({
+                "message": f"Finished building {count_missiles} missiles",
+                "status": "info",
+                "category": "Missiles",
+                "delay": 5000,
+                "update": [],
+            }))
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     
@@ -523,17 +527,18 @@ def _resolve_engineers(kd_id, time_update):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(engineers_payload),
     )
-    try:
-        ws = SOCK_HANDLERS[kd_id]
-        ws.send(json.dumps({
-            "message": f"Finished training {ready_engineers} engineers",
-            "status": "info",
-            "category": "Engineers",
-            "delay": 5000,
-            "update": [],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    if ready_engineers:
+        try:
+            ws = SOCK_HANDLERS[kd_id]
+            ws.send(json.dumps({
+                "message": f"Finished training {ready_engineers} engineers",
+                "status": "info",
+                "category": "Engineers",
+                "delay": 5000,
+                "update": [],
+            }))
+        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+            pass
     
     return ready_engineers, next_resolve
     
@@ -642,13 +647,14 @@ def _resolve_generals(kd_info_parse, time_update):
     try:
         ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
         count_returning_units = sum(returning_units.values())
-        ws.send(json.dumps({
-            "message": f"{returning_generals} generals returned with {count_returning_units} units",
-            "status": "info",
-            "category": "Generals",
-            "delay": 15000,
-            "update": [],
-        }))
+        if count_returning_units:
+            ws.send(json.dumps({
+                "message": f"{returning_generals} generals returned with {count_returning_units} units",
+                "status": "info",
+                "category": "Generals",
+                "delay": 15000,
+                "update": [],
+            }))
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
     return kd_info_parse, next_resolve
