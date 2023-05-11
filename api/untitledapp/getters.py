@@ -511,8 +511,8 @@ def _calc_max_recruits(kd_info, units):
         current_available_recruits = 0
     return max_available_recruits, current_available_recruits
 
-def _calc_recruit_time(is_conscription):
-    return uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_RECRUIT_TIME_MULTIPLIER"] * (1 - int(is_conscription) * uas.GAME_CONFIG["BASE_CONSCRIPTION_TIME_REDUCTION"])
+def _calc_recruit_time(is_conscription, time_multiplier):
+    return uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier * (1 - int(is_conscription) * uas.GAME_CONFIG["BASE_CONSCRIPTION_TIME_REDUCTION"])
 
 def _get_units_adjusted_costs(state):
     is_unregulated = "Unregulated" in state["state"]["active_policies"]
@@ -563,7 +563,7 @@ def _get_mobis(kd_id):
     galaxies_inverted, _ = _get_galaxies_inverted()
     galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
     is_conscription = "Conscription" in galaxy_policies["active_policies"]
-    recruit_time = _calc_recruit_time(is_conscription)
+    recruit_time = _calc_recruit_time(is_conscription, (uas.GAME_CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"] + uas.GAME_CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"]) / 2)
 
     state = _get_state()
     units_adjusted_costs = _get_units_adjusted_costs(state)
@@ -582,6 +582,7 @@ def _get_mobis(kd_id):
         'units_desc': units_adjusted_costs,
         'top_queue': top_queue,
         'len_queue': len_queue,
+        'is_conscription': is_conscription,
         }
     return payload
 

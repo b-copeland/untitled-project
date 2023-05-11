@@ -845,8 +845,6 @@ def _resolve_auto_spending(
 
         kd_info_parse["funding"]["military"] = remaining_funding
         
-        recruits_time = (time_update + datetime.timedelta(seconds=recruit_time)).isoformat()
-        mobis_time = (time_update + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPECIALIST_TIME_MULTIPLIER"])).isoformat()
         target_units_to_build_nonzero = {
             k: v
             for k, v in target_units_to_build.items()
@@ -856,17 +854,13 @@ def _resolve_auto_spending(
             "new_mobis": []
         }
         if recruits_to_train:
-            mobis_payload["new_mobis"].append({
-                "time": recruits_time,
-                "recruits": recruits_to_train
-            })
-            next_resolves["mobis"] = min(recruits_time, kd_info_parse["next_resolve"]["mobis"])
+            new_recruits, min_recruits_time = uab._get_new_recruits(kd_info_parse, recruits_to_train, mobis_info["is_conscription"])
+            mobis_payload["new_mobis"].extend(new_recruits)
+            next_resolves["mobis"] = min(min_recruits_time, kd_info_parse["next_resolve"]["mobis"])
         if sum(target_units_to_build_nonzero.values()) > 0:
-            mobis_payload["new_mobis"].append({
-                "time": mobis_time,
-                **target_units_to_build_nonzero,
-            })
-            kd_info_parse["next_resolve"]["mobis"] = min(mobis_time, kd_info_parse["next_resolve"]["mobis"], next_resolves.get("mobis", uas.DATE_SENTINEL))
+            new_mobis, min_mobis_time = uab._get_new_mobis(target_units_to_build_nonzero)
+            mobis_payload["new_mobis"].extend(new_mobis)
+            kd_info_parse["next_resolve"]["mobis"] = min(min_mobis_time, kd_info_parse["next_resolve"]["mobis"], next_resolves.get("mobis", uas.DATE_SENTINEL))
         mobis_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},

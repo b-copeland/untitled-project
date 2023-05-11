@@ -33,11 +33,11 @@ function Military(props) {
             </p>
             <p>
                 Base recruit cost is {props.state.game_config?.BASE_RECRUIT_COST}. 
-                The base training time is {props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_RECRUIT_TIME_MULTIPLIER / 3600} hours.
+                The base average training time is {props.state.game_config?.BASE_EPOCH_SECONDS * (props.state.game_config?.BASE_RECRUIT_TIME_MIN_MULTIPLIER + props.state.game_config?.BASE_RECRUIT_TIME_MAX_MUTLIPLIER) / 2 / 3600} hours.
             </p>
             <p>
                 The Specialists page allows you to train recruits into specialists. 
-                The base training time is {props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_SPECIALIST_TIME_MULTIPLIER / 3600} hours.
+                The base average training time is {props.state.game_config?.BASE_EPOCH_SECONDS * (props.state.game_config?.BASE_SPECIALIST_TIME_MIN_MULTIPLIER + props.state.game_config?.BASE_SPECIALIST_TIME_MAX_MUTLIPLIER) / 2 / 3600} hours.
             </p>
             <p>
                 You can exceed your maximum hangar capacity at any time. However, units which do not have a hangar will displace civilians from their homes 

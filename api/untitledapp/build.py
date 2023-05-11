@@ -57,6 +57,42 @@ def _validate_recruits(recruits_input, current_available_recruits):
 
     return True
 
+
+
+def _get_new_recruits(kd_info_parse, recruits_input, is_conscription):
+    time_splits = _make_time_splits(
+        uas.GAME_CONFIG["BASE_RECRUITS_TIME_MIN_MULTIPLIER"],
+        uas.GAME_CONFIG["BASE_RECRUITS_TIME_MAX_MUTLIPLIER"],
+        uas.GAME_CONFIG["BASE_RECRUITS_TIME_SPLITS"],
+    )
+    input_splits = _divide_across_splits(time_splits, recruits_input)
+
+    min_time = (
+        datetime.datetime.now(datetime.timezone.utc)
+        + datetime.timedelta(
+            seconds=uag._calc_recruit_time(
+                is_conscription,
+                min(input_splits.keys()),
+            )
+        )
+    ).isoformat()
+    new_recruits = [
+        {
+            "time": (
+                datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(
+                    seconds=uag._calc_recruit_time(
+                        is_conscription,
+                        time_multiplier,
+                    )
+                )
+            ).isoformat(),
+            "recruits": amount,
+        }
+        for time_multiplier, amount in input_splits.items()
+    ]
+    return new_recruits, min_time
+
 @app.route('/api/recruits', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -90,11 +126,11 @@ def recruits():
     galaxies_inverted, _ = uag._get_galaxies_inverted()
     galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
     is_conscription = "Conscription" in galaxy_policies["active_policies"]
-    recruit_time = uag._calc_recruit_time(is_conscription)
 
-    mobis_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=recruit_time)).isoformat()
+    new_recruits, min_recruits_time = _get_new_recruits(kd_info_parse, recruits_input, is_conscription)
+
     next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["mobis"] = min(next_resolve["mobis"], mobis_time)
+    next_resolve["mobis"] = min(next_resolve["mobis"], min_recruits_time)
     new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_RECRUIT_COST"] * recruits_input
     kd_payload = {'money': new_money, 'next_resolve': next_resolve}
     kd_patch_response = REQUESTS_SESSION.patch(
@@ -103,12 +139,7 @@ def recruits():
         data=json.dumps(kd_payload),
     )
     recruits_payload = {
-        "new_mobis": [
-            {
-                "time": mobis_time,
-                "recruits": recruits_input,
-            }
-        ]
+        "new_mobis": new_recruits
     }
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
@@ -140,6 +171,39 @@ def _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cos
     
     return True
     
+    
+
+def _get_new_mobis(mobis_request):
+    mobi_time_splits = _make_time_splits(
+        uas.GAME_CONFIG["BASE_SPECIALIST_TIME_MIN_MULTIPLIER"],
+        uas.GAME_CONFIG["BASE_SPECIALIST_TIME_MAX_MUTLIPLIER"],
+        uas.GAME_CONFIG["BASE_SPECIALIST_TIME_SPLITS"],
+    )
+    mobis_request_split = collections.defaultdict(dict)
+    for key_mobi, amt_mobi in mobis_request.items():
+        split_amt_mobi = _divide_across_splits(
+            mobi_time_splits,
+            amt_mobi,
+        )
+        for time_multiplier, amt_split in split_amt_mobi.items():
+            mobis_request_split[time_multiplier][key_mobi] = amt_split
+    
+    min_mobi_time = (
+        datetime.datetime.now(datetime.timezone.utc)
+        + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * min(mobis_request_split.keys()))
+    ).isoformat()
+
+    new_mobis = [
+        {
+            "time": (
+                datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier)
+            ).isoformat(),
+            **time_mobis,
+        }
+        for time_multiplier, time_mobis in mobis_request_split.items()
+    ]
+    return new_mobis, min_mobi_time
 
 @app.route('/api/mobis', methods=['POST'])
 @flask_praetorian.auth_required
@@ -172,9 +236,10 @@ def train_mobis():
 
     new_money = kd_info_parse["money"] - mobis_cost
     new_recruits = kd_info_parse["units"]["recruits"] - sum(mobis_request.values())
-    mobis_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPECIALIST_TIME_MULTIPLIER"])).isoformat()
+
+    new_mobis, min_mobis_time = _get_new_mobis(mobis_request)
     next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["mobis"] = min(next_resolve["mobis"], mobis_time)
+    next_resolve["mobis"] = min(next_resolve["mobis"], min_mobis_time)
     kd_payload = {
         'money': new_money,
         'units': {
@@ -189,12 +254,7 @@ def train_mobis():
         data=json.dumps(kd_payload),
     )
     mobis_payload = {
-        "new_mobis": [
-            {
-                "time": mobis_time,
-                **mobis_request,
-            }
-        ]
+        "new_mobis": new_mobis
     }
     mobis_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
