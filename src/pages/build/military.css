@@ -99,3 +99,9 @@
     max-height: 30px;
     font-size: 10px;
 }
+
+.military-disband {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}

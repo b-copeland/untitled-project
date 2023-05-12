@@ -335,6 +335,60 @@ def allocate_mobis():
     )
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
+def _validate_disband(kd_info, input):
+
+    for key_unit, value_unit in input.items():
+        if value_unit < 0 or value_unit > kd_info["units"].get(key_unit, 0):
+            return False, "You do not have that many units to disband"
+    
+    if "engineers" in input.keys():
+        "You can't disband engineers"
+        
+    return True, ""
+
+@app.route('/api/mobis/disband', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def disband_mobis():
+    req = flask.request.get_json(force=True)
+    req_input = {
+        k: int(v)
+        for k, v in req["input"].items()
+        if v not in ("", "0")
+    } 
+
+    kd_id = flask_praetorian.current_user().kd_id
+
+    kd_info = uag._get_kd_info(kd_id)
+
+    valid_disband, message = _validate_disband(kd_info, req_input)
+    if not valid_disband:
+        return (flask.jsonify({"message": message}), 400)
+    
+    new_units = {
+        key_unit: value_unit - req_input.get(key_unit, 0)
+        for key_unit, value_unit in kd_info["units"].items()
+    }
+    new_money = kd_info["money"] + sum([
+        uas.UNITS[key_unit].get("cost", 0) * value_unit * uas.GAME_CONFIG["BASE_DISBAND_COST_RETURN"]
+        for key_unit, value_unit in req_input.items()
+    ])
+    new_pop = kd_info["population"] + sum(req_input.values())
+
+    kd_payload = {
+        "units": new_units,
+        "money": new_money,
+        "population": new_pop,
+    }
+    patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_payload),
+    )
+    
+    return (flask.jsonify({"message": "Disbanded units", "status": "success"}), 200)
+
 
 def _validate_structures(structures_input, current_available_structures):
     """Confirm that spending request is valid"""

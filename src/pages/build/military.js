@@ -38,6 +38,9 @@ function MilitaryContent(props) {
           <Tab eventKey="allocate" title="Allocate">
             <Allocate kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
+          <Tab eventKey="disband" title="Disband">
+            <Disband kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData} state={props.data.state}/>
+          </Tab>
         </Tabs>
         <HelpButton scrollTarget={"military"}/>
     </>
@@ -644,6 +647,99 @@ function Allocate(props) {
             }
         </div>
     
+    )
+}
+function Disband(props) {
+    const [results, setResults] = useState([]);
+    const [input, setInput] = useState({});
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setInput((prev) => ({
+          ...prev,
+          [name]: value,
+        }));
+      };
+    const onSubmitClick = (e)=>{
+        let opts = {
+            "input": input,
+        };
+        const updateFunc = () => authFetch('api/mobis/disband', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['kingdom'], [updateFunc]);
+        setInput({});
+    }
+    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
+
+    const units = props.kdInfo.units || {};
+    const disbandRows = Object.keys(units).map((unitKey, iter) => {
+        const prettyNames = props.state.pretty_names || {};
+        if (unitKey == "engineers") {
+            return null;
+        }
+        return <tr key={"disband_" + iter}>
+            <td style={{textAlign: "left"}}>{prettyNames[unitKey] || unitKey}</td>
+            <td style={{textAlign: "right"}}>{units[unitKey] || 0}</td>
+            <td style={{textAlign: "right"}}>{
+                <Form.Control 
+                    className="specialists-form"
+                    id={"disband-" + unitKey}
+                    name={unitKey}
+                    onChange={handleInputChange}
+                    value={input[unitKey] || ""} 
+                    placeholder="0"
+                    autoComplete="off"
+                />
+            }</td>
+        </tr>
+    })
+    
+    const toasts = results.map((result, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
+            show={true}
+            bg={result.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Disband Results</strong>
+            </Toast.Header>
+            <Toast.Body  className="text-black">{result.message}</Toast.Body>
+        </Toast>
+    )
+    return (
+        <div className="military-disband">
+            <h2>Disband Units</h2>
+            <div className="text-box specialists-box">
+                <span>Disband units to return them to your population and receive {displayPercent(props.state.game_config?.BASE_DISBAND_COST_RETURN || 0)} of the training cost back</span>
+            </div>
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
+            <Table className="specialists-table" striped bordered hover size="sm">
+                <thead>
+                    <tr>
+                        <th style={{textAlign: "left"}}>Unit</th>
+                        <th style={{textAlign: "right"}}>Available</th>
+                        <th style={{textAlign: "right"}}>To Disband</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {disbandRows}
+                </tbody>
+            </Table>
+            {
+                props.loading.kingdom
+                ? <Button className="specialists-button" variant="warning" type="submit" disabled>
+                    Loading...
+                </Button>
+                : <Button className="specialists-button" variant="warning" type="submit" onClick={onSubmitClick}>
+                    Disband
+                </Button>
+            }
+        </div>
     )
 }
 
