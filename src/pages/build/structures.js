@@ -39,6 +39,13 @@ function Structures(props) {
             updateData={props.updateData}
             data={props.data}/>
         </Tab>
+        <Tab eventKey="raze" title="Raze">
+          <RazeStructures
+            loading={props.loading}
+            updateData={props.updateData}
+            data={props.data}
+          />
+        </Tab>
       </Tabs>
       <HelpButton scrollTarget={"structures"}/>
     </>
@@ -514,6 +521,98 @@ function AllocateStructures(props) {
         </div>
         </>
         )
+}
+function RazeStructures(props) {
+    const [results, setResults] = useState([]);
+    const [input, setInput] = useState({});
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setInput((prev) => ({
+          ...prev,
+          [name]: value,
+        }));
+      };
+    const onSubmitClick = (e)=>{
+        let opts = {
+            "input": input,
+        };
+        const updateFunc = () => authFetch('api/structures/raze', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['kingdom'], [updateFunc]);
+        setInput({});
+    }
+    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
+
+    const structures = props.data.kingdom.structures || {};
+    const razeRows = Object.keys(structures).map((structureKey, iter) => {
+        const prettyNames = props.data.state.pretty_names || {};
+        return <tr key={"raze_" + iter}>
+            <td style={{textAlign: "left"}}>{prettyNames[structureKey] || structureKey}</td>
+            <td style={{textAlign: "right"}}>{displayPercent((structures[structureKey] || 0) / (props.data.kingdom.stars || 1))}</td>
+            <td style={{textAlign: "right"}}>{structures[structureKey] || 0}</td>
+            <td style={{textAlign: "right"}}>{
+                <Form.Control 
+                    className="structures-form"
+                    id={"raze-" + structureKey}
+                    name={structureKey}
+                    onChange={handleInputChange}
+                    value={input[structureKey] || ""} 
+                    placeholder="0"
+                    autoComplete="off"
+                />
+            }</td>
+        </tr>
+    })
+    
+    const toasts = results.map((result, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
+            show={true}
+            bg={result.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Raze Results</strong>
+            </Toast.Header>
+            <Toast.Body  className="text-black">{result.message}</Toast.Body>
+        </Toast>
+    )
+    return (
+        <div className="structures-raze">
+            <h2>Raze Structures</h2>
+            <div className="text-box structures-box">
+                <span>Raze structures to destroy them and receive {displayPercent(props.data.state.game_config?.BASE_STRUCTURES_RAZE_RETURN || 0)} of the current build cost back</span>
+            </div>
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
+            <Table className="structures-table" striped bordered hover size="sm">
+                <thead>
+                    <tr>
+                        <th style={{textAlign: "left"}}>Structure</th>
+                        <th style={{textAlign: "right"}}>% Built</th>
+                        <th style={{textAlign: "right"}}>Available</th>
+                        <th style={{textAlign: "right"}}>To Raze</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {razeRows}
+                </tbody>
+            </Table>
+            {
+                props.loading.kingdom
+                ? <Button className="structures-button" variant="warning" type="submit" disabled>
+                    Loading...
+                </Button>
+                : <Button className="structures-button" variant="warning" type="submit" onClick={onSubmitClick}>
+                    Raze
+                </Button>
+            }
+        </div>
+    )
 }
 
 export default Structures;

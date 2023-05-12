@@ -549,6 +549,58 @@ def allocate_structures():
     )
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
+def _validate_raze(kd_info, input):
+
+    for key_structure, value_structure in input.items():
+        if value_structure < 0 or value_structure > kd_info["structures"].get(key_structure, 0):
+            return False, "You do not have that many structures to raze"
+        
+    return True, ""
+
+@app.route('/api/structures/raze', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def raze_structures():
+    req = flask.request.get_json(force=True)
+    req_input = {
+        k: int(v)
+        for k, v in req["input"].items()
+        if v not in ("", "0")
+    } 
+
+    kd_id = flask_praetorian.current_user().kd_id
+
+    kd_info = uag._get_kd_info(kd_id)
+
+    valid_raze, message = _validate_raze(kd_info, req_input)
+    if not valid_raze:
+        return (flask.jsonify({"message": message}), 400)
+    
+    structures_price = uag._get_structure_price(kd_info)
+
+    new_structures = {
+        key_structure: math.floor(value_structure - req_input.get(key_structure, 0))
+        for key_structure, value_structure in kd_info["structures"].items()
+    }
+    new_money = kd_info["money"] + sum([
+        structures_price * value_structures * uas.GAME_CONFIG["BASE_STRUCTURES_RAZE_RETURN"]
+        for value_structures in req_input.values()
+    ])
+
+    kd_payload = {
+        "structures": new_structures,
+        "money": new_money,
+    }
+    patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_payload),
+    )
+    
+    return (flask.jsonify({"message": "Razed structures", "status": "success"}), 200)
+
+
 def _validate_settles(settle_input, kd_info, settle_info, is_expansionist):
     max_settle, available_settle = uag._get_available_settle(kd_info, settle_info, is_expansionist)
     if settle_input <= 0:
