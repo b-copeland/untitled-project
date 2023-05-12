@@ -53,6 +53,12 @@ function Military(props) {
             <p>
                 Units consume fuel every {props.state.game_config?.BASE_EPOCH_SECONDS} seconds based on the table below.
             </p>
+            <p>
+                The Disband page allows you to disband units to return them to population and 
+                receive {displayPercent(props.state.game_config?.BASE_DISBAND_COST_RETURN)} of the unit's training cost back. 
+                This can be useful to get your hangar capacity back to 100% after being attacked multiple times, or to boost your 
+                population if you are in danger of dying due to 0 population. 
+            </p>
             <Table className="specialists-table" striped bordered hover size="sm">
                 <thead>
                     <tr>

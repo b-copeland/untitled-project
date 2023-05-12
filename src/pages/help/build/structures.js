@@ -49,6 +49,11 @@ function Structures(props) {
                 build towards. The auto-spender will prioritize building structures that are farther from their target. Both 
                 currently built and in-construction structures are considered when determining the "current" mix of buildings.
             </p>
+            <p>
+                The Raze page allows you to raze structures to destroy them and 
+                receive {displayPercent(props.state.game_config?.BASE_STRUCTURES_RAZE_RETURN)} of the current build cost back. 
+                This can be useful if you have obsolete buildings and need to free up stars.
+            </p>
             <Table striped bordered hover>
                 <thead>
                     <tr>
