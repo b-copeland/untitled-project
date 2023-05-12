@@ -7,6 +7,7 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Dropdown from 'react-bootstrap/Dropdown';
 import DropdownButton from 'react-bootstrap/DropdownButton';
+import Guide from "./guide.js";
 import Home from "./home/home.js";
 import News from "./home/news.js";
 import Galaxy from "./home/galaxy.js";
@@ -68,6 +69,7 @@ function Help(props) {
                   className="help-dropdown-button"
               >
                   <Dropdown.Item href="#top">Top</Dropdown.Item>
+                  <Dropdown.Item href="#guide">Guide</Dropdown.Item>
                   <Dropdown.Divider />
                   <Dropdown.Header>Home</Dropdown.Header>
                   <Dropdown.Item href="#home">Home</Dropdown.Item>
@@ -107,6 +109,7 @@ function Help(props) {
         </div>
         <div className="help">
             <div className="help-contents">
+                <Guide state={state} scrollTarget={scrollTarget}/>
                 <Home state={state} scrollTarget={scrollTarget}/>
                 <News state={state} scrollTarget={scrollTarget}/>
                 <Galaxy state={state} scrollTarget={scrollTarget}/>
