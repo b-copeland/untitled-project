@@ -798,7 +798,7 @@ def _resolve_auto_spending(
 
     if military_funding > 0 and (sum(kd_info_parse["units_target"].values()) > 0 or max_available_recruits > 0):
         if kd_info_parse["recruits_before_units"]:
-            recruits_til_cap = max(kd_info_parse["max_recruits"] - kd_info_parse["units"]["recruits"], 0)
+            recruits_til_cap = max(kd_info_parse["max_recruits"] - kd_info_parse["units"]["recruits"] - building_units.get("recruits", 0), 0)
             recruits_to_train = min(math.floor(military_funding / recruit_price), max_available_recruits, recruits_til_cap)
             remaining_funding = military_funding - recruits_to_train * recruit_price
         else:
@@ -845,7 +845,7 @@ def _resolve_auto_spending(
         
 
         if not kd_info_parse["recruits_before_units"]:
-            recruits_til_cap = max(kd_info_parse["max_recruits"] - kd_info_parse["units"]["recruits"], 0)
+            recruits_til_cap = max(kd_info_parse["max_recruits"] - kd_info_parse["units"]["recruits"] - building_units.get("recruits", 0), 0)
             recruits_to_train = min(math.floor(remaining_funding / recruit_price), max_available_recruits, recruits_til_cap)
             remaining_funding = remaining_funding - recruits_to_train * recruit_price
 
