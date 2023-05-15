@@ -143,6 +143,29 @@ function Attack(props) {
             ["military_bonus"]: props.data.projects.current_bonuses.military_bonus,
         });
     }
+    function getTimeString(date) {
+        if (date === undefined) {
+            return "--"
+        }
+        const hours = Math.abs(Date.parse(date) - Date.now()) / 3.6e6;
+        var n = new Date(0, 0);
+        n.setSeconds(+hours * 60 * 60);
+        return n.toTimeString().slice(0, 8);
+    }
+    const getRemainingSpans = (kdId, revealed) => {
+        if (revealed === undefined) {
+            return []
+        }
+        const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
+            <div key={kdId.toString() + '_' + category} className="remaining-timer">
+                <span className="remaining-time-title">{category}</span>
+                <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
+                <br />
+            </div>
+        )
+        return remainingSpans;
+    }
+    const revealedStats = getRemainingSpans(selected, props.data.revealed?.revealed);
 
     const toasts = attackResults.map((results, index) =>
         <Toast
@@ -645,6 +668,14 @@ function Attack(props) {
                     </Button>
                 }
             </div>
+            {
+                revealedStats.length > 0
+                ? <div className="text-box revealed-stats-box">
+                    <h3>Target's Revealed Stats</h3>
+                    {revealedStats}
+                </div>
+                : null
+            }
             <HelpButton scrollTarget={"attack"}/>
         </div>
     </>
