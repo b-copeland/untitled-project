@@ -7,6 +7,7 @@ import Table from 'react-bootstrap/Table';
 import InputGroup from 'react-bootstrap/InputGroup';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer'
+import Accordion from 'react-bootstrap/Accordion';
 import "./spy.css";
 import Select from 'react-select';
 import Header from "../../components/header";
@@ -243,122 +244,129 @@ function Spy(props) {
                                 }),
                             }}/>
                     </form>
-                    <Table className="defender-table" striped bordered hover size="sm">
-                        <thead>
-                            <tr>
-                                <th>Input</th>
-                                <th style={{textAlign: "right"}}>Value</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Drones</td>
-                                <td style={{textAlign: "right"}}>
-                                    {   targetKdInfo.hasOwnProperty("drones")
-                                        ? <Form.Control 
-                                            className="unit-form"
-                                            id="drones-input"
-                                            name="drones"
-                                            value={targetKdInfo.drones?.toLocaleString() || "0"} 
-                                            placeholder="0"
-                                            disabled
-                                            autoComplete="off"
-                                        />
-                                        : <Form.Control 
-                                            className="unit-form"
-                                            id="drones-input"
-                                            name="drones"
-                                            onChange={handleDefenderChange}
-                                            value={defenderValues.drones || ""} 
-                                            placeholder="0"
-                                            autoComplete="off"
-                                        />
-                                    }
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Stars</td>
-                                <td style={{textAlign: "right"}}>
-                                    {   targetKdInfo.hasOwnProperty("stars")
-                                        ? <Form.Control
-                                            className="unit-form"
-                                            id="spy-stars-input"
-                                            name="stars"
-                                            value={targetKdInfo.stars?.toLocaleString() || ""} 
-                                            placeholder="0"
-                                            disabled
-                                            autoComplete="off"
-                                        />
-                                        : <Form.Control
-                                            className="unit-form"
-                                            id="spy-stars-input"
-                                            name="stars"
-                                            onChange={handleDefenderChange}
-                                            value={defenderValues.stars || ""} 
-                                            placeholder="0"
-                                            autoComplete="off"
-                                        />
-                                    }
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Spy Shields</td>
-                                <td style={{textAlign: "right"}}>
-                                    {   targetKdInfo.hasOwnProperty("shields")
-                                        ? <InputGroup className="mb-3 spy-input-group">
-                                            <Form.Control
-                                                className="unit-form"
-                                                id="spy-shields-input"
-                                                name="shields"
-                                                value={targetKdInfo.shields.spy * 100 || ""} 
-                                                placeholder="0"
-                                                disabled
-                                                autoComplete="off"
-                                            />
-                                            <InputGroup.Text id="basic-addon2" className="drones-input-group-text">%</InputGroup.Text>
-                                        </InputGroup>
-                                        : <InputGroup className="mb-3 spy-input-group">
-                                            <Form.Control
-                                                className="unit-form"
-                                                id="spy-shields-input"
-                                                name="shields"
-                                                onChange={handleDefenderChange}
-                                                value={defenderValues.shields || ""} 
-                                                placeholder="0"
-                                                autoComplete="off"
-                                            />
-                                            <InputGroup.Text id="basic-addon2" className="spy-input-group-text">%</InputGroup.Text>
-                                        </InputGroup>
-                                    }
-                                </td>
-                            </tr>
-                        </tbody>
-                    </Table>
-                    <div className="operation-details">
-                        <h3>Operation Details</h3>
-                        <Table striped bordered hover size="sm" className="operation-table">
-                            <thead>
-                                <tr>
-                                    <th>Type</th>
-                                    <th style={{textAlign: "right"}}>Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Stars-based defense</td>
-                                    <td style={{textAlign: "right"}}>{(calcMessage.stars_defense || 0).toLocaleString()}</td>
-                                </tr>
-                                <tr>
-                                    <td>Drones-based defense</td>
-                                    <td style={{textAlign: "right"}}>{Math.floor(calcMessage.drones_defense || 0)?.toLocaleString()}</td>
-                                </tr>
-                                <tr>
-                                    <td>Max success threshold</td>
-                                    <td style={{textAlign: "right"}}>{Math.floor(calcMessage.total_defense || 0)?.toLocaleString()}</td>
-                                </tr>
-                            </tbody>
-                        </Table>
-                    </div>
+                    <Accordion>
+                        <Accordion.Item eventKey="0">
+                            <Accordion.Header>Operation Planner</Accordion.Header>
+                            <Accordion.Body>
+                                <Table className="defender-table" striped bordered hover size="sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Input</th>
+                                            <th style={{textAlign: "right"}}>Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Drones</td>
+                                            <td style={{textAlign: "right"}}>
+                                                {   targetKdInfo.hasOwnProperty("drones")
+                                                    ? <Form.Control 
+                                                        className="unit-form"
+                                                        id="drones-input"
+                                                        name="drones"
+                                                        value={targetKdInfo.drones?.toLocaleString() || "0"} 
+                                                        placeholder="0"
+                                                        disabled
+                                                        autoComplete="off"
+                                                    />
+                                                    : <Form.Control 
+                                                        className="unit-form"
+                                                        id="drones-input"
+                                                        name="drones"
+                                                        onChange={handleDefenderChange}
+                                                        value={defenderValues.drones || ""} 
+                                                        placeholder="0"
+                                                        autoComplete="off"
+                                                    />
+                                                }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Stars</td>
+                                            <td style={{textAlign: "right"}}>
+                                                {   targetKdInfo.hasOwnProperty("stars")
+                                                    ? <Form.Control
+                                                        className="unit-form"
+                                                        id="spy-stars-input"
+                                                        name="stars"
+                                                        value={targetKdInfo.stars?.toLocaleString() || ""} 
+                                                        placeholder="0"
+                                                        disabled
+                                                        autoComplete="off"
+                                                    />
+                                                    : <Form.Control
+                                                        className="unit-form"
+                                                        id="spy-stars-input"
+                                                        name="stars"
+                                                        onChange={handleDefenderChange}
+                                                        value={defenderValues.stars || ""} 
+                                                        placeholder="0"
+                                                        autoComplete="off"
+                                                    />
+                                                }
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td>Spy Shields</td>
+                                            <td style={{textAlign: "right"}}>
+                                                {   targetKdInfo.hasOwnProperty("shields")
+                                                    ? <InputGroup className="mb-3 spy-input-group">
+                                                        <Form.Control
+                                                            className="unit-form"
+                                                            id="spy-shields-input"
+                                                            name="shields"
+                                                            value={targetKdInfo.shields.spy * 100 || ""} 
+                                                            placeholder="0"
+                                                            disabled
+                                                            autoComplete="off"
+                                                        />
+                                                        <InputGroup.Text id="basic-addon2" className="drones-input-group-text">%</InputGroup.Text>
+                                                    </InputGroup>
+                                                    : <InputGroup className="mb-3 spy-input-group">
+                                                        <Form.Control
+                                                            className="unit-form"
+                                                            id="spy-shields-input"
+                                                            name="shields"
+                                                            onChange={handleDefenderChange}
+                                                            value={defenderValues.shields || ""} 
+                                                            placeholder="0"
+                                                            autoComplete="off"
+                                                        />
+                                                        <InputGroup.Text id="basic-addon2" className="spy-input-group-text">%</InputGroup.Text>
+                                                    </InputGroup>
+                                                }
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </Table>
+                                <div className="operation-details">
+                                    <h3>Operation Details</h3>
+                                    <Table striped bordered hover size="sm" className="operation-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th style={{textAlign: "right"}}>Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Stars-based defense</td>
+                                                <td style={{textAlign: "right"}}>{(calcMessage.stars_defense || 0).toLocaleString()}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Drones-based defense</td>
+                                                <td style={{textAlign: "right"}}>{Math.floor(calcMessage.drones_defense || 0)?.toLocaleString()}</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Max success threshold</td>
+                                                <td style={{textAlign: "right"}}>{Math.floor(calcMessage.total_defense || 0)?.toLocaleString()}</td>
+                                            </tr>
+                                        </tbody>
+                                    </Table>
+                                </div>
+                            </Accordion.Body>
+                        </Accordion.Item>
+                    </Accordion>
                 </div>
                 <div className="spy-attacker-stats">
                     <h3>{kdFullLabel(props.data.kingdom.kdId)}</h3>
