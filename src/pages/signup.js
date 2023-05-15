@@ -68,6 +68,7 @@ function SignUp(props) {
                                 value={username} 
                                 onChange={handleUsername}
                                 placeholder=""
+                                type="text"
                                 autoComplete="off"
                             />
                         </InputGroup>
@@ -81,6 +82,7 @@ function SignUp(props) {
                                 value={password} 
                                 onChange={handlePassword}
                                 placeholder=""
+                                type="password"
                                 autoComplete="new-password"
                             />
                         </InputGroup>
