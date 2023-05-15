@@ -351,8 +351,8 @@ def _validate_autofill_request(req, kd_info_parse):
     if buffer < 0:
         return False, "Buffer must be greater than 0"
     
-    if generals < 0:
-        return False, "Generals must be greater than 0"
+    if generals <= 0:
+        return False, "You must send at least 1 general"
     
     if generals > kd_info_parse["generals_available"]:
         return False, "You do not have that many generals"
