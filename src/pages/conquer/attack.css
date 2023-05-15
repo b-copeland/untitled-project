@@ -142,6 +142,9 @@
     min-height: 100%;
     width: 90%;
 }
+.autofill-button {
+    margin: 5px;
+}
 
 .calculate-button {
     margin: 5px;

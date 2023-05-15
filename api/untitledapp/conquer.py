@@ -270,7 +270,7 @@ def calculate_attack(target_kd):
         coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], max_target_kd_info["coordinate"]),
     )
     generals_strftime = ', '.join([
-        str(general_return_time - time_now)
+        str(general_return_time - time_now).split(".")[0]
         for general_return_time in generals_return_times
     ])
     if attack > defense:
@@ -337,6 +337,242 @@ def calculate_attack(target_kd):
     }
 
     return (flask.jsonify(payload), 200)
+
+def _validate_autofill_request(req, kd_info_parse):
+    if req.get("buffer", "") == "":
+        return False, "Please choose a buffer amount"
+    
+    if req.get("generals", "") == "":
+        return False, "Please choose a generals amount"
+    
+    buffer = float(req.get("buffer", 0.0))
+    generals = int(req.get("generals"), 0)
+
+    if buffer < 0:
+        return False, "Buffer must be greater than 0"
+    
+    if generals < 0:
+        return False, "Generals must be greater than 0"
+    
+    if generals > kd_info_parse["generals_available"]:
+        return False, "You do not have that many generals"
+    
+    return True, ""
+    
+
+def _autofill_attack(req, kd_id, target_kd):
+    defender_raw_values = req["defenderValues"]
+    
+    kd_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    
+    kd_info_parse = json.loads(kd_info.text)
+    current_bonuses = {
+        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
+        for project, project_dict in uas.PROJECTS.items()
+        if "max_bonus" in project_dict
+    }
+
+    revealed = uag._get_revealed(kd_id)
+    shared = uag._get_shared(kd_id)["shared"]
+    max_target_kd_info = uag._get_max_kd_info(target_kd, kd_id, revealed)
+
+    valid_request, request_message = _validate_autofill_request(
+        req,
+        kd_info_parse,
+    )
+    if not valid_request:
+        return {"message": request_message}, 400
+
+    if "units" in max_target_kd_info:
+        defender_units = max_target_kd_info["units"]
+    else:
+        defender_units = {
+            key: int(value)
+            for key, value in defender_raw_values.items()
+            if (key in uas.UNITS and value != "")
+        }
+    
+    if "current_bonuses" in max_target_kd_info:
+        defender_military_bonus = max_target_kd_info["current_bonuses"]["military_bonus"]
+    else:
+        defender_military_bonus = float(defender_raw_values['military_bonus'] or 0) / 100
+
+    if "shields" in max_target_kd_info:
+        defender_shields = max_target_kd_info["shields"]["military"]
+    else:
+        defender_shields = float(defender_raw_values['shields'] or 0) / 100
+
+    if "fuel" in max_target_kd_info:
+        target_fuelless = max_target_kd_info["fuel"] <= 0
+    else:
+        target_fuelless = False
+
+    defense = uag._calc_max_defense(
+        defender_units,
+        military_bonus=defender_military_bonus, 
+        other_bonuses=0,
+        shields=defender_shields,
+        fuelless=target_fuelless,
+        gaian=kd_info_parse["race"] == "Gaian",
+    )
+    defense_adjusted = math.floor(
+        defense 
+        * (1 + (float(req.get("buffer", 0.0)) / 100))
+    )
+
+    attacker_units = {}
+    remaining_defense = max(defense_adjusted, 1)
+    generals = int(req.get("generals", 1))
+    attacker_fuelless = kd_info_parse["fuel"] <= 0
+    for key_unit in uas.AUTOFILL_PRIORITY:
+        if remaining_defense == 0:
+            attacker_units[key_unit] = 0
+        available_units = kd_info_parse["units"].get(key_unit, 0)
+        if available_units > 0:
+            current_unit_attack = uag._calc_max_offense(
+                {
+                    key_unit: available_units,
+                },
+                military_bonus=float(current_bonuses['military_bonus'] or 0), 
+                other_bonuses=0,
+                generals=generals,
+                fuelless=attacker_fuelless,
+                lumina=kd_info_parse["race"] == "Lumina",
+            )
+            if current_unit_attack > remaining_defense:
+                required_ratio = remaining_defense / current_unit_attack
+                units_fill = math.ceil(required_ratio * available_units)
+                attacker_units[key_unit] = units_fill
+                remaining_defense = 0
+            else:
+                attacker_units[key_unit] = available_units
+                remaining_defense = remaining_defense - current_unit_attack
+        else:
+            attacker_units[key_unit] = 0
+
+    attack = uag._calc_max_offense(
+        attacker_units,
+        military_bonus=float(current_bonuses['military_bonus'] or 0), 
+        other_bonuses=0,
+        generals=generals,
+        fuelless=attacker_fuelless,
+        lumina=kd_info_parse["race"] == "Lumina",
+    )
+    try:
+        attack_ratio = min(attack / defense_adjusted, 1.0)
+    except ZeroDivisionError:
+        attack_ratio = 1.0
+    attacker_losses = _calc_losses(
+        attacker_units,
+        uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        xo=kd_info_parse["race"] == "Xo",
+    )
+    defender_losses = _calc_losses(
+        defender_units,
+        uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
+    )
+    time_now = datetime.datetime.now(datetime.timezone.utc)
+    galaxies_inverted, _ = uag._get_galaxies_inverted()
+    galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    is_warlike = "Warlike" in galaxy_policies["active_policies"]
+    generals_return_times = _calc_generals_return_time(
+        generals,
+        uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
+        time_now,
+        current_bonuses["general_bonus"],
+        is_warlike=is_warlike,
+        coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], max_target_kd_info["coordinate"]),
+    )
+    generals_strftime = ', '.join([
+        str(general_return_time - time_now).split(".")[0]
+        for general_return_time in generals_return_times
+    ])
+    if attack > defense:
+        message = f"The attack will be a success!\n"
+        message += f"Your general(s) will return in: {generals_strftime}. \n"
+        if target_kd in shared:
+            cut = shared[target_kd]["cut"]
+            sharer = shared[target_kd]["shared_by"]
+        else:
+            cut = 0
+            sharer = None
+        spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
+            1
+            + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+        )
+        min_stars_gain = uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
+            1
+            + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+        )
+        spoils_values = {
+            key_spoil: math.floor(value_spoil * spoils_rate * (1 - cut))
+            for key_spoil, value_spoil in max_target_kd_info.items()
+            if key_spoil in {"stars", "population", "money", "fuel"}
+        }
+        try:
+            spoils_values["stars"] = max(spoils_values["stars"], math.floor(min_stars_gain * (1 - cut)))
+        except KeyError:
+            pass
+        if spoils_values:
+            message += 'You will gain '
+            message += ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
+            message += '. \n'
+            if sharer:
+                sharer_spoils_values = {
+                    key_spoil: math.floor(value_spoil * spoils_rate * cut)
+                    for key_spoil, value_spoil in max_target_kd_info.items()
+                    if key_spoil in {"stars", "population", "money", "fuel"}
+                }
+                try:
+                    sharer_spoils_values["stars"] = max(sharer_spoils_values["stars"], math.floor(min_stars_gain * cut))
+                except KeyError:
+                    pass
+                kingdoms = uag._get_kingdoms()
+                sharer_name = kingdoms[sharer]
+                message += f'Your galaxymate {sharer_name} will gain '
+                message += ', '.join([f"{value} {key}" for key, value in sharer_spoils_values.items()])
+                message += ' for sharing intel. \n'
+
+                
+    else:
+        message = f"The attack will fail.\n"
+        message += f"Your general(s) will return in: {generals_strftime}\n"
+
+    payload = {
+        "defender_defense": defense,
+        "attacker_offense": attack,
+        "defender_losses": defender_losses,
+        "attacker_losses": attacker_losses,
+        "defender_unit_losses_rate": uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"],
+        "attacker_unit_losses_rate": uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        "defender_stars_loss_rate": uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"],
+        "generals_return_times": generals_return_times,
+        "message": message,
+        "attacker_units": attacker_units,
+    }
+    return payload, 200
+
+
+
+@app.route('/api/autofill/<target_kd>', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def autofill_attack(target_kd):
+    req = flask.request.get_json(force=True)
+    kd_id = flask_praetorian.current_user().kd_id
+
+    payload, status_code = _autofill_attack(
+        req,
+        kd_id,
+        target_kd,
+    )
+    
+    payload, status_code = _autofill_attack(req, kd_id, target_kd)
+    return (flask.jsonify(payload), status_code)
 
 def _attack(req, kd_id, target_kd):
     
@@ -808,7 +1044,7 @@ def calculate_attack_primitives():
         coordinate_distance=25,
     )
     generals_strftime = ', '.join([
-        str(general_return_time - time_now)
+        str(general_return_time - time_now).split(".")[0]
         for general_return_time in generals_return_times
     ])
     

@@ -45,6 +45,12 @@ UNITS = {
     }
 }
 
+AUTOFILL_PRIORITY = [
+    "attack",
+    "big_flex",
+    "flex",
+]
+
 STRUCTURES = [
     "homes",
     "mines",

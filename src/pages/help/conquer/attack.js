@@ -28,6 +28,11 @@ function Attack(props) {
                 about the target's units, it's likely that the calculator will falsely tell you that an attack will be successful. 
             </p>
             <p>
+                The Autofill button can be used to automatically choose your attacking units given the information provided 
+                about the defender. This works similar to the Calculate button, except that it will overwrite your attacking 
+                units inputs. 
+            </p>
+            <p>
                 It's a good idea to at least gather Military intel on the target prior to attempting an attack. You can then assume 
                 maximum Military Efficiency and Shields for determining if your attack will be a success.
             </p>

@@ -22,12 +22,11 @@ const initialDefenderValues = {
     "shields": "10",
 }
 const initialAttackerValues = {
-    "recruits": "",
     "attack": "",
     "flex": "",
     "big_flex": "",
-    "military_bonus": "",
     "generals": "",
+    "buffer": "1.0",
 }
 
 
@@ -93,6 +92,31 @@ function Attack(props) {
                 method: 'POST',
                 body: JSON.stringify(opts)
             }).then(r => r.json()).then(r => setCalcMessage(r))
+            setLoadingCalc(true);
+            await updateFunc();
+            setLoadingCalc(false);
+        } else {
+            setCalcMessage({"message": "Please select a target in order to calculate"})
+        }
+    };
+    const onClickAutofill = async (e) => {
+        if (selected != undefined) {
+            const opts = {
+                "buffer": attackerValues.buffer,
+                "generals": attackerValues.generals,
+                "defenderValues": defenderValues,
+            };
+            const updateFunc = async () => authFetch('api/autofill/' + selected, {
+                method: 'POST',
+                body: JSON.stringify(opts)
+            }).then(r => r.json()).then(r => {
+                setCalcMessage(r);
+                setAttackerValues({
+                  ...attackerValues,
+                  ...r.attacker_units,
+                });
+
+            })
             setLoadingCalc(true);
             await updateFunc();
             setLoadingCalc(false);
@@ -533,6 +557,25 @@ function Attack(props) {
                                         />
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td>Autofill Buffer</td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}></td>
+                                    <td style={{textAlign: "right"}}>
+                                        <InputGroup className="mb-3 unit-input-group">
+                                            <Form.Control
+                                                className="unit-form"
+                                                id="buffer-input"
+                                                name="buffer"
+                                                onChange={handleAttackerChange}
+                                                value={attackerValues.buffer || ""} 
+                                                placeholder="1.0"
+                                                autoComplete="off"
+                                            />
+                                            <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
+                                        </InputGroup>
+                                    </td>
+                                </tr>
                             </tbody>
                         </Table>
                         <div className="attacker-text-boxes">
@@ -574,6 +617,15 @@ function Attack(props) {
                 </div>
             {/* </div> */}
             <div className="attack-buttons">
+                {
+                    loadingCalc
+                    ? <Button className="autofill-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="autofill-button" variant="primary" type="submit" onClick={onClickAutofill}>
+                        Autofill
+                    </Button>
+                }
                 {
                     loadingCalc
                     ? <Button className="calculate-button" variant="primary" type="submit" disabled>
