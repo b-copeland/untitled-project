@@ -494,10 +494,12 @@ def create_kingdom_choices():
         for k, v in kd_info["structures"].items()
     }
     state = uag._get_state()
+    start_time_datetime = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
     payload["last_income"] = max(state["state"]["game_start"], datetime.datetime.now(datetime.timezone.utc).isoformat())
     payload["next_resolve"] = kd_info["next_resolve"]
     payload["next_resolve"]["spy_attempt"] = (
-        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"])
+        max(datetime.datetime.now(datetime.timezone.utc), start_time_datetime)
+        + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"])
     ).isoformat()
     payload["coordinate"] = random.randint(0, 99)
     payload["race"] = race
