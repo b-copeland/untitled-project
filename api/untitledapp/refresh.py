@@ -716,7 +716,7 @@ def _resolve_auto_spending(
     if new_settles:
         kd_info_parse["funding"]["settle"] = settle_funding - new_settles * settle_price
         
-        new_settles_payload, min_settle_time = uab._get_new_settles(kd_info_parse, new_settles)
+        new_settles_payload, min_settle_time = uab._get_new_settles(kd_info_parse, new_settles, time_update)
         next_resolves["settles"] = min(min_settle_time, kd_info_parse["next_resolve"]["settles"])
         settle_payload = {
             "new_settles": new_settles_payload
@@ -777,7 +777,7 @@ def _resolve_auto_spending(
             for k, v in target_structures_to_build.items()
             if v > 0
         }
-        new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero)
+        new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero, time_update)
         next_resolves["structures"] = min(min_structures_time, kd_info_parse["next_resolve"]["structures"])
         structures_payload = {
             "new_structures": new_structures_payload
@@ -860,11 +860,11 @@ def _resolve_auto_spending(
             "new_mobis": []
         }
         if recruits_to_train:
-            new_recruits, min_recruits_time = uab._get_new_recruits(recruits_to_train, mobis_info["is_conscription"])
+            new_recruits, min_recruits_time = uab._get_new_recruits(recruits_to_train, mobis_info["is_conscription"], time_update)
             mobis_payload["new_mobis"].extend(new_recruits)
             next_resolves["mobis"] = min(min_recruits_time, kd_info_parse["next_resolve"]["mobis"])
         if sum(target_units_to_build_nonzero.values()) > 0:
-            new_mobis, min_mobis_time = uab._get_new_mobis(target_units_to_build_nonzero)
+            new_mobis, min_mobis_time = uab._get_new_mobis(target_units_to_build_nonzero, time_update)
             mobis_payload["new_mobis"].extend(new_mobis)
             kd_info_parse["next_resolve"]["mobis"] = min(min_mobis_time, kd_info_parse["next_resolve"]["mobis"], next_resolves.get("mobis", uas.DATE_SENTINEL))
         mobis_patch_response = REQUESTS_SESSION.patch(
@@ -880,7 +880,7 @@ def _resolve_auto_spending(
     if new_engineers:
         kd_info_parse["funding"]["engineers"] = engineers_funding - new_engineers * engineers_price
         
-        new_engineers_payload, min_engineers_time = uab._get_new_engineers(new_engineers)
+        new_engineers_payload, min_engineers_time = uab._get_new_engineers(new_engineers, time_update)
         next_resolves["engineers"] = min(min_engineers_time, kd_info_parse["next_resolve"]["engineers"])
         engineers_payload = {
             "new_engineers": new_engineers_payload

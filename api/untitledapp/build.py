@@ -59,7 +59,7 @@ def _validate_recruits(recruits_input, current_available_recruits):
 
 
 
-def _get_new_recruits(recruits_input, is_conscription):
+def _get_new_recruits(recruits_input, is_conscription, start_time):
     time_splits = _make_time_splits(
         uas.GAME_CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"],
         uas.GAME_CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"],
@@ -68,7 +68,7 @@ def _get_new_recruits(recruits_input, is_conscription):
     input_splits = _divide_across_splits(time_splits, recruits_input)
 
     min_time = (
-        datetime.datetime.now(datetime.timezone.utc)
+        start_time
         + datetime.timedelta(
             seconds=uag._calc_recruit_time(
                 is_conscription,
@@ -79,7 +79,7 @@ def _get_new_recruits(recruits_input, is_conscription):
     new_recruits = [
         {
             "time": (
-                datetime.datetime.now(datetime.timezone.utc)
+                start_time
                 + datetime.timedelta(
                     seconds=uag._calc_recruit_time(
                         is_conscription,
@@ -114,8 +114,12 @@ def recruits():
     current_units = kd_info_parse["units"]
     generals_units = kd_info_parse["generals_out"]
     mobis_units = mobis_info_parse
+    state = uag._get_state()
 
-    start_time = datetime.datetime.now(datetime.timezone.utc)
+    start_time = max(
+        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    )
     units = uag._calc_units(start_time, current_units, generals_units, mobis_units)
 
     max_available_recruits, current_available_recruits = uag._calc_max_recruits(kd_info_parse, units)
@@ -127,7 +131,7 @@ def recruits():
     galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
     is_conscription = "Conscription" in galaxy_policies["active_policies"]
 
-    new_recruits, min_recruits_time = _get_new_recruits(recruits_input, is_conscription)
+    new_recruits, min_recruits_time = _get_new_recruits(recruits_input, is_conscription, start_time)
 
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["mobis"] = min(next_resolve["mobis"], min_recruits_time)
@@ -173,7 +177,7 @@ def _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cos
     
     
 
-def _get_new_mobis(mobis_request):
+def _get_new_mobis(mobis_request, start_time):
     mobi_time_splits = _make_time_splits(
         uas.GAME_CONFIG["BASE_SPECIALIST_TIME_MIN_MULTIPLIER"],
         uas.GAME_CONFIG["BASE_SPECIALIST_TIME_MAX_MUTLIPLIER"],
@@ -189,14 +193,14 @@ def _get_new_mobis(mobis_request):
             mobis_request_split[time_multiplier][key_mobi] = amt_split
     
     min_mobi_time = (
-        datetime.datetime.now(datetime.timezone.utc)
+        start_time
         + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * min(mobis_request_split.keys()))
     ).isoformat()
 
     new_mobis = [
         {
             "time": (
-                datetime.datetime.now(datetime.timezone.utc)
+                start_time
                 + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier)
             ).isoformat(),
             **time_mobis,
@@ -223,6 +227,12 @@ def train_mobis():
     kd_info_parse = json.loads(kd_info.text)
 
     current_units = kd_info_parse["units"]
+    state = uag._get_state()
+
+    start_time = max(
+        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    )
 
     mobis_request = {
         k: int(v or 0)
@@ -237,7 +247,7 @@ def train_mobis():
     new_money = kd_info_parse["money"] - mobis_cost
     new_recruits = kd_info_parse["units"]["recruits"] - sum(mobis_request.values())
 
-    new_mobis, min_mobis_time = _get_new_mobis(mobis_request)
+    new_mobis, min_mobis_time = _get_new_mobis(mobis_request, start_time)
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["mobis"] = min(next_resolve["mobis"], min_mobis_time)
     kd_payload = {
@@ -403,7 +413,7 @@ def _validate_structures(structures_input, current_available_structures):
     
     return True
 
-def _get_new_structures(structures_request):
+def _get_new_structures(structures_request, start_time):
     structure_time_splits = _make_time_splits(
         uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MIN_MULTIPLIER"],
         uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MAX_MUTLIPLIER"],
@@ -419,14 +429,14 @@ def _get_new_structures(structures_request):
             structures_request_split[time_multiplier][key_structure] = amt_split
     
     min_structure_time = (
-        datetime.datetime.now(datetime.timezone.utc)
+        start_time
         + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * min(structures_request_split.keys()))
     ).isoformat()
 
     new_structures = [
         {
             "time": (
-                datetime.datetime.now(datetime.timezone.utc)
+                start_time
                 + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier)
             ).isoformat(),
             **time_structures,
@@ -463,7 +473,12 @@ def build_structures():
     current_structures = kd_info_parse["structures"]
     building_structures = structures_info_parse["structures"]
 
-    start_time = datetime.datetime.now(datetime.timezone.utc)
+    state = uag._get_state()
+
+    start_time = max(
+        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    )
     structures = uag._calc_structures(start_time, current_structures, building_structures)
 
     max_available_structures, current_available_structures = uag._calc_available_structures(current_price, kd_info_parse, structures)
@@ -477,7 +492,7 @@ def build_structures():
     if not valid_structures:
         return (flask.jsonify({"message": 'Please enter valid structures values'}), 400)
 
-    new_structures, min_structures_time = _get_new_structures(structures_request)
+    new_structures, min_structures_time = _get_new_structures(structures_request, start_time)
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["structures"] = min(next_resolve["structures"], min_structures_time)
     new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
@@ -610,7 +625,7 @@ def _validate_settles(settle_input, kd_info, settle_info, is_expansionist):
 
     return True
 
-def _get_new_settles(kd_info_parse, settle_input):
+def _get_new_settles(kd_info_parse, settle_input, start_time):
     settle_time_splits = _make_time_splits(
         uas.GAME_CONFIG["BASE_SETTLE_TIME_MIN_MULTIPLIER"],
         uas.GAME_CONFIG["BASE_SETTLE_TIME_MAX_MUTLIPLIER"],
@@ -619,7 +634,7 @@ def _get_new_settles(kd_info_parse, settle_input):
     settle_splits = _divide_across_splits(settle_time_splits, settle_input)
 
     min_settle_time = (
-        datetime.datetime.now(datetime.timezone.utc)
+        start_time
         + datetime.timedelta(
             seconds=uag._get_settle_time(
                 kd_info_parse,
@@ -630,7 +645,7 @@ def _get_new_settles(kd_info_parse, settle_input):
     new_settles = [
         {
             "time": (
-                datetime.datetime.now(datetime.timezone.utc)
+                start_time
                 + datetime.timedelta(
                     seconds=uag._get_settle_time(
                         kd_info_parse,
@@ -670,7 +685,14 @@ def settle():
         return (flask.jsonify({"message": 'Please enter valid settle value'}), 400)
 
 
-    new_settles, min_settle_time = _get_new_settles(kd_info_parse, settle_input)
+
+    state = uag._get_state()
+
+    start_time = max(
+        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    )
+    new_settles, min_settle_time = _get_new_settles(kd_info_parse, settle_input, start_time)
 
     settle_price = uag._get_settle_price(kd_info_parse, is_expansionist)
     new_money = kd_info_parse["money"] - settle_price * settle_input
@@ -763,7 +785,15 @@ def build_missiles():
     fuel_costs = sum([uas.MISSILES[key_missile]["fuel_cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
     new_money = kd_info_parse["money"] - costs
     new_fuel = kd_info_parse["fuel"] - fuel_costs
-    missiles_time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_MISSILE_TIME_MULTIPLER"])).isoformat()
+
+    state = uag._get_state()
+
+    start_time = max(
+        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    )
+
+    missiles_time = (start_time + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_MISSILE_TIME_MULTIPLER"])).isoformat()
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["missiles"] = min(next_resolve["missiles"], missiles_time)
     kd_payload = {
@@ -801,7 +831,7 @@ def _validate_engineers(engineers_input, current_available_engineers):
     return True
 
 
-def _get_new_engineers(engineers_input):
+def _get_new_engineers(engineers_input, start_time):
     time_splits = _make_time_splits(
         uas.GAME_CONFIG["BASE_ENGINEER_TIME_MIN_MULTIPLIER"],
         uas.GAME_CONFIG["BASE_ENGINEER_TIME_MAX_MUTLIPLIER"],
@@ -810,13 +840,13 @@ def _get_new_engineers(engineers_input):
     input_splits = _divide_across_splits(time_splits, engineers_input)
 
     min_time = (
-        datetime.datetime.now(datetime.timezone.utc)
+        start_time
         + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * min(input_splits.keys()))
     ).isoformat()
     new_engineers = [
         {
             "time": (
-                datetime.datetime.now(datetime.timezone.utc)
+                start_time
                 + datetime.timedelta(
                     seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier,
                 )
@@ -853,7 +883,13 @@ def train_engineers():
     if not valid_engineers:
         return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
 
-    new_engineers, min_engineers_time = _get_new_engineers(engineers_input)
+    state = uag._get_state()
+
+    start_time = max(
+        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    )
+    new_engineers, min_engineers_time = _get_new_engineers(engineers_input, start_time)
     next_resolve = kd_info_parse["next_resolve"]
     next_resolve["engineers"] = min(next_resolve["engineers"], min_engineers_time)
     new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_ENGINEER_COST"] * engineers_input
