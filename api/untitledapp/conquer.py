@@ -2562,7 +2562,8 @@ def _offer_shared(req, kd_id):
 # @flask_praetorian.roles_required('verified')
 def offer_shared():
     req = flask.request.get_json(force=True)
-    payload, status_code = _offer_shared(req)
+    kd_id = flask_praetorian.current_user().kd_id
+    payload, status_code = _offer_shared(req, kd_id)
     return (flask.jsonify(payload), status_code)
 
 @app.route('/api/pinned', methods=['POST'])
