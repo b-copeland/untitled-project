@@ -1358,7 +1358,7 @@ def _calculate_spy_losses(
 # @flask_praetorian.roles_required('verified')
 def calculate_spy(target_kd):
     req = flask.request.get_json(force=True)
-    drones = int(req["drones"])
+    drones = int(req["drones"] or 0)
     shielded = req["shielded"]
     defender_raw_values = req["defenderValues"]
     operation = req["operation"]
@@ -1466,7 +1466,7 @@ def calculate_spy(target_kd):
     
 def _spy(req, kd_id, target_kd):
     
-    drones = int(req["drones"])
+    drones = int(req["drones"] or 0)
     shielded = req["shielded"]
     operation = req["operation"]
 
