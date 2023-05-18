@@ -202,7 +202,7 @@ function Galaxy(props) {
                         </Button>
                         : props.data.revealed.revealed_to_galaxymates?.indexOf(kdId) >= 0
                         ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => onSubmitUnShare(kdId)}>
-                            Stop Sharing
+                            Unshare
                         </Button>
                         : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowShareInfo(true)}}>
                             Share 
