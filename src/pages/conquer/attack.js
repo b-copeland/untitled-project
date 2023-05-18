@@ -5,6 +5,7 @@ import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import InputGroup from 'react-bootstrap/InputGroup';
+import Modal from 'react-bootstrap/Modal';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./attack.css";
@@ -38,6 +39,7 @@ function Attack(props) {
     const [loadingCalc, setLoadingCalc] = useState(false);
     const [targetKdInfo, setTargetKdInfo] = useState({});
     const [attackResults, setAttackResults] = useState([]);
+    const [showOverrideModal, setShowOverrideModal] = useState(false);
   
     useEffect(() => {
         if (props.initialKd != undefined) {
@@ -68,16 +70,29 @@ function Attack(props) {
           [name]: value,
         });
     };
-    const onClickAttack = () => {
+    const countUnits = (input) => {
+        var total = 0
+        for (const unit in Object.keys(props.data.state.units || {})) {
+            total += (parseInt(input[unit] || 0));
+        }
+        return total
+    }
+    const onClickAttack = (e, overrideWarning=false) => {
         if (selected != undefined) {
-            const opts = {
-                "attackerValues": attackerValues,
-            };
-            const updateFunc = async () => authFetch('api/attack/' + selected, {
-                method: 'POST',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("")})
-            props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects', 'galaxynews'], [updateFunc]);
+            const defenderUnits = countUnits(defenderValues);
+            if (defenderUnits > 0 || overrideWarning) {
+                const opts = {
+                    "attackerValues": attackerValues,
+                };
+                const updateFunc = async () => authFetch('api/attack/' + selected, {
+                    method: 'POST',
+                    body: JSON.stringify(opts)
+                }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("")})
+                props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects', 'galaxynews'], [updateFunc]);
+                setShowOverrideModal(false);
+            } else {
+                setShowOverrideModal(true);
+            }
         } else {
             setCalcMessage({"message": "Please select a target in order to attack"})
         }
@@ -187,6 +202,34 @@ function Attack(props) {
             <ToastContainer position="bottom-end">
                 {toasts}
             </ToastContainer>
+            <Modal
+                show={showOverrideModal}
+                onHide={() => setShowOverrideModal(false)}
+                animation={false}
+                dialogClassName="attack-override-modal"
+            >
+                <Modal.Header closeButton>
+                    <Modal.Title>Attack?</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <div>
+                        <span>You're trying to make an attack without inputting any information about the target's units</span>
+                        <br />
+                        <br />
+                        <span>Are you sure?</span>
+                        <br />
+                        <br />
+                        <Button variant="primary" type="submit" onClick={(e) => onClickAttack(e, true)}>
+                            Attack 
+                        </Button>
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowOverrideModal(false)}>
+                    Cancel
+                    </Button>
+                </Modal.Footer>
+            </Modal>
             <h2>Attack</h2>
             <form className="attack-kingdom-form">
                 <label id="aria-label" htmlFor="aria-example-input">
