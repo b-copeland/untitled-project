@@ -652,8 +652,9 @@ def _attack(req, kd_id, target_kd):
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
     is_warlike = "Warlike" in galaxy_policies["active_policies"]
+    n_generals = int(attacker_raw_values["generals"])
     generals_return_times = _calc_generals_return_time(
-        int(attacker_raw_values["generals"]),
+        n_generals,
         uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
         current_bonuses["general_bonus"],
@@ -672,11 +673,11 @@ def _attack(req, kd_id, target_kd):
         {
             "return_time": general_time.isoformat(),
             **{
-                key_unit: math.floor(remaining_unit / len(generals_return_times))
-                for key_unit, remaining_unit in remaining_attacker_units.items()
+                key_unit: math.floor(attacking_unit / n_generals) + int((attacking_unit % n_generals) > i_general)
+                for key_unit, attacking_unit in remaining_attacker_units.items()
             }
         }
-        for general_time in generals_return_times
+        for i_general, general_time in enumerate(generals_return_times)
     ]
     next_return_time = min([general["return_time"] for general in generals])
     new_defender_units = {
@@ -1121,8 +1122,9 @@ def _attack_primitives(req, kd_id):
     galaxies_inverted, _ = uag._get_galaxies_inverted()
     galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
     is_warlike = "Warlike" in galaxy_policies["active_policies"]
+    n_generals = int(attacker_raw_values["generals"])
     generals_return_times = _calc_generals_return_time(
-        int(attacker_raw_values["generals"]),
+        n_generals,
         uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
         current_bonuses["general_bonus"],
@@ -1141,11 +1143,11 @@ def _attack_primitives(req, kd_id):
         {
             "return_time": general_time.isoformat(),
             **{
-                key_unit: math.floor(remaining_unit / len(generals_return_times))
-                for key_unit, remaining_unit in remaining_attacker_units.items()
+                key_unit: math.floor(attacking_unit / n_generals) + int((attacking_unit % n_generals) > i_general)
+                for key_unit, attacking_unit in remaining_attacker_units.items()
             }
         }
-        for general_time in generals_return_times
+        for i_general, general_time in enumerate(generals_return_times)
     ]
     next_return_time = min([general["return_time"] for general in generals])
 
