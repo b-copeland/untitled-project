@@ -98,7 +98,7 @@ function AttackPrimitives(props) {
             method: 'POST',
             body: JSON.stringify(opts)
         }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("")})
-        props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis'], [updateFunc]);
+        props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects'], [updateFunc]);
     };
     const onClickCalculate = async (e) => {
         const opts = {
