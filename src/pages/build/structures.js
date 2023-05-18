@@ -137,7 +137,7 @@ function BuildStructures(props) {
                     <span className="text-box-item-value">{structuresInfo["max_available_structures"].toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
-                    <span className="text-box-item-title">Available New Stuctures</span>
+                    <span className="text-box-item-title">Available New Structures</span>
                     <span className="text-box-item-value">{structuresInfo["current_available_structures"].toLocaleString()}</span>
                 </div>
             </div>
