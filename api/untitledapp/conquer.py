@@ -925,15 +925,15 @@ def _attack(req, kd_id, target_kd):
         "to": target_kd,
     }
     if attack > defense:
-        attacker_galaxy_payload["news"] = f"Your kingdom {kd_info_parse['name']} successfully attacked {target_kd_info['name']} and gained {spoils_values['stars']} stars."
+        attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} successfully attacked {target_kd_info['name']} and gained {spoils_values['stars']} stars."
         if sharer_spoils_values:
-            attacker_galaxy_payload["news"] += f" Your kingdom {sharer_kd_info['name']} provided intel and gained {sharer_spoils_values['stars']} stars."
+            attacker_galaxy_payload["news"] += f" {sharer_kd_info['name']} provided intel and gained {sharer_spoils_values['stars']} stars."
 
-        defender_galaxy_payload["news"] = f"Your kingdom {target_kd_info['name']} was defeated by {kd_info_parse['name']} and lost {total_spoils['stars']} stars."
+        defender_galaxy_payload["news"] = f"{target_kd_info['name']} was defeated by {kd_info_parse['name']} and lost {total_spoils['stars']} stars."
     else:
-        attacker_galaxy_payload["news"] = f"Your kingdom {kd_info_parse['name']} failed an attack on {target_kd_info['name']}."
+        attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} failed an attack on {target_kd_info['name']}."
 
-        defender_galaxy_payload["news"] = f"Your kingdom {target_kd_info['name']} successfully defended an attack by {kd_info_parse['name']}."
+        defender_galaxy_payload["news"] = f"{target_kd_info['name']} successfully defended an attack by {kd_info_parse['name']}."
 
     REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{attacker_galaxy}/news',
