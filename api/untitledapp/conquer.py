@@ -1159,6 +1159,8 @@ def _attack_primitives(req, kd_id):
             + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
         )
     )
+    if stars == 0:
+        return kd_info_parse, {"message": "Attacks against primitives should conquer at least 1 star. Send more units"}, 400
     money = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_MONEY_PER_STAR"]
     fuel = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_FUEL_PER_STAR"]
     pop = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_POPULATION_PER_STAR"]
