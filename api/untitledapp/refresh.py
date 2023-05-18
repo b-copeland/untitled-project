@@ -1421,12 +1421,16 @@ def refresh_data():
                 time_update,
                 current_bonuses,
             )
-            next_resolves = {
+            next_resolves_spending_effective = {
                 k: min(
                     datetime.datetime.fromisoformat(v).astimezone(datetime.timezone.utc),
                     next_resolves.get(k, datetime.datetime.fromisoformat(uas.DATE_SENTINEL).astimezone(datetime.timezone.utc))
                 )
                 for k, v in next_resolves_auto_spending.items()
+            }
+            next_resolves = {
+                **next_resolves,
+                **next_resolves_spending_effective,
             }
         if kd_info_parse["auto_assign_projects"] and (kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values()) > 0):
             kd_info_parse = _resolve_auto_projects(kd_info_parse)
