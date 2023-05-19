@@ -1594,8 +1594,15 @@ def _spy(req, kd_id, target_kd):
     kd_patch_payload = {
         "drones": kd_info_parse["drones"] - losses,
     }
-    is_lumina_intel = (kd_info_parse["race"] == "Lumina") and operation in uas.REVEAL_OPERATIONS
-    if not is_lumina_intel:
+    is_valid_lumina_intel = (
+        (kd_info_parse["race"] == "Lumina")
+        and operation in uas.REVEAL_OPERATIONS
+        and (
+            ((drones / kd_info_parse["drones"]) > 0.5)
+            or spy_probability >= 0.8
+        )
+    )
+    if not is_valid_lumina_intel:
         kd_patch_payload["spy_attempts"] = kd_info_parse["spy_attempts"] - 1
     if kidnap_return:
         kd_patch_payload["population"] = kd_info_parse["population"] + kidnap_return

@@ -33,7 +33,7 @@ function CreateKingdom(props) {
             pros: <div>
                 <span>{`Fuel Production +${displayPercent(props.state.game_config?.LUMINA_FUEL_PRODUCTION_INCREASE || 0)}`}</span>
                 <br/>
-                <span>Intel spy operations do not consume spy attempts</span>
+                <span>Intel spy operations do not consume spy attempts (when sending at least 50% of your drones)</span>
             </div>,
             cons: <span>{`Offense -${displayPercent(props.state.game_config?.LUMINA_OFFENSE_REDUCTION || 0)}`}</span>,
         },
