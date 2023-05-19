@@ -1391,13 +1391,17 @@ def calculate_spy(target_kd):
     
     if "drones" in max_target_kd_info:
         defender_drones = max_target_kd_info["drones"]
+        drones_revealed = True
     else:
         defender_drones = int(defender_raw_values["drones"] or 0)
+        drones_revealed = False
     
     if "stars" in max_target_kd_info:
         defender_stars = max_target_kd_info["stars"]
+        stars_revealed = True
     else:
         defender_stars = int(defender_raw_values["stars"] or 0)
+        stars_revealed = False
 
     if "shields" in max_target_kd_info:
         defender_shields = max_target_kd_info["shields"]["spy"]
@@ -1455,6 +1459,10 @@ def calculate_spy(target_kd):
             message = f"You will destroy {fuel_damage} fuel."
         else:
             message = f"You will destroy up to {fuel_damage} fuel."
+
+    
+    if operation != "suicidedrones" and not (drones_revealed and stars_revealed):
+        message = "With incomplete information, " + message
 
     payload = {
         "message": message,
