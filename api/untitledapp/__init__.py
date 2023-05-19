@@ -538,9 +538,9 @@ def _validate_shields(req_values):
 def set_shields():
     req = flask.request.get_json(force=True)
     req_values = {
-        k: int(v or 0) / 100
+        k: float(v or 0) / 100
         for k, v in req.items()
-        if int(v or 0)
+        if v != ""
     }
     valid_shields, error_message = _validate_shields(req_values)
     if not valid_shields:
