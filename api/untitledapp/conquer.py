@@ -1598,7 +1598,7 @@ def _spy(req, kd_id, target_kd):
         (kd_info_parse["race"] == "Lumina")
         and operation in uas.REVEAL_OPERATIONS
         and (
-            ((drones / kd_info_parse["drones"]) > 0.5)
+            ((drones / kd_info_parse["drones"]) >= 0.5)
             or spy_probability >= 0.8
         )
     )
