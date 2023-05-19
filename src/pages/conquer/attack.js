@@ -80,7 +80,7 @@ function Attack(props) {
     const onClickAttack = (e, overrideWarning=false) => {
         if (selected != undefined) {
             const defenderUnits = countUnits(defenderValues);
-            if (defenderUnits > 0 || overrideWarning) {
+            if (defenderUnits > 0 || overrideWarning || targetKdInfo.hasOwnProperty("units")) {
                 const opts = {
                     "attackerValues": attackerValues,
                 };
