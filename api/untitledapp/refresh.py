@@ -757,36 +757,37 @@ def _resolve_auto_spending(
             if (kd_info_parse["structures_target"].get(k, 0) - v) > 0
         }
         total_target_gap = sum(target_gap.values())
-        target_gap_pct = {
-            k: v / total_target_gap
-            for k, v in target_gap.items()
-        }
-        target_structures_to_build = {
-            k: math.floor(v * structures_to_build)
-            for k, v in target_gap_pct.items()
-        }
-        leftover_structures = structures_to_build - sum(target_structures_to_build.values())
-        for _ in range(leftover_structures):
-            rand_structure = _weighted_random_by_dct(target_gap_pct)
-            target_structures_to_build[rand_structure] += 1
-        
-        kd_info_parse["funding"]["structures"] = structures_funding - structures_to_build * structures_price
-        
-        target_structures_to_build_nonzero = {
-            k: v
-            for k, v in target_structures_to_build.items()
-            if v > 0
-        }
-        new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero, time_update)
-        next_resolves["structures"] = min(min_structures_time, kd_info_parse["next_resolve"]["structures"])
-        structures_payload = {
-            "new_structures": new_structures_payload
-        }
-        structures_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps(structures_payload),
-        )
+        if total_target_gap > 0:
+            target_gap_pct = {
+                k: v / total_target_gap
+                for k, v in target_gap.items()
+            }
+            target_structures_to_build = {
+                k: math.floor(v * structures_to_build)
+                for k, v in target_gap_pct.items()
+            }
+            leftover_structures = structures_to_build - sum(target_structures_to_build.values())
+            for _ in range(leftover_structures):
+                rand_structure = _weighted_random_by_dct(target_gap_pct)
+                target_structures_to_build[rand_structure] += 1
+            
+            kd_info_parse["funding"]["structures"] = structures_funding - structures_to_build * structures_price
+            
+            target_structures_to_build_nonzero = {
+                k: v
+                for k, v in target_structures_to_build.items()
+                if v > 0
+            }
+            new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero, time_update)
+            next_resolves["structures"] = min(min_structures_time, kd_info_parse["next_resolve"]["structures"])
+            structures_payload = {
+                "new_structures": new_structures_payload
+            }
+            structures_patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(structures_payload),
+            )
 
     recruit_price = mobis_info["recruit_price"]
     recruit_time = mobis_info["recruit_time"]
