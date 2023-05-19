@@ -318,6 +318,9 @@ function Content(props) {
       })
     );
   }, 60000)
+  useInterval(() => {
+    updateData(["scores"])
+  }, 60000)
 
   const handleShowNav = () => {
     setShowNav(true);
