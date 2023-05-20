@@ -560,6 +560,12 @@ INITIAL_KINGDOM_STATE = {
     "attack_history": {"attack_history": []},
     "missile_history": {"missile_history": []},
     "messages": {"messages": []},
+    "notifs": {
+        "news_kingdom": 0,
+        "news_galaxy": 0,
+        "messages": 0,
+        "shared": 0,
+    },
 }
 
 KINGDOM_CREATOR_STARTING_POINTS = 20000

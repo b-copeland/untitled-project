@@ -11,6 +11,17 @@ import "./message.css";
 import HelpButton from "../components/helpbutton";
 
 function Message(props) {
+
+    useEffect(() => {
+        const updateFunc = () => {
+            authFetch("api/clearnotifs", {
+                method: "POST",
+                body: JSON.stringify({"categories": ["messages"]})
+            });
+        }
+        props.updateData(['notifs'], [updateFunc])
+    }, [])
+
     const [selected, setSelected] = useState(props.initialKd || undefined);
     const [message, setMessage] = useState("");
     const [results, setResults] = useState([]);

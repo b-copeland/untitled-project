@@ -443,6 +443,7 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             "attack_history",
             "missile_history",
             "messages",
+            "notifs",
         ]:
             CONTAINER.create_item(
                 {
@@ -1057,6 +1058,60 @@ def update_messages(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The kingdom messages was not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetNotifs")
+@APP.route(route="kingdom/{kdId:int}/notifs", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_notifs(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get notifs request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"notifs_{kd_id}"
+    try:
+        notifs = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(notifs),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve kingdom notifs",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateNotifs")
+@APP.route(route="kingdom/{kdId:int}/notifs", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_notifs(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update notifs request.')    
+    req_body = req.get_json()
+    add_categories = req_body.get("add_categories", [])
+    clear_categories = req_body.get("clear_categories", [])
+
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"notifs_{kd_id}"
+    notifs = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        for add_cat in add_categories:
+            notifs[add_cat] += 1
+        for clear_cat in clear_categories:
+            notifs[clear_cat] = 0
+        CONTAINER.replace_item(
+            item_id,
+            notifs,
+        )
+        return func.HttpResponse(
+            "Kingdom notifs updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom notifs was not updated",
             status_code=500,
         )
 

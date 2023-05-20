@@ -85,6 +85,24 @@ function SideNavbar(props) {
       setDoubleClicks(newDoubleClicks);
     }
   }
+
+  const getNotifsCount = (categories) => {
+    var total = 0;
+    for (const category of categories) {
+      total += parseInt(props.notifs[category]);
+    }
+    return total;
+  }
+
+  const getNotifsSuffix = (categories) => {
+    const count = getNotifsCount(categories);
+    if (count > 0) {
+      return ` (${count})`
+    } else {
+      return ""
+    }
+  }
+  
   return (
     <>
       {/* <Button variant="primary" className="d-lg-none" onClick={handleShow}>
@@ -108,13 +126,13 @@ function SideNavbar(props) {
             props.logged
             ? <>
               <br />
-              <Nav.Link as={Link} to="/status" onClick={() => handleDoubleClick("/status")} style={{"fontWeight": "bold"}}>Home</Nav.Link>
+              <Nav.Link as={Link} to="/status" onClick={() => handleDoubleClick("/status")} style={{"fontWeight": "bold"}}>Home{getNotifsSuffix(["news_kingdom", "news_galaxy", "messages"])}</Nav.Link>
               {
                 homePaths.includes(pathname)
                 ? <>
-                  <Nav.Link as={Link} to="/news" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;News</Nav.Link>
+                  <Nav.Link as={Link} to="/news" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;News{getNotifsSuffix(["news_kingdom", "news_galaxy"])}</Nav.Link>
                   <Nav.Link as={Link} to="/galaxy" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Galaxy</Nav.Link>
-                  <Nav.Link as={Link} to="/message" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Message</Nav.Link>
+                  <Nav.Link as={Link} to="/message" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Message{getNotifsSuffix(["messages"])}</Nav.Link>
                   {/* <Nav.Link as={Link} to="/forums" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Forums</Nav.Link> */}
                   <Nav.Link as={Link} to="/history" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;History</Nav.Link>
                   <Nav.Link as={Link} to="/scores" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Scores</Nav.Link>
@@ -135,7 +153,7 @@ function SideNavbar(props) {
                 : null
               }
               <br />
-              <Nav.Link as={Link} to="/conquer" onClick={() => handleDoubleClick("/conquer")} style={{"fontWeight": "bold"}}>Conquer</Nav.Link>
+              <Nav.Link as={Link} to="/conquer" onClick={() => handleDoubleClick("/conquer")} style={{"fontWeight": "bold"}}>Conquer{getNotifsSuffix(["shared"])}</Nav.Link>
               {
                 conquerPaths.includes(pathname)
                 ? <>

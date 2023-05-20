@@ -99,6 +99,7 @@ const initGlobalData = {
   'universenews': [],
   'messages': [],
   'scores': {},
+  'notifs': {},
 }
 const initLoadingData = {
   'kingdomid': true,
@@ -130,6 +131,7 @@ const initLoadingData = {
   'missilehistory': true,
   'messages': true,
   'scores': true,
+  'notifs': true,
 }
 const endpoints = {
   'kingdomid': 'api/kingdomid',
@@ -161,6 +163,7 @@ const endpoints = {
   'missilehistory': 'api/missilehistory',
   'messages': 'api/messages',
   'scores': 'api/scores',
+  'notifs': 'api/notifs',
 }
 
 function useInterval(callback, delay) {
@@ -255,7 +258,7 @@ function Content(props) {
     // console.log(data);
     // console.log(lastResolves);
     if (initLoadComplete) {
-      await updateData(["kingdom"]);
+      await updateData(["kingdom", "notifs"]);
       if (Object.keys(lastResolves).length > 0) {
         const newResolves = Object.keys(lastResolves).filter(key => lastResolves[key] != data.kingdom.next_resolve[key]);
         // console.log(newResolves);
@@ -363,7 +366,7 @@ function Content(props) {
         <ToastContainer position="top-end">
             {toasts}
         </ToastContainer>
-        <SideNavbar logged={props.logged} setData={setData} showNav={showNav} setShowNav={setShowNav}/>
+        <SideNavbar logged={props.logged} setData={setData} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs}/>
         <div className="router">
           {/* <Router> */}
             <div className="router-body">
@@ -373,7 +376,7 @@ function Content(props) {
                 <Route path="/createkingdom" element={<CreateKingdom loading={loading} updateData={updateData} kingdomid={data.kingdomid} state={data.state}/>}/>
                 <Route element={<ProtectedRoute logged={props.logged} session={props.session} kingdomid={data.kingdomid}/>}>
                   <Route path="/status" element={<StatusContent data={data} loading={loading} updateData={updateData}/>}/>
-                  <Route path="/news" element={<NewsContent data={data}/>}/>
+                  <Route path="/news" element={<NewsContent data={data} updateData={updateData}/>}/>
                   <Route path="/galaxy" element={<Galaxy data={data} loading={loading} updateData={updateData} initialGalaxyId={data.galaxies_inverted[data.kingdomid.kd_id]}/>}/>
                   <Route path="/message" element={<Message data={data} loading={loading} updateData={updateData}/>}/>
                   <Route path="/forums" element={<Forums data={data} loading={loading}/>}/>

@@ -36,14 +36,56 @@ function getNiceTimeString(date) {
     return dateParse.toLocaleString('en-us', options);
 }
 
+const getNotifsCount = (notifs, categories) => {
+  var total = 0;
+  for (const category of categories) {
+    total += parseInt(notifs[category]);
+  }
+  return total;
+}
+
+const getNotifsSuffix = (notifs, categories) => {
+  const count = getNotifsCount(notifs, categories);
+  if (count > 0) {
+    return ` (${count})`
+  } else {
+    return ""
+  }
+}
+
 function NewsContent(props) {
     const [key, setKey] = useState('kingdom');
+
+    const clearNotifs = (categories) => {
+        const updateFunc = () => {
+            authFetch("api/clearnotifs", {
+                method: "POST",
+                body: JSON.stringify({"categories": categories})
+            });
+        }
+        props.updateData(['notifs'], [updateFunc])
+    }
+    useEffect(() => {
+        clearNotifs(["news_kingdom"])
+    }, [])
 
     if (Object.keys(props.data.galaxies_inverted).length === 0) {
         return null;
     }
     if (Object.keys(props.data.kingdoms).length === 0) {
         return null;
+    }
+    const handleNotifsSelect = (eventKey) => {
+        if (eventKey === "kingdom") {
+            if (props.data.notifs.news_kingdom > 0) {
+                clearNotifs(["news_kingdom"])
+            }
+        } else if (eventKey === "galaxy") {
+            if (props.data.notifs.news_galaxy > 0) {
+                clearNotifs(["news_galaxy"])
+            }
+        }
+        setKey(eventKey);
     }
     const kdNames = props.data.kingdoms;
     const galaxyMap = props.data.galaxies_inverted;
@@ -56,11 +98,12 @@ function NewsContent(props) {
         justify
         fill
         variant="tabs"
+        onSelect={(k) => handleNotifsSelect(k)}
       >
-        <Tab eventKey="kingdom" title="Kingdom">
+        <Tab eventKey="kingdom" title={`Kingdom${getNotifsSuffix(props.data.notifs, ["news_kingdom"])}`}>
           <Kingdom kdNames={kdNames} galaxyMap={galaxyMap} news={props.data.news}/>
         </Tab>
-        <Tab eventKey="galaxy" title="Galaxy">
+        <Tab eventKey="galaxy" title={`Galaxy${getNotifsSuffix(props.data.notifs, ["news_galaxy"])}`}>
           <Galaxy kdNames={kdNames} galaxyMap={galaxyMap} galaxynews={props.data.galaxynews}/>
         </Tab>
         <Tab eventKey="empire" title="Empire">

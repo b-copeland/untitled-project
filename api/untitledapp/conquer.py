@@ -11,7 +11,7 @@ from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, alive_required, start_required, _mark_kingdom_death, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import app, alive_required, start_required, _mark_kingdom_death, _add_notifs, REQUESTS_SESSION, SOCK_HANDLERS
 
 @app.route('/api/revealrandomgalaxy', methods=['GET'])
 @flask_praetorian.auth_required
@@ -731,6 +731,7 @@ def _attack(req, kd_id, target_kd):
                 headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
                 data=json.dumps(sharer_news),
             )
+            _add_notifs(sharer, ["news_kingdom"])
         else:
             sharer_spoils_values = {}
 
@@ -846,6 +847,7 @@ def _attack(req, kd_id, target_kd):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(target_news),
     )
+    _add_notifs(target_kd, ["news_kingdom"])
     kd_patch_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -882,38 +884,6 @@ def _attack(req, kd_id, target_kd):
     }
 
     defender_galaxy = galaxies_inverted[target_kd]
-    if attacker_galaxy != defender_galaxy:
-        kds_revealed_to = galaxy_info[defender_galaxy]
-        for kd_revealed_to in kds_revealed_to:
-            reveal_galaxy_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}/revealed',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-                data=json.dumps(payload),
-            )
-            kd_revealed_to_info = uag._get_kd_info(kd_revealed_to)
-            if revealed_until < kd_revealed_to_info["next_resolve"]["revealed"]:
-                kd_revealed_to_next_resolve = kd_revealed_to_info["next_resolve"]
-                kd_revealed_to_next_resolve["revealed"] = revealed_until
-                kd_revealed_to_patch_payload = {
-                    "next_resolve": kd_revealed_to_next_resolve
-                }
-                REQUESTS_SESSION.patch(
-                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}',
-                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-                    data=json.dumps(kd_revealed_to_patch_payload),
-                )
-            if kd_revealed_to != target_kd:
-                try:
-                    ws = SOCK_HANDLERS[kd_revealed_to]
-                    ws.send(json.dumps({
-                        "message": f"Your galaxymate {target_kd_info['name']} was attacked by {kd_info_parse['name']}. Galaxy {attacker_galaxy} will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours",
-                        "status": "info",
-                        "category": "Galaxy",
-                        "delay": 15000,
-                        "update": ["galaxynews"],
-                    }))
-                except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-                    pass
 
     attacker_galaxy_payload = {
         "time": time_now.isoformat(),
@@ -946,6 +916,40 @@ def _attack(req, kd_id, target_kd):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(defender_galaxy_payload),
     )
+    if attacker_galaxy != defender_galaxy:
+        kds_revealed_to = galaxy_info[defender_galaxy]
+        for kd_revealed_to in kds_revealed_to:
+            reveal_galaxy_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}/revealed',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(payload),
+            )
+            kd_revealed_to_info = uag._get_kd_info(kd_revealed_to)
+            if revealed_until < kd_revealed_to_info["next_resolve"]["revealed"]:
+                kd_revealed_to_next_resolve = kd_revealed_to_info["next_resolve"]
+                kd_revealed_to_next_resolve["revealed"] = revealed_until
+                kd_revealed_to_patch_payload = {
+                    "next_resolve": kd_revealed_to_next_resolve
+                }
+                REQUESTS_SESSION.patch(
+                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}',
+                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    data=json.dumps(kd_revealed_to_patch_payload),
+                )
+            if kd_revealed_to != target_kd:
+                try:
+                    ws = SOCK_HANDLERS[kd_revealed_to]
+                    ws.send(json.dumps({
+                        "message": f"Your galaxymate {target_kd_info['name']} was attacked by {kd_info_parse['name']}. Galaxy {attacker_galaxy} will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours",
+                        "status": "info",
+                        "category": "Galaxy",
+                        "delay": 15000,
+                        "update": ["galaxynews"],
+                    }))
+                except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+                    pass
+    for defender_galaxy_kd in galaxy_info[defender_galaxy]:
+        _add_notifs(defender_galaxy_kd, ["news_galaxy"])
     attack_results = {
         "status": attack_status,
         "message": attacker_message,
@@ -1706,6 +1710,7 @@ def _spy(req, kd_id, target_kd):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(target_news_payload),
     )
+    _add_notifs(target_kd, ["news_kingdom"])
     try:
         ws = SOCK_HANDLERS[target_kd]
         ws.send(json.dumps({
@@ -2359,6 +2364,7 @@ def _launch_missiles(req, kd_id, target_kd):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(target_news_payload),
     )
+    _add_notifs(target_kd, ["news_kingdom"])
     history_payload = {
         "time": time_now.isoformat(),
         "to": target_kd,
@@ -2532,6 +2538,7 @@ def _offer_shared(req, kd_id):
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(shared_to_payload),
         )
+        _add_notifs(kd_to_update, ["shared"])
 
         shared_to_kd_info = uag._get_kd_info(kd_to_update)
         if shared_resolve_time < shared_to_kd_info["next_resolve"]["shared"]:

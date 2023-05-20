@@ -142,6 +142,51 @@ def _mark_kingdom_death(kd_id):
         pass
     return flask.jsonify(str(user.__dict__))
 
+def _add_notifs(kd_id, categories):
+    add_notifs_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/notifs',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps({"add_categories": categories}),
+    )
+
+def _clear_notifs(kd_id, categories):
+    clear_notifs_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/notifs',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps({"clear_categories": categories}),
+    )
+
+def _get_notifs(kd_id):
+    get_notifs_response = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/notifs',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+    )
+    get_notifs_response_json = json.loads(get_notifs_response.text)
+    return get_notifs_response_json
+
+
+@app.route('/api/notifs', methods=['GET'])
+@flask_praetorian.auth_required
+@alive_required
+def get_notifs():
+    kd_id = flask_praetorian.current_user().kd_id
+    notifs = _get_notifs(kd_id)
+    return flask.jsonify(notifs), 200
+
+
+@app.route('/api/clearnotifs', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def clear_notifs():
+    kd_id = flask_praetorian.current_user().kd_id
+    req = flask.request.get_json(force=True)
+
+    categories = req.get("categories", [])
+    if categories:
+        _clear_notifs(kd_id, categories)
+    
+    return "Cleared", 200
+
 
 import untitledapp.account as uaa
 import untitledapp.build as uab
@@ -569,6 +614,7 @@ def set_shields():
 
 @app.route('/api/messages/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
+@alive_required
 # @flask_praetorian.roles_required('verified')
 def send_message(target_kd):
     kd_id = flask_praetorian.current_user().kd_id
@@ -603,6 +649,7 @@ def send_message(target_kd):
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(payload_to)
     )
+    _add_notifs(target_kd, ["messages"])
     try:
         ws = SOCK_HANDLERS[target_kd]
         ws.send(json.dumps({
@@ -762,7 +809,8 @@ def unshare_kd(share_to):
         data=json.dumps(share_to_payload),
     )
     return (flask.jsonify(kd_response.text)), 200
-    
+
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def catch_all(path):
