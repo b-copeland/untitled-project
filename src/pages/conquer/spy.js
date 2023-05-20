@@ -111,8 +111,8 @@ function Spy(props) {
         return {"value": kdId, "label": kdFullLabel(kdId)}
     })
     const spyOptions = [
-        {value: "spykingdom", "label": "Spy on Kingdom"},
         {value: "spymilitary", "label": "Spy on Military"},
+        {value: "spykingdom", "label": "Spy on Kingdom"},
         {value: "spyshields", "label": "Spy on Shields"},
         {value: "spyprojects", "label": "Spy on Projects"},
         {value: "spystructures", "label": "Spy on Structures"},
@@ -213,7 +213,7 @@ function Spy(props) {
                         <label id="aria-label" htmlFor="aria-example-input">
                             Select a Spy Operation
                         </label>
-                        <Select id="select-operation" className="operation-select" options={spyOptions} onChange={handleOperationChange} autoFocus={false} 
+                        <Select id="select-operation" className="operation-select" options={spyOptions} onChange={handleOperationChange} autoFocus={false} isSearchable={false}
                             styles={{
                                 control: (baseStyles, state) => ({
                                     ...baseStyles,

@@ -334,8 +334,8 @@ function Add(props) {
             })
             const selectedKingdomOption = (options.target != null) ? kingdomOptions.filter(selectOption => selectOption.value == options.target)[0] : null;
             const spyOptions = [
-                {value: "spykingdom", "label": "Spy on Kingdom"},
                 {value: "spymilitary", "label": "Spy on Military"},
+                {value: "spykingdom", "label": "Spy on Kingdom"},
                 {value: "spyshields", "label": "Spy on Shields"},
                 {value: "spyprojects", "label": "Spy on Projects"},
                 {value: "spystructures", "label": "Spy on Structures"},
@@ -395,6 +395,7 @@ function Add(props) {
                         value={selectedOperationOption}
                         onChange={(selected) => handleOptionChangeExplicit("operation", selected.value)}
                         autoFocus={false} 
+                        isSearchable={false}
                         styles={{
                             control: (baseStyles, state) => ({
                                 ...baseStyles,
@@ -566,6 +567,7 @@ function Add(props) {
                         value={selectedOperationOption}
                         onChange={(selected) => handleOptionChangeExplicit("operation", selected.value)}
                         autoFocus={false} 
+                        isSearchable={false}
                         styles={{
                             control: (baseStyles, state) => ({
                                 ...baseStyles,
@@ -800,6 +802,7 @@ function Add(props) {
                     options={scheduleOptions}
                     onChange={handleScheduleChange}
                     autoFocus={true}
+                    isSearchable={false}
                     // defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)} 
                     styles={{
                         control: (baseStyles, state) => ({

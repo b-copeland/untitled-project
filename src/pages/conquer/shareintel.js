@@ -165,6 +165,7 @@ function ShareIntel(props) {
                             options={revealedOptions}
                             onChange={handleStatChange}
                             autoFocus={true}
+                            isSearchable={false}
                             styles={{
                                 control: (baseStyles, state) => ({
                                     ...baseStyles,
@@ -206,6 +207,7 @@ function ShareIntel(props) {
                             options={shareToOptions}
                             onChange={handleShareToChange}
                             autoFocus={true}
+                            isSearchable={false}
                             styles={{
                                 control: (baseStyles, state) => ({
                                     ...baseStyles,

@@ -110,6 +110,7 @@ function GalaxyPoliticsLeader(props) {
                     onChange={handleChange}
                     autoFocus={true}
                     defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}     
+                    isSearchable={false}
                     styles={{
                         control: (baseStyles, state) => ({
                             ...baseStyles,
