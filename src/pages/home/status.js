@@ -51,6 +51,16 @@ function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
+function getTimeString(date) {
+    if (date === undefined) {
+        return "--"
+    }
+    const hours = Math.max((Date.parse(date) - Date.now()), 0) / 3.6e6;
+    var n = new Date(0, 0);
+    n.setSeconds(+hours * 60 * 60);
+    return n.toTimeString().slice(0, 8);
+}
+
 function Status(props) {
     const navigate = useNavigate();
     const [clickedReset, setClickedReset] = useState(false);
@@ -82,15 +92,6 @@ function Status(props) {
             <span className="text-box-item-value">-{props.kingdom.income?.fuel?.shields[shield].toLocaleString()}</span>
         </div>
     )
-    function getTimeString(date) {
-        if (date === undefined) {
-            return "--"
-        }
-        const hours = Math.abs(Date.parse(date) - Date.now()) / 3.6e6;
-        var n = new Date(0, 0);
-        n.setSeconds(+hours * 60 * 60);
-        return n.toTimeString().slice(0, 8);
-    }
     function getTimeSinceString(date) {
         if (date === undefined) {
             return "--"
@@ -628,16 +629,6 @@ function Spending(props) {
             </div>
         </div>
     )
-}
-
-function getTimeString(date) {
-    if (date === undefined) {
-        return "--"
-    }
-    const hours = Math.abs(Date.parse(date) - Date.now()) / 3.6e6;
-    var n = new Date(0, 0);
-    n.setSeconds(+hours * 60 * 60);
-    return n.toTimeString().slice(0, 8);
 }
 
 function Military(props) {
