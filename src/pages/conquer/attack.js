@@ -40,7 +40,7 @@ function Attack(props) {
     const [targetKdInfo, setTargetKdInfo] = useState({});
     const [attackResults, setAttackResults] = useState([]);
     const [showOverrideModal, setShowOverrideModal] = useState(false);
-  
+
     useEffect(() => {
         if (props.initialKd != undefined) {
             const fetchData = async () => {
@@ -239,7 +239,7 @@ function Attack(props) {
                     className="attack-kingdom-select"
                     options={kingdomOptions}
                     onChange={handleChange}
-                    autoFocus={true}
+                    autoFocus={selected == undefined}
                     defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}
                     styles={{
                         control: (baseStyles, state) => ({

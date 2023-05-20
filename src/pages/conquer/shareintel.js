@@ -118,7 +118,7 @@ function ShareIntel(props) {
                 className="share-intel-kingdom-select"
                 options={kingdomOptions}
                 onChange={handleChange}
-                autoFocus={true}
+                autoFocus={selected == undefined}
                 defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}
                 styles={{
                     control: (baseStyles, state) => ({
@@ -164,7 +164,7 @@ function ShareIntel(props) {
                             className="share-intel-select"
                             options={revealedOptions}
                             onChange={handleStatChange}
-                            autoFocus={true}
+                            autoFocus={false}
                             isSearchable={false}
                             styles={{
                                 control: (baseStyles, state) => ({

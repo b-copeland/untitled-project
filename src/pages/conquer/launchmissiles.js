@@ -121,7 +121,7 @@ function LaunchMissiles(props) {
                 <label id="aria-label" htmlFor="aria-example-input">
                     Select a target (type to filter)
                 </label>
-                <Select className="attack-kingdom-select" options={kingdomOptions} onChange={handleChange} autoFocus={true} defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}
+                <Select className="attack-kingdom-select" options={kingdomOptions} onChange={handleChange} autoFocus={selected == undefined} defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}
                     styles={{
                         control: (baseStyles, state) => ({
                             ...baseStyles,
