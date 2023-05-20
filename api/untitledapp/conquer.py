@@ -594,7 +594,7 @@ def _attack(req, kd_id, target_kd):
     galaxies_inverted, _ = uag._get_galaxies_inverted()
     target_kd_info = uag._get_kd_info(target_kd)
     if target_kd_info["status"].lower() == "dead":
-        return (flask.jsonify({"message": "You can't attack this kingdom because they are dead!"}), 400)
+        return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400
     target_current_bonuses = {
         project: project_dict.get("max_bonus", 0) * min(target_kd_info["projects_points"][project] / target_kd_info["projects_max_points"][project], 1.0)
         for project, project_dict in uas.PROJECTS.items()
@@ -1500,7 +1500,7 @@ def _spy(req, kd_id, target_kd):
     revealed = uag._get_revealed(kd_id)["revealed"]
     max_target_kd_info = uag._get_kd_info(target_kd)
     if max_target_kd_info["status"].lower() == "dead":
-        return (flask.jsonify({"message": "You can't attack this kingdom because they are dead!"}), 400)
+        return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400, False
     
     defender_drones = max_target_kd_info["drones"]
     defender_stars = max_target_kd_info["stars"]
@@ -2310,7 +2310,7 @@ def _launch_missiles(req, kd_id, target_kd):
     max_target_kd_info = uag._get_kd_info(target_kd)
     defender_shields = max_target_kd_info["shields"]["missiles"]
     if max_target_kd_info["status"].lower() == "dead":
-        return (flask.jsonify({"message": "You can't attack this kingdom because they are dead!"}), 400)
+        return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400
     
     missile_damage = _calculate_missiles_damage(
         attacker_missiles,
