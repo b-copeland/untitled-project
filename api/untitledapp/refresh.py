@@ -1021,54 +1021,80 @@ def _resolve_auto_projects(kd_info_parse):
     return kd_info_parse
 
 def _resolve_schedule_attack(new_kd_info, schedule):
-    pure_pct = schedule["options"].get("pure_offense", 0)
-    flex_pct = schedule["options"].get("flex_offense", 0)
 
     req = {
         "attackerValues": {
             "generals": schedule["options"].get("generals", 0)
         }
     }
-    total_units = new_kd_info["units"].copy()
-    total_general_units = {
-        k: 0
-        for k in uas.UNITS
-    }
-    for general_units in new_kd_info["generals_out"]:
-        for key_unit, value_unit in general_units.items():
-            if key_unit == "return_time":
-                continue
-            total_units[key_unit] += value_unit
-            total_general_units[key_unit] += value_unit
-
-    pct_units_out = {
-        k: v / max(total_units.get(k), 1)
-        for k, v in total_general_units.items()
-    }
-    pct_units_available_pure = {
-        k: max(pure_pct - v, 0)
-        for k, v in pct_units_out.items()
-    }
-    pct_units_available_flex = {
-        k: max(flex_pct - v, 0)
-        for k, v in pct_units_out.items()
-    }
+    prefer_autofill = schedule["options"].get("prefer_autofill", False)
+    target_kd = schedule["options"]["target"]
+    use_autofill = False
+    if prefer_autofill:
+        revealed = uag._get_revealed(new_kd_info["kdId"])
+        if "military" in revealed["revealed"].get(target_kd, {}).keys():
+            use_autofill = True
+            autofill_req = {
+                "defenderValues": {
+                    **{
+                        key_unit: 0
+                        for key_unit in uas.UNITS.keys()
+                    },
+                    "military_bonus": 25,
+                    "shields": 10,
+                },
+                "buffer": schedule["options"].get("autofill_buffer", 0.01) * 100,
+                "generals": schedule["options"].get("generals", 0),
+            }
+            autofill_payload, _ = uac._autofill_attack(autofill_req, new_kd_info["kdId"], target_kd)
+            for key_unit, value_unit in autofill_payload["attacker_units"].items():
+                req["attackerValues"][key_unit] = value_unit
+        pass
     
-    for key_unit, value_unit in new_kd_info["units"].items():
-        if uas.UNITS[key_unit].get("offense", 0) == 0:
-            continue
-        else:
-            if uas.UNITS[key_unit].get("defense", 0) == 0:
-                req["attackerValues"][key_unit] = min(
-                    math.floor(pct_units_available_pure[key_unit] * total_units.get(key_unit, 0)),
-                    value_unit,
-                )
+    if not prefer_autofill or not use_autofill:
+        pure_pct = schedule["options"].get("pure_offense", 0)
+        flex_pct = schedule["options"].get("flex_offense", 0)
+
+        total_units = new_kd_info["units"].copy()
+        total_general_units = {
+            k: 0
+            for k in uas.UNITS
+        }
+        for general_units in new_kd_info["generals_out"]:
+            for key_unit, value_unit in general_units.items():
+                if key_unit == "return_time":
+                    continue
+                total_units[key_unit] += value_unit
+                total_general_units[key_unit] += value_unit
+
+        pct_units_out = {
+            k: v / max(total_units.get(k), 1)
+            for k, v in total_general_units.items()
+        }
+        pct_units_available_pure = {
+            k: max(pure_pct - v, 0)
+            for k, v in pct_units_out.items()
+        }
+        pct_units_available_flex = {
+            k: max(flex_pct - v, 0)
+            for k, v in pct_units_out.items()
+        }
+        
+        for key_unit, value_unit in new_kd_info["units"].items():
+            if uas.UNITS[key_unit].get("offense", 0) == 0:
+                continue
             else:
-                req["attackerValues"][key_unit] = min(
-                    math.floor(pct_units_available_flex[key_unit] * total_units.get(key_unit, 0)),
-                    value_unit,
-                )
-    new_kd_info, payload, status_code = uac._attack(req, new_kd_info["kdId"], schedule["options"]["target"])
+                if uas.UNITS[key_unit].get("defense", 0) == 0:
+                    req["attackerValues"][key_unit] = min(
+                        math.floor(pct_units_available_pure[key_unit] * total_units.get(key_unit, 0)),
+                        value_unit,
+                    )
+                else:
+                    req["attackerValues"][key_unit] = min(
+                        math.floor(pct_units_available_flex[key_unit] * total_units.get(key_unit, 0)),
+                        value_unit,
+                    )
+    new_kd_info, payload, status_code = uac._attack(req, new_kd_info["kdId"], target_kd)
     return new_kd_info
 
 def _resolve_schedule_attackprimitives(new_kd_info, schedule):
@@ -1197,7 +1223,8 @@ def _resolve_schedules(new_kd_info, time_update):
         "aggressivespy": _resolve_schedule_aggressivespy,
         "missiles": _resolve_schedule_missiles,
     }
-    for ready_sched in ready_schedules:
+    intel_first_schedules = sorted(ready_schedules, key=lambda x: -int(x.get("type", "") == "intelspy"))
+    for ready_sched in intel_first_schedules:
         new_kd_info = handler_funcs[ready_sched["type"]](new_kd_info, ready_sched)
 
     new_kd_info["schedule"] = keep_schedules

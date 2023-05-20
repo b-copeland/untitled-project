@@ -346,7 +346,7 @@ def _validate_autofill_request(req, kd_info_parse):
         return False, "Please choose a generals amount"
     
     buffer = float(req.get("buffer", 0.0))
-    generals = int(req.get("generals"), 0)
+    generals = int(req.get("generals", 0))
 
     if buffer < 0:
         return False, "Buffer must be greater than 0"
@@ -1946,6 +1946,7 @@ def _schedule_attack(
     options["generals"] = int(options["generals"] or 0)
     options["pure_offense"] = float(options["pure_offense"] or 0) / 100
     options["flex_offense"] = float(options["flex_offense"] or 0) / 100
+    options["autofill_buffer"] = float(options["autofill_buffer"] or 0) / 100
     valid_schedule, message = _validate_schedule_attack(options, kd_info["kdId"])
     if not valid_schedule:
         return False, {}, message

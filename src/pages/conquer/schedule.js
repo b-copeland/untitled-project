@@ -54,6 +54,8 @@ function getCurrentHour() {
 
 const initialScheduleOptions = {
     "attack": {
+        "prefer_autofill": true,
+        "autofill_buffer": 1.0,
         "target": null,
         "pure_offense": 0.0,
         "flex_offense": 0.0,
@@ -198,6 +200,35 @@ function Add(props) {
                         </tr>
                     </thead>
                     <tbody>
+                        <tr>
+                            <td>Prefer Autofill?</td>
+                            <td>
+                                <Form.Check
+                                    id="prefer-autofill-input"
+                                    name="prefer_autofill"
+                                    onChange={(e) => handleOptionChangeExplicit("prefer_autofill", e.target.checked)}
+                                    defaultChecked={options.prefer_autofill || true}
+                                    autoComplete="off"
+                                />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Autofill Buffer</td>
+                            <td>
+                                <InputGroup className="mb-3 unit-input-group">
+                                    <Form.Control
+                                        className="unit-form"
+                                        id="autofill-buffer-input"
+                                        name="autofill_buffer"
+                                        onChange={handleOptionChange}
+                                        value={options.autofill_buffer || ""} 
+                                        placeholder="1.0"
+                                        autoComplete="off"
+                                    />
+                                    <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
+                                </InputGroup>
+                            </td>
+                        </tr>
                         <tr>
                             <td>Pure Offense</td>
                             <td>
@@ -773,7 +804,6 @@ function Add(props) {
             </>
         }
     }
-    
     const toasts = results.map((result, index) =>
         <Toast
             key={index}
