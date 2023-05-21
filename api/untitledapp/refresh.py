@@ -1047,9 +1047,11 @@ def _resolve_schedule_attack(new_kd_info, schedule):
                 "generals": schedule["options"].get("generals", 0),
             }
             autofill_payload, _ = uac._autofill_attack(autofill_req, new_kd_info["kdId"], target_kd)
-            for key_unit, value_unit in autofill_payload["attacker_units"].items():
-                req["attackerValues"][key_unit] = value_unit
-        pass
+            if autofill_payload["attacker_offense"] > autofill_payload["defender_defense"]:
+                for key_unit, value_unit in autofill_payload["attacker_units"].items():
+                    req["attackerValues"][key_unit] = value_unit
+            else:
+                return new_kd_info
     
     if not prefer_autofill or not use_autofill:
         pure_pct = schedule["options"].get("pure_offense", 0)
