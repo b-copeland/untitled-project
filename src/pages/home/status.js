@@ -28,7 +28,16 @@ function StatusContent(props) {
         variant="tabs"
       >
         <Tab eventKey="kingdom" title="Kingdom">
-          <Status kingdom={props.data.kingdom} mobis={props.data.mobis} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} state={props.data.state} loading={props.loading} updateData={props.updateData}/>
+          <Status
+            kingdom={props.data.kingdom}
+            mobis={props.data.mobis}
+            kingdoms={props.data.kingdoms}
+            galaxies_inverted={props.data.galaxies_inverted}
+            state={props.data.state}
+            siphonsout={props.data.siphonsout}
+            loading={props.loading}
+            updateData={props.updateData}
+          />
         </Tab>
         <Tab eventKey="shields" title="Shields">
           <Shields data={props.data} loading={props.loading} updateData={props.updateData}/>
@@ -119,6 +128,19 @@ function Status(props) {
 
     const gameStart = new Date(props.state.state?.game_start);
 
+    const siphonsOut = (
+        props.siphonsout.length > 0
+        ? props.siphonsout.map((siphon, iter) =>
+            <div className="text-box-item" key={"siphonsout_" + iter}>
+                <span className="text-box-item-title">&nbsp;&nbsp;{getTimeString(new Date(siphon.time))}</span>
+                <span className="text-box-item-value">{Math.floor(siphon.siphon).toLocaleString()}</span>
+            </div>
+        )
+        : <div className="text-box-item">
+            <span className="text-box-item-title">&nbsp;&nbsp;None</span>
+        </div>
+    )
+
     return (
         <div className="status">
             {
@@ -141,7 +163,7 @@ function Status(props) {
             }
             <div className="status-kingdom-content">
                 <div className="text-box kingdom-card">
-                    <h4>{props.kingdoms[props.kingdom.kdId] || ""} ({props.galaxies_inverted[props.kingdom.kdId] || ""})</h4>
+                    <h3>{props.kingdoms[props.kingdom.kdId] || ""} ({props.galaxies_inverted[props.kingdom.kdId] || ""})</h3>
                     <br />
                     <div className="text-box-item">
                         <span className="text-box-item-title">Name</span>
@@ -278,6 +300,13 @@ function Status(props) {
                         <span className="text-box-item-title">Drones</span>
                         <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.drones).toLocaleString()}</span>
                     </div>
+                </div>
+                <div className="text-box income-box">
+                    <h3>Statuses</h3>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Siphons Out</span>
+                    </div>
+                    {siphonsOut}
                 </div>
             </div>
         </div>

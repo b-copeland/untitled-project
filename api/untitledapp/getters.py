@@ -1227,6 +1227,23 @@ def _get_siphons_out(kd_id):
     
     siphons_out_info_parse = json.loads(siphons_out_info.text)
     return siphons_out_info_parse["siphons_out"]
+
+@app.route('/api/siphonsout', methods=['GET'])
+@flask_praetorian.auth_required
+def get_siphons_out():
+    kd_id = flask_praetorian.current_user().kd_id
+
+    siphons_out = _get_siphons_out(kd_id)
+    siphons_out_redacted = [
+        {
+            k: v
+            for k, v in item.items()
+            if k != "from"
+        }
+        for item in siphons_out
+    ]
+    return flask.jsonify(siphons_out_redacted), 200
+
     
 @app.route('/api/time')
 @flask_praetorian.auth_required
