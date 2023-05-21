@@ -915,6 +915,9 @@ function Queue(props) {
         "max_tries": "Max Tries",
         "share_to_galaxy": "Share to Galaxy",
         "repeat": "Repeat",
+        "prefer_autofill": "Prefer Autofill",
+        "autofill_buffer": "Autofill Buffer",
+        "attempts": "Attempts",
     }
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const kdFullLabel = (kdId) => {
@@ -930,7 +933,7 @@ function Queue(props) {
             var prettyValue;
             if (optionKey == "target") {
                 prettyValue = kdFullLabel(queueItem.options[optionKey])
-            } else if (["drones_pct", "pure_offense", "flex_offense"].includes(optionKey)) {
+            } else if (["drones_pct", "pure_offense", "flex_offense", "autofill_buffer"].includes(optionKey)) {
                 prettyValue = displayPercent(queueItem.options[optionKey])
             } else {
                 prettyValue = (prettyNames[queueItem.options[optionKey]] || queueItem.options[optionKey]).toString()
