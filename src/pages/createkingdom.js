@@ -30,11 +30,12 @@ const initialUnitsChoices = {
 
 function CreateKingdom(props) {
     const [kdName, setKdName] = useState("");
-    const [kdMessage, setKdMessage] = useState("");
+    const [kdMessage, setKdMessage] = useState({});
     const [createKingdomData, setCreateKingdomData] = useState({});
     const [structuresChoices, setStructuresChoices] = useState(initialStructuresChoices);
     const [unitsChoices, setUnitsChoices] = useState(initialUnitsChoices);
     const [race, setRace] = useState();
+    const [createLoading, setCreateLoading] = useState(false);
     const navigate = useNavigate();
     
     useEffect(() => {
@@ -74,11 +75,12 @@ function CreateKingdom(props) {
             let opts = {
                 'kdName': kdName,
             };
-            setKdMessage("")
+            setKdMessage("");
+            setCreateLoading(true);
             const updateFunc = () => authFetch('api/createkingdom', {
                 method: 'post',
                 body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => setKdMessage(r))
+            }).then(r => r.json()).then(r => {setKdMessage(r);setCreateLoading(false)})
             props.updateData(['kingdomid'], [updateFunc])
         }
     }
@@ -94,11 +96,12 @@ function CreateKingdom(props) {
             method: 'post',
             body: JSON.stringify(opts)
         }).then(r => r.json()).then(r => setKdMessage(r))
-        props.updateData(['all'], [updateFunc])
+        props.updateData(['kingdomid'], [updateFunc])
     }
 
     const onClickGoHome = (e)=>{
         navigate("/status")
+        props.updateData(['all'], [])
     }
 
     if (Object.keys(createKingdomData).length === 0) {
@@ -108,9 +111,6 @@ function CreateKingdom(props) {
         return <h2>Loading...</h2>
     }
 
-    if (kdMessage != "" && kdMessage == props.kingdomid.kd_id) {
-        setKdMessage("");
-    }
     const calcStructuresRemaining = (structuresData, availableStructures) => {
         var total = 0
         for (const structure in structuresData) {
@@ -193,7 +193,7 @@ function CreateKingdom(props) {
                         autoComplete="off"
                     />
                 </InputGroup>
-                {props.loading.kingdomid
+                {createLoading
                 ? <Button className="submit-name-button" variant="primary" type="submit" disabled>
                     Loading...
                 </Button>
@@ -202,8 +202,8 @@ function CreateKingdom(props) {
                 </Button>
                 }
                 {
-                    kdMessage !== ""
-                    ? <h4>{kdMessage}</h4>
+                    kdMessage.message !== ""
+                    ? <h4>{kdMessage.message}</h4>
                     : null
                 }
             </div>
@@ -436,8 +436,8 @@ function CreateKingdom(props) {
                 </Button>
                 }
                 {
-                    kdMessage !== ""
-                    ? <h4>{kdMessage}</h4>
+                    kdMessage.message !== ""
+                    ? <h4>{kdMessage.message}</h4>
                     : null
                 }
                 <div className="text-box kingdom-card">

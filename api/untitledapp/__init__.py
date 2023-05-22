@@ -376,11 +376,11 @@ def create_initial_kingdom():
     user = flask_praetorian.current_user()
 
     if user.kd_id != "" and user.kd_id != None:
-        return (flask.jsonify("You already have a kingdom ID"), 400)
+        return (flask.jsonify({"message": "You already have a kingdom ID"}), 400)
 
     valid_name, message = _validate_kingdom_name(req["kdName"])
     if not valid_name:
-        return (flask.jsonify(message), 400)
+        return (flask.jsonify({"message": message}), 400)
     
     galaxies = uag._get_galaxy_info()
     size_galaxies = collections.defaultdict(list)
@@ -397,7 +397,7 @@ def create_initial_kingdom():
         data=json.dumps({"kingdom_name": req["kdName"], "galaxy": chosen_galaxy}),
     )
     if create_kd_response.status_code != 201:
-        return (flask.jsonify("Error creating kingdom"), 400)
+        return (flask.jsonify({"message": "Error creating kingdom"}), 400)
     
     kd_id = create_kd_response.text
 
@@ -421,7 +421,7 @@ def create_initial_kingdom():
     db.session.commit()
     uaa._update_accounts()
     
-    return kd_id, 200
+    return flask.jsonify({"message": ""}), 200
 
 
 @app.route('/api/resetkingdom', methods=["POST"])
@@ -508,7 +508,7 @@ def create_kingdom_choices():
     user = flask_praetorian.current_user()
 
     if user.kd_created:
-        return (flask.jsonify("This kingdom has already been created"), 400)
+        return (flask.jsonify({"message": "This kingdom has already been created"}), 400)
 
     unit_choices = {
         k: int(v or 0)
@@ -522,7 +522,7 @@ def create_kingdom_choices():
 
     valid_kd, message = _validate_kingdom_choices(unit_choices, structures_choices, race)
     if not valid_kd:
-        return (flask.jsonify(message), 400)
+        return (flask.jsonify({"message": message}), 400)
     
     kd_id = user.kd_id
     kd_info = uag._get_kd_info(kd_id)
@@ -559,7 +559,7 @@ def create_kingdom_choices():
     db.session.commit()
     uaa._update_accounts()
     
-    return (flask.jsonify("Success"), 200)
+    return (flask.jsonify({"message": ""}), 200)
 
 def _validate_shields(req_values):
 
