@@ -551,7 +551,12 @@ def _get_mobis(kd_id):
     generals_units = kd_info_parse["generals_out"]
     mobis_units = mobis_info_parse
 
-    start_time = datetime.datetime.now(datetime.timezone.utc)
+    state = _get_state()
+
+    start_time = max(
+        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    )
     units = _calc_units(start_time, current_units, generals_units, mobis_units)
     maxes = _calc_maxes(units, kd_info_parse)
 
@@ -566,7 +571,6 @@ def _get_mobis(kd_id):
     is_conscription = "Conscription" in galaxy_policies["active_policies"]
     recruit_time = _calc_recruit_time(is_conscription, (uas.GAME_CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"] + uas.GAME_CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"]) / 2)
 
-    state = _get_state()
     units_adjusted_costs = _get_units_adjusted_costs(state)
 
     max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
@@ -664,7 +668,12 @@ def _get_structures_info(kd_id):
     current_structures = kd_info_parse["structures"]
     building_structures = structures_info_parse["structures"]
 
-    start_time = datetime.datetime.now(datetime.timezone.utc)
+    state = _get_state()
+
+    start_time = max(
+        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    )
     structures = _calc_structures(start_time, current_structures, building_structures)
 
     max_available_structures, current_available_structures = _calc_available_structures(current_price, kd_info_parse, structures)
