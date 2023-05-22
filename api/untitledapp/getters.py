@@ -96,10 +96,13 @@ def _get_scores_redacted(revealed, kd_id, galaxies_inverted):
             top_points_redacted.append(
                 ("", item[1])
             )
+        
+    top_galaxy_networth = sorted(scores["galaxy_networth"].items(), key=lambda x: -x[1])
     payload = {
         "networth": top_nw_redacted,
         "stars": top_stars_redacted,
-        "points": top_points_redacted
+        "points": top_points_redacted,
+        "galaxy_networth": top_galaxy_networth,
     }
     return payload
 

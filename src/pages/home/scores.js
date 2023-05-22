@@ -34,6 +34,10 @@ function Scores(props) {
           <Stars
             data={props.data}/>
         </Tab>
+        <Tab eventKey="galaxy" title="Galaxy Networth">
+          <GalaxyNetworth
+            data={props.data}/>
+        </Tab>
       </Tabs>
       <HelpButton scrollTarget={"scores"}/>
     </>
@@ -59,7 +63,7 @@ function Points(props) {
     );
     return (
         <div className="kingdom">
-            <Table striped bordered hover>
+            <Table striped bordered hover className="scores-table">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Rank</th>
@@ -86,7 +90,7 @@ function Networth(props) {
     );
     return (
         <div className="kingdom">
-            <Table striped bordered hover>
+            <Table striped bordered hover className="scores-table">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Rank</th>
@@ -113,12 +117,39 @@ function Stars(props) {
     );
     return (
         <div className="kingdom">
-            <Table striped bordered hover>
+            <Table striped bordered hover className="scores-table">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Rank</th>
                         <th style={{textAlign: "left"}}>Kingdom</th>
                         <th style={{textAlign: "right"}}>Stars</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows}
+                </tbody>
+            </Table>
+        </div>
+    );
+}
+
+function GalaxyNetworth(props) {
+    const scores = props.data.scores?.galaxy_networth || [];
+    const rows = scores.map((row, iter) =>
+        <tr key={iter}>
+            <td style={{textAlign: "left"}}>{iter + 1}</td>
+            <td style={{textAlign: "left"}}>{row[0]}</td>
+            <td style={{textAlign: "right"}}>{row[1].toLocaleString()}</td>
+        </tr>
+    );
+    return (
+        <div className="kingdom">
+            <Table striped bordered hover className="scores-table">
+                <thead>
+                    <tr>
+                        <th style={{textAlign: "left"}}>Rank</th>
+                        <th style={{textAlign: "left"}}>Galaxy</th>
+                        <th style={{textAlign: "right"}}>Networth</th>
                     </tr>
                 </thead>
                 <tbody>

@@ -84,6 +84,7 @@ def init_state(req: func.HttpRequest) -> func.HttpResponse:
                 "points": {},
                 "stars": {},
                 "networth": {},
+                "galaxy_networth": {},
                 "last_update": "",
             }
         )
@@ -240,6 +241,7 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
         scores["points"] = {}
         scores["stars"] = {}
         scores["networth"] = {}
+        scores["galaxy_networth"] = {}
 
         CONTAINER.replace_item(
             "scores",

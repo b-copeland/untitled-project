@@ -1337,6 +1337,11 @@ def _resolve_scores(kd_scores, time_update):
         except KeyError:
             new_scores["points"][kd_scoring] = epoch_points
 
+    galaxies_inverted, _ = uag._get_galaxies_inverted()
+    new_scores["galaxy_networth"] = collections.defaultdict(int)
+    for kd_id, networth in kd_scores["networth"].items():
+        galaxy = galaxies_inverted[kd_id]
+        new_scores["galaxy_networth"][galaxy] += networth
     
     update_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/scores',
