@@ -128,6 +128,28 @@ function Status(props) {
 
     const gameStart = new Date(props.state.state?.game_start);
 
+    const kdFullLabel = (kdId) => {
+        if (kdId != undefined) {
+            return props.kingdoms[parseInt(kdId)] + " (" + props.galaxies_inverted[kdId] + ")"
+        } else {
+            return "Unknown"
+        }
+        
+    }
+
+    const siphonsIn = (
+        props.kingdom.siphons.length > 0
+        ? props.kingdom.siphons.map((siphon, iter) =>
+            <div className="text-box-item" key={"siphonsin_" + iter}>
+                <span className="text-box-item-title">&nbsp;&nbsp;{kdFullLabel(siphon.from)}</span>
+                <span className="text-box-item-value">{Math.floor(siphon.remaining_siphon).toLocaleString()} ({getTimeString(new Date(siphon.time))})</span>
+            </div>
+        )
+        : <div className="text-box-item">
+            <span className="text-box-item-title">&nbsp;&nbsp;None</span>
+        </div>
+    )
+
     const siphonsOut = (
         props.siphonsout.length > 0
         ? props.siphonsout.map((siphon, iter) =>
@@ -303,6 +325,11 @@ function Status(props) {
                 </div>
                 <div className="text-box income-box">
                     <h3>Statuses</h3>
+                    <div className="text-box-item">
+                        <span className="text-box-item-title">Siphons In</span>
+                    </div>
+                    {siphonsIn}
+                    <br />
                     <div className="text-box-item">
                         <span className="text-box-item-title">Siphons Out</span>
                     </div>

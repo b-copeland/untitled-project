@@ -535,6 +535,7 @@ INITIAL_KINGDOM_STATE = {
         },
         "income": {},
         "schedule": [],
+        "siphons": [],
     },
     "siphons_in": {"siphons_in": []},
     "siphons_out": {"siphons_out": []},

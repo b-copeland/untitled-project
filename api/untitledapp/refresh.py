@@ -122,6 +122,8 @@ def _calc_siphons(
             "new_siphons": {
                 "from": kd_id,
                 "siphon": siphon_money,
+                "time": time_expiry.isoformat(),
+                "remaining_siphon": siphon_out["siphon"] - siphon_money,
             }
         }
         siphons_in_response = REQUESTS_SESSION.patch(
@@ -156,7 +158,7 @@ def _calc_siphons(
         headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
         data=json.dumps(resolve_siphons_in_payload),
     )
-    return siphon_pool, siphon_in_income
+    return siphon_pool, siphon_in_income, siphons_in
 
 def _calc_networth(
     kd_info_parse,
@@ -207,7 +209,7 @@ def _kingdom_with_income(
         income["money"]["mines"]
         + income["money"]["population"]
     ) * (1 + income["money"]["bonus"])
-    income["money"]["siphons_out"], income["money"]["siphons_in"] = _calc_siphons(
+    income["money"]["siphons_out"], income["money"]["siphons_in"], siphons_in = _calc_siphons(
         income["money"]["gross"],
         kd_info_parse["kdId"],
         time_now,
@@ -305,6 +307,7 @@ def _kingdom_with_income(
         new_kd_info,
         total_units,
     ))
+    new_kd_info["siphons"] = siphons_in
 
     if new_kd_info["population"] <= 0:
         new_kd_info["status"] = "Dead"
