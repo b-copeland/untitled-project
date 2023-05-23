@@ -92,29 +92,31 @@ def reveal_random_galaxy():
 
 def _validate_attack_request(
     attacker_raw_values,
-    kd_info
+    kd_info,
+    calculate=False,
 ):
     attacker_units = {
         key: int(value)
         for key, value in attacker_raw_values.items()
         if (key in uas.UNITS and value != "")
     }
-    if any((
-        attack_units > kd_info["units"].get(key_unit, 0)
-        for key_unit, attack_units in attacker_units.items()
-    )):
-        return False, "You do not have that many units"
+    if not calculate:
+        if any((
+            attack_units > kd_info["units"].get(key_unit, 0)
+            for key_unit, attack_units in attacker_units.items()
+        )):
+            return False, "You do not have that many units"
+        if sum(attacker_units.values()) == 0:
+            return False, "You must send at least 1 unit"
+        if int(attacker_raw_values["generals"] or 0) > kd_info["generals_available"]:
+            return False, "You do not have that many generals"
+        if int(attacker_raw_values["generals"] or 0) <= 0:
+            return False, "You must send at least 1 general"
     if any((
         attack_units < 0
         for attack_units in attacker_units.values()
     )):
         return False, "You can not send negative units"
-    if sum(attacker_units.values()) == 0:
-        return False, "You must send at least 1 unit"
-    if int(attacker_raw_values["generals"] or 0) > kd_info["generals_available"]:
-        return False, "You do not have that many generals"
-    if int(attacker_raw_values["generals"] or 0) == 0:
-        return False, "You must send at least 1 general"
     
     return True, ""
 
@@ -194,6 +196,7 @@ def calculate_attack(target_kd):
     valid_attack_request, attack_request_message = _validate_attack_request(
         attacker_raw_values,
         kd_info_parse,
+        calculate=True,
     )
     if not valid_attack_request:
         return (flask.jsonify({"message": attack_request_message}), 400)
@@ -232,7 +235,7 @@ def calculate_attack(target_kd):
         attacker_units,
         military_bonus=float(current_bonuses['military_bonus'] or 0), 
         other_bonuses=0,
-        generals=int(attacker_raw_values["generals"]),
+        generals=int(attacker_raw_values.get("generals", 0) or 0),
         fuelless=attacker_fuelless,
         lumina=kd_info_parse["race"] == "Lumina",
     )
@@ -262,7 +265,7 @@ def calculate_attack(target_kd):
     galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
     is_warlike = "Warlike" in galaxy_policies["active_policies"]
     generals_return_times = _calc_generals_return_time(
-        int(attacker_raw_values["generals"]),
+        int(attacker_raw_values.get("generals", 1) or 1),
         uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
         current_bonuses["general_bonus"],
