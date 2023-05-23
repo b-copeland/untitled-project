@@ -720,8 +720,12 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
     missiles = {k: current_missiles.get(k, 0) + missiles_building.get(k, 0) for k in uas.MISSILES}
 
     missiles_available = {k: max_available_missiles - missiles.get(k, 0) for k in missiles}
-    costs = sum([uas.MISSILES[key_missile]["cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
-    fuel_costs = sum([uas.MISSILES[key_missile]["fuel_cost"] * value_missile for key_missile, value_missile in missiles_request.items()])
+    cost_multiplier = (
+        1
+        - int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_COST_REDUCTION"]
+    )
+    costs = sum([uas.MISSILES[key_missile]["cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
+    fuel_costs = sum([uas.MISSILES[key_missile]["fuel_cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
 
     if any((value < 0 for value in missiles_request.values())):
         return False
