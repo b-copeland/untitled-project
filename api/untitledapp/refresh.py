@@ -1349,6 +1349,52 @@ def _resolve_scores(kd_scores, time_update):
         data=json.dumps(new_scores)
     )
 
+def _update_history(
+    kd_info,
+    time_update,
+):
+    history_payload = {}
+
+    basic_kd_info_keys = ["networth", "stars", "drones", "population"]
+    for key_info in basic_kd_info_keys:
+        history_payload[key_info] = {
+            "time": time_update.isoformat(),
+            "value": kd_info[key_info],
+        }
+    history_payload["engineers"] = {
+        "time": time_update.isoformat(),
+        "value": kd_info["units"]["engineers"],
+    }
+    
+    total_units = kd_info["units"].copy()
+    total_general_units = {
+        k: 0
+        for k in uas.UNITS
+    }
+    for general_units in kd_info["generals_out"]:
+        for key_unit, value_unit in general_units.items():
+            if key_unit == "return_time":
+                continue
+            total_units[key_unit] += value_unit
+            total_general_units[key_unit] += value_unit
+    
+    offense = uag._calc_max_offense(total_units)
+    defense = uag._calc_max_defense(total_units)
+
+    history_payload["max_offense"] = {
+        "time": time_update.isoformat(),
+        "value": offense,
+    }
+    history_payload["max_defense"] = {
+        "time": time_update.isoformat(),
+        "value": defense,
+    }
+    update_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_info["kdId"]}/history',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps({"history": history_payload})
+    )
+
 
 @app.route('/api/refreshdata')
 def refresh_data():
@@ -1366,8 +1412,26 @@ def refresh_data():
     elif time_now > state["state"]["election_start"] and state["state"]["election_end"] == "":
         state = _begin_election(state)
 
+    
+
     kingdoms = uag._get_kingdoms()
     time_update = datetime.datetime.now(datetime.timezone.utc)
+
+    history_datetime = datetime.datetime.fromisoformat(state["state"]["next_history"]).astimezone(datetime.timezone.utc)
+    if history_datetime < time_update:
+        update_history = True
+        next_history = history_datetime + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"])
+        state_payload = {
+            "next_history": next_history.isoformat(),
+        }
+
+        update_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(state_payload)
+        )
+    else:
+        update_history = False
 
     kd_scores = {
         "stars": {},
@@ -1489,6 +1553,12 @@ def refresh_data():
 
         kd_scores["stars"][kd_id] = new_kd_info["stars"]
         kd_scores["networth"][kd_id] = new_kd_info["networth"]
+
+        if update_history:
+            _update_history(
+                new_kd_info,
+                time_update,
+            )
     
     _resolve_scores(kd_scores, time_update)
         

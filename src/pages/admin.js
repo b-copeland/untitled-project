@@ -67,6 +67,7 @@ function Admin(props) {
         "election_start": electionStart,
         "election_end": "",
         "active_policies": [],
+        "next_history": gameStart,
     }
     adminAuth.authFetch('api/updatestate', {
         method: 'POST',

@@ -567,6 +567,17 @@ INITIAL_KINGDOM_STATE = {
         "messages": 0,
         "shared": 0,
     },
+    "history": {
+        "history": {
+            "networth": [],
+            "stars": [],
+            "population": [],
+            "drones": [],
+            "engineers": [],
+            "max_offense": [],
+            "max_defense": [],
+        }
+    },
 }
 
 KINGDOM_CREATOR_STARTING_POINTS = 20000

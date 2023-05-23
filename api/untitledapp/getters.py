@@ -1255,6 +1255,23 @@ def get_siphons_out():
         for item in siphons_out
     ]
     return flask.jsonify(siphons_out_redacted), 200
+    
+def _get_history(kd_id):
+    history_info = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/history',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    
+    history_info_parse = json.loads(history_info.text)
+    return history_info_parse["history"]
+
+@app.route('/api/history', methods=['GET'])
+@flask_praetorian.auth_required
+def get_history():
+    kd_id = flask_praetorian.current_user().kd_id
+
+    history = _get_history(kd_id)
+    return flask.jsonify(history), 200
 
     
 @app.route('/api/time')

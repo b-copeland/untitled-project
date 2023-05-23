@@ -446,6 +446,7 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             "missile_history",
             "messages",
             "notifs",
+            "history",
         ]:
             CONTAINER.create_item(
                 {
@@ -1770,5 +1771,54 @@ def update_missile_history(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The kingdom missile_history were not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="GetHistory")
+@APP.route(route="kingdom/{kdId:int}/history", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_history(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get history request.')    
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"history_{kd_id}"
+    try:
+        history = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(history),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve history info",
+            status_code=500,
+        )
+@APP.function_name(name="UpdateHistory")
+@APP.route(route="kingdom/{kdId:int}/history", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_history(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update history request.')    
+    req_body = req.get_json()
+    new_history = req_body.get("history", {})
+    kd_id = str(req.route_params.get('kdId'))
+    item_id = f"history_{kd_id}"
+    history = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        for key_history, item_history in new_history.items():
+            history["history"][key_history].append(item_history)
+        CONTAINER.replace_item(
+            item_id,
+            history,
+        )
+        return func.HttpResponse(
+            "Kingdom history updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The kingdom history were not updated",
             status_code=500,
         )
