@@ -294,7 +294,7 @@ def calculate_attack(target_kd):
             + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
         )
         spoils_values = {
-            key_spoil: math.floor(value_spoil * spoils_rate * (1 - cut))
+            key_spoil: max(math.floor(value_spoil * spoils_rate * (1 - cut)), 0)
             for key_spoil, value_spoil in max_target_kd_info.items()
             if key_spoil in {"stars", "population", "money", "fuel"}
         }
@@ -308,7 +308,7 @@ def calculate_attack(target_kd):
             message += '. \n'
             if sharer:
                 sharer_spoils_values = {
-                    key_spoil: math.floor(value_spoil * spoils_rate * cut)
+                    key_spoil: max(math.floor(value_spoil * spoils_rate * cut), 0)
                     for key_spoil, value_spoil in max_target_kd_info.items()
                     if key_spoil in {"stars", "population", "money", "fuel"}
                 }
@@ -511,7 +511,7 @@ def _autofill_attack(req, kd_id, target_kd):
             + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
         )
         spoils_values = {
-            key_spoil: math.floor(value_spoil * spoils_rate * (1 - cut))
+            key_spoil: max(math.floor(value_spoil * spoils_rate * (1 - cut)), 0)
             for key_spoil, value_spoil in max_target_kd_info.items()
             if key_spoil in {"stars", "population", "money", "fuel"}
         }
@@ -525,7 +525,7 @@ def _autofill_attack(req, kd_id, target_kd):
             message += '. \n'
             if sharer:
                 sharer_spoils_values = {
-                    key_spoil: math.floor(value_spoil * spoils_rate * cut)
+                    key_spoil: max(math.floor(value_spoil * spoils_rate * cut), 0)
                     for key_spoil, value_spoil in max_target_kd_info.items()
                     if key_spoil in {"stars", "population", "money", "fuel"}
                 }
@@ -703,19 +703,19 @@ def _attack(req, kd_id, target_kd):
             + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
         ))
         total_spoils = {
-            key_spoil: math.floor(value_spoil * spoils_rate)
+            key_spoil: max(math.floor(value_spoil * spoils_rate), 0)
             for key_spoil, value_spoil in target_kd_info.items()
             if key_spoil in {"stars", "population", "money", "fuel"}
         }
         total_spoils["stars"] = max(total_spoils["stars"], min_stars_gain)
         spoils_values = {
-            key_spoil: math.floor(value_spoil * (1 - cut))
+            key_spoil: max(math.floor(value_spoil * (1 - cut)), 0)
             for key_spoil, value_spoil in total_spoils.items()
             if key_spoil in {"stars", "population", "money", "fuel"}
         }
         if sharer:
             sharer_spoils_values = {
-                key_spoil: math.floor(value_spoil * cut)
+                key_spoil: max(math.floor(value_spoil * cut), 0)
                 for key_spoil, value_spoil in total_spoils.items()
                 if key_spoil in {"stars", "population", "money", "fuel"}
             }
