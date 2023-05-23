@@ -138,8 +138,8 @@ function Status(props) {
     }
 
     const siphonsIn = (
-        props.kingdom.siphons.length > 0
-        ? props.kingdom.siphons.map((siphon, iter) =>
+        props.kingdom.siphons?.length > 0
+        ? props.kingdom.siphons?.map((siphon, iter) =>
             <div className="text-box-item" key={"siphonsin_" + iter}>
                 <span className="text-box-item-title">&nbsp;&nbsp;{kdFullLabel(siphon.from)}</span>
                 <span className="text-box-item-value">{Math.floor(siphon.remaining_siphon).toLocaleString()} ({getTimeString(new Date(siphon.time))})</span>
