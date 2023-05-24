@@ -14,6 +14,8 @@ import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";
 import "primeicons/primeicons.css";
 import 'bootstrap/dist/css/bootstrap.css';
 import HelpButton from "../../components/helpbutton";
+import Select from 'react-select';
+import {VictoryZoomContainer, VictoryBrushContainer, VictoryChart, VictoryLine, VictoryAxis, VictoryTooltip, VictoryVoronoiContainer} from 'victory';
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -227,9 +229,192 @@ function Missiles(props) {
 }
 
 function Stats(props) {
+    const [loading, setLoading] = useState(true);
+    const [history, setHistory] = useState({});
+    // const [zoomDomain, setZoomDomain] = useState();
+    // const [brushDomain, setBrushDomain] = useState();
+    const [selected, setSelected] = useState("networth");
+
+    useEffect(() => {
+        authFetch('api/history').then(
+            r => r.json()
+        ).then(r => {setHistory(r);setLoading(false)}).catch(
+            err => {
+                console.log('Failed to fetch history');
+                console.log(err);
+            }
+        );
+    }, []);
+
+    const handleChange = (selectedOption) => {
+        setSelected(selectedOption.value);
+    };
+    if (loading) {
+        return <h2>Loading...</h2>
+    };
+
+    const statOptions = [
+        {value: "networth", "label": "Networth"},
+        {value: "stars", "label": "Stars"},
+        {value: "population", "label": "Population"},
+        {value: "drones", "label": "Drones"},
+        {value: "engineers", "label": "Engineers"},
+        {value: "max_offense", "label": "Max Offense"},
+        {value: "max_defense", "label": "Max Defense"},
+    ];
+
+    const data = history[selected].map((histItem) => {
+        return {
+            x: new Date(histItem.time),
+            y: histItem.value,
+            label: histItem.value.toLocaleString(),
+        }
+    })
+    const maxY = Math.max(...data.map(o => o.y))
     return (
-        <h2>Coming Soon...</h2>
-    )
+        <div className="stat-history">
+            <form className="select-stat-form">
+                <label id="aria-label" htmlFor="aria-example-input">
+                    Select a stat
+                </label>
+                <Select
+                    id="select-stat"
+                    className="stat-select"
+                    options={statOptions}
+                    onChange={handleChange}
+                    autoFocus={selected == undefined}
+                    styles={{
+                        control: (baseStyles, state) => ({
+                            ...baseStyles,
+                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                            backgroundColor: 'var(--bs-body-bg)',
+                        }),
+                        placeholder: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-primary-text)',
+                        }),
+                        input: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                        option: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                        }),
+                        menuList: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: 'var(--bs-secondary-bg)',
+                            // borderColor: 'var(--bs-secondary-bg)',
+                        }),
+                        singleValue: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                    }}/>
+            </form>
+            <VictoryChart
+                width={900}
+                height={300}
+                padding={{left: 70, bottom: 30}}
+                domain={{y: [0, maxY]}}
+                domainPadding={20}
+                scale={{x: "time", y: "linear"}}
+                containerComponent={
+                    <VictoryVoronoiContainer responsive={true}
+                    // zoomDimension="x"
+                    // zoomDomain={zoomDomain}
+                    // onZoomDomainChange={setZoomDomain}
+                    />
+                }
+                style={{
+                    data: {stroke: "cyan"},
+                    parent: { border: "1px solid #ccc", padding: "10px"},
+                }}
+            >
+                <VictoryAxis
+                    label="Time" 
+                    style={{
+                        axis: {
+                            stroke: 'white'  //CHANGE COLOR OF Y-AXIS
+                        },
+                        tickLabels: {
+                            fill: 'white' //CHANGE COLOR OF Y-AXIS LABELS
+                        },
+                    }}    
+                />
+                <VictoryAxis
+                    dependentAxis
+                    label="Value" 
+                    style={{
+                        axis: {
+                            stroke: 'white'  //CHANGE COLOR OF Y-AXIS
+                        },
+                        tickLabels: {
+                            fill: 'white' //CHANGE COLOR OF Y-AXIS LABELS
+                        },
+                    }}
+                />
+                <VictoryLine
+                    style={{
+                        data: {stroke: "cyan"},
+                        tickLabels: {fill: "white"},
+                        labels: {fill: "black"},
+                    }}
+                    labelComponent={<VictoryTooltip flyoutStyle={{fill: "white"}}/>}
+                    data={data}
+                    x="x"
+                    y="y"
+                />
+            
+            </VictoryChart>
+            
+            {/* <VictoryChart
+                width={900}
+                height={90}
+                scale={{x: "time"}}
+                padding={{top: 0, left: 50, right: 50, bottom: 30}}
+                containerComponent={
+                    <VictoryBrushContainer responsive={false}
+                    brushStyle={{
+                        fill: "gray",
+                        opacity: 0.2,
+                    }}
+                    brushDimension="x"
+                    brushDomain={brushDomain}
+                    onBrushDomainChange={setZoomDomain}
+                    />
+                }
+            >
+                <VictoryAxis
+                    tickValues={nwData.map((nwItem) => new Date(nwItem.time))}
+                    // tickValues={[
+                    //   new Date(1985, 1, 1),
+                    //   new Date(1990, 1, 1),
+                    //   new Date(1995, 1, 1),
+                    //   new Date(2000, 1, 1),
+                    //   new Date(2005, 1, 1),
+                    //   new Date(2010, 1, 1),
+                    //   new Date(2015, 1, 1)
+                    // ]}
+                    tickFormat={(x) => new Date(x).toLocaleString()}
+                    style={{
+                        data: {stroke: "cyan"},
+                        tickLabels: {fill: "white"}
+                    }}
+                />
+                <VictoryLine
+                    style={{
+                        data: {stroke: "cyan"},
+                        tickLabels: {fill: "white"}
+                    }}
+                    data={nwData}
+                    x="x"
+                    y="value"
+                />
+            </VictoryChart> */}
+        </div>
+      );
 }
 
 export default HistoryContent;

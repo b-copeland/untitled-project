@@ -1,0 +1,10 @@
+.stat-history {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.select-stat-form {
+    margin: 10px;
+    width: 200px;
+}
