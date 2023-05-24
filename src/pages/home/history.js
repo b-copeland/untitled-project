@@ -283,6 +283,8 @@ function Stats(props) {
                     options={statOptions}
                     onChange={handleChange}
                     autoFocus={selected == undefined}
+                    defaultValue={statOptions.filter(option => option.value === selected)}
+                    isSearchable={false}
                     styles={{
                         control: (baseStyles, state) => ({
                             ...baseStyles,
@@ -316,7 +318,7 @@ function Stats(props) {
             <VictoryChart
                 width={900}
                 height={300}
-                padding={{left: 70, bottom: 30}}
+                padding={{left: 70, bottom: 30, top: 10, right: 10}}
                 domain={{y: [0, maxY]}}
                 domainPadding={20}
                 scale={{x: "time", y: "linear"}}
