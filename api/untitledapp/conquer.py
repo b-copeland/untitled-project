@@ -763,7 +763,7 @@ def _attack(req, kd_id, target_kd):
         )
         defender_message = (
             f"Your kingdom was defeated in battle by {kd_info_parse['name']}. You have lost "
-            + ', '.join([f"{value} {key}" for key, value in total_spoils.items()])
+            + ', '.join([f"{value} {key}" for key, value in total_spoils.items() if key != "funding"])
             + f', {sum(total_spoils["funding"].values())} funding'
             + ' and '
             + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
