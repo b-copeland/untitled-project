@@ -1762,6 +1762,19 @@ def _spy(req, kd_id, target_kd):
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
 
+    if success and operation in uas.REVEAL_OPERATIONS:
+        share_to_galaxy = req.get("share_to_galaxy", False)
+        cut = float(req.get("cut", 0))
+        if share_to_galaxy:
+            req_share = {
+                "shared": target_kd,
+                "shared_stat": operation.replace("spy", ""),
+                "shared_to": "galaxy",
+                "cut": cut,
+            }
+            _offer_shared(req_share, kd_id)
+
+
     new_kd_info = {
         **kd_info_parse,
         **kd_patch_payload,

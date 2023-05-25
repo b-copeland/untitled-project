@@ -29,6 +29,8 @@ function Spy(props) {
     const [attackResults, setAttackResults] = useState([]);
     const [drones, setDrones] = useState();
     const [shieldDrones, setShieldDrones] = useState(false);
+    const [cut, setCut] = useState();
+    const [share, setShare] = useState(false);
 
     useEffect(() => {
         if (props.initialKd != undefined) {
@@ -48,6 +50,9 @@ function Spy(props) {
     const handleShieldChange = (e) => {
         setShieldDrones(e.target.checked)
     }
+    const handleShareChange = (e) => {
+        setShare(e.target.checked)
+    }
     const handleOperationChange = (selectedOption) => {
         setSelectedOperation(selectedOption.value);
         // const fetchData = async () => {
@@ -65,18 +70,23 @@ function Spy(props) {
     const handleDronesChange = (e) => {
         setDrones(e.target.value);
     };
+    const handleCutChange = (e) => {
+        setCut(e.target.value);
+    };
     const onClickAttack = () => {
         if ((selected != undefined) & (selectedOperation != undefined)) {
             const opts = {
                 "drones": drones,
                 "shielded": shieldDrones,
                 "operation": selectedOperation,
+                "share_to_galaxy": share,
+                "cut": cut,
             };
             const updateFunc = async () => authFetch('api/spy/' + selected, {
                 method: 'POST',
                 body: JSON.stringify(opts)
             }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("Press calculate to project results")})
-            props.updateData(['kingdom', 'spyhistory', 'revealed'], [updateFunc]);
+            props.updateData(['kingdom', 'spyhistory', 'revealed', 'shared'], [updateFunc]);
         } else {
             setCalcMessage({"message": "Please select a target and operation in order to spy"})
         }
@@ -390,6 +400,36 @@ function Spy(props) {
                             onChange={handleShieldChange}
                         />
                     </Form>
+                    {
+                        (props.data.state.reveal_operations || []).includes(selectedOperation)
+                        ? <Form>
+                            <Form.Check 
+                                type="switch"
+                                id="share-switch"
+                                label="Share To Galaxy?"
+                                onChange={handleShareChange}
+                            />
+                        </Form>
+                        : null
+                    }
+                    {
+                        (props.data.state.reveal_operations || []).includes(selectedOperation)
+                        ? <InputGroup className="mb-3 drones-input-group">
+                            <InputGroup.Text id="basic-addon2" className="drones-input-group-text">Cut</InputGroup.Text>
+                            <Form.Control
+                                className="unit-form"
+                                id="cut-input"
+                                name="cut"
+                                value={cut || ""} 
+                                onChange={handleCutChange}
+                                placeholder="0"
+                                autoComplete="off"
+                            />
+                            <InputGroup.Text id="basic-addon2" className="drones-input-group-text">%</InputGroup.Text>
+                        </InputGroup>
+                        : null
+                    }
+                    
                     <div className="text-box spy-results-box">
                         <span className="box-span">{calcMessage.message}</span>
                     </div>

@@ -52,6 +52,7 @@ def get_state():
         "primitives_defense_per_star": primitives_defense_per_star,
         "primitives_rob_per_drone": primitives_rob_per_drone,
         "aggro_operations": uas.AGGRO_OPERATIONS,
+        "reveal_operations": uas.REVEAL_OPERATIONS,
         "game_config": uas.GAME_CONFIG,
         "races": uas.RACES,
     }), 200
