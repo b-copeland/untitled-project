@@ -708,10 +708,18 @@ def _attack(req, kd_id, target_kd):
             if key_spoil in {"stars", "population", "money", "fuel"}
         }
         total_spoils["stars"] = max(total_spoils["stars"], min_stars_gain)
+        total_spoils["funding"] = {
+            key_funding: max(math.floor(value_funding * spoils_rate), 0)
+            for key_funding, value_funding in target_kd_info["funding"].items()
+        }
         spoils_values = {
             key_spoil: max(math.floor(value_spoil * (1 - cut)), 0)
             for key_spoil, value_spoil in total_spoils.items()
             if key_spoil in {"stars", "population", "money", "fuel"}
+        }
+        spoils_values["funding"] = {
+            key_funding: max(math.floor(value_funding * (1 - cut)), 0)
+            for key_funding, value_funding in total_spoils["funding"].items()
         }
         if sharer:
             sharer_spoils_values = {
@@ -719,9 +727,14 @@ def _attack(req, kd_id, target_kd):
                 for key_spoil, value_spoil in total_spoils.items()
                 if key_spoil in {"stars", "population", "money", "fuel"}
             }
+            sharer_spoils_values["funding"] = {
+                key_funding: max(math.floor(value_funding * cut), 0)
+                for key_funding, value_funding in total_spoils["funding"].items()
+            }
             sharer_message = (
                 "You have gained "
-                + ', '.join([f"{value} {key}" for key, value in sharer_spoils_values.items()])
+                + ', '.join([f"{value} {key}" for key, value in sharer_spoils_values.items() if key != "funding"])
+                + f', {sum(sharer_spoils_values["funding"].values())} funding'
                 + f" for sharing intel leading to a successful attack by your galaxymate {kd_info_parse['name']}"
             )
             sharer_news = {
@@ -742,7 +755,8 @@ def _attack(req, kd_id, target_kd):
         attack_status = "success"
         attacker_message = (
             "Success! You have gained "
-            + ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
+            + ', '.join([f"{value} {key}" for key, value in spoils_values.items() if key != "funding"])
+            + f', {sum(spoils_values["funding"].values())} funding'
             + f" and destroyed {units_destroyed} units."
             + " You have lost "
             + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
@@ -750,6 +764,7 @@ def _attack(req, kd_id, target_kd):
         defender_message = (
             f"Your kingdom was defeated in battle by {kd_info_parse['name']}. You have lost "
             + ', '.join([f"{value} {key}" for key, value in total_spoils.items()])
+            + f', {sum(total_spoils["funding"].values())} funding'
             + ' and '
             + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
         )
@@ -771,17 +786,28 @@ def _attack(req, kd_id, target_kd):
 
     target_kd_info["units"] = new_defender_units
     for key_spoil, value_spoil in spoils_values.items():
-        if key_spoil != "money":
-            kd_info_parse[key_spoil] += value_spoil
-        else:
-            if kd_info_parse["auto_spending_enabled"]:
-                pct_allocated = sum(kd_info_parse["auto_spending"].values())
-                for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
-                    kd_info_parse["funding"][key_spending] += pct_spending * value_spoil
-                kd_info_parse["money"] += value_spoil * (1 - pct_allocated)
+        if key_spoil != "funding":
+            if key_spoil != "money":
+                kd_info_parse[key_spoil] += value_spoil
             else:
-                kd_info_parse["money"] += value_spoil
-        target_kd_info[key_spoil] -= value_spoil
+                if kd_info_parse["auto_spending_enabled"]:
+                    pct_allocated = sum(kd_info_parse["auto_spending"].values())
+                    for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
+                        kd_info_parse["funding"][key_spending] += pct_spending * value_spoil
+                    kd_info_parse["money"] += value_spoil * (1 - pct_allocated)
+                else:
+                    kd_info_parse["money"] += value_spoil
+            target_kd_info[key_spoil] -= value_spoil
+        else:
+            pct_allocated = sum(kd_info_parse["auto_spending"].values())
+            for key_funding, value_funding in value_spoil.items():
+                target_kd_info["funding"][key_funding] -= value_funding
+                if kd_info_parse["auto_spending_enabled"]:
+                    for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
+                        kd_info_parse["funding"][key_spending] += pct_spending * value_funding
+                    kd_info_parse["money"] += value_funding * (1 - pct_allocated)
+                else:
+                    kd_info_parse["money"] += value_funding
 
     target_kd_info["stars"] = max(target_kd_info["stars"], 0)
     for key_project, project_dict in uas.PROJECTS.items():
@@ -792,18 +818,28 @@ def _attack(req, kd_id, target_kd):
     if sharer and sharer_spoils_values:
         sharer_kd_info = uag._get_kd_info(sharer)
         for key_spoil, value_spoil in sharer_spoils_values.items():
-            if key_spoil != "money":
-                sharer_kd_info[key_spoil] += value_spoil
-            else:
-                if sharer_kd_info["auto_spending_enabled"]:
-                    pct_allocated = sum(sharer_kd_info["auto_spending"].values())
-                    for key_spending, pct_spending in sharer_kd_info["auto_spending"].items():
-                        sharer_kd_info["funding"][key_spending] += pct_spending * value_spoil
-                    sharer_kd_info["money"] += value_spoil * (1 - pct_allocated)
+            if key_spoil != "funding":
+                if key_spoil != "money":
+                    sharer_kd_info[key_spoil] += value_spoil
                 else:
-                    sharer_kd_info["money"] += value_spoil
-            sharer_kd_info[key_spoil] += value_spoil
-            target_kd_info[key_spoil] -= value_spoil
+                    if sharer_kd_info["auto_spending_enabled"]:
+                        pct_allocated = sum(sharer_kd_info["auto_spending"].values())
+                        for key_spending, pct_spending in sharer_kd_info["auto_spending"].items():
+                            sharer_kd_info["funding"][key_spending] += pct_spending * value_spoil
+                        sharer_kd_info["money"] += value_spoil * (1 - pct_allocated)
+                    else:
+                        sharer_kd_info["money"] += value_spoil
+                target_kd_info[key_spoil] -= value_spoil
+            else:
+                pct_allocated = sum(sharer_kd_info["auto_spending"].values())
+                for key_funding, value_funding in value_spoil.items():
+                    target_kd_info["funding"][key_funding] -= value_funding
+                    if sharer_kd_info["auto_spending_enabled"]:
+                        for key_spending, pct_spending in sharer_kd_info["auto_spending"].items():
+                            sharer_kd_info["funding"][key_spending] += pct_spending * value_funding
+                        sharer_kd_info["money"] += value_funding * (1 - pct_allocated)
+                    else:
+                        sharer_kd_info["money"] += value_funding
         sharer_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
