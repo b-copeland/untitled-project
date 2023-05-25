@@ -927,6 +927,14 @@ def _validate_projects_target(req_targets, kd_info_parse):
     if req_targets.get("spy_bonus", 0) > 0 and "drone_gadgets" not in kd_info_parse["completed_projects"]:
         return False
     
+    completed_projects_targets = {
+        uas.PRETTY_NAMES.get(k, k): v
+        for k, v in req_targets.items()
+        if k in kd_info_parse["completed_projects"] and k in uas.ONE_TIME_PROJECTS
+    }
+    if sum(completed_projects_targets.values()) > 0:
+        return False, f"You can not allocate engineers to completed projects: {str(completed_projects_targets)}"
+    
     return True, ""
 
 @app.route('/api/projects/target', methods=['POST'])

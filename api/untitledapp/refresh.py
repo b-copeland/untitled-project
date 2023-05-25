@@ -274,11 +274,12 @@ def _kingdom_with_income(
     new_kd_info = kd_info_parse.copy()
     for key_project, new_points in new_project_points.items():
         new_kd_info["projects_points"][key_project] += new_points
-    for key_project in uas.PROJECTS:
+    for key_project in uas.ONE_TIME_PROJECTS:
         if key_project not in kd_info_parse["completed_projects"]:
             if new_kd_info["projects_points"][key_project] >= new_kd_info["projects_max_points"][key_project]:
                 new_kd_info["completed_projects"].append(key_project)
                 new_kd_info["projects_assigned"][key_project] = 0
+                new_kd_info["projects_target"][key_project] = 0
                 try:
                     ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
                     ws.send(json.dumps({
