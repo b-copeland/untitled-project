@@ -677,4 +677,7 @@ PRETTY_NAMES = {
     "planet_busters": "Planet Busters",
     "star_busters": "Star Busters",
     "galaxy_busters": "Galaxy Busters",
+    "stars": "Stars",
+    "structures": "Structures",
+    "money": "Money",
 }

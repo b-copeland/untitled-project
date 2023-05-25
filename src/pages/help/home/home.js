@@ -10,6 +10,12 @@ function Home(props) {
         yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }, [props.state]);
+    const nwRows = Object.keys(props.state.game_config?.NETWORTH_VALUES || {}).map((keyItem, iter) => {
+        return <tr key={"networthvalues_" + iter}>
+            <td style={{textAlign: "left"}}>{props.state.pretty_names[keyItem] || keyItem}</td>
+            <td style={{textAlign: "right"}}>{props.state.game_config?.NETWORTH_VALUES[keyItem]}</td>
+        </tr>
+    })
     const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
         <div id="home" ref={yourElementRef} className="help-section">
@@ -22,6 +28,18 @@ function Home(props) {
                 based on the number of seconds elapsed since the last update. Updates occur every 15 to 60 seconds, based on the
                 current game config.
             </p>
+            <p>Networth is calculated by summing the values below</p>
+            <Table striped bordered hover>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Networth Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {nwRows}
+                </tbody>
+            </Table>
             <h4>Home - Shields</h4>
             <p>
                 The shields page allows you to update your shields usage. Shields consume power to provide some benefits. 
