@@ -737,9 +737,9 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
         return False
     if fuel_costs > kd_info_parse["fuel"]:
         return False
-    if missiles_request["star_busters"] > 0 and "star_busters" not in kd_info_parse["completed_projects"]:
+    if missiles_request.get("star_busters", 0) > 0 and "star_busters" not in kd_info_parse["completed_projects"]:
         return False
-    if missiles_request["galaxy_busters"] > 0 and "galaxy_busters" not in kd_info_parse["completed_projects"]:
+    if missiles_request.get("galaxy_busters", 0) > 0 and "galaxy_busters" not in kd_info_parse["completed_projects"]:
         return False
     
     return True
