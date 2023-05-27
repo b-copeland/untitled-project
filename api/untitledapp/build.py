@@ -776,6 +776,7 @@ def build_missiles():
     missiles_request = {
         k: int(v or 0)
         for k, v in req.items()
+        if v not in ("", 0)
     }
     valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles)
     if not valid_missiles:
