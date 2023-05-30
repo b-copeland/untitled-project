@@ -381,6 +381,8 @@ def create_galaxy(req: func.HttpRequest) -> func.HttpResponse:
                     "leader": "",
                     "policy_1_winner": "",
                     "policy_2_winner": "",
+                    "empire_invitations": [],
+                    "empire_join_requests": [],
                 }
             )
         return func.HttpResponse(
@@ -614,6 +616,56 @@ def update_galaxy_politics(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 
+@APP.function_name(name="GetEmpirePolitics")
+@APP.route(route="empire/{empire_id}/politics", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_empire_politics(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a get empire politics request.')    
+    empire_id = str(req.route_params.get('empire_id'))
+    item_id = f"empire_politics_{empire_id}"
+    try:
+        empire_politics = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        return func.HttpResponse(
+            json.dumps(empire_politics),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Could not retrieve empire politics info",
+            status_code=500,
+        )
+
+
+@APP.function_name(name="UpdateEmpirePolitics")
+@APP.route(route="empire/{empire_id}/politics", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_empire_politics(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a empire politics update request.')    
+    req_body = req.get_json()
+    empire_id = str(req.route_params.get('empire_id'))
+    item_id = f"empire_politics_{empire_id}"
+    empire_politics = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        update_empire_politics = {**empire_politics, **req_body}
+        CONTAINER.replace_item(
+            item_id,
+            update_empire_politics,
+        )
+        return func.HttpResponse(
+            "Empire politics updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The empire politics were not updated",
+            status_code=500,
+        )
+
+
 @APP.function_name(name="GetUniverseVotes")
 @APP.route(route="universevotes", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
 def get_universe_votes(req: func.HttpRequest) -> func.HttpResponse:
@@ -678,6 +730,80 @@ def get_empires(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "Could not retrieve empires info",
+            status_code=500,
+        )
+
+@APP.function_name(name="CreateEmpire")
+@APP.route(route="empire", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+def create_empire(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a create empire request.')    
+    req_body = req.get_json()
+    empire_name = req_body.get('empire_name')
+    galaxy_id = req_body.get("galaxy_id")
+    leader = req_body.get("leader")
+
+    empires = CONTAINER.read_item(
+        item="empires",
+        partition_key="empires",
+    )
+    try:
+        empire_id = str(len(empires["empires"]))
+        empires["empires"][empire_id] = {
+            "name": empire_name,
+            "galaxies": [galaxy_id],
+        }
+        CONTAINER.replace_item(
+            "empires",
+            empires,
+        )
+        CONTAINER.create_item(
+            {
+                "id": f"empire_politics_{empire_id}",
+                "empire_invitations": [],
+                "empire_join_requests": [],
+                "leader": leader,
+            }
+        )
+        CONTAINER.create_item(
+            {
+                "id": f"empire_news_{empire_id}",
+                "news": [],
+            }
+        )
+        return func.HttpResponse(
+            empire_id,
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "The empire was not created",
+            status_code=500,
+        )
+
+
+@APP.function_name(name="UpdateEmpires")
+@APP.route(route="empires", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_empires(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update empires request.')    
+    req_body = req.get_json()
+    item_id = f"empires"
+    empires = CONTAINER.read_item(
+        item=item_id,
+        partition_key=item_id,
+    )
+    try:
+        update_kd = {**empires, **req_body}
+        CONTAINER.replace_item(
+            item_id,
+            update_kd,
+        )
+        return func.HttpResponse(
+            "Empires updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The empires were not updated",
             status_code=500,
         )
 
