@@ -400,6 +400,9 @@ def _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, gala
     if kd_galaxy_politics["leader"] != kd_id:
         return False, "You are not the leader of the Empire's ruling galaxy"
     
+    if galaxy_empires.get(galaxy_id) != None:
+        return False, "That galaxy is already part of an Empire"
+    
     return True, ""
 
 @app.route('/api/galaxy/<target_galaxy>/accept', methods=['POST'])
