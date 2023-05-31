@@ -123,7 +123,7 @@ def create_empire():
     empire_payload = {
         "empire_name": empire_name,
         "galaxy_id": kd_galaxy,
-        "leader": kd_id,
+        "leader": kd_galaxy,
     }
     create_empire_response = REQUESTS_SESSION.post(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire',
@@ -289,9 +289,12 @@ def accept_empire_invite(target_empire):
     )
     return flask.jsonify({"message": "Joined Empire", "status": "success"}), 200
 
-def _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, galaxy_id):    
-    if empire_politics["leader"] != kd_id:
-        return False, "You must be empire leader to invite a galaxy"
+def _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, galaxy_id, kd_galaxy_politics, kd_galaxy_id):    
+    if empire_politics["leader"] != kd_galaxy_id:
+        return False, "You are not a part of the Empire's ruling galaxy"
+    
+    if kd_galaxy_politics["leader"] != kd_id:
+        return False, "You are not the leader of the Empire's ruling galaxy"
     
     if galaxy_empires.get(galaxy_id) != None:
         return False, "That galaxy is already part of an Empire"
@@ -306,12 +309,13 @@ def _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, galaxy_id):
 def invite_galaxy(target_galaxy):
     kd_id = flask_praetorian.current_user().kd_id
 
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
     galaxy_politics, _ = uag._get_galaxy_politics("", galaxy_id=target_galaxy)
     empires_inverted, _, galaxy_empires, _ = uag._get_empires_inverted()
     kd_empire = empires_inverted.get(kd_id)
     empire_politics = uag._get_empire_politics(kd_empire)
 
-    valid_invite, message = _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, target_galaxy)
+    valid_invite, message = _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, target_galaxy, kd_galaxy_politics, kd_galaxy_id)
     if not valid_invite:
         return flask.jsonify({"message": message}), 400
     
@@ -350,13 +354,17 @@ def invite_galaxy(target_galaxy):
 def cancel_invite_galaxy(target_galaxy):
     kd_id = flask_praetorian.current_user().kd_id
 
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
     galaxy_politics, _ = uag._get_galaxy_politics("", galaxy_id=target_galaxy)
     empires_inverted, _, galaxy_empires, _ = uag._get_empires_inverted()
     kd_empire = empires_inverted.get(kd_id)
     empire_politics = uag._get_empire_politics(kd_empire)
     
-    if empire_politics["leader"] != kd_id:
-        return flask.jsonify({"message": "You must be empire leader to cancel a galaxy invitation"}), 400
+    if empire_politics["leader"] != kd_galaxy_id:
+        return flask.jsonify({"message": "You are not a part of the Empire's ruling galaxy"}), 400
+    
+    if kd_galaxy_politics["leader"] != kd_id:
+        return flask.jsonify({"message": "You are not the leader of the Empire's ruling galaxy"}), 400
     
 
     new_empire_requests = set(empire_politics["empire_invitations"])
@@ -385,12 +393,12 @@ def cancel_invite_galaxy(target_galaxy):
     )
     return flask.jsonify({"message": "Invitation revoked", "status": "success"}), 200
 
-def _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, galaxy_id):    
-    if empire_politics["leader"] != kd_id:
-        return False, "You must be empire leader to accept a galaxy request"
+def _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, galaxy_id, kd_galaxy_politics, kd_galaxy_id):    
+    if empire_politics["leader"] != kd_galaxy_id:
+        return False, "You are not a part of the Empire's ruling galaxy"
     
-    if galaxy_empires.get(galaxy_id) != None:
-        return False, "That galaxy is already part of an Empire"
+    if kd_galaxy_politics["leader"] != kd_id:
+        return False, "You are not the leader of the Empire's ruling galaxy"
     
     return True, ""
 
@@ -402,12 +410,13 @@ def _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, gala
 def accept_galaxy_request(target_galaxy):
     kd_id = flask_praetorian.current_user().kd_id
 
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
     galaxy_politics, _ = uag._get_galaxy_politics("", galaxy_id=target_galaxy)
     empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
     kd_empire = empires_inverted.get(kd_id)
     empire_politics = uag._get_empire_politics(kd_empire)
 
-    valid_request, message = _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, target_galaxy)
+    valid_request, message = _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, target_galaxy, kd_galaxy_politics, kd_galaxy_id)
     if not valid_request:
         return flask.jsonify({"message": message}), 400
     
