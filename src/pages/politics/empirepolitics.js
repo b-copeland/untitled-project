@@ -157,10 +157,10 @@ function Join(props) {
       <td>
         {
           props.loading.galaxypolitics
-          ? <Button className="submit-name-button" variant="primary" type="submit" disabled>
+          ? <Button className="empire-button" variant="primary" type="submit" disabled>
               Loading...
           </Button>
-          : <Button className="submit-name-button" variant="primary" type="submit" onClick={(e) => onSubmitCancelJoinClick(e, empireId)}>
+          : <Button className="empire-button" variant="primary" type="submit" onClick={(e) => onSubmitCancelJoinClick(e, empireId)}>
               Cancel
           </Button>
         }
@@ -173,10 +173,10 @@ function Join(props) {
       <td>
         {
           props.loading.galaxypolitics
-          ? <Button className="submit-name-button" variant="primary" type="submit" disabled>
+          ? <Button className="empire-button" variant="primary" type="submit" disabled>
               Loading...
           </Button>
-          : <Button className="submit-name-button" variant="primary" type="submit" onClick={(e) => onSubmitAcceptInviteClick(e, empireId)}>
+          : <Button className="empire-button" variant="primary" type="submit" onClick={(e) => onSubmitAcceptInviteClick(e, empireId)}>
               Accept
           </Button>
         }
@@ -189,10 +189,10 @@ function Join(props) {
       <td>
         {
           props.loading.empirepolitics
-          ? <Button className="submit-name-button" variant="primary" type="submit" disabled>
+          ? <Button className="empire-button" variant="primary" type="submit" disabled>
               Loading...
           </Button>
-          : <Button className="submit-name-button" variant="primary" type="submit" onClick={(e) => onSubmitAcceptRequestClick(e, galaxyId)}>
+          : <Button className="empire-button" variant="primary" type="submit" onClick={(e) => onSubmitAcceptRequestClick(e, galaxyId)}>
               Accept
           </Button>
         }
@@ -205,10 +205,10 @@ function Join(props) {
       <td>
         {
           props.loading.empirepolitics
-          ? <Button className="submit-name-button" variant="primary" type="submit" disabled>
+          ? <Button className="empire-button" variant="primary" type="submit" disabled>
               Loading...
           </Button>
-          : <Button className="submit-name-button" variant="primary" type="submit" onClick={(e) => onSubmitCancelInviteClick(e, galaxyId)}>
+          : <Button className="empire-button" variant="primary" type="submit" onClick={(e) => onSubmitCancelInviteClick(e, galaxyId)}>
               Cancel
           </Button>
         }
@@ -239,10 +239,10 @@ function Join(props) {
                 </InputGroup>
                 {
                   props.loading.galaxypolitics
-                  ? <Button className="submit-name-button" variant="primary" type="submit" disabled>
+                  ? <Button className="empire-button" variant="primary" type="submit" disabled>
                       Loading...
                   </Button>
-                  : <Button className="submit-name-button" variant="primary" type="submit" onClick={onSubmitNameClick}>
+                  : <Button className="empire-button" variant="primary" type="submit" onClick={onSubmitNameClick}>
                       Create
                   </Button>
                 }
@@ -288,10 +288,10 @@ function Join(props) {
                     }}/>
                 {
                   props.loading.galaxypolitics
-                  ? <Button className="submit-name-button" variant="primary" type="submit" disabled>
+                  ? <Button className="empire-button" variant="primary" type="submit" disabled>
                       Loading...
                   </Button>
-                  : <Button className="submit-name-button" variant="primary" type="submit" onClick={onSubmitJoinClick}>
+                  : <Button className="empire-button" variant="primary" type="submit" onClick={onSubmitJoinClick}>
                       Request
                   </Button>
                 }
@@ -367,10 +367,10 @@ function Join(props) {
                     }}/>
                 {
                   props.loading.empirepolitics
-                  ? <Button className="submit-name-button" variant="primary" type="submit" disabled>
+                  ? <Button className="empire-button" variant="primary" type="submit" disabled>
                       Loading...
                   </Button>
-                  : <Button className="submit-name-button" variant="primary" type="submit" onClick={onSubmitInviteClick}>
+                  : <Button className="empire-button" variant="primary" type="submit" onClick={onSubmitInviteClick}>
                       Invite
                   </Button>
                 }
@@ -407,10 +407,10 @@ function Join(props) {
                   <h3>Danger Zone</h3>
                   {
                     props.loading.empirepolitics
-                    ? <Button className="submit-name-button" variant="warning" type="submit" disabled>
+                    ? <Button className="empire-button" variant="warning" type="submit" disabled>
                         Loading...
                     </Button>
-                    : <Button className="submit-name-button" variant="warning" type="submit" onClick={onSubmitLeaveClick}>
+                    : <Button className="empire-button" variant="warning" type="submit" onClick={onSubmitLeaveClick}>
                         Leave Empire
                     </Button>
                   }
