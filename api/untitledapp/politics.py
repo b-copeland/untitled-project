@@ -2,6 +2,7 @@
 import collections
 import json
 import os
+import random
 
 import flask
 import flask_praetorian
@@ -459,6 +460,57 @@ def accept_galaxy_request(target_galaxy):
         data=json.dumps(galaxy_payload)
     )
     return flask.jsonify({"message": "Galaxy added to Empire", "status": "success"}), 200
+
+def _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics):
+    
+    if kd_galaxy_politics["leader"] != kd_id:
+        return False, "You are not the leader of the your galaxy"
+    
+    return True, ""
+
+@app.route('/api/leaveempire', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def leave_empire():
+    kd_id = flask_praetorian.current_user().kd_id
+
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
+    empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    empire_politics = uag._get_empire_politics(kd_empire)
+
+    valid_leave, message = _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics)
+    if not valid_leave:
+        return flask.jsonify({"message": message}), 400
+    
+    empires_info[kd_empire]["galaxies"] = [
+        galaxy_id
+        for galaxy_id in empires_info[kd_empire]["galaxies"]
+        if galaxy_id != kd_galaxy_id
+    ]
+    empires_payload = {
+        "empires": empires_info
+    }
+
+    empires_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empires_payload)
+    )
+
+    if len(empires_info[kd_empire]["galaxies"]) > 0 and empire_politics["leader"] == kd_galaxy_id:
+        kd_empire_payload = {
+            "leader": random.choice(empires_info[kd_empire]["galaxies"])
+        }
+
+        empire_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_empire_payload)
+        )
+    return flask.jsonify({"message": "Left Empire", "status": "success"}), 200
 
 
 def _validate_buy_votes(

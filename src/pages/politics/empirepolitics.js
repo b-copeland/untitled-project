@@ -122,6 +122,12 @@ function Join(props) {
       }).then(r => r.json()).then(r => setResults(results.concat(r)))
       props.updateData(['empirepolitics', 'empires', 'empires_inverted'], [updateFunc])
   }
+  const onSubmitLeaveClick = (e)=>{
+      const updateFunc = () => authFetch('api/leaveempire', {
+          method: 'post',
+      }).then(r => r.json()).then(r => setResults(results.concat(r)))
+      props.updateData(['empirepolitics', 'empires', 'empires_inverted'], [updateFunc])
+  }
   const empireOptions = Object.keys(props.data.empires).map((empireId) => {
       return {"value": empireId, "label": props.data.empires[empireId].name}
   })
@@ -369,9 +375,6 @@ function Join(props) {
                   </Button>
                 }
               </div>
-              <div className="leave-empire">
-                  
-              </div>
               <div className="empire-membership-table">
                 <h3>Empire Join Requests</h3>
                 <Table striped bordered hover className="galaxy-leader-table">
@@ -399,6 +402,18 @@ function Join(props) {
                         {empireGalaxyInvitationRows}
                     </tbody>
                 </Table>
+              </div>
+              <div className="leave-empire">
+                  <h3>Danger Zone</h3>
+                  {
+                    props.loading.empirepolitics
+                    ? <Button className="submit-name-button" variant="warning" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="submit-name-button" variant="warning" type="submit" onClick={onSubmitLeaveClick}>
+                        Leave Empire
+                    </Button>
+                  }
               </div>
           </div>
       }
