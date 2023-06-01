@@ -1388,10 +1388,12 @@ def _calculate_spy_probability(
 def _calculate_spy_losses(
     drones_to_send,
     shielded,
+    has_drone_gadgets=False,
 ):
-    shielded_reduction = 1 - (int(shielded) * uas.GAME_CONFIG["BASE_DRONES_SHIELDING_LOSS_REDUCTION"])
-    success_loss = math.floor(drones_to_send * uas.GAME_CONFIG["BASE_DRONES_SUCCESS_LOSS_RATE"] * shielded_reduction)
-    failure_loss = math.floor(drones_to_send * uas.GAME_CONFIG["BASE_DRONES_FAILURE_LOSS_RATE"] * shielded_reduction)
+    additive_loss_reduction = 1 - (int(has_drone_gadgets) * uas.GAME_CONFIG["BASE_DRONE_GADGETS_LOSS_REDUCTION"])
+    multiplicative_reduction = additive_loss_reduction * (1 - (int(shielded) * uas.GAME_CONFIG["BASE_DRONES_SHIELDING_LOSS_REDUCTION"]))
+    success_loss = math.floor(drones_to_send * uas.GAME_CONFIG["BASE_DRONES_SUCCESS_LOSS_RATE"] * multiplicative_reduction)
+    failure_loss = math.floor(drones_to_send * uas.GAME_CONFIG["BASE_DRONES_FAILURE_LOSS_RATE"] * multiplicative_reduction)
     return success_loss, failure_loss
     
         
@@ -1458,7 +1460,11 @@ def calculate_spy(target_kd):
         defender_shields,
         aggro_vult=(kd_info_parse["race"] == "Vult") and (operation in uas.AGGRO_OPERATIONS),
     )
-    success_losses, failure_losses = _calculate_spy_losses(drones, shielded)
+    success_losses, failure_losses = _calculate_spy_losses(
+        drones,
+        shielded,
+        has_drone_gadgets="drone_gadgets" in kd_info_parse["completed_projects"]
+    )
 
     message = f"The operation has a {spy_probability:.2%} chance of success. \n\nIf successful, {success_losses} drones will be lost. \nIf unsuccessful, {failure_losses} drones will be lost.\n"
 
@@ -1553,7 +1559,11 @@ def _spy(req, kd_id, target_kd):
         aggro_vult=(kd_info_parse["race"] == "Vult") and (operation in uas.AGGRO_OPERATIONS),
     )
     
-    success_losses, failure_losses = _calculate_spy_losses(drones, shielded)
+    success_losses, failure_losses = _calculate_spy_losses(
+        drones,
+        shielded,
+        has_drone_gadgets="drone_gadgets" in kd_info_parse["completed_projects"]
+    )
 
     roll = random.uniform(0, 1)
     spy_radar_roll = random.uniform(0, 1)
@@ -1828,7 +1838,11 @@ def _rob_primitives(req, kd_id):
     if not valid_request:
         return kd_info_parse, {"message": message}, 400
 
-    success_losses, _ = _calculate_spy_losses(drones, shielded)
+    success_losses, _ = _calculate_spy_losses(
+        drones,
+        shielded,
+        has_drone_gadgets="drone_gadgets" in kd_info_parse["completed_projects"]
+    )
 
     status = "success"
     rob = math.floor(drones * primitives_rob_per_drone)

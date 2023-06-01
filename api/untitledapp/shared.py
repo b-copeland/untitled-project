@@ -85,93 +85,6 @@ MISSILES = {
     },
 }
 
-PROJECTS = {
-    "pop_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Increases homes capacity by the current bonus",
-        "name": "Pop Bonus",
-    },
-    "fuel_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Increases fuel production by the current bonus",
-        "name": "Fuel Bonus",
-    },
-    "military_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Increases offensive and defensive strength by the current bonus",
-        "name": "Military Bonus",
-    },
-    "money_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Increases income from population and mines by the current bonus",
-        "name": "Money Bonus",
-    },
-    "general_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Decreases generals time to return by the current bonus",
-        "name": "Generals Speed Bonus",
-    },
-    "spy_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Decreases cooldown of spy attempts by the current bonus",
-        "name": "Spy Bonus",
-    },
-    "big_flexers": {
-        "stars_power": 0,
-        "constant": 100000,
-        "desc": "Unlocks the Big Flexer unit",
-        "name": "Big Flexers",
-    },
-    "star_busters": {
-        "stars_power": 0,
-        "constant": 100000,
-        "desc": "Unlocks the Star Buster missile",
-        "name": "Star Busters",
-    },
-    "galaxy_busters": {
-        "stars_power": 0,
-        "constant": 250000,
-        "desc": "Unlocks the Galaxy Buster missile",
-        "name": "Galaxy Busters",
-    },
-    "drone_gadgets": {
-        "stars_power": 0,
-        "constant": 50000,
-        "desc": "Unlocks the Spy Bonus project",
-        "name": "Drone Gadgets",
-    },
-}
-
-PROJECTS_MAX_POINTS_FUNC = lambda stars, stars_power, constant: (stars ** stars_power) * constant
-
-PROJECTS_FUNCS = {
-    key: partial(
-        PROJECTS_MAX_POINTS_FUNC,
-        stars_power=project_dict["stars_power"],
-        constant=project_dict["constant"]
-    )
-    for key, project_dict in PROJECTS.items()
-}
-
-ONE_TIME_PROJECTS = [
-    "big_flexers",
-    "star_busters",
-    "galaxy_busters",
-    "drone_gadgets",
-]
-
 RACES = [
     "Gaian",
     "Vult",
@@ -254,6 +167,7 @@ GAME_CONFIG = {
     "BASE_DRONES_FAILURE_LOSS_RATE": 0.02, 
     "BASE_DRONES_SHIELDING_LOSS_REDUCTION": 0.5, 
     "BASE_REVEAL_DURATION_MULTIPLIER": 16, 
+    "BASE_DRONE_GADGETS_LOSS_REDUCTION": 0.25,
 
     "BASE_MAX_SHARE_CUT": 0.15, 
 
@@ -363,6 +277,93 @@ GAME_FUNCS = {
     "BASE_PRIMITIVES_ROB_PER_DRONE": lambda seconds: GAME_CONFIG["BASE_PRIMITIVES_ROB_PER_DRONE"] / math.sqrt(1 + seconds / (GAME_CONFIG["BASE_EPOCH_SECONDS"] * GAME_CONFIG["BASE_PRIMITIVES_ROB_EPOCH_MULTIPLIER"])), 
     "BASE_NEGATIVE_FUEL_CAP": lambda stars: stars * -GAME_CONFIG["BASE_NEGATIVE_FUEL_PER_STAR"], 
 }
+
+PROJECTS = {
+    "pop_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases homes capacity by the current bonus",
+        "name": "Pop Bonus",
+    },
+    "fuel_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases fuel production by the current bonus",
+        "name": "Fuel Bonus",
+    },
+    "military_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases offensive and defensive strength by the current bonus",
+        "name": "Military Bonus",
+    },
+    "money_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases income from population and mines by the current bonus",
+        "name": "Money Bonus",
+    },
+    "general_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Decreases generals time to return by the current bonus",
+        "name": "Generals Speed Bonus",
+    },
+    "spy_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Decreases cooldown of spy attempts by the current bonus",
+        "name": "Spy Bonus",
+    },
+    "big_flexers": {
+        "stars_power": 0,
+        "constant": 100000,
+        "desc": "Unlocks the Big Flexer unit",
+        "name": "Big Flexers",
+    },
+    "star_busters": {
+        "stars_power": 0,
+        "constant": 100000,
+        "desc": "Unlocks the Star Buster missile",
+        "name": "Star Busters",
+    },
+    "galaxy_busters": {
+        "stars_power": 0,
+        "constant": 250000,
+        "desc": "Unlocks the Galaxy Buster missile",
+        "name": "Galaxy Busters",
+    },
+    "drone_gadgets": {
+        "stars_power": 0,
+        "constant": 50000,
+        "desc": f"Unlocks the Spy Bonus project. Reduces drone losses by {GAME_CONFIG['BASE_DRONE_GADGETS_LOSS_REDUCTION']:.1%}",
+        "name": "Drone Gadgets",
+    },
+}
+
+PROJECTS_MAX_POINTS_FUNC = lambda stars, stars_power, constant: (stars ** stars_power) * constant
+
+PROJECTS_FUNCS = {
+    key: partial(
+        PROJECTS_MAX_POINTS_FUNC,
+        stars_power=project_dict["stars_power"],
+        constant=project_dict["constant"]
+    )
+    for key, project_dict in PROJECTS.items()
+}
+
+ONE_TIME_PROJECTS = [
+    "big_flexers",
+    "star_busters",
+    "galaxy_busters",
+    "drone_gadgets",
+]
 
 REVEAL_OPERATIONS = [
     "spykingdom",
