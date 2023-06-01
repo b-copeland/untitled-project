@@ -587,7 +587,7 @@ KINGDOM_CREATOR_POINTS = {
     "recruits": 1,
     "attack": 5,
     "defense": 5,
-    "flex": 10,
+    "flex": 8,
     "engineers": 10,
 }
 
