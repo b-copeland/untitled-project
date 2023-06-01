@@ -149,8 +149,6 @@ function Join(props) {
           <Toast.Body  className="text-black">{resultsItem.message}</Toast.Body>
       </Toast>
   )
-  console.log(props.data.empires_inverted);
-  console.log(props.data.galaxypolitics);
   const galaxyEmpireRequestRows = (props.data.galaxypolitics.empire_join_requests || []).map((empireId, iter) =>
     <tr key={"galaxy_empire_request_" + iter}>
       <td>{props.data.empires[empireId].name}</td>
