@@ -127,6 +127,7 @@ function Status(props) {
     const timeNow = new Date()
 
     const gameStart = new Date(props.state.state?.game_start);
+    const incomeFreqMinutes = (props.state.game_config?.BASE_EPOCH_SECONDS || 0) / 60;
 
     const kdFullLabel = (kdId) => {
         if (kdId != undefined) {
@@ -265,7 +266,7 @@ function Status(props) {
                     </div>
                 </div>
                 <div className="text-box income-box">
-                    <h3>Income (per hour)</h3>
+                    <h3>Income (per {incomeFreqMinutes} min)</h3>
                     <div className="text-box-item">
                         <span className="text-box-item-title">Money</span>
                         <span className="text-box-item-value" style={{fontWeight: "bold"}}>{Math.floor(props.kingdom.income?.money?.net).toLocaleString()}</span>
