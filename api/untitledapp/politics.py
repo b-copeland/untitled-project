@@ -2,6 +2,7 @@
 import collections
 import json
 import os
+import random
 
 import flask
 import flask_praetorian
@@ -85,6 +86,432 @@ def galaxy_policies():
     )
 
     return (flask.jsonify(galaxy_votes), 200)
+
+def _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted):
+
+    if empire_name in ("", None):
+        return False, "Empire name must be populated"
+    
+    if galaxy_politics["leader"] != kd_id:
+        return False, "You must be galaxy leader to create an Empire"
+    
+    if empires_inverted.get(kd_id) != None:
+        return False, "You are already part of an Empire"
+    
+    if len(empire_name) > 24:
+        return False, "Empire name must be less than 25 characters"
+    
+    return True, ""
+
+
+@app.route('/api/empire', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def create_empire():
+    req = flask.request.get_json(force=True)
+    empire_name = req.get("empireName", "")
+    kd_id = flask_praetorian.current_user().kd_id
+
+    galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
+    empires_inverted, _, _, _ = uag._get_empires_inverted()
+
+    valid_name, message = _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted)
+    if not valid_name:
+        return flask.jsonify({"message": message}), 400
+    
+    empire_payload = {
+        "empire_name": empire_name,
+        "galaxy_id": kd_galaxy,
+        "leader": kd_galaxy,
+    }
+    create_empire_response = REQUESTS_SESSION.post(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empire_payload)
+    )
+
+    return flask.jsonify({"message": "Empire created", "status": "success"}), 201
+
+def _validate_join_empire(galaxy_politics, kd_id, empires_inverted):    
+    if galaxy_politics["leader"] != kd_id:
+        return False, "You must be galaxy leader to join an Empire"
+    
+    if empires_inverted.get(kd_id) != None:
+        return False, "You are already part of an Empire"
+    
+    return True, ""
+
+@app.route('/api/empire/<target_empire>/join', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def request_join_empire(target_empire):
+    kd_id = flask_praetorian.current_user().kd_id
+
+    galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
+    empires_inverted, _, _, _ = uag._get_empires_inverted()
+
+    valid_join, message = _validate_join_empire(galaxy_politics, kd_id, empires_inverted)
+    if not valid_join:
+        return flask.jsonify({"message": message}), 400
+    
+    
+    target_empire_politics = uag._get_empire_politics(target_empire)
+
+    new_empire_requests = set(target_empire_politics["empire_join_requests"])
+    new_empire_requests.add(kd_galaxy)
+
+    target_empire_payload = {
+        "empire_join_requests": list(new_empire_requests)
+    }
+
+    join_empire_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(target_empire_payload)
+    )
+
+    new_galaxy_empire_requests = set(galaxy_politics["empire_join_requests"])
+    new_galaxy_empire_requests.add(target_empire)
+    galaxy_payload = {
+        "empire_join_requests": list(new_galaxy_empire_requests)
+    }
+
+    galaxy_politics_info = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(galaxy_payload)
+    )
+    return flask.jsonify({"message": "Join request sent", "status": "success"}), 200
+
+@app.route('/api/empire/<target_empire>/canceljoin', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def cancel_join_empire(target_empire):
+    kd_id = flask_praetorian.current_user().kd_id
+
+    galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
+
+    if galaxy_politics["leader"] != kd_id:
+        return flask.jsonify({"message": "You must be galaxy leader to manage Empire requests"}), 400    
+    
+    target_empire_politics = uag._get_empire_politics(target_empire)
+
+    new_empire_requests = set(target_empire_politics["empire_join_requests"])
+    new_empire_requests.remove(kd_galaxy)
+
+    target_empire_payload = {
+        "empire_join_requests": list(new_empire_requests)
+    }
+
+    join_empire_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(target_empire_payload)
+    )
+
+    new_galaxy_empire_requests = set(galaxy_politics["empire_join_requests"])
+    new_galaxy_empire_requests.remove(target_empire)
+    galaxy_payload = {
+        "empire_join_requests": list(new_galaxy_empire_requests)
+    }
+
+    galaxy_politics_info = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(galaxy_payload)
+    )
+    return flask.jsonify({"message": "Join request cancelled", "status": "success"}), 200
+
+def _validate_empire_invite(galaxy_politics, kd_id, empires_inverted):    
+    if galaxy_politics["leader"] != kd_id:
+        return False, "You must be galaxy leader to join an Empire"
+    
+    if empires_inverted.get(kd_id) != None:
+        return False, "You are already part of an Empire"
+    
+    return True, ""
+
+@app.route('/api/empire/<target_empire>/acceptinvite', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def accept_empire_invite(target_empire):
+    kd_id = flask_praetorian.current_user().kd_id
+
+    galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+
+    valid_invite, message = _validate_empire_invite(galaxy_politics, kd_id, empires_inverted)
+    if not valid_invite:
+        return flask.jsonify({"message": message}), 400
+    
+    
+    empires_info[target_empire]["galaxies"].append(kd_galaxy)
+    empires_payload = {
+        "empires": empires_info
+    }
+
+    empires_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empires_payload)
+    )
+
+    target_empire_politics = uag._get_empire_politics(target_empire)
+    new_empire_requests = set(target_empire_politics["empire_invitations"])
+    new_empire_requests.remove(kd_galaxy)
+
+    target_empire_payload = {
+        "empire_invitations": list(new_empire_requests)
+    }
+
+    join_empire_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(target_empire_payload)
+    )
+
+    galaxy_payload = {
+        "empire_invitations": [],
+        "empire_join_requests": []
+    }
+
+    galaxy_politics_info = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(galaxy_payload)
+    )
+    return flask.jsonify({"message": "Joined Empire", "status": "success"}), 200
+
+def _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, galaxy_id, kd_galaxy_politics, kd_galaxy_id):    
+    if empire_politics["leader"] != kd_galaxy_id:
+        return False, "You are not a part of the Empire's ruling galaxy"
+    
+    if kd_galaxy_politics["leader"] != kd_id:
+        return False, "You are not the leader of the Empire's ruling galaxy"
+    
+    if galaxy_empires.get(galaxy_id) != None:
+        return False, "That galaxy is already part of an Empire"
+    
+    return True, ""
+
+@app.route('/api/galaxy/<target_galaxy>/invite', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def invite_galaxy(target_galaxy):
+    kd_id = flask_praetorian.current_user().kd_id
+
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
+    galaxy_politics, _ = uag._get_galaxy_politics("", galaxy_id=target_galaxy)
+    empires_inverted, _, galaxy_empires, _ = uag._get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    empire_politics = uag._get_empire_politics(kd_empire)
+
+    valid_invite, message = _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, target_galaxy, kd_galaxy_politics, kd_galaxy_id)
+    if not valid_invite:
+        return flask.jsonify({"message": message}), 400
+    
+
+    new_empire_requests = set(empire_politics["empire_invitations"])
+    new_empire_requests.add(target_galaxy)
+
+    kd_empire_payload = {
+        "empire_invitations": list(new_empire_requests)
+    }
+
+    join_empire_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_empire_payload)
+    )
+
+    new_galaxy_empire_invitations = set(galaxy_politics["empire_invitations"])
+    new_galaxy_empire_invitations.add(kd_empire)
+    galaxy_payload = {
+        "empire_invitations": list(new_galaxy_empire_invitations)
+    }
+
+    galaxy_politics_info = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(galaxy_payload)
+    )
+    return flask.jsonify({"message": "Invitation sent", "status": "success"}), 200
+
+@app.route('/api/galaxy/<target_galaxy>/cancelinvite', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def cancel_invite_galaxy(target_galaxy):
+    kd_id = flask_praetorian.current_user().kd_id
+
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
+    galaxy_politics, _ = uag._get_galaxy_politics("", galaxy_id=target_galaxy)
+    empires_inverted, _, galaxy_empires, _ = uag._get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    empire_politics = uag._get_empire_politics(kd_empire)
+    
+    if empire_politics["leader"] != kd_galaxy_id:
+        return flask.jsonify({"message": "You are not a part of the Empire's ruling galaxy"}), 400
+    
+    if kd_galaxy_politics["leader"] != kd_id:
+        return flask.jsonify({"message": "You are not the leader of the Empire's ruling galaxy"}), 400
+    
+
+    new_empire_requests = set(empire_politics["empire_invitations"])
+    new_empire_requests.remove(target_galaxy)
+
+    kd_empire_payload = {
+        "empire_invitations": list(new_empire_requests)
+    }
+
+    join_empire_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_empire_payload)
+    )
+
+    new_galaxy_empire_invitations = set(galaxy_politics["empire_invitations"])
+    new_galaxy_empire_invitations.remove(kd_empire)
+    galaxy_payload = {
+        "empire_invitations": list(new_galaxy_empire_invitations)
+    }
+
+    galaxy_politics_info = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(galaxy_payload)
+    )
+    return flask.jsonify({"message": "Invitation revoked", "status": "success"}), 200
+
+def _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, galaxy_id, kd_galaxy_politics, kd_galaxy_id):    
+    if empire_politics["leader"] != kd_galaxy_id:
+        return False, "You are not a part of the Empire's ruling galaxy"
+    
+    if kd_galaxy_politics["leader"] != kd_id:
+        return False, "You are not the leader of the Empire's ruling galaxy"
+    
+    if galaxy_empires.get(galaxy_id) != None:
+        return False, "That galaxy is already part of an Empire"
+    
+    return True, ""
+
+@app.route('/api/galaxy/<target_galaxy>/accept', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def accept_galaxy_request(target_galaxy):
+    kd_id = flask_praetorian.current_user().kd_id
+
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
+    galaxy_politics, _ = uag._get_galaxy_politics("", galaxy_id=target_galaxy)
+    empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    empire_politics = uag._get_empire_politics(kd_empire)
+
+    valid_request, message = _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, target_galaxy, kd_galaxy_politics, kd_galaxy_id)
+    if not valid_request:
+        return flask.jsonify({"message": message}), 400
+    
+
+    empires_info[kd_empire]["galaxies"].append(target_galaxy)
+    empires_payload = {
+        "empires": empires_info
+    }
+
+    empires_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empires_payload)
+    )
+
+    new_empire_requests = set(empire_politics["empire_join_requests"])
+    new_empire_requests.remove(target_galaxy)
+
+    kd_empire_payload = {
+        "empire_join_requests": list(new_empire_requests)
+    }
+
+    join_empire_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(kd_empire_payload)
+    )
+
+    galaxy_payload = {
+        "empire_invitations": [],
+        "empire_join_requests": []
+    }
+
+    galaxy_politics_info = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(galaxy_payload)
+    )
+    return flask.jsonify({"message": "Galaxy added to Empire", "status": "success"}), 200
+
+def _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics):
+    
+    if kd_galaxy_politics["leader"] != kd_id:
+        return False, "You are not the leader of the your galaxy"
+    
+    return True, ""
+
+@app.route('/api/leaveempire', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def leave_empire():
+    kd_id = flask_praetorian.current_user().kd_id
+
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
+    empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    empire_politics = uag._get_empire_politics(kd_empire)
+
+    valid_leave, message = _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics)
+    if not valid_leave:
+        return flask.jsonify({"message": message}), 400
+    
+    empires_info[kd_empire]["galaxies"] = [
+        galaxy_id
+        for galaxy_id in empires_info[kd_empire]["galaxies"]
+        if galaxy_id != kd_galaxy_id
+    ]
+    empires_payload = {
+        "empires": empires_info
+    }
+
+    empires_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empires_payload)
+    )
+
+    if len(empires_info[kd_empire]["galaxies"]) > 0 and empire_politics["leader"] == kd_galaxy_id:
+        kd_empire_payload = {
+            "leader": random.choice(empires_info[kd_empire]["galaxies"])
+        }
+
+        empire_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_empire_payload)
+        )
+    return flask.jsonify({"message": "Left Empire", "status": "success"}), 200
+
 
 def _validate_buy_votes(
     kd_info,

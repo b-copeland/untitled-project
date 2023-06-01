@@ -1,0 +1,21 @@
+.join-empire-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.create-empire {
+    margin: 15px;
+}
+
+.join-empire {
+    margin: 15px;
+}
+
+.invite-empire {
+    margin: 15px;
+}
+
+.empire-button {
+    margin: 10px;
+}

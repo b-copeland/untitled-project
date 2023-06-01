@@ -291,7 +291,27 @@ def empires_inverted():
     }
     return (flask.jsonify(payload), 200)
 
+def _get_empire_politics(empire_id):
+    empire_politics = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{empire_id}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+    )
+    empire_politics_parse = json.loads(empire_politics.text)
+    
+    return empire_politics_parse
 
+@app.route('/api/empirepolitics')
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def empire_politics():
+    kd_id = flask_praetorian.current_user().kd_id
+    empires_inverted, _, _, _ = _get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    if not kd_empire:
+        return flask.jsonify({}), 200
+    
+    empire_politics = _get_empire_politics(kd_empire)
+    return (flask.jsonify(empire_politics), 200)
 
 @app.route('/api/galaxynews')
 @flask_praetorian.auth_required
