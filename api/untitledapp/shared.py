@@ -79,7 +79,7 @@ MISSILES = {
     "galaxy_busters": {
         "stars_damage": 4,
         "fuel_damage": 1000,
-        "pop_damage": 100,
+        "pop_damage": 50,
         "fuel_cost": 4000,
         "cost": 15000,
     },
