@@ -1425,8 +1425,10 @@ def _resolve_empires(
                     empires_info["empires"][other_empire_id]["war"].append(empire_id)
 
                     news_payload = {
-                        "time": time_update.isoformat(),
-                        "news": f"{empires_info['empires'][empire_id]['name']} declared war by aggression on {empires_info['empires'][other_empire_id]['name']}"
+                        "news": {
+                            "time": time_update.isoformat(),
+                            "news": f"{empires_info['empires'][empire_id]['name']} declared war by aggression on {empires_info['empires'][other_empire_id]['name']}",
+                        }
                     }
                     universe_news_update_response = REQUESTS_SESSION.patch(
                         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',

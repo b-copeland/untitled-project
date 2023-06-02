@@ -1131,7 +1131,7 @@ def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
             item=item_id,
             partition_key=item_id,
         )
-        if isinstance(new_news, str):
+        if isinstance(new_news, dict):
             news["news"] = [new_news] + news["news"]
         else:
             news["news"] = new_news + news["news"]
@@ -1161,7 +1161,7 @@ def update_universe_news(req: func.HttpRequest) -> func.HttpResponse:
             item=item_id,
             partition_key=item_id,
         )
-        if isinstance(new_news, str):
+        if isinstance(new_news, dict):
             news["news"] = [new_news] + news["news"]
         else:
             news["news"] = new_news + news["news"]
