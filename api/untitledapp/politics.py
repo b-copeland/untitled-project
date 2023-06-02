@@ -1,5 +1,6 @@
 
 import collections
+import datetime
 import json
 import os
 import random
@@ -511,6 +512,71 @@ def leave_empire():
             data=json.dumps(kd_empire_payload)
         )
     return flask.jsonify({"message": "Left Empire", "status": "success"}), 200
+
+def _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire):    
+    if empire_politics["leader"] != kd_galaxy_id:
+        return False, "You are not a part of the Empire's ruling galaxy"
+    
+    if kd_galaxy_politics["leader"] != kd_id:
+        return False, "You are not the leader of the Empire's ruling galaxy"
+    
+    if target_empire == kd_empire:
+        return False, "You can't declare war on yourself"
+    
+    if target_empire in empires_info["empires"][kd_empire]["war"]:
+        return False, "You are already at war with that Empire"
+
+    return True, ""
+
+@app.route('/api/empire/<target_empire>/declare', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def declare_war(target_empire):
+    kd_id = flask_praetorian.current_user().kd_id
+
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
+    empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    empire_politics = uag._get_empire_politics(kd_empire)
+
+    valid_declare, message = _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire)
+    if not valid_declare:
+        return flask.jsonify({"message": message}), 400
+    
+    empires_info["empires"][kd_empire]["war"].append(target_empire)
+    empires_info["empires"][target_empire]["war"].append(kd_empire)
+
+    time_now = datetime.datetime.now(datetime.timezone.utc)
+    time_surprise_war_expires = time_now + datetime.timedelta(
+        seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["SURPRISE_WAR_PENALTY_MULTIPLIER"]
+    )
+    empires_info["empires"][kd_empire]["surprise_war_penalty"] = True
+    empires_info["empires"][kd_empire]["surprise_war_penalty_expires"] = time_surprise_war_expires.isoformat()
+
+    news_payload = {
+        "news": {
+            "time": time_now.isoformat(),
+            "news": f"{empires_info['empires'][kd_empire]['name']} declared a surprise war on {empires_info['empires'][target_empire]['name']}",
+        }
+    }
+    universe_news_update_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(news_payload)
+    )
+
+    empires_payload = {
+        "empires": empires_info["empires"],
+    }
+    update_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empires_payload)
+    )
+    return flask.jsonify({"message": "Declared war!", "status": "success"}), 200
+
 
 
 def _validate_buy_votes(

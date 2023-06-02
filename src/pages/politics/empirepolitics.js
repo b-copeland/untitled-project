@@ -420,8 +420,90 @@ function Join(props) {
 }
 
 function Status(props) {
+    const [selectedEmpire, setSelectedEmpire] = useState(undefined);
+    const [results, setResults] = useState([]);
+
+    const handleChangeEmpire = (selectedOption) => {
+      setSelectedEmpire(selectedOption.value);
+    };
+    const onSubmitDeclareClick = (e)=>{
+        const updateFunc = () => authFetch('api/empire/' + selectedEmpire + '/declare', {
+            method: 'post',
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['empires'], [updateFunc])
+    }
+
+    const empireOptions = Object.keys(props.data.empires).map((empireId) => {
+        return {"value": empireId, "label": props.data.empires[empireId].name}
+    })
+    const toasts = results.map((resultsItem, index) =>
+        <Toast
+            key={index}
+            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
+            show={true}
+            bg={resultsItem.status === "success" ? "success" : "warning"}
+        >
+            <Toast.Header>
+                <strong className="me-auto">Empire Results</strong>
+            </Toast.Header>
+            <Toast.Body  className="text-black">{resultsItem.message}</Toast.Body>
+        </Toast>
+    )
     return (
-        <h3>Coming Soon</h3>
+        <div className="empire-status">
+            <ToastContainer position="bottom-end">
+                {toasts}
+            </ToastContainer>
+            <div className="declare-war">
+            <label id="aria-label" htmlFor="aria-example-input">
+                Declare War
+            </label>
+            <Select
+                id="select-empire"
+                className="join-empire-select"
+                options={empireOptions}
+                onChange={handleChangeEmpire}
+                autoFocus={false}
+                styles={{
+                    control: (baseStyles, state) => ({
+                        ...baseStyles,
+                        borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                        backgroundColor: 'var(--bs-body-bg)',
+                    }),
+                    placeholder: (baseStyles, state) => ({
+                        ...baseStyles,
+                        color: 'var(--bs-primary-text)',
+                    }),
+                    input: (baseStyles, state) => ({
+                        ...baseStyles,
+                        color: 'var(--bs-secondary-text)',
+                    }),
+                    option: (baseStyles, state) => ({
+                        ...baseStyles,
+                        backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                        color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                    }),
+                    menuList: (baseStyles, state) => ({
+                        ...baseStyles,
+                        backgroundColor: 'var(--bs-secondary-bg)',
+                        // borderColor: 'var(--bs-secondary-bg)',
+                    }),
+                    singleValue: (baseStyles, state) => ({
+                        ...baseStyles,
+                        color: 'var(--bs-secondary-text)',
+                    }),
+                }}/>
+            {
+                props.loading.empires
+                ? <Button className="empire-button" variant="warning" type="submit" disabled>
+                    Loading...
+                </Button>
+                : <Button className="empire-button" variant="warning" type="submit" onClick={onSubmitDeclareClick}>
+                    Declare
+                </Button>
+            }
+            </div>
+        </div>
     )
 }
 
