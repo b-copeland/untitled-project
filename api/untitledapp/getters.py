@@ -256,7 +256,7 @@ def _get_empire_info():
     )
     empire_info_parse = json.loads(empire_info.text)
     
-    return empire_info_parse["empires"]
+    return empire_info_parse
 
 
 def _get_empires_inverted():
@@ -265,7 +265,7 @@ def _get_empires_inverted():
 
     galaxy_empires = {}
     empires_inverted = {}
-    for empire_id, empire_info in empire_infos.items():
+    for empire_id, empire_info in empire_infos["empires"].items():
         for galaxy in empire_info["galaxies"]:
             galaxy_empires[galaxy] = empire_id
             galaxy_kds = galaxy_info[galaxy]
@@ -278,7 +278,7 @@ def _get_empires_inverted():
 # @flask_praetorian.roles_required('verified')
 def empires():
     empires = _get_empire_info()
-    return (flask.jsonify(empires), 200)
+    return (flask.jsonify(empires["empires"]), 200)
 
 @app.route('/api/empires_inverted')
 @flask_praetorian.auth_required

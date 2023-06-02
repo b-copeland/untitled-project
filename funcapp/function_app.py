@@ -58,6 +58,7 @@ def init_state(req: func.HttpRequest) -> func.HttpResponse:
             {
                 "id": "empires",
                 "empires": {},
+                "last_update": "",
             }
         )
         CONTAINER.create_item(
@@ -199,6 +200,7 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
             partition_key="empires"
         )
         empires["empires"] = {}
+        empires["last_update"] = ""
         CONTAINER.replace_item(
             "empires",
             empires,
@@ -751,6 +753,15 @@ def create_empire(req: func.HttpRequest) -> func.HttpResponse:
         empires["empires"][empire_id] = {
             "name": empire_name,
             "galaxies": [galaxy_id],
+            "aggression": {},
+            "num_kingdoms": 0,
+            "aggression_max": 999,
+            "war": [],
+            "peace": {},
+            "denounced": "",
+            "denounced_expires": "",
+            "surprise_war_penalty": False,
+            "surprise_war_penalty_expires": "",
         }
         CONTAINER.replace_item(
             "empires",

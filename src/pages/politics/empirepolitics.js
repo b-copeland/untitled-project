@@ -236,7 +236,7 @@ function Join(props) {
                     />
                 </InputGroup>
                 {
-                  props.loading.galaxypolitics
+                  props.loading.empires
                   ? <Button className="empire-button" variant="primary" type="submit" disabled>
                       Loading...
                   </Button>

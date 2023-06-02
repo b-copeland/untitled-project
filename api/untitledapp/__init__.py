@@ -289,6 +289,16 @@ def update_state():
                 },
             }),
         )        
+        create_response = REQUESTS_SESSION.post(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps({
+                "item": "empires",
+                "state": {
+                    "last_update": req["game_start"]
+                },
+            }),
+        )        
     
     update_response = REQUESTS_SESSION.patch(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',

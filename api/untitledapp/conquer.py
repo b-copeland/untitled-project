@@ -45,8 +45,7 @@ def reveal_random_galaxy():
     excluded_galaxies = list(revealed_info["galaxies"].keys())
     
     if kd_empire:
-        
-        excluded_galaxies.extend(empires[kd_empire]["galaxies"])
+        excluded_galaxies.extend(empires["empires"][kd_empire]["galaxies"])
     else:
         excluded_galaxies.append(kd_galaxy)
 
@@ -89,6 +88,29 @@ def reveal_random_galaxy():
     )
 
     return (flask.jsonify({"message": f"Reveavled galaxy {galaxy_to_reveal}", "status": "success"}), 200)
+
+def _add_aggression(
+    source_empire,
+    target_empire,
+    aggression_increase,
+    empires_info=None,
+):
+    if not empires_info:
+        empires_info = uag._get_empire_info()
+    
+    try:
+        empires_info["empires"][source_empire]["aggression"][target_empire] += aggression_increase
+    except KeyError:
+        empires_info["empires"][source_empire]["aggression"][target_empire] = aggression_increase
+
+    empires_payload = {
+        "empires": empires_info["empires"],
+    }
+    empires_patch_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empires_payload),
+    )    
 
 def _validate_attack_request(
     attacker_raw_values,
@@ -594,7 +616,7 @@ def _attack(req, kd_id, target_kd):
     }
 
     shared = uag._get_shared(kd_id)["shared"]
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
+    galaxies_inverted, galaxy_info = uag._get_galaxies_inverted()
     target_kd_info = uag._get_kd_info(target_kd)
     if target_kd_info["status"].lower() == "dead":
         return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400
@@ -903,8 +925,6 @@ def _attack(req, kd_id, target_kd):
         data=json.dumps(kd_attack_history, default=str),
     )
 
-    
-    galaxies_inverted, galaxy_info = uag._get_galaxies_inverted()
     attacker_galaxy = galaxies_inverted[kd_id]
     kds_to_reveal = galaxy_info[attacker_galaxy]
 
@@ -989,6 +1009,19 @@ def _attack(req, kd_id, target_kd):
                     pass
     for defender_galaxy_kd in galaxy_info[defender_galaxy]:
         _add_notifs(defender_galaxy_kd, ["news_galaxy"])
+
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    attacker_empire = empires_inverted.get(kd_id)
+    defender_empire = empires_inverted.get(target_kd)
+
+    if attacker_empire is not None and defender_empire is not None and attacker_empire != defender_empire:
+        _add_aggression(
+            attacker_empire,
+            defender_empire,
+            uas.GAME_CONFIG["AGGRO_PER_ATTACK"],
+            empires_info,
+        )
+
     attack_results = {
         "status": attack_status,
         "message": attacker_message,
@@ -1784,6 +1817,22 @@ def _spy(req, kd_id, target_kd):
             }
             _offer_shared(req_share, kd_id)
 
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    attacker_empire = empires_inverted.get(kd_id)
+    defender_empire = empires_inverted.get(target_kd)
+
+    if (
+        attacker_empire is not None
+        and defender_empire is not None
+        and (attacker_empire != defender_empire)
+        and (operation in uas.AGGRO_OPERATIONS)
+    ):
+        _add_aggression(
+            attacker_empire,
+            defender_empire,
+            uas.GAME_CONFIG["AGGRO_PER_AGGRO_SPY"],
+            empires_info,
+        )
 
     new_kd_info = {
         **kd_info_parse,
