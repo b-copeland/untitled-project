@@ -1149,6 +1149,36 @@ def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+@APP.function_name(name="UpdateUniverseNews")
+@APP.route(route="universenews", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_universe_news(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update universe news request.')  
+    try:  
+        req_body = req.get_json()
+        new_news = req_body["news"]
+        item_id = f"universe_news"
+        news = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        if isinstance(new_news, str):
+            news["news"] = [new_news] + news["news"]
+        else:
+            news["news"] = new_news + news["news"]
+        CONTAINER.replace_item(
+            item_id,
+            news,
+        )
+        return func.HttpResponse(
+            "Universe news updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The Universe news was not updated",
+            status_code=500,
+        )
+
 @APP.function_name(name="GetMessages")
 @APP.route(route="kingdom/{kdId:int}/messages", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
 def get_messages(req: func.HttpRequest) -> func.HttpResponse:

@@ -1420,7 +1420,19 @@ def _resolve_empires(
 
         for other_empire_id, aggression_meter in empires_info["empires"][empire_id]["aggression"].items():
             if aggression_meter > empires_info["empires"][empire_id]["aggression_max"]:
-                pass
+                if other_empire_id not in empires_info["empires"][empire_id]["war"]:
+                    empires_info["empires"][empire_id]["war"].append(other_empire_id)
+                    empires_info["empires"][other_empire_id]["war"].append(empire_id)
+
+                    news_payload = {
+                        "time": time_update.isoformat(),
+                        "news": f"{empires_info['empires'][empire_id]['name']} declared war by aggression on {empires_info['empires'][other_empire_id]['name']}"
+                    }
+                    universe_news_update_response = REQUESTS_SESSION.patch(
+                        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
+                        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                        data=json.dumps(news_payload)
+                    )
         for other_empire_id in empires_info["empires"][empire_id]["aggression"]:
             empires_info["empires"][empire_id]["aggression"][other_empire_id] = max(
                 empires_info["empires"][empire_id]["aggression"][other_empire_id] - decay,
