@@ -426,6 +426,12 @@ function Status(props) {
     const handleChangeEmpire = (selectedOption) => {
       setSelectedEmpire(selectedOption.value);
     };
+    const onSubmitDenounceClick = (e)=>{
+        const updateFunc = () => authFetch('api/empire/' + selectedEmpire + '/denounce', {
+            method: 'post',
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['empires'], [updateFunc])
+    }
     const onSubmitDeclareClick = (e)=>{
         const updateFunc = () => authFetch('api/empire/' + selectedEmpire + '/declare', {
             method: 'post',
@@ -456,7 +462,7 @@ function Status(props) {
             </ToastContainer>
             <div className="declare-war">
             <label id="aria-label" htmlFor="aria-example-input">
-                Declare War
+                Select an Empire
             </label>
             <Select
                 id="select-empire"
@@ -493,15 +499,26 @@ function Status(props) {
                         color: 'var(--bs-secondary-text)',
                     }),
                 }}/>
-            {
-                props.loading.empires
-                ? <Button className="empire-button" variant="warning" type="submit" disabled>
-                    Loading...
-                </Button>
-                : <Button className="empire-button" variant="warning" type="submit" onClick={onSubmitDeclareClick}>
-                    Declare
-                </Button>
-            }
+                <div className="empire-status-buttons">
+                    {
+                        props.loading.empires
+                        ? <Button className="empire-button" variant="Primary" type="submit" disabled>
+                            Loading...
+                        </Button>
+                        : <Button className="empire-button" variant="primary" type="submit" onClick={onSubmitDenounceClick}>
+                            Denounce
+                        </Button>
+                    }
+                    {
+                        props.loading.empires
+                        ? <Button className="empire-button" variant="warning" type="submit" disabled>
+                            Loading...
+                        </Button>
+                        : <Button className="empire-button" variant="warning" type="submit" onClick={onSubmitDeclareClick}>
+                            Declare War
+                        </Button>
+                    }
+                </div>
             </div>
         </div>
     )
