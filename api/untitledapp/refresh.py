@@ -1418,6 +1418,18 @@ def _resolve_empires(
         decay_per_epoch = empires_info["empires"][empire_id]["num_kingdoms"] * uas.GAME_CONFIG["AGGRO_METER_DECAY_PER_KD_PER_EPOCH"]
         decay = decay_per_epoch * epoch_elapsed
 
+        if empires_info["empires"][empire_id]["denounced"]:
+            denounce_expiration = datetime.datetime.fromisoformat(empires_info["empires"][empire_id]["denounced_expires"]).astimezone(datetime.timezone.utc)
+            if denounce_expiration < time_update:
+                empires_info["empires"][empire_id]["denounced"] = ""
+                empires_info["empires"][empire_id]["denounced_expires"] = ""
+
+        if empires_info["empires"][empire_id]["surprise_war_penalty"]:
+            denounce_expiration = datetime.datetime.fromisoformat(empires_info["empires"][empire_id]["surprise_war_penalty_expires"]).astimezone(datetime.timezone.utc)
+            if denounce_expiration < time_update:
+                empires_info["empires"][empire_id]["surprise_war_penalty"] = False
+                empires_info["empires"][empire_id]["surprise_war_penalty_expires"] = ""
+
         for other_empire_id, aggression_meter in empires_info["empires"][empire_id]["aggression"].items():
             if aggression_meter > empires_info["empires"][empire_id]["aggression_max"]:
                 if other_empire_id not in empires_info["empires"][empire_id]["war"]:
