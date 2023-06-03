@@ -145,14 +145,20 @@ def _validate_attack_request(
 def _calc_losses(
     unit_dict,
     loss_rate,
+    war=False,
     xo=False,
 ):
     int_xo = int(xo)
+    int_war = int(war)
     adjusted_loss_rate = (
         loss_rate
         * (
             1
             - int_xo * uas.GAME_CONFIG["XO_ATTACK_UNIT_LOSSES_REDUCTION"]
+        )
+        * (
+            1
+            + int_war * uas.GAME_CONFIG["WAR_LOSSES_INCREASE"]
         )
     )
     losses = {
@@ -252,6 +258,11 @@ def calculate_attack(target_kd):
     else:
         target_fuelless = False
 
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    attacker_empire = empires_inverted.get(kd_id)
+    defender_empire = empires_inverted.get(target_kd)
+
+
     attacker_fuelless = kd_info_parse["fuel"] <= 0
     attack = uag._calc_max_offense(
         attacker_units,
@@ -260,6 +271,8 @@ def calculate_attack(target_kd):
         generals=int(attacker_raw_values.get("generals", 0) or 0),
         fuelless=attacker_fuelless,
         lumina=kd_info_parse["race"] == "Lumina",
+        denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
+        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
     )
     defense = uag._calc_max_defense(
         defender_units,
@@ -276,11 +289,13 @@ def calculate_attack(target_kd):
     attacker_losses = _calc_losses(
         attacker_units,
         uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
         xo=kd_info_parse["race"] == "Xo",
     )
     defender_losses = _calc_losses(
         defender_units,
         uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
+        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxies_inverted, _ = uag._get_galaxies_inverted()
@@ -435,6 +450,10 @@ def _autofill_attack(req, kd_id, target_kd):
     else:
         target_fuelless = False
 
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    attacker_empire = empires_inverted.get(kd_id)
+    defender_empire = empires_inverted.get(target_kd)
+
     defense = uag._calc_max_defense(
         defender_units,
         military_bonus=defender_military_bonus, 
@@ -466,6 +485,8 @@ def _autofill_attack(req, kd_id, target_kd):
                 generals=generals,
                 fuelless=attacker_fuelless,
                 lumina=kd_info_parse["race"] == "Lumina",
+                denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
+                war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
             )
             if current_unit_attack > remaining_defense:
                 required_ratio = remaining_defense / current_unit_attack
@@ -485,6 +506,8 @@ def _autofill_attack(req, kd_id, target_kd):
         generals=generals,
         fuelless=attacker_fuelless,
         lumina=kd_info_parse["race"] == "Lumina",
+        denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
+        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
     )
     try:
         attack_ratio = min(attack / defense_adjusted, 1.0)
@@ -493,11 +516,13 @@ def _autofill_attack(req, kd_id, target_kd):
     attacker_losses = _calc_losses(
         attacker_units,
         uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
         xo=kd_info_parse["race"] == "Xo",
     )
     defender_losses = _calc_losses(
         defender_units,
         uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
+        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxies_inverted, _ = uag._get_galaxies_inverted()
@@ -626,6 +651,10 @@ def _attack(req, kd_id, target_kd):
         if "max_bonus" in project_dict
     }
 
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    attacker_empire = empires_inverted.get(kd_id)
+    defender_empire = empires_inverted.get(target_kd)
+
     valid_attack_request, attack_request_message = _validate_attack_request(
         attacker_raw_values,
         kd_info_parse,
@@ -655,6 +684,8 @@ def _attack(req, kd_id, target_kd):
         generals=int(attacker_raw_values["generals"]),
         fuelless=attacker_fuelless,
         lumina=kd_info_parse["race"] == "Lumina",
+        denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
+        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
     )
     defense = uag._calc_max_defense(
         defender_units,
@@ -668,11 +699,13 @@ def _attack(req, kd_id, target_kd):
     attacker_losses = _calc_losses(
         attacker_units,
         uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
         xo=kd_info_parse["race"] == "Xo",
     )
     defender_losses = _calc_losses(
         defender_units,
         uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
+        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
@@ -1009,10 +1042,6 @@ def _attack(req, kd_id, target_kd):
                     pass
     for defender_galaxy_kd in galaxy_info[defender_galaxy]:
         _add_notifs(defender_galaxy_kd, ["news_galaxy"])
-
-    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
-    attacker_empire = empires_inverted.get(kd_id)
-    defender_empire = empires_inverted.get(target_kd)
 
     if attacker_empire is not None and defender_empire is not None and attacker_empire != defender_empire:
         _add_aggression(

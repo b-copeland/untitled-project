@@ -457,9 +457,16 @@ def _calc_max_offense(
     generals=4,
     fuelless=False,
     lumina=False,
+    denounced=False,
+    war=False,
 ):
     int_fuelless = int(fuelless)
     int_lumina = int(lumina)
+    if war:
+        int_denounced = 0
+    else:
+        int_denounced = int(denounced)
+    int_war = int(war)
     raw_attack = sum([
         stat_map["offense"] * unit_dict.get(key, 0)
         for key, stat_map in uas.UNITS.items() 
@@ -471,6 +478,8 @@ def _calc_max_offense(
         + other_bonuses
         - (int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"])
         - (int_lumina * uas.GAME_CONFIG["LUMINA_OFFENSE_REDUCTION"])
+        + (int_denounced * uas.GAME_CONFIG["DENOUNCE_OFFENSE_BONUS"])
+        + (int_war * uas.GAME_CONFIG["WAR_OFFENSE_INCREASE"])
     )
     return math.floor(attack_w_bonuses)
 
