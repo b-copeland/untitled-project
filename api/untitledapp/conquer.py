@@ -262,7 +262,7 @@ def calculate_attack(target_kd):
     attacker_empire = empires_inverted.get(kd_id)
     defender_empire = empires_inverted.get(target_kd)
 
-
+    war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
     attacker_fuelless = kd_info_parse["fuel"] <= 0
     attack = uag._calc_max_offense(
         attacker_units,
@@ -272,7 +272,7 @@ def calculate_attack(target_kd):
         fuelless=attacker_fuelless,
         lumina=kd_info_parse["race"] == "Lumina",
         denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
-        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
+        war=war,
     )
     defense = uag._calc_max_defense(
         defender_units,
@@ -289,13 +289,13 @@ def calculate_attack(target_kd):
     attacker_losses = _calc_losses(
         attacker_units,
         uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
-        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
+        war=war,
         xo=kd_info_parse["race"] == "Xo",
     )
     defender_losses = _calc_losses(
         defender_units,
         uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
-        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
+        war=war,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxies_inverted, _ = uag._get_galaxies_inverted()
@@ -325,10 +325,12 @@ def calculate_attack(target_kd):
         spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
             1
             + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
         )
         min_stars_gain = uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
             1
             + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
         )
         spoils_values = {
             key_spoil: max(math.floor(value_spoil * spoils_rate * (1 - cut)), 0)
@@ -453,6 +455,7 @@ def _autofill_attack(req, kd_id, target_kd):
     empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
     attacker_empire = empires_inverted.get(kd_id)
     defender_empire = empires_inverted.get(target_kd)
+    war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
 
     defense = uag._calc_max_defense(
         defender_units,
@@ -486,7 +489,7 @@ def _autofill_attack(req, kd_id, target_kd):
                 fuelless=attacker_fuelless,
                 lumina=kd_info_parse["race"] == "Lumina",
                 denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
-                war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
+                war=war,
             )
             if current_unit_attack > remaining_defense:
                 required_ratio = remaining_defense / current_unit_attack
@@ -507,7 +510,7 @@ def _autofill_attack(req, kd_id, target_kd):
         fuelless=attacker_fuelless,
         lumina=kd_info_parse["race"] == "Lumina",
         denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
-        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
+        war=war,
     )
     try:
         attack_ratio = min(attack / defense_adjusted, 1.0)
@@ -516,13 +519,13 @@ def _autofill_attack(req, kd_id, target_kd):
     attacker_losses = _calc_losses(
         attacker_units,
         uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
-        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
+        war=war,
         xo=kd_info_parse["race"] == "Xo",
     )
     defender_losses = _calc_losses(
         defender_units,
         uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
-        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
+        war=war,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxies_inverted, _ = uag._get_galaxies_inverted()
@@ -552,10 +555,12 @@ def _autofill_attack(req, kd_id, target_kd):
         spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
             1
             + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
         )
         min_stars_gain = uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
             1
             + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
         )
         spoils_values = {
             key_spoil: max(math.floor(value_spoil * spoils_rate * (1 - cut)), 0)
@@ -654,6 +659,7 @@ def _attack(req, kd_id, target_kd):
     empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
     attacker_empire = empires_inverted.get(kd_id)
     defender_empire = empires_inverted.get(target_kd)
+    war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
 
     valid_attack_request, attack_request_message = _validate_attack_request(
         attacker_raw_values,
@@ -685,7 +691,7 @@ def _attack(req, kd_id, target_kd):
         fuelless=attacker_fuelless,
         lumina=kd_info_parse["race"] == "Lumina",
         denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
-        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
+        war=war,
     )
     defense = uag._calc_max_defense(
         defender_units,
@@ -699,13 +705,13 @@ def _attack(req, kd_id, target_kd):
     attacker_losses = _calc_losses(
         attacker_units,
         uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
-        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
+        war=war,
         xo=kd_info_parse["race"] == "Xo",
     )
     defender_losses = _calc_losses(
         defender_units,
         uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
-        war=defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", []),
+        war=war,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
     galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
@@ -752,10 +758,12 @@ def _attack(req, kd_id, target_kd):
         spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
             1
             + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
         )
         min_stars_gain = math.floor(uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
             1
             + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
         ))
         total_spoils = {
             key_spoil: max(math.floor(value_spoil * spoils_rate), 0)
