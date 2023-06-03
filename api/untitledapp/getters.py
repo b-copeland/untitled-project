@@ -459,6 +459,7 @@ def _calc_max_offense(
     lumina=False,
     denounced=False,
     war=False,
+    surprise_war_penalty=False,
 ):
     int_fuelless = int(fuelless)
     int_lumina = int(lumina)
@@ -467,6 +468,10 @@ def _calc_max_offense(
     else:
         int_denounced = int(denounced)
     int_war = int(war)
+    if war:
+        int_surprise_war_penalty = 0
+    else:
+        int_surprise_war_penalty = int(surprise_war_penalty)
     raw_attack = sum([
         stat_map["offense"] * unit_dict.get(key, 0)
         for key, stat_map in uas.UNITS.items() 
@@ -480,6 +485,7 @@ def _calc_max_offense(
         - (int_lumina * uas.GAME_CONFIG["LUMINA_OFFENSE_REDUCTION"])
         + (int_denounced * uas.GAME_CONFIG["DENOUNCE_OFFENSE_BONUS"])
         + (int_war * uas.GAME_CONFIG["WAR_OFFENSE_INCREASE"])
+        + (int_surprise_war_penalty * uas.GAME_CONFIG["SURPRISE_WAR_PENALTY_OFFENSE_INCREASE"])
     )
     return math.floor(attack_w_bonuses)
 

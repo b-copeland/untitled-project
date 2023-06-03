@@ -263,6 +263,7 @@ def calculate_attack(target_kd):
     defender_empire = empires_inverted.get(target_kd)
 
     war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
+    surprise_war_penalty = empires_info["empires"].get(defender_empire, {}).get("surprise_war_penalty", False)
     attacker_fuelless = kd_info_parse["fuel"] <= 0
     attack = uag._calc_max_offense(
         attacker_units,
@@ -273,6 +274,7 @@ def calculate_attack(target_kd):
         lumina=kd_info_parse["race"] == "Lumina",
         denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
         war=war,
+        surprise_war_penalty=surprise_war_penalty,
     )
     defense = uag._calc_max_defense(
         defender_units,
@@ -456,6 +458,7 @@ def _autofill_attack(req, kd_id, target_kd):
     attacker_empire = empires_inverted.get(kd_id)
     defender_empire = empires_inverted.get(target_kd)
     war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
+    surprise_war_penalty = empires_info["empires"].get(defender_empire, {}).get("surprise_war_penalty", False)
 
     defense = uag._calc_max_defense(
         defender_units,
@@ -490,6 +493,7 @@ def _autofill_attack(req, kd_id, target_kd):
                 lumina=kd_info_parse["race"] == "Lumina",
                 denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
                 war=war,
+                surprise_war_penalty=surprise_war_penalty,
             )
             if current_unit_attack > remaining_defense:
                 required_ratio = remaining_defense / current_unit_attack
@@ -511,6 +515,7 @@ def _autofill_attack(req, kd_id, target_kd):
         lumina=kd_info_parse["race"] == "Lumina",
         denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
         war=war,
+        surprise_war_penalty=surprise_war_penalty,
     )
     try:
         attack_ratio = min(attack / defense_adjusted, 1.0)
@@ -660,6 +665,7 @@ def _attack(req, kd_id, target_kd):
     attacker_empire = empires_inverted.get(kd_id)
     defender_empire = empires_inverted.get(target_kd)
     war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
+    surprise_war_penalty = empires_info["empires"].get(defender_empire, {}).get("surprise_war_penalty", False)
 
     valid_attack_request, attack_request_message = _validate_attack_request(
         attacker_raw_values,
@@ -692,6 +698,7 @@ def _attack(req, kd_id, target_kd):
         lumina=kd_info_parse["race"] == "Lumina",
         denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
         war=war,
+        surprise_war_penalty=surprise_war_penalty,
     )
     defense = uag._calc_max_defense(
         defender_units,
