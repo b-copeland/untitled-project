@@ -422,9 +422,33 @@ function Join(props) {
 function Status(props) {
     const [selectedEmpire, setSelectedEmpire] = useState(undefined);
     const [results, setResults] = useState([]);
+    const [selectedEmpireRequest, setSelectedEmpireRequest] = useState(undefined);
+    const [selectedEmpireOffer, setSelectedEmpireOffer] = useState(undefined);
+    const [selectedTypeRequest, setSelectedTypeRequest] = useState(undefined);
+    const [selectedValueRequest, setSelectedValueRequest] = useState(undefined);
+    const [selectedTypeOffer, setSelectedTypeOffer] = useState(undefined);
+    const [selectedValueOffer, setSelectedValueOffer] = useState(undefined);
 
     const handleChangeEmpire = (selectedOption) => {
       setSelectedEmpire(selectedOption.value);
+    };
+    const handleChangeEmpireRequest = (selectedOption) => {
+        setSelectedEmpireRequest(selectedOption.value);
+    };
+    const handleChangeEmpireOffer = (selectedOption) => {
+        setSelectedEmpireOffer(selectedOption.value);
+    };
+    const handleChangeTypeRequest = (selectedOption) => {
+        setSelectedTypeRequest(selectedOption.value);
+    };
+    const handleChangeValueRequest = (selectedOption) => {
+        setSelectedValueRequest(selectedOption.value);
+    };
+    const handleChangeTypeOffer = (selectedOption) => {
+        setSelectedTypeOffer(selectedOption.value);
+    };
+    const handleChangeValueOffer = (selectedOption) => {
+        setSelectedValueOffer(selectedOption.value);
     };
     const onSubmitDenounceClick = (e)=>{
         const updateFunc = () => authFetch('api/empire/' + selectedEmpire + '/denounce', {
@@ -438,10 +462,178 @@ function Status(props) {
         }).then(r => r.json()).then(r => setResults(results.concat(r)))
         props.updateData(['empires'], [updateFunc])
     }
+    const onSubmitRequestSurrender = (e)=>{
+        if (
+            (selectedEmpireRequest === undefined)
+            || (selectedTypeRequest === undefined)
+            || (selectedValueRequest == undefined)
+        ) {
+            setResults(results.concat({
+                "message": "Please fill out all surrender options"
+            }))
+            return
+        }
+        let opts = {
+            "type": selectedTypeRequest,
+            "value": selectedValueRequest,
+        }
+        const updateFunc = () => authFetch('api/empire/' + selectedEmpireRequest + '/surrenderrequest', {
+            method: 'post',
+            body: JSON.stringify(opts),
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['empires', 'empirepolitics'], [updateFunc])
+    }
+    const onSubmitOfferSurrender = (e)=>{
+        if (
+            (selectedEmpireOffer === undefined)
+            || (selectedTypeOffer === undefined)
+            || (selectedValueOffer == undefined)
+        ) {
+            setResults(results.concat({
+                "message": "Please fill out all surrender options"
+            }))
+            return
+        }
+        let opts = {
+            "type": selectedTypeOffer,
+            "value": selectedValueOffer,
+        }
+        const updateFunc = () => authFetch('api/empire/' + selectedEmpireOffer + '/surrenderoffer', {
+            method: 'post',
+            body: JSON.stringify(opts),
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['empires', 'empirepolitics'], [updateFunc])
+    }
+
+
+
+    const onClickCancelOffer = (empire, type, value) => {
+        let opts = {
+            "type": type,
+            "value": value,
+        }
+        const updateFunc = () => authFetch('api/empire/' + empire + '/cancelsurrenderoffer', {
+            method: 'post',
+            body: JSON.stringify(opts),
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['empires', 'empirepolitics'], [updateFunc])
+    };
+    const onClickCancelRequest = (empire, type, value) => {
+        let opts = {
+            "type": type,
+            "value": value,
+        }
+        const updateFunc = () => authFetch('api/empire/' + empire + '/cancelsurrenderrequest', {
+            method: 'post',
+            body: JSON.stringify(opts),
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['empires', 'empirepolitics'], [updateFunc])
+    };
+
+
 
     const empireOptions = Object.keys(props.data.empires).map((empireId) => {
         return {"value": empireId, "label": props.data.empires[empireId].name}
     })
+    const typeOptions = Object.keys(props.data.state.surrender_options || {}).map((type) => {
+        return {"value": type, "label": type}
+    })
+    const requestValueOptions = ((props.data.state.surrender_options || {})[selectedTypeRequest] || []).map((value) => {
+        return {"value": value, "label": value}
+    })
+    const offerValueOptions = ((props.data.state.surrender_options || {})[selectedTypeOffer] || []).map((value) => {
+        return {"value": value, "label": value}
+    })
+
+    const empireMap = props.data.empires[(props.data.empires_inverted.empires_inverted || {})[props.data.kingdomid.kd_id]] || {};
+    const empireSurrenderOptions = empireMap.war?.map(empireId =>{
+        return {"value": empireId, "label": props.data.empires[empireId].name}
+    })
+    const empireWars = empireMap.war?.map(empireId =>
+        <tr key={"empire_war_status_" + empireId}>
+            <td>{props.data.empires[empireId].name}</td>
+            <td>War</td>
+            <td>N/A</td>
+        </tr>    
+    )
+    const empirePeace = (Object.keys(empireMap.peace || {})).map(empireId =>
+        <tr key={"empire_peace_status_" + empireId}>
+            <td>{props.data.empires[empireId].name}</td>
+            <td>Peace</td>
+            <td>Time...</td>
+        </tr>    
+    )
+    const empireAggression = (Object.keys(empireMap.aggression || {})).map(empireId =>
+        <tr key={"empire_aggression_status_" + empireId}>
+            <td>{props.data.empires[empireId].name}</td>
+            <td>Aggression - {Math.floor(empireMap.aggression[empireId]).toLocaleString()}</td>
+            <td>N/A</td>
+        </tr>    
+    )
+    const empireDenounced = empireMap.denounced !== undefined ? <tr>
+        <td>{props.data.empires[empireMap.denounced].name}</td>
+        <td>Denounced</td>
+        <td>{empireMap.denounced_expires}</td>
+    </tr>
+    : null
+    const empireSurpriseWar = empireMap.surprise_war_penalty ? <tr>
+        <td>All</td>
+        <td>Surprise War Penalty</td>
+        <td>{empireMap.surprise_war_penalty_expires}</td>
+    </tr>
+    : null
+    const surrenderOffersReceived = (props.data.empirepolitics.surrender_offers_received || []).map(offer =>
+        <tr key={"surrender_offers_received_" + offer.empire}>
+            <td>{props.data.empires[offer.empire].name}</td>
+            <td>{offer.type}</td>
+            <td>{offer.value}</td>
+            <td>Accept</td>
+        </tr>
+    )
+    const surrenderOffersSent = (props.data.empirepolitics.surrender_offers_sent || []).map(offer =>
+        <tr key={"surrender_offers_sent_" + offer.empire}>
+            <td>{props.data.empires[offer.empire].name}</td>
+            <td>{offer.type}</td>
+            <td>{offer.value}</td>
+            <td>
+                {
+                    props.loading.empirepolitics
+                    ? <Button className="cancel-schedule-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="cancel-schedule" variant="primary" type="submit" onClick={() => onClickCancelOffer(offer.empire, offer.type, offer.value)}>
+                        Cancel
+                    </Button>
+                }
+            </td>
+        </tr>
+    )
+    const surrenderRequestsReceived = (props.data.empirepolitics.surrender_requests_received || []).map(offer =>
+        <tr key={"surrender_requests_received_" + offer.empire}>
+            <td>{props.data.empires[offer.empire].name}</td>
+            <td>{offer.type}</td>
+            <td>{offer.value}</td>
+            <td>Accept</td>
+        </tr>
+    )
+    const surrenderRequestsSent = (props.data.empirepolitics.surrender_requests_sent || []).map(offer =>
+        <tr key={"surrender_requests_sent_" + offer.empire}>
+            <td>{props.data.empires[offer.empire].name}</td>
+            <td>{offer.type}</td>
+            <td>{offer.value}</td>
+            <td>
+                {
+                    props.loading.empirepolitics
+                    ? <Button className="cancel-schedule-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="cancel-schedule" variant="primary" type="submit" onClick={() => onClickCancelRequest(offer.empire, offer.type, offer.value)}>
+                        Cancel
+                    </Button>
+                }
+            </td>
+        </tr>
+    )
     const toasts = results.map((resultsItem, index) =>
         <Toast
             key={index}
@@ -461,44 +653,44 @@ function Status(props) {
                 {toasts}
             </ToastContainer>
             <div className="declare-war">
-            <label id="aria-label" htmlFor="aria-example-input">
-                Select an Empire
-            </label>
-            <Select
-                id="select-empire"
-                className="join-empire-select"
-                options={empireOptions}
-                onChange={handleChangeEmpire}
-                autoFocus={false}
-                styles={{
-                    control: (baseStyles, state) => ({
-                        ...baseStyles,
-                        borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
-                        backgroundColor: 'var(--bs-body-bg)',
-                    }),
-                    placeholder: (baseStyles, state) => ({
-                        ...baseStyles,
-                        color: 'var(--bs-primary-text)',
-                    }),
-                    input: (baseStyles, state) => ({
-                        ...baseStyles,
-                        color: 'var(--bs-secondary-text)',
-                    }),
-                    option: (baseStyles, state) => ({
-                        ...baseStyles,
-                        backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
-                        color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
-                    }),
-                    menuList: (baseStyles, state) => ({
-                        ...baseStyles,
-                        backgroundColor: 'var(--bs-secondary-bg)',
-                        // borderColor: 'var(--bs-secondary-bg)',
-                    }),
-                    singleValue: (baseStyles, state) => ({
-                        ...baseStyles,
-                        color: 'var(--bs-secondary-text)',
-                    }),
-                }}/>
+                <label id="aria-label" htmlFor="aria-example-input">
+                    Select an Empire
+                </label>
+                <Select
+                    id="select-empire"
+                    className="join-empire-select"
+                    options={empireOptions}
+                    onChange={handleChangeEmpire}
+                    autoFocus={false}
+                    styles={{
+                        control: (baseStyles, state) => ({
+                            ...baseStyles,
+                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                            backgroundColor: 'var(--bs-body-bg)',
+                        }),
+                        placeholder: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-primary-text)',
+                        }),
+                        input: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                        option: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                        }),
+                        menuList: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: 'var(--bs-secondary-bg)',
+                            // borderColor: 'var(--bs-secondary-bg)',
+                        }),
+                        singleValue: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                    }}/>
                 <div className="empire-status-buttons">
                     {
                         props.loading.empires
@@ -519,6 +711,333 @@ function Status(props) {
                         </Button>
                     }
                 </div>
+            </div>
+            <div className="empire-statuses">
+                <h3>Empire Statuses</h3>
+                <Table striped bordered hover className="galaxy-leader-table">
+                    <thead>
+                        <tr>
+                            <th>Empire</th>
+                            <th>Status</th>
+                            <th>Time Remaining</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {empireWars}
+                        {empirePeace}
+                        {empireDenounced}
+                        {empireAggression}
+                        {empireSurpriseWar}
+                    </tbody>
+                </Table>
+            </div>
+            <div className="empire-surrender-requests">
+                <h3>Opponent's Surrender</h3>
+                <label id="aria-label" htmlFor="aria-example-input">
+                    Request Opponent's Surrender
+                </label>
+                <Select
+                    id="select-empire"
+                    className="join-empire-select"
+                    options={empireSurrenderOptions}
+                    onChange={handleChangeEmpireRequest}
+                    autoFocus={false}
+                    styles={{
+                        control: (baseStyles, state) => ({
+                            ...baseStyles,
+                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                            backgroundColor: 'var(--bs-body-bg)',
+                        }),
+                        placeholder: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-primary-text)',
+                        }),
+                        input: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                        option: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                        }),
+                        menuList: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: 'var(--bs-secondary-bg)',
+                            // borderColor: 'var(--bs-secondary-bg)',
+                        }),
+                        singleValue: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                    }}/>
+                <label id="aria-label" htmlFor="aria-example-input">
+                    Type of Surrender
+                </label>
+                <Select
+                    id="select-empire"
+                    className="join-empire-select"
+                    options={typeOptions}
+                    onChange={handleChangeTypeRequest}
+                    autoFocus={false}
+                    styles={{
+                        control: (baseStyles, state) => ({
+                            ...baseStyles,
+                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                            backgroundColor: 'var(--bs-body-bg)',
+                        }),
+                        placeholder: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-primary-text)',
+                        }),
+                        input: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                        option: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                        }),
+                        menuList: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: 'var(--bs-secondary-bg)',
+                            // borderColor: 'var(--bs-secondary-bg)',
+                        }),
+                        singleValue: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                    }}/>
+                <label id="aria-label" htmlFor="aria-example-input">
+                    Value
+                </label>
+                <Select
+                    id="select-empire"
+                    className="join-empire-select"
+                    options={requestValueOptions}
+                    onChange={handleChangeValueRequest}
+                    autoFocus={false}
+                    styles={{
+                        control: (baseStyles, state) => ({
+                            ...baseStyles,
+                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                            backgroundColor: 'var(--bs-body-bg)',
+                        }),
+                        placeholder: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-primary-text)',
+                        }),
+                        input: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                        option: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                        }),
+                        menuList: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: 'var(--bs-secondary-bg)',
+                            // borderColor: 'var(--bs-secondary-bg)',
+                        }),
+                        singleValue: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                    }}/>
+                {
+                    props.loading.empirepolitics
+                    ? <Button className="surrender-request-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="surrender-request-schedule" variant="primary" type="submit" onClick={onSubmitRequestSurrender}>
+                        Request
+                    </Button>
+                }
+                <h5>Surrender Requests Sent</h5>
+                <Table striped bordered hover className="galaxy-leader-table">
+                    <thead>
+                        <tr>
+                            <th>Empire</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                            <th>Cancel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {surrenderRequestsSent}
+                    </tbody>
+                </Table>
+                <h5>Surrender Offers Received</h5>
+                <Table striped bordered hover className="galaxy-leader-table">
+                    <thead>
+                        <tr>
+                            <th>Empire</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                            <th>Accept Surrender</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {surrenderOffersReceived}
+                    </tbody>
+                </Table>
+            </div>
+            <div className="empire-surrender-requests">
+                <h3>Your Surrender</h3>
+                <label id="aria-label" htmlFor="aria-example-input">
+                    Offer Your Surrender
+                </label>
+                <Select
+                    id="select-empire"
+                    className="join-empire-select"
+                    options={empireSurrenderOptions}
+                    onChange={handleChangeEmpireOffer}
+                    autoFocus={false}
+                    styles={{
+                        control: (baseStyles, state) => ({
+                            ...baseStyles,
+                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                            backgroundColor: 'var(--bs-body-bg)',
+                        }),
+                        placeholder: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-primary-text)',
+                        }),
+                        input: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                        option: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                        }),
+                        menuList: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: 'var(--bs-secondary-bg)',
+                            // borderColor: 'var(--bs-secondary-bg)',
+                        }),
+                        singleValue: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                    }}/>
+                <label id="aria-label" htmlFor="aria-example-input">
+                    Type of Surrender
+                </label>
+                <Select
+                    id="select-empire"
+                    className="join-empire-select"
+                    options={typeOptions}
+                    onChange={handleChangeTypeOffer}
+                    autoFocus={false}
+                    styles={{
+                        control: (baseStyles, state) => ({
+                            ...baseStyles,
+                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                            backgroundColor: 'var(--bs-body-bg)',
+                        }),
+                        placeholder: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-primary-text)',
+                        }),
+                        input: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                        option: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                        }),
+                        menuList: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: 'var(--bs-secondary-bg)',
+                            // borderColor: 'var(--bs-secondary-bg)',
+                        }),
+                        singleValue: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                    }}/>
+                <label id="aria-label" htmlFor="aria-example-input">
+                    Value
+                </label>
+                <Select
+                    id="select-empire"
+                    className="join-empire-select"
+                    options={offerValueOptions}
+                    onChange={handleChangeValueOffer}
+                    autoFocus={false}
+                    styles={{
+                        control: (baseStyles, state) => ({
+                            ...baseStyles,
+                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
+                            backgroundColor: 'var(--bs-body-bg)',
+                        }),
+                        placeholder: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-primary-text)',
+                        }),
+                        input: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                        option: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
+                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
+                        }),
+                        menuList: (baseStyles, state) => ({
+                            ...baseStyles,
+                            backgroundColor: 'var(--bs-secondary-bg)',
+                            // borderColor: 'var(--bs-secondary-bg)',
+                        }),
+                        singleValue: (baseStyles, state) => ({
+                            ...baseStyles,
+                            color: 'var(--bs-secondary-text)',
+                        }),
+                    }}/>
+                {
+                    props.loading.empirepolitics
+                    ? <Button className="surrender-offer-button" variant="danger" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="surrender-offer-schedule" variant="danger" type="submit" onClick={onSubmitOfferSurrender}>
+                        Offer
+                    </Button>
+                }
+                <h5>Surrender Offers Sent</h5>
+                <Table striped bordered hover className="galaxy-leader-table">
+                    <thead>
+                        <tr>
+                            <th>Empire</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                            <th>Cancel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {surrenderOffersSent}
+                    </tbody>
+                </Table>
+                <h5>Surrender Requests Received</h5>
+                <Table striped bordered hover className="galaxy-leader-table">
+                    <thead>
+                        <tr>
+                            <th>Empire</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                            <th>Surrender</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {surrenderRequestsReceived}
+                    </tbody>
+                </Table>
             </div>
         </div>
     )

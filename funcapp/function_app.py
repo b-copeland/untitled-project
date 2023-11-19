@@ -772,6 +772,10 @@ def create_empire(req: func.HttpRequest) -> func.HttpResponse:
                 "id": f"empire_politics_{empire_id}",
                 "empire_invitations": [],
                 "empire_join_requests": [],
+                "surrender_offers_sent": [],
+                "surrender_offers_received": [],
+                "surrender_requests_sent": [],
+                "surrender_requests_received": [],
                 "leader": leader,
             }
         )

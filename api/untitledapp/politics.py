@@ -645,6 +645,337 @@ def declare_war(target_empire):
     )
     return flask.jsonify({"message": "Declared war!", "status": "success"}), 200
 
+def _validate_request_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire, surrender_type, surrender_value):    
+    if empire_politics["leader"] != kd_galaxy_id:
+        return False, "You are not a part of the Empire's ruling galaxy"
+    
+    if kd_galaxy_politics["leader"] != kd_id:
+        return False, "You are not the leader of the Empire's ruling galaxy"
+    
+    if target_empire == kd_empire:
+        return False, "You can't surrender to yourself"
+    
+    if target_empire not in empires_info["empires"][kd_empire]["war"]:
+        return False, "You are not at war with that Empire"
+    
+    if surrender_value not in uas.SURRENDER_OPTIONS.get(surrender_type, []):
+        return False, "That is not a valid surrender option"
+
+    return True, ""
+
+@app.route('/api/empire/<target_empire>/surrenderrequest', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def request_surrender(target_empire):
+    kd_id = flask_praetorian.current_user().kd_id
+    req = flask.request.get_json(force=True)
+    surrender_type = req.get("type")
+    surrender_value = req.get("value")
+
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
+    empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    empire_politics = uag._get_empire_politics(kd_empire)
+    target_empire_politics = uag._get_empire_politics(target_empire)
+
+    valid_request, message = _validate_request_surrender(
+        empire_politics,
+        kd_id,
+        kd_galaxy_politics,
+        kd_galaxy_id,
+        empires_info,
+        target_empire,
+        kd_empire, 
+        surrender_type,
+        surrender_value
+    )
+    if not valid_request:
+        return flask.jsonify({"message": message}), 400
+    
+    
+    new_surrender_sender = {
+        "type": surrender_type,
+        "value": surrender_value,
+        "empire": target_empire
+    }
+    new_surrender_receiver = {
+        "type": surrender_type,
+        "value": surrender_value,
+        "empire": kd_empire,
+    }
+    new_empire_requests_receiver = [
+        item
+        for item in target_empire_politics["surrender_requests_received"]
+        if item["empire"] != kd_empire
+    ]
+    new_empire_requests_receiver.append(new_surrender_receiver)
+    new_empire_requests_sender = [
+        item
+        for item in empire_politics["surrender_requests_sent"]
+        if item["empire"] != target_empire
+    ]
+    new_empire_requests_sender.append(new_surrender_sender)
+
+    target_empire_payload = {
+        "surrender_requests_received": new_empire_requests_receiver
+    }
+
+    surrender_target_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(target_empire_payload)
+    )
+    empire_payload = {
+        "surrender_requests_sent": new_empire_requests_sender
+    }
+
+    surrender_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empire_payload)
+    )
+
+    return flask.jsonify({"message": "Surrender request sent", "status": "success"}), 200
+
+@app.route('/api/empire/<target_empire>/cancelsurrenderrequest', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def cancel_request_surrender(target_empire):
+    kd_id = flask_praetorian.current_user().kd_id
+    req = flask.request.get_json(force=True)
+    surrender_type = req.get("type")
+    surrender_value = req.get("value")
+
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
+    empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    empire_politics = uag._get_empire_politics(kd_empire)
+    target_empire_politics = uag._get_empire_politics(target_empire)    
+
+    valid_request, message = _validate_request_surrender(
+        empire_politics,
+        kd_id,
+        kd_galaxy_politics,
+        kd_galaxy_id,
+        empires_info,
+        target_empire,
+        kd_empire, 
+        surrender_type,
+        surrender_value
+    )
+    if not valid_request:
+        return flask.jsonify({"message": message}), 400
+    
+
+    new_empire_requests_receiver = [
+        item
+        for item in target_empire_politics["surrender_requests_received"]
+        if (
+            item["empire"] != kd_empire
+            and item["type"] != surrender_type
+            and item["value"] != surrender_value
+        )
+    ]
+    new_empire_requests_sender = [
+        item
+        for item in empire_politics["surrender_requests_sent"]
+        if (
+            item["empire"] != target_empire
+            and item["type"] != surrender_type
+            and item["value"] != surrender_value
+        )
+    ]
+
+    target_empire_payload = {
+        "surrender_requests_received": new_empire_requests_receiver
+    }
+
+    surrender_target_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(target_empire_payload)
+    )
+    empire_payload = {
+        "surrender_requests_sent": new_empire_requests_sender
+    }
+
+    surrender_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empire_payload)
+    )
+
+    return flask.jsonify({"message": "Surrender request cancelled", "status": "success"}), 200
+
+def _validate_offer_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire, surrender_type, surrender_value):    
+    if empire_politics["leader"] != kd_galaxy_id:
+        return False, "You are not a part of the Empire's ruling galaxy"
+    
+    if kd_galaxy_politics["leader"] != kd_id:
+        return False, "You are not the leader of the Empire's ruling galaxy"
+    
+    if target_empire == kd_empire:
+        return False, "You can't surrender to yourself"
+    
+    if target_empire not in empires_info["empires"][kd_empire]["war"]:
+        return False, "You are not at war with that Empire"
+    
+    if surrender_value not in uas.SURRENDER_OPTIONS.get(surrender_type, []):
+        return False, "That is not a valid surrender option"
+
+    return True, ""
+
+@app.route('/api/empire/<target_empire>/surrenderoffer', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def offer_surrender(target_empire):
+    kd_id = flask_praetorian.current_user().kd_id
+    req = flask.request.get_json(force=True)
+    surrender_type = req.get("type")
+    surrender_value = req.get("value")
+
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
+    empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    empire_politics = uag._get_empire_politics(kd_empire)
+    target_empire_politics = uag._get_empire_politics(target_empire)
+
+    valid_request, message = _validate_request_surrender(
+        empire_politics,
+        kd_id,
+        kd_galaxy_politics,
+        kd_galaxy_id,
+        empires_info,
+        target_empire,
+        kd_empire, 
+        surrender_type,
+        surrender_value
+    )
+    if not valid_request:
+        return flask.jsonify({"message": message}), 400
+    
+    
+    new_surrender_sender = {
+        "type": surrender_type,
+        "value": surrender_value,
+        "empire": target_empire
+    }
+    new_surrender_receiver = {
+        "type": surrender_type,
+        "value": surrender_value,
+        "empire": kd_empire,
+    }
+    new_empire_offers_receiver = [
+        item
+        for item in target_empire_politics["surrender_offers_received"]
+        if item["empire"] != kd_empire
+    ]
+    new_empire_offers_receiver.append(new_surrender_receiver)
+    new_empire_offers_sender = [
+        item
+        for item in empire_politics["surrender_offers_sent"]
+        if item["empire"] != target_empire
+    ]
+    new_empire_offers_sender.append(new_surrender_sender)
+
+    target_empire_payload = {
+        "surrender_offers_received": new_empire_offers_receiver
+    }
+
+    surrender_target_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(target_empire_payload)
+    )
+    empire_payload = {
+        "surrender_offers_sent": new_empire_offers_sender
+    }
+
+    surrender_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empire_payload)
+    )
+
+    return flask.jsonify({"message": "Surrender offer sent", "status": "success"}), 200
+
+@app.route('/api/empire/<target_empire>/cancelsurrenderoffer', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def cancel_offer_surrender(target_empire):
+    kd_id = flask_praetorian.current_user().kd_id
+    req = flask.request.get_json(force=True)
+    surrender_type = req.get("type")
+    surrender_value = req.get("value")
+
+    kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
+    empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
+    kd_empire = empires_inverted.get(kd_id)
+    empire_politics = uag._get_empire_politics(kd_empire)
+    target_empire_politics = uag._get_empire_politics(target_empire)
+    
+    valid_request, message = _validate_request_surrender(
+        empire_politics,
+        kd_id,
+        kd_galaxy_politics,
+        kd_galaxy_id,
+        empires_info,
+        target_empire,
+        kd_empire, 
+        surrender_type,
+        surrender_value
+    )
+    if not valid_request:
+        return flask.jsonify({"message": message}), 400
+    
+
+    new_empire_offers_receiver = [
+        item
+        for item in target_empire_politics["surrender_offers_received"]
+        if (
+            item["empire"] != kd_empire
+            and item["type"] != surrender_type
+            and item["value"] != surrender_value
+        )
+    ]
+    new_empire_offers_sender = [
+        item
+        for item in empire_politics["surrender_offers_sent"]
+        if (
+            item["empire"] != target_empire
+            and item["type"] != surrender_type
+            and item["value"] != surrender_value
+        )
+    ]
+
+    target_empire_payload = {
+        "surrender_offers_received": new_empire_offers_receiver
+    }
+
+    surrender_target_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(target_empire_payload)
+    )
+    empire_payload = {
+        "surrender_offers_sent": new_empire_offers_sender
+    }
+
+    surrender_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empire_payload)
+    )
+
+    return flask.jsonify({"message": "Surrender offer cancelled", "status": "success"}), 200
 
 
 def _validate_buy_votes(

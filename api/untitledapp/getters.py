@@ -55,6 +55,7 @@ def get_state():
         "reveal_operations": uas.REVEAL_OPERATIONS,
         "game_config": uas.GAME_CONFIG,
         "races": uas.RACES,
+        "surrender_options": uas.SURRENDER_OPTIONS,
     }), 200
 
 def _get_scores():
