@@ -782,16 +782,17 @@ def _resolve_auto_spending(
                 for k, v in target_structures_to_build.items()
                 if v > 0
             }
-            new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero, time_update)
-            next_resolves["structures"] = min(min_structures_time, kd_info_parse["next_resolve"]["structures"])
-            structures_payload = {
-                "new_structures": new_structures_payload
-            }
-            structures_patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-                data=json.dumps(structures_payload),
-            )
+            if sum(target_structures_to_build_nonzero.values()) > 0:
+                new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero, time_update)
+                next_resolves["structures"] = min(min_structures_time, kd_info_parse["next_resolve"]["structures"])
+                structures_payload = {
+                    "new_structures": new_structures_payload
+                }
+                structures_patch_response = REQUESTS_SESSION.patch(
+                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    data=json.dumps(structures_payload),
+                )
 
     recruit_price = mobis_info["recruit_price"]
     recruit_time = mobis_info["recruit_time"]
@@ -1429,6 +1430,13 @@ def _resolve_empires(
             if denounce_expiration < time_update:
                 empires_info["empires"][empire_id]["surprise_war_penalty"] = False
                 empires_info["empires"][empire_id]["surprise_war_penalty_expires"] = ""
+
+        new_peace = {
+            empire_id: peace_expiration
+            for empire_id, peace_expiration in empires_info["empires"][empire_id]["peace"].items()
+            if datetime.datetime.fromisoformat(peace_expiration).astimezone(datetime.timezone.utc) > time_update
+        }
+        empires_info["empires"][empire_id]["peace"] = new_peace
 
         for other_empire_id, aggression_meter in empires_info["empires"][empire_id]["aggression"].items():
             if aggression_meter > empires_info["empires"][empire_id]["aggression_max"]:

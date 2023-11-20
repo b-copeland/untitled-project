@@ -263,6 +263,7 @@ def calculate_attack(target_kd):
     defender_empire = empires_inverted.get(target_kd)
 
     war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
+    peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
     surprise_war_penalty = empires_info["empires"].get(defender_empire, {}).get("surprise_war_penalty", False)
     attacker_fuelless = kd_info_parse["fuel"] <= 0
     attack = uag._calc_max_offense(
@@ -283,6 +284,7 @@ def calculate_attack(target_kd):
         shields=defender_shields,
         fuelless=target_fuelless,
         gaian=kd_info_parse["race"] == "Gaian",
+        peace=peace,
     )
     try:
         attack_ratio = min(attack / defense, 1.0)
@@ -458,6 +460,7 @@ def _autofill_attack(req, kd_id, target_kd):
     attacker_empire = empires_inverted.get(kd_id)
     defender_empire = empires_inverted.get(target_kd)
     war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
+    peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
     surprise_war_penalty = empires_info["empires"].get(defender_empire, {}).get("surprise_war_penalty", False)
 
     defense = uag._calc_max_defense(
@@ -467,6 +470,7 @@ def _autofill_attack(req, kd_id, target_kd):
         shields=defender_shields,
         fuelless=target_fuelless,
         gaian=kd_info_parse["race"] == "Gaian",
+        peace=peace,
     )
     defense_adjusted = math.floor(
         defense 
@@ -665,6 +669,7 @@ def _attack(req, kd_id, target_kd):
     attacker_empire = empires_inverted.get(kd_id)
     defender_empire = empires_inverted.get(target_kd)
     war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
+    peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
     surprise_war_penalty = empires_info["empires"].get(defender_empire, {}).get("surprise_war_penalty", False)
 
     valid_attack_request, attack_request_message = _validate_attack_request(
@@ -707,6 +712,7 @@ def _attack(req, kd_id, target_kd):
         shields=defender_shields,
         fuelless=target_fuelless,
         gaian=kd_info_parse["race"] == "Gaian",
+        peace=peace,
     )
     attack_ratio = min(attack / defense, 1.0)
     attacker_losses = _calc_losses(

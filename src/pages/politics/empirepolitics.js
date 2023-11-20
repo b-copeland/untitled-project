@@ -593,7 +593,7 @@ function Status(props) {
         </tr>    
     )
     const empireDenounced = empireMap.denounced !== undefined ? <tr>
-        <td>{props.data.empires[empireMap.denounced].name}</td>
+        <td>{(props.data.empires[empireMap.denounced] || {}).name}</td>
         <td>Denounced</td>
         <td>{empireMap.denounced_expires}</td>
     </tr>

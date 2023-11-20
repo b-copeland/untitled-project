@@ -497,10 +497,12 @@ def _calc_max_defense(
     shields=0.10,
     fuelless=False,
     gaian=False,
+    peace=False
 ):
 
     int_fuelless = int(fuelless)
     int_gaian = int(gaian)
+    int_peace = int(peace)
     raw_defense = sum([
         stat_map["defense"] * unit_dict.get(key, 0)
         for key, stat_map in uas.UNITS.items() 
@@ -512,6 +514,7 @@ def _calc_max_defense(
         + other_bonuses
         - (int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"])
         - (int_gaian * uas.GAME_CONFIG["GAIAN_DEFENSE_REDUCTION"])
+        + (int_peace * uas.GAME_CONFIG["PEACE_DEFENSE_BONUS"])
     )
     return math.floor(defense_w_bonuses)
 
