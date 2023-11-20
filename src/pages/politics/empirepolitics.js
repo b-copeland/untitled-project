@@ -529,6 +529,28 @@ function Status(props) {
         }).then(r => r.json()).then(r => setResults(results.concat(r)))
         props.updateData(['empires', 'empirepolitics'], [updateFunc])
     };
+    const onClickAcceptOffer = (empire, type, value) => {
+        let opts = {
+            "type": type,
+            "value": value,
+        }
+        const updateFunc = () => authFetch('api/empire/' + empire + '/acceptsurrenderoffer', {
+            method: 'post',
+            body: JSON.stringify(opts),
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['all'], [updateFunc])
+    };
+    const onClickAcceptRequest = (empire, type, value) => {
+        let opts = {
+            "type": type,
+            "value": value,
+        }
+        const updateFunc = () => authFetch('api/empire/' + empire + '/acceptsurrenderrequest', {
+            method: 'post',
+            body: JSON.stringify(opts),
+        }).then(r => r.json()).then(r => setResults(results.concat(r)))
+        props.updateData(['all'], [updateFunc])
+    };
 
 
 
@@ -587,7 +609,17 @@ function Status(props) {
             <td>{props.data.empires[offer.empire].name}</td>
             <td>{offer.type}</td>
             <td>{offer.value}</td>
-            <td>Accept</td>
+            <td>
+                {
+                    props.loading.empirepolitics
+                    ? <Button className="cancel-schedule-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="cancel-schedule" variant="primary" type="submit" onClick={() => onClickAcceptOffer(offer.empire, offer.type, offer.value)}>
+                        Accept
+                    </Button>
+                }
+            </td>
         </tr>
     )
     const surrenderOffersSent = (props.data.empirepolitics.surrender_offers_sent || []).map(offer =>
@@ -613,7 +645,17 @@ function Status(props) {
             <td>{props.data.empires[offer.empire].name}</td>
             <td>{offer.type}</td>
             <td>{offer.value}</td>
-            <td>Accept</td>
+            <td>
+                {
+                    props.loading.empirepolitics
+                    ? <Button className="cancel-schedule-button" variant="danger" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="cancel-schedule" variant="danger" type="submit" onClick={() => onClickAcceptRequest(offer.empire, offer.type, offer.value)}>
+                        Accept
+                    </Button>
+                }
+            </td>
         </tr>
     )
     const surrenderRequestsSent = (props.data.empirepolitics.surrender_requests_sent || []).map(offer =>
