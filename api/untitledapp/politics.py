@@ -595,6 +595,9 @@ def _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_
     
     if target_empire in empires_info["empires"][kd_empire]["war"]:
         return False, "You are already at war with that Empire"
+    
+    if target_empire in empires_info["empires"][kd_empire]["peace"].keys():
+        return False, "You can't declare war on a kingdom you are at peace with"
 
     return True, ""
 

@@ -469,12 +469,28 @@ function Status(props) {
         setSelectedValueOffer(selectedOption.value);
     };
     const onSubmitDenounceClick = (e)=>{
+        if (
+            (selectedEmpire === undefined)
+        ) {
+            setResults(results.concat({
+                "message": "Please select an empire"
+            }))
+            return
+        }
         const updateFunc = () => authFetch('api/empire/' + selectedEmpire + '/denounce', {
             method: 'post',
         }).then(r => r.json()).then(r => setResults(results.concat(r)))
         props.updateData(['empires'], [updateFunc])
     }
     const onSubmitDeclareClick = (e)=>{
+        if (
+            (selectedEmpire === undefined)
+        ) {
+            setResults(results.concat({
+                "message": "Please select an empire"
+            }))
+            return
+        }
         const updateFunc = () => authFetch('api/empire/' + selectedEmpire + '/declare', {
             method: 'post',
         }).then(r => r.json()).then(r => setResults(results.concat(r)))
@@ -755,7 +771,7 @@ function Status(props) {
                 <div className="empire-status-buttons">
                     {
                         props.loading.empires
-                        ? <Button className="empire-button" variant="Primary" type="submit" disabled>
+                        ? <Button className="empire-button" variant="primary" type="submit" disabled>
                             Loading...
                         </Button>
                         : <Button className="empire-button" variant="primary" type="submit" onClick={onSubmitDenounceClick}>
