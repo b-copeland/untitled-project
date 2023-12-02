@@ -14,6 +14,24 @@ import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 
+
+function getTimeString(date) {
+    if (date === undefined) {
+        return "--"
+    }
+    const hours = Math.max((Date.parse(date) - Date.now()), 0) / 3.6e6;
+    const days = Math.floor(hours / 24);
+    if (hours > 48) {
+        return days.toString() + 'd'
+    }
+    if (hours > 24) {
+        return Math.floor(hours).toString() + 'h'
+    }
+    var n = new Date(0, 0);
+    n.setSeconds(+hours * 60 * 60);
+    return n.toTimeString().slice(0, 8);
+}
+
 function EmpirePolitics(props) {
     const [key, setKey] = useState('join');
 
@@ -582,7 +600,7 @@ function Status(props) {
         <tr key={"empire_peace_status_" + empireId}>
             <td>{props.data.empires[empireId].name}</td>
             <td>Peace</td>
-            <td>Time...</td>
+            <td>{getTimeString(empireMap.peace[empireId])}</td>
         </tr>    
     )
     const empireAggression = (Object.keys(empireMap.aggression || {})).map(empireId =>
@@ -592,16 +610,17 @@ function Status(props) {
             <td>N/A</td>
         </tr>    
     )
-    const empireDenounced = empireMap.denounced !== undefined ? <tr>
+    console.log(empireMap);
+    const empireDenounced = (empireMap.denounced || "") !== "" ? <tr>
         <td>{(props.data.empires[empireMap.denounced] || {}).name}</td>
         <td>Denounced</td>
-        <td>{empireMap.denounced_expires}</td>
+        <td>{getTimeString(empireMap.denounced_expires)}</td>
     </tr>
     : null
     const empireSurpriseWar = empireMap.surprise_war_penalty ? <tr>
         <td>All</td>
         <td>Surprise War Penalty</td>
-        <td>{empireMap.surprise_war_penalty_expires}</td>
+        <td>{getTimeString(empireMap.surprise_war_penalty_expires)}</td>
     </tr>
     : null
     const surrenderOffersReceived = (props.data.empirepolitics.surrender_offers_received || []).map(offer =>
@@ -756,7 +775,7 @@ function Status(props) {
             </div>
             <div className="empire-statuses">
                 <h3>Empire Statuses</h3>
-                <Table striped bordered hover className="galaxy-leader-table">
+                <Table striped bordered hover size="sm" className="galaxy-leader-table">
                     <thead>
                         <tr>
                             <th>Empire</th>
@@ -773,6 +792,7 @@ function Status(props) {
                     </tbody>
                 </Table>
             </div>
+            <hr className="light-hr" />
             <div className="empire-surrender-requests">
                 <h3>Opponent's Surrender</h3>
                 <label id="aria-label" htmlFor="aria-example-input">
@@ -894,39 +914,52 @@ function Status(props) {
                     ? <Button className="surrender-request-button" variant="primary" type="submit" disabled>
                         Loading...
                     </Button>
-                    : <Button className="surrender-request-schedule" variant="primary" type="submit" onClick={onSubmitRequestSurrender}>
+                    : <Button className="surrender-request-button" variant="primary" type="submit" onClick={onSubmitRequestSurrender}>
                         Request
                     </Button>
                 }
                 <h5>Surrender Requests Sent</h5>
-                <Table striped bordered hover className="galaxy-leader-table">
-                    <thead>
-                        <tr>
-                            <th>Empire</th>
-                            <th>Type</th>
-                            <th>Value</th>
-                            <th>Cancel</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {surrenderRequestsSent}
-                    </tbody>
-                </Table>
+                {
+                    (props.data.empirepolitics.surrender_requests_sent || []).length > 0 
+                    ? <Table striped bordered hover className="galaxy-leader-table">
+                        <thead>
+                            <tr>
+                                <th>Empire</th>
+                                <th>Type</th>
+                                <th>Value</th>
+                                <th>Cancel</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {surrenderRequestsSent}
+                        </tbody>
+                    </Table>
+                    : <div className="surrender-placeholder">
+                        <span>No requests sent</span>
+                    </div>
+                }
                 <h5>Surrender Offers Received</h5>
-                <Table striped bordered hover className="galaxy-leader-table">
-                    <thead>
-                        <tr>
-                            <th>Empire</th>
-                            <th>Type</th>
-                            <th>Value</th>
-                            <th>Accept Surrender</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {surrenderOffersReceived}
-                    </tbody>
-                </Table>
+                {
+                    (props.data.empirepolitics.surrender_offers_received || []).length > 0 
+                    ? <Table striped bordered hover className="galaxy-leader-table">
+                        <thead>
+                            <tr>
+                                <th>Empire</th>
+                                <th>Type</th>
+                                <th>Value</th>
+                                <th>Accept Surrender</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {surrenderOffersReceived}
+                        </tbody>
+                    </Table>
+                    : <div className="surrender-placeholder">
+                        <span>No offers received</span>
+                    </div>
+                }
             </div>
+            <hr className="light-hr" />
             <div className="empire-surrender-requests">
                 <h3>Your Surrender</h3>
                 <label id="aria-label" htmlFor="aria-example-input">
@@ -1048,38 +1081,50 @@ function Status(props) {
                     ? <Button className="surrender-offer-button" variant="danger" type="submit" disabled>
                         Loading...
                     </Button>
-                    : <Button className="surrender-offer-schedule" variant="danger" type="submit" onClick={onSubmitOfferSurrender}>
+                    : <Button className="surrender-offer-button" variant="danger" type="submit" onClick={onSubmitOfferSurrender}>
                         Offer
                     </Button>
                 }
                 <h5>Surrender Offers Sent</h5>
-                <Table striped bordered hover className="galaxy-leader-table">
-                    <thead>
-                        <tr>
-                            <th>Empire</th>
-                            <th>Type</th>
-                            <th>Value</th>
-                            <th>Cancel</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {surrenderOffersSent}
-                    </tbody>
-                </Table>
+                {
+                    (props.data.empirepolitics.surrender_offers_sent || []).length > 0 
+                    ? <Table striped bordered hover className="galaxy-leader-table">
+                        <thead>
+                            <tr>
+                                <th>Empire</th>
+                                <th>Type</th>
+                                <th>Value</th>
+                                <th>Cancel</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {surrenderOffersSent}
+                        </tbody>
+                    </Table>
+                    :  <div className="surrender-placeholder">
+                        <span>No offers sent</span>
+                    </div>
+                }
                 <h5>Surrender Requests Received</h5>
-                <Table striped bordered hover className="galaxy-leader-table">
-                    <thead>
-                        <tr>
-                            <th>Empire</th>
-                            <th>Type</th>
-                            <th>Value</th>
-                            <th>Surrender</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {surrenderRequestsReceived}
-                    </tbody>
-                </Table>
+                {
+                    (props.data.empirepolitics.surrender_requests_received || []).length > 0 
+                    ? <Table striped bordered hover className="galaxy-leader-table">
+                        <thead>
+                            <tr>
+                                <th>Empire</th>
+                                <th>Type</th>
+                                <th>Value</th>
+                                <th>Surrender</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {surrenderRequestsReceived}
+                        </tbody>
+                    </Table>
+                    : <div className="surrender-placeholder">
+                        <span>No requests received</span>
+                    </div>
+                }
             </div>
         </div>
     )
