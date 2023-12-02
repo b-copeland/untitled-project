@@ -55,6 +55,7 @@ def get_state():
         "reveal_operations": uas.REVEAL_OPERATIONS,
         "game_config": uas.GAME_CONFIG,
         "races": uas.RACES,
+        "surrender_options": uas.SURRENDER_OPTIONS,
     }), 200
 
 def _get_scores():
@@ -256,7 +257,7 @@ def _get_empire_info():
     )
     empire_info_parse = json.loads(empire_info.text)
     
-    return empire_info_parse["empires"]
+    return empire_info_parse
 
 
 def _get_empires_inverted():
@@ -265,7 +266,7 @@ def _get_empires_inverted():
 
     galaxy_empires = {}
     empires_inverted = {}
-    for empire_id, empire_info in empire_infos.items():
+    for empire_id, empire_info in empire_infos["empires"].items():
         for galaxy in empire_info["galaxies"]:
             galaxy_empires[galaxy] = empire_id
             galaxy_kds = galaxy_info[galaxy]
@@ -278,7 +279,7 @@ def _get_empires_inverted():
 # @flask_praetorian.roles_required('verified')
 def empires():
     empires = _get_empire_info()
-    return (flask.jsonify(empires), 200)
+    return (flask.jsonify(empires["empires"]), 200)
 
 @app.route('/api/empires_inverted')
 @flask_praetorian.auth_required
@@ -457,9 +458,21 @@ def _calc_max_offense(
     generals=4,
     fuelless=False,
     lumina=False,
+    denounced=False,
+    war=False,
+    surprise_war_penalty=False,
 ):
     int_fuelless = int(fuelless)
     int_lumina = int(lumina)
+    if war:
+        int_denounced = 0
+    else:
+        int_denounced = int(denounced)
+    int_war = int(war)
+    if war:
+        int_surprise_war_penalty = 0
+    else:
+        int_surprise_war_penalty = int(surprise_war_penalty)
     raw_attack = sum([
         stat_map["offense"] * unit_dict.get(key, 0)
         for key, stat_map in uas.UNITS.items() 
@@ -471,6 +484,9 @@ def _calc_max_offense(
         + other_bonuses
         - (int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"])
         - (int_lumina * uas.GAME_CONFIG["LUMINA_OFFENSE_REDUCTION"])
+        + (int_denounced * uas.GAME_CONFIG["DENOUNCE_OFFENSE_BONUS"])
+        + (int_war * uas.GAME_CONFIG["WAR_OFFENSE_INCREASE"])
+        + (int_surprise_war_penalty * uas.GAME_CONFIG["SURPRISE_WAR_PENALTY_OFFENSE_INCREASE"])
     )
     return math.floor(attack_w_bonuses)
 
@@ -481,10 +497,12 @@ def _calc_max_defense(
     shields=0.10,
     fuelless=False,
     gaian=False,
+    peace=False
 ):
 
     int_fuelless = int(fuelless)
     int_gaian = int(gaian)
+    int_peace = int(peace)
     raw_defense = sum([
         stat_map["defense"] * unit_dict.get(key, 0)
         for key, stat_map in uas.UNITS.items() 
@@ -496,6 +514,7 @@ def _calc_max_defense(
         + other_bonuses
         - (int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"])
         - (int_gaian * uas.GAME_CONFIG["GAIAN_DEFENSE_REDUCTION"])
+        + (int_peace * uas.GAME_CONFIG["PEACE_DEFENSE_BONUS"])
     )
     return math.floor(defense_w_bonuses)
 

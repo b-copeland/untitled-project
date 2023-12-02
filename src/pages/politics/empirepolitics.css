@@ -19,3 +19,41 @@
 .empire-button {
     margin: 10px;
 }
+
+.join-empire-select {
+    margin-bottom: 10px;
+}
+.surrender-request-button {
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+.surrender-offer-button {
+    margin-top: 5px;
+    margin-bottom: 15px;
+}
+
+.empire-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.empire-statuses {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.empire-surrender-requests {
+    margin: 10px;
+}
+
+.surrender-placeholder {
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
+
+.light-hr {
+    width: 100%;
+    border-width: 2px;
+}

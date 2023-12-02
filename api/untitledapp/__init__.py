@@ -167,7 +167,6 @@ def _get_notifs(kd_id):
 
 @app.route('/api/notifs', methods=['GET'])
 @flask_praetorian.auth_required
-@alive_required
 def get_notifs():
     kd_id = flask_praetorian.current_user().kd_id
     notifs = _get_notifs(kd_id)
@@ -176,7 +175,6 @@ def get_notifs():
 
 @app.route('/api/clearnotifs', methods=['POST'])
 @flask_praetorian.auth_required
-@alive_required
 def clear_notifs():
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
@@ -284,6 +282,16 @@ def update_state():
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps({
                 "item": "scores",
+                "state": {
+                    "last_update": req["game_start"]
+                },
+            }),
+        )        
+        create_response = REQUESTS_SESSION.post(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps({
+                "item": "empires",
                 "state": {
                     "last_update": req["game_start"]
                 },

@@ -782,16 +782,17 @@ def _resolve_auto_spending(
                 for k, v in target_structures_to_build.items()
                 if v > 0
             }
-            new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero, time_update)
-            next_resolves["structures"] = min(min_structures_time, kd_info_parse["next_resolve"]["structures"])
-            structures_payload = {
-                "new_structures": new_structures_payload
-            }
-            structures_patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-                data=json.dumps(structures_payload),
-            )
+            if sum(target_structures_to_build_nonzero.values()) > 0:
+                new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero, time_update)
+                next_resolves["structures"] = min(min_structures_time, kd_info_parse["next_resolve"]["structures"])
+                structures_payload = {
+                    "new_structures": new_structures_payload
+                }
+                structures_patch_response = REQUESTS_SESSION.patch(
+                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    data=json.dumps(structures_payload),
+                )
 
     recruit_price = mobis_info["recruit_price"]
     recruit_time = mobis_info["recruit_time"]
@@ -1396,6 +1397,81 @@ def _update_history(
         data=json.dumps({"history": history_payload})
     )
 
+def _resolve_empires(
+    kd_scores,
+    time_update,
+):
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    time_last_update = datetime.datetime.fromisoformat(empires_info["last_update"]).astimezone(datetime.timezone.utc)
+    seconds_elapsed = (time_update - time_last_update).total_seconds()
+    epoch_elapsed = seconds_elapsed / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+
+    kd_counts = collections.defaultdict(int)
+    for kd_id in kd_scores["networth"].keys():
+        kd_empire = empires_inverted.get(kd_id)
+        if kd_empire:
+            kd_counts[kd_empire] += 1
+    
+    for empire_id in empires_info["empires"].keys():
+        empires_info["empires"][empire_id]["num_kingdoms"] = kd_counts.get(empire_id, 0)
+        empires_info["empires"][empire_id]["aggression_max"] = empires_info["empires"][empire_id]["num_kingdoms"] * uas.GAME_CONFIG["AGGRO_METER_PER_KD"]
+
+        decay_per_epoch = empires_info["empires"][empire_id]["num_kingdoms"] * uas.GAME_CONFIG["AGGRO_METER_DECAY_PER_KD_PER_EPOCH"]
+        decay = decay_per_epoch * epoch_elapsed
+
+        if empires_info["empires"][empire_id]["denounced"]:
+            denounce_expiration = datetime.datetime.fromisoformat(empires_info["empires"][empire_id]["denounced_expires"]).astimezone(datetime.timezone.utc)
+            if denounce_expiration < time_update:
+                empires_info["empires"][empire_id]["denounced"] = ""
+                empires_info["empires"][empire_id]["denounced_expires"] = ""
+
+        if empires_info["empires"][empire_id]["surprise_war_penalty"]:
+            denounce_expiration = datetime.datetime.fromisoformat(empires_info["empires"][empire_id]["surprise_war_penalty_expires"]).astimezone(datetime.timezone.utc)
+            if denounce_expiration < time_update:
+                empires_info["empires"][empire_id]["surprise_war_penalty"] = False
+                empires_info["empires"][empire_id]["surprise_war_penalty_expires"] = ""
+
+        new_peace = {
+            empire_id: peace_expiration
+            for empire_id, peace_expiration in empires_info["empires"][empire_id]["peace"].items()
+            if datetime.datetime.fromisoformat(peace_expiration).astimezone(datetime.timezone.utc) > time_update
+        }
+        empires_info["empires"][empire_id]["peace"] = new_peace
+
+        for other_empire_id, aggression_meter in empires_info["empires"][empire_id]["aggression"].items():
+            if aggression_meter > empires_info["empires"][empire_id]["aggression_max"]:
+                if other_empire_id not in empires_info["empires"][empire_id]["war"]:
+                    empires_info["empires"][empire_id]["war"].append(other_empire_id)
+                    empires_info["empires"][other_empire_id]["war"].append(empire_id)
+
+                    news_payload = {
+                        "news": {
+                            "time": time_update.isoformat(),
+                            "news": f"{empires_info['empires'][empire_id]['name']} declared war by aggression on {empires_info['empires'][other_empire_id]['name']}",
+                        }
+                    }
+                    universe_news_update_response = REQUESTS_SESSION.patch(
+                        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
+                        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                        data=json.dumps(news_payload)
+                    )
+        for other_empire_id in empires_info["empires"][empire_id]["aggression"]:
+            empires_info["empires"][empire_id]["aggression"][other_empire_id] = max(
+                empires_info["empires"][empire_id]["aggression"][other_empire_id] - decay,
+                0,
+            )
+    empires_payload = {
+        "empires": empires_info["empires"],
+        "last_update": time_update.isoformat(),
+    }
+
+    update_response = REQUESTS_SESSION.patch(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        data=json.dumps(empires_payload)
+    )
+
+
 
 @app.route('/api/refreshdata')
 def refresh_data():
@@ -1412,8 +1488,6 @@ def refresh_data():
         state = _resolve_election(state)
     elif time_now > state["state"]["election_start"] and state["state"]["election_end"] == "":
         state = _begin_election(state)
-
-    
 
     kingdoms = uag._get_kingdoms()
     time_update = datetime.datetime.now(datetime.timezone.utc)
@@ -1562,5 +1636,6 @@ def refresh_data():
             )
     
     _resolve_scores(kd_scores, time_update)
+    _resolve_empires(kd_scores, time_update)
         
     return "Refreshed", 200

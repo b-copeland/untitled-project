@@ -58,6 +58,7 @@ def init_state(req: func.HttpRequest) -> func.HttpResponse:
             {
                 "id": "empires",
                 "empires": {},
+                "last_update": "",
             }
         )
         CONTAINER.create_item(
@@ -199,6 +200,7 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
             partition_key="empires"
         )
         empires["empires"] = {}
+        empires["last_update"] = ""
         CONTAINER.replace_item(
             "empires",
             empires,
@@ -751,6 +753,15 @@ def create_empire(req: func.HttpRequest) -> func.HttpResponse:
         empires["empires"][empire_id] = {
             "name": empire_name,
             "galaxies": [galaxy_id],
+            "aggression": {},
+            "num_kingdoms": 0,
+            "aggression_max": 999,
+            "war": [],
+            "peace": {},
+            "denounced": "",
+            "denounced_expires": "",
+            "surprise_war_penalty": False,
+            "surprise_war_penalty_expires": "",
         }
         CONTAINER.replace_item(
             "empires",
@@ -761,6 +772,10 @@ def create_empire(req: func.HttpRequest) -> func.HttpResponse:
                 "id": f"empire_politics_{empire_id}",
                 "empire_invitations": [],
                 "empire_join_requests": [],
+                "surrender_offers_sent": [],
+                "surrender_offers_received": [],
+                "surrender_requests_sent": [],
+                "surrender_requests_received": [],
                 "leader": leader,
             }
         )
@@ -1120,7 +1135,7 @@ def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
             item=item_id,
             partition_key=item_id,
         )
-        if isinstance(new_news, str):
+        if isinstance(new_news, dict):
             news["news"] = [new_news] + news["news"]
         else:
             news["news"] = new_news + news["news"]
@@ -1135,6 +1150,36 @@ def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The Empire news was not updated",
+            status_code=500,
+        )
+
+@APP.function_name(name="UpdateUniverseNews")
+@APP.route(route="universenews", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+def update_universe_news(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed an update universe news request.')  
+    try:  
+        req_body = req.get_json()
+        new_news = req_body["news"]
+        item_id = f"universe_news"
+        news = CONTAINER.read_item(
+            item=item_id,
+            partition_key=item_id,
+        )
+        if isinstance(new_news, dict):
+            news["news"] = [new_news] + news["news"]
+        else:
+            news["news"] = new_news + news["news"]
+        CONTAINER.replace_item(
+            item_id,
+            news,
+        )
+        return func.HttpResponse(
+            "Universe news updated.",
+            status_code=200,
+        )
+    except:
+        return func.HttpResponse(
+            "The Universe news was not updated",
             status_code=500,
         )
 
