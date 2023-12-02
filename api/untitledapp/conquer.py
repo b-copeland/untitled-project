@@ -1455,12 +1455,16 @@ def _calculate_spy_probability(
     target_stars,
     target_shields,
     aggro_vult=False,
+    peace=False,
 ):
     drones_defense = target_drones * uas.GAME_CONFIG["BASE_DRONES_DRONE_DEFENSE_MULTIPLIER"]
     stars_defense = target_stars * uas.GAME_CONFIG["BASE_STARS_DRONE_DEFENSE_MULTIPLIER"]
     total_defense = max(drones_defense + stars_defense, 1)
+    int_peace = int(peace)
 
-    base_probability = min(max(drones_to_send / total_defense, uas.GAME_CONFIG["BASE_SPY_MIN_SUCCESS_CHANCE"]), 1.0)
+    base_probability = min(max(drones_to_send / total_defense, uas.GAME_CONFIG["BASE_SPY_MIN_SUCCESS_CHANCE"]), 1.0) * (
+        1 - int_peace * uas.GAME_CONFIG["PEACE_PROBE_DEFENSE_BONUS"]
+    )
     if aggro_vult:
         shielded_probability = base_probability
     else:
@@ -1536,12 +1540,18 @@ def calculate_spy(target_kd):
     else:
         defender_shields = float(defender_raw_values['shields'] or 0) / 100
     
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    attacker_empire = empires_inverted.get(kd_id)
+    defender_empire = empires_inverted.get(target_kd)
+    peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
+
     spy_probability, drones_defense, stars_defense = _calculate_spy_probability(
         drones,
         defender_drones,
         defender_stars,
         defender_shields,
         aggro_vult=(kd_info_parse["race"] == "Vult") and (operation in uas.AGGRO_OPERATIONS),
+        peace=peace,
     )
     success_losses, failure_losses = _calculate_spy_losses(
         drones,
@@ -1633,6 +1643,11 @@ def _spy(req, kd_id, target_kd):
     defender_drones = max_target_kd_info["drones"]
     defender_stars = max_target_kd_info["stars"]
     defender_shields = max_target_kd_info["shields"]["spy"]
+
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    attacker_empire = empires_inverted.get(kd_id)
+    defender_empire = empires_inverted.get(target_kd)
+    peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
     
     spy_probability, drones_defense, stars_defense = _calculate_spy_probability(
         drones,
@@ -1640,6 +1655,7 @@ def _spy(req, kd_id, target_kd):
         defender_stars,
         defender_shields,
         aggro_vult=(kd_info_parse["race"] == "Vult") and (operation in uas.AGGRO_OPERATIONS),
+        peace=peace,
     )
     
     success_losses, failure_losses = _calculate_spy_losses(
