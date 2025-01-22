@@ -16,6 +16,7 @@ import flask_cors
 from flask_mail import Mail
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_redis import FlaskRedis
 from flask_sock import Sock, ConnectionClosed
 
 db = flask_sqlalchemy.SQLAlchemy()
@@ -93,6 +94,8 @@ cors.init_app(app)
 mail.init_app(app)
 
 sock = Sock(app)
+
+redis_client = FlaskRedis(app)
 
 def alive_required(f):
     @wraps(f)
@@ -375,6 +378,35 @@ def _validate_kingdom_name(
         return False, "Kingdom name must have at least one character"
     
     return True, ""
+
+def acquire_lock(lock_name, timeout=10):
+    """
+    Try to acquire a lock with a given name.
+    
+    :param lock_name: Name of the lock
+    :param timeout: Expiry time for the lock in seconds
+    :return: True if the lock was acquired, False otherwise
+    """
+    return redis_client.set(lock_name, "LOCKED", ex=timeout, nx=True)
+
+def release_lock(lock_name):
+    """
+    Release a lock with a given name.
+    
+    :param lock_name: Name of the lock
+    """
+    redis_client.delete(lock_name)
+
+@app.route('/api/test1', methods=["GET"])
+def test_long_redis_lock():
+    got_lock = acquire_lock("test_lock")
+    while not got_lock:
+        time.sleep(0.01)
+        got_lock = acquire_lock("test_lock")
+    
+    time.sleep(5)
+    release_lock("test_lock")
+    return flask.jsonify({"message": "Succeeded"}), 200
 
 @app.route('/api/createkingdom', methods=["POST"])
 @flask_praetorian.auth_required
