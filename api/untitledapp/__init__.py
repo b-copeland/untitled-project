@@ -61,6 +61,10 @@ class User(db.Model):
 
     def is_valid(self):
         return self.is_active
+    
+class Locks(db.Model):
+    lock_name = db.Column(db.Text, primary_key=True)
+    expires_at = db.Column(db.Text)
 
 
 # Initialize flask app for the example
@@ -243,6 +247,48 @@ with app.app_context():
 		))
     db.session.commit()
 
+def acquire_lock(lock_name, timeout=10):
+    """
+    Try to acquire a lock with a given name.
+    
+    :param lock_name: Name of the lock
+    :param timeout: Expiry time for the lock in seconds
+    :return: True if the lock was acquired, False otherwise
+    """
+    try:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        expiration_time = now + datetime.timedelta(seconds=timeout)
+
+        # Check if the lock is available or expired
+        lock = db.session.query(Locks).filter(Locks.lock_name == lock_name).one_or_none()
+
+        if lock is None or lock.expires_at <= now:
+            # Acquire or update the lock
+            db.session.merge(Locks(lock_name=lock_name, expires_at=expiration_time))
+            db.session.commit()
+            return True
+
+        # Lock is already held and not expired
+        return False
+    except Exception as e:
+        print(f"Failed to acquire lock: {e}")
+        db.session.rollback()
+        return False
+
+def release_lock(lock_name):
+    """
+    Release a lock with a given name.
+    
+    :param lock_name: Name of the lock
+    """
+    try:
+        # Delete the lock
+        db.session.query(Locks).filter(Locks.lock_name == lock_name).delete()
+        db.session.commit()
+    except Exception as e:
+        print(f"Failed to release lock: {e}")
+        db.session.rollback()
+
 @app.route('/api/resetstate', methods=["POST"])
 @flask_praetorian.roles_required('admin')
 def reset_state():
@@ -378,24 +424,6 @@ def _validate_kingdom_name(
         return False, "Kingdom name must have at least one character"
     
     return True, ""
-
-def acquire_lock(lock_name, timeout=10):
-    """
-    Try to acquire a lock with a given name.
-    
-    :param lock_name: Name of the lock
-    :param timeout: Expiry time for the lock in seconds
-    :return: True if the lock was acquired, False otherwise
-    """
-    return redis_client.set(lock_name, "LOCKED", ex=timeout, nx=True)
-
-def release_lock(lock_name):
-    """
-    Release a lock with a given name.
-    
-    :param lock_name: Name of the lock
-    """
-    redis_client.delete(lock_name)
 
 @app.route('/api/test1', methods=["GET"])
 def test_long_redis_lock():
