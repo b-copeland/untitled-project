@@ -16,7 +16,6 @@ import flask_cors
 from flask_mail import Mail
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_redis import FlaskRedis
 from flask_sock import Sock, ConnectionClosed
 
 db = flask_sqlalchemy.SQLAlchemy()
@@ -98,8 +97,6 @@ cors.init_app(app)
 mail.init_app(app)
 
 sock = Sock(app)
-
-redis_client = FlaskRedis(app)
 
 def alive_required(f):
     @wraps(f)
