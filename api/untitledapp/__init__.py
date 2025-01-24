@@ -6,6 +6,7 @@ import requests
 import json
 import time
 import logging
+import uuid
 
 from functools import wraps
 
@@ -63,6 +64,7 @@ class User(db.Model):
     
 class Locks(db.Model):
     lock_name = db.Column(db.Text, primary_key=True)
+    request_id = db.Column(db.Text)
     expires_at = db.Column(db.Text)
 
 
@@ -254,14 +256,14 @@ def acquire_lock(lock_name, timeout=10):
     """
     try:
         now = datetime.datetime.now(datetime.timezone.utc)
-        expiration_time = now + datetime.timedelta(seconds=timeout)
+        expiration_time = (now + datetime.timedelta(seconds=timeout)).isoformat()
 
         # Check if the lock is available or expired
         lock = db.session.query(Locks).filter(Locks.lock_name == lock_name).one_or_none()
 
-        if lock is None or lock.expires_at <= now:
+        if lock is None or lock.expires_at <= now.isoformat():
             # Acquire or update the lock
-            db.session.merge(Locks(lock_name=lock_name, expires_at=expiration_time))
+            db.session.merge(Locks(lock_name=lock_name, request_id=str(uuid.uuid4()), expires_at=expiration_time))
             db.session.commit()
             return True
 
@@ -284,6 +286,117 @@ def release_lock(lock_name):
         db.session.commit()
     except Exception as e:
         print(f"Failed to release lock: {e}")
+        db.session.rollback()
+
+def acquire_locks(lock_names, timeout=10, lock_timeout=20, request_id=None) -> bool:
+    """
+    Try to acquire multiple locks.
+    
+    :param lock_names: List of lock names to acquire.
+    :param timeout: Expiry time for each lock in seconds.
+    :return: True if all locks were acquired, False otherwise.
+    """
+    if request_id is None:
+        request_id = str(uuid.uuid4())
+    try:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        lock_expiration_time = (now + datetime.timedelta(seconds=lock_timeout)).isoformat()
+        timeout_time = (now + datetime.timedelta(seconds=timeout)).isoformat()
+
+        # Check existing locks
+        existing_locks = db.session.query(Locks).filter(Locks.lock_name.in_(lock_names)).all()
+        print("existing_locks:", existing_locks)
+        new_locks = set(lock_names) - set([lock.lock_name for lock in existing_locks])
+        print("new_locks:", new_locks)
+                
+        # Reserve locks while trying to acquire active locks
+        for lock_name in new_locks:
+            db.session.add(Locks(lock_name=lock_name, request_id=request_id, expires_at=lock_expiration_time))
+        if new_locks:
+            db.session.commit()
+
+        # Determine if any lock is already held and not expired
+        expired_locks = []
+        active_locks = []
+        for lock in existing_locks:
+            if lock.expires_at > str(now):
+                active_locks.append(lock.lock_name)
+            else:
+                expired_locks.append(lock.lock_name)
+        print("active_locks:", active_locks)
+        print("expired_locks:", expired_locks)
+        
+        for lock_name in expired_locks:
+            db.session.merge(Locks(lock_name=lock_name, request_id=request_id, expires_at=lock_expiration_time))
+        if expired_locks:
+            db.session.commit()
+
+        db.session.expunge_all()
+        before_timeout = True
+        while active_locks and before_timeout:
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            existing_locks = db.session.query(Locks).filter(Locks.lock_name.in_(active_locks)).all()
+
+            new_locks = set(active_locks) - set([lock.lock_name for lock in existing_locks])
+            for lock_name in new_locks:
+                db.session.add(Locks(lock_name=lock_name, request_id=request_id, expires_at=lock_expiration_time))
+            if new_locks:
+                print("new_locks (loop):", new_locks)
+                db.session.commit()
+            
+            expired_locks = [
+                lock.lock_name
+                for lock in existing_locks
+                if lock.expires_at < now
+            ]
+            for lock_name in expired_locks:
+                db.session.merge(Locks(lock_name=lock_name, request_id=request_id, expires_at=lock_expiration_time))
+            if expired_locks:
+                print("expired_locks (loop):", expired_locks)
+                db.session.commit()
+
+            active_locks = set(active_locks) - set(new_locks) - set(expired_locks)
+            if new_locks or expired_locks:
+                print("active_locks (loop):", active_locks)
+
+            if now > timeout_time:
+                before_timeout = False
+            time.sleep(0.01)
+        
+        if not before_timeout:
+            release_locks_by_id(request_id)
+            return False
+        else:
+            return True
+    except Exception as e:
+        print(f"Failed to acquire locks: {e}")
+        db.session.rollback()
+        return False
+
+def release_locks_by_name(lock_names):
+    """
+    Release multiple locks at the same time.
+
+    :param lock_names: List of lock names to release.
+    """
+    try:
+        # Delete all specified locks in a single query
+        db.session.query(Locks).filter(Locks.lock_name.in_(lock_names)).delete(
+            synchronize_session=False
+        )
+        db.session.commit()
+    except Exception as e:
+        print(f"Failed to release locks: {e}")
+        db.session.rollback()
+
+def release_locks_by_id(request_id):
+    try:
+        db.session.query(Locks).filter(Locks.request_id == request_id).delete(
+            synchronize_session=False
+        )
+        db.session.commit()
+    except Exception as e:
+        print(f"Failed to release locks: {e}")
         db.session.rollback()
 
 @app.route('/api/resetstate', methods=["POST"])
@@ -421,17 +534,6 @@ def _validate_kingdom_name(
         return False, "Kingdom name must have at least one character"
     
     return True, ""
-
-@app.route('/api/test1', methods=["GET"])
-def test_long_redis_lock():
-    got_lock = acquire_lock("test_lock")
-    while not got_lock:
-        time.sleep(0.01)
-        got_lock = acquire_lock("test_lock")
-    
-    time.sleep(5)
-    release_lock("test_lock")
-    return flask.jsonify({"message": "Succeeded"}), 200
 
 @app.route('/api/createkingdom', methods=["POST"])
 @flask_praetorian.auth_required
