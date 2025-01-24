@@ -361,13 +361,11 @@ def acquire_locks(lock_names, timeout=10, lock_timeout=20, request_id=None) -> b
 
             if now > timeout_time:
                 before_timeout = False
+                release_locks_by_id(request_id)
+                return False
             time.sleep(0.01)
         
-        if not before_timeout:
-            release_locks_by_id(request_id)
-            return False
-        else:
-            return True
+        return True
     except Exception as e:
         print(f"Failed to acquire locks: {e}")
         db.session.rollback()
