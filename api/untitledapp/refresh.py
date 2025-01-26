@@ -5,6 +5,7 @@ import json
 import math
 import os
 import random
+import uuid
 
 import flask
 import flask_praetorian
@@ -14,7 +15,7 @@ import untitledapp.build as uab
 import untitledapp.conquer as uac
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, db, User, _mark_kingdom_death, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import app, db, User, _mark_kingdom_death, REQUESTS_SESSION, SOCK_HANDLERS, acquire_lock, acquire_locks, release_lock, release_locks_by_id, release_locks_by_name
 
 
 def _calc_pop_change_per_epoch(

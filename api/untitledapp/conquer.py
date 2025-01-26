@@ -11,7 +11,7 @@ from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, alive_required, start_required, _mark_kingdom_death, _add_notifs, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import app, alive_required, start_required, _mark_kingdom_death, _add_notifs, REQUESTS_SESSION, SOCK_HANDLERS, acquire_lock, acquire_locks, release_lock, release_locks_by_id, release_locks_by_name
 
 @app.route('/api/revealrandomgalaxy', methods=['GET'])
 @flask_praetorian.auth_required
@@ -21,71 +21,77 @@ from untitledapp import app, alive_required, start_required, _mark_kingdom_death
 def reveal_random_galaxy():
     kd_id = flask_praetorian.current_user().kd_id
     
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/revealed'], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    if kd_info_parse["spy_attempts"] <= 0:
-        return (flask.jsonify({"message": 'You do not have any spy attempts remaining'}), 400)
+        if kd_info_parse["spy_attempts"] <= 0:
+            return (flask.jsonify({"message": 'You do not have any spy attempts remaining'}), 400)
 
-    revealed_info = uag._get_revealed(kd_id)
+        revealed_info = uag._get_revealed(kd_id)
 
-    empires_inverted, empires, _, _ = uag._get_empires_inverted()
-    galaxies_inverted, galaxy_info = uag._get_galaxies_inverted()
+        empires_inverted, empires, _, _ = uag._get_empires_inverted()
+        galaxies_inverted, galaxy_info = uag._get_galaxies_inverted()
 
-    kd_empire = empires_inverted.get(kd_id, None)
-    kd_galaxy = galaxies_inverted[kd_id]
+        kd_empire = empires_inverted.get(kd_id, None)
+        kd_galaxy = galaxies_inverted[kd_id]
 
-    
-    
-    excluded_galaxies = list(revealed_info["galaxies"].keys())
-    
-    if kd_empire:
-        excluded_galaxies.extend(empires["empires"][kd_empire]["galaxies"])
-    else:
-        excluded_galaxies.append(kd_galaxy)
+        
+        
+        excluded_galaxies = list(revealed_info["galaxies"].keys())
+        
+        if kd_empire:
+            excluded_galaxies.extend(empires["empires"][kd_empire]["galaxies"])
+        else:
+            excluded_galaxies.append(kd_galaxy)
 
-    potential_galaxies = set(galaxy_info.keys()) - set(excluded_galaxies)
+        potential_galaxies = set(galaxy_info.keys()) - set(excluded_galaxies)
 
-    if not len(potential_galaxies):
-        return (flask.jsonify({"message": 'There are no more galaxies to reveal'}), 400)
+        if not len(potential_galaxies):
+            return (flask.jsonify({"message": 'There are no more galaxies to reveal'}), 400)
 
-    galaxy_to_reveal = random.choice(list(potential_galaxies))
+        galaxy_to_reveal = random.choice(list(potential_galaxies))
 
-    time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
-    payload = {
-        "new_galaxies": {
-            galaxy_to_reveal: time
+        time = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
+        payload = {
+            "new_galaxies": {
+                galaxy_to_reveal: time
+            }
         }
-    }
 
-    payload["new_revealed"] = {
-        kd_id: {
-            "stats": time,
+        payload["new_revealed"] = {
+            kd_id: {
+                "stats": time,
+            }
+            for kd_id in galaxy_info[galaxy_to_reveal]
         }
-        for kd_id in galaxy_info[galaxy_to_reveal]
-    }
 
-    
-    reveal_galaxy_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload),
-    )
-    
+        
+        reveal_galaxy_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload),
+        )
+        
 
-    next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["revealed"] = min(next_resolve["revealed"], time)
-    kd_payload = {"spy_attempts": kd_info_parse["spy_attempts"] - 1, "next_resolve": next_resolve}
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
+        next_resolve = kd_info_parse["next_resolve"]
+        next_resolve["revealed"] = min(next_resolve["revealed"], time)
+        kd_payload = {"spy_attempts": kd_info_parse["spy_attempts"] - 1, "next_resolve": next_resolve}
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+    finally:
+        release_locks_by_id(request_id)
 
     return (flask.jsonify({"message": f"Reveavled galaxy {galaxy_to_reveal}", "status": "success"}), 200)
 
@@ -642,440 +648,471 @@ def _attack(req, kd_id, target_kd):
     
     attacker_raw_values = req["attackerValues"]
 
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
-    current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-        for project, project_dict in uas.PROJECTS.items()
-        if "max_bonus" in project_dict
-    }
-
-    shared = uag._get_shared(kd_id)["shared"]
     galaxies_inverted, galaxy_info = uag._get_galaxies_inverted()
-    target_kd_info = uag._get_kd_info(target_kd)
-    if target_kd_info["status"].lower() == "dead":
-        return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400
-    target_current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * min(target_kd_info["projects_points"][project] / target_kd_info["projects_max_points"][project], 1.0)
-        for project, project_dict in uas.PROJECTS.items()
-        if "max_bonus" in project_dict
-    }
 
-    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
-    attacker_empire = empires_inverted.get(kd_id)
-    defender_empire = empires_inverted.get(target_kd)
-    war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
-    peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
-    surprise_war_penalty = empires_info["empires"].get(defender_empire, {}).get("surprise_war_penalty", False)
+    attacker_galaxy = galaxies_inverted[kd_id]
+    defender_galaxy = galaxies_inverted[target_kd]
 
-    valid_attack_request, attack_request_message = _validate_attack_request(
-        attacker_raw_values,
-        kd_info_parse,
-    )
-    if not valid_attack_request:
-        return kd_info_parse, {"message": attack_request_message}, 400
-
-    attacker_units = {
-        key: int(value)
-        for key, value in attacker_raw_values.items()
-        if (key in uas.UNITS and value != "")
-    }
-    defender_units = {
-        key: value
-        for key, value in target_kd_info["units"].items()
-        if uas.UNITS[key].get("defense", 0) > 0
-    }
-    defender_military_bonus = target_current_bonuses['military_bonus']
-    defender_shields = target_kd_info["shields"]["military"]
-
-    attacker_fuelless = kd_info_parse["fuel"] <= 0
-    target_fuelless = target_kd_info["fuel"] <= 0
-    attack = uag._calc_max_offense(
-        attacker_units,
-        military_bonus=float(current_bonuses['military_bonus'] or 0), 
-        other_bonuses=0,
-        generals=int(attacker_raw_values["generals"]),
-        fuelless=attacker_fuelless,
-        lumina=kd_info_parse["race"] == "Lumina",
-        denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
-        war=war,
-        surprise_war_penalty=surprise_war_penalty,
-    )
-    defense = uag._calc_max_defense(
-        defender_units,
-        military_bonus=defender_military_bonus, 
-        other_bonuses=0,
-        shields=defender_shields,
-        fuelless=target_fuelless,
-        gaian=kd_info_parse["race"] == "Gaian",
-        peace=peace,
-    )
-    attack_ratio = min(attack / defense, 1.0)
-    attacker_losses = _calc_losses(
-        attacker_units,
-        uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
-        war=war,
-        xo=kd_info_parse["race"] == "Xo",
-    )
-    defender_losses = _calc_losses(
-        defender_units,
-        uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
-        war=war,
-    )
-    time_now = datetime.datetime.now(datetime.timezone.utc)
-    galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-    is_warlike = "Warlike" in galaxy_policies["active_policies"]
-    n_generals = int(attacker_raw_values["generals"])
-    generals_return_times = _calc_generals_return_time(
-        n_generals,
-        uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
-        time_now,
-        current_bonuses["general_bonus"],
-        is_warlike=is_warlike,
-        coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], target_kd_info["coordinate"]),
-    )
-    new_home_attacker_units = {
-        key_unit: value_unit - attacker_units.get(key_unit, 0)
-        for key_unit, value_unit in kd_info_parse["units"].items()
-    }
-    remaining_attacker_units = {
-        key_unit: value_unit - attacker_losses.get(key_unit, 0)
-        for key_unit, value_unit in attacker_units.items()
-    }
-    generals = [
-        {
-            "return_time": general_time.isoformat(),
-            **{
-                key_unit: math.floor(attacking_unit / n_generals) + int((attacking_unit % n_generals) > i_general)
-                for key_unit, attacking_unit in remaining_attacker_units.items()
-            }
-        }
-        for i_general, general_time in enumerate(generals_return_times)
+    request_id = str(uuid.uuid4())
+    base_locks = [
+        f'/kingdom/{kd_id}',
+        f'/kingdom/{kd_id}/attackhistory',
+        f'/kingdom/{target_kd}',
+        f'/kingdom/{target_kd}/news',
+        f'/galaxy/{attacker_galaxy}/news',
+        f'/galaxy/{defender_galaxy}/news',
+        '/empires',
     ]
-    next_return_time = min([general["return_time"] for general in generals])
-    new_defender_units = {
-        key_unit: value_unit - defender_losses.get(key_unit, 0)
-        for key_unit, value_unit in target_kd_info["units"].items()
-    }
+    shared = uag._get_shared(kd_id)["shared"]
     if target_kd in shared:
         cut = shared[target_kd]["cut"]
         sharer = shared[target_kd]["shared_by"]
+        base_locks.extend([
+            f'/kingdom/{sharer}',
+            f'/kingdom/{sharer}/news'
+        ])
+    if attacker_galaxy != defender_galaxy:
+        kds_revealed_to = galaxy_info[defender_galaxy]
+        base_locks.extend(
+            f'/kingdom/{kd_revealed_to}/revealed'
+            for kd_revealed_to in kds_revealed_to
+        )
+        base_locks.extend(
+            f'/kingdom/{kd_revealed_to}'
+            for kd_revealed_to in kds_revealed_to
+        )
+    if not acquire_locks(base_locks, request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
+
     else:
         cut = 0
         sharer = None
-    if attack > defense:
-        spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
-            1
-            + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
-            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
         )
-        min_stars_gain = math.floor(uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
-            1
-            + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
-            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
-        ))
-        total_spoils = {
-            key_spoil: max(math.floor(value_spoil * spoils_rate), 0)
-            for key_spoil, value_spoil in target_kd_info.items()
-            if key_spoil in {"stars", "population", "money", "fuel"}
+        
+        kd_info_parse = json.loads(kd_info.text)
+        current_bonuses = {
+            project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
+            for project, project_dict in uas.PROJECTS.items()
+            if "max_bonus" in project_dict
         }
-        total_spoils["stars"] = max(total_spoils["stars"], min_stars_gain)
-        total_spoils["funding"] = {
-            key_funding: max(math.floor(value_funding * spoils_rate), 0)
-            for key_funding, value_funding in target_kd_info["funding"].items()
+
+        target_kd_info = uag._get_kd_info(target_kd)
+        if target_kd_info["status"].lower() == "dead":
+            return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400
+        target_current_bonuses = {
+            project: project_dict.get("max_bonus", 0) * min(target_kd_info["projects_points"][project] / target_kd_info["projects_max_points"][project], 1.0)
+            for project, project_dict in uas.PROJECTS.items()
+            if "max_bonus" in project_dict
         }
-        spoils_values = {
-            key_spoil: max(math.floor(value_spoil * (1 - cut)), 0)
-            for key_spoil, value_spoil in total_spoils.items()
-            if key_spoil in {"stars", "population", "money", "fuel"}
+
+        empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+        attacker_empire = empires_inverted.get(kd_id)
+        defender_empire = empires_inverted.get(target_kd)
+        war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
+        peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
+        surprise_war_penalty = empires_info["empires"].get(defender_empire, {}).get("surprise_war_penalty", False)
+
+        valid_attack_request, attack_request_message = _validate_attack_request(
+            attacker_raw_values,
+            kd_info_parse,
+        )
+        if not valid_attack_request:
+            return kd_info_parse, {"message": attack_request_message}, 400
+
+        attacker_units = {
+            key: int(value)
+            for key, value in attacker_raw_values.items()
+            if (key in uas.UNITS and value != "")
         }
-        spoils_values["funding"] = {
-            key_funding: max(math.floor(value_funding * (1 - cut)), 0)
-            for key_funding, value_funding in total_spoils["funding"].items()
+        defender_units = {
+            key: value
+            for key, value in target_kd_info["units"].items()
+            if uas.UNITS[key].get("defense", 0) > 0
         }
-        if sharer:
-            sharer_spoils_values = {
-                key_spoil: max(math.floor(value_spoil * cut), 0)
+        defender_military_bonus = target_current_bonuses['military_bonus']
+        defender_shields = target_kd_info["shields"]["military"]
+
+        attacker_fuelless = kd_info_parse["fuel"] <= 0
+        target_fuelless = target_kd_info["fuel"] <= 0
+        attack = uag._calc_max_offense(
+            attacker_units,
+            military_bonus=float(current_bonuses['military_bonus'] or 0), 
+            other_bonuses=0,
+            generals=int(attacker_raw_values["generals"]),
+            fuelless=attacker_fuelless,
+            lumina=kd_info_parse["race"] == "Lumina",
+            denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
+            war=war,
+            surprise_war_penalty=surprise_war_penalty,
+        )
+        defense = uag._calc_max_defense(
+            defender_units,
+            military_bonus=defender_military_bonus, 
+            other_bonuses=0,
+            shields=defender_shields,
+            fuelless=target_fuelless,
+            gaian=kd_info_parse["race"] == "Gaian",
+            peace=peace,
+        )
+        attack_ratio = min(attack / defense, 1.0)
+        attacker_losses = _calc_losses(
+            attacker_units,
+            uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+            war=war,
+            xo=kd_info_parse["race"] == "Xo",
+        )
+        defender_losses = _calc_losses(
+            defender_units,
+            uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
+            war=war,
+        )
+        time_now = datetime.datetime.now(datetime.timezone.utc)
+        galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+        is_warlike = "Warlike" in galaxy_policies["active_policies"]
+        n_generals = int(attacker_raw_values["generals"])
+        generals_return_times = _calc_generals_return_time(
+            n_generals,
+            uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
+            time_now,
+            current_bonuses["general_bonus"],
+            is_warlike=is_warlike,
+            coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], target_kd_info["coordinate"]),
+        )
+        new_home_attacker_units = {
+            key_unit: value_unit - attacker_units.get(key_unit, 0)
+            for key_unit, value_unit in kd_info_parse["units"].items()
+        }
+        remaining_attacker_units = {
+            key_unit: value_unit - attacker_losses.get(key_unit, 0)
+            for key_unit, value_unit in attacker_units.items()
+        }
+        generals = [
+            {
+                "return_time": general_time.isoformat(),
+                **{
+                    key_unit: math.floor(attacking_unit / n_generals) + int((attacking_unit % n_generals) > i_general)
+                    for key_unit, attacking_unit in remaining_attacker_units.items()
+                }
+            }
+            for i_general, general_time in enumerate(generals_return_times)
+        ]
+        next_return_time = min([general["return_time"] for general in generals])
+        new_defender_units = {
+            key_unit: value_unit - defender_losses.get(key_unit, 0)
+            for key_unit, value_unit in target_kd_info["units"].items()
+        }
+        if attack > defense:
+            spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
+                1
+                + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+                + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
+            )
+            min_stars_gain = math.floor(uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
+                1
+                + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+                + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
+            ))
+            total_spoils = {
+                key_spoil: max(math.floor(value_spoil * spoils_rate), 0)
+                for key_spoil, value_spoil in target_kd_info.items()
+                if key_spoil in {"stars", "population", "money", "fuel"}
+            }
+            total_spoils["stars"] = max(total_spoils["stars"], min_stars_gain)
+            total_spoils["funding"] = {
+                key_funding: max(math.floor(value_funding * spoils_rate), 0)
+                for key_funding, value_funding in target_kd_info["funding"].items()
+            }
+            spoils_values = {
+                key_spoil: max(math.floor(value_spoil * (1 - cut)), 0)
                 for key_spoil, value_spoil in total_spoils.items()
                 if key_spoil in {"stars", "population", "money", "fuel"}
             }
-            sharer_spoils_values["funding"] = {
-                key_funding: max(math.floor(value_funding * cut), 0)
+            spoils_values["funding"] = {
+                key_funding: max(math.floor(value_funding * (1 - cut)), 0)
                 for key_funding, value_funding in total_spoils["funding"].items()
             }
-            sharer_message = (
-                "You have gained "
-                + ', '.join([f"{value} {key}" for key, value in sharer_spoils_values.items() if key != "funding"])
-                + f', {sum(sharer_spoils_values["funding"].values())} funding'
-                + f" for sharing intel leading to a successful attack by your galaxymate {kd_info_parse['name']}"
-            )
-            sharer_news = {
-                "time": time_now.isoformat(),
-                "from": kd_id,
-                "news": sharer_message,
-            }
-            sharer_news_patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}/news',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-                data=json.dumps(sharer_news),
-            )
-            _add_notifs(sharer, ["news_kingdom"])
-        else:
-            sharer_spoils_values = {}
-
-        units_destroyed = sum(defender_losses.values())
-        attack_status = "success"
-        attacker_message = (
-            "Success! You have gained "
-            + ', '.join([f"{value} {key}" for key, value in spoils_values.items() if key != "funding"])
-            + f', {sum(spoils_values["funding"].values())} funding'
-            + f" and destroyed {units_destroyed} units."
-            + " You have lost "
-            + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
-        )
-        defender_message = (
-            f"Your kingdom was defeated in battle by {kd_info_parse['name']}. You have lost "
-            + ', '.join([f"{value} {key}" for key, value in total_spoils.items() if key != "funding"])
-            + f', {sum(total_spoils["funding"].values())} funding'
-            + ' and '
-            + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
-        )
-    else:
-        attack_status = "failure"
-        attacker_message = "Failure! You have lost " + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
-        defender_message = (
-            f"Your kingdom successfully defended an attack by {kd_info_parse['name']}. You have lost "
-            + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
-        )
-        spoils_values = {}
-        sharer_spoils_values = {}
-    
-
-    kd_info_parse["units"] = new_home_attacker_units
-    kd_info_parse["generals_out"] = kd_info_parse["generals_out"] + generals
-    kd_info_parse["generals_available"] = kd_info_parse["generals_available"] - int(attacker_raw_values["generals"])
-    kd_info_parse["next_resolve"]["generals"] = min(kd_info_parse["next_resolve"]["generals"], next_return_time)
-
-    target_kd_info["units"] = new_defender_units
-    for key_spoil, value_spoil in spoils_values.items():
-        if key_spoil != "funding":
-            if key_spoil != "money":
-                kd_info_parse[key_spoil] += value_spoil
+            if sharer:
+                sharer_spoils_values = {
+                    key_spoil: max(math.floor(value_spoil * cut), 0)
+                    for key_spoil, value_spoil in total_spoils.items()
+                    if key_spoil in {"stars", "population", "money", "fuel"}
+                }
+                sharer_spoils_values["funding"] = {
+                    key_funding: max(math.floor(value_funding * cut), 0)
+                    for key_funding, value_funding in total_spoils["funding"].items()
+                }
+                sharer_message = (
+                    "You have gained "
+                    + ', '.join([f"{value} {key}" for key, value in sharer_spoils_values.items() if key != "funding"])
+                    + f', {sum(sharer_spoils_values["funding"].values())} funding'
+                    + f" for sharing intel leading to a successful attack by your galaxymate {kd_info_parse['name']}"
+                )
+                sharer_news = {
+                    "time": time_now.isoformat(),
+                    "from": kd_id,
+                    "news": sharer_message,
+                }
+                sharer_news_patch_response = REQUESTS_SESSION.patch(
+                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}/news',
+                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    data=json.dumps(sharer_news),
+                )
+                _add_notifs(sharer, ["news_kingdom"])
             else:
-                if kd_info_parse["auto_spending_enabled"]:
-                    pct_allocated = sum(kd_info_parse["auto_spending"].values())
-                    for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
-                        kd_info_parse["funding"][key_spending] += pct_spending * value_spoil
-                    kd_info_parse["money"] += value_spoil * (1 - pct_allocated)
-                else:
-                    kd_info_parse["money"] += value_spoil
-            target_kd_info[key_spoil] -= value_spoil
+                sharer_spoils_values = {}
+
+            units_destroyed = sum(defender_losses.values())
+            attack_status = "success"
+            attacker_message = (
+                "Success! You have gained "
+                + ', '.join([f"{value} {key}" for key, value in spoils_values.items() if key != "funding"])
+                + f', {sum(spoils_values["funding"].values())} funding'
+                + f" and destroyed {units_destroyed} units."
+                + " You have lost "
+                + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
+            )
+            defender_message = (
+                f"Your kingdom was defeated in battle by {kd_info_parse['name']}. You have lost "
+                + ', '.join([f"{value} {key}" for key, value in total_spoils.items() if key != "funding"])
+                + f', {sum(total_spoils["funding"].values())} funding'
+                + ' and '
+                + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
+            )
         else:
-            pct_allocated = sum(kd_info_parse["auto_spending"].values())
-            for key_funding, value_funding in value_spoil.items():
-                target_kd_info["funding"][key_funding] -= value_funding
-                if kd_info_parse["auto_spending_enabled"]:
-                    for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
-                        kd_info_parse["funding"][key_spending] += pct_spending * value_funding
-                    kd_info_parse["money"] += value_funding * (1 - pct_allocated)
-                else:
-                    kd_info_parse["money"] += value_funding
+            attack_status = "failure"
+            attacker_message = "Failure! You have lost " + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
+            defender_message = (
+                f"Your kingdom successfully defended an attack by {kd_info_parse['name']}. You have lost "
+                + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
+            )
+            spoils_values = {}
+            sharer_spoils_values = {}
+        
 
-    target_kd_info["stars"] = max(target_kd_info["stars"], 0)
-    for key_project, project_dict in uas.PROJECTS.items():
-        project_max_func = uas.PROJECTS_FUNCS[key_project]
-        kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
-        target_kd_info["projects_max_points"][key_project] = project_max_func(target_kd_info["stars"])
+        kd_info_parse["units"] = new_home_attacker_units
+        kd_info_parse["generals_out"] = kd_info_parse["generals_out"] + generals
+        kd_info_parse["generals_available"] = kd_info_parse["generals_available"] - int(attacker_raw_values["generals"])
+        kd_info_parse["next_resolve"]["generals"] = min(kd_info_parse["next_resolve"]["generals"], next_return_time)
 
-    if sharer and sharer_spoils_values:
-        sharer_kd_info = uag._get_kd_info(sharer)
-        for key_spoil, value_spoil in sharer_spoils_values.items():
+        target_kd_info["units"] = new_defender_units
+        for key_spoil, value_spoil in spoils_values.items():
             if key_spoil != "funding":
                 if key_spoil != "money":
-                    sharer_kd_info[key_spoil] += value_spoil
+                    kd_info_parse[key_spoil] += value_spoil
                 else:
-                    if sharer_kd_info["auto_spending_enabled"]:
-                        pct_allocated = sum(sharer_kd_info["auto_spending"].values())
-                        for key_spending, pct_spending in sharer_kd_info["auto_spending"].items():
-                            sharer_kd_info["funding"][key_spending] += pct_spending * value_spoil
-                        sharer_kd_info["money"] += value_spoil * (1 - pct_allocated)
+                    if kd_info_parse["auto_spending_enabled"]:
+                        pct_allocated = sum(kd_info_parse["auto_spending"].values())
+                        for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
+                            kd_info_parse["funding"][key_spending] += pct_spending * value_spoil
+                        kd_info_parse["money"] += value_spoil * (1 - pct_allocated)
                     else:
-                        sharer_kd_info["money"] += value_spoil
+                        kd_info_parse["money"] += value_spoil
                 target_kd_info[key_spoil] -= value_spoil
             else:
-                pct_allocated = sum(sharer_kd_info["auto_spending"].values())
+                pct_allocated = sum(kd_info_parse["auto_spending"].values())
                 for key_funding, value_funding in value_spoil.items():
                     target_kd_info["funding"][key_funding] -= value_funding
-                    if sharer_kd_info["auto_spending_enabled"]:
-                        for key_spending, pct_spending in sharer_kd_info["auto_spending"].items():
-                            sharer_kd_info["funding"][key_spending] += pct_spending * value_funding
-                        sharer_kd_info["money"] += value_funding * (1 - pct_allocated)
+                    if kd_info_parse["auto_spending_enabled"]:
+                        for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
+                            kd_info_parse["funding"][key_spending] += pct_spending * value_funding
+                        kd_info_parse["money"] += value_funding * (1 - pct_allocated)
                     else:
-                        sharer_kd_info["money"] += value_funding
-        sharer_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}',
+                        kd_info_parse["money"] += value_funding
+
+        target_kd_info["stars"] = max(target_kd_info["stars"], 0)
+        for key_project, project_dict in uas.PROJECTS.items():
+            project_max_func = uas.PROJECTS_FUNCS[key_project]
+            kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
+            target_kd_info["projects_max_points"][key_project] = project_max_func(target_kd_info["stars"])
+
+        if sharer and sharer_spoils_values:
+            sharer_kd_info = uag._get_kd_info(sharer)
+            for key_spoil, value_spoil in sharer_spoils_values.items():
+                if key_spoil != "funding":
+                    if key_spoil != "money":
+                        sharer_kd_info[key_spoil] += value_spoil
+                    else:
+                        if sharer_kd_info["auto_spending_enabled"]:
+                            pct_allocated = sum(sharer_kd_info["auto_spending"].values())
+                            for key_spending, pct_spending in sharer_kd_info["auto_spending"].items():
+                                sharer_kd_info["funding"][key_spending] += pct_spending * value_spoil
+                            sharer_kd_info["money"] += value_spoil * (1 - pct_allocated)
+                        else:
+                            sharer_kd_info["money"] += value_spoil
+                    target_kd_info[key_spoil] -= value_spoil
+                else:
+                    pct_allocated = sum(sharer_kd_info["auto_spending"].values())
+                    for key_funding, value_funding in value_spoil.items():
+                        target_kd_info["funding"][key_funding] -= value_funding
+                        if sharer_kd_info["auto_spending_enabled"]:
+                            for key_spending, pct_spending in sharer_kd_info["auto_spending"].items():
+                                sharer_kd_info["funding"][key_spending] += pct_spending * value_funding
+                            sharer_kd_info["money"] += value_funding * (1 - pct_allocated)
+                        else:
+                            sharer_kd_info["money"] += value_funding
+            sharer_patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(sharer_kd_info),
+            )
+            try:
+                ws = SOCK_HANDLERS[sharer]
+                ws.send(json.dumps({
+                    "message": f"You have gained {sharer_spoils_values['stars']} from an attack by your galaxymate {kd_info_parse['name']}",
+                    "status": "info",
+                    "category": "Galaxy",
+                    "delay": 15000,
+                    "update": [],
+                }))
+            except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+                pass
+        
+        if target_kd_info["stars"] <= 0:
+            target_kd_info["status"] = "Dead"
+            _mark_kingdom_death(target_kd)
+        target_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps(sharer_kd_info),
+            data=json.dumps(target_kd_info),
         )
+        target_news = {
+            "time": time_now.isoformat(),
+            "from": kd_id,
+            "news": defender_message,
+        }
         try:
-            ws = SOCK_HANDLERS[sharer]
+            ws = SOCK_HANDLERS[target_kd]
             ws.send(json.dumps({
-                "message": f"You have gained {sharer_spoils_values['stars']} from an attack by your galaxymate {kd_info_parse['name']}",
-                "status": "info",
-                "category": "Galaxy",
-                "delay": 15000,
-                "update": [],
+                "message": defender_message,
+                "status": "warning",
+                "category": "Attack",
+                "delay": 60000,
+                "update": ["news", "galaxynews"],
             }))
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
-    
-    if target_kd_info["stars"] <= 0:
-        target_kd_info["status"] = "Dead"
-        _mark_kingdom_death(target_kd)
-    target_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(target_kd_info),
-    )
-    target_news = {
-        "time": time_now.isoformat(),
-        "from": kd_id,
-        "news": defender_message,
-    }
-    try:
-        ws = SOCK_HANDLERS[target_kd]
-        ws.send(json.dumps({
-            "message": defender_message,
-            "status": "warning",
-            "category": "Attack",
-            "delay": 60000,
-            "update": ["news", "galaxynews"],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
-    target_news_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(target_news),
-    )
-    _add_notifs(target_kd, ["news_kingdom"])
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_info_parse, default=str),
-    )
-    kd_attack_history = {
-        "time": time_now.isoformat(),
-        "to": target_kd,
-        "news": attacker_message,
-    }
-    kd_attack_history_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_attack_history, default=str),
-    )
-
-    attacker_galaxy = galaxies_inverted[kd_id]
-    kds_to_reveal = galaxy_info[attacker_galaxy]
-
-    revealed_until = (time_now + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
-    payload = {
-        "new_galaxies": {
-            attacker_galaxy: revealed_until
+        target_news_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(target_news),
+        )
+        _add_notifs(target_kd, ["news_kingdom"])
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_info_parse, default=str),
+        )
+        kd_attack_history = {
+            "time": time_now.isoformat(),
+            "to": target_kd,
+            "news": attacker_message,
         }
-    }
-
-    payload["new_revealed"] = {
-        kd_id: {
-            "stats": revealed_until,
-        }
-        for kd_id in kds_to_reveal
-    }
-
-    defender_galaxy = galaxies_inverted[target_kd]
-
-    attacker_galaxy_payload = {
-        "time": time_now.isoformat(),
-        "from": kd_id,
-        "to": target_kd,
-    }
-    defender_galaxy_payload = {
-        "time": time_now.isoformat(),
-        "from": kd_id,
-        "to": target_kd,
-    }
-    if attack > defense:
-        attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} successfully attacked {target_kd_info['name']} and gained {spoils_values['stars']} stars."
-        if sharer_spoils_values:
-            attacker_galaxy_payload["news"] += f" {sharer_kd_info['name']} provided intel and gained {sharer_spoils_values['stars']} stars."
-
-        defender_galaxy_payload["news"] = f"{target_kd_info['name']} was defeated by {kd_info_parse['name']} and lost {total_spoils['stars']} stars."
-    else:
-        attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} failed an attack on {target_kd_info['name']}."
-
-        defender_galaxy_payload["news"] = f"{target_kd_info['name']} successfully defended an attack by {kd_info_parse['name']}."
-
-    REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{attacker_galaxy}/news',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(attacker_galaxy_payload),
-    )
-    REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{defender_galaxy}/news',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(defender_galaxy_payload),
-    )
-    if attacker_galaxy != defender_galaxy:
-        kds_revealed_to = galaxy_info[defender_galaxy]
-        for kd_revealed_to in kds_revealed_to:
-            reveal_galaxy_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}/revealed',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-                data=json.dumps(payload),
-            )
-            kd_revealed_to_info = uag._get_kd_info(kd_revealed_to)
-            if revealed_until < kd_revealed_to_info["next_resolve"]["revealed"]:
-                kd_revealed_to_next_resolve = kd_revealed_to_info["next_resolve"]
-                kd_revealed_to_next_resolve["revealed"] = revealed_until
-                kd_revealed_to_patch_payload = {
-                    "next_resolve": kd_revealed_to_next_resolve
-                }
-                REQUESTS_SESSION.patch(
-                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}',
-                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-                    data=json.dumps(kd_revealed_to_patch_payload),
-                )
-            if kd_revealed_to != target_kd:
-                try:
-                    ws = SOCK_HANDLERS[kd_revealed_to]
-                    ws.send(json.dumps({
-                        "message": f"Your galaxymate {target_kd_info['name']} was attacked by {kd_info_parse['name']}. Galaxy {attacker_galaxy} will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours",
-                        "status": "info",
-                        "category": "Galaxy",
-                        "delay": 15000,
-                        "update": ["galaxynews"],
-                    }))
-                except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-                    pass
-    for defender_galaxy_kd in galaxy_info[defender_galaxy]:
-        _add_notifs(defender_galaxy_kd, ["news_galaxy"])
-
-    if attacker_empire is not None and defender_empire is not None and attacker_empire != defender_empire:
-        _add_aggression(
-            attacker_empire,
-            defender_empire,
-            uas.GAME_CONFIG["AGGRO_PER_ATTACK"],
-            empires_info,
+        kd_attack_history_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_attack_history, default=str),
         )
 
-    attack_results = {
-        "status": attack_status,
-        "message": attacker_message,
-    }
+        kds_to_reveal = galaxy_info[attacker_galaxy]
+
+        revealed_until = (time_now + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
+        payload = {
+            "new_galaxies": {
+                attacker_galaxy: revealed_until
+            }
+        }
+
+        payload["new_revealed"] = {
+            kd_id: {
+                "stats": revealed_until,
+            }
+            for kd_id in kds_to_reveal
+        }
+
+        attacker_galaxy_payload = {
+            "time": time_now.isoformat(),
+            "from": kd_id,
+            "to": target_kd,
+        }
+        defender_galaxy_payload = {
+            "time": time_now.isoformat(),
+            "from": kd_id,
+            "to": target_kd,
+        }
+        if attack > defense:
+            attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} successfully attacked {target_kd_info['name']} and gained {spoils_values['stars']} stars."
+            if sharer_spoils_values:
+                attacker_galaxy_payload["news"] += f" {sharer_kd_info['name']} provided intel and gained {sharer_spoils_values['stars']} stars."
+
+            defender_galaxy_payload["news"] = f"{target_kd_info['name']} was defeated by {kd_info_parse['name']} and lost {total_spoils['stars']} stars."
+        else:
+            attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} failed an attack on {target_kd_info['name']}."
+
+            defender_galaxy_payload["news"] = f"{target_kd_info['name']} successfully defended an attack by {kd_info_parse['name']}."
+
+        REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{attacker_galaxy}/news',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(attacker_galaxy_payload),
+        )
+        REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{defender_galaxy}/news',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(defender_galaxy_payload),
+        )
+        if attacker_galaxy != defender_galaxy:
+            kds_revealed_to = galaxy_info[defender_galaxy]
+            for kd_revealed_to in kds_revealed_to:
+                reveal_galaxy_response = REQUESTS_SESSION.patch(
+                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}/revealed',
+                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    data=json.dumps(payload),
+                )
+                kd_revealed_to_info = uag._get_kd_info(kd_revealed_to)
+                if revealed_until < kd_revealed_to_info["next_resolve"]["revealed"]:
+                    kd_revealed_to_next_resolve = kd_revealed_to_info["next_resolve"]
+                    kd_revealed_to_next_resolve["revealed"] = revealed_until
+                    kd_revealed_to_patch_payload = {
+                        "next_resolve": kd_revealed_to_next_resolve
+                    }
+                    REQUESTS_SESSION.patch(
+                        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}',
+                        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                        data=json.dumps(kd_revealed_to_patch_payload),
+                    )
+                if kd_revealed_to != target_kd:
+                    try:
+                        ws = SOCK_HANDLERS[kd_revealed_to]
+                        ws.send(json.dumps({
+                            "message": f"Your galaxymate {target_kd_info['name']} was attacked by {kd_info_parse['name']}. Galaxy {attacker_galaxy} will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours",
+                            "status": "info",
+                            "category": "Galaxy",
+                            "delay": 15000,
+                            "update": ["galaxynews"],
+                        }))
+                    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+                        pass
+        for defender_galaxy_kd in galaxy_info[defender_galaxy]:
+            _add_notifs(defender_galaxy_kd, ["news_galaxy"])
+
+        if attacker_empire is not None and defender_empire is not None and attacker_empire != defender_empire:
+            _add_aggression(
+                attacker_empire,
+                defender_empire,
+                uas.GAME_CONFIG["AGGRO_PER_ATTACK"],
+                empires_info,
+            )
+
+        attack_results = {
+            "status": attack_status,
+            "message": attacker_message,
+        }
+    finally:
+        release_locks_by_id(request_id)
     return kd_info_parse, attack_results, 200
 
 @app.route('/api/attack/<target_kd>', methods=['POST'])
@@ -1198,154 +1235,161 @@ def calculate_attack_primitives():
     return (flask.jsonify(payload), 200)
 
 def _attack_primitives(req, kd_id):
-    attacker_raw_values = req["attackerValues"]
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/attackhistory'], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    kd_info_parse = json.loads(kd_info.text)
-    current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-        for project, project_dict in uas.PROJECTS.items()
-        if "max_bonus" in project_dict
-    }
-    state = uag._get_state()
-    
-    start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-    now_time = datetime.datetime.now(datetime.timezone.utc)
-    seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_defense_per_star = uas.GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
-
-    valid_attack_request, attack_request_message = _validate_attack_request(
-        attacker_raw_values,
-        kd_info_parse,
-    )
-    if not valid_attack_request:
-        return kd_info_parse, {"message": attack_request_message}, 400
-
-    attacker_units = {
-        key: int(value)
-        for key, value in attacker_raw_values.items()
-        if (key in uas.UNITS and value != "")
-    }
-
-    attacker_fuelless = kd_info_parse["fuel"] <= 0
-    attack = uag._calc_max_offense(
-        attacker_units,
-        military_bonus=float(current_bonuses['military_bonus'] or 0), 
-        other_bonuses=0,
-        generals=int(attacker_raw_values["generals"]),
-        fuelless=attacker_fuelless,
-        lumina=kd_info_parse["race"] == "Lumina",
-    )
-    attacker_losses = _calc_losses(
-        attacker_units,
-        uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
-        xo=kd_info_parse["race"] == "Xo",
-    )
-    time_now = datetime.datetime.now(datetime.timezone.utc)
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
-    galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-    is_warlike = "Warlike" in galaxy_policies["active_policies"]
-    n_generals = int(attacker_raw_values["generals"])
-    generals_return_times = _calc_generals_return_time(
-        n_generals,
-        uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
-        time_now,
-        current_bonuses["general_bonus"],
-        is_warlike=is_warlike,
-        coordinate_distance=25,
-    )
-    new_home_attacker_units = {
-        key_unit: value_unit - attacker_units.get(key_unit, 0)
-        for key_unit, value_unit in kd_info_parse["units"].items()
-    }
-    remaining_attacker_units = {
-        key_unit: value_unit - attacker_losses.get(key_unit, 0)
-        for key_unit, value_unit in attacker_units.items()
-    }
-    generals = [
-        {
-            "return_time": general_time.isoformat(),
-            **{
-                key_unit: math.floor(attacking_unit / n_generals) + int((attacking_unit % n_generals) > i_general)
-                for key_unit, attacking_unit in remaining_attacker_units.items()
-            }
-        }
-        for i_general, general_time in enumerate(generals_return_times)
-    ]
-    next_return_time = min([general["return_time"] for general in generals])
-
-    stars = math.floor(
-        attack
-        / primitives_defense_per_star
-        * (
-            1
-            + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+    try:
+        attacker_raw_values = req["attackerValues"]
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
         )
-    )
-    if stars == 0:
-        return kd_info_parse, {"message": "Attacks against primitives should conquer at least 1 star. Send more units"}, 400
-    money = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_MONEY_PER_STAR"]
-    fuel = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_FUEL_PER_STAR"]
-    pop = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_POPULATION_PER_STAR"]
-    spoils_values = {
-        "stars": stars,
-        "money": money,
-        "fuel": fuel,
-        "population": pop,
-    }
+        
+        kd_info_parse = json.loads(kd_info.text)
+        current_bonuses = {
+            project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
+            for project, project_dict in uas.PROJECTS.items()
+            if "max_bonus" in project_dict
+        }
+        state = uag._get_state()
+        
+        start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+        now_time = datetime.datetime.now(datetime.timezone.utc)
+        seconds_elapsed = (now_time - start_time).total_seconds()
+        primitives_defense_per_star = uas.GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
 
-    attack_status = "success"
-    attacker_message = (
-        "You have attacked primitives and gained "
-        + ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
-        + ". You have lost "
-        + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
-    )
+        valid_attack_request, attack_request_message = _validate_attack_request(
+            attacker_raw_values,
+            kd_info_parse,
+        )
+        if not valid_attack_request:
+            return kd_info_parse, {"message": attack_request_message}, 400
 
-    kd_info_parse["units"] = new_home_attacker_units
-    kd_info_parse["generals_out"] = kd_info_parse["generals_out"] + generals
-    kd_info_parse["generals_available"] = kd_info_parse["generals_available"] - int(attacker_raw_values["generals"])
-    kd_info_parse["next_resolve"]["generals"] = min(kd_info_parse["next_resolve"]["generals"], next_return_time)
+        attacker_units = {
+            key: int(value)
+            for key, value in attacker_raw_values.items()
+            if (key in uas.UNITS and value != "")
+        }
 
-    for key_spoil, value_spoil in spoils_values.items():
-        if key_spoil != "money":
-            kd_info_parse[key_spoil] += value_spoil
-        else:
-            if kd_info_parse["auto_spending_enabled"]:
-                pct_allocated = sum(kd_info_parse["auto_spending"].values())
-                for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
-                    kd_info_parse["funding"][key_spending] += pct_spending * value_spoil
-                kd_info_parse["money"] += value_spoil * (1 - pct_allocated)
+        attacker_fuelless = kd_info_parse["fuel"] <= 0
+        attack = uag._calc_max_offense(
+            attacker_units,
+            military_bonus=float(current_bonuses['military_bonus'] or 0), 
+            other_bonuses=0,
+            generals=int(attacker_raw_values["generals"]),
+            fuelless=attacker_fuelless,
+            lumina=kd_info_parse["race"] == "Lumina",
+        )
+        attacker_losses = _calc_losses(
+            attacker_units,
+            uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+            xo=kd_info_parse["race"] == "Xo",
+        )
+        time_now = datetime.datetime.now(datetime.timezone.utc)
+        galaxies_inverted, _ = uag._get_galaxies_inverted()
+        galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+        is_warlike = "Warlike" in galaxy_policies["active_policies"]
+        n_generals = int(attacker_raw_values["generals"])
+        generals_return_times = _calc_generals_return_time(
+            n_generals,
+            uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
+            time_now,
+            current_bonuses["general_bonus"],
+            is_warlike=is_warlike,
+            coordinate_distance=25,
+        )
+        new_home_attacker_units = {
+            key_unit: value_unit - attacker_units.get(key_unit, 0)
+            for key_unit, value_unit in kd_info_parse["units"].items()
+        }
+        remaining_attacker_units = {
+            key_unit: value_unit - attacker_losses.get(key_unit, 0)
+            for key_unit, value_unit in attacker_units.items()
+        }
+        generals = [
+            {
+                "return_time": general_time.isoformat(),
+                **{
+                    key_unit: math.floor(attacking_unit / n_generals) + int((attacking_unit % n_generals) > i_general)
+                    for key_unit, attacking_unit in remaining_attacker_units.items()
+                }
+            }
+            for i_general, general_time in enumerate(generals_return_times)
+        ]
+        next_return_time = min([general["return_time"] for general in generals])
+
+        stars = math.floor(
+            attack
+            / primitives_defense_per_star
+            * (
+                1
+                + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+            )
+        )
+        if stars == 0:
+            return kd_info_parse, {"message": "Attacks against primitives should conquer at least 1 star. Send more units"}, 400
+        money = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_MONEY_PER_STAR"]
+        fuel = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_FUEL_PER_STAR"]
+        pop = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_POPULATION_PER_STAR"]
+        spoils_values = {
+            "stars": stars,
+            "money": money,
+            "fuel": fuel,
+            "population": pop,
+        }
+
+        attack_status = "success"
+        attacker_message = (
+            "You have attacked primitives and gained "
+            + ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
+            + ". You have lost "
+            + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
+        )
+
+        kd_info_parse["units"] = new_home_attacker_units
+        kd_info_parse["generals_out"] = kd_info_parse["generals_out"] + generals
+        kd_info_parse["generals_available"] = kd_info_parse["generals_available"] - int(attacker_raw_values["generals"])
+        kd_info_parse["next_resolve"]["generals"] = min(kd_info_parse["next_resolve"]["generals"], next_return_time)
+
+        for key_spoil, value_spoil in spoils_values.items():
+            if key_spoil != "money":
+                kd_info_parse[key_spoil] += value_spoil
             else:
-                kd_info_parse["money"] += value_spoil
+                if kd_info_parse["auto_spending_enabled"]:
+                    pct_allocated = sum(kd_info_parse["auto_spending"].values())
+                    for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
+                        kd_info_parse["funding"][key_spending] += pct_spending * value_spoil
+                    kd_info_parse["money"] += value_spoil * (1 - pct_allocated)
+                else:
+                    kd_info_parse["money"] += value_spoil
 
-    for key_project, project_dict in uas.PROJECTS.items():
-        project_max_func = uas.PROJECTS_FUNCS[key_project]
-        kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
+        for key_project, project_dict in uas.PROJECTS.items():
+            project_max_func = uas.PROJECTS_FUNCS[key_project]
+            kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
 
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_info_parse, default=str),
-    )
-    kd_attack_history = {
-        "time": time_now.isoformat(),
-        "to": "",
-        "news": attacker_message,
-    }
-    kd_attack_history_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_attack_history, default=str),
-    )
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_info_parse, default=str),
+        )
+        kd_attack_history = {
+            "time": time_now.isoformat(),
+            "to": "",
+            "news": attacker_message,
+        }
+        kd_attack_history_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_attack_history, default=str),
+        )
 
-    attack_results = {
-        "status": attack_status,
-        "message": attacker_message,
-    }
+        attack_results = {
+            "status": attack_status,
+            "message": attacker_message,
+        }
+    finally:
+        release_locks_by_id(request_id)
     return kd_info_parse, attack_results, 200
 
 @app.route('/api/attackprimitives', methods=['POST'])
@@ -1398,54 +1442,60 @@ def auto_attack_primitives():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
+    if not acquire_lock(f'/kingdom/{kd_id}'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    kd_info_parse = json.loads(kd_info.text)
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    if req.get("enabled", None) != None:
-        if kd_info_parse["auto_attack_settings"].get("pure", 0) == 0 and kd_info_parse["auto_attack_settings"].get("flex", 0) == 0:
-            return (flask.jsonify({"message": "Could not enable auto attack. You must first specify the percent of units to send"}), 400)
-        enabled = req["enabled"]
-        payload = {'auto_attack_enabled': enabled}
+        if req.get("enabled", None) != None:
+            if kd_info_parse["auto_attack_settings"].get("pure", 0) == 0 and kd_info_parse["auto_attack_settings"].get("flex", 0) == 0:
+                return (flask.jsonify({"message": "Could not enable auto attack. You must first specify the percent of units to send"}), 400)
+            enabled = req["enabled"]
+            payload = {'auto_attack_enabled': enabled}
 
+            patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(payload),
+            )
+            if enabled:
+                message = "Enabled auto attacking primitives"
+            else:
+                message = "Disabled auto attacking primitives"
+            return (flask.jsonify({"message": message, "status": "success"}), 200)
+        
+        req_settings = {
+            "pure": float(
+                req.get("pure") or (kd_info_parse["auto_attack_settings"].get("pure", 0) * 100)
+            ) / 100,
+            "flex": float(
+                req.get("flex") or (kd_info_parse["auto_attack_settings"].get("flex", 0) * 100)
+            ) / 100,
+        }
+
+        current_settings = kd_info_parse['auto_attack_settings']
+        new_settings = {
+            **current_settings,
+            **req_settings,
+        }
+        valid_settings, message = _validate_auto_attack_settings(new_settings)
+        if not valid_settings:
+            return (flask.jsonify({"message": message}), 400)
+
+        payload = {'auto_attack_settings': new_settings}
         patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(payload),
         )
-        if enabled:
-            message = "Enabled auto attacking primitives"
-        else:
-            message = "Disabled auto attacking primitives"
-        return (flask.jsonify({"message": message, "status": "success"}), 200)
-    
-    req_settings = {
-        "pure": float(
-            req.get("pure") or (kd_info_parse["auto_attack_settings"].get("pure", 0) * 100)
-        ) / 100,
-        "flex": float(
-            req.get("flex") or (kd_info_parse["auto_attack_settings"].get("flex", 0) * 100)
-        ) / 100,
-    }
-
-    current_settings = kd_info_parse['auto_attack_settings']
-    new_settings = {
-        **current_settings,
-        **req_settings,
-    }
-    valid_settings, message = _validate_auto_attack_settings(new_settings)
-    if not valid_settings:
-        return (flask.jsonify({"message": message}), 400)
-
-    payload = {'auto_attack_settings': new_settings}
-    patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload),
-    )
+    finally:
+        release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated auto attack settings", "status": "success"}), 200)
 
 
@@ -1616,298 +1666,335 @@ def calculate_spy(target_kd):
     
 def _spy(req, kd_id, target_kd):
     
-    drones = int(req.get("drones", 0) or 0)
-    shielded = req["shielded"]
-    operation = req["operation"]
-
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
     
-    kd_info_parse = json.loads(kd_info.text)
-
-    valid_request, message = _validate_spy_request(
-        drones,
-        kd_info_parse,
-        shielded,
-    )
-    if not valid_request:
-        return kd_info_parse, {"message": message}, 400, False
+    base_locks = [
+        f'/kingdom/{kd_id}',
+        f'/kingdom/{kd_id}/revealed',
+        f'/kingdom/{kd_id}/spyhistory',
+        f'/kingdom/{target_kd}',
+        f'/kingdom/{target_kd}/siphonsout',
+        f'/kingdom/{target_kd}/revealed',
+        f'/kingdom/{target_kd}/news',
+        '/empires',
+    ]
+    if req.get("share_to_galaxy", False):
+        galaxies_inverted, galaxies = uag._get_galaxies_inverted()
+        your_galaxy = galaxies_inverted[kd_id]
+        kds_to_update = [
+            _id
+            for _id in galaxies[your_galaxy]
+            if _id != kd_id
+        ]
+        base_locks.extend(
+            f'/kingdom/{kd_to_update}'
+            for kd_to_update in kds_to_update
+        )
+        base_locks.extend(
+            f'/kingdom/{kd_to_update}/shared'
+            for kd_to_update in kds_to_update
+        )
+    request_id = str(uuid.uuid4())
+    if not acquire_locks(
+        base_locks,
+        request_id=request_id
+    ):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    revealed = uag._get_revealed(kd_id)["revealed"]
-    max_target_kd_info = uag._get_kd_info(target_kd)
-    if max_target_kd_info["status"].lower() == "dead":
-        return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400, False
-    
-    defender_drones = max_target_kd_info["drones"]
-    defender_stars = max_target_kd_info["stars"]
-    defender_shields = max_target_kd_info["shields"]["spy"]
+    try:
+        drones = int(req.get("drones", 0) or 0)
+        shielded = req["shielded"]
+        operation = req["operation"]
 
-    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
-    attacker_empire = empires_inverted.get(kd_id)
-    defender_empire = empires_inverted.get(target_kd)
-    peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
-    
-    spy_probability, drones_defense, stars_defense = _calculate_spy_probability(
-        drones,
-        defender_drones,
-        defender_stars,
-        defender_shields,
-        aggro_vult=(kd_info_parse["race"] == "Vult") and (operation in uas.AGGRO_OPERATIONS),
-        peace=peace,
-    )
-    
-    success_losses, failure_losses = _calculate_spy_losses(
-        drones,
-        shielded,
-        has_drone_gadgets="drone_gadgets" in kd_info_parse["completed_projects"]
-    )
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    roll = random.uniform(0, 1)
-    spy_radar_roll = random.uniform(0, 1)
-    success = roll < spy_probability
-    if (kd_info_parse["race"] == "Vult") and operation in uas.AGGRO_OPERATIONS:
-        spy_radar_success = False
-    else:
-        spy_radar_success = spy_radar_roll < max_target_kd_info["shields"]["spy_radar"]
+        valid_request, message = _validate_spy_request(
+            drones,
+            kd_info_parse,
+            shielded,
+        )
+        if not valid_request:
+            return kd_info_parse, {"message": message}, 400, False
+        
+        revealed = uag._get_revealed(kd_id)["revealed"]
+        max_target_kd_info = uag._get_kd_info(target_kd)
+        if max_target_kd_info["status"].lower() == "dead":
+            return kd_info_parse, {"message": "You can't spy this kingdom because they are dead!"}, 400, False
+        
+        defender_drones = max_target_kd_info["drones"]
+        defender_stars = max_target_kd_info["stars"]
+        defender_shields = max_target_kd_info["shields"]["spy"]
 
-    time_now = datetime.datetime.now(datetime.timezone.utc)
-    revealed_until = None
-    siphon_damage = None
-    siphon_until = None
-    homes_damage = None
-    fuel_plant_damage = None
-    kidnap_damage = None
-    kidnap_return = None
-    fuel_damage = None
-    revealed = False
+        empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+        attacker_empire = empires_inverted.get(kd_id)
+        defender_empire = empires_inverted.get(target_kd)
+        peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
+        
+        spy_probability, drones_defense, stars_defense = _calculate_spy_probability(
+            drones,
+            defender_drones,
+            defender_stars,
+            defender_shields,
+            aggro_vult=(kd_info_parse["race"] == "Vult") and (operation in uas.AGGRO_OPERATIONS),
+            peace=peace,
+        )
+        
+        success_losses, failure_losses = _calculate_spy_losses(
+            drones,
+            shielded,
+            has_drone_gadgets="drone_gadgets" in kd_info_parse["completed_projects"]
+        )
 
-    if operation == "suicidedrones":
-        burnable_fuel = max_target_kd_info["fuel"] - uas.GAME_FUNCS["BASE_NEGATIVE_FUEL_CAP"](max_target_kd_info["stars"])
-        fuel_damage = min(burnable_fuel, drones * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"])
-        losses = drones
-        status = "success"
-        message = f"You have destroyed {fuel_damage} fuel. You have lost {losses} drones"
-        target_message = f"Enemy drones have destroyed {fuel_damage} fuel"
-    else:
-        if success:
+        roll = random.uniform(0, 1)
+        spy_radar_roll = random.uniform(0, 1)
+        success = roll < spy_probability
+        if (kd_info_parse["race"] == "Vult") and operation in uas.AGGRO_OPERATIONS:
+            spy_radar_success = False
+        else:
+            spy_radar_success = spy_radar_roll < max_target_kd_info["shields"]["spy_radar"]
+
+        time_now = datetime.datetime.now(datetime.timezone.utc)
+        revealed_until = None
+        siphon_damage = None
+        siphon_until = None
+        homes_damage = None
+        fuel_plant_damage = None
+        kidnap_damage = None
+        kidnap_return = None
+        fuel_damage = None
+        revealed = False
+
+        if operation == "suicidedrones":
+            burnable_fuel = max_target_kd_info["fuel"] - uas.GAME_FUNCS["BASE_NEGATIVE_FUEL_CAP"](max_target_kd_info["stars"])
+            fuel_damage = min(burnable_fuel, drones * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"])
+            losses = drones
             status = "success"
-            if operation in uas.REVEAL_OPERATIONS:
-                revealed_stat = operation.replace('spy', '')
-                reveal_duration_seconds = uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
-                revealed_until = time_now + datetime.timedelta(seconds=reveal_duration_seconds)
-                reveal_duration_hours = reveal_duration_seconds / 3600
+            message = f"You have destroyed {fuel_damage} fuel. You have lost {losses} drones"
+            target_message = f"Enemy drones have destroyed {fuel_damage} fuel"
+        else:
+            if success:
+                status = "success"
+                if operation in uas.REVEAL_OPERATIONS:
+                    revealed_stat = operation.replace('spy', '')
+                    reveal_duration_seconds = uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+                    revealed_until = time_now + datetime.timedelta(seconds=reveal_duration_seconds)
+                    reveal_duration_hours = reveal_duration_seconds / 3600
 
-                revealed_payload = {
-                    "new_revealed": {
-                        target_kd: {
-                            revealed_stat: revealed_until.isoformat()
+                    revealed_payload = {
+                        "new_revealed": {
+                            target_kd: {
+                                revealed_stat: revealed_until.isoformat()
+                            }
                         }
                     }
-                }
-                reveal_response = REQUESTS_SESSION.patch(
-                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-                    data=json.dumps(revealed_payload),
-                )
-                message = f"Success! The target will be revealed for {reveal_duration_hours} hours. You have lost {success_losses} drones."
-                target_message = "You were infiltrated by drones on a spy operation."
-            
-            if operation == "siphonfunds":
-                siphon_damage = drones * uas.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"]
-                siphon_seconds = uas.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
-                siphon_hours = siphon_seconds / 3600
-                siphon_until = time_now + datetime.timedelta(seconds=siphon_seconds)
-                message = f"Success! Your drones will siphon up to {siphon_damage} money over the next {siphon_hours} hours. You have lost {success_losses} drones."
-                target_message = f"Enemy drones have begun siphoning up to {siphon_damage} money over the next {siphon_hours} hours."
-            if operation == "bombhomes":
-                homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * uas.GAME_CONFIG["BASE_DRONES_MAX_HOME_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"]))
-                message = f"Success! You have destroyed {homes_damage} homes. You have lost {success_losses} drones."
-                target_message = f"Enemy drones have destroyed {homes_damage} homes."
-            if operation == "sabotagefuelplants":
-                fuel_plant_damage = min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * uas.GAME_CONFIG["BASE_DRONES_MAX_FUEL_PLANT_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"]))
-                message = f"Success! You have destroyed {fuel_plant_damage} fuel plants. You have lost {success_losses} drones."
-                target_message = f"Enemy drones have destroyed {fuel_plant_damage} fuel plants."
-            if operation == "kidnappopulation":
-                kidnap_damage = min(math.floor(max_target_kd_info["population"] * uas.GAME_CONFIG["BASE_DRONES_MAX_KIDNAP_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_KIDNAP"]))
-                kidnap_return = math.floor(kidnap_damage * uas.GAME_CONFIG["BASE_KIDNAP_RETURN_RATE"])
-                message = f"Success! You have kidnapped {kidnap_damage} civilians. {kidnap_return} civilians have joined your population. You have lost {success_losses} drones."
-                target_message = f"Enemy drones have kidnapped {kidnap_damage} civilians."
+                    reveal_response = REQUESTS_SESSION.patch(
+                        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+                        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                        data=json.dumps(revealed_payload),
+                    )
+                    message = f"Success! The target will be revealed for {reveal_duration_hours} hours. You have lost {success_losses} drones."
+                    target_message = "You were infiltrated by drones on a spy operation."
+                
+                if operation == "siphonfunds":
+                    siphon_damage = drones * uas.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"]
+                    siphon_seconds = uas.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+                    siphon_hours = siphon_seconds / 3600
+                    siphon_until = time_now + datetime.timedelta(seconds=siphon_seconds)
+                    message = f"Success! Your drones will siphon up to {siphon_damage} money over the next {siphon_hours} hours. You have lost {success_losses} drones."
+                    target_message = f"Enemy drones have begun siphoning up to {siphon_damage} money over the next {siphon_hours} hours."
+                if operation == "bombhomes":
+                    homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * uas.GAME_CONFIG["BASE_DRONES_MAX_HOME_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"]))
+                    message = f"Success! You have destroyed {homes_damage} homes. You have lost {success_losses} drones."
+                    target_message = f"Enemy drones have destroyed {homes_damage} homes."
+                if operation == "sabotagefuelplants":
+                    fuel_plant_damage = min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * uas.GAME_CONFIG["BASE_DRONES_MAX_FUEL_PLANT_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"]))
+                    message = f"Success! You have destroyed {fuel_plant_damage} fuel plants. You have lost {success_losses} drones."
+                    target_message = f"Enemy drones have destroyed {fuel_plant_damage} fuel plants."
+                if operation == "kidnappopulation":
+                    kidnap_damage = min(math.floor(max_target_kd_info["population"] * uas.GAME_CONFIG["BASE_DRONES_MAX_KIDNAP_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_KIDNAP"]))
+                    kidnap_return = math.floor(kidnap_damage * uas.GAME_CONFIG["BASE_KIDNAP_RETURN_RATE"])
+                    message = f"Success! You have kidnapped {kidnap_damage} civilians. {kidnap_return} civilians have joined your population. You have lost {success_losses} drones."
+                    target_message = f"Enemy drones have kidnapped {kidnap_damage} civilians."
 
-            losses = success_losses
-        else:
-            status = "failure"
-            message = f"Failure! You have lost {failure_losses} drones."
-            if operation in uas.REVEAL_OPERATIONS:
-                target_message = f"{kd_info_parse['name']} failed a spy operation on you."
+                losses = success_losses
             else:
-                target_message = f"{kd_info_parse['name']} failed an aggressive spy operation on you."
-            losses = failure_losses
-            if operation in uas.AGGRO_OPERATIONS:
-                revealed = True
+                status = "failure"
+                message = f"Failure! You have lost {failure_losses} drones."
+                if operation in uas.REVEAL_OPERATIONS:
+                    target_message = f"{kd_info_parse['name']} failed a spy operation on you."
+                else:
+                    target_message = f"{kd_info_parse['name']} failed an aggressive spy operation on you."
+                losses = failure_losses
+                if operation in uas.AGGRO_OPERATIONS:
+                    revealed = True
 
-    if spy_radar_success and not revealed:
-        revealed = True
-        target_message += f" Your spy radar has revealed the operation came from {kd_info_parse['name']}."
+        if spy_radar_success and not revealed:
+            revealed = True
+            target_message += f" Your spy radar has revealed the operation came from {kd_info_parse['name']}."
 
-    kd_patch_payload = {
-        "drones": kd_info_parse["drones"] - losses,
-    }
-    is_valid_lumina_intel = (
-        (kd_info_parse["race"] == "Lumina")
-        and operation in uas.REVEAL_OPERATIONS
-        and (
-            ((drones / kd_info_parse["drones"]) >= 0.5)
-            or spy_probability >= 0.8
-        )
-    )
-    if not is_valid_lumina_intel:
-        kd_patch_payload["spy_attempts"] = kd_info_parse["spy_attempts"] - 1
-    if kidnap_return:
-        kd_patch_payload["population"] = kd_info_parse["population"] + kidnap_return
-    if shielded:
-        kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
-    if revealed_until:
-        next_resolve = kd_info_parse["next_resolve"]
-        next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until.isoformat())
-        kd_patch_payload["next_resolve"] = next_resolve
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_patch_payload, default=str),
-    )
-
-    target_patch_payload = {}
-    if siphon_damage:
-        siphons_out_payload = {
-            "new_siphons": {
-                "from": kd_id,
-                "time": siphon_until,
-                "siphon": siphon_damage
-            }
+        kd_patch_payload = {
+            "drones": kd_info_parse["drones"] - losses,
         }
-        siphons_out_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/siphonsout',
+        is_valid_lumina_intel = (
+            (kd_info_parse["race"] == "Lumina")
+            and operation in uas.REVEAL_OPERATIONS
+            and (
+                ((drones / kd_info_parse["drones"]) >= 0.5)
+                or spy_probability >= 0.8
+            )
+        )
+        if not is_valid_lumina_intel:
+            kd_patch_payload["spy_attempts"] = kd_info_parse["spy_attempts"] - 1
+        if kidnap_return:
+            kd_patch_payload["population"] = kd_info_parse["population"] + kidnap_return
+        if shielded:
+            kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
+        if revealed_until:
+            next_resolve = kd_info_parse["next_resolve"]
+            next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until.isoformat())
+            kd_patch_payload["next_resolve"] = next_resolve
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps(siphons_out_payload, default=str),
+            data=json.dumps(kd_patch_payload, default=str),
         )
-    if homes_damage:
-        target_patch_payload["structures"] = {
-            **max_target_kd_info["structures"],
-            "homes": max_target_kd_info["structures"]["homes"] - homes_damage
-        }
-    if fuel_plant_damage:
-        target_patch_payload["structures"] = {
-            **max_target_kd_info["structures"],
-            "fuel_plants": max_target_kd_info["structures"]["fuel_plants"] - fuel_plant_damage
-        }
-    if kidnap_damage:
-        target_patch_payload["population"] = max_target_kd_info["population"] - kidnap_damage
-    if fuel_damage:
-        target_patch_payload["fuel"] = max_target_kd_info["fuel"] - fuel_damage
 
-
-    if revealed:
-        revealed_until = (time_now + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
-        if revealed_until < max_target_kd_info["next_resolve"]["revealed"]:
-            next_resolve = max_target_kd_info["next_resolve"]
-            next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until)
-            target_patch_payload["next_resolve"] = next_resolve
-
-        revealed_payload = {
-            "new_revealed": {
-                kd_id: {
-                    "stats": revealed_until,
-                    "drones": revealed_until,
+        target_patch_payload = {}
+        if siphon_damage:
+            siphons_out_payload = {
+                "new_siphons": {
+                    "from": kd_id,
+                    "time": siphon_until,
+                    "siphon": siphon_damage
                 }
             }
-        }
-        reveal_galaxy_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/revealed',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps(revealed_payload),
-        )
-        target_message += f" Their kingdom 'stats' and 'drones' will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours"
-
-    if target_patch_payload:
-        target_kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps(target_patch_payload, default=str),
-        )
-    history_payload = {
-        "time": time_now.isoformat(),
-        "to": target_kd,
-        "operation": uas.PRETTY_NAMES.get(operation, operation),
-        "news": message,
-    }
-    kd_spy_history_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(history_payload, default=str),
-    )
-
-    target_news_payload = {
-        "time": time_now.isoformat(),
-        "from": "" if success else kd_id,
-        "news": target_message,
-    }
-    target_news_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(target_news_payload),
-    )
-    _add_notifs(target_kd, ["news_kingdom"])
-    try:
-        ws = SOCK_HANDLERS[target_kd]
-        ws.send(json.dumps({
-            "message": target_message,
-            "status": "warning",
-            "category": "Spy",
-            "delay": 15000,
-            "update": ["news"],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
-
-    if success and operation in uas.REVEAL_OPERATIONS:
-        share_to_galaxy = req.get("share_to_galaxy", False)
-        cut = float(req.get("cut", 0))
-        if share_to_galaxy:
-            req_share = {
-                "shared": target_kd,
-                "shared_stat": operation.replace("spy", ""),
-                "shared_to": "galaxy",
-                "cut": cut,
+            siphons_out_patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/siphonsout',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(siphons_out_payload, default=str),
+            )
+        if homes_damage:
+            target_patch_payload["structures"] = {
+                **max_target_kd_info["structures"],
+                "homes": max_target_kd_info["structures"]["homes"] - homes_damage
             }
-            _offer_shared(req_share, kd_id)
+        if fuel_plant_damage:
+            target_patch_payload["structures"] = {
+                **max_target_kd_info["structures"],
+                "fuel_plants": max_target_kd_info["structures"]["fuel_plants"] - fuel_plant_damage
+            }
+        if kidnap_damage:
+            target_patch_payload["population"] = max_target_kd_info["population"] - kidnap_damage
+        if fuel_damage:
+            target_patch_payload["fuel"] = max_target_kd_info["fuel"] - fuel_damage
 
-    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
-    attacker_empire = empires_inverted.get(kd_id)
-    defender_empire = empires_inverted.get(target_kd)
 
-    if (
-        attacker_empire is not None
-        and defender_empire is not None
-        and (attacker_empire != defender_empire)
-        and (operation in uas.AGGRO_OPERATIONS)
-    ):
-        _add_aggression(
-            attacker_empire,
-            defender_empire,
-            uas.GAME_CONFIG["AGGRO_PER_AGGRO_SPY"],
-            empires_info,
+        if revealed:
+            revealed_until = (time_now + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
+            if revealed_until < max_target_kd_info["next_resolve"]["revealed"]:
+                next_resolve = max_target_kd_info["next_resolve"]
+                next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until)
+                target_patch_payload["next_resolve"] = next_resolve
+
+            revealed_payload = {
+                "new_revealed": {
+                    kd_id: {
+                        "stats": revealed_until,
+                        "drones": revealed_until,
+                    }
+                }
+            }
+            reveal_galaxy_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/revealed',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(revealed_payload),
+            )
+            target_message += f" Their kingdom 'stats' and 'drones' will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours"
+
+        if target_patch_payload:
+            target_kd_patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(target_patch_payload, default=str),
+            )
+        history_payload = {
+            "time": time_now.isoformat(),
+            "to": target_kd,
+            "operation": uas.PRETTY_NAMES.get(operation, operation),
+            "news": message,
+        }
+        kd_spy_history_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(history_payload, default=str),
         )
 
-    new_kd_info = {
-        **kd_info_parse,
-        **kd_patch_payload,
-    }
-    payload = {
-        "status": status,
-        "message": message,
-    }
+        target_news_payload = {
+            "time": time_now.isoformat(),
+            "from": "" if success else kd_id,
+            "news": target_message,
+        }
+        target_news_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(target_news_payload),
+        )
+        _add_notifs(target_kd, ["news_kingdom"])
+        try:
+            ws = SOCK_HANDLERS[target_kd]
+            ws.send(json.dumps({
+                "message": target_message,
+                "status": "warning",
+                "category": "Spy",
+                "delay": 15000,
+                "update": ["news"],
+            }))
+        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+            pass
+
+        if success and operation in uas.REVEAL_OPERATIONS:
+            share_to_galaxy = req.get("share_to_galaxy", False)
+            cut = float(req.get("cut", 0))
+            if share_to_galaxy:
+                req_share = {
+                    "shared": target_kd,
+                    "shared_stat": operation.replace("spy", ""),
+                    "shared_to": "galaxy",
+                    "cut": cut,
+                }
+                _offer_shared(req_share, kd_id)
+
+        empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+        attacker_empire = empires_inverted.get(kd_id)
+        defender_empire = empires_inverted.get(target_kd)
+
+        if (
+            attacker_empire is not None
+            and defender_empire is not None
+            and (attacker_empire != defender_empire)
+            and (operation in uas.AGGRO_OPERATIONS)
+        ):
+            _add_aggression(
+                attacker_empire,
+                defender_empire,
+                uas.GAME_CONFIG["AGGRO_PER_AGGRO_SPY"],
+                empires_info,
+            )
+
+        new_kd_info = {
+            **kd_info_parse,
+            **kd_patch_payload,
+        }
+        payload = {
+            "status": status,
+            "message": message,
+        }
+    finally:
+        release_locks_by_id(request_id)
     return new_kd_info, payload, 200, success
         
 @app.route('/api/spy/<target_kd>', methods=['POST'])
@@ -1929,87 +2016,94 @@ def spy(target_kd):
     return (flask.jsonify(payload), status_code)
 
 def _rob_primitives(req, kd_id):
-    drones = int(req["drones"])
-    shielded = req["shielded"]
-    
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
-    state = uag._get_state()
-    
-    start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-    now_time = datetime.datetime.now(datetime.timezone.utc)
-    seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_rob_per_drone = uas.GAME_FUNCS["BASE_PRIMITIVES_ROB_PER_DRONE"](max(seconds_elapsed, 0))
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/spyhistory'], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    valid_request, message = _validate_spy_request(
-        drones,
-        kd_info_parse,
-        shielded,
-    )
-    if not valid_request:
-        return kd_info_parse, {"message": message}, 400
+    try:
+        drones = int(req["drones"])
+        shielded = req["shielded"]
+        
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
+        state = uag._get_state()
+        
+        start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+        now_time = datetime.datetime.now(datetime.timezone.utc)
+        seconds_elapsed = (now_time - start_time).total_seconds()
+        primitives_rob_per_drone = uas.GAME_FUNCS["BASE_PRIMITIVES_ROB_PER_DRONE"](max(seconds_elapsed, 0))
 
-    success_losses, _ = _calculate_spy_losses(
-        drones,
-        shielded,
-        has_drone_gadgets="drone_gadgets" in kd_info_parse["completed_projects"]
-    )
+        valid_request, message = _validate_spy_request(
+            drones,
+            kd_info_parse,
+            shielded,
+        )
+        if not valid_request:
+            return kd_info_parse, {"message": message}, 400
 
-    status = "success"
-    rob = math.floor(drones * primitives_rob_per_drone)
-    message = f"You have robbed {rob} money from primitives. You have lost {success_losses} drones."
-    
+        success_losses, _ = _calculate_spy_losses(
+            drones,
+            shielded,
+            has_drone_gadgets="drone_gadgets" in kd_info_parse["completed_projects"]
+        )
 
-    losses = success_losses
+        status = "success"
+        rob = math.floor(drones * primitives_rob_per_drone)
+        message = f"You have robbed {rob} money from primitives. You have lost {success_losses} drones."
+        
 
-    if kd_info_parse["auto_spending_enabled"]:
-        pct_allocated = sum(kd_info_parse["auto_spending"].values())
-        new_funding = kd_info_parse["funding"]
-        for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
-            new_funding[key_spending] += pct_spending * rob
-        new_money = rob * (1 - pct_allocated)
-    else:
-        new_funding = kd_info_parse["funding"]
-        new_money = rob
-    kd_patch_payload = {
-        "drones": kd_info_parse["drones"] - losses,
-        "spy_attempts": kd_info_parse["spy_attempts"] - 1,
-        "money": kd_info_parse["money"] + new_money,
-        "funding": new_funding,
-    }
-    if shielded:
-        kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_patch_payload, default=str),
-    )
+        losses = success_losses
 
-    time_now = datetime.datetime.now(datetime.timezone.utc)
-    history_payload = {
-        "time": time_now.isoformat(),
-        "to": "",
-        "operation": uas.PRETTY_NAMES.get("robprimitives", "robprimitives"),
-        "news": message,
-    }
-    kd_spy_history_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(history_payload, default=str),
-    )
+        if kd_info_parse["auto_spending_enabled"]:
+            pct_allocated = sum(kd_info_parse["auto_spending"].values())
+            new_funding = kd_info_parse["funding"]
+            for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
+                new_funding[key_spending] += pct_spending * rob
+            new_money = rob * (1 - pct_allocated)
+        else:
+            new_funding = kd_info_parse["funding"]
+            new_money = rob
+        kd_patch_payload = {
+            "drones": kd_info_parse["drones"] - losses,
+            "spy_attempts": kd_info_parse["spy_attempts"] - 1,
+            "money": kd_info_parse["money"] + new_money,
+            "funding": new_funding,
+        }
+        if shielded:
+            kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_patch_payload, default=str),
+        )
 
-    new_kd_info = {
-        **kd_info_parse,
-        **kd_patch_payload,
-    }
-    payload = {
-        "status": status,
-        "message": message,
-    }
+        time_now = datetime.datetime.now(datetime.timezone.utc)
+        history_payload = {
+            "time": time_now.isoformat(),
+            "to": "",
+            "operation": uas.PRETTY_NAMES.get("robprimitives", "robprimitives"),
+            "news": message,
+        }
+        kd_spy_history_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(history_payload, default=str),
+        )
+
+        new_kd_info = {
+            **kd_info_parse,
+            **kd_patch_payload,
+        }
+        payload = {
+            "status": status,
+            "message": message,
+        }
+    finally:
+        release_locks_by_id(request_id)
     return new_kd_info, payload, 200
 
 @app.route('/api/robprimitives', methods=['POST'])
@@ -2048,57 +2142,63 @@ def auto_rob_primitives():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
+    if not acquire_lock(f'/kingdom/{kd_id}'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    kd_info_parse = json.loads(kd_info.text)
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    if req.get("enabled", None) != None:
-        if kd_info_parse["auto_rob_settings"].get("drones", 0) == 0:
-            return (flask.jsonify({"message": "Could not enable auto robs. You must first specify the percent of drones to send"}), 400)
-        enabled = req["enabled"]
-        payload = {'auto_rob_enabled': enabled}
+        if req.get("enabled", None) != None:
+            if kd_info_parse["auto_rob_settings"].get("drones", 0) == 0:
+                return (flask.jsonify({"message": "Could not enable auto robs. You must first specify the percent of drones to send"}), 400)
+            enabled = req["enabled"]
+            payload = {'auto_rob_enabled': enabled}
 
+            patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(payload),
+            )
+            if enabled:
+                message = "Enabled auto robbing primitives"
+            else:
+                message = "Disabled auto robbing primitives"
+            return (flask.jsonify({"message": message, "status": "success"}), 200)
+        
+        req_settings = {
+            "drones": float(
+                req.get("drones") or (kd_info_parse["auto_rob_settings"].get("drones", 0) * 100)
+            ) / 100,
+            "keep": int(
+                req.get("keep") or kd_info_parse["auto_rob_settings"].get("keep", 0)
+            ),
+            "shielded": bool(
+                req.get("shielded", kd_info_parse["auto_rob_settings"].get("shielded", False))
+            ),
+        }
+
+        current_settings = kd_info_parse['auto_rob_settings']
+        new_settings = {
+            **current_settings,
+            **req_settings,
+        }
+        valid_settings, message = _validate_auto_rob_settings(new_settings)
+        if not valid_settings:
+            return (flask.jsonify({"message": message}), 400)
+
+        payload = {'auto_rob_settings': new_settings}
         patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(payload),
         )
-        if enabled:
-            message = "Enabled auto robbing primitives"
-        else:
-            message = "Disabled auto robbing primitives"
-        return (flask.jsonify({"message": message, "status": "success"}), 200)
-    
-    req_settings = {
-        "drones": float(
-            req.get("drones") or (kd_info_parse["auto_rob_settings"].get("drones", 0) * 100)
-        ) / 100,
-        "keep": int(
-            req.get("keep") or kd_info_parse["auto_rob_settings"].get("keep", 0)
-        ),
-        "shielded": bool(
-            req.get("shielded", kd_info_parse["auto_rob_settings"].get("shielded", False))
-        ),
-    }
-
-    current_settings = kd_info_parse['auto_rob_settings']
-    new_settings = {
-        **current_settings,
-        **req_settings,
-    }
-    valid_settings, message = _validate_auto_rob_settings(new_settings)
-    if not valid_settings:
-        return (flask.jsonify({"message": message}), 400)
-
-    payload = {'auto_rob_settings': new_settings}
-    patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload),
-    )
+    finally:
+        release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated auto attack settings", "status": "success"}), 200)
 
 def _validate_schedule_attack(
@@ -2301,49 +2401,56 @@ def add_schedule():
     req = flask.request.get_json(force=True)
 
     kd_id = flask_praetorian.current_user().kd_id
-    kd_info = uag._get_kd_info(kd_id)
-
-    schedule_type = req.get("type")
-    schedule_time = datetime.datetime.fromisoformat(req["time"].replace('Z', '+00:00')).isoformat()
-    schedule_options = req.get("options", {})
-    schedule_id = uuid.uuid4()
     
-    state = uag._get_state()
+    if not acquire_lock(f'/kingdom/{kd_id}'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    if schedule_time < state["state"]["game_start"] or schedule_time > state["state"]["game_end"]:
-        return flask.jsonify({"message": "Scheduled time occurs outside of game duration"}), 400
-    
-    if len(kd_info["schedule"]) >= 10:
-        return flask.jsonify({"message": "You can not schedule more than 10 actions"}), 400
+    try:
+        kd_info = uag._get_kd_info(kd_id)
 
-    handler_funcs = {
-        "attack": _schedule_attack,
-        "attackprimitives": _schedule_attackprimitives,
-        "intelspy": _schedule_intelspy,
-        "aggressivespy": _schedule_aggressivespy,
-        "missiles": _schedule_missiles,
-    }
-    scheduled, new_schedule, message = handler_funcs[schedule_type](
-        id=schedule_id,
-        time=schedule_time,
-        options=schedule_options,
-        kd_info=kd_info,
-    )
-    if not scheduled:
-        return flask.jsonify({"message": message}), 400
-    
-    schedule_payload = kd_info["schedule"]
-    schedule_payload.append(new_schedule)
-    schedule_payload_sorted = sorted(schedule_payload, key=lambda item: item["time"])
+        schedule_type = req.get("type")
+        schedule_time = datetime.datetime.fromisoformat(req["time"].replace('Z', '+00:00')).isoformat()
+        schedule_options = req.get("options", {})
+        schedule_id = uuid.uuid4()
+        
+        state = uag._get_state()
 
-    kd_payload = {
-        "schedule": schedule_payload_sorted,
-    }
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload, default=str),
-    )
+        if schedule_time < state["state"]["game_start"] or schedule_time > state["state"]["game_end"]:
+            return flask.jsonify({"message": "Scheduled time occurs outside of game duration"}), 400
+        
+        if len(kd_info["schedule"]) >= 10:
+            return flask.jsonify({"message": "You can not schedule more than 10 actions"}), 400
+
+        handler_funcs = {
+            "attack": _schedule_attack,
+            "attackprimitives": _schedule_attackprimitives,
+            "intelspy": _schedule_intelspy,
+            "aggressivespy": _schedule_aggressivespy,
+            "missiles": _schedule_missiles,
+        }
+        scheduled, new_schedule, message = handler_funcs[schedule_type](
+            id=schedule_id,
+            time=schedule_time,
+            options=schedule_options,
+            kd_info=kd_info,
+        )
+        if not scheduled:
+            return flask.jsonify({"message": message}), 400
+        
+        schedule_payload = kd_info["schedule"]
+        schedule_payload.append(new_schedule)
+        schedule_payload_sorted = sorted(schedule_payload, key=lambda item: item["time"])
+
+        kd_payload = {
+            "schedule": schedule_payload_sorted,
+        }
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload, default=str),
+        )
+    finally:
+        release_lock(f'/kingdom/{kd_id}')
 
     return (flask.jsonify({"message": "Successfully scheduled", "status": "success"}), 200)
 
@@ -2355,23 +2462,30 @@ def cancel_schedule():
     req = flask.request.get_json(force=True)
 
     kd_id = flask_praetorian.current_user().kd_id
-    kd_info = uag._get_kd_info(kd_id)
+    
+    if not acquire_lock(f'/kingdom/{kd_id}'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
+    
+    try:
+        kd_info = uag._get_kd_info(kd_id)
 
-    schedule_id = req.get("id")
+        schedule_id = req.get("id")
 
-    new_schedule = [
-        item
-        for item in kd_info["schedule"]
-        if item["id"] != schedule_id
-    ]
-    kd_payload = {
-        "schedule": new_schedule,
-    }
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload, default=str),
-    )
+        new_schedule = [
+            item
+            for item in kd_info["schedule"]
+            if item["id"] != schedule_id
+        ]
+        kd_payload = {
+            "schedule": new_schedule,
+        }
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload, default=str),
+        )
+    finally:
+        release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Cancelled scheduled action", "status": "success"}), 200)
 
 
@@ -2467,115 +2581,130 @@ def calculate_missiles(target_kd):
     
 def _launch_missiles(req, kd_id, target_kd):
 
-    attacker_raw_values = req["attackerValues"]
+    request_id = str(uuid.uuid4())
+    if not acquire_locks(
+        [
+            f'/kingdom/{kd_id}',
+            f'/kingdom/{kd_id}/missilehistory',
+            f'/kingdom/{target_kd}',
+            f'/kingdom/{target_kd}/news',
+        ],
+        request_id=request_id
+    ):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
-
-    attacker_missiles = {
-        key: int(value)
-        for key, value in attacker_raw_values.items()
-        if value != ""
-    }
-
-    valid_request, message = _validate_missiles_request(
-        attacker_missiles,
-        kd_info_parse,
-    )
-    if not valid_request:
-        return kd_info_parse, {"message": message}, 400
-    
-    max_target_kd_info = uag._get_kd_info(target_kd)
-    defender_shields = max_target_kd_info["shields"]["missiles"]
-    if max_target_kd_info["status"].lower() == "dead":
-        return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400
-    
-    missile_damage = _calculate_missiles_damage(
-        attacker_missiles,
-        defender_shields,
-        fuzi=kd_info_parse["race"] == "Fuzi",
-    )
-
-    message = f"Your missiles destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
-    defender_message = f"Missiles from {kd_info_parse['name']} have destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
-
-    kd_patch_payload = {
-        "missiles": {
-            k: v - attacker_missiles.get(k, 0)
-            for k, v in kd_info_parse["missiles"].items()
-        }
-    }
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_patch_payload, default=str),
-    )
-
-    target_stars = max_target_kd_info["stars"] - missile_damage["stars_damage"]
-    target_pop = max_target_kd_info["population"] - missile_damage["pop_damage"]
-    defender_patch_payload = {
-        "stars": target_stars,
-        "population": target_pop,
-        "fuel": max_target_kd_info["fuel"] - missile_damage["fuel_damage"],
-    }
-    if target_stars <= 0 or target_pop <= 0:
-        defender_patch_payload["status"] = "Dead"
-        _mark_kingdom_death(target_kd)
-    defender_patch_payload["stars"] = max(defender_patch_payload["stars"], 0)
-    defender_patch_payload["projects_max_points"] = {}
-    for key_project, project_dict in uas.PROJECTS.items():
-        project_max_func = uas.PROJECTS_FUNCS[key_project]
-        defender_patch_payload["projects_max_points"][key_project] = project_max_func(max_target_kd_info["stars"])
-    defender_kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(defender_patch_payload, default=str),
-    )
-    time_now = datetime.datetime.now(datetime.timezone.utc)
-    target_news_payload = {
-        "time": time_now.isoformat(),
-        "from": kd_id,
-        "news": defender_message,
-    }
-    target_news_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(target_news_payload),
-    )
-    _add_notifs(target_kd, ["news_kingdom"])
-    history_payload = {
-        "time": time_now.isoformat(),
-        "to": target_kd,
-        "news": message,
-    }
-    kd_missile_history_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missilehistory',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(history_payload, default=str),
-    )
     try:
-        ws = SOCK_HANDLERS[target_kd]
-        ws.send(json.dumps({
-            "message": defender_message,
-            "status": "warning",
-            "category": "Missiles",
-            "delay": 30000,
-            "update": [],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+        attacker_raw_values = req["attackerValues"]
+        
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    new_kd_info = {
-        **kd_info_parse,
-        **kd_patch_payload,
-    }
-    payload = {
-        "message": message,
-    }
+        attacker_missiles = {
+            key: int(value)
+            for key, value in attacker_raw_values.items()
+            if value != ""
+        }
+
+        valid_request, message = _validate_missiles_request(
+            attacker_missiles,
+            kd_info_parse,
+        )
+        if not valid_request:
+            return kd_info_parse, {"message": message}, 400
+        
+        max_target_kd_info = uag._get_kd_info(target_kd)
+        defender_shields = max_target_kd_info["shields"]["missiles"]
+        if max_target_kd_info["status"].lower() == "dead":
+            return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400
+        
+        missile_damage = _calculate_missiles_damage(
+            attacker_missiles,
+            defender_shields,
+            fuzi=kd_info_parse["race"] == "Fuzi",
+        )
+
+        message = f"Your missiles destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+        defender_message = f"Missiles from {kd_info_parse['name']} have destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+
+        kd_patch_payload = {
+            "missiles": {
+                k: v - attacker_missiles.get(k, 0)
+                for k, v in kd_info_parse["missiles"].items()
+            }
+        }
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_patch_payload, default=str),
+        )
+
+        target_stars = max_target_kd_info["stars"] - missile_damage["stars_damage"]
+        target_pop = max_target_kd_info["population"] - missile_damage["pop_damage"]
+        defender_patch_payload = {
+            "stars": target_stars,
+            "population": target_pop,
+            "fuel": max_target_kd_info["fuel"] - missile_damage["fuel_damage"],
+        }
+        if target_stars <= 0 or target_pop <= 0:
+            defender_patch_payload["status"] = "Dead"
+            _mark_kingdom_death(target_kd)
+        defender_patch_payload["stars"] = max(defender_patch_payload["stars"], 0)
+        defender_patch_payload["projects_max_points"] = {}
+        for key_project, project_dict in uas.PROJECTS.items():
+            project_max_func = uas.PROJECTS_FUNCS[key_project]
+            defender_patch_payload["projects_max_points"][key_project] = project_max_func(max_target_kd_info["stars"])
+        defender_kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(defender_patch_payload, default=str),
+        )
+        time_now = datetime.datetime.now(datetime.timezone.utc)
+        target_news_payload = {
+            "time": time_now.isoformat(),
+            "from": kd_id,
+            "news": defender_message,
+        }
+        target_news_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(target_news_payload),
+        )
+        _add_notifs(target_kd, ["news_kingdom"])
+        history_payload = {
+            "time": time_now.isoformat(),
+            "to": target_kd,
+            "news": message,
+        }
+        kd_missile_history_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missilehistory',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(history_payload, default=str),
+        )
+        try:
+            ws = SOCK_HANDLERS[target_kd]
+            ws.send(json.dumps({
+                "message": defender_message,
+                "status": "warning",
+                "category": "Missiles",
+                "delay": 30000,
+                "update": [],
+            }))
+        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+            pass
+
+        new_kd_info = {
+            **kd_info_parse,
+            **kd_patch_payload,
+        }
+        payload = {
+            "message": message,
+        }
+    finally:
+        release_locks_by_id(request_id)
     return new_kd_info, payload, 200
 
 @app.route('/api/launchmissiles/<target_kd>', methods=['POST'])
@@ -2592,6 +2721,7 @@ def launch_missiles(target_kd):
     
     _, payload, status_code = _launch_missiles(req, kd_id, target_kd)
     return (flask.jsonify(payload), status_code)
+
 @app.route('/api/shared', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -2600,46 +2730,59 @@ def accept_shared():
     req = flask.request.get_json(force=True)
     accepted_shared_from = str(req["shared"])
     accepted_kd, shared_from_kd = accepted_shared_from.split('_')
-    
-
     kd_id = flask_praetorian.current_user().kd_id
-    kingdoms = uag._get_kingdoms()
     
-    shared_info = uag._get_shared(kd_id)
 
-    new_shared = shared_info["shared_requests"].pop(accepted_shared_from)
-    shared_info["shared"][accepted_kd] = new_shared
-
-    shared_info_response = REQUESTS_SESSION.post(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(shared_info),
-    )
-
-    revealed_payload = {
-        "new_revealed" : {
-            accepted_kd: {
-                new_shared["shared_stat"]: new_shared["time"],
-            }
-        }
-    }
-    revealed_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(revealed_payload),
-    )
+    request_id = str(uuid.uuid4())
+    if not acquire_locks(
+        [
+            f'/kingdom/{kd_id}',
+            f'/kingdom/{kd_id}/shared',
+        ],
+        request_id=request_id
+    ):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
-        ws = SOCK_HANDLERS[shared_from_kd]
-        ws.send(json.dumps({
-            "message": f"{kingdoms[kd_id]} accepted intel {shared_info['shared'][accepted_kd]['shared_stat']} for target {kingdoms[accepted_kd]}",
-            "status": "info",
-            "category": "Galaxy",
-            "delay": 15000,
-            "update": [],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+        kingdoms = uag._get_kingdoms()
+        
+        shared_info = uag._get_shared(kd_id)
+
+        new_shared = shared_info["shared_requests"].pop(accepted_shared_from)
+        shared_info["shared"][accepted_kd] = new_shared
+
+        shared_info_response = REQUESTS_SESSION.post(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(shared_info),
+        )
+
+        revealed_payload = {
+            "new_revealed" : {
+                accepted_kd: {
+                    new_shared["shared_stat"]: new_shared["time"],
+                }
+            }
+        }
+        revealed_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(revealed_payload),
+        )
+        
+        try:
+            ws = SOCK_HANDLERS[shared_from_kd]
+            ws.send(json.dumps({
+                "message": f"{kingdoms[kd_id]} accepted intel {shared_info['shared'][accepted_kd]['shared_stat']} for target {kingdoms[accepted_kd]}",
+                "status": "info",
+                "category": "Galaxy",
+                "delay": 15000,
+                "update": [],
+            }))
+        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+            pass
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify(shared_info_response.text), 200)
 
 def _offer_shared(req, kd_id):
@@ -2771,7 +2914,36 @@ def _offer_shared(req, kd_id):
 def offer_shared():
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
-    payload, status_code = _offer_shared(req, kd_id)
+    base_locks = [
+        f'/kingdom/{kd_id}',
+        f'/kingdom/{kd_id}/shared',
+    ]
+    if req.get("share_to_galaxy", False):
+        galaxies_inverted, galaxies = uag._get_galaxies_inverted()
+        your_galaxy = galaxies_inverted[kd_id]
+        kds_to_update = [
+            _id
+            for _id in galaxies[your_galaxy]
+            if _id != kd_id
+        ]
+        base_locks.extend(
+            f'/kingdom/{kd_to_update}'
+            for kd_to_update in kds_to_update
+        )
+        base_locks.extend(
+            f'/kingdom/{kd_to_update}/shared'
+            for kd_to_update in kds_to_update
+        )
+    request_id = str(uuid.uuid4())
+    if not acquire_locks(
+        base_locks,
+        request_id=request_id
+    ):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
+    try:
+        payload, status_code = _offer_shared(req, kd_id)
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify(payload), status_code)
 
 @app.route('/api/pinned', methods=['POST'])
@@ -2783,11 +2955,16 @@ def update_pinned():
     
     kd_id = flask_praetorian.current_user().kd_id
     
+    if not acquire_lock(f'/kingdom/{kd_id}/pinned'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    pinned_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(req),
-    )
+    try:
+        pinned_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(req),
+        )
+    finally:
+        release_lock(f'/kingdom/{kd_id}/pinned')
     return (flask.jsonify(pinned_patch_response.text), 200)
 

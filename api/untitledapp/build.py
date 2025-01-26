@@ -3,6 +3,7 @@ import datetime
 import json
 import math
 import os
+import uuid
 
 import flask
 import flask_praetorian
@@ -10,7 +11,7 @@ from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, alive_required, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import app, alive_required, REQUESTS_SESSION, SOCK_HANDLERS, acquire_lock, acquire_locks, release_lock, release_locks_by_id, release_locks_by_name
 
 def _make_time_splits(min_time, max_time, num_splits):
     assert num_splits % 2 == 0, "num_splits must be even"
@@ -102,54 +103,60 @@ def recruits():
     
     recruits_input = int(req["recruitsInput"])
     kd_id = flask_praetorian.current_user().kd_id
-    
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/mobis'], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    mobis_info_parse = uag._get_mobis_queue(kd_id)
-    current_units = kd_info_parse["units"]
-    generals_units = kd_info_parse["generals_out"]
-    mobis_units = mobis_info_parse
-    state = uag._get_state()
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    start_time = max(
-        datetime.datetime.now(datetime.timezone.utc),
-        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-    )
-    units = uag._calc_units(start_time, current_units, generals_units, mobis_units)
+        mobis_info_parse = uag._get_mobis_queue(kd_id)
+        current_units = kd_info_parse["units"]
+        generals_units = kd_info_parse["generals_out"]
+        mobis_units = mobis_info_parse
+        state = uag._get_state()
 
-    max_available_recruits, current_available_recruits = uag._calc_max_recruits(kd_info_parse, units)
-    valid_recruits = _validate_recruits(recruits_input, current_available_recruits)
-    if not valid_recruits:
-        return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
+        start_time = max(
+            datetime.datetime.now(datetime.timezone.utc),
+            datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+        )
+        units = uag._calc_units(start_time, current_units, generals_units, mobis_units)
 
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
-    galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-    is_conscription = "Conscription" in galaxy_policies["active_policies"]
+        max_available_recruits, current_available_recruits = uag._calc_max_recruits(kd_info_parse, units)
+        valid_recruits = _validate_recruits(recruits_input, current_available_recruits)
+        if not valid_recruits:
+            return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
 
-    new_recruits, min_recruits_time = _get_new_recruits(recruits_input, is_conscription, start_time)
+        galaxies_inverted, _ = uag._get_galaxies_inverted()
+        galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+        is_conscription = "Conscription" in galaxy_policies["active_policies"]
 
-    next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["mobis"] = min(next_resolve["mobis"], min_recruits_time)
-    new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_RECRUIT_COST"] * recruits_input
-    kd_payload = {'money': new_money, 'next_resolve': next_resolve}
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
-    recruits_payload = {
-        "new_mobis": new_recruits
-    }
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(recruits_payload),
-    )
+        new_recruits, min_recruits_time = _get_new_recruits(recruits_input, is_conscription, start_time)
+
+        next_resolve = kd_info_parse["next_resolve"]
+        next_resolve["mobis"] = min(next_resolve["mobis"], min_recruits_time)
+        new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_RECRUIT_COST"] * recruits_input
+        kd_payload = {'money': new_money, 'next_resolve': next_resolve}
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+        recruits_payload = {
+            "new_mobis": new_recruits
+        }
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(recruits_payload),
+        )
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began recruiting", "status": "success"}), 200)
 
 def _get_mobis_cost(mobis_request):
@@ -219,58 +226,65 @@ def train_mobis():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/mobis'], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    current_units = kd_info_parse["units"]
-    state = uag._get_state()
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    start_time = max(
-        datetime.datetime.now(datetime.timezone.utc),
-        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-    )
+        current_units = kd_info_parse["units"]
+        state = uag._get_state()
 
-    mobis_request = {
-        k: int(v or 0)
-        for k, v in req.items()
-        if int(v or 0) != 0
-    }
-    mobis_cost = _get_mobis_cost(mobis_request)
-    valid_mobis = _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cost)
-    if not valid_mobis:
-        return (flask.jsonify({"message": 'Please enter valid training values'}), 400)
+        start_time = max(
+            datetime.datetime.now(datetime.timezone.utc),
+            datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+        )
 
-    new_money = kd_info_parse["money"] - mobis_cost
-    new_recruits = kd_info_parse["units"]["recruits"] - sum(mobis_request.values())
+        mobis_request = {
+            k: int(v or 0)
+            for k, v in req.items()
+            if int(v or 0) != 0
+        }
+        mobis_cost = _get_mobis_cost(mobis_request)
+        valid_mobis = _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cost)
+        if not valid_mobis:
+            return (flask.jsonify({"message": 'Please enter valid training values'}), 400)
 
-    new_mobis, min_mobis_time = _get_new_mobis(mobis_request, start_time)
-    next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["mobis"] = min(next_resolve["mobis"], min_mobis_time)
-    kd_payload = {
-        'money': new_money,
-        'units': {
-            **kd_info_parse["units"],
-            'recruits': new_recruits,
-        },
-        'next_resolve': next_resolve,
-    }
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
-    mobis_payload = {
-        "new_mobis": new_mobis
-    }
-    mobis_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(mobis_payload),
-    )
+        new_money = kd_info_parse["money"] - mobis_cost
+        new_recruits = kd_info_parse["units"]["recruits"] - sum(mobis_request.values())
+
+        new_mobis, min_mobis_time = _get_new_mobis(mobis_request, start_time)
+        next_resolve = kd_info_parse["next_resolve"]
+        next_resolve["mobis"] = min(next_resolve["mobis"], min_mobis_time)
+        kd_payload = {
+            'money': new_money,
+            'units': {
+                **kd_info_parse["units"],
+                'recruits': new_recruits,
+            },
+            'next_resolve': next_resolve,
+        }
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+        mobis_payload = {
+            "new_mobis": new_mobis
+        }
+        mobis_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(mobis_payload),
+        )
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began training specialists", "status": "success"}), 200)
 
 def _validate_mobis_target(req_targets, kd_info_parse):
@@ -297,52 +311,58 @@ def allocate_mobis():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
+    if not acquire_lock(f'/kingdom/{kd_id}'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    if req.get("recruits_before_units", None) is not None:
-        recruits_before_units = req["recruits_before_units"]
-        payload = {'recruits_before_units': recruits_before_units}
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
+        if req.get("recruits_before_units", None) is not None:
+            recruits_before_units = req["recruits_before_units"]
+            payload = {'recruits_before_units': recruits_before_units}
+
+            patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(payload),
+            )
+            if recruits_before_units:
+                message = "Recruits will be trained before units during auto spending"
+            else:
+                message = "Recruits will be trained after units during auto spending"
+            return (flask.jsonify({"message": message, "status": "success"}), 200)
+
+        
+        req_targets = {
+            key: float(value or 0) / 100
+            for key, value in req.get("targets", {}).items()
+            if (value or 0) != 0
+        }
+
+        current_targets = kd_info_parse['units_target']
+        new_targets = {
+            **current_targets,
+            **req_targets,
+        }
+        valid_targets, message = _validate_mobis_target(new_targets, kd_info_parse)
+        if not valid_targets:
+            return (flask.jsonify({"message": message}), 400)
+
+        payload = {'units_target': new_targets}
+        if req.get("max_recruits", "") != "":
+            payload["max_recruits"] = int(req["max_recruits"])
         patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(payload),
         )
-        if recruits_before_units:
-            message = "Recruits will be trained before units during auto spending"
-        else:
-            message = "Recruits will be trained after units during auto spending"
-        return (flask.jsonify({"message": message, "status": "success"}), 200)
-
-    
-    req_targets = {
-        key: float(value or 0) / 100
-        for key, value in req.get("targets", {}).items()
-        if (value or 0) != 0
-    }
-
-    current_targets = kd_info_parse['units_target']
-    new_targets = {
-        **current_targets,
-        **req_targets,
-    }
-    valid_targets, message = _validate_mobis_target(new_targets, kd_info_parse)
-    if not valid_targets:
-        return (flask.jsonify({"message": message}), 400)
-
-    payload = {'units_target': new_targets}
-    if req.get("max_recruits", "") != "":
-        payload["max_recruits"] = int(req["max_recruits"])
-    patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload),
-    )
+    finally:
+        release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_disband(kd_info, input):
@@ -369,33 +389,39 @@ def disband_mobis():
     } 
 
     kd_id = flask_praetorian.current_user().kd_id
-
-    kd_info = uag._get_kd_info(kd_id)
-
-    valid_disband, message = _validate_disband(kd_info, req_input)
-    if not valid_disband:
-        return (flask.jsonify({"message": message}), 400)
     
-    new_units = {
-        key_unit: value_unit - req_input.get(key_unit, 0)
-        for key_unit, value_unit in kd_info["units"].items()
-    }
-    new_money = kd_info["money"] + sum([
-        uas.UNITS[key_unit].get("cost", 0) * value_unit * uas.GAME_CONFIG["BASE_DISBAND_COST_RETURN"]
-        for key_unit, value_unit in req_input.items()
-    ])
-    new_pop = kd_info["population"] + sum(req_input.values())
+    if not acquire_lock(f'/kingdom/{kd_id}'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    kd_payload = {
-        "units": new_units,
-        "money": new_money,
-        "population": new_pop,
-    }
-    patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
+    try:
+        kd_info = uag._get_kd_info(kd_id)
+
+        valid_disband, message = _validate_disband(kd_info, req_input)
+        if not valid_disband:
+            return (flask.jsonify({"message": message}), 400)
+        
+        new_units = {
+            key_unit: value_unit - req_input.get(key_unit, 0)
+            for key_unit, value_unit in kd_info["units"].items()
+        }
+        new_money = kd_info["money"] + sum([
+            uas.UNITS[key_unit].get("cost", 0) * value_unit * uas.GAME_CONFIG["BASE_DISBAND_COST_RETURN"]
+            for key_unit, value_unit in req_input.items()
+        ])
+        new_pop = kd_info["population"] + sum(req_input.values())
+
+        kd_payload = {
+            "units": new_units,
+            "money": new_money,
+            "population": new_pop,
+        }
+        patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+    finally:
+        release_lock(f'/kingdom/{kd_id}')
     
     return (flask.jsonify({"message": "Disbanded units", "status": "success"}), 200)
 
@@ -455,61 +481,68 @@ def build_structures():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/structures'], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    kd_info_parse = json.loads(kd_info.text)
-    
-    structures_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    structures_info_parse = json.loads(structures_info.text)
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
+        
+        structures_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        structures_info_parse = json.loads(structures_info.text)
 
-    current_price = uag._get_structure_price(kd_info_parse)
-    current_structures = kd_info_parse["structures"]
-    building_structures = structures_info_parse["structures"]
+        current_price = uag._get_structure_price(kd_info_parse)
+        current_structures = kd_info_parse["structures"]
+        building_structures = structures_info_parse["structures"]
 
-    state = uag._get_state()
+        state = uag._get_state()
 
-    start_time = max(
-        datetime.datetime.now(datetime.timezone.utc),
-        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-    )
-    structures = uag._calc_structures(start_time, current_structures, building_structures)
+        start_time = max(
+            datetime.datetime.now(datetime.timezone.utc),
+            datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+        )
+        structures = uag._calc_structures(start_time, current_structures, building_structures)
 
-    max_available_structures, current_available_structures = uag._calc_available_structures(current_price, kd_info_parse, structures)
+        max_available_structures, current_available_structures = uag._calc_available_structures(current_price, kd_info_parse, structures)
 
-    structures_request = {
-        k: int(v or 0)
-        for k, v in req.items()
-        if int(v or 0) != 0
-    }
-    valid_structures = _validate_structures(structures_request, current_available_structures)
-    if not valid_structures:
-        return (flask.jsonify({"message": 'Please enter valid structures values'}), 400)
+        structures_request = {
+            k: int(v or 0)
+            for k, v in req.items()
+            if int(v or 0) != 0
+        }
+        valid_structures = _validate_structures(structures_request, current_available_structures)
+        if not valid_structures:
+            return (flask.jsonify({"message": 'Please enter valid structures values'}), 400)
 
-    new_structures, min_structures_time = _get_new_structures(structures_request, start_time)
-    next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["structures"] = min(next_resolve["structures"], min_structures_time)
-    new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
-    kd_payload = {'money': new_money, 'next_resolve': next_resolve}
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
-    structures_payload = {
-        "new_structures": new_structures
-    }
-    structures_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(structures_payload),
-    )
+        new_structures, min_structures_time = _get_new_structures(structures_request, start_time)
+        next_resolve = kd_info_parse["next_resolve"]
+        next_resolve["structures"] = min(next_resolve["structures"], min_structures_time)
+        new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
+        kd_payload = {'money': new_money, 'next_resolve': next_resolve}
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+        structures_payload = {
+            "new_structures": new_structures
+        }
+        structures_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(structures_payload),
+        )
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began building structures", "status": "success"}), 200)
 
 def _validate_structures_target(req_targets):
@@ -534,34 +567,39 @@ def allocate_structures():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
-    
-    req_targets = {
-        key: float(value or 0) / 100
-        for key, value in req.items()
-        if (value or 0) != 0
-    }
+    if not acquire_lock(f'/kingdom/{kd_id}'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
+        
+        req_targets = {
+            key: float(value or 0) / 100
+            for key, value in req.items()
+            if (value or 0) != 0
+        }
 
-    current_targets = kd_info_parse['structures_target']
-    new_targets = {
-        **current_targets,
-        **req_targets,
-    }
-    valid_targets, message = _validate_structures_target(new_targets)
-    if not valid_targets:
-        return (flask.jsonify({"message": message}), 400)
+        current_targets = kd_info_parse['structures_target']
+        new_targets = {
+            **current_targets,
+            **req_targets,
+        }
+        valid_targets, message = _validate_structures_target(new_targets)
+        if not valid_targets:
+            return (flask.jsonify({"message": message}), 400)
 
-    payload = {'structures_target': new_targets}
-    patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload),
-    )
+        payload = {'structures_target': new_targets}
+        patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload),
+        )
+    finally:
+        release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_raze(kd_info, input):
@@ -585,33 +623,38 @@ def raze_structures():
     } 
 
     kd_id = flask_praetorian.current_user().kd_id
+    if not acquire_lock(f'/kingdom/{kd_id}'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    kd_info = uag._get_kd_info(kd_id)
+    try:
+        kd_info = uag._get_kd_info(kd_id)
 
-    valid_raze, message = _validate_raze(kd_info, req_input)
-    if not valid_raze:
-        return (flask.jsonify({"message": message}), 400)
-    
-    structures_price = uag._get_structure_price(kd_info)
+        valid_raze, message = _validate_raze(kd_info, req_input)
+        if not valid_raze:
+            return (flask.jsonify({"message": message}), 400)
+        
+        structures_price = uag._get_structure_price(kd_info)
 
-    new_structures = {
-        key_structure: math.floor(value_structure - req_input.get(key_structure, 0))
-        for key_structure, value_structure in kd_info["structures"].items()
-    }
-    new_money = kd_info["money"] + sum([
-        structures_price * value_structures * uas.GAME_CONFIG["BASE_STRUCTURES_RAZE_RETURN"]
-        for value_structures in req_input.values()
-    ])
+        new_structures = {
+            key_structure: math.floor(value_structure - req_input.get(key_structure, 0))
+            for key_structure, value_structure in kd_info["structures"].items()
+        }
+        new_money = kd_info["money"] + sum([
+            structures_price * value_structures * uas.GAME_CONFIG["BASE_STRUCTURES_RAZE_RETURN"]
+            for value_structures in req_input.values()
+        ])
 
-    kd_payload = {
-        "structures": new_structures,
-        "money": new_money,
-    }
-    patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
+        kd_payload = {
+            "structures": new_structures,
+            "money": new_money,
+        }
+        patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+    finally:
+        release_lock(f'/kingdom/{kd_id}')
     
     return (flask.jsonify({"message": "Razed structures", "status": "success"}), 200)
 
@@ -669,49 +712,56 @@ def settle():
     settle_input = int(req["settleInput"])
     kd_id = flask_praetorian.current_user().kd_id
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/settles'], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    kd_info_parse = json.loads(kd_info.text)
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    settle_info = uag._get_settle_queue(kd_id)
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
-    galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-    is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
-    valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info, is_expansionist)
-    if not valid_settle:
-        return (flask.jsonify({"message": 'Please enter valid settle value'}), 400)
+        settle_info = uag._get_settle_queue(kd_id)
+        galaxies_inverted, _ = uag._get_galaxies_inverted()
+        galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+        is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
+        valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info, is_expansionist)
+        if not valid_settle:
+            return (flask.jsonify({"message": 'Please enter valid settle value'}), 400)
 
 
 
-    state = uag._get_state()
+        state = uag._get_state()
 
-    start_time = max(
-        datetime.datetime.now(datetime.timezone.utc),
-        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-    )
-    new_settles, min_settle_time = _get_new_settles(kd_info_parse, settle_input, start_time)
+        start_time = max(
+            datetime.datetime.now(datetime.timezone.utc),
+            datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+        )
+        new_settles, min_settle_time = _get_new_settles(kd_info_parse, settle_input, start_time)
 
-    settle_price = uag._get_settle_price(kd_info_parse, is_expansionist)
-    new_money = kd_info_parse["money"] - settle_price * settle_input
-    next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["settles"] = min(next_resolve["settles"], min_settle_time)
-    kd_payload = {'money': new_money, "next_resolve": next_resolve}
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
-    settle_payload = {
-        "new_settles": new_settles,
-    }
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(settle_payload),
-    )
+        settle_price = uag._get_settle_price(kd_info_parse, is_expansionist)
+        new_money = kd_info_parse["money"] - settle_price * settle_input
+        next_resolve = kd_info_parse["next_resolve"]
+        next_resolve["settles"] = min(next_resolve["settles"], min_settle_time)
+        kd_payload = {'money': new_money, "next_resolve": next_resolve}
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+        settle_payload = {
+            "new_settles": new_settles,
+        }
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(settle_payload),
+        )
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began settling", "status": "success"}), 200)
 
 
@@ -755,75 +805,81 @@ def build_missiles():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
-    
-    missiles_info = uag._get_missiles_info(kd_id)
-    missiles_building = uag._get_missiles_building(missiles_info)
-
-    max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * math.floor(
-        uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
-        * (
-            1
-            + int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_SILO_CAPACITY_INCREASE"]
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/missiles'], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
         )
-    )
+        
+        kd_info_parse = json.loads(kd_info.text)
+        
+        missiles_info = uag._get_missiles_info(kd_id)
+        missiles_building = uag._get_missiles_building(missiles_info)
 
-    missiles_request = {
-        k: int(v or 0)
-        for k, v in req.items()
-        if v not in ("", 0)
-    }
-    valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles)
-    if not valid_missiles:
-        return (flask.jsonify({"message": 'Please enter valid missiles values'}), 400)
+        max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * math.floor(
+            uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
+            * (
+                1
+                + int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_SILO_CAPACITY_INCREASE"]
+            )
+        )
 
-    cost_multiplier = (
-        1
-        - int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_COST_REDUCTION"]
-    )
-    costs = sum([uas.MISSILES[key_missile]["cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
-    fuel_costs = sum([uas.MISSILES[key_missile]["fuel_cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
-    new_money = kd_info_parse["money"] - costs
-    new_fuel = kd_info_parse["fuel"] - fuel_costs
+        missiles_request = {
+            k: int(v or 0)
+            for k, v in req.items()
+            if v not in ("", 0)
+        }
+        valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles)
+        if not valid_missiles:
+            return (flask.jsonify({"message": 'Please enter valid missiles values'}), 400)
 
-    state = uag._get_state()
+        cost_multiplier = (
+            1
+            - int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_COST_REDUCTION"]
+        )
+        costs = sum([uas.MISSILES[key_missile]["cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
+        fuel_costs = sum([uas.MISSILES[key_missile]["fuel_cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
+        new_money = kd_info_parse["money"] - costs
+        new_fuel = kd_info_parse["fuel"] - fuel_costs
 
-    start_time = max(
-        datetime.datetime.now(datetime.timezone.utc),
-        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-    )
+        state = uag._get_state()
 
-    missiles_time = (start_time + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_MISSILE_TIME_MULTIPLER"])).isoformat()
-    next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["missiles"] = min(next_resolve["missiles"], missiles_time)
-    kd_payload = {
-        'money': new_money,
-        'fuel': new_fuel,
-        'next_resolve': next_resolve,
-    }
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
-    missiles_payload = {
-        "new_missiles": [
-            {
-                "time": missiles_time,
-                **missiles_request,
-            }
-        ]
-    }
-    missiles_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(missiles_payload),
-    )
+        start_time = max(
+            datetime.datetime.now(datetime.timezone.utc),
+            datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+        )
+
+        missiles_time = (start_time + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_MISSILE_TIME_MULTIPLER"])).isoformat()
+        next_resolve = kd_info_parse["next_resolve"]
+        next_resolve["missiles"] = min(next_resolve["missiles"], missiles_time)
+        kd_payload = {
+            'money': new_money,
+            'fuel': new_fuel,
+            'next_resolve': next_resolve,
+        }
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+        missiles_payload = {
+            "new_missiles": [
+                {
+                    "time": missiles_time,
+                    **missiles_request,
+                }
+            ]
+        }
+        missiles_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(missiles_payload),
+        )
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began building missiles", "status": "success"}), 200)
 
 
@@ -872,46 +928,53 @@ def train_engineers():
     engineers_input = int(req["engineersInput"])
     kd_id = flask_praetorian.current_user().kd_id
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/engineers'], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    engineers_info = uag._get_engineers_queue(kd_id)
-    engineers_building = sum([training["amount"] for training in engineers_info])
-    max_workshop_capacity, current_workshop_capacity = uag._calc_workshop_capacity(kd_info_parse, engineers_building)
-    max_available_engineers, current_available_engineers = uag._calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    valid_engineers = _validate_engineers(engineers_input, current_available_engineers)
-    if not valid_engineers:
-        return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
+        engineers_info = uag._get_engineers_queue(kd_id)
+        engineers_building = sum([training["amount"] for training in engineers_info])
+        max_workshop_capacity, current_workshop_capacity = uag._calc_workshop_capacity(kd_info_parse, engineers_building)
+        max_available_engineers, current_available_engineers = uag._calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
 
-    state = uag._get_state()
+        valid_engineers = _validate_engineers(engineers_input, current_available_engineers)
+        if not valid_engineers:
+            return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
 
-    start_time = max(
-        datetime.datetime.now(datetime.timezone.utc),
-        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-    )
-    new_engineers, min_engineers_time = _get_new_engineers(engineers_input, start_time)
-    next_resolve = kd_info_parse["next_resolve"]
-    next_resolve["engineers"] = min(next_resolve["engineers"], min_engineers_time)
-    new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_ENGINEER_COST"] * engineers_input
-    kd_payload = {'money': new_money, 'next_resolve': next_resolve}
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
-    engineers_payload = {
-        "new_engineers": new_engineers
-    }
-    engineers_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(engineers_payload),
-    )
+        state = uag._get_state()
+
+        start_time = max(
+            datetime.datetime.now(datetime.timezone.utc),
+            datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+        )
+        new_engineers, min_engineers_time = _get_new_engineers(engineers_input, start_time)
+        next_resolve = kd_info_parse["next_resolve"]
+        next_resolve["engineers"] = min(next_resolve["engineers"], min_engineers_time)
+        new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_ENGINEER_COST"] * engineers_input
+        kd_payload = {'money': new_money, 'next_resolve': next_resolve}
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+        engineers_payload = {
+            "new_engineers": new_engineers
+        }
+        engineers_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(engineers_payload),
+        )
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began training engineers", "status": "success"}), 200)
 
 
@@ -947,49 +1010,55 @@ def allocate_projects():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
+    if not acquire_lock(f'/kingdom/{kd_id}'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    kd_info_parse = json.loads(kd_info.text)
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    if req.get("enabled", None) is not None:
-        payload = {'auto_assign_projects': req["enabled"]}
+        if req.get("enabled", None) is not None:
+            payload = {'auto_assign_projects': req["enabled"]}
 
+            patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(payload),
+            )
+            if req["enabled"]:
+                message = "Auto assigning engineers enabled"
+            else:
+                message = "Auto assigning engineers disabled"
+            return (flask.jsonify({"message": message, "status": "success"}), 200)
+
+        
+        req_targets = {
+            key: float(value or 0) / 100
+            for key, value in req.get("targets", {}).items()
+            if (value or 0) != 0
+        }
+
+        current_targets = kd_info_parse['projects_target']
+        new_targets = {
+            **current_targets,
+            **req_targets,
+        }
+        valid_targets, message = _validate_projects_target(new_targets, kd_info_parse)
+        if not valid_targets:
+            return (flask.jsonify({"message": message}), 400)
+
+        payload = {'projects_target': new_targets}
         patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(payload),
         )
-        if req["enabled"]:
-            message = "Auto assigning engineers enabled"
-        else:
-            message = "Auto assigning engineers disabled"
-        return (flask.jsonify({"message": message, "status": "success"}), 200)
-
-    
-    req_targets = {
-        key: float(value or 0) / 100
-        for key, value in req.get("targets", {}).items()
-        if (value or 0) != 0
-    }
-
-    current_targets = kd_info_parse['projects_target']
-    new_targets = {
-        **current_targets,
-        **req_targets,
-    }
-    valid_targets, message = _validate_projects_target(new_targets, kd_info_parse)
-    if not valid_targets:
-        return (flask.jsonify({"message": message}), 400)
-
-    payload = {'projects_target': new_targets}
-    patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload),
-    )
+    finally:
+        release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_assign_projects(req, kd_info_parse):
@@ -1020,47 +1089,53 @@ def manage_projects():
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
-
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
     
-    kd_info_parse = json.loads(kd_info.text)
+    if not acquire_lock(f'/kingdom/{kd_id}'):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    new_projects_assigned = kd_info_parse["projects_assigned"].copy()
-    if "clear" in req.keys():
-        projects_to_clear = req["clear"]
-        for project_to_clear in projects_to_clear:
-            new_projects_assigned[project_to_clear] = 0
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    elif "assign" in req.keys():
-        req["assign"] = {k: int(v) for k, v in req["assign"].items()}
-        valid_assign = _validate_assign_projects(req, kd_info_parse)
-        if not valid_assign:
-            return (flask.jsonify({"message": 'Please enter valid assign engineers value'}), 400)
-        
-        new_projects_assigned = {
-            key: req["assign"].get(key, 0)
-            for key in kd_info_parse["projects_assigned"]
-        }
-        
-    elif "add" in req.keys():
-        req["add"] = {k: int(v) for k, v in req["add"].items()}
-        available_engineers = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
-        valid_add = _validate_add_projects(req, available_engineers, kd_info_parse)
-        if not valid_add:
-            return (flask.jsonify({"message": 'Please enter valid add engineers value'}), 400)
-        
-        new_projects_assigned = {
-            key: value + req["add"].get(key, 0)
-            for key, value in kd_info_parse["projects_assigned"].items()
-        }
+        new_projects_assigned = kd_info_parse["projects_assigned"].copy()
+        if "clear" in req.keys():
+            projects_to_clear = req["clear"]
+            for project_to_clear in projects_to_clear:
+                new_projects_assigned[project_to_clear] = 0
 
-    kd_payload = {"projects_assigned": new_projects_assigned}
-    kd_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
+        elif "assign" in req.keys():
+            req["assign"] = {k: int(v) for k, v in req["assign"].items()}
+            valid_assign = _validate_assign_projects(req, kd_info_parse)
+            if not valid_assign:
+                return (flask.jsonify({"message": 'Please enter valid assign engineers value'}), 400)
+            
+            new_projects_assigned = {
+                key: req["assign"].get(key, 0)
+                for key in kd_info_parse["projects_assigned"]
+            }
+            
+        elif "add" in req.keys():
+            req["add"] = {k: int(v) for k, v in req["add"].items()}
+            available_engineers = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
+            valid_add = _validate_add_projects(req, available_engineers, kd_info_parse)
+            if not valid_add:
+                return (flask.jsonify({"message": 'Please enter valid add engineers value'}), 400)
+            
+            new_projects_assigned = {
+                key: value + req["add"].get(key, 0)
+                for key, value in kd_info_parse["projects_assigned"].items()
+            }
+
+        kd_payload = {"projects_assigned": new_projects_assigned}
+        kd_patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+    finally:
+        release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Successfully updated project assignment", "status": "success"}), 200)

@@ -191,61 +191,6 @@ def clear_notifs():
     
     return "Cleared", 200
 
-
-import untitledapp.account as uaa
-import untitledapp.build as uab
-import untitledapp.conquer as uac
-import untitledapp.getters as uag
-import untitledapp.politics as uap
-import untitledapp.refresh as uar
-import untitledapp.shared as uas
-
-if __name__ != '__main__':
-    gunicorn_logger = logging.getLogger('gunicorn.glogging.Logger')
-    gunicorn_error_handlers = logging.getLogger('gunicorn.error').handlers
-    gunicorn_access_handlers = logging.getLogger('gunicorn.access').handlers
-    app.logger.handlers.extend(gunicorn_logger.handlers)
-    app.logger.handlers.extend(gunicorn_error_handlers)
-    app.logger.handlers.extend(gunicorn_access_handlers)
-    app.logger.setLevel(gunicorn_logger.level)
-
-def _custom_limit_key_func():
-    try:
-        token = guard.read_token_from_header()
-    except:
-        token = get_remote_address()
-    return token
-
-limiter = Limiter(
-    _custom_limit_key_func,
-    app=app,
-    default_limits=["100 per minute",],
-    storage_uri="memory://",
-)
-
-# Add users for the example
-with app.app_context():
-    db.create_all()
-    accounts_response = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/accounts',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-    )
-    accounts_json = json.loads(accounts_response.text)
-    accounts = accounts_json["accounts"]
-    for user in accounts:
-        if db.session.query(User).filter_by(username=user["username"]).count() < 1:
-            db.session.add(
-                User(**user)
-            )
-    if db.session.query(User).filter_by(username='admin').count() < 1:
-        db.session.add(User(
-          username='admin',
-          password=guard.hash_password(os.environ["ADMIN_PASSWORD"]),
-          roles='operator,admin',
-          kd_created=True,
-		))
-    db.session.commit()
-
 def acquire_lock(lock_name, timeout=10):
     """
     Try to acquire a lock with a given name.
@@ -397,6 +342,61 @@ def release_locks_by_id(request_id):
         print(f"Failed to release locks: {e}")
         db.session.rollback()
 
+
+import untitledapp.account as uaa
+import untitledapp.build as uab
+import untitledapp.conquer as uac
+import untitledapp.getters as uag
+import untitledapp.politics as uap
+import untitledapp.refresh as uar
+import untitledapp.shared as uas
+
+if __name__ != '__main__':
+    gunicorn_logger = logging.getLogger('gunicorn.glogging.Logger')
+    gunicorn_error_handlers = logging.getLogger('gunicorn.error').handlers
+    gunicorn_access_handlers = logging.getLogger('gunicorn.access').handlers
+    app.logger.handlers.extend(gunicorn_logger.handlers)
+    app.logger.handlers.extend(gunicorn_error_handlers)
+    app.logger.handlers.extend(gunicorn_access_handlers)
+    app.logger.setLevel(gunicorn_logger.level)
+
+def _custom_limit_key_func():
+    try:
+        token = guard.read_token_from_header()
+    except:
+        token = get_remote_address()
+    return token
+
+limiter = Limiter(
+    _custom_limit_key_func,
+    app=app,
+    default_limits=["100 per minute",],
+    storage_uri="memory://",
+)
+
+# Add users for the example
+with app.app_context():
+    db.create_all()
+    accounts_response = REQUESTS_SESSION.get(
+        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/accounts',
+        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+    )
+    accounts_json = json.loads(accounts_response.text)
+    accounts = accounts_json["accounts"]
+    for user in accounts:
+        if db.session.query(User).filter_by(username=user["username"]).count() < 1:
+            db.session.add(
+                User(**user)
+            )
+    if db.session.query(User).filter_by(username='admin').count() < 1:
+        db.session.add(User(
+          username='admin',
+          password=guard.hash_password(os.environ["ADMIN_PASSWORD"]),
+          roles='operator,admin',
+          kd_created=True,
+		))
+    db.session.commit()
+
 @app.route('/api/resetstate', methods=["POST"])
 @flask_praetorian.roles_required('admin')
 def reset_state():
@@ -547,45 +547,51 @@ def create_initial_kingdom():
     if not valid_name:
         return (flask.jsonify({"message": message}), 400)
     
-    galaxies = uag._get_galaxy_info()
-    size_galaxies = collections.defaultdict(list)
-    for galaxy_id, kingdoms in galaxies.items():
-        size_galaxies[len(kingdoms)].append(galaxy_id)
+    request_id = str(uuid.uuid4())
+    if not acquire_locks(["/kingdoms", "/galaxies"], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    smallest_galaxy_size = min(size_galaxies.keys())
-    smallest_galaxies = size_galaxies[smallest_galaxy_size]
+    try:
+        galaxies = uag._get_galaxy_info()
+        size_galaxies = collections.defaultdict(list)
+        for galaxy_id, kingdoms in galaxies.items():
+            size_galaxies[len(kingdoms)].append(galaxy_id)
 
-    chosen_galaxy = random.choice(smallest_galaxies)
-    create_kd_response = REQUESTS_SESSION.post(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps({"kingdom_name": req["kdName"], "galaxy": chosen_galaxy}),
-    )
-    if create_kd_response.status_code != 201:
-        return (flask.jsonify({"message": "Error creating kingdom"}), 400)
-    
-    kd_id = create_kd_response.text
+        smallest_galaxy_size = min(size_galaxies.keys())
+        smallest_galaxies = size_galaxies[smallest_galaxy_size]
 
-    for table, initial_state in uas.INITIAL_KINGDOM_STATE.items():
-        item_id = f"{table}_{kd_id}"
-        state = initial_state.copy()
-        if table == "kingdom":
-            state["kdId"] = kd_id
-            state["name"] = req["kdName"]
-
-        create_response = REQUESTS_SESSION.post(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+        chosen_galaxy = random.choice(smallest_galaxies)
+        create_kd_response = REQUESTS_SESSION.post(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps({
-                "item": item_id,
-                "state": state,
-            }),
-        )        
+            data=json.dumps({"kingdom_name": req["kdName"], "galaxy": chosen_galaxy}),
+        )
+        if create_kd_response.status_code != 201:
+            return (flask.jsonify({"message": "Error creating kingdom"}), 400)
+        
+        kd_id = create_kd_response.text
 
-    user.kd_id = kd_id
-    db.session.commit()
-    uaa._update_accounts()
-    
+        for table, initial_state in uas.INITIAL_KINGDOM_STATE.items():
+            item_id = f"{table}_{kd_id}"
+            state = initial_state.copy()
+            if table == "kingdom":
+                state["kdId"] = kd_id
+                state["name"] = req["kdName"]
+
+            create_response = REQUESTS_SESSION.post(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps({
+                    "item": item_id,
+                    "state": state,
+                }),
+            )        
+
+        user.kd_id = kd_id
+        db.session.commit()
+        uaa._update_accounts()
+    finally:
+        release_locks_by_id(request_id)
     return flask.jsonify({"message": ""}), 200
 
 
@@ -597,25 +603,35 @@ def reset_initial_kingdom():
     user = flask_praetorian.current_user()
     kd_id = user.kd_id
     kd_info = uag._get_kd_info(kd_id)
-    for table, initial_state in uas.INITIAL_KINGDOM_STATE.items():
-        item_id = f"{table}_{kd_id}"
-        state = initial_state.copy()
-        if table == "kingdom":
-            state["kdId"] = kd_id
-            state["name"] = kd_info["name"]
+    request_id = str(uuid.uuid4())
+    table_states = {
+        f"{table}_{kd_id}": initial_state
+        for table, initial_state in uas.INITIAL_KINGDOM_STATE.items()
+    }
+    if not acquire_locks(table_states, request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-        create_response = REQUESTS_SESSION.post(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-            data=json.dumps({
-                "item": item_id,
-                "state": state,
-            }),
-        )
-        
-    user.kd_created = False
-    db.session.commit()
-    uaa._update_accounts()
+    try:
+        for item_id, initial_state in table_states:
+            state = initial_state.copy()
+            if item_id.split("_")[0] == "kingdom":
+                state["kdId"] = kd_id
+                state["name"] = kd_info["name"]
+
+            create_response = REQUESTS_SESSION.post(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps({
+                    "item": item_id,
+                    "state": state,
+                }),
+            )
+            
+        user.kd_created = False
+        db.session.commit()
+        uaa._update_accounts()
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify("Reset kingdom"), 200)
 
 @app.route('/api/createkingdomdata')
@@ -690,40 +706,47 @@ def create_kingdom_choices():
         return (flask.jsonify({"message": message}), 400)
     
     kd_id = user.kd_id
-    kd_info = uag._get_kd_info(kd_id)
-    drones = unit_choices.pop("drones")
 
-    payload = {}
-    payload["drones"] = drones
-    payload["units"] = {
-        k: v + unit_choices.get(k, 0)
-        for k, v in kd_info["units"].items()
-    }
-    payload["structures"] = {
-        k: v + structures_choices.get(k, 0)
-        for k, v in kd_info["structures"].items()
-    }
-    state = uag._get_state()
-    start_time_datetime = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-    payload["last_income"] = max(state["state"]["game_start"], datetime.datetime.now(datetime.timezone.utc).isoformat())
-    payload["next_resolve"] = kd_info["next_resolve"]
-    payload["next_resolve"]["spy_attempt"] = (
-        max(datetime.datetime.now(datetime.timezone.utc), start_time_datetime)
-        + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"])
-    ).isoformat()
-    payload["coordinate"] = random.randint(0, 99)
-    payload["race"] = race
-
-    patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload),
-    )        
-
-    user.kd_created = True
-    db.session.commit()
-    uaa._update_accounts()
+    if not acquire_lock(f"/kingdom/{kd_id}"):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
+    try:
+        kd_info = uag._get_kd_info(kd_id)
+        drones = unit_choices.pop("drones")
+
+        payload = {}
+        payload["drones"] = drones
+        payload["units"] = {
+            k: v + unit_choices.get(k, 0)
+            for k, v in kd_info["units"].items()
+        }
+        payload["structures"] = {
+            k: v + structures_choices.get(k, 0)
+            for k, v in kd_info["structures"].items()
+        }
+        state = uag._get_state()
+        start_time_datetime = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+        payload["last_income"] = max(state["state"]["game_start"], datetime.datetime.now(datetime.timezone.utc).isoformat())
+        payload["next_resolve"] = kd_info["next_resolve"]
+        payload["next_resolve"]["spy_attempt"] = (
+            max(datetime.datetime.now(datetime.timezone.utc), start_time_datetime)
+            + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"])
+        ).isoformat()
+        payload["coordinate"] = random.randint(0, 99)
+        payload["race"] = race
+
+        patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload),
+        )        
+
+        user.kd_created = True
+        db.session.commit()
+        uaa._update_accounts()
+    finally:
+        release_lock(f"/kingdom/{kd_id}")
+
     return (flask.jsonify({"message": ""}), 200)
 
 def _validate_shields(req_values):
@@ -763,17 +786,23 @@ def set_shields():
     if kd_info["fuel"] <= 0:
         return flask.jsonify({"message": "You can't set shields without fuel"}), 400
 
-    payload = {
-        "shields": {
-            **kd_info["shields"],
-            **req_values,
+    if not acquire_lock(f"/kingdom/{kd_id}"):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
+    
+    try:
+        payload = {
+            "shields": {
+                **kd_info["shields"],
+                **req_values,
+            }
         }
-    }
-    patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload),
-    )
+        patch_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload),
+        )
+    finally:
+        release_lock(f"/kingdom/{kd_id}")
     return flask.jsonify({"message": "Successfully updated shields", "status": "success"}), 200
 
 
@@ -790,43 +819,49 @@ def send_message(target_kd):
     if len(req.get("message", "")) > 1024:
         return flask.jsonify({"message": "Messages must be less than 1024 characters"}), 400
 
-    payload_from = {
-        "time": req.get("time", ""),
-        "with": target_kd,
-        "from": True,
-        "message": req.get("message", " "),
-    }
-
-    payload_to = {
-        "time": req.get("time", ""),
-        "with": kd_id,
-        "from": False,
-        "message": req.get("message", " "),
-    }
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f"/kingdom/{kd_id}/messages", f"/kingdom/{target_kd}/messages", f"/kingdom/{target_kd}/notifs"], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    message_response_from = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/messages',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload_from)
-    )
-    message_response_to = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/messages',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload_to)
-    )
-    _add_notifs(target_kd, ["messages"])
     try:
-        ws = SOCK_HANDLERS[target_kd]
-        ws.send(json.dumps({
-            "message": f"New message from {kingdoms[kd_id]}!",
-            "status": "info",
-            "category": "Message",
-            "delay": 30000,
-            "update": ["messages"],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
-    
+        payload_from = {
+            "time": req.get("time", ""),
+            "with": target_kd,
+            "from": True,
+            "message": req.get("message", " "),
+        }
+
+        payload_to = {
+            "time": req.get("time", ""),
+            "with": kd_id,
+            "from": False,
+            "message": req.get("message", " "),
+        }
+        
+        message_response_from = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/messages',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload_from)
+        )
+        message_response_to = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/messages',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(payload_to)
+        )
+        _add_notifs(target_kd, ["messages"])
+        try:
+            ws = SOCK_HANDLERS[target_kd]
+            ws.send(json.dumps({
+                "message": f"New message from {kingdoms[kd_id]}!",
+                "status": "info",
+                "category": "Message",
+                "delay": 30000,
+                "update": ["messages"],
+            }))
+        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+            pass
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Message sent!", "status": "success"}), 200)
 
 
@@ -853,65 +888,72 @@ def spending():
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
+
+    if not acquire_lock(f"/kingdom/{kd_id}"):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
+    try:
+        kd_info = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        )
+        
+        kd_info_parse = json.loads(kd_info.text)
 
-    if req.get("enabled", None) != None:
-        enabled = req["enabled"]
-        payload = {'auto_spending_enabled': enabled}
+        if req.get("enabled", None) != None:
+            enabled = req["enabled"]
+            payload = {'auto_spending_enabled': enabled}
 
-        if enabled:
-            next_resolve = kd_info_parse["next_resolve"]
-            next_resolve["auto_spending"] = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_AUTO_SPENDING_TIME_MULTIPLIER"])).isoformat()
-            payload["next_resolve"] = next_resolve
-        else:
-            total_funding = sum(kd_info_parse["funding"].values())
-            next_resolve = kd_info_parse["next_resolve"]
-            next_resolve["auto_spending"] = uas.DATE_SENTINEL
-            payload["next_resolve"] = next_resolve
-            payload["money"] = kd_info_parse["money"] + total_funding
-            payload["funding"] = {
-                k: 0
-                for k in kd_info_parse["funding"]
-            }
+            if enabled:
+                next_resolve = kd_info_parse["next_resolve"]
+                next_resolve["auto_spending"] = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_AUTO_SPENDING_TIME_MULTIPLIER"])).isoformat()
+                payload["next_resolve"] = next_resolve
+            else:
+                total_funding = sum(kd_info_parse["funding"].values())
+                next_resolve = kd_info_parse["next_resolve"]
+                next_resolve["auto_spending"] = uas.DATE_SENTINEL
+                payload["next_resolve"] = next_resolve
+                payload["money"] = kd_info_parse["money"] + total_funding
+                payload["funding"] = {
+                    k: 0
+                    for k in kd_info_parse["funding"]
+                }
 
+            patch_response = REQUESTS_SESSION.patch(
+                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                data=json.dumps(payload),
+            )
+            if enabled:
+                message = "Enabled auto spending and released funding"
+            else:
+                message = "Disabled auto spending"
+            release_lock(f"/kingdom/{kd_id}")
+            return (flask.jsonify({"message": message, "status": "success"}), 200)
+        
+        req_spending = {
+            key: float(value or 0) / 100
+            for key, value in req.items()
+            if (value or 0) != 0
+        }
+
+        current_spending = kd_info_parse['auto_spending']
+        new_spending = {
+            **current_spending,
+            **req_spending,
+        }
+        valid_spending, message = _validate_spending(new_spending)
+        if not valid_spending:
+            return (flask.jsonify({"message": message}), 400)
+
+        payload = {'auto_spending': new_spending}
         patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(payload),
         )
-        if enabled:
-            message = "Enabled auto spending and released funding"
-        else:
-            message = "Disabled auto spending"
-        return (flask.jsonify({"message": message, "status": "success"}), 200)
-    
-    req_spending = {
-        key: float(value or 0) / 100
-        for key, value in req.items()
-        if (value or 0) != 0
-    }
-
-    current_spending = kd_info_parse['auto_spending']
-    new_spending = {
-        **current_spending,
-        **req_spending,
-    }
-    valid_spending, message = _validate_spending(new_spending)
-    if not valid_spending:
-        return (flask.jsonify({"message": message}), 400)
-
-    payload = {'auto_spending': new_spending}
-    patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(payload),
-    )
+    finally:
+        release_lock(f"/kingdom/{kd_id}")
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 @app.route('/api/share/<share_to>', methods=['POST'])
@@ -921,26 +963,34 @@ def spending():
 def share_kd(share_to):
     kd_id = flask_praetorian.current_user().kd_id
 
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
-    if galaxies_inverted[kd_id] != galaxies_inverted[share_to]:
-        return flask.jsonify("You can only share your kingdom to galaxymates"), 400
 
-    kd_payload = {
-        "new_revealed_to_galaxymates": [share_to]
-    }
-    share_to_payload = {
-        "new_revealed_galaxymates": [kd_id]
-    }
-    kd_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
-    share_to_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(share_to_payload),
-    )
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f"/kingdom/{kd_id}/revealed", f"/kingdom/{share_to}/revealed"], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
+
+    try:
+        galaxies_inverted, _ = uag._get_galaxies_inverted()
+        if galaxies_inverted[kd_id] != galaxies_inverted[share_to]:
+            return flask.jsonify("You can only share your kingdom to galaxymates"), 400
+
+        kd_payload = {
+            "new_revealed_to_galaxymates": [share_to]
+        }
+        share_to_payload = {
+            "new_revealed_galaxymates": [kd_id]
+        }
+        kd_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+        share_to_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(share_to_payload),
+        )
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify(kd_response.text)), 200
 
 @app.route('/api/unshare/<share_to>', methods=['POST'])
@@ -949,30 +999,36 @@ def share_kd(share_to):
 # @flask_praetorian.roles_required('verified')
 def unshare_kd(share_to):
     kd_id = flask_praetorian.current_user().kd_id
+    request_id = str(uuid.uuid4())
+    if not acquire_locks([f"/kingdom/{kd_id}/revealed", f"/kingdom/{share_to}/revealed"], request_id=request_id):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    kd_revealed = uag._get_revealed(kd_id)
-    share_to_revealed = uag._get_revealed(share_to)
+    try:
+        kd_revealed = uag._get_revealed(kd_id)
+        share_to_revealed = uag._get_revealed(share_to)
 
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
-    if galaxies_inverted[kd_id] != galaxies_inverted[share_to]:
-        return flask.jsonify("You can only share your kingdom to galaxymates"), 400
+        galaxies_inverted, _ = uag._get_galaxies_inverted()
+        if galaxies_inverted[kd_id] != galaxies_inverted[share_to]:
+            return flask.jsonify("You can only share your kingdom to galaxymates"), 400
 
-    kd_payload = {
-        "revealed_to_galaxymates": [revealed_to_id for revealed_to_id in kd_revealed["revealed_to_galaxymates"] if revealed_to_id != share_to]
-    }
-    share_to_payload = {
-        "revealed_galaxymates": [revealed_id for revealed_id in share_to_revealed["revealed_galaxymates"] if revealed_id != kd_id]
-    }
-    kd_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(kd_payload),
-    )
-    share_to_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        data=json.dumps(share_to_payload),
-    )
+        kd_payload = {
+            "revealed_to_galaxymates": [revealed_to_id for revealed_to_id in kd_revealed["revealed_to_galaxymates"] if revealed_to_id != share_to]
+        }
+        share_to_payload = {
+            "revealed_galaxymates": [revealed_id for revealed_id in share_to_revealed["revealed_galaxymates"] if revealed_id != kd_id]
+        }
+        kd_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(kd_payload),
+        )
+        share_to_response = REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(share_to_payload),
+        )
+    finally:
+        release_locks_by_id(request_id)
     return (flask.jsonify(kd_response.text)), 200
 
 
