@@ -587,6 +587,8 @@ def create_initial_kingdom():
                 }),
             )        
 
+        db.session.expunge_all()
+        user = flask_praetorian.current_user()
         user.kd_id = kd_id
         db.session.commit()
         uaa._update_accounts()
@@ -627,6 +629,8 @@ def reset_initial_kingdom():
                 }),
             )
             
+        db.session.expunge_all()
+        user = flask_praetorian.current_user()
         user.kd_created = False
         db.session.commit()
         uaa._update_accounts()
@@ -741,6 +745,8 @@ def create_kingdom_choices():
             data=json.dumps(payload),
         )        
 
+        db.session.expunge_all()
+        user = flask_praetorian.current_user()
         user.kd_created = True
         db.session.commit()
         uaa._update_accounts()
