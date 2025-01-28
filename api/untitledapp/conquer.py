@@ -2581,6 +2581,11 @@ def calculate_missiles(target_kd):
     
 def _launch_missiles(req, kd_id, target_kd):
 
+    galaxies_inverted, _ = uag._get_galaxies_inverted()
+
+    attacker_galaxy = galaxies_inverted[kd_id]
+    defender_galaxy = galaxies_inverted[target_kd]
+
     request_id = str(uuid.uuid4())
     if not acquire_locks(
         [
@@ -2588,6 +2593,8 @@ def _launch_missiles(req, kd_id, target_kd):
             f'/kingdom/{kd_id}/missilehistory',
             f'/kingdom/{target_kd}',
             f'/kingdom/{target_kd}/news',
+            f'/galaxy/{attacker_galaxy}/news',
+            f'/galaxy/{defender_galaxy}/news',
         ],
         request_id=request_id
     ):
@@ -2683,6 +2690,31 @@ def _launch_missiles(req, kd_id, target_kd):
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missilehistory',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(history_payload, default=str),
+        )
+
+        attacker_galaxy_payload = {
+            "time": time_now.isoformat(),
+            "from": kd_id,
+            "to": target_kd,
+        }
+        defender_galaxy_payload = {
+            "time": time_now.isoformat(),
+            "from": kd_id,
+            "to": target_kd,
+        }
+        attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} launched missiles at {max_target_kd_info['name']} and destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+
+        defender_galaxy_payload["news"] = f"{max_target_kd_info['name']} was struck by missiles from {kd_info_parse['name']} and lost "  + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+
+        REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{attacker_galaxy}/news',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(attacker_galaxy_payload),
+        )
+        REQUESTS_SESSION.patch(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{defender_galaxy}/news',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            data=json.dumps(defender_galaxy_payload),
         )
         try:
             ws = SOCK_HANDLERS[target_kd]
