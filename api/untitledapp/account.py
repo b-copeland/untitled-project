@@ -15,26 +15,6 @@ def login():
     ret = {'accessToken': guard.encode_jwt_token(user), 'refreshToken': guard.encode_jwt_token(user)}
     return (flask.jsonify(ret), 200)
 
-@app.route('/api/adminlogin', methods=['POST'])
-def admin_login():
-    req = flask.request.get_json(force=True)
-    username = req.get('username', None)
-    password = req.get('password', None)
-    user = guard.authenticate(username, password)
-    if "admin" not in user.roles:
-        return flask.jsonify({"message": "Not authorized"})
-    ret = {'accessToken': guard.encode_jwt_token(user), 'refreshToken': guard.encode_jwt_token(user)}
-    return (flask.jsonify(ret), 200)
-
-@app.route('/api/adminrefresh', methods=['POST'])
-@flask_praetorian.roles_required('admin')
-def admin_refresh():
-    
-    old_token = guard.read_token_from_header()
-    new_token = guard.refresh_jwt_token(old_token)
-    ret = {'accessToken': new_token}
-    return ret, 200
-
 @app.route('/api/refresh', methods=['POST'])
 def refresh():
     
