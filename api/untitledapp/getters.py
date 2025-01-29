@@ -9,7 +9,9 @@ import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.shared as uas
-from untitledapp import app, alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
+
+bp = flask.Blueprint("getters", __name__)
 
 def _get_state():
     get_response = REQUESTS_SESSION.get(
@@ -19,7 +21,7 @@ def _get_state():
     get_response_json = json.loads(get_response.text)
     return get_response_json
 
-@app.route('/api/state', methods=["GET"])
+@bp.route('/api/state', methods=["GET"])
 # @flask_praetorian.roles_required('verified')
 def get_state():
     """
@@ -108,7 +110,7 @@ def _get_scores_redacted(revealed, kd_id, galaxies_inverted):
     }
     return payload
 
-@app.route('/api/scores', methods=["GET"])
+@bp.route('/api/scores', methods=["GET"])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def get_scores():
@@ -119,7 +121,7 @@ def get_scores():
     scores_redacted = _get_scores_redacted(revealed, kd_id, galaxies_inverted)
     return flask.jsonify(scores_redacted), 200
 
-@app.route('/api/kingdomid')
+@bp.route('/api/kingdomid')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def kingdomid():
@@ -130,12 +132,11 @@ def kingdomid():
     
     return flask.jsonify({"kd_id": kd_id, "created": kd_created}), 200
 
-@app.route('/api/kingdom')
+@bp.route('/api/kingdom')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def kingdom():
     kd_id = flask_praetorian.current_user().kd_id
-    app.logger.info('Fetching kingdom %s', kd_id)
 
     kd_info = REQUESTS_SESSION.get(
         os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
@@ -146,7 +147,7 @@ def kingdom():
     return (flask.jsonify(kd_info_parse), 200)
 
 
-@app.route('/api/shields')
+@bp.route('/api/shields')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def shields():
@@ -171,7 +172,7 @@ def shields():
         }
     }
 
-@app.route('/api/news')
+@bp.route('/api/news')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def news():
@@ -185,7 +186,7 @@ def news():
     news_parse = json.loads(news.text)
     return (flask.jsonify(news_parse["news"]), 200)
 
-@app.route('/api/messages')
+@bp.route('/api/messages')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def messages():
@@ -208,7 +209,7 @@ def _get_kingdoms():
     kd_info_parse = json.loads(kd_info.text)
     return kd_info_parse["kingdoms"]
 
-@app.route('/api/kingdoms')
+@bp.route('/api/kingdoms')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def kingdoms():
@@ -227,7 +228,7 @@ def _get_galaxy_info():
 
 
 
-@app.route('/api/galaxies')
+@bp.route('/api/galaxies')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxies():
@@ -243,7 +244,7 @@ def _get_galaxies_inverted():
             galaxies_inverted[kd] = galaxy_name
     return galaxies_inverted, galaxy_info
 
-@app.route('/api/galaxies_inverted')
+@bp.route('/api/galaxies_inverted')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxies_inverted():
@@ -274,14 +275,14 @@ def _get_empires_inverted():
                 empires_inverted[galaxy_kd] = empire_id
     return empires_inverted, empire_infos, galaxy_empires, galaxy_info
 
-@app.route('/api/empires')
+@bp.route('/api/empires')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def empires():
     empires = _get_empire_info()
     return (flask.jsonify(empires["empires"]), 200)
 
-@app.route('/api/empires_inverted')
+@bp.route('/api/empires_inverted')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def empires_inverted():
@@ -301,7 +302,7 @@ def _get_empire_politics(empire_id):
     
     return empire_politics_parse
 
-@app.route('/api/empirepolitics')
+@bp.route('/api/empirepolitics')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def empire_politics():
@@ -314,7 +315,7 @@ def empire_politics():
     empire_politics = _get_empire_politics(kd_empire)
     return (flask.jsonify(empire_politics), 200)
 
-@app.route('/api/galaxynews')
+@bp.route('/api/galaxynews')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_news():
@@ -332,7 +333,7 @@ def galaxy_news():
     return (flask.jsonify(news_parse["news"]), 200)
 
 
-@app.route('/api/empirenews')
+@bp.route('/api/empirenews')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def empire_news():
@@ -353,7 +354,7 @@ def empire_news():
     return (flask.jsonify(news_parse["news"]), 200)
 
 
-@app.route('/api/universenews')
+@bp.route('/api/universenews')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def universe_news():
@@ -367,7 +368,7 @@ def universe_news():
 
 
 
-@app.route('/api/attackhistory')
+@bp.route('/api/attackhistory')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def attack_history():
@@ -382,7 +383,7 @@ def attack_history():
     return (flask.jsonify(history_parse["attack_history"]), 200)
 
 
-@app.route('/api/spyhistory')
+@bp.route('/api/spyhistory')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def spy_history():
@@ -397,7 +398,7 @@ def spy_history():
     return (flask.jsonify(history_parse["spy_history"]), 200)
 
 
-@app.route('/api/missilehistory')
+@bp.route('/api/missilehistory')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def missile_history():
@@ -634,7 +635,7 @@ def _get_mobis(kd_id):
         }
     return payload
 
-@app.route('/api/mobis', methods=['GET'])
+@bp.route('/api/mobis', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def mobis():
@@ -732,7 +733,7 @@ def _get_structures_info(kd_id):
     return payload
 
 
-@app.route('/api/structures', methods=['GET'])
+@bp.route('/api/structures', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def structures():
@@ -811,7 +812,7 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
     return kd_info_parse_allowed
 
 
-@app.route('/api/kingdom/<other_kd_id>', methods=['GET'])
+@bp.route('/api/kingdom/<other_kd_id>', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def max_kingdom(other_kd_id):
@@ -824,7 +825,7 @@ def max_kingdom(other_kd_id):
     return (flask.jsonify(max_kd_info), 200)
 
 
-@app.route('/api/galaxy/<galaxy>', methods=['GET'])
+@bp.route('/api/galaxy/<galaxy>', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxy(galaxy):
@@ -924,7 +925,7 @@ def _get_settle(kd_id):
     return payload
 
 
-@app.route('/api/settle', methods=['GET'])
+@bp.route('/api/settle', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def get_settle():
@@ -954,7 +955,7 @@ def _get_missiles_building(missiles_info):
     return missiles_building
 
 
-@app.route('/api/missiles', methods=['GET'])
+@bp.route('/api/missiles', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def missiles():
@@ -1074,7 +1075,7 @@ def _get_engineers(kd_id):
         }
     return payload
 
-@app.route('/api/engineers', methods=['GET'])
+@bp.route('/api/engineers', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def engineers():
@@ -1089,7 +1090,7 @@ def engineers():
     return (flask.jsonify(payload), 200)
 
 
-@app.route('/api/projects', methods=['GET'])
+@bp.route('/api/projects', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def projects():
@@ -1132,7 +1133,7 @@ def _get_revealed(kd_id):
     revealed_info_parse = json.loads(revealed_info.text)
     return revealed_info_parse
 
-@app.route('/api/revealed', methods=['GET'])
+@bp.route('/api/revealed', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def revealed():
@@ -1150,7 +1151,7 @@ def _get_shared(kd_id):
     shared_info_parse = json.loads(shared_info.text)
     return shared_info_parse
 
-@app.route('/api/shared', methods=['GET'])
+@bp.route('/api/shared', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def shared():
@@ -1168,7 +1169,7 @@ def _get_pinned(kd_id):
     pinned_info_parse = json.loads(pinned_info.text)
     return pinned_info_parse
 
-@app.route('/api/pinned', methods=['GET'])
+@bp.route('/api/pinned', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def pinned():
@@ -1187,7 +1188,7 @@ def _get_max_kingdoms(kd_id, kingdoms):
     }
     return payload
 
-@app.route('/api/kingdomsinfo', methods=['POST'])
+@bp.route('/api/kingdomsinfo', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1211,7 +1212,7 @@ def _get_galaxy_politics(kd_id, galaxy_id=None):
     galaxy_politics_info_parse = json.loads(galaxy_politics_info.text)
     return galaxy_politics_info_parse, galaxy_id
 
-@app.route('/api/galaxypolitics', methods=['GET'])
+@bp.route('/api/galaxypolitics', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_politics():
@@ -1234,7 +1235,7 @@ def _get_universe_politics():
     return universe_politics_info_parse
 
 
-@app.route('/api/universepolitics', methods=['GET'])
+@bp.route('/api/universepolitics', methods=['GET'])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def universe_politics():
@@ -1280,7 +1281,7 @@ def _get_siphons_out(kd_id):
     siphons_out_info_parse = json.loads(siphons_out_info.text)
     return siphons_out_info_parse["siphons_out"]
 
-@app.route('/api/siphonsout', methods=['GET'])
+@bp.route('/api/siphonsout', methods=['GET'])
 @flask_praetorian.auth_required
 def get_siphons_out():
     kd_id = flask_praetorian.current_user().kd_id
@@ -1305,7 +1306,7 @@ def _get_history(kd_id):
     history_info_parse = json.loads(history_info.text)
     return history_info_parse["history"]
 
-@app.route('/api/history', methods=['GET'])
+@bp.route('/api/history', methods=['GET'])
 @flask_praetorian.auth_required
 def get_history():
     kd_id = flask_praetorian.current_user().kd_id
@@ -1314,7 +1315,7 @@ def get_history():
     return flask.jsonify(history), 200
 
     
-@app.route('/api/time')
+@bp.route('/api/time')
 @flask_praetorian.auth_required
 def get_time():
     return (flask.jsonify(datetime.datetime.now(datetime.timezone.utc).isoformat()), 200)

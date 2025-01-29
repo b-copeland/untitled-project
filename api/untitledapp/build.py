@@ -9,9 +9,12 @@ import flask
 import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
+import untitledapp.misc as uam
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, alive_required, REQUESTS_SESSION, SOCK_HANDLERS, acquire_lock, acquire_locks, release_lock, release_locks_by_id, release_locks_by_name
+from untitledapp import alive_required, REQUESTS_SESSION, SOCK_HANDLERS
+
+bp = flask.Blueprint("build", __name__)
 
 def _make_time_splits(min_time, max_time, num_splits):
     assert num_splits % 2 == 0, "num_splits must be even"
@@ -94,7 +97,7 @@ def _get_new_recruits(recruits_input, is_conscription, start_time):
     ]
     return new_recruits, min_time
 
-@app.route('/api/recruits', methods=['POST'])
+@bp.route('/api/recruits', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -104,7 +107,7 @@ def recruits():
     recruits_input = int(req["recruitsInput"])
     kd_id = flask_praetorian.current_user().kd_id
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/mobis'], request_id=request_id):
+    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/mobis'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -156,7 +159,7 @@ def recruits():
             data=json.dumps(recruits_payload),
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began recruiting", "status": "success"}), 200)
 
 def _get_mobis_cost(mobis_request):
@@ -216,7 +219,7 @@ def _get_new_mobis(mobis_request, start_time):
     ]
     return new_mobis, min_mobi_time
 
-@app.route('/api/mobis', methods=['POST'])
+@bp.route('/api/mobis', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -227,7 +230,7 @@ def train_mobis():
     kd_id = flask_praetorian.current_user().kd_id
     
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/mobis'], request_id=request_id):
+    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/mobis'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -284,7 +287,7 @@ def train_mobis():
             data=json.dumps(mobis_payload),
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began training specialists", "status": "success"}), 200)
 
 def _validate_mobis_target(req_targets, kd_info_parse):
@@ -302,7 +305,7 @@ def _validate_mobis_target(req_targets, kd_info_parse):
     
     return True, ""
 
-@app.route('/api/mobis/target', methods=['POST'])
+@bp.route('/api/mobis/target', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -311,7 +314,7 @@ def allocate_mobis():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -362,7 +365,7 @@ def allocate_mobis():
             data=json.dumps(payload),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.acquire_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_disband(kd_info, input):
@@ -376,7 +379,7 @@ def _validate_disband(kd_info, input):
         
     return True, ""
 
-@app.route('/api/mobis/disband', methods=['POST'])
+@bp.route('/api/mobis/disband', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -390,7 +393,7 @@ def disband_mobis():
 
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -421,7 +424,7 @@ def disband_mobis():
             data=json.dumps(kd_payload),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.acquire_lock(f'/kingdom/{kd_id}')
     
     return (flask.jsonify({"message": "Disbanded units", "status": "success"}), 200)
 
@@ -471,7 +474,7 @@ def _get_new_structures(structures_request, start_time):
     ]
     return new_structures, min_structure_time
 
-@app.route('/api/structures', methods=['POST'])
+@bp.route('/api/structures', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -482,7 +485,7 @@ def build_structures():
     kd_id = flask_praetorian.current_user().kd_id
     
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/structures'], request_id=request_id):
+    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/structures'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -542,7 +545,7 @@ def build_structures():
             data=json.dumps(structures_payload),
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began building structures", "status": "success"}), 200)
 
 def _validate_structures_target(req_targets):
@@ -558,7 +561,7 @@ def _validate_structures_target(req_targets):
     
     return True, ""
 
-@app.route('/api/structures/target', methods=['POST'])
+@bp.route('/api/structures/target', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -567,7 +570,7 @@ def allocate_structures():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     try:
         kd_info = REQUESTS_SESSION.get(
@@ -599,7 +602,7 @@ def allocate_structures():
             data=json.dumps(payload),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.acquire_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_raze(kd_info, input):
@@ -610,7 +613,7 @@ def _validate_raze(kd_info, input):
         
     return True, ""
 
-@app.route('/api/structures/raze', methods=['POST'])
+@bp.route('/api/structures/raze', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -623,7 +626,7 @@ def raze_structures():
     } 
 
     kd_id = flask_praetorian.current_user().kd_id
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -654,7 +657,7 @@ def raze_structures():
             data=json.dumps(kd_payload),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.acquire_lock(f'/kingdom/{kd_id}')
     
     return (flask.jsonify({"message": "Razed structures", "status": "success"}), 200)
 
@@ -702,7 +705,7 @@ def _get_new_settles(kd_info_parse, settle_input, start_time):
     ]
     return new_settles, min_settle_time
 
-@app.route('/api/settle', methods=['POST'])
+@bp.route('/api/settle', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -713,7 +716,7 @@ def settle():
     kd_id = flask_praetorian.current_user().kd_id
     
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/settles'], request_id=request_id):
+    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/settles'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -761,7 +764,7 @@ def settle():
             data=json.dumps(settle_payload),
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began settling", "status": "success"}), 200)
 
 
@@ -795,7 +798,7 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
     return True
 
 
-@app.route('/api/missiles', methods=['POST'])
+@bp.route('/api/missiles', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -806,7 +809,7 @@ def build_missiles():
     kd_id = flask_praetorian.current_user().kd_id
     
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/missiles'], request_id=request_id):
+    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/missiles'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     try:
         kd_info = REQUESTS_SESSION.get(
@@ -879,7 +882,7 @@ def build_missiles():
             data=json.dumps(missiles_payload),
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began building missiles", "status": "success"}), 200)
 
 
@@ -918,7 +921,7 @@ def _get_new_engineers(engineers_input, start_time):
     ]
     return new_engineers, min_time
 
-@app.route('/api/engineers', methods=['POST'])
+@bp.route('/api/engineers', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -929,7 +932,7 @@ def train_engineers():
     kd_id = flask_praetorian.current_user().kd_id
     
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/engineers'], request_id=request_id):
+    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/engineers'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -974,7 +977,7 @@ def train_engineers():
             data=json.dumps(engineers_payload),
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began training engineers", "status": "success"}), 200)
 
 
@@ -1001,7 +1004,7 @@ def _validate_projects_target(req_targets, kd_info_parse):
     
     return True, ""
 
-@app.route('/api/projects/target', methods=['POST'])
+@bp.route('/api/projects/target', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1010,7 +1013,7 @@ def allocate_projects():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -1058,7 +1061,7 @@ def allocate_projects():
             data=json.dumps(payload),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.acquire_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_assign_projects(req, kd_info_parse):
@@ -1081,7 +1084,7 @@ def _validate_add_projects(req, available_engineers, kd_info_parse):
         return False
     return True
 
-@app.route('/api/projects', methods=['POST'])
+@bp.route('/api/projects', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1090,7 +1093,7 @@ def manage_projects():
     kd_id = flask_praetorian.current_user().kd_id
     
     
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -1137,5 +1140,5 @@ def manage_projects():
             data=json.dumps(kd_payload),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.acquire_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Successfully updated project assignment", "status": "success"}), 200)

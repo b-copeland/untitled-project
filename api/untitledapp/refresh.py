@@ -12,12 +12,14 @@ import flask
 import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
+import untitledapp.misc as uam
 import untitledapp.build as uab
 import untitledapp.conquer as uac
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, db, User, _mark_kingdom_death, REQUESTS_SESSION, SOCK_HANDLERS, acquire_lock, acquire_locks, release_lock, release_locks_by_id, release_locks_by_name
+from untitledapp import db, User, REQUESTS_SESSION, SOCK_HANDLERS
 
+bp = flask.Blueprint("refresh", __name__)
 
 def _calc_pop_change_per_epoch(
     kd_info_parse,
@@ -110,7 +112,7 @@ def _resolve_siphons(
     epoch_elapsed,
 ):
     request_id = str(uuid.uuid4())
-    while not acquire_locks([f'/kingdom/{kd_id}/siphonsout', f'/kingdom/{kd_id}/siphonsin'], timeout=999, request_id=request_id):
+    while not uam.acquire_locks([f'/kingdom/{kd_id}/siphonsout', f'/kingdom/{kd_id}/siphonsin'], timeout=999, request_id=request_id):
         time.sleep(0.01)
     try:
         siphons_out = uag._get_siphons_out(kd_id)
@@ -165,7 +167,7 @@ def _resolve_siphons(
             data=json.dumps(resolve_siphons_in_payload),
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return siphon_pool, siphon_in_income, siphons_in
 
 def _calc_networth(
@@ -320,7 +322,7 @@ def _kingdom_with_income(
 
     if new_kd_info["population"] <= 0:
         new_kd_info["status"] = "Dead"
-        _mark_kingdom_death(kd_info_parse["kdId"])
+        uam._mark_kingdom_death(kd_info_parse["kdId"])
     if structures_to_reduce:
         new_kd_info["structures"] = {
             k: v - structures_to_reduce.get(k, 0)
@@ -335,7 +337,7 @@ def _kingdom_with_income(
     return new_kd_info
     
 def _resolve_settles(kd_id, time_update):
-    while not acquire_lock(f'/kingdom/{kd_id}/settles', timeout=999):
+    while not uam.acquire_lock(f'/kingdom/{kd_id}/settles', timeout=999):
         time.sleep(0.01)
     try:
         settle_info = REQUESTS_SESSION.get(
@@ -377,12 +379,12 @@ def _resolve_settles(kd_id, time_update):
             except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
                 pass
     finally:
-        release_lock(f'/kingdom/{kd_id}/settles')
+        uam.release_lock(f'/kingdom/{kd_id}/settles')
     
     return ready_settles, next_resolve
     
 def _resolve_mobis(kd_id, time_update):
-    while not acquire_lock(f'/kingdom/{kd_id}/mobis', timeout=999):
+    while not uam.acquire_lock(f'/kingdom/{kd_id}/mobis', timeout=999):
         time.sleep(0.01)
     try:
         mobis_info = REQUESTS_SESSION.get(
@@ -428,12 +430,12 @@ def _resolve_mobis(kd_id, time_update):
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
     finally:
-        release_lock(f'/kingdom/{kd_id}/mobis')
+        uam.release_lock(f'/kingdom/{kd_id}/mobis')
     
     return ready_mobis, next_resolve
     
 def _resolve_structures(kd_id, time_update):
-    while not acquire_lock(f'/kingdom/{kd_id}/structures', timeout=999):
+    while not uam.acquire_lock(f'/kingdom/{kd_id}/structures', timeout=999):
         time.sleep(0.01)
     try:
         structures_info = REQUESTS_SESSION.get(
@@ -479,12 +481,12 @@ def _resolve_structures(kd_id, time_update):
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
     finally:
-        release_lock(f'/kingdom/{kd_id}/structures')
+        uam.release_lock(f'/kingdom/{kd_id}/structures')
     
     return ready_structures, next_resolve
     
 def _resolve_missiles(kd_id, time_update):
-    while not acquire_lock(f'/kingdom/{kd_id}/missiles', timeout=999):
+    while not uam.acquire_lock(f'/kingdom/{kd_id}/missiles', timeout=999):
         time.sleep(0.01)
     try:
         missiles_info = REQUESTS_SESSION.get(
@@ -528,12 +530,12 @@ def _resolve_missiles(kd_id, time_update):
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
     finally:
-        release_lock(f'/kingdom/{kd_id}/missiles')
+        uam.release_lock(f'/kingdom/{kd_id}/missiles')
     
     return ready_missiles, next_resolve
     
 def _resolve_engineers(kd_id, time_update):
-    while not acquire_lock(f'/kingdom/{kd_id}/engineers', timeout=999):
+    while not uam.acquire_lock(f'/kingdom/{kd_id}/engineers', timeout=999):
         time.sleep(0.01)
     try:
         engineer_info = REQUESTS_SESSION.get(
@@ -575,12 +577,12 @@ def _resolve_engineers(kd_id, time_update):
             except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
                 pass
     finally:
-        release_lock(f'/kingdom/{kd_id}/engineers')
+        uam.release_lock(f'/kingdom/{kd_id}/engineers')
     
     return ready_engineers, next_resolve
     
 def _resolve_revealed(kd_id, time_update):
-    while not acquire_lock(f'/kingdom/{kd_id}/revealed', timeout=999):
+    while not uam.acquire_lock(f'/kingdom/{kd_id}/revealed', timeout=999):
         time.sleep(0.01)
     try:
         revealed_info = REQUESTS_SESSION.get(
@@ -616,12 +618,12 @@ def _resolve_revealed(kd_id, time_update):
             data=json.dumps(revealed_payload),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}/revealed')
+        uam.release_lock(f'/kingdom/{kd_id}/revealed')
     
     return next_resolve
     
 def _resolve_shared(kd_id, time_update):
-    while not acquire_lock(f'/kingdom/{kd_id}/shared', timeout=999):
+    while not uam.acquire_lock(f'/kingdom/{kd_id}/shared', timeout=999):
         time.sleep(0.01)
     try:
         shared_info = REQUESTS_SESSION.get(
@@ -664,7 +666,7 @@ def _resolve_shared(kd_id, time_update):
             data=json.dumps(shared_payload),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}/shared')
+        uam.release_lock(f'/kingdom/{kd_id}/shared')
     
     return next_resolve
 
@@ -754,7 +756,7 @@ def _resolve_auto_spending(
     resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["auto_spending"]).astimezone(datetime.timezone.utc)
     kd_id = kd_info_parse["kdId"]
     request_id = str(uuid.uuid4())
-    while not acquire_locks(
+    while not uam.acquire_locks(
         [
             f'/kingdom/{kd_id}/settles',
             f'/kingdom/{kd_id}/structures',
@@ -961,7 +963,7 @@ def _resolve_auto_spending(
         )
         next_resolves["auto_spending"] = next_resolve_time.isoformat()
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return kd_info_parse, next_resolves
 
 def _resolve_auto_attack(kd_info_parse):
@@ -1038,7 +1040,6 @@ def _resolve_auto_rob(kd_info_parse):
         }
         kd_info_parse, payload, _ = uac._rob_primitives(req, kd_info_parse["kdId"])
         try:
-            app.logger.info('Sock handlers before auto rob: %s', str(SOCK_HANDLERS))
             ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
             ws.send(json.dumps({
                 "message": payload["message"],
@@ -1279,7 +1280,7 @@ def _resolve_schedule_missiles(new_kd_info, schedule):
 
 def _resolve_schedules(kd_id, time_update):
 
-    while not acquire_lock(f'/kingdom/{kd_id}', timeout=999):
+    while not uam.acquire_lock(f'/kingdom/{kd_id}', timeout=999):
         time.sleep(0.01)
     
     try:
@@ -1313,7 +1314,7 @@ def _resolve_schedules(kd_id, time_update):
             data=json.dumps(kd_info, default=str),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     
     for action in actions:
         action[0](*action[1])
@@ -1321,7 +1322,7 @@ def _resolve_schedules(kd_id, time_update):
 
 def _begin_election(state):
     request_id = str(uuid.uuid4())
-    while not acquire_locks([f'/universepolitics', f'/updatestate'], timeout=999, request_id=request_id):
+    while not uam.acquire_locks([f'/universepolitics', f'/updatestate'], timeout=999, request_id=request_id):
         time.sleep(0.01)
     try:
         election_start = datetime.datetime.fromisoformat(state["state"]["election_start"]).astimezone(datetime.timezone.utc)
@@ -1356,11 +1357,11 @@ def _begin_election(state):
             data=json.dumps(state_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return state
 
 def _resolve_election(state):
-    while not acquire_lock(f'/updatestate', timeout=999):
+    while not uam.acquire_lock(f'/updatestate', timeout=999):
         time.sleep(0.01)
     try:
         election_end = datetime.datetime.fromisoformat(state["state"]["election_end"]).astimezone(datetime.timezone.utc)
@@ -1398,12 +1399,12 @@ def _resolve_election(state):
             data=json.dumps(state_payload)
         )
     finally:
-        release_lock(f'/updatestate')
+        uam.release_lock(f'/updatestate')
     return state
 
 def _resolve_scores(kd_scores, time_update):
 
-    while not acquire_lock(f'/scores', timeout=999):
+    while not uam.acquire_lock(f'/scores', timeout=999):
         time.sleep(0.01)
     try:
         scores = uag._get_scores()
@@ -1442,13 +1443,13 @@ def _resolve_scores(kd_scores, time_update):
             data=json.dumps(new_scores)
         )
     finally:
-        release_lock(f'/scores')
+        uam.release_lock(f'/scores')
 
 def _update_history(
     kd_info,
     time_update,
 ):
-    while not acquire_lock(f'/kingdom/{kd_info["kdId"]}/history', timeout=999):
+    while not uam.acquire_lock(f'/kingdom/{kd_info["kdId"]}/history', timeout=999):
         time.sleep(0.01)
     try:
         history_payload = {}
@@ -1493,14 +1494,14 @@ def _update_history(
             data=json.dumps({"history": history_payload})
         )
     finally:
-        release_lock(f'/kingdom/{kd_info["kdId"]}/history')
+        uam.release_lock(f'/kingdom/{kd_info["kdId"]}/history')
     return None
 
 def _resolve_empires(
     kd_scores,
     time_update,
 ):
-    while not acquire_lock(f'/empires', timeout=999):
+    while not uam.acquire_lock(f'/empires', timeout=999):
         time.sleep(0.01)
     try:
         empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
@@ -1573,7 +1574,7 @@ def _resolve_empires(
             data=json.dumps(empires_payload)
         )
     finally:
-        release_lock(f'/empires')
+        uam.release_lock(f'/empires')
 
 def _refresh_kd(kd_id, state, time_update, update_history):
     try:
@@ -1585,7 +1586,7 @@ def _refresh_kd(kd_id, state, time_update, update_history):
         print(f"Could not query kd_id {kd_id}")
         pass
 
-    while not acquire_lock(f'/kingdom/{kd_id}', timeout=999):
+    while not uam.acquire_lock(f'/kingdom/{kd_id}', timeout=999):
         time.sleep(0.01)
 
     try:
@@ -1689,7 +1690,7 @@ def _refresh_kd(kd_id, state, time_update, update_history):
             data=json.dumps(new_kd_info, default=str),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
 
     _resolve_schedules(kd_id, time_update)
     new_kd_info = uag._get_kd_info(kd_id)
@@ -1711,7 +1712,7 @@ def _refresh_kd(kd_id, state, time_update, update_history):
     return score_stars, score_networth
 
 
-@app.route('/api/refreshdata')
+@bp.route('/api/refreshdata')
 def refresh_data():
     """Perform periodic refresh tasks"""
     headers = flask.request.headers

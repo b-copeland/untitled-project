@@ -9,11 +9,14 @@ import flask
 import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
+import untitledapp.misc as uam
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, alive_required, start_required, _mark_kingdom_death, _add_notifs, REQUESTS_SESSION, SOCK_HANDLERS, acquire_lock, acquire_locks, release_lock, release_locks_by_id, release_locks_by_name
+from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
 
-@app.route('/api/revealrandomgalaxy', methods=['GET'])
+bp = flask.Blueprint("conquer", __name__)
+
+@bp.route('/api/revealrandomgalaxy', methods=['GET'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -22,7 +25,7 @@ def reveal_random_galaxy():
     kd_id = flask_praetorian.current_user().kd_id
     
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/revealed'], request_id=request_id):
+    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/revealed'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -91,7 +94,7 @@ def reveal_random_galaxy():
             data=json.dumps(kd_payload),
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
 
     return (flask.jsonify({"message": f"Reveavled galaxy {galaxy_to_reveal}", "status": "success"}), 200)
 
@@ -200,7 +203,7 @@ def _calc_generals_return_time(
     ]
     return return_times
 
-@app.route('/api/calculate/<target_kd>', methods=['POST'])
+@bp.route('/api/calculate/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -627,7 +630,7 @@ def _autofill_attack(req, kd_id, target_kd):
 
 
 
-@app.route('/api/autofill/<target_kd>', methods=['POST'])
+@bp.route('/api/autofill/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -681,7 +684,7 @@ def _attack(req, kd_id, target_kd):
             f'/kingdom/{kd_revealed_to}'
             for kd_revealed_to in kds_revealed_to
         )
-    if not acquire_locks(base_locks, request_id=request_id):
+    if not uam.acquire_locks(base_locks, request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     else:
@@ -861,7 +864,7 @@ def _attack(req, kd_id, target_kd):
                     headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
                     data=json.dumps(sharer_news),
                 )
-                _add_notifs(sharer, ["news_kingdom"])
+                uam._add_notifs(sharer, ["news_kingdom"])
             else:
                 sharer_spoils_values = {}
 
@@ -973,7 +976,7 @@ def _attack(req, kd_id, target_kd):
         
         if target_kd_info["stars"] <= 0:
             target_kd_info["status"] = "Dead"
-            _mark_kingdom_death(target_kd)
+            uam._mark_kingdom_death(target_kd)
         target_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -1000,7 +1003,7 @@ def _attack(req, kd_id, target_kd):
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(target_news),
         )
-        _add_notifs(target_kd, ["news_kingdom"])
+        uam._add_notifs(target_kd, ["news_kingdom"])
         kd_patch_response = REQUESTS_SESSION.patch(
             os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
@@ -1097,7 +1100,7 @@ def _attack(req, kd_id, target_kd):
                     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
                         pass
         for defender_galaxy_kd in galaxy_info[defender_galaxy]:
-            _add_notifs(defender_galaxy_kd, ["news_galaxy"])
+            uam._add_notifs(defender_galaxy_kd, ["news_galaxy"])
 
         if attacker_empire is not None and defender_empire is not None and attacker_empire != defender_empire:
             _add_aggression(
@@ -1112,10 +1115,10 @@ def _attack(req, kd_id, target_kd):
             "message": attacker_message,
         }
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return kd_info_parse, attack_results, 200
 
-@app.route('/api/attack/<target_kd>', methods=['POST'])
+@bp.route('/api/attack/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1129,7 +1132,7 @@ def attack(target_kd):
     _, payload, status_code = _attack(req, kd_id, target_kd)
     return (flask.jsonify(payload), status_code)
 
-@app.route('/api/calculateprimitives', methods=['POST'])
+@bp.route('/api/calculateprimitives', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1236,7 +1239,7 @@ def calculate_attack_primitives():
 
 def _attack_primitives(req, kd_id):
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/attackhistory'], request_id=request_id):
+    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/attackhistory'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -1389,10 +1392,10 @@ def _attack_primitives(req, kd_id):
             "message": attacker_message,
         }
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return kd_info_parse, attack_results, 200
 
-@app.route('/api/attackprimitives', methods=['POST'])
+@bp.route('/api/attackprimitives', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1433,7 +1436,7 @@ def _validate_auto_attack_settings(req_settings):
     return True, ""
 
 
-@app.route('/api/attackprimitives/auto', methods=['POST'])
+@bp.route('/api/attackprimitives/auto', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1442,7 +1445,7 @@ def auto_attack_primitives():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -1495,7 +1498,7 @@ def auto_attack_primitives():
             data=json.dumps(payload),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated auto attack settings", "status": "success"}), 200)
 
 
@@ -1534,7 +1537,7 @@ def _calculate_spy_losses(
     return success_loss, failure_loss
     
         
-@app.route('/api/calculatespy/<target_kd>', methods=['POST'])
+@bp.route('/api/calculatespy/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1694,7 +1697,7 @@ def _spy(req, kd_id, target_kd):
             for kd_to_update in kds_to_update
         )
     request_id = str(uuid.uuid4())
-    if not acquire_locks(
+    if not uam.acquire_locks(
         base_locks,
         request_id=request_id
     ):
@@ -1943,7 +1946,7 @@ def _spy(req, kd_id, target_kd):
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(target_news_payload),
         )
-        _add_notifs(target_kd, ["news_kingdom"])
+        uam._add_notifs(target_kd, ["news_kingdom"])
         try:
             ws = SOCK_HANDLERS[target_kd]
             ws.send(json.dumps({
@@ -1994,10 +1997,10 @@ def _spy(req, kd_id, target_kd):
             "message": message,
         }
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200, success
         
-@app.route('/api/spy/<target_kd>', methods=['POST'])
+@bp.route('/api/spy/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -2017,7 +2020,7 @@ def spy(target_kd):
 
 def _rob_primitives(req, kd_id):
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/spyhistory'], request_id=request_id):
+    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/spyhistory'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -2103,10 +2106,10 @@ def _rob_primitives(req, kd_id):
             "message": message,
         }
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200
 
-@app.route('/api/robprimitives', methods=['POST'])
+@bp.route('/api/robprimitives', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -2133,7 +2136,7 @@ def _validate_auto_rob_settings(req_settings):
     return True, ""
 
 
-@app.route('/api/robprimitives/auto', methods=['POST'])
+@bp.route('/api/robprimitives/auto', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2142,7 +2145,7 @@ def auto_rob_primitives():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -2198,7 +2201,7 @@ def auto_rob_primitives():
             data=json.dumps(payload),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated auto attack settings", "status": "success"}), 200)
 
 def _validate_schedule_attack(
@@ -2393,7 +2396,7 @@ def _schedule_missiles(
     return True, new_schedule, ""
     
 
-@app.route('/api/schedule', methods=['POST'])
+@bp.route('/api/schedule', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2402,7 +2405,7 @@ def add_schedule():
 
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -2450,11 +2453,11 @@ def add_schedule():
             data=json.dumps(kd_payload, default=str),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
 
     return (flask.jsonify({"message": "Successfully scheduled", "status": "success"}), 200)
 
-@app.route('/api/schedule/cancel', methods=['POST'])
+@bp.route('/api/schedule/cancel', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2463,7 +2466,7 @@ def cancel_schedule():
 
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -2485,7 +2488,7 @@ def cancel_schedule():
             data=json.dumps(kd_payload, default=str),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Cancelled scheduled action", "status": "success"}), 200)
 
 
@@ -2525,7 +2528,7 @@ def _calculate_missiles_damage(
     return damage
     
 
-@app.route('/api/calculatemissiles/<target_kd>', methods=['POST'])
+@bp.route('/api/calculatemissiles/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2587,7 +2590,7 @@ def _launch_missiles(req, kd_id, target_kd):
     defender_galaxy = galaxies_inverted[target_kd]
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks(
+    if not uam.acquire_locks(
         [
             f'/kingdom/{kd_id}',
             f'/kingdom/{kd_id}/missilehistory',
@@ -2658,7 +2661,7 @@ def _launch_missiles(req, kd_id, target_kd):
         }
         if target_stars <= 0 or target_pop <= 0:
             defender_patch_payload["status"] = "Dead"
-            _mark_kingdom_death(target_kd)
+            uam._mark_kingdom_death(target_kd)
         defender_patch_payload["stars"] = max(defender_patch_payload["stars"], 0)
         defender_patch_payload["projects_max_points"] = {}
         for key_project, project_dict in uas.PROJECTS.items():
@@ -2680,7 +2683,7 @@ def _launch_missiles(req, kd_id, target_kd):
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(target_news_payload),
         )
-        _add_notifs(target_kd, ["news_kingdom"])
+        uam._add_notifs(target_kd, ["news_kingdom"])
         history_payload = {
             "time": time_now.isoformat(),
             "to": target_kd,
@@ -2736,10 +2739,10 @@ def _launch_missiles(req, kd_id, target_kd):
             "message": message,
         }
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200
 
-@app.route('/api/launchmissiles/<target_kd>', methods=['POST'])
+@bp.route('/api/launchmissiles/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -2754,7 +2757,7 @@ def launch_missiles(target_kd):
     _, payload, status_code = _launch_missiles(req, kd_id, target_kd)
     return (flask.jsonify(payload), status_code)
 
-@app.route('/api/shared', methods=['POST'])
+@bp.route('/api/shared', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2766,7 +2769,7 @@ def accept_shared():
     
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks(
+    if not uam.acquire_locks(
         [
             f'/kingdom/{kd_id}',
             f'/kingdom/{kd_id}/shared',
@@ -2814,7 +2817,7 @@ def accept_shared():
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return (flask.jsonify(shared_info_response.text), 200)
 
 def _offer_shared(req, kd_id):
@@ -2895,7 +2898,7 @@ def _offer_shared(req, kd_id):
             headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
             data=json.dumps(shared_to_payload),
         )
-        _add_notifs(kd_to_update, ["shared"])
+        uam._add_notifs(kd_to_update, ["shared"])
 
         shared_to_kd_info = uag._get_kd_info(kd_to_update)
         if shared_resolve_time < shared_to_kd_info["next_resolve"]["shared"]:
@@ -2939,7 +2942,7 @@ def _offer_shared(req, kd_id):
     }
     return payload, 200
 
-@app.route('/api/offershared', methods=['POST'])
+@bp.route('/api/offershared', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2967,7 +2970,7 @@ def offer_shared():
             for kd_to_update in kds_to_update
         )
     request_id = str(uuid.uuid4())
-    if not acquire_locks(
+    if not uam.acquire_locks(
         base_locks,
         request_id=request_id
     ):
@@ -2975,10 +2978,10 @@ def offer_shared():
     try:
         payload, status_code = _offer_shared(req, kd_id)
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return (flask.jsonify(payload), status_code)
 
-@app.route('/api/pinned', methods=['POST'])
+@bp.route('/api/pinned', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2987,7 +2990,7 @@ def update_pinned():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not acquire_lock(f'/kingdom/{kd_id}/pinned'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}/pinned'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -2997,6 +3000,6 @@ def update_pinned():
             data=json.dumps(req),
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}/pinned')
+        uam.release_lock(f'/kingdom/{kd_id}/pinned')
     return (flask.jsonify(pinned_patch_response.text), 200)
 

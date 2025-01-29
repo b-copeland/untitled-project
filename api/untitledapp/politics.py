@@ -11,11 +11,14 @@ import uuid
 import flask
 import flask_praetorian
 
+import untitledapp.misc as uam
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS, acquire_lock, acquire_locks, release_lock, release_locks_by_id, release_locks_by_name
+from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
 
-@app.route('/api/galaxypolitics/leader', methods=['POST'])
+bp = flask.Blueprint("politics", __name__)
+
+@bp.route('/api/galaxypolitics/leader', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -25,7 +28,7 @@ def galaxy_leader():
     
     galaxy_votes, galaxy_id = uag._get_galaxy_politics(kd_id)
     
-    if not acquire_lock(f'/galaxy/{galaxy_id}/politics'):
+    if not uam.acquire_lock(f'/galaxy/{galaxy_id}/politics'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -53,11 +56,11 @@ def galaxy_leader():
             data=json.dumps(patch_payload)
         )
     finally:
-        release_lock(f'/galaxy/{galaxy_id}/politics')
+        uam.release_lock(f'/galaxy/{galaxy_id}/politics')
 
     return (flask.jsonify(galaxy_votes), 200)
 
-@app.route('/api/galaxypolitics/policies', methods=['POST'])
+@bp.route('/api/galaxypolitics/policies', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -67,7 +70,7 @@ def galaxy_policies():
     
     galaxy_votes, galaxy_id = uag._get_galaxy_politics(kd_id)
     
-    if not acquire_lock(f'/galaxy/{galaxy_id}/politics'):
+    if not uam.acquire_lock(f'/galaxy/{galaxy_id}/politics'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -99,7 +102,7 @@ def galaxy_policies():
             data=json.dumps(patch_payload)
         )
     finally:
-        release_lock(f'/galaxy/{galaxy_id}/politics')
+        uam.release_lock(f'/galaxy/{galaxy_id}/politics')
 
     return (flask.jsonify(galaxy_votes), 200)
 
@@ -120,7 +123,7 @@ def _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted)
     return True, ""
 
 
-@app.route('/api/empire', methods=['POST'])
+@bp.route('/api/empire', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -137,7 +140,7 @@ def create_empire():
     if not valid_name:
         return flask.jsonify({"message": message}), 400
     
-    if not acquire_lock(f'/empires'):
+    if not uam.acquire_lock(f'/empires'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -152,7 +155,7 @@ def create_empire():
             data=json.dumps(empire_payload)
         )
     finally:
-        release_lock('/empires')
+        uam.release_lock('/empires')
 
     return flask.jsonify({"message": "Empire created", "status": "success"}), 201
 
@@ -165,7 +168,7 @@ def _validate_join_empire(galaxy_politics, kd_id, empires_inverted):
     
     return True, ""
 
-@app.route('/api/empire/<target_empire>/join', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/join', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -177,7 +180,7 @@ def request_join_empire(target_empire):
     empires_inverted, _, _, _ = uag._get_empires_inverted()
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/empire/{target_empire}/politics', f'/galaxy/{kd_galaxy}/politics'], request_id=request_id):
+    if not uam.acquire_locks([f'/empire/{target_empire}/politics', f'/galaxy/{kd_galaxy}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -213,10 +216,10 @@ def request_join_empire(target_empire):
             data=json.dumps(galaxy_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Join request sent", "status": "success"}), 200
 
-@app.route('/api/empire/<target_empire>/canceljoin', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/canceljoin', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -230,7 +233,7 @@ def cancel_join_empire(target_empire):
         return flask.jsonify({"message": "You must be galaxy leader to manage Empire requests"}), 400    
     
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/empire/{target_empire}/politics', f'/galaxy/{kd_galaxy}/politics'], request_id=request_id):
+    if not uam.acquire_locks([f'/empire/{target_empire}/politics', f'/galaxy/{kd_galaxy}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -261,7 +264,7 @@ def cancel_join_empire(target_empire):
             data=json.dumps(galaxy_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Join request cancelled", "status": "success"}), 200
 
 def _validate_empire_invite(galaxy_politics, kd_id, empires_inverted):    
@@ -273,7 +276,7 @@ def _validate_empire_invite(galaxy_politics, kd_id, empires_inverted):
     
     return True, ""
 
-@app.route('/api/empire/<target_empire>/acceptinvite', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/acceptinvite', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -285,7 +288,7 @@ def accept_empire_invite(target_empire):
     empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks(['/empires', f'/empire/{target_empire}/politics', f'/galaxy/{kd_galaxy}/politics'], request_id=request_id):
+    if not uam.acquire_locks(['/empires', f'/empire/{target_empire}/politics', f'/galaxy/{kd_galaxy}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -330,7 +333,7 @@ def accept_empire_invite(target_empire):
             data=json.dumps(galaxy_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Joined Empire", "status": "success"}), 200
 
 def _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, galaxy_id, kd_galaxy_politics, kd_galaxy_id):    
@@ -345,7 +348,7 @@ def _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, galaxy_id, k
     
     return True, ""
 
-@app.route('/api/galaxy/<target_galaxy>/invite', methods=['POST'])
+@bp.route('/api/galaxy/<target_galaxy>/invite', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -359,7 +362,7 @@ def invite_galaxy(target_galaxy):
     kd_empire = empires_inverted.get(kd_id)
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/empire/{kd_empire}/politics', f'/galaxy/{target_galaxy}/politics'], request_id=request_id):
+    if not uam.acquire_locks([f'/empire/{kd_empire}/politics', f'/galaxy/{target_galaxy}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -395,10 +398,10 @@ def invite_galaxy(target_galaxy):
             data=json.dumps(galaxy_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Invitation sent", "status": "success"}), 200
 
-@app.route('/api/galaxy/<target_galaxy>/cancelinvite', methods=['POST'])
+@bp.route('/api/galaxy/<target_galaxy>/cancelinvite', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -412,7 +415,7 @@ def cancel_invite_galaxy(target_galaxy):
     kd_empire = empires_inverted.get(kd_id)
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/empire/{kd_empire}/politics', f'/galaxy/{target_galaxy}/politics'], request_id=request_id):
+    if not uam.acquire_locks([f'/empire/{kd_empire}/politics', f'/galaxy/{target_galaxy}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -450,7 +453,7 @@ def cancel_invite_galaxy(target_galaxy):
             data=json.dumps(galaxy_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Invitation revoked", "status": "success"}), 200
 
 def _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, galaxy_id, kd_galaxy_politics, kd_galaxy_id):    
@@ -465,7 +468,7 @@ def _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, gala
     
     return True, ""
 
-@app.route('/api/galaxy/<target_galaxy>/accept', methods=['POST'])
+@bp.route('/api/galaxy/<target_galaxy>/accept', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -479,7 +482,7 @@ def accept_galaxy_request(target_galaxy):
     kd_empire = empires_inverted.get(kd_id)
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/empire/{kd_empire}/politics', f'/galaxy/{target_galaxy}/politics'], request_id=request_id):
+    if not uam.acquire_locks([f'/empire/{kd_empire}/politics', f'/galaxy/{target_galaxy}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -525,7 +528,7 @@ def accept_galaxy_request(target_galaxy):
             data=json.dumps(galaxy_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Galaxy added to Empire", "status": "success"}), 200
 
 def _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics):
@@ -535,7 +538,7 @@ def _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics):
     
     return True, ""
 
-@app.route('/api/leaveempire', methods=['POST'])
+@bp.route('/api/leaveempire', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -548,7 +551,7 @@ def leave_empire():
     kd_empire = empires_inverted.get(kd_id)
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks(['/empires', f'/empire/{kd_empire}/politics'], request_id=request_id):
+    if not uam.acquire_locks(['/empires', f'/empire/{kd_empire}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -584,7 +587,7 @@ def leave_empire():
                 data=json.dumps(kd_empire_payload)
             )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Left Empire", "status": "success"}), 200
 
 def _validate_denounce(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire):    
@@ -602,7 +605,7 @@ def _validate_denounce(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id,
 
     return True, ""
 
-@app.route('/api/empire/<target_empire>/denounce', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/denounce', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -615,7 +618,7 @@ def denounce(target_empire):
     kd_empire = empires_inverted.get(kd_id)
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks(['/universenews', '/empires', f'/empire/{kd_empire}/politics'], request_id=request_id):
+    if not uam.acquire_locks(['/universenews', '/empires', f'/empire/{kd_empire}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -660,7 +663,7 @@ def denounce(target_empire):
             data=json.dumps(empires_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Denounced!", "status": "success"}), 200
 
 def _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire):    
@@ -681,7 +684,7 @@ def _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_
 
     return True, ""
 
-@app.route('/api/empire/<target_empire>/declare', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/declare', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -694,7 +697,7 @@ def declare_war(target_empire):
     kd_empire = empires_inverted.get(kd_id)
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks(['/universenews', '/empires'], request_id=request_id):
+    if not uam.acquire_locks(['/universenews', '/empires'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -735,7 +738,7 @@ def declare_war(target_empire):
             data=json.dumps(empires_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Declared war!", "status": "success"}), 200
 
 def _validate_request_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire, surrender_type, surrender_value):    
@@ -756,7 +759,7 @@ def _validate_request_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_g
 
     return True, ""
 
-@app.route('/api/empire/<target_empire>/surrenderrequest', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/surrenderrequest', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -772,7 +775,7 @@ def request_surrender(target_empire):
     kd_empire = empires_inverted.get(kd_id)
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/empire/{target_empire}/politics', f'/empire/{kd_empire}/politics'], request_id=request_id):
+    if not uam.acquire_locks([f'/empire/{target_empire}/politics', f'/empire/{kd_empire}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -836,11 +839,11 @@ def request_surrender(target_empire):
             data=json.dumps(empire_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
 
     return flask.jsonify({"message": "Surrender request sent", "status": "success"}), 200
 
-@app.route('/api/empire/<target_empire>/cancelsurrenderrequest', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/cancelsurrenderrequest', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -856,7 +859,7 @@ def cancel_request_surrender(target_empire):
     kd_empire = empires_inverted.get(kd_id)
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/empire/{target_empire}/politics', f'/empire/{kd_empire}/politics'], request_id=request_id):
+    if not uam.acquire_locks([f'/empire/{target_empire}/politics', f'/empire/{kd_empire}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -916,7 +919,7 @@ def cancel_request_surrender(target_empire):
             data=json.dumps(empire_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
 
     return flask.jsonify({"message": "Surrender request cancelled", "status": "success"}), 200
 
@@ -938,7 +941,7 @@ def _validate_offer_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_gal
 
     return True, ""
 
-@app.route('/api/empire/<target_empire>/surrenderoffer', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/surrenderoffer', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -954,7 +957,7 @@ def offer_surrender(target_empire):
     kd_empire = empires_inverted.get(kd_id)
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/empire/{target_empire}/politics', f'/empire/{kd_empire}/politics'], request_id=request_id):
+    if not uam.acquire_locks([f'/empire/{target_empire}/politics', f'/empire/{kd_empire}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -1018,11 +1021,11 @@ def offer_surrender(target_empire):
             data=json.dumps(empire_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
 
     return flask.jsonify({"message": "Surrender offer sent", "status": "success"}), 200
 
-@app.route('/api/empire/<target_empire>/cancelsurrenderoffer', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/cancelsurrenderoffer', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1038,7 +1041,7 @@ def cancel_offer_surrender(target_empire):
     kd_empire = empires_inverted.get(kd_id)
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/empire/{target_empire}/politics', f'/empire/{kd_empire}/politics'], request_id=request_id):
+    if not uam.acquire_locks([f'/empire/{target_empire}/politics', f'/empire/{kd_empire}/politics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -1098,7 +1101,7 @@ def cancel_offer_surrender(target_empire):
             data=json.dumps(empire_payload)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
 
     return flask.jsonify({"message": "Surrender offer cancelled", "status": "success"}), 200
 
@@ -1215,7 +1218,7 @@ def _surrender(
         data=json.dumps(empires_info)
     )
 
-@app.route('/api/empire/<target_empire>/acceptsurrenderoffer', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/acceptsurrenderoffer', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1247,7 +1250,7 @@ def accept_offer_surrender(target_empire):
     base_locks.extend([
         f"/kingdom/{kd_id}" for kd_id in winning_kds
     ])
-    if not acquire_locks(base_locks, request_id=request_id):
+    if not uam.acquire_locks(base_locks, request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -1285,10 +1288,10 @@ def accept_offer_surrender(target_empire):
             surrender_value,
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Surrender offer has been accepted", "status": "success"}), 200
 
-@app.route('/api/empire/<target_empire>/acceptsurrenderrequest', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/acceptsurrenderrequest', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1320,7 +1323,7 @@ def accept_request_surrender(target_empire):
     base_locks.extend([
         f"/kingdom/{kd_id}" for kd_id in winning_kds
     ])
-    if not acquire_locks(base_locks, request_id=request_id):
+    if not uam.acquire_locks(base_locks, request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
@@ -1358,7 +1361,7 @@ def accept_request_surrender(target_empire):
             surrender_value,
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Surrender request has been accepted", "status": "success"}), 200
     
 
@@ -1375,7 +1378,7 @@ def _validate_buy_votes(
     
     return True, ""
 
-@app.route('/api/votes', methods=['POST'])
+@bp.route('/api/votes', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1384,7 +1387,7 @@ def buy_votes():
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not acquire_lock(f'/kingdom/{kd_id}'):
+    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     try:
         kd_info = uag._get_kd_info(kd_id)
@@ -1406,7 +1409,7 @@ def buy_votes():
             data=json.dumps(kd_patch_payload)
         )
     finally:
-        release_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Bought votes", "status": "success"}), 200)
 
 def _validate_cast_votes(
@@ -1420,7 +1423,7 @@ def _validate_cast_votes(
     
     return True, ""
 
-@app.route('/api/universepolitics/policies', methods=['POST'])
+@bp.route('/api/universepolitics/policies', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1430,7 +1433,7 @@ def universe_policies():
     kd_id = flask_praetorian.current_user().kd_id
     
     request_id = str(uuid.uuid4())
-    if not acquire_locks([f'/kingdom/{kd_id}', f'/universepolitics'], request_id=request_id):
+    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/universepolitics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
     try:
@@ -1467,6 +1470,6 @@ def universe_policies():
             data=json.dumps(universe_politics)
         )
     finally:
-        release_locks_by_id(request_id)
+        uam.release_locks_by_id(request_id)
 
     return (flask.jsonify({"message": "Cast votes", "status": "success"}), 200)

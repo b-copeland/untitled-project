@@ -4,9 +4,11 @@ import os
 import flask
 import flask_praetorian
 
-from untitledapp import app, guard, db, User, REQUESTS_SESSION
+from untitledapp import guard, db, User, REQUESTS_SESSION
 
-@app.route('/api/login', methods=['POST'])
+bp = flask.Blueprint("account", __name__)
+
+@bp.route('/api/login', methods=['POST'])
 def login():
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
@@ -15,27 +17,7 @@ def login():
     ret = {'accessToken': guard.encode_jwt_token(user), 'refreshToken': guard.encode_jwt_token(user)}
     return (flask.jsonify(ret), 200)
 
-@app.route('/api/adminlogin', methods=['POST'])
-def admin_login():
-    req = flask.request.get_json(force=True)
-    username = req.get('username', None)
-    password = req.get('password', None)
-    user = guard.authenticate(username, password)
-    if "admin" not in user.roles:
-        return flask.jsonify({"message": "Not authorized"})
-    ret = {'accessToken': guard.encode_jwt_token(user), 'refreshToken': guard.encode_jwt_token(user)}
-    return (flask.jsonify(ret), 200)
-
-@app.route('/api/adminrefresh', methods=['POST'])
-@flask_praetorian.roles_required('admin')
-def admin_refresh():
-    
-    old_token = guard.read_token_from_header()
-    new_token = guard.refresh_jwt_token(old_token)
-    ret = {'accessToken': new_token}
-    return ret, 200
-
-@app.route('/api/refresh', methods=['POST'])
+@bp.route('/api/refresh', methods=['POST'])
 def refresh():
     
     old_token = guard.read_token_from_header()
@@ -55,7 +37,7 @@ def _update_accounts():
 
 
 
-@app.route('/api/disable_user', methods=['POST'])
+@bp.route('/api/disable_user', methods=['POST'])
 @flask_praetorian.auth_required
 @flask_praetorian.roles_required('admin')
 def disable_user():
@@ -86,7 +68,7 @@ def _validate_signup(
     
     return True, ""
 
-@app.route('/api/signup', methods=['POST'])
+@bp.route('/api/signup', methods=['POST'])
 def signup():
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
@@ -108,7 +90,7 @@ def signup():
     ret = {'message': 'Successfully created!', "status": "success"}
     return (flask.jsonify(ret), 201)
 
-@app.route('/api/register', methods=['POST'])
+@bp.route('/api/register', methods=['POST'])
 def register():
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
@@ -136,7 +118,7 @@ def register():
     return (flask.jsonify(ret), 201)
 
 
-@app.route('/api/finalize')
+@bp.route('/api/finalize')
 def finalize():
     registration_token = guard.read_token_from_header()
     user = guard.get_user_from_registration_token(registration_token)
