@@ -102,26 +102,13 @@ def _custom_limit_key_func():
         token = get_remote_address()
     return token
 
-def create_app():
+def create_app(config_class='config.Config'):
     # Initialize flask app for the example
     app = flask.Flask(__name__, static_folder='../../build', static_url_path=None)
+    app.config.from_object(config_class)
     app.debug = True
-    app.config['SECRET_KEY'] = os.environ["SECRET_KEY"]
-    app.config['JWT_ACCESS_LIFESPAN'] = {'hours': 24}
-    app.config['JWT_REFRESH_LIFESPAN'] = {'hours': 24}
-    app.config['MAIL_SERVER'] = 'smtp.sendgrid.net'
-    app.config['MAIL_PORT'] = 587
-    app.config['MAIL_USE_TLS'] = True
-    app.config['MAIL_USERNAME'] = 'apikey'
-    app.config['MAIL_PASSWORD'] = os.environ.get('SENDGRID_API_KEY')
-    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
-    app.config['AZURE_FUNCTION_ENDPOINT'] = os.environ.get('COSMOS_ENDPOINT')
-    app.config['AZURE_FUNCTION_KEY'] = os.environ.get('COSMOS_KEY')
-    # Initialize a local database for the example
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ["SQLALCHEMY_DATABASE_URI"]
 
     app.logger.addHandler(logging.StreamHandler())
-
 
     # Initialize the flask-praetorian instance for the app
     guard.init_app(app, User)
