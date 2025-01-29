@@ -6,9 +6,11 @@ import flask_praetorian
 
 import untitledapp.account as uaa
 import untitledapp.misc as uam
-from untitledapp import app, guard, db, User, REQUESTS_SESSION
+from untitledapp import guard, db, User, REQUESTS_SESSION
 
-@app.route('/api/adminlogin', methods=['POST'])
+bp = flask.Blueprint("admin", __name__)
+
+@bp.route('/api/adminlogin', methods=['POST'])
 def admin_login():
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
@@ -19,7 +21,7 @@ def admin_login():
     ret = {'accessToken': guard.encode_jwt_token(user), 'refreshToken': guard.encode_jwt_token(user)}
     return (flask.jsonify(ret), 200)
 
-@app.route('/api/adminrefresh', methods=['POST'])
+@bp.route('/api/adminrefresh', methods=['POST'])
 @flask_praetorian.roles_required('admin')
 def admin_refresh():
     
@@ -28,7 +30,7 @@ def admin_refresh():
     ret = {'accessToken': new_token}
     return ret, 200
 
-@app.route('/api/updatestate', methods=["POST"])
+@bp.route('/api/updatestate', methods=["POST"])
 @flask_praetorian.roles_required('admin')
 def update_state():
     """
@@ -66,7 +68,7 @@ def update_state():
     return flask.jsonify(update_response.text), 200
 
 
-@app.route('/api/createstate', methods=["POST"])
+@bp.route('/api/createstate', methods=["POST"])
 @flask_praetorian.roles_required('admin')
 def create_state():
     """
@@ -93,7 +95,7 @@ def create_state():
     )
     return flask.jsonify(update_response.text), 200
 
-@app.route('/api/resetstate', methods=["POST"])
+@bp.route('/api/resetstate', methods=["POST"])
 @flask_praetorian.roles_required('admin')
 def reset_state():
     """

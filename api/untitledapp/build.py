@@ -12,7 +12,9 @@ from flask_sock import Sock, ConnectionClosed
 import untitledapp.misc as uam
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, alive_required, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import alive_required, REQUESTS_SESSION, SOCK_HANDLERS
+
+bp = flask.Blueprint("build", __name__)
 
 def _make_time_splits(min_time, max_time, num_splits):
     assert num_splits % 2 == 0, "num_splits must be even"
@@ -95,7 +97,7 @@ def _get_new_recruits(recruits_input, is_conscription, start_time):
     ]
     return new_recruits, min_time
 
-@app.route('/api/recruits', methods=['POST'])
+@bp.route('/api/recruits', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -217,7 +219,7 @@ def _get_new_mobis(mobis_request, start_time):
     ]
     return new_mobis, min_mobi_time
 
-@app.route('/api/mobis', methods=['POST'])
+@bp.route('/api/mobis', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -303,7 +305,7 @@ def _validate_mobis_target(req_targets, kd_info_parse):
     
     return True, ""
 
-@app.route('/api/mobis/target', methods=['POST'])
+@bp.route('/api/mobis/target', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -377,7 +379,7 @@ def _validate_disband(kd_info, input):
         
     return True, ""
 
-@app.route('/api/mobis/disband', methods=['POST'])
+@bp.route('/api/mobis/disband', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -472,7 +474,7 @@ def _get_new_structures(structures_request, start_time):
     ]
     return new_structures, min_structure_time
 
-@app.route('/api/structures', methods=['POST'])
+@bp.route('/api/structures', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -559,7 +561,7 @@ def _validate_structures_target(req_targets):
     
     return True, ""
 
-@app.route('/api/structures/target', methods=['POST'])
+@bp.route('/api/structures/target', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -611,7 +613,7 @@ def _validate_raze(kd_info, input):
         
     return True, ""
 
-@app.route('/api/structures/raze', methods=['POST'])
+@bp.route('/api/structures/raze', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -703,7 +705,7 @@ def _get_new_settles(kd_info_parse, settle_input, start_time):
     ]
     return new_settles, min_settle_time
 
-@app.route('/api/settle', methods=['POST'])
+@bp.route('/api/settle', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -796,7 +798,7 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
     return True
 
 
-@app.route('/api/missiles', methods=['POST'])
+@bp.route('/api/missiles', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -919,7 +921,7 @@ def _get_new_engineers(engineers_input, start_time):
     ]
     return new_engineers, min_time
 
-@app.route('/api/engineers', methods=['POST'])
+@bp.route('/api/engineers', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1002,7 +1004,7 @@ def _validate_projects_target(req_targets, kd_info_parse):
     
     return True, ""
 
-@app.route('/api/projects/target', methods=['POST'])
+@bp.route('/api/projects/target', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1082,7 +1084,7 @@ def _validate_add_projects(req, available_engineers, kd_info_parse):
         return False
     return True
 
-@app.route('/api/projects', methods=['POST'])
+@bp.route('/api/projects', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')

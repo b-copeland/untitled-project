@@ -12,9 +12,11 @@ from flask_sock import Sock, ConnectionClosed
 import untitledapp.misc as uam
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
 
-@app.route('/api/revealrandomgalaxy', methods=['GET'])
+bp = flask.Blueprint("conquer", __name__)
+
+@bp.route('/api/revealrandomgalaxy', methods=['GET'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -201,7 +203,7 @@ def _calc_generals_return_time(
     ]
     return return_times
 
-@app.route('/api/calculate/<target_kd>', methods=['POST'])
+@bp.route('/api/calculate/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -628,7 +630,7 @@ def _autofill_attack(req, kd_id, target_kd):
 
 
 
-@app.route('/api/autofill/<target_kd>', methods=['POST'])
+@bp.route('/api/autofill/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1116,7 +1118,7 @@ def _attack(req, kd_id, target_kd):
         uam.release_locks_by_id(request_id)
     return kd_info_parse, attack_results, 200
 
-@app.route('/api/attack/<target_kd>', methods=['POST'])
+@bp.route('/api/attack/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1130,7 +1132,7 @@ def attack(target_kd):
     _, payload, status_code = _attack(req, kd_id, target_kd)
     return (flask.jsonify(payload), status_code)
 
-@app.route('/api/calculateprimitives', methods=['POST'])
+@bp.route('/api/calculateprimitives', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1393,7 +1395,7 @@ def _attack_primitives(req, kd_id):
         uam.release_locks_by_id(request_id)
     return kd_info_parse, attack_results, 200
 
-@app.route('/api/attackprimitives', methods=['POST'])
+@bp.route('/api/attackprimitives', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1434,7 +1436,7 @@ def _validate_auto_attack_settings(req_settings):
     return True, ""
 
 
-@app.route('/api/attackprimitives/auto', methods=['POST'])
+@bp.route('/api/attackprimitives/auto', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1535,7 +1537,7 @@ def _calculate_spy_losses(
     return success_loss, failure_loss
     
         
-@app.route('/api/calculatespy/<target_kd>', methods=['POST'])
+@bp.route('/api/calculatespy/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -1998,7 +2000,7 @@ def _spy(req, kd_id, target_kd):
         uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200, success
         
-@app.route('/api/spy/<target_kd>', methods=['POST'])
+@bp.route('/api/spy/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -2107,7 +2109,7 @@ def _rob_primitives(req, kd_id):
         uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200
 
-@app.route('/api/robprimitives', methods=['POST'])
+@bp.route('/api/robprimitives', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -2134,7 +2136,7 @@ def _validate_auto_rob_settings(req_settings):
     return True, ""
 
 
-@app.route('/api/robprimitives/auto', methods=['POST'])
+@bp.route('/api/robprimitives/auto', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2394,7 +2396,7 @@ def _schedule_missiles(
     return True, new_schedule, ""
     
 
-@app.route('/api/schedule', methods=['POST'])
+@bp.route('/api/schedule', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2455,7 +2457,7 @@ def add_schedule():
 
     return (flask.jsonify({"message": "Successfully scheduled", "status": "success"}), 200)
 
-@app.route('/api/schedule/cancel', methods=['POST'])
+@bp.route('/api/schedule/cancel', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2526,7 +2528,7 @@ def _calculate_missiles_damage(
     return damage
     
 
-@app.route('/api/calculatemissiles/<target_kd>', methods=['POST'])
+@bp.route('/api/calculatemissiles/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2740,7 +2742,7 @@ def _launch_missiles(req, kd_id, target_kd):
         uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200
 
-@app.route('/api/launchmissiles/<target_kd>', methods=['POST'])
+@bp.route('/api/launchmissiles/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -2755,7 +2757,7 @@ def launch_missiles(target_kd):
     _, payload, status_code = _launch_missiles(req, kd_id, target_kd)
     return (flask.jsonify(payload), status_code)
 
-@app.route('/api/shared', methods=['POST'])
+@bp.route('/api/shared', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2940,7 +2942,7 @@ def _offer_shared(req, kd_id):
     }
     return payload, 200
 
-@app.route('/api/offershared', methods=['POST'])
+@bp.route('/api/offershared', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -2979,7 +2981,7 @@ def offer_shared():
         uam.release_locks_by_id(request_id)
     return (flask.jsonify(payload), status_code)
 
-@app.route('/api/pinned', methods=['POST'])
+@bp.route('/api/pinned', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')

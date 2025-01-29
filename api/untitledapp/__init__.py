@@ -64,39 +64,6 @@ class Locks(db.Model):
     request_id = db.Column(db.Text)
     expires_at = db.Column(db.Text)
 
-
-# Initialize flask app for the example
-app = flask.Flask(__name__, static_folder='../../build', static_url_path=None)
-app.debug = True
-app.config['SECRET_KEY'] = os.environ["SECRET_KEY"]
-app.config['JWT_ACCESS_LIFESPAN'] = {'hours': 24}
-app.config['JWT_REFRESH_LIFESPAN'] = {'hours': 24}
-app.config['MAIL_SERVER'] = 'smtp.sendgrid.net'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'apikey'
-app.config['MAIL_PASSWORD'] = os.environ.get('SENDGRID_API_KEY')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
-app.config['AZURE_FUNCTION_ENDPOINT'] = os.environ.get('COSMOS_ENDPOINT')
-app.config['AZURE_FUNCTION_KEY'] = os.environ.get('COSMOS_KEY')
-
-app.logger.addHandler(logging.StreamHandler())
-
-
-# Initialize the flask-praetorian instance for the app
-guard.init_app(app, User)
-
-# Initialize a local database for the example
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ["SQLALCHEMY_DATABASE_URI"]
-db.init_app(app)
-
-# Initializes CORS so that the api_tool can talk to the example app
-cors.init_app(app)
-
-mail.init_app(app)
-
-sock = Sock(app)
-
 def alive_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -126,24 +93,7 @@ def before_start_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-import untitledapp.account as uaa
-import untitledapp.admin as uaad
-import untitledapp.build as uab
-import untitledapp.conquer as uac
 import untitledapp.getters as uag
-import untitledapp.misc as uam
-import untitledapp.politics as uap
-import untitledapp.refresh as uar
-import untitledapp.shared as uas
-
-if __name__ != '__main__':
-    gunicorn_logger = logging.getLogger('gunicorn.glogging.Logger')
-    gunicorn_error_handlers = logging.getLogger('gunicorn.error').handlers
-    gunicorn_access_handlers = logging.getLogger('gunicorn.access').handlers
-    app.logger.handlers.extend(gunicorn_logger.handlers)
-    app.logger.handlers.extend(gunicorn_error_handlers)
-    app.logger.handlers.extend(gunicorn_access_handlers)
-    app.logger.setLevel(gunicorn_logger.level)
 
 def _custom_limit_key_func():
     try:
@@ -152,72 +102,117 @@ def _custom_limit_key_func():
         token = get_remote_address()
     return token
 
-limiter = Limiter(
-    _custom_limit_key_func,
-    app=app,
-    default_limits=["100 per minute",],
-    storage_uri="memory://",
-)
+def create_app():
+    # Initialize flask app for the example
+    app = flask.Flask(__name__, static_folder='../../build', static_url_path=None)
+    app.debug = True
+    app.config['SECRET_KEY'] = os.environ["SECRET_KEY"]
+    app.config['JWT_ACCESS_LIFESPAN'] = {'hours': 24}
+    app.config['JWT_REFRESH_LIFESPAN'] = {'hours': 24}
+    app.config['MAIL_SERVER'] = 'smtp.sendgrid.net'
+    app.config['MAIL_PORT'] = 587
+    app.config['MAIL_USE_TLS'] = True
+    app.config['MAIL_USERNAME'] = 'apikey'
+    app.config['MAIL_PASSWORD'] = os.environ.get('SENDGRID_API_KEY')
+    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+    app.config['AZURE_FUNCTION_ENDPOINT'] = os.environ.get('COSMOS_ENDPOINT')
+    app.config['AZURE_FUNCTION_KEY'] = os.environ.get('COSMOS_KEY')
+    # Initialize a local database for the example
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ["SQLALCHEMY_DATABASE_URI"]
 
-# Add users for the example
-with app.app_context():
-    db.create_all()
-    accounts_response = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/accounts',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+    app.logger.addHandler(logging.StreamHandler())
+
+
+    # Initialize the flask-praetorian instance for the app
+    guard.init_app(app, User)
+
+    db.init_app(app)
+
+    # Initializes CORS so that the api_tool can talk to the example app
+    cors.init_app(app)
+
+    mail.init_app(app)
+
+    sock = Sock(app)
+    # Add users for the example
+    with app.app_context():
+        db.create_all()
+        accounts_response = REQUESTS_SESSION.get(
+            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/accounts',
+            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        )
+        accounts_json = json.loads(accounts_response.text)
+        accounts = accounts_json["accounts"]
+        for user in accounts:
+            if db.session.query(User).filter_by(username=user["username"]).count() < 1:
+                db.session.add(
+                    User(**user)
+                )
+        if db.session.query(User).filter_by(username='admin').count() < 1:
+            db.session.add(User(
+            username='admin',
+            password=guard.hash_password(os.environ["ADMIN_PASSWORD"]),
+            roles='operator,admin',
+            kd_created=True,
+            ))
+        db.session.commit()
+        
+    import untitledapp.account as uaa
+    import untitledapp.admin as uaad
+    import untitledapp.build as uab
+    import untitledapp.conquer as uac
+    import untitledapp.misc as uam
+    import untitledapp.politics as uap
+    import untitledapp.refresh as uar
+    app.register_blueprint(uaa.bp)
+    app.register_blueprint(uaad.bp)
+    app.register_blueprint(uab.bp)
+    app.register_blueprint(uac.bp)
+    app.register_blueprint(uag.bp)
+    app.register_blueprint(uam.bp)
+    app.register_blueprint(uap.bp)
+    app.register_blueprint(uar.bp)
+
+    limiter = Limiter(
+        _custom_limit_key_func,
+        app=app,
+        default_limits=["100 per minute",],
+        storage_uri="memory://",
     )
-    accounts_json = json.loads(accounts_response.text)
-    accounts = accounts_json["accounts"]
-    for user in accounts:
-        if db.session.query(User).filter_by(username=user["username"]).count() < 1:
-            db.session.add(
-                User(**user)
-            )
-    if db.session.query(User).filter_by(username='admin').count() < 1:
-        db.session.add(User(
-          username='admin',
-          password=guard.hash_password(os.environ["ADMIN_PASSWORD"]),
-          roles='operator,admin',
-          kd_created=True,
-		))
-    db.session.commit()
+
+    @sock.route('/ws/listen')
+    # @flask_praetorian.auth_required
+    def listen(ws):
+        while True:
+            try:
+                data = ws.receive()
+                json_data = json.loads(data)
+
+                sock.app.logger.info('Got data %s', str(data))
+                jwt = json_data.get('jwt', None)
+                if jwt:
+                    id = guard.extract_jwt_token(jwt)["id"]
+                    query = db.session.query(User).filter_by(id=id).all()
+                    user = query[0]
+                    sock.app.logger.info('Added %s to listeners', user.kd_id)
+                    SOCK_HANDLERS[user.kd_id] = ws
+
+                sock.app.logger.info('Current handlers %s', SOCK_HANDLERS)
+            except ConnectionClosed:
+                sock.app.logger.info('Breaking handler')
+                break
+            except Exception as e:
+                sock.app.logger.warning('Error handling listener %s', str(e))
+
+            time.sleep(5)
 
 
-@sock.route('/ws/listen')
-# @flask_praetorian.auth_required
-def listen(ws):
-    while True:
-        try:
-            data = ws.receive()
-            json_data = json.loads(data)
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def catch_all(path):
+        if path != "" and os.path.exists(os.path.join('..','build',path)):
+            return app.send_static_file(path)
+        else:
+            return app.send_static_file('index.html')
 
-            sock.app.logger.info('Got data %s', str(data))
-            jwt = json_data.get('jwt', None)
-            if jwt:
-                id = guard.extract_jwt_token(jwt)["id"]
-                query = db.session.query(User).filter_by(id=id).all()
-                user = query[0]
-                sock.app.logger.info('Added %s to listeners', user.kd_id)
-                SOCK_HANDLERS[user.kd_id] = ws
-
-            sock.app.logger.info('Current handlers %s', SOCK_HANDLERS)
-        except ConnectionClosed:
-            sock.app.logger.info('Breaking handler')
-            break
-        except Exception as e:
-            sock.app.logger.warning('Error handling listener %s', str(e))
-
-        time.sleep(5)
-
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def catch_all(path):
-    if path != "" and os.path.exists(os.path.join('..','build',path)):
-        return app.send_static_file(path)
-    else:
-        return app.send_static_file('index.html')
-
-# Run the example
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000)
+    return app

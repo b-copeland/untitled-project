@@ -13,7 +13,9 @@ from flask_sock import Sock, ConnectionClosed
 import untitledapp.account as uaa
 import untitledapp.shared as uas
 import untitledapp.getters as uag
-from untitledapp import app, guard, db, User, Locks, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
+from untitledapp import guard, db, User, Locks, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
+
+bp = flask.Blueprint("misc", __name__)
 
 def _create_galaxy(galaxy_id):
     create_galaxy_response = REQUESTS_SESSION.post(
@@ -37,7 +39,7 @@ def _validate_kingdom_name(
     
     return True, ""
 
-@app.route('/api/createkingdom', methods=["POST"])
+@bp.route('/api/createkingdom', methods=["POST"])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def create_initial_kingdom():
@@ -101,7 +103,7 @@ def create_initial_kingdom():
     return flask.jsonify({"message": ""}), 200
 
 
-@app.route('/api/resetkingdom', methods=["POST"])
+@bp.route('/api/resetkingdom', methods=["POST"])
 @flask_praetorian.auth_required
 @before_start_required
 # @flask_praetorian.roles_required('verified')
@@ -142,7 +144,7 @@ def reset_initial_kingdom():
         release_locks_by_id(request_id)
     return (flask.jsonify("Reset kingdom"), 200)
 
-@app.route('/api/createkingdomdata')
+@bp.route('/api/createkingdomdata')
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def create_kingdom_data():
@@ -189,7 +191,7 @@ def _validate_kingdom_choices(
     
     return True, ""
 
-@app.route('/api/createkingdomchoices', methods=["POST"])
+@bp.route('/api/createkingdomchoices', methods=["POST"])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def create_kingdom_choices():
@@ -274,7 +276,7 @@ def _validate_shields(req_values):
 
     return True, ""
 
-@app.route('/api/shields', methods=['POST'])
+@bp.route('/api/shields', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -316,7 +318,7 @@ def set_shields():
     return flask.jsonify({"message": "Successfully updated shields", "status": "success"}), 200
 
 
-@app.route('/api/messages/<target_kd>', methods=['POST'])
+@bp.route('/api/messages/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -390,7 +392,7 @@ def _validate_spending(spending_input):
     return True, ""
 
 
-@app.route('/api/spending', methods=['POST'])
+@bp.route('/api/spending', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -466,7 +468,7 @@ def spending():
         release_lock(f"/kingdom/{kd_id}")
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
-@app.route('/api/share/<share_to>', methods=['POST'])
+@bp.route('/api/share/<share_to>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -503,7 +505,7 @@ def share_kd(share_to):
         release_locks_by_id(request_id)
     return (flask.jsonify(kd_response.text)), 200
 
-@app.route('/api/unshare/<share_to>', methods=['POST'])
+@bp.route('/api/unshare/<share_to>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -564,7 +566,7 @@ def _get_notifs(kd_id):
     return get_notifs_response_json
 
 
-@app.route('/api/notifs', methods=['GET'])
+@bp.route('/api/notifs', methods=['GET'])
 @flask_praetorian.auth_required
 def get_notifs():
     kd_id = flask_praetorian.current_user().kd_id
@@ -572,7 +574,7 @@ def get_notifs():
     return flask.jsonify(notifs), 200
 
 
-@app.route('/api/clearnotifs', methods=['POST'])
+@bp.route('/api/clearnotifs', methods=['POST'])
 @flask_praetorian.auth_required
 def clear_notifs():
     kd_id = flask_praetorian.current_user().kd_id

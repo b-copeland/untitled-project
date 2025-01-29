@@ -17,8 +17,9 @@ import untitledapp.build as uab
 import untitledapp.conquer as uac
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, db, User, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import db, User, REQUESTS_SESSION, SOCK_HANDLERS
 
+bp = flask.Blueprint("refresh", __name__)
 
 def _calc_pop_change_per_epoch(
     kd_info_parse,
@@ -1039,7 +1040,6 @@ def _resolve_auto_rob(kd_info_parse):
         }
         kd_info_parse, payload, _ = uac._rob_primitives(req, kd_info_parse["kdId"])
         try:
-            app.logger.info('Sock handlers before auto rob: %s', str(SOCK_HANDLERS))
             ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
             ws.send(json.dumps({
                 "message": payload["message"],
@@ -1712,7 +1712,7 @@ def _refresh_kd(kd_id, state, time_update, update_history):
     return score_stars, score_networth
 
 
-@app.route('/api/refreshdata')
+@bp.route('/api/refreshdata')
 def refresh_data():
     """Perform periodic refresh tasks"""
     headers = flask.request.headers

@@ -14,9 +14,11 @@ import flask_praetorian
 import untitledapp.misc as uam
 import untitledapp.getters as uag
 import untitledapp.shared as uas
-from untitledapp import app, alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
 
-@app.route('/api/galaxypolitics/leader', methods=['POST'])
+bp = flask.Blueprint("politics", __name__)
+
+@bp.route('/api/galaxypolitics/leader', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -58,7 +60,7 @@ def galaxy_leader():
 
     return (flask.jsonify(galaxy_votes), 200)
 
-@app.route('/api/galaxypolitics/policies', methods=['POST'])
+@bp.route('/api/galaxypolitics/policies', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
@@ -121,7 +123,7 @@ def _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted)
     return True, ""
 
 
-@app.route('/api/empire', methods=['POST'])
+@bp.route('/api/empire', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -166,7 +168,7 @@ def _validate_join_empire(galaxy_politics, kd_id, empires_inverted):
     
     return True, ""
 
-@app.route('/api/empire/<target_empire>/join', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/join', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -217,7 +219,7 @@ def request_join_empire(target_empire):
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Join request sent", "status": "success"}), 200
 
-@app.route('/api/empire/<target_empire>/canceljoin', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/canceljoin', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -274,7 +276,7 @@ def _validate_empire_invite(galaxy_politics, kd_id, empires_inverted):
     
     return True, ""
 
-@app.route('/api/empire/<target_empire>/acceptinvite', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/acceptinvite', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -346,7 +348,7 @@ def _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, galaxy_id, k
     
     return True, ""
 
-@app.route('/api/galaxy/<target_galaxy>/invite', methods=['POST'])
+@bp.route('/api/galaxy/<target_galaxy>/invite', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -399,7 +401,7 @@ def invite_galaxy(target_galaxy):
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Invitation sent", "status": "success"}), 200
 
-@app.route('/api/galaxy/<target_galaxy>/cancelinvite', methods=['POST'])
+@bp.route('/api/galaxy/<target_galaxy>/cancelinvite', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -466,7 +468,7 @@ def _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, gala
     
     return True, ""
 
-@app.route('/api/galaxy/<target_galaxy>/accept', methods=['POST'])
+@bp.route('/api/galaxy/<target_galaxy>/accept', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -536,7 +538,7 @@ def _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics):
     
     return True, ""
 
-@app.route('/api/leaveempire', methods=['POST'])
+@bp.route('/api/leaveempire', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -603,7 +605,7 @@ def _validate_denounce(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id,
 
     return True, ""
 
-@app.route('/api/empire/<target_empire>/denounce', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/denounce', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -682,7 +684,7 @@ def _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_
 
     return True, ""
 
-@app.route('/api/empire/<target_empire>/declare', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/declare', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -757,7 +759,7 @@ def _validate_request_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_g
 
     return True, ""
 
-@app.route('/api/empire/<target_empire>/surrenderrequest', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/surrenderrequest', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -841,7 +843,7 @@ def request_surrender(target_empire):
 
     return flask.jsonify({"message": "Surrender request sent", "status": "success"}), 200
 
-@app.route('/api/empire/<target_empire>/cancelsurrenderrequest', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/cancelsurrenderrequest', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -939,7 +941,7 @@ def _validate_offer_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_gal
 
     return True, ""
 
-@app.route('/api/empire/<target_empire>/surrenderoffer', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/surrenderoffer', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1023,7 +1025,7 @@ def offer_surrender(target_empire):
 
     return flask.jsonify({"message": "Surrender offer sent", "status": "success"}), 200
 
-@app.route('/api/empire/<target_empire>/cancelsurrenderoffer', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/cancelsurrenderoffer', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1216,7 +1218,7 @@ def _surrender(
         data=json.dumps(empires_info)
     )
 
-@app.route('/api/empire/<target_empire>/acceptsurrenderoffer', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/acceptsurrenderoffer', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1289,7 +1291,7 @@ def accept_offer_surrender(target_empire):
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Surrender offer has been accepted", "status": "success"}), 200
 
-@app.route('/api/empire/<target_empire>/acceptsurrenderrequest', methods=['POST'])
+@bp.route('/api/empire/<target_empire>/acceptsurrenderrequest', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1376,7 +1378,7 @@ def _validate_buy_votes(
     
     return True, ""
 
-@app.route('/api/votes', methods=['POST'])
+@bp.route('/api/votes', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
@@ -1421,7 +1423,7 @@ def _validate_cast_votes(
     
     return True, ""
 
-@app.route('/api/universepolitics/policies', methods=['POST'])
+@bp.route('/api/universepolitics/policies', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
