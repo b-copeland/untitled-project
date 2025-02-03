@@ -128,7 +128,7 @@ def create_app(config_class='config.Config'):
             db.create_all()
             accounts_response = REQUESTS_SESSION.get(
                 app.config.get("AZURE_FUNCTION_ENDPOINT") + f'/accounts',
-                headers={'x-functions-key': app.config.get('AZURE_FUNCTIONS_HOST_KEY')},
+                headers={'x-functions-key': app.config.get('AZURE_FUNCTION_KEY')},
             )
             accounts_json = json.loads(accounts_response.text)
             accounts = accounts_json["accounts"]
