@@ -14,9 +14,10 @@ from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_H
 bp = flask.Blueprint("getters", __name__)
 
 def _get_state():
+    app = flask.current_app
     get_response = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/state',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/state',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
     )
     get_response_json = json.loads(get_response.text)
     return get_response_json
@@ -61,9 +62,10 @@ def get_state():
     }), 200
 
 def _get_scores():
+    app = flask.current_app
     get_response = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/scores',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/scores',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
     )
     get_response_json = json.loads(get_response.text)
     return get_response_json
@@ -136,11 +138,12 @@ def kingdomid():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def kingdom():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -176,11 +179,12 @@ def shields():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def news():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     
     news = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/news',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/news',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     news_parse = json.loads(news.text)
@@ -190,20 +194,22 @@ def news():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def messages():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     
     messages = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/messages',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/messages',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     messages_parse = json.loads(messages.text)
     return (flask.jsonify(messages_parse["messages"]), 200)
 
 def _get_kingdoms():
+    app = flask.current_app
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdoms',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdoms',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -217,9 +223,10 @@ def kingdoms():
     return (flask.jsonify(kingdoms), 200)
 
 def _get_galaxy_info():
+    app = flask.current_app
     galaxy_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxies',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxies',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     galaxy_info_parse = json.loads(galaxy_info.text)
     
@@ -252,9 +259,10 @@ def galaxies_inverted():
     return (flask.jsonify(galaxies_inverted), 200)
 
 def _get_empire_info():
+    app = flask.current_app
     empire_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     empire_info_parse = json.loads(empire_info.text)
     
@@ -294,9 +302,10 @@ def empires_inverted():
     return (flask.jsonify(payload), 200)
 
 def _get_empire_politics(empire_id):
+    app = flask.current_app
     empire_politics = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{empire_id}/politics',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{empire_id}/politics',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     empire_politics_parse = json.loads(empire_politics.text)
     
@@ -319,14 +328,15 @@ def empire_politics():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_news():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     
     galaxies_inverted, _ = _get_galaxies_inverted()
     galaxy = galaxies_inverted[kd_id]
     
     news = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy}/news',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy}/news',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     news_parse = json.loads(news.text)
@@ -337,6 +347,7 @@ def galaxy_news():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def empire_news():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     
     empires_inverted, _, _, _ = _get_empires_inverted()
@@ -346,8 +357,8 @@ def empire_news():
         return (flask.jsonify([]), 200)
     
     news = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/news',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/news',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     news_parse = json.loads(news.text)
@@ -358,9 +369,10 @@ def empire_news():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def universe_news():
+    app = flask.current_app
     news = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     news_parse = json.loads(news.text)
@@ -372,11 +384,12 @@ def universe_news():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def attack_history():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     
     history = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     history_parse = json.loads(history.text)
@@ -387,11 +400,12 @@ def attack_history():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def spy_history():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     
     history = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     history_parse = json.loads(history.text)
@@ -402,11 +416,12 @@ def spy_history():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def missile_history():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     
     history = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missilehistory',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missilehistory',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     history_parse = json.loads(history.text)
@@ -572,9 +587,10 @@ def _get_units_adjusted_costs(state):
     return units_desc
 
 def _get_mobis_queue(kd_id):
+    app = flask.current_app
     mobis_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     mobis_info_parse = json.loads(mobis_info.text)
@@ -583,9 +599,10 @@ def _get_mobis_queue(kd_id):
 def _get_mobis(kd_id):
     
 
+    app = flask.current_app
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -688,16 +705,17 @@ def _calc_available_structures(structure_price, kd_info, structures_info):
 
 def _get_structures_info(kd_id):
     
+    app = flask.current_app
     structures_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     structures_info_parse = json.loads(structures_info.text)
 
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -744,9 +762,10 @@ def structures():
 
 
 def _get_kd_info(kd_id):
+    app = flask.current_app
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -754,6 +773,7 @@ def _get_kd_info(kd_id):
 
 
 def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inverted=None):
+    app = flask.current_app
     if galaxies_inverted == None:
         galaxies_inverted, _ = _get_galaxies_inverted()
     always_allowed_keys = {"name", "race", "status", "coordinate"}
@@ -767,8 +787,8 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
         "drones": ["drones", "spy_attempts"],
     }
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{other_kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{other_kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -839,9 +859,10 @@ def galaxy(galaxy):
     return (flask.jsonify(galaxy_kd_info), 200)
 
 def _get_settle_queue(kd_id):
+    app = flask.current_app
     settle_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     settle_info_parse = json.loads(settle_info.text)
@@ -886,9 +907,10 @@ def _get_available_settle(kd_info, settle_info, is_expansionist):
 
 def _get_settle(kd_id):
     
+    app = flask.current_app
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -935,9 +957,10 @@ def get_settle():
 
 
 def _get_missiles_info(kd_id):
+    app = flask.current_app
     missiles_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     missiles_info_parse = json.loads(missiles_info.text)
@@ -959,11 +982,12 @@ def _get_missiles_building(missiles_info):
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def missiles():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -1006,9 +1030,10 @@ def missiles():
 
 
 def _get_engineers_queue(kd_id):
+    app = flask.current_app
     engineers_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     engineers_info_parse = json.loads(engineers_info.text)
@@ -1045,9 +1070,10 @@ def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
 def _get_engineers(kd_id):
     
 
+    app = flask.current_app
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -1094,12 +1120,13 @@ def engineers():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def projects():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     
 
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -1125,9 +1152,10 @@ def projects():
 
 
 def _get_revealed(kd_id):
+    app = flask.current_app
     revealed_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     revealed_info_parse = json.loads(revealed_info.text)
@@ -1143,9 +1171,10 @@ def revealed():
     return (flask.jsonify(revealed_info), 200)
 
 def _get_shared(kd_id):
+    app = flask.current_app
     shared_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     shared_info_parse = json.loads(shared_info.text)
@@ -1161,9 +1190,10 @@ def shared():
     return (flask.jsonify(shared_info), 200)
 
 def _get_pinned(kd_id):
+    app = flask.current_app
     pinned_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     pinned_info_parse = json.loads(pinned_info.text)
@@ -1201,12 +1231,13 @@ def max_kingdoms():
     return (flask.jsonify(payload), 200)
 
 def _get_galaxy_politics(kd_id, galaxy_id=None):
+    app = flask.current_app
     if not galaxy_id:
         galaxies_inverted, _ = _get_galaxies_inverted()
         galaxy_id = galaxies_inverted[kd_id]
     galaxy_politics_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     galaxy_politics_info_parse = json.loads(galaxy_politics_info.text)
@@ -1226,9 +1257,10 @@ def galaxy_politics():
     return (flask.jsonify(payload), 200)
 
 def _get_universe_politics():
+    app = flask.current_app
     universe_politics_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universevotes',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universevotes',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     universe_politics_info_parse = json.loads(universe_politics_info.text)
@@ -1264,18 +1296,20 @@ def universe_politics():
     return (flask.jsonify(payload), 200)
 
 def _get_siphons_in(kd_id):
+    app = flask.current_app
     siphons_in_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsin',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsin',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     siphons_in_info_parse = json.loads(siphons_in_info.text)
     return siphons_in_info_parse["siphons_in"]
     
 def _get_siphons_out(kd_id):
+    app = flask.current_app
     siphons_out_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsout',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsout',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     siphons_out_info_parse = json.loads(siphons_out_info.text)
@@ -1298,9 +1332,10 @@ def get_siphons_out():
     return flask.jsonify(siphons_out_redacted), 200
     
 def _get_history(kd_id):
+    app = flask.current_app
     history_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/history',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/history',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     history_info_parse = json.loads(history_info.text)

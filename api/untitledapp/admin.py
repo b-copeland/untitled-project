@@ -36,12 +36,13 @@ def update_state():
     """
     Update initial state
     """
+    app = flask.current_app
     req = flask.request.get_json(force=True)
 
     if "game_start" in req:
         create_response = REQUESTS_SESSION.post(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps({
                 "item": "scores",
                 "state": {
@@ -50,8 +51,8 @@ def update_state():
             }),
         )        
         create_response = REQUESTS_SESSION.post(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps({
                 "item": "empires",
                 "state": {
@@ -61,8 +62,8 @@ def update_state():
         )        
     
     update_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps(req)
     )
     return flask.jsonify(update_response.text), 200
@@ -74,6 +75,7 @@ def create_state():
     """
     Create galaxies
     """
+    app = flask.current_app
     req = flask.request.get_json(force=True)
 
     num_galaxies = int(req["num_galaxies"])
@@ -85,8 +87,8 @@ def create_state():
         uam._create_galaxy(galaxy_id)
     
     update_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps({
             "max_galaxy_size": max_galaxy_size,
             "avg_size_new_galaxy": avg_size_new_galaxy,
@@ -102,9 +104,10 @@ def reset_state():
     Return game to initial state
     """
     
+    app = flask.current_app
     create_response = REQUESTS_SESSION.post(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/resetstate',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/resetstate',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
     )
     query = db.session.query(User).all()
     for user in query:

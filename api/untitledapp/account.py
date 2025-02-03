@@ -4,12 +4,13 @@ import os
 import flask
 import flask_praetorian
 
-from untitledapp import guard, db, User, REQUESTS_SESSION
+from untitledapp import User, REQUESTS_SESSION
 
 bp = flask.Blueprint("account", __name__)
 
 @bp.route('/api/login', methods=['POST'])
 def login():
+    guard = flask.current_app.extensions['praetorian']
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
     password = req.get('password', None)
@@ -19,6 +20,7 @@ def login():
 
 @bp.route('/api/refresh', methods=['POST'])
 def refresh():
+    guard = flask.current_app.extensions['praetorian']
     
     old_token = guard.read_token_from_header()
     new_token = guard.refresh_jwt_token(old_token)
@@ -26,11 +28,13 @@ def refresh():
     return ret, 200
 
 def _update_accounts():
+    app = flask.current_app
+    db = flask.current_app.extensions["sqlalchemy"]
     query = db.session.query(User).all()
     users = [{k: v for k, v in user.__dict__.items() if k != "_sa_instance_state"} for user in query]
     update_accounts = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/accounts',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/accounts',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps({"accounts": users}),
     )
     return update_accounts.text
@@ -48,6 +52,7 @@ def disable_user():
           -H "Authorization: Bearer <your_token>" \
           -d '{"username":"Walter"}'
     """
+    db = flask.current_app.extensions["sqlalchemy"]
     req = flask.request.get_json(force=True)
     usr = User.query.filter_by(username=req.get('username', None)).one()
     usr.is_active = False
@@ -59,6 +64,7 @@ def _validate_signup(
     username,
     password,
 ):
+    db = flask.current_app.extensions["sqlalchemy"]
     if db.session.query(User).filter_by(username=username).count() >= 1:
         return False, "Account already exists"
     if len(username) == 0:
@@ -70,6 +76,8 @@ def _validate_signup(
 
 @bp.route('/api/signup', methods=['POST'])
 def signup():
+    db = flask.current_app.extensions["sqlalchemy"]
+    guard = flask.current_app.extensions['praetorian']
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
     password = req.get('password', None)
@@ -92,6 +100,8 @@ def signup():
 
 @bp.route('/api/register', methods=['POST'])
 def register():
+    db = flask.current_app.extensions["sqlalchemy"]
+    guard = flask.current_app.extensions['praetorian']
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
     email = req.get('email', None)
@@ -120,6 +130,8 @@ def register():
 
 @bp.route('/api/finalize')
 def finalize():
+    db = flask.current_app.extensions["sqlalchemy"]
+    guard = flask.current_app.extensions['praetorian']
     registration_token = guard.read_token_from_header()
     user = guard.get_user_from_registration_token(registration_token)
     user.roles = 'operator,verified'

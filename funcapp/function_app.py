@@ -11,7 +11,7 @@ ENDPOINT = os.environ["COSMOS_ENDPOINT"]
 KEY = os.environ["COSMOS_KEY"]
 
 DATABASE_NAME = os.environ.get("COSMOS_DATABASE_NAME", "dev")
-CONTAINER_NAME = os.environ.get("COSMOS_CONTAINER_NAME", "data")
+CONTAINER_NAME = os.environ.get("COSMOS_CONTAINER_NAME", "test")
 
 CLIENT = CosmosClient(url=ENDPOINT, credential=KEY)
 DATABASE = CLIENT.create_database_if_not_exists(id=DATABASE_NAME)
@@ -29,6 +29,23 @@ RESET_KEEP_IDS = [
     "universe_votes",
     "scores",
 ]
+
+@APP.function_name(name="DeleteAll")
+@APP.route(route="deleteall", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+def delete_all(req: func.HttpRequest) -> func.HttpResponse:
+    items = CONTAINER.read_all_items()
+    for item in items:
+        CONTAINER.replace_item(item["id"], {"id": item["id"]})
+    try:
+        return func.HttpResponse(
+            "Deleted",
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            "Encountered an error",
+            status_code=500,
+        )
 
 @APP.function_name(name="CreateState")
 @APP.route(route="init", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
@@ -469,6 +486,28 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+@APP.function_name(name="GetItem")
+@APP.route(route="item", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_item(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a create item request.')    
+    req_body = req.get_json()
+    item = req_body.get('item')
+
+    item_contents = CONTAINER.read_item(
+        item=item,
+        partition_key=item,
+    )
+    try:
+        return func.HttpResponse(
+            json.dumps(item_contents),
+            status_code=201,
+        )
+    except:
+        return func.HttpResponse(
+            f"{item} state was not created",
+            status_code=500,
+        )
+
 @APP.function_name(name="CreateItem")
 @APP.route(route="createitem", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
 def create_item(req: func.HttpRequest) -> func.HttpResponse:
@@ -477,10 +516,22 @@ def create_item(req: func.HttpRequest) -> func.HttpResponse:
     item = req_body.get('item')
     state = req_body.get('state')
 
-    item_contents = CONTAINER.read_item(
-        item=item,
-        partition_key=item,
-    )
+    try:
+        item_contents = CONTAINER.read_item(
+            item=item,
+            partition_key=item,
+        )
+    except:
+        CONTAINER.create_item(
+            {
+                "id": item,
+                **state,
+            }
+        )
+        return func.HttpResponse(
+            f"Successfully created {item} state",
+            status_code=201,
+        )
     try:
         CONTAINER.replace_item(
             item,

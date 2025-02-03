@@ -111,6 +111,7 @@ def _resolve_siphons(
     time_update,
     epoch_elapsed,
 ):
+    app = flask.current_app
     request_id = str(uuid.uuid4())
     while not uam.acquire_locks([f'/kingdom/{kd_id}/siphonsout', f'/kingdom/{kd_id}/siphonsin'], timeout=999, request_id=request_id):
         time.sleep(0.01)
@@ -135,8 +136,8 @@ def _resolve_siphons(
                 }
             }
             siphons_in_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{from_kd}/siphonsin',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{from_kd}/siphonsin',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(payload_siphons_in),
             )
             if time_expiry > time_update:
@@ -152,8 +153,8 @@ def _resolve_siphons(
             "siphons": keep_siphons,
         }
         siphon_out_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsout',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsout',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(siphon_out_payload),
         )
 
@@ -162,8 +163,8 @@ def _resolve_siphons(
             "siphons": []
         }
         resolve_siphons_in = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsin',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsin',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(resolve_siphons_in_payload),
         )
     finally:
@@ -337,12 +338,13 @@ def _kingdom_with_income(
     return new_kd_info
     
 def _resolve_settles(kd_id, time_update):
+    app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/settles', timeout=999):
         time.sleep(0.01)
     try:
         settle_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         settle_info_parse = json.loads(settle_info.text)
 
@@ -362,8 +364,8 @@ def _resolve_settles(kd_id, time_update):
             "settles": keep_settles
         }
         settles_patch = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(settles_payload),
         )
         if ready_settles:
@@ -384,12 +386,13 @@ def _resolve_settles(kd_id, time_update):
     return ready_settles, next_resolve
     
 def _resolve_mobis(kd_id, time_update):
+    app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/mobis', timeout=999):
         time.sleep(0.01)
     try:
         mobis_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         mobis_info_parse = json.loads(mobis_info.text)
 
@@ -412,8 +415,8 @@ def _resolve_mobis(kd_id, time_update):
             "mobis": keep_mobis
         }
         mobis_patch = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(mobis_payload),
         )
         try:
@@ -435,12 +438,13 @@ def _resolve_mobis(kd_id, time_update):
     return ready_mobis, next_resolve
     
 def _resolve_structures(kd_id, time_update):
+    app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/structures', timeout=999):
         time.sleep(0.01)
     try:
         structures_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         structures_info_parse = json.loads(structures_info.text)
 
@@ -463,8 +467,8 @@ def _resolve_structures(kd_id, time_update):
             "structures": keep_structures
         }
         structures_patch = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(structures_payload),
         )
         try:
@@ -486,12 +490,13 @@ def _resolve_structures(kd_id, time_update):
     return ready_structures, next_resolve
     
 def _resolve_missiles(kd_id, time_update):
+    app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/missiles', timeout=999):
         time.sleep(0.01)
     try:
         missiles_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         missiles_info_parse = json.loads(missiles_info.text)
 
@@ -512,8 +517,8 @@ def _resolve_missiles(kd_id, time_update):
             "missiles": keep_missiles
         }
         missiles_patch = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(missiles_payload),
         )
         try:
@@ -535,12 +540,13 @@ def _resolve_missiles(kd_id, time_update):
     return ready_missiles, next_resolve
     
 def _resolve_engineers(kd_id, time_update):
+    app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/engineers', timeout=999):
         time.sleep(0.01)
     try:
         engineer_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         engineer_info_parse = json.loads(engineer_info.text)
 
@@ -560,8 +566,8 @@ def _resolve_engineers(kd_id, time_update):
             "engineers": keep_engineers
         }
         engineers_patch = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(engineers_payload),
         )
         if ready_engineers:
@@ -582,12 +588,13 @@ def _resolve_engineers(kd_id, time_update):
     return ready_engineers, next_resolve
     
 def _resolve_revealed(kd_id, time_update):
+    app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/revealed', timeout=999):
         time.sleep(0.01)
     try:
         revealed_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         revealed_info_parse = json.loads(revealed_info.text)
 
@@ -613,8 +620,8 @@ def _resolve_revealed(kd_id, time_update):
             "galaxies": keep_galaxies,
         }
         revealed_patch = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(revealed_payload),
         )
     finally:
@@ -623,12 +630,13 @@ def _resolve_revealed(kd_id, time_update):
     return next_resolve
     
 def _resolve_shared(kd_id, time_update):
+    app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/shared', timeout=999):
         time.sleep(0.01)
     try:
         shared_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         shared_info_parse = json.loads(shared_info.text)
 
@@ -661,8 +669,8 @@ def _resolve_shared(kd_id, time_update):
             "shared_offers": keep_shared_offers,
         }
         shared_post = REQUESTS_SESSION.post(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(shared_payload),
         )
     finally:
@@ -753,6 +761,7 @@ def _resolve_auto_spending(
     mobis_info=None,
     engineers_info=None,
 ):
+    app = flask.current_app
     resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["auto_spending"]).astimezone(datetime.timezone.utc)
     kd_id = kd_info_parse["kdId"]
     request_id = str(uuid.uuid4())
@@ -793,8 +802,8 @@ def _resolve_auto_spending(
                 "new_settles": new_settles_payload
             }
             settles_patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(settle_payload),
             )
         
@@ -847,8 +856,8 @@ def _resolve_auto_spending(
                         "new_structures": new_structures_payload
                     }
                     structures_patch_response = REQUESTS_SESSION.patch(
-                        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-                        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+                        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                         data=json.dumps(structures_payload),
                     )
 
@@ -932,8 +941,8 @@ def _resolve_auto_spending(
                 mobis_payload["new_mobis"].extend(new_mobis)
                 kd_info_parse["next_resolve"]["mobis"] = min(min_mobis_time, kd_info_parse["next_resolve"]["mobis"], next_resolves.get("mobis", uas.DATE_SENTINEL))
             mobis_patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(mobis_payload),
             )
 
@@ -950,8 +959,8 @@ def _resolve_auto_spending(
                 "new_engineers": new_engineers_payload
             }
             engineers_patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(engineers_payload),
             )
 
@@ -1280,6 +1289,7 @@ def _resolve_schedule_missiles(new_kd_info, schedule):
 
 def _resolve_schedules(kd_id, time_update):
 
+    app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}', timeout=999):
         time.sleep(0.01)
     
@@ -1309,8 +1319,8 @@ def _resolve_schedules(kd_id, time_update):
 
         kd_info["schedule"] = keep_schedules
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_info["kdId"]}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_info["kdId"]}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_info, default=str),
         )
     finally:
@@ -1321,6 +1331,7 @@ def _resolve_schedules(kd_id, time_update):
     return None
 
 def _begin_election(state):
+    app = flask.current_app
     request_id = str(uuid.uuid4())
     while not uam.acquire_locks([f'/universepolitics', f'/updatestate'], timeout=999, request_id=request_id):
         time.sleep(0.01)
@@ -1347,13 +1358,13 @@ def _begin_election(state):
         }
 
         universe_politics_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universepolitics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universepolitics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(universe_politics_payload)
         )
         update_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(state_payload)
         )
     finally:
@@ -1361,6 +1372,7 @@ def _begin_election(state):
     return state
 
 def _resolve_election(state):
+    app = flask.current_app
     while not uam.acquire_lock(f'/updatestate', timeout=999):
         time.sleep(0.01)
     try:
@@ -1394,8 +1406,8 @@ def _resolve_election(state):
         state["state"]["active_policies"] = active_policies
 
         update_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(state_payload)
         )
     finally:
@@ -1404,6 +1416,7 @@ def _resolve_election(state):
 
 def _resolve_scores(kd_scores, time_update):
 
+    app = flask.current_app
     while not uam.acquire_lock(f'/scores', timeout=999):
         time.sleep(0.01)
     try:
@@ -1438,8 +1451,8 @@ def _resolve_scores(kd_scores, time_update):
             new_scores["galaxy_networth"][galaxy] += networth
         
         update_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/scores',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/scores',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(new_scores)
         )
     finally:
@@ -1449,6 +1462,7 @@ def _update_history(
     kd_info,
     time_update,
 ):
+    app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_info["kdId"]}/history', timeout=999):
         time.sleep(0.01)
     try:
@@ -1489,8 +1503,8 @@ def _update_history(
             "value": defense,
         }
         update_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_info["kdId"]}/history',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_info["kdId"]}/history',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps({"history": history_payload})
         )
     finally:
@@ -1501,6 +1515,7 @@ def _resolve_empires(
     kd_scores,
     time_update,
 ):
+    app = flask.current_app
     while not uam.acquire_lock(f'/empires', timeout=999):
         time.sleep(0.01)
     try:
@@ -1554,8 +1569,8 @@ def _resolve_empires(
                             }
                         }
                         universe_news_update_response = REQUESTS_SESSION.patch(
-                            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
-                            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
+                            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                             data=json.dumps(news_payload)
                         )
             for other_empire_id in empires_info["empires"][empire_id]["aggression"]:
@@ -1569,14 +1584,15 @@ def _resolve_empires(
         }
 
         update_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empires_payload)
         )
     finally:
         uam.release_lock(f'/empires')
 
 def _refresh_kd(kd_id, state, time_update, update_history):
+    app = flask.current_app
     try:
         query = db.session.query(User).filter_by(kd_id=kd_id).all()
         user = query[0]
@@ -1592,8 +1608,8 @@ def _refresh_kd(kd_id, state, time_update, update_history):
     try:
         next_resolves = {}
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         kd_info_parse = json.loads(kd_info.text)
         if kd_info_parse["status"].lower() == "dead":
@@ -1685,8 +1701,8 @@ def _refresh_kd(kd_id, state, time_update, update_history):
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
         new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update)
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(new_kd_info, default=str),
         )
     finally:
@@ -1715,6 +1731,7 @@ def _refresh_kd(kd_id, state, time_update, update_history):
 @bp.route('/api/refreshdata')
 def refresh_data():
     """Perform periodic refresh tasks"""
+    app = flask.current_app
     headers = flask.request.headers
     if headers.get("Refresh-Secret", "") != os.environ["REFRESH_SECRET"]:
         return ("Not Authorized", 401)
@@ -1740,8 +1757,8 @@ def refresh_data():
         }
 
         update_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/updatestate',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(state_payload)
         )
     else:
