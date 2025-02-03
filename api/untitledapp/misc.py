@@ -13,14 +13,15 @@ from flask_sock import Sock, ConnectionClosed
 import untitledapp.account as uaa
 import untitledapp.shared as uas
 import untitledapp.getters as uag
-from untitledapp import guard, db, User, Locks, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
+from untitledapp import User, Locks, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
 
 bp = flask.Blueprint("misc", __name__)
 
 def _create_galaxy(galaxy_id):
+    app = flask.current_app
     create_galaxy_response = REQUESTS_SESSION.post(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
     )
     return create_galaxy_response.text
 
@@ -43,6 +44,8 @@ def _validate_kingdom_name(
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def create_initial_kingdom():
+    app = flask.current_app
+    db = flask.current_app.extensions["sqlalchemy"]
     req = flask.request.get_json(force=True)
     user = flask_praetorian.current_user()
 
@@ -68,8 +71,8 @@ def create_initial_kingdom():
 
         chosen_galaxy = random.choice(smallest_galaxies)
         create_kd_response = REQUESTS_SESSION.post(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps({"kingdom_name": req["kdName"], "galaxy": chosen_galaxy}),
         )
         if create_kd_response.status_code != 201:
@@ -85,8 +88,8 @@ def create_initial_kingdom():
                 state["name"] = req["kdName"]
 
             create_response = REQUESTS_SESSION.post(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps({
                     "item": item_id,
                     "state": state,
@@ -108,6 +111,8 @@ def create_initial_kingdom():
 @before_start_required
 # @flask_praetorian.roles_required('verified')
 def reset_initial_kingdom():    
+    app = flask.current_app
+    db = flask.current_app.extensions["sqlalchemy"]
     user = flask_praetorian.current_user()
     kd_id = user.kd_id
     kd_info = uag._get_kd_info(kd_id)
@@ -127,8 +132,8 @@ def reset_initial_kingdom():
                 state["name"] = kd_info["name"]
 
             create_response = REQUESTS_SESSION.post(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps({
                     "item": item_id,
                     "state": state,
@@ -195,6 +200,8 @@ def _validate_kingdom_choices(
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def create_kingdom_choices():
+    app = flask.current_app
+    db = flask.current_app.extensions["sqlalchemy"]
     req = flask.request.get_json(force=True)
     user = flask_praetorian.current_user()
 
@@ -246,8 +253,8 @@ def create_kingdom_choices():
         payload["race"] = race
 
         patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload),
         )        
 
@@ -281,6 +288,7 @@ def _validate_shields(req_values):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def set_shields():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     req_values = {
         k: float(v or 0) / 100
@@ -309,8 +317,8 @@ def set_shields():
             }
         }
         patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload),
         )
     finally:
@@ -323,6 +331,7 @@ def set_shields():
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def send_message(target_kd):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
 
@@ -351,13 +360,13 @@ def send_message(target_kd):
         }
         
         message_response_from = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/messages',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/messages',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload_from)
         )
         message_response_to = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/messages',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/messages',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload_to)
         )
         _add_notifs(target_kd, ["messages"])
@@ -397,6 +406,7 @@ def _validate_spending(spending_input):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def spending():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -406,8 +416,8 @@ def spending():
     
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -432,8 +442,8 @@ def spending():
                 }
 
             patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(payload),
             )
             if enabled:
@@ -460,8 +470,8 @@ def spending():
 
         payload = {'auto_spending': new_spending}
         patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload),
         )
     finally:
@@ -473,6 +483,7 @@ def spending():
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def share_kd(share_to):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
 
@@ -492,13 +503,13 @@ def share_kd(share_to):
             "new_revealed_galaxymates": [kd_id]
         }
         kd_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
         share_to_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(share_to_payload),
         )
     finally:
@@ -510,6 +521,7 @@ def share_kd(share_to):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def unshare_kd(share_to):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     request_id = str(uuid.uuid4())
     if not acquire_locks([f"/kingdom/{kd_id}/revealed", f"/kingdom/{share_to}/revealed"], request_id=request_id):
@@ -530,13 +542,13 @@ def unshare_kd(share_to):
             "revealed_galaxymates": [revealed_id for revealed_id in share_to_revealed["revealed_galaxymates"] if revealed_id != kd_id]
         }
         kd_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
         share_to_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(share_to_payload),
         )
     finally:
@@ -544,23 +556,26 @@ def unshare_kd(share_to):
     return (flask.jsonify(kd_response.text)), 200
 
 def _add_notifs(kd_id, categories):
+    app = flask.current_app
     add_notifs_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/notifs',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/notifs',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps({"add_categories": categories}),
     )
 
 def _clear_notifs(kd_id, categories):
+    app = flask.current_app
     clear_notifs_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/notifs',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/notifs',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps({"clear_categories": categories}),
     )
 
 def _get_notifs(kd_id):
+    app = flask.current_app
     get_notifs_response = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/notifs',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/notifs',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
     )
     get_notifs_response_json = json.loads(get_notifs_response.text)
     return get_notifs_response_json
@@ -587,6 +602,7 @@ def clear_notifs():
     return "Cleared", 200
 
 def _mark_kingdom_death(kd_id):
+    db = flask.current_app.extensions["sqlalchemy"]
     query = db.session.query(User).filter_by(kd_id=kd_id).all()
     user = query[0]
     user.kd_death_date = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -613,6 +629,7 @@ def acquire_lock(lock_name, timeout=10):
     :param timeout: Expiry time for the lock in seconds
     :return: True if the lock was acquired, False otherwise
     """
+    db = flask.current_app.extensions["sqlalchemy"]
     try:
         now = datetime.datetime.now(datetime.timezone.utc)
         expiration_time = (now + datetime.timedelta(seconds=timeout)).isoformat()
@@ -639,6 +656,7 @@ def release_lock(lock_name):
     
     :param lock_name: Name of the lock
     """
+    db = flask.current_app.extensions["sqlalchemy"]
     try:
         # Delete the lock
         db.session.query(Locks).filter(Locks.lock_name == lock_name).delete()
@@ -655,6 +673,7 @@ def acquire_locks(lock_names, timeout=10, lock_timeout=20, request_id=None) -> b
     :param timeout: Expiry time for each lock in seconds.
     :return: True if all locks were acquired, False otherwise.
     """
+    db = flask.current_app.extensions["sqlalchemy"]
     if request_id is None:
         request_id = str(uuid.uuid4())
     try:
@@ -736,6 +755,7 @@ def release_locks_by_name(lock_names):
 
     :param lock_names: List of lock names to release.
     """
+    db = flask.current_app.extensions["sqlalchemy"]
     try:
         # Delete all specified locks in a single query
         db.session.query(Locks).filter(Locks.lock_name.in_(lock_names)).delete(
@@ -747,6 +767,7 @@ def release_locks_by_name(lock_names):
         db.session.rollback()
 
 def release_locks_by_id(request_id):
+    db = flask.current_app.extensions["sqlalchemy"]
     try:
         db.session.query(Locks).filter(Locks.request_id == request_id).delete(
             synchronize_session=False

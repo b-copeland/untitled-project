@@ -102,6 +102,7 @@ def _get_new_recruits(recruits_input, is_conscription, start_time):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def recruits():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     recruits_input = int(req["recruitsInput"])
@@ -112,8 +113,8 @@ def recruits():
 
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -146,16 +147,16 @@ def recruits():
         new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_RECRUIT_COST"] * recruits_input
         kd_payload = {'money': new_money, 'next_resolve': next_resolve}
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
         recruits_payload = {
             "new_mobis": new_recruits
         }
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(recruits_payload),
         )
     finally:
@@ -224,6 +225,7 @@ def _get_new_mobis(mobis_request, start_time):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def train_mobis():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     
@@ -235,8 +237,8 @@ def train_mobis():
 
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -274,16 +276,16 @@ def train_mobis():
             'next_resolve': next_resolve,
         }
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
         mobis_payload = {
             "new_mobis": new_mobis
         }
         mobis_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(mobis_payload),
         )
     finally:
@@ -310,6 +312,7 @@ def _validate_mobis_target(req_targets, kd_info_parse):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def allocate_mobis():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -319,8 +322,8 @@ def allocate_mobis():
 
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -330,8 +333,8 @@ def allocate_mobis():
             payload = {'recruits_before_units': recruits_before_units}
 
             patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(payload),
             )
             if recruits_before_units:
@@ -360,8 +363,8 @@ def allocate_mobis():
         if req.get("max_recruits", "") != "":
             payload["max_recruits"] = int(req["max_recruits"])
         patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload),
         )
     finally:
@@ -384,6 +387,7 @@ def _validate_disband(kd_info, input):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def disband_mobis():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     req_input = {
         k: int(v)
@@ -419,8 +423,8 @@ def disband_mobis():
             "population": new_pop,
         }
         patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
     finally:
@@ -479,6 +483,7 @@ def _get_new_structures(structures_request, start_time):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def build_structures():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     
@@ -490,15 +495,15 @@ def build_structures():
     
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
         
         structures_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         structures_info_parse = json.loads(structures_info.text)
@@ -532,16 +537,16 @@ def build_structures():
         new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
         kd_payload = {'money': new_money, 'next_resolve': next_resolve}
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
         structures_payload = {
             "new_structures": new_structures
         }
         structures_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(structures_payload),
         )
     finally:
@@ -566,6 +571,7 @@ def _validate_structures_target(req_targets):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def allocate_structures():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -574,8 +580,8 @@ def allocate_structures():
         return (flask.jsonify({"message": "Server is busy"}), 400)
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -597,8 +603,8 @@ def allocate_structures():
 
         payload = {'structures_target': new_targets}
         patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload),
         )
     finally:
@@ -618,6 +624,7 @@ def _validate_raze(kd_info, input):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def raze_structures():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     req_input = {
         k: int(v)
@@ -652,8 +659,8 @@ def raze_structures():
             "money": new_money,
         }
         patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
     finally:
@@ -710,6 +717,7 @@ def _get_new_settles(kd_info_parse, settle_input, start_time):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def settle():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     settle_input = int(req["settleInput"])
@@ -721,8 +729,8 @@ def settle():
     
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -751,16 +759,16 @@ def settle():
         next_resolve["settles"] = min(next_resolve["settles"], min_settle_time)
         kd_payload = {'money': new_money, "next_resolve": next_resolve}
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
         settle_payload = {
             "new_settles": new_settles,
         }
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(settle_payload),
         )
     finally:
@@ -803,6 +811,7 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def build_missiles():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     
@@ -813,8 +822,8 @@ def build_missiles():
         return (flask.jsonify({"message": "Server is busy"}), 400)
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -864,8 +873,8 @@ def build_missiles():
             'next_resolve': next_resolve,
         }
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
         missiles_payload = {
@@ -877,8 +886,8 @@ def build_missiles():
             ]
         }
         missiles_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(missiles_payload),
         )
     finally:
@@ -926,6 +935,7 @@ def _get_new_engineers(engineers_input, start_time):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def train_engineers():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     engineers_input = int(req["engineersInput"])
@@ -937,8 +947,8 @@ def train_engineers():
 
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -964,16 +974,16 @@ def train_engineers():
         new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_ENGINEER_COST"] * engineers_input
         kd_payload = {'money': new_money, 'next_resolve': next_resolve}
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
         engineers_payload = {
             "new_engineers": new_engineers
         }
         engineers_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(engineers_payload),
         )
     finally:
@@ -1009,6 +1019,7 @@ def _validate_projects_target(req_targets, kd_info_parse):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def allocate_projects():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -1018,8 +1029,8 @@ def allocate_projects():
     
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -1028,8 +1039,8 @@ def allocate_projects():
             payload = {'auto_assign_projects': req["enabled"]}
 
             patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(payload),
             )
             if req["enabled"]:
@@ -1056,8 +1067,8 @@ def allocate_projects():
 
         payload = {'projects_target': new_targets}
         patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload),
         )
     finally:
@@ -1089,6 +1100,7 @@ def _validate_add_projects(req, available_engineers, kd_info_parse):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def manage_projects():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
@@ -1098,8 +1110,8 @@ def manage_projects():
 
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -1135,8 +1147,8 @@ def manage_projects():
 
         kd_payload = {"projects_assigned": new_projects_assigned}
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
     finally:

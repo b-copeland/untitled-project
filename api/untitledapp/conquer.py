@@ -22,6 +22,7 @@ bp = flask.Blueprint("conquer", __name__)
 @start_required
 # @flask_praetorian.roles_required('verified')
 def reveal_random_galaxy():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     
     request_id = str(uuid.uuid4())
@@ -30,8 +31,8 @@ def reveal_random_galaxy():
 
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -79,8 +80,8 @@ def reveal_random_galaxy():
 
         
         reveal_galaxy_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload),
         )
         
@@ -89,8 +90,8 @@ def reveal_random_galaxy():
         next_resolve["revealed"] = min(next_resolve["revealed"], time)
         kd_payload = {"spy_attempts": kd_info_parse["spy_attempts"] - 1, "next_resolve": next_resolve}
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload),
         )
     finally:
@@ -104,6 +105,7 @@ def _add_aggression(
     aggression_increase,
     empires_info=None,
 ):
+    app = flask.current_app
     if not empires_info:
         empires_info = uag._get_empire_info()
     
@@ -116,8 +118,8 @@ def _add_aggression(
         "empires": empires_info["empires"],
     }
     empires_patch_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps(empires_payload),
     )    
 
@@ -208,6 +210,7 @@ def _calc_generals_return_time(
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def calculate_attack(target_kd):
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     attacker_raw_values = req["attackerValues"]
     defender_raw_values = req["defenderValues"]
@@ -215,8 +218,8 @@ def calculate_attack(target_kd):
     kd_id = flask_praetorian.current_user().kd_id
     
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -416,11 +419,12 @@ def _validate_autofill_request(req, kd_info_parse):
     
 
 def _autofill_attack(req, kd_id, target_kd):
+    app = flask.current_app
     defender_raw_values = req["defenderValues"]
     
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -649,6 +653,7 @@ def autofill_attack(target_kd):
 
 def _attack(req, kd_id, target_kd):
     
+    app = flask.current_app
     attacker_raw_values = req["attackerValues"]
 
     galaxies_inverted, galaxy_info = uag._get_galaxies_inverted()
@@ -692,8 +697,8 @@ def _attack(req, kd_id, target_kd):
         sharer = None
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -860,8 +865,8 @@ def _attack(req, kd_id, target_kd):
                     "news": sharer_message,
                 }
                 sharer_news_patch_response = REQUESTS_SESSION.patch(
-                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}/news',
-                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}/news',
+                    headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                     data=json.dumps(sharer_news),
                 )
                 uam._add_notifs(sharer, ["news_kingdom"])
@@ -958,8 +963,8 @@ def _attack(req, kd_id, target_kd):
                         else:
                             sharer_kd_info["money"] += value_funding
             sharer_patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(sharer_kd_info),
             )
             try:
@@ -978,8 +983,8 @@ def _attack(req, kd_id, target_kd):
             target_kd_info["status"] = "Dead"
             uam._mark_kingdom_death(target_kd)
         target_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_kd_info),
         )
         target_news = {
@@ -999,14 +1004,14 @@ def _attack(req, kd_id, target_kd):
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
         target_news_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_news),
         )
         uam._add_notifs(target_kd, ["news_kingdom"])
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_info_parse, default=str),
         )
         kd_attack_history = {
@@ -1015,8 +1020,8 @@ def _attack(req, kd_id, target_kd):
             "news": attacker_message,
         }
         kd_attack_history_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_attack_history, default=str),
         )
 
@@ -1058,21 +1063,21 @@ def _attack(req, kd_id, target_kd):
             defender_galaxy_payload["news"] = f"{target_kd_info['name']} successfully defended an attack by {kd_info_parse['name']}."
 
         REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{attacker_galaxy}/news',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{attacker_galaxy}/news',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(attacker_galaxy_payload),
         )
         REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{defender_galaxy}/news',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{defender_galaxy}/news',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(defender_galaxy_payload),
         )
         if attacker_galaxy != defender_galaxy:
             kds_revealed_to = galaxy_info[defender_galaxy]
             for kd_revealed_to in kds_revealed_to:
                 reveal_galaxy_response = REQUESTS_SESSION.patch(
-                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}/revealed',
-                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}/revealed',
+                    headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                     data=json.dumps(payload),
                 )
                 kd_revealed_to_info = uag._get_kd_info(kd_revealed_to)
@@ -1083,8 +1088,8 @@ def _attack(req, kd_id, target_kd):
                         "next_resolve": kd_revealed_to_next_resolve
                     }
                     REQUESTS_SESSION.patch(
-                        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}',
-                        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}',
+                        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                         data=json.dumps(kd_revealed_to_patch_payload),
                     )
                 if kd_revealed_to != target_kd:
@@ -1137,14 +1142,15 @@ def attack(target_kd):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def calculate_attack_primitives():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     attacker_raw_values = req["attackerValues"]
 
     kd_id = flask_praetorian.current_user().kd_id
     
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
 
     state = uag._get_state()
@@ -1238,6 +1244,7 @@ def calculate_attack_primitives():
     return (flask.jsonify(payload), 200)
 
 def _attack_primitives(req, kd_id):
+    app = flask.current_app
     request_id = str(uuid.uuid4())
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/attackhistory'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
@@ -1245,8 +1252,8 @@ def _attack_primitives(req, kd_id):
     try:
         attacker_raw_values = req["attackerValues"]
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -1372,8 +1379,8 @@ def _attack_primitives(req, kd_id):
             kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
 
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_info_parse, default=str),
         )
         kd_attack_history = {
@@ -1382,8 +1389,8 @@ def _attack_primitives(req, kd_id):
             "news": attacker_message,
         }
         kd_attack_history_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/attackhistory',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_attack_history, default=str),
         )
 
@@ -1441,6 +1448,7 @@ def _validate_auto_attack_settings(req_settings):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def auto_attack_primitives():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -1450,8 +1458,8 @@ def auto_attack_primitives():
     
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -1463,8 +1471,8 @@ def auto_attack_primitives():
             payload = {'auto_attack_enabled': enabled}
 
             patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(payload),
             )
             if enabled:
@@ -1493,8 +1501,8 @@ def auto_attack_primitives():
 
         payload = {'auto_attack_settings': new_settings}
         patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload),
         )
     finally:
@@ -1542,6 +1550,7 @@ def _calculate_spy_losses(
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def calculate_spy(target_kd):
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     drones = int(req.get("drones", 0) or 0)
     shielded = req["shielded"]
@@ -1557,8 +1566,8 @@ def calculate_spy(target_kd):
     
     
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -1670,6 +1679,7 @@ def calculate_spy(target_kd):
 def _spy(req, kd_id, target_kd):
     
     
+    app = flask.current_app
     base_locks = [
         f'/kingdom/{kd_id}',
         f'/kingdom/{kd_id}/revealed',
@@ -1709,8 +1719,8 @@ def _spy(req, kd_id, target_kd):
         operation = req["operation"]
 
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -1795,8 +1805,8 @@ def _spy(req, kd_id, target_kd):
                         }
                     }
                     reveal_response = REQUESTS_SESSION.patch(
-                        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-                        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+                        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                         data=json.dumps(revealed_payload),
                     )
                     message = f"Success! The target will be revealed for {reveal_duration_hours} hours. You have lost {success_losses} drones."
@@ -1861,8 +1871,8 @@ def _spy(req, kd_id, target_kd):
             next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until.isoformat())
             kd_patch_payload["next_resolve"] = next_resolve
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_patch_payload, default=str),
         )
 
@@ -1876,8 +1886,8 @@ def _spy(req, kd_id, target_kd):
                 }
             }
             siphons_out_patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/siphonsout',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/siphonsout',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(siphons_out_payload, default=str),
             )
         if homes_damage:
@@ -1912,16 +1922,16 @@ def _spy(req, kd_id, target_kd):
                 }
             }
             reveal_galaxy_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/revealed',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/revealed',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(revealed_payload),
             )
             target_message += f" Their kingdom 'stats' and 'drones' will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours"
 
         if target_patch_payload:
             target_kd_patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(target_patch_payload, default=str),
             )
         history_payload = {
@@ -1931,8 +1941,8 @@ def _spy(req, kd_id, target_kd):
             "news": message,
         }
         kd_spy_history_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(history_payload, default=str),
         )
 
@@ -1942,8 +1952,8 @@ def _spy(req, kd_id, target_kd):
             "news": target_message,
         }
         target_news_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_news_payload),
         )
         uam._add_notifs(target_kd, ["news_kingdom"])
@@ -2019,6 +2029,7 @@ def spy(target_kd):
     return (flask.jsonify(payload), status_code)
 
 def _rob_primitives(req, kd_id):
+    app = flask.current_app
     request_id = str(uuid.uuid4())
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/spyhistory'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
@@ -2028,8 +2039,8 @@ def _rob_primitives(req, kd_id):
         shielded = req["shielded"]
         
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -2079,8 +2090,8 @@ def _rob_primitives(req, kd_id):
         if shielded:
             kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_patch_payload, default=str),
         )
 
@@ -2092,8 +2103,8 @@ def _rob_primitives(req, kd_id):
             "news": message,
         }
         kd_spy_history_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/spyhistory',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(history_payload, default=str),
         )
 
@@ -2141,6 +2152,7 @@ def _validate_auto_rob_settings(req_settings):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def auto_rob_primitives():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -2150,8 +2162,8 @@ def auto_rob_primitives():
     
     try:
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -2163,8 +2175,8 @@ def auto_rob_primitives():
             payload = {'auto_rob_enabled': enabled}
 
             patch_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(payload),
             )
             if enabled:
@@ -2196,8 +2208,8 @@ def auto_rob_primitives():
 
         payload = {'auto_rob_settings': new_settings}
         patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload),
         )
     finally:
@@ -2401,6 +2413,7 @@ def _schedule_missiles(
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def add_schedule():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
 
     kd_id = flask_praetorian.current_user().kd_id
@@ -2448,8 +2461,8 @@ def add_schedule():
             "schedule": schedule_payload_sorted,
         }
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload, default=str),
         )
     finally:
@@ -2462,6 +2475,7 @@ def add_schedule():
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def cancel_schedule():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
 
     kd_id = flask_praetorian.current_user().kd_id
@@ -2483,8 +2497,8 @@ def cancel_schedule():
             "schedule": new_schedule,
         }
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_payload, default=str),
         )
     finally:
@@ -2533,6 +2547,7 @@ def _calculate_missiles_damage(
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def calculate_missiles(target_kd):
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     attacker_raw_values = req["attackerValues"]
 
@@ -2542,8 +2557,8 @@ def calculate_missiles(target_kd):
 
     
     kd_info = REQUESTS_SESSION.get(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
     
     kd_info_parse = json.loads(kd_info.text)
@@ -2584,6 +2599,7 @@ def calculate_missiles(target_kd):
     
 def _launch_missiles(req, kd_id, target_kd):
 
+    app = flask.current_app
     galaxies_inverted, _ = uag._get_galaxies_inverted()
 
     attacker_galaxy = galaxies_inverted[kd_id]
@@ -2607,8 +2623,8 @@ def _launch_missiles(req, kd_id, target_kd):
         attacker_raw_values = req["attackerValues"]
         
         kd_info = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']}
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         )
         
         kd_info_parse = json.loads(kd_info.text)
@@ -2647,8 +2663,8 @@ def _launch_missiles(req, kd_id, target_kd):
             }
         }
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_patch_payload, default=str),
         )
 
@@ -2668,8 +2684,8 @@ def _launch_missiles(req, kd_id, target_kd):
             project_max_func = uas.PROJECTS_FUNCS[key_project]
             defender_patch_payload["projects_max_points"][key_project] = project_max_func(max_target_kd_info["stars"])
         defender_kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(defender_patch_payload, default=str),
         )
         time_now = datetime.datetime.now(datetime.timezone.utc)
@@ -2679,8 +2695,8 @@ def _launch_missiles(req, kd_id, target_kd):
             "news": defender_message,
         }
         target_news_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_news_payload),
         )
         uam._add_notifs(target_kd, ["news_kingdom"])
@@ -2690,8 +2706,8 @@ def _launch_missiles(req, kd_id, target_kd):
             "news": message,
         }
         kd_missile_history_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missilehistory',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missilehistory',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(history_payload, default=str),
         )
 
@@ -2710,13 +2726,13 @@ def _launch_missiles(req, kd_id, target_kd):
         defender_galaxy_payload["news"] = f"{max_target_kd_info['name']} was struck by missiles from {kd_info_parse['name']} and lost "  + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
 
         REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{attacker_galaxy}/news',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{attacker_galaxy}/news',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(attacker_galaxy_payload),
         )
         REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{defender_galaxy}/news',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{defender_galaxy}/news',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(defender_galaxy_payload),
         )
         try:
@@ -2762,6 +2778,7 @@ def launch_missiles(target_kd):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def accept_shared():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     accepted_shared_from = str(req["shared"])
     accepted_kd, shared_from_kd = accepted_shared_from.split('_')
@@ -2787,8 +2804,8 @@ def accept_shared():
         shared_info["shared"][accepted_kd] = new_shared
 
         shared_info_response = REQUESTS_SESSION.post(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(shared_info),
         )
 
@@ -2800,8 +2817,8 @@ def accept_shared():
             }
         }
         revealed_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(revealed_payload),
         )
         
@@ -2821,6 +2838,7 @@ def accept_shared():
     return (flask.jsonify(shared_info_response.text), 200)
 
 def _offer_shared(req, kd_id):
+    app = flask.current_app
     shared_kd = str(req["shared"])
     shared_stat = req["shared_stat"]
     shared_to_kd = str(req["shared_to"])
@@ -2894,8 +2912,8 @@ def _offer_shared(req, kd_id):
         }
 
         shared_to_shared_info_response = REQUESTS_SESSION.post(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_to_update}/shared',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_to_update}/shared',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(shared_to_payload),
         )
         uam._add_notifs(kd_to_update, ["shared"])
@@ -2905,8 +2923,8 @@ def _offer_shared(req, kd_id):
             shared_to_next_resolve = shared_to_kd_info["next_resolve"]
             shared_to_next_resolve["shared"] = shared_resolve_time
             REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_to_update}',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_to_update}',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps({"next_resolve": shared_to_next_resolve}),
             )
 
@@ -2924,8 +2942,8 @@ def _offer_shared(req, kd_id):
             pass
     
     your_shared_info_response = REQUESTS_SESSION.post(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps(your_payload),
     )
     your_info = uag._get_kd_info(kd_id)
@@ -2933,8 +2951,8 @@ def _offer_shared(req, kd_id):
         your_next_resolve = your_info["next_resolve"]
         your_next_resolve["shared"] = shared_resolve_time
         REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps({"next_resolve": your_next_resolve}),
         )
     payload = {
@@ -2986,6 +3004,7 @@ def offer_shared():
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def update_pinned():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     
     kd_id = flask_praetorian.current_user().kd_id
@@ -2995,8 +3014,8 @@ def update_pinned():
     
     try:
         pinned_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(req),
         )
     finally:

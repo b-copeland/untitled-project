@@ -23,6 +23,7 @@ bp = flask.Blueprint("politics", __name__)
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_leader():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
@@ -51,8 +52,8 @@ def galaxy_leader():
             patch_payload["leader"] = kds_with_most_votes[0]
         
         galaxy_politics_info = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(patch_payload)
         )
     finally:
@@ -65,6 +66,7 @@ def galaxy_leader():
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_policies():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
@@ -97,8 +99,8 @@ def galaxy_policies():
             patch_payload["active_policies"] = new_active_policies
 
         galaxy_politics_info = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(patch_payload)
         )
     finally:
@@ -129,6 +131,7 @@ def _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted)
 @start_required
 # @flask_praetorian.roles_required('verified')
 def create_empire():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     empire_name = req.get("empireName", "")
     kd_id = flask_praetorian.current_user().kd_id
@@ -150,8 +153,8 @@ def create_empire():
             "leader": kd_galaxy,
         }
         create_empire_response = REQUESTS_SESSION.post(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empire_payload)
         )
     finally:
@@ -174,6 +177,7 @@ def _validate_join_empire(galaxy_politics, kd_id, empires_inverted):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def request_join_empire(target_empire):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
     galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
@@ -199,8 +203,8 @@ def request_join_empire(target_empire):
         }
 
         join_empire_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_empire_payload)
         )
 
@@ -211,8 +215,8 @@ def request_join_empire(target_empire):
         }
 
         galaxy_politics_info = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(galaxy_payload)
         )
     finally:
@@ -225,6 +229,7 @@ def request_join_empire(target_empire):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def cancel_join_empire(target_empire):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
     galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
@@ -247,8 +252,8 @@ def cancel_join_empire(target_empire):
         }
 
         join_empire_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_empire_payload)
         )
 
@@ -259,8 +264,8 @@ def cancel_join_empire(target_empire):
         }
 
         galaxy_politics_info = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(galaxy_payload)
         )
     finally:
@@ -282,6 +287,7 @@ def _validate_empire_invite(galaxy_politics, kd_id, empires_inverted):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def accept_empire_invite(target_empire):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
     galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
@@ -303,8 +309,8 @@ def accept_empire_invite(target_empire):
         }
 
         empires_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empires_payload)
         )
 
@@ -317,8 +323,8 @@ def accept_empire_invite(target_empire):
         }
 
         join_empire_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_empire_payload)
         )
 
@@ -328,8 +334,8 @@ def accept_empire_invite(target_empire):
         }
 
         galaxy_politics_info = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(galaxy_payload)
         )
     finally:
@@ -354,6 +360,7 @@ def _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, galaxy_id, k
 @start_required
 # @flask_praetorian.roles_required('verified')
 def invite_galaxy(target_galaxy):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
@@ -381,8 +388,8 @@ def invite_galaxy(target_galaxy):
         }
 
         join_empire_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_empire_payload)
         )
 
@@ -393,8 +400,8 @@ def invite_galaxy(target_galaxy):
         }
 
         galaxy_politics_info = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(galaxy_payload)
         )
     finally:
@@ -407,6 +414,7 @@ def invite_galaxy(target_galaxy):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def cancel_invite_galaxy(target_galaxy):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
@@ -436,8 +444,8 @@ def cancel_invite_galaxy(target_galaxy):
         }
 
         join_empire_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_empire_payload)
         )
 
@@ -448,8 +456,8 @@ def cancel_invite_galaxy(target_galaxy):
         }
 
         galaxy_politics_info = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(galaxy_payload)
         )
     finally:
@@ -474,6 +482,7 @@ def _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, gala
 @start_required
 # @flask_praetorian.roles_required('verified')
 def accept_galaxy_request(target_galaxy):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
@@ -499,8 +508,8 @@ def accept_galaxy_request(target_galaxy):
         }
 
         empires_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empires_payload)
         )
 
@@ -512,8 +521,8 @@ def accept_galaxy_request(target_galaxy):
         }
 
         join_empire_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_empire_payload)
         )
 
@@ -523,8 +532,8 @@ def accept_galaxy_request(target_galaxy):
         }
 
         galaxy_politics_info = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(galaxy_payload)
         )
     finally:
@@ -544,6 +553,7 @@ def _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def leave_empire():
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
@@ -571,8 +581,8 @@ def leave_empire():
         }
 
         empires_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empires_payload)
         )
 
@@ -582,8 +592,8 @@ def leave_empire():
             }
 
             empire_response = REQUESTS_SESSION.patch(
-                os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-                headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(kd_empire_payload)
             )
     finally:
@@ -611,6 +621,7 @@ def _validate_denounce(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id,
 @start_required
 # @flask_praetorian.roles_required('verified')
 def denounce(target_empire):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
@@ -649,8 +660,8 @@ def denounce(target_empire):
             }
         }
         universe_news_update_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(news_payload)
         )
 
@@ -658,8 +669,8 @@ def denounce(target_empire):
             "empires": empires_info["empires"],
         }
         update_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empires_payload)
         )
     finally:
@@ -690,6 +701,7 @@ def _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_
 @start_required
 # @flask_praetorian.roles_required('verified')
 def declare_war(target_empire):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
@@ -724,8 +736,8 @@ def declare_war(target_empire):
             }
         }
         universe_news_update_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(news_payload)
         )
 
@@ -733,8 +745,8 @@ def declare_war(target_empire):
             "empires": empires_info["empires"],
         }
         update_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empires_payload)
         )
     finally:
@@ -765,6 +777,7 @@ def _validate_request_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_g
 @start_required
 # @flask_praetorian.roles_required('verified')
 def request_surrender(target_empire):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
     surrender_type = req.get("type")
@@ -825,8 +838,8 @@ def request_surrender(target_empire):
         }
 
         surrender_target_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_empire_payload)
         )
         empire_payload = {
@@ -834,8 +847,8 @@ def request_surrender(target_empire):
         }
 
         surrender_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empire_payload)
         )
     finally:
@@ -849,6 +862,7 @@ def request_surrender(target_empire):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def cancel_request_surrender(target_empire):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
     surrender_type = req.get("type")
@@ -905,8 +919,8 @@ def cancel_request_surrender(target_empire):
         }
 
         surrender_target_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_empire_payload)
         )
         empire_payload = {
@@ -914,8 +928,8 @@ def cancel_request_surrender(target_empire):
         }
 
         surrender_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empire_payload)
         )
     finally:
@@ -947,6 +961,7 @@ def _validate_offer_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_gal
 @start_required
 # @flask_praetorian.roles_required('verified')
 def offer_surrender(target_empire):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
     surrender_type = req.get("type")
@@ -1007,8 +1022,8 @@ def offer_surrender(target_empire):
         }
 
         surrender_target_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_empire_payload)
         )
         empire_payload = {
@@ -1016,8 +1031,8 @@ def offer_surrender(target_empire):
         }
 
         surrender_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empire_payload)
         )
     finally:
@@ -1031,6 +1046,7 @@ def offer_surrender(target_empire):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def cancel_offer_surrender(target_empire):
+    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
     surrender_type = req.get("type")
@@ -1087,8 +1103,8 @@ def cancel_offer_surrender(target_empire):
         }
 
         surrender_target_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_empire_payload)
         )
         empire_payload = {
@@ -1096,8 +1112,8 @@ def cancel_offer_surrender(target_empire):
         }
 
         surrender_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(empire_payload)
         )
     finally:
@@ -1114,6 +1130,7 @@ def _surrender(
     surrender_type,
     surrender_value,
 ):
+    app = flask.current_app
     losing_empire_politics = uag._get_empire_politics(losing_empire)
     winning_empire_politics = uag._get_empire_politics(winning_empire)
     if surrender_type == "stars":
@@ -1128,8 +1145,8 @@ def _surrender(
                 stars_pool += stars_lost
                 patch_payload = {"stars": new_stars}
                 kd_patch_response = REQUESTS_SESSION.patch(
-                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{losing_kd}',
-                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{losing_kd}',
+                    headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                     data=json.dumps(patch_payload)
                 )
             stars_per_kd = math.floor(stars_pool / len(winning_kds))
@@ -1138,8 +1155,8 @@ def _surrender(
                 new_stars = winning_kd_info["stars"] + stars_per_kd
                 patch_payload = {"stars": new_stars}
                 kd_patch_response = REQUESTS_SESSION.patch(
-                    os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{winning_kd}',
-                    headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+                    app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{winning_kd}',
+                    headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                     data=json.dumps(patch_payload)
                 )
 
@@ -1162,8 +1179,8 @@ def _surrender(
         ],
     }
     winning_empire_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{winning_empire}/politics',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{winning_empire}/politics',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps(winning_empire_politics_payload)
     )
     losing_empire_politics_payload = {
@@ -1185,8 +1202,8 @@ def _surrender(
         ],
     }
     losing_empire_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{losing_empire}/politics',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{losing_empire}/politics',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps(losing_empire_politics_payload)
     )
 
@@ -1213,8 +1230,8 @@ def _surrender(
         "empires": empires_info["empires"]
     }
     empires_response = REQUESTS_SESSION.patch(
-        os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-        headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps(empires_info)
     )
 
@@ -1384,6 +1401,7 @@ def _validate_buy_votes(
 @start_required
 # @flask_praetorian.roles_required('verified')
 def buy_votes():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
@@ -1404,8 +1422,8 @@ def buy_votes():
             "votes": kd_info["votes"] + votes,
         }
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_patch_payload)
         )
     finally:
@@ -1429,6 +1447,7 @@ def _validate_cast_votes(
 @start_required
 # @flask_praetorian.roles_required('verified')
 def universe_policies():
+    app = flask.current_app
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
@@ -1459,14 +1478,14 @@ def universe_policies():
             universe_politics["votes"][policy][option][kd_id] = votes
 
         kd_patch_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_patch_payload)
         )
 
         universe_politics_response = REQUESTS_SESSION.patch(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/universepolitics',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universepolitics',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(universe_politics)
         )
     finally:
