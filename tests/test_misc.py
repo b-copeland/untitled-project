@@ -10,6 +10,7 @@ def test_set_shields(app, client, jwt1):
     kingdom_1_data = {
         "item": "kingdom_1",
         "state": {
+            "fuel": 1000,
             "shields": {
                 "military": 0,
                 "spy": 0,
@@ -36,7 +37,7 @@ def test_set_shields(app, client, jwt1):
     result = REQUESTS_SESSION.get(
         app.config["AZURE_FUNCTION_ENDPOINT"] + f'/item',
         headers={'x-functions-key': app.config["AZURE_FUNCTION_KEY"] },
-        data=json.dumps({"id": "kingdom_0"}),
+        data=json.dumps({"item": "kingdom_1"}),
     )
     assert resp.status_code == 200
-    assert result.json()["shields"]["military"] == 10
+    assert result.json()["shields"]["military"] == 0.1
