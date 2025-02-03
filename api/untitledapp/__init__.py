@@ -112,6 +112,7 @@ def create_app(config_class='config.Config'):
 
     # Initialize the flask-praetorian instance for the app
     guard.init_app(app, User)
+    app.extensions["praetorian"] = guard
 
     db.init_app(app)
 
@@ -122,27 +123,55 @@ def create_app(config_class='config.Config'):
 
     sock = Sock(app)
     # Add users for the example
-    with app.app_context():
-        db.create_all()
-        accounts_response = REQUESTS_SESSION.get(
-            os.environ['AZURE_FUNCTION_ENDPOINT'] + f'/accounts',
-            headers={'x-functions-key': os.environ['AZURE_FUNCTIONS_HOST_KEY']},
-        )
-        accounts_json = json.loads(accounts_response.text)
-        accounts = accounts_json["accounts"]
-        for user in accounts:
-            if db.session.query(User).filter_by(username=user["username"]).count() < 1:
-                db.session.add(
-                    User(**user)
-                )
-        if db.session.query(User).filter_by(username='admin').count() < 1:
+    if config_class.lower() == "config.config":
+        with app.app_context():
+            db.create_all()
+            accounts_response = REQUESTS_SESSION.get(
+                app.config.get("AZURE_FUNCTION_ENDPOINT") + f'/accounts',
+                headers={'x-functions-key': app.config.get('AZURE_FUNCTIONS_HOST_KEY')},
+            )
+            accounts_json = json.loads(accounts_response.text)
+            accounts = accounts_json["accounts"]
+            for user in accounts:
+                if db.session.query(User).filter_by(username=user["username"]).count() < 1:
+                    db.session.add(
+                        User(**user)
+                    )
+            if db.session.query(User).filter_by(username='admin').count() < 1:
+                db.session.add(User(
+                username='admin',
+                password=guard.hash_password(os.environ["ADMIN_PASSWORD"]),
+                roles='operator,admin',
+                kd_created=True,
+                ))
+            db.session.commit()
+    elif config_class.lower() == "config.testingconfig":
+        with app.app_context():
+            db.drop_all()
+            db.create_all()
             db.session.add(User(
-            username='admin',
-            password=guard.hash_password(os.environ["ADMIN_PASSWORD"]),
-            roles='operator,admin',
-            kd_created=True,
+                username='admin',
+                password=guard.hash_password("admin"),
+                roles='operator,admin',
+                kd_created=False,
             ))
-        db.session.commit()
+            db.session.add(User(
+                username='user1',
+                password=guard.hash_password("user1"),
+                roles='operator',
+                kd_created=True,
+                kd_id=1,
+                is_active=True,
+            ))
+            db.session.add(User(
+                username='user2',
+                password=guard.hash_password("user2"),
+                roles='operator',
+                kd_created=True,
+                kd_id=2,
+                is_active=True,
+            ))
+            db.session.commit()
         
     import untitledapp.account as uaa
     import untitledapp.admin as uaad
