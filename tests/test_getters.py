@@ -1,6 +1,8 @@
 import pytest
 import json
 from api.untitledapp import REQUESTS_SESSION
+import api.untitledapp.getters as app_getters
+import api.untitledapp.shared as app_shared
 
 def test_max_kingdom(app, client, jwt1):
     
@@ -171,3 +173,43 @@ def test_scores(app, client, jwt1):
             assert points == 101
         if kd_id == "2":
             assert points == 102
+
+def test__calc_max_recruits():
+
+    population = 1000
+    max_recruits = app_shared.GAME_FUNCS["BASE_MAX_RECRUITS"](population)
+    max_recruits_cost = app_shared.GAME_CONFIG["BASE_RECRUIT_COST"] * max_recruits
+
+    kd_max_recruits = {
+        "money": max_recruits_cost * 100,
+        "population": population
+    }
+    units_max_recruits = {
+        "hour_24": {
+            "recruits": 0,
+        }
+    }
+
+    assert app_getters._calc_max_recruits(kd_max_recruits, units_max_recruits) == (max_recruits, max_recruits)
+
+    kd_too_poor = {
+        "money": 10 * app_shared.GAME_CONFIG["BASE_RECRUIT_COST"],
+        "population": population
+    }
+    units_too_poor = {
+        "hour_24": {
+            "recruits": 0,
+        }
+    }
+    assert app_getters._calc_max_recruits(kd_too_poor, units_too_poor) == (max_recruits, 10)
+
+    kd_recruits_training = {
+        "money": max_recruits_cost * 100,
+        "population": population
+    }
+    units_recruits_training = {
+        "hour_24": {
+            "recruits": 10,
+        }
+    }
+    assert app_getters._calc_max_recruits(kd_recruits_training, units_recruits_training) == (max_recruits - 10, max_recruits - 10)

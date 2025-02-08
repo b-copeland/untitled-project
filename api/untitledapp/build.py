@@ -20,7 +20,7 @@ def _make_time_splits(min_time, max_time, num_splits):
     assert num_splits % 2 == 0, "num_splits must be even"
 
     splits = []
-    step = (min_time + max_time) / num_splits
+    step = (max_time - min_time) / (num_splits - 1)
     for i in range(num_splits):
         splits.append(min_time + step * i)
 
