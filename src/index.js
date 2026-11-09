@@ -2,18 +2,23 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './index.css';
+import { QueryClientProvider } from '@tanstack/react-query';
 import {App} from './App';
+import { createQueryClient } from './data/gameData';
 import * as serviceWorker from './serviceWorker';
 
+const queryClient = createQueryClient();
 const container = document.getElementById('root');
 document.documentElement.setAttribute('data-bs-theme', 'dark');
 const root = createRoot(container); // createRoot(container!) if you use TypeScript
 
 root.render(
   <React.StrictMode>
-    <BrowserRouter> 
-      <App />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </QueryClientProvider>
   </React.StrictMode>
 );
 

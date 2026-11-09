@@ -13,7 +13,6 @@ import NavDropdown from 'react-bootstrap/NavDropdown';
 import Offcanvas from 'react-bootstrap/Offcanvas';
 import 'bootstrap/dist/css/bootstrap.css';
 import { logout } from "../auth";
-import {initGlobalData} from "../App"
 
 const homePaths = [
   "/status",
@@ -72,7 +71,6 @@ function SideNavbar(props) {
   const onClickLogout = () => {
     logout();
     navigate('/login');
-    props.setData(initGlobalData);
   }
 
   const handleDoubleClick = (route) => {
