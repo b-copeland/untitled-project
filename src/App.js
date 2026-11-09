@@ -12,6 +12,7 @@ import {
 } from "react-router-dom";
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "./auth";
+import { useGameData, initGlobalData } from "./data/gameData";
 import Button from 'react-bootstrap/Button';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer'
@@ -69,109 +70,6 @@ const ProtectedRoute = ({ logged, session, kingdomid, redirectPath = '/login', c
   return children ? children : <Outlet />;
 };
 
-const initGlobalData = {
-  'kingdomid': {},
-  'kingdom': {},
-  'state': {},
-  'shields': {},
-  'kingdoms': {},
-  'galaxies': {},
-  'galaxies_inverted': {},
-  'siphonsout': [],
-  'empires': {},
-  'empires_inverted': {},
-  'empirepolitics': {},
-  'news': [],
-  'settle': {},
-  'structures': {},
-  'mobis': {},
-  'missiles': {},
-  'engineers': {},
-  'projects': {},
-  'revealed': {},
-  'shared': {},
-  'pinned': [],
-  'galaxypolitics': {},
-  'universepolitics': {},
-  'attackhistory': [],
-  'spyhistory': [],
-  'missilehistory': [],
-  'galaxynews': [],
-  'empirenews': [],
-  'universenews': [],
-  'messages': [],
-  'scores': {},
-  'notifs': {},
-}
-const initLoadingData = {
-  'kingdomid': true,
-  'kingdom': true,
-  'state': true,
-  'shields': true,
-  'kingdoms': true,
-  'galaxies': true,
-  'galaxies_inverted': true,
-  'siphonsout': true,
-  'empires': true,
-  'empires_inverted': true,
-  'empirepolitics': true,
-  'news': true,
-  'galaxynews': true,
-  'empirenews': true,
-  'universenews': true,
-  'settle': true,
-  'structures': true,
-  'mobis': true,
-  'missiles': true,
-  'engineers': true,
-  'projects': true,
-  'revealed': true,
-  'shared': true,
-  'pinned': true,
-  'galaxypolitics': true,
-  'universepolitics': true,
-  'attackhistory': true,
-  'spyhistory': true,
-  'missilehistory': true,
-  'messages': true,
-  'scores': true,
-  'notifs': true,
-}
-const endpoints = {
-  'kingdomid': 'api/kingdomid',
-  'kingdom': 'api/kingdom',
-  'state': 'api/state',
-  'shields': 'api/shields',
-  'kingdoms': 'api/kingdoms',
-  'galaxies': 'api/galaxies',
-  'galaxies_inverted': 'api/galaxies_inverted',
-  'siphonsout': 'api/siphonsout',
-  'empires': 'api/empires',
-  'empires_inverted': 'api/empires_inverted',
-  'empirepolitics': 'api/empirepolitics',
-  'news': 'api/news',
-  'galaxynews': 'api/galaxynews',
-  'empirenews': 'api/empirenews',
-  'universenews': 'api/universenews',
-  'settle': 'api/settle',
-  'structures': 'api/structures',
-  'mobis': 'api/mobis',
-  'missiles': 'api/missiles',
-  'engineers': 'api/engineers',
-  'projects': 'api/projects',
-  'revealed': 'api/revealed',
-  'shared': 'api/shared',
-  'pinned': 'api/pinned',
-  'galaxypolitics': 'api/galaxypolitics',
-  'universepolitics': 'api/universepolitics',
-  'attackhistory': 'api/attackhistory',
-  'spyhistory': 'api/spyhistory',
-  'missilehistory': 'api/missilehistory',
-  'messages': 'api/messages',
-  'scores': 'api/scores',
-  'notifs': 'api/notifs',
-}
-
 function useInterval(callback, delay) {
   const savedCallback = useRef();
 
@@ -199,85 +97,8 @@ function Content(props) {
   const [socketUrl, setSocketUrl] = useState(protocolPrefix + '//' + hostname + port + '/ws/listen');
   const [messageHistory, setMessageHistory] = useState([]);
   const { sendMessage, lastMessage, readyState } = useWebSocket(socketUrl);
-  const [data, setData] = useState(initGlobalData);
-  const [loading, setLoading] = useState(initLoadingData);
-  const [initLoadComplete, setInitLoadComplete] = useState(false);
-  const [lastResolves, setLastResolves] = useState({});
+  const { data, loading, updateData } = useGameData({ logged: props.logged });
   const [showNav, setShowNav] = useState(false);
-  // console.log(data);
-  // console.log(loading);
-
-  const updateData = async (keys, depFuncs=[]) => {
-    var newValues = JSON.parse(JSON.stringify(data));
-    var newLoading = {...loading};
-    var loadKeys = keys;
-    if (keys.includes("all")) {
-      loadKeys = Object.keys(initGlobalData);
-      console.log(loadKeys);
-    }
-    for (const key of loadKeys) {
-      newLoading[key] = true;
-    }
-    // console.log(JSON.parse(JSON.stringify(newValues)));
-    // console.log(newLoading);
-    setLoading(newLoading);
-
-    for (const depFunc of depFuncs) {
-      await depFunc();
-    }
-
-    const fetchData = async () => {
-      for (const key of loadKeys) {
-        await authFetch(endpoints[key], {keepalive: true}).then(
-          r => r.json()
-        ).then(r => (newValues[key] = r)).catch(
-          err => {
-            console.log('Failed to fetch ' + key);
-            console.log(err);
-          }
-        );
-        newLoading[key] = false;
-        setData(JSON.parse(JSON.stringify(newValues)));
-        setLoading(newLoading);
-      }
-    }
-    await fetchData();
-    
-    // console.log(JSON.parse(JSON.stringify(newValues)));
-    // console.log(JSON.parse(JSON.stringify(newLoading)));
-  };
-
-  const resolveKeysMap = {
-    "generals": ["mobis"],
-    "spy_attempt": [],
-    "settles": ["settle", "structures"],
-    "mobis": ["mobis"],
-    "missiles": ["missiles"],
-    "engineers": ["engineers"],
-    "structures": ["structures"],
-    "revealed": ["revealed"],
-    "shared": ["shared"],
-    "auto_spending": ["kingdom", "settle", "structures", "mobis", "engineers"],
-  }
-  const refreshData = async () => {
-    // console.log('Updating Data');
-    // console.log(data);
-    // console.log(lastResolves);
-    if (initLoadComplete) {
-      await updateData(["kingdom", "notifs"]);
-      if (Object.keys(lastResolves).length > 0) {
-        const newResolves = Object.keys(lastResolves).filter(key => lastResolves[key] != data.kingdom.next_resolve[key]);
-        // console.log(newResolves);
-        var keysToUpdate = [];
-        for (const resolve of newResolves) {
-          keysToUpdate.push(...resolveKeysMap[resolve])
-        }
-        // console.log(keysToUpdate);
-        updateData(keysToUpdate);
-        setLastResolves(data.kingdom["next_resolve"]);
-      }
-    }
-  }
 
 
   useEffect(() => {
@@ -292,34 +113,14 @@ function Content(props) {
 
   useEffect(() => {
     if (props.logged) {
-      const keys = Object.keys(initGlobalData);
-      const fetchData = async () => {
-        await updateData(keys);
-      }
-      fetchData();
-      setInitLoadComplete(true);
-
-      // const interval = setInterval(() => {
-      //   refreshData()
-      // }, 10000);
-
-      // return () => clearInterval(interval);
       sendMessage(
         JSON.stringify({
           "jwt": props.session.accessToken,
         })
       );
-
     }
   }, [props.logged])
 
-  useInterval(() => {
-    if (initLoadComplete) {
-      if (data.kingdomid.created !== false) {
-        refreshData()
-      }
-    }
-  }, 10000)
   useInterval(() => {
     sendMessage(
       JSON.stringify({
@@ -327,21 +128,11 @@ function Content(props) {
       })
     );
   }, 60000)
-  useInterval(() => {
-    updateData(["scores"])
-  }, 60000)
 
   const handleShowNav = () => {
     setShowNav(true);
   }
 
-  // console.log(data);
-  // console.log(lastResolves);
-  if (Object.keys(lastResolves || {}).length == 0 && data.kingdom.hasOwnProperty("next_resolve")) {
-    setLastResolves(data.kingdom.next_resolve);
-  }
-
-  
   const toasts = messageHistory.map((message, index) => {
     const jsonMessage = JSON.parse(message.data);
     return <Toast
@@ -372,7 +163,7 @@ function Content(props) {
         <ToastContainer position="top-end">
             {toasts}
         </ToastContainer>
-        <SideNavbar logged={props.logged} setData={setData} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs}/>
+        <SideNavbar logged={props.logged} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs}/>
         <div className="router">
           {/* <Router> */}
             <div className="router-body">

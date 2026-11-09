@@ -33,6 +33,9 @@ jobs:
       - name: Install dependencies
         run: npm install
         
+      - name: Test frontend
+        run: CI=true npm test -- --watchAll=false
+
       - name: Build frontend
         run: CI=false GENERATE_SOURCEMAP=false npm run build
         
