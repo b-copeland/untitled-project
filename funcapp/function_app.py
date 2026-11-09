@@ -7,6 +7,8 @@ from collections import defaultdict
 
 from azure.cosmos import CosmosClient, PartitionKey
 
+from concurrency import ConditionalContainer, retry_on_conflict
+
 ENDPOINT = os.environ["COSMOS_ENDPOINT"]
 KEY = os.environ["COSMOS_KEY"]
 
@@ -15,7 +17,7 @@ CONTAINER_NAME = os.environ.get("COSMOS_CONTAINER_NAME", "test")
 
 CLIENT = CosmosClient(url=ENDPOINT, credential=KEY)
 DATABASE = CLIENT.create_database_if_not_exists(id=DATABASE_NAME)
-CONTAINER = DATABASE.get_container_client(CONTAINER_NAME)
+CONTAINER = ConditionalContainer(DATABASE.get_container_client(CONTAINER_NAME))
 
 APP = func.FunctionApp()
 
@@ -139,6 +141,7 @@ def get_state(req: func.HttpRequest) -> func.HttpResponse:
     
 @APP.function_name(name="Update")
 @APP.route(route="updatestate", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_state(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json()
     try:
@@ -297,6 +300,7 @@ def get_accounts(req: func.HttpRequest) -> func.HttpResponse:
     
 @APP.function_name(name="UpdateAccounts")
 @APP.route(route="accounts", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_accounts(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json()
     try:
@@ -339,6 +343,7 @@ def get_scores(req: func.HttpRequest) -> func.HttpResponse:
     
 @APP.function_name(name="UpdateScores")
 @APP.route(route="scores", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_scores(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json()
     try:
@@ -573,6 +578,7 @@ def get_kingdoms(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateKingdoms")
 @APP.route(route="kingdoms", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_kingdoms(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update kingdoms request.')    
     req_body = req.get_json()
@@ -643,6 +649,7 @@ def get_galaxy_politics(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateGalaxyPolitics")
 @APP.route(route="galaxy/{galaxy_id}/politics", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_galaxy_politics(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a galaxy politics update request.')    
     req_body = req.get_json()
@@ -693,6 +700,7 @@ def get_empire_politics(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateEmpirePolitics")
 @APP.route(route="empire/{empire_id}/politics", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_empire_politics(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a empire politics update request.')    
     req_body = req.get_json()
@@ -742,6 +750,7 @@ def get_universe_votes(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateUniversePolitics")
 @APP.route(route="universepolitics", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_universe_politics(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a universe politics update request.')    
     req_body = req.get_json()
@@ -849,6 +858,7 @@ def create_empire(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateEmpires")
 @APP.route(route="empires", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_empires(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update empires request.')    
     req_body = req.get_json()
@@ -897,6 +907,7 @@ def get_kingdom(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateKingdom")
 @APP.route(route="kingdom/{kdId:int}", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_kingdom(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update kingdom request.')    
     req_body = req.get_json()
@@ -966,6 +977,7 @@ def get_siphons_out(req: func.HttpRequest) -> func.HttpResponse:
         
 @APP.function_name(name="UpdateSiphonsOut")
 @APP.route(route="kingdom/{kdId:int}/siphonsout", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_siphonsout(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update siphons out request.')    
     req_body = req.get_json()
@@ -998,6 +1010,7 @@ def update_siphonsout(req: func.HttpRequest) -> func.HttpResponse:
         
 @APP.function_name(name="UpdateSiphonsIn")
 @APP.route(route="kingdom/{kdId:int}/siphonsin", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_siphonsin(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update siphons in request.')    
     req_body = req.get_json()
@@ -1072,6 +1085,7 @@ def get_galaxy_news(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateGalaxyNews")
 @APP.route(route="galaxy/{galaxyId}/news", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_galaxy_news(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update news request.')    
     req_body = req.get_json()
@@ -1144,6 +1158,7 @@ def get_universe_news(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateNews")
 @APP.route(route="kingdom/{kdId:int}/news", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_news(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update news request.')    
     req_body = req.get_json()
@@ -1175,6 +1190,7 @@ def update_news(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateEmpireNews")
 @APP.route(route="empire/{empireId:int}/news", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update empire news request.')  
     try:  
@@ -1206,6 +1222,7 @@ def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateUniverseNews")
 @APP.route(route="universenews", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_universe_news(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update universe news request.')  
     try:  
@@ -1257,6 +1274,7 @@ def get_messages(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateMessages")
 @APP.route(route="kingdom/{kdId:int}/messages", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_messages(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update messages request.')    
     req_body = req.get_json()
@@ -1309,6 +1327,7 @@ def get_notifs(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateNotifs")
 @APP.route(route="kingdom/{kdId:int}/notifs", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_notifs(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update notifs request.')    
     req_body = req.get_json()
@@ -1363,6 +1382,7 @@ def get_settles(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateSettles")
 @APP.route(route="kingdom/{kdId:int}/settles", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_settles(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update settles request.')    
     req_body = req.get_json()
@@ -1416,6 +1436,7 @@ def get_mobis(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateMobis")
 @APP.route(route="kingdom/{kdId:int}/mobis", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_mobis(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update mobis request.')    
     req_body = req.get_json()
@@ -1469,6 +1490,7 @@ def get_structures(req: func.HttpRequest) -> func.HttpResponse:
         
 @APP.function_name(name="UpdateStructures")
 @APP.route(route="kingdom/{kdId:int}/structures", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_structures(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update structures request.')    
     req_body = req.get_json()
@@ -1522,6 +1544,7 @@ def get_missiles(req: func.HttpRequest) -> func.HttpResponse:
         
 @APP.function_name(name="UpdateMissiles")
 @APP.route(route="kingdom/{kdId:int}/missiles", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_missiles(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update missiles request.')    
     req_body = req.get_json()
@@ -1575,6 +1598,7 @@ def get_engineers(req: func.HttpRequest) -> func.HttpResponse:
         
 @APP.function_name(name="UpdateEngineers")
 @APP.route(route="kingdom/{kdId:int}/engineers", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_engineers(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update engineers request.')    
     req_body = req.get_json()
@@ -1628,6 +1652,7 @@ def get_revealed(req: func.HttpRequest) -> func.HttpResponse:
         
 @APP.function_name(name="UpdateRevealed")
 @APP.route(route="kingdom/{kdId:int}/revealed", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update revealed request.')    
     req_body = req.get_json()
@@ -1709,6 +1734,7 @@ def get_shared(req: func.HttpRequest) -> func.HttpResponse:
         
 @APP.function_name(name="SetShared")
 @APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+@retry_on_conflict
 def set_shared(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a set shared request.')        
     req_body = req.get_json()
@@ -1740,6 +1766,7 @@ def set_shared(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateShared")
 @APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_shared(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update shared request.')    
     req_body = req.get_json()
@@ -1768,6 +1795,7 @@ def update_shared(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateSharedRequests")
 @APP.route(route="kingdom/{kdId:int}/sharedrequests", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_shared_requests(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update shared_requests request.')    
     req_body = req.get_json()
@@ -1817,6 +1845,7 @@ def get_pinned(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdatePinned")
 @APP.route(route="kingdom/{kdId:int}/pinned", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_pinned(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update pinned request.')    
     req_body = req.get_json()
@@ -1872,6 +1901,7 @@ def get_spyhistory(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateSpyHistory")
 @APP.route(route="kingdom/{kdId:int}/spyhistory", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_spy_history(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update spy_history request.')    
     req_body = req.get_json()
@@ -1921,6 +1951,7 @@ def get_attackhistory(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateAttackHistory")
 @APP.route(route="kingdom/{kdId:int}/attackhistory", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_attack_history(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update attack_history request.')    
     req_body = req.get_json()
@@ -1970,6 +2001,7 @@ def get_missilehistory(req: func.HttpRequest) -> func.HttpResponse:
 
 @APP.function_name(name="UpdateMissileHistory")
 @APP.route(route="kingdom/{kdId:int}/missilehistory", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_missile_history(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update missile_history request.')    
     req_body = req.get_json()
@@ -2018,6 +2050,7 @@ def get_history(req: func.HttpRequest) -> func.HttpResponse:
         )
 @APP.function_name(name="UpdateHistory")
 @APP.route(route="kingdom/{kdId:int}/history", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
 def update_history(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed an update history request.')    
     req_body = req.get_json()

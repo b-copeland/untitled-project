@@ -58,6 +58,7 @@ def main():
     dest_container = dest_db.create_container_if_not_exists(
         id=container_name,
         partition_key=PartitionKey(path=partition_path),
+        offer_throughput=4000,  # the emulator default of 400 RU/s throttles concurrent tests and probes
     )
 
     try:
