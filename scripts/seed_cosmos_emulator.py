@@ -6,10 +6,10 @@ funcapp/local.settings.json:
     COSMOS_ENDPOINT / COSMOS_KEY              destination (must be localhost)
 
 Usage:
-    python adhoc/seed_cosmos_emulator.py            # report only, writes nothing
-    python adhoc/seed_cosmos_emulator.py --apply    # copy into the emulator
-    python adhoc/seed_cosmos_emulator.py --apply --replace
-                                                    # overwrite a non-empty emulator
+    python scripts/seed_cosmos_emulator.py            # report only, writes nothing
+    python scripts/seed_cosmos_emulator.py --apply    # copy into the emulator
+    python scripts/seed_cosmos_emulator.py --apply --replace
+                                                      # overwrite a non-empty emulator
 """
 import argparse
 import json
