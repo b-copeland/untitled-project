@@ -21,6 +21,30 @@ from untitledapp import db, User, REQUESTS_SESSION, SOCK_HANDLERS
 
 bp = flask.Blueprint("refresh", __name__)
 
+
+class _RefreshContext:
+    """
+    Data that is the same for every kingdom within one refresh, fetched from the function app at most once and
+    passed down, instead of every kingdom's resolution fetching it again.
+    """
+
+    def __init__(self, state):
+        self.state = state
+        self._galaxies_inverted = None
+        self._galaxy_politics = {}
+
+    @property
+    def galaxies_inverted(self):
+        if self._galaxies_inverted is None:
+            self._galaxies_inverted, _ = uag._get_galaxies_inverted()
+        return self._galaxies_inverted
+
+    def galaxy_politics(self, kd_id, galaxy_id):
+        if galaxy_id not in self._galaxy_politics:
+            self._galaxy_politics[galaxy_id], _ = uag._get_galaxy_politics(kd_id, galaxy_id)
+        return self._galaxy_politics[galaxy_id]
+
+
 def _calc_pop_change_per_epoch(
     kd_info_parse,
     fuelless: bool,
@@ -149,24 +173,27 @@ def _resolve_siphons(
                     }
                 )
         
-        siphon_out_payload = {
-            "siphons": keep_siphons,
-        }
-        siphon_out_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsout',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(siphon_out_payload),
-        )
+        # Writing an empty list over an empty list changes nothing, so only write when there was something to change.
+        if siphons_out:
+            siphon_out_payload = {
+                "siphons": keep_siphons,
+            }
+            siphon_out_response = REQUESTS_SESSION.patch(
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsout',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+                data=json.dumps(siphon_out_payload),
+            )
 
         siphon_in_income = sum(siphon["siphon"] for siphon in siphons_in) / epoch_elapsed
-        resolve_siphons_in_payload = {
-            "siphons": []
-        }
-        resolve_siphons_in = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsin',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(resolve_siphons_in_payload),
-        )
+        if siphons_in:
+            resolve_siphons_in_payload = {
+                "siphons": []
+            }
+            resolve_siphons_in = REQUESTS_SESSION.patch(
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsin',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+                data=json.dumps(resolve_siphons_in_payload),
+            )
     finally:
         uam.release_locks_by_id(request_id)
     return siphon_pool, siphon_in_income, siphons_in
@@ -717,10 +744,12 @@ def _resolve_generals(kd_info_parse, time_update):
     return kd_info_parse, next_resolve
 
 
-def _resolve_spy(kd_info_parse, time_update, current_bonuses):
+def _resolve_spy(kd_info_parse, time_update, current_bonuses, context=None):
     resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["spy_attempt"]).astimezone(datetime.timezone.utc)
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
-    galaxy_policies, _ = uag._get_galaxy_politics(kd_info_parse["kdId"], galaxies_inverted[kd_info_parse["kdId"]])
+    if context is None:
+        context = _RefreshContext(state=None)
+    galaxies_inverted = context.galaxies_inverted
+    galaxy_policies = context.galaxy_politics(kd_info_parse["kdId"], galaxies_inverted[kd_info_parse["kdId"]])
     is_intelligence = "Intelligence" in galaxy_policies["active_policies"]
     next_resolve_time = max(
         resolve_time + datetime.timedelta(
@@ -976,6 +1005,7 @@ def _resolve_auto_spending(
     return kd_info_parse, next_resolves
 
 def _resolve_auto_attack(kd_info_parse):
+    """Always attacks, so the kingdom has changed once it returns True."""
     pure_pct = kd_info_parse["auto_attack_settings"].get("pure", 0)
     flex_pct = kd_info_parse["auto_attack_settings"].get("flex", 0)
 
@@ -1035,9 +1065,10 @@ def _resolve_auto_attack(kd_info_parse):
         }))
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
-    return None
+    return True
 
 def _resolve_auto_rob(kd_info_parse):
+    """Returns True if it robbed, meaning the kingdom changed."""
     drones_pct = kd_info_parse["auto_rob_settings"].get("drones", 0)
     keep_spy_attempts = kd_info_parse["auto_rob_settings"].get("keep", 10)
     shielded = kd_info_parse["auto_rob_settings"].get("shielded", False)
@@ -1059,7 +1090,8 @@ def _resolve_auto_rob(kd_info_parse):
             }))
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
-    return None
+        return True
+    return False
 
 def _resolve_auto_projects(kd_info_parse):
     engineers_to_assign = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
@@ -1287,22 +1319,34 @@ def _resolve_schedule_missiles(new_kd_info, schedule):
     args = (req, new_kd_info["kdId"], target_kd)
     return func, args
 
-def _resolve_schedules(kd_id, time_update):
+def _is_schedule_due(schedule, time_update):
+    return datetime.datetime.fromisoformat(schedule["time"]).astimezone(datetime.timezone.utc) < time_update
+
+
+def _resolve_schedules(kd_id, time_update, kd_info=None):
+    """
+    Run the schedules that are due. Returns True if there were any, meaning the kingdom may have changed.
+
+    Pass `kd_info` when the caller has just read the kingdom. If nothing in it is due, this returns without taking a
+    lock or calling the function app, which is the case for almost every kingdom on almost every refresh.
+    """
+    if kd_info is not None and not any(_is_schedule_due(schedule, time_update) for schedule in kd_info["schedule"]):
+        return False
 
     app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}', timeout=999):
         time.sleep(0.01)
-    
+
     try:
         kd_info = uag._get_kd_info(kd_id)
         keep_schedules = []
         ready_schedules = []
         for schedule in kd_info["schedule"]:
-            if datetime.datetime.fromisoformat(schedule["time"]).astimezone(datetime.timezone.utc) < time_update:
+            if _is_schedule_due(schedule, time_update):
                 ready_schedules.append(schedule)
             else:
                 keep_schedules.append(schedule)
-        
+
         schedule_funcs = {
             "attack": _resolve_schedule_attack,
             "attackprimitives": _resolve_schedule_attackprimitives,
@@ -1328,7 +1372,7 @@ def _resolve_schedules(kd_id, time_update):
     
     for action in actions:
         action[0](*action[1])
-    return None
+    return True
 
 def _begin_election(state):
     app = flask.current_app
@@ -1414,9 +1458,11 @@ def _resolve_election(state):
         uam.release_lock(f'/updatestate')
     return state
 
-def _resolve_scores(kd_scores, time_update):
+def _resolve_scores(kd_scores, time_update, context=None):
 
     app = flask.current_app
+    if context is None:
+        context = _RefreshContext(state=None)
     while not uam.acquire_lock(f'/scores', timeout=999):
         time.sleep(0.01)
     try:
@@ -1444,7 +1490,7 @@ def _resolve_scores(kd_scores, time_update):
             except KeyError:
                 new_scores["points"][kd_scoring] = epoch_points
 
-        galaxies_inverted, _ = uag._get_galaxies_inverted()
+        galaxies_inverted = context.galaxies_inverted
         new_scores["galaxy_networth"] = collections.defaultdict(int)
         for kd_id, networth in kd_scores["networth"].items():
             galaxy = galaxies_inverted[kd_id]
@@ -1591,8 +1637,10 @@ def _resolve_empires(
     finally:
         uam.release_lock(f'/empires')
 
-def _refresh_kd(kd_id, state, time_update, update_history):
+def _refresh_kd(kd_id, state, time_update, update_history, context=None):
     app = flask.current_app
+    if context is None:
+        context = _RefreshContext(state)
     try:
         query = db.session.query(User).filter_by(kd_id=kd_id).all()
         user = query[0]
@@ -1676,6 +1724,7 @@ def _refresh_kd(kd_id, state, time_update, update_history):
                 kd_info_parse,
                 time_update,
                 current_bonuses,
+                context,
             )
         if "auto_spending" in categories_to_resolve:
             kd_info_parse, next_resolves_auto_spending = _resolve_auto_spending(
@@ -1700,23 +1749,27 @@ def _refresh_kd(kd_id, state, time_update, update_history):
         for category, next_resolve_datetime in next_resolves.items():
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
         new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update)
+        kd_payload = json.dumps(new_kd_info, default=str)
         kd_patch_response = REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(new_kd_info, default=str),
+            data=kd_payload,
         )
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
 
-    _resolve_schedules(kd_id, time_update)
-    new_kd_info = uag._get_kd_info(kd_id)
+    # What was just written is the kingdom (the PATCH sends the whole document), in exactly the form a read would
+    # return it. Only read it again after a step that changes the kingdom, instead of after every step.
+    new_kd_info = json.loads(kd_payload)
+    if _resolve_schedules(kd_id, time_update, new_kd_info):
+        new_kd_info = uag._get_kd_info(kd_id)
     if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > 0:
-        _resolve_auto_attack(new_kd_info)
-    new_kd_info = uag._get_kd_info(kd_id)
+        if _resolve_auto_attack(new_kd_info):
+            new_kd_info = uag._get_kd_info(kd_id)
     if new_kd_info["auto_rob_enabled"]:
-        _resolve_auto_rob(new_kd_info)
+        if _resolve_auto_rob(new_kd_info):
+            new_kd_info = uag._get_kd_info(kd_id)
 
-    new_kd_info = uag._get_kd_info(kd_id)
     score_stars = new_kd_info["stars"]
     score_networth = new_kd_info["networth"]
 
@@ -1764,15 +1817,32 @@ def refresh_data():
     else:
         update_history = False
 
+    context = _RefreshContext(state)
     kd_scores = {}
+    failed_kd_ids = []
     for kd_id in kingdoms:
-        kd_scores[kd_id] = _refresh_kd(
-            kd_id,
-            state,
-            time_update,
-            update_history,
-        )
-    
+        # One kingdom with bad data must not stop everyone after it from being refreshed.
+        try:
+            kd_scores[kd_id] = _refresh_kd(
+                kd_id,
+                state,
+                time_update,
+                update_history,
+                context,
+            )
+        except Exception:
+            app.logger.exception("Refresh failed for kingdom %s", kd_id)
+            failed_kd_ids.append(kd_id)
+
+    if failed_kd_ids:
+        # Scores are replaced as a whole, so keep each failed kingdom's last known values rather than dropping it.
+        previous_scores = uag._get_scores()
+        for kd_id in failed_kd_ids:
+            kd_scores[kd_id] = (
+                previous_scores["stars"].get(kd_id, 0),
+                previous_scores["networth"].get(kd_id, 0),
+            )
+
     kd_scores_split = {
         "stars": {
             kd_id: items[0]
@@ -1783,7 +1853,9 @@ def refresh_data():
             for kd_id, items in kd_scores.items() 
         },
     }
-    _resolve_scores(kd_scores_split, time_update)
+    _resolve_scores(kd_scores_split, time_update, context)
     _resolve_empires(kd_scores_split, time_update)
-        
+
+    if failed_kd_ids:
+        return f"Refreshed, but {len(failed_kd_ids)} kingdoms failed: {failed_kd_ids}", 200
     return "Refreshed", 200
