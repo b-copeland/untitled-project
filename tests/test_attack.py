@@ -126,3 +126,36 @@ def test_attacks_and_the_targets_own_actions_at_the_same_time_lose_nothing(app, 
     assert plundered > 0 and target["stars"] < target0["stars"]
     # what the target started with, less what it spent training, less what the attacker took: nothing else
     assert target["money"] == pytest.approx(1_000_000 - trained * 5 * uas.UNITS["attack"]["cost"] - plundered)
+
+
+def _attack_primitives(client, jwt, units=100000):
+    return client.post(
+        "/api/attackprimitives",
+        json={"attackerValues": {"attack": units, "generals": 1}},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+
+
+@pytest.mark.parametrize("repeat", range(3))
+def test_racing_duplicate_attacks_on_primitives_send_the_units_once(app, client, jwt1, repeat):
+    _set_up_two_kingdoms(attacker_attack=100000)
+    stars0 = _get(f"/kingdom/{KD_ID}")["stars"]
+
+    responses = _run_together(app, 8, lambda c, i: _attack_primitives(c, jwt1))
+
+    assert sorted(r.status_code for r in responses) == [200] + [400] * 7, [r.get_json() for r in responses]
+    attacker = _get(f"/kingdom/{KD_ID}")
+    assert len(attacker["generals_out"]) == 1
+    assert attacker["units"]["attack"] == 0
+    assert attacker["stars"] > stars0
+    assert len(_get(f"/kingdom/{KD_ID}/attackhistory")["attack_history"]) == 1
+
+
+def test_an_attack_on_primitives_gains_stars_and_records_history(app, client, jwt1):
+    _set_up_two_kingdoms(attacker_attack=100000)
+    stars0 = _get(f"/kingdom/{KD_ID}")["stars"]
+
+    response = _attack_primitives(client, jwt1)
+
+    assert response.status_code == 200, response.get_json()
+    assert _get(f"/kingdom/{KD_ID}")["stars"] > stars0
