@@ -228,9 +228,10 @@ def create_kingdom_choices():
     if not acquire_lock(f"/kingdom/{kd_id}"):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
-        kd_info = uag._get_kd_info(kd_id)
-        drones = unit_choices.pop("drones")
+    def decide(kd_info):
+        if kd_info.get("race"):
+            raise occ.Rejected("This kingdom has already been created")
+        drones = unit_choices["drones"]
 
         payload = {}
         payload["drones"] = drones
@@ -252,18 +253,21 @@ def create_kingdom_choices():
         ).isoformat()
         payload["coordinate"] = random.randint(0, 99)
         payload["race"] = race
+        return payload, None
 
-        patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(payload),
-        )        
+    try:
+        # The kingdom is only ever set up once: the second of two racing requests finds the race already chosen.
+        occ.update(f"/kingdom/{kd_id}", decide)
 
         db.session.expunge_all()
         user = flask_praetorian.current_user()
         user.kd_created = True
         db.session.commit()
         uaa._update_accounts()
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         release_lock(f"/kingdom/{kd_id}")
 
@@ -412,14 +416,7 @@ def spending():
     if not acquire_lock(f"/kingdom/{kd_id}"):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-
+    def decide(kd_info_parse):
         if req.get("enabled", None) != None:
             enabled = req["enabled"]
             payload = {'auto_spending_enabled': enabled}
@@ -428,7 +425,9 @@ def spending():
                 next_resolve = kd_info_parse["next_resolve"]
                 next_resolve["auto_spending"] = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_AUTO_SPENDING_TIME_MULTIPLIER"])).isoformat()
                 payload["next_resolve"] = next_resolve
+                message = "Enabled auto spending and released funding"
             else:
+                # Funding goes back to money exactly once: a second request sees funding already at zero.
                 total_funding = sum(kd_info_parse["funding"].values())
                 next_resolve = kd_info_parse["next_resolve"]
                 next_resolve["auto_spending"] = uas.DATE_SENTINEL
@@ -438,19 +437,9 @@ def spending():
                     k: 0
                     for k in kd_info_parse["funding"]
                 }
-
-            patch_response = REQUESTS_SESSION.patch(
-                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps(payload),
-            )
-            if enabled:
-                message = "Enabled auto spending and released funding"
-            else:
                 message = "Disabled auto spending"
-            release_lock(f"/kingdom/{kd_id}")
-            return (flask.jsonify({"message": message, "status": "success"}), 200)
-        
+            return payload, message
+
         req_spending = {
             key: float(value or 0) / 100
             for key, value in req.items()
@@ -464,17 +453,19 @@ def spending():
         }
         valid_spending, message = _validate_spending(new_spending)
         if not valid_spending:
-            return (flask.jsonify({"message": message}), 400)
+            raise occ.Rejected(message)
 
-        payload = {'auto_spending': new_spending}
-        patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(payload),
-        )
+        return {'auto_spending': new_spending}, "Updated spending"
+
+    try:
+        message = occ.update(f"/kingdom/{kd_id}", decide)
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         release_lock(f"/kingdom/{kd_id}")
-    return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
+    return (flask.jsonify({"message": message, "status": "success"}), 200)
 
 @bp.route('/api/share/<share_to>', methods=['POST'])
 @flask_praetorian.auth_required

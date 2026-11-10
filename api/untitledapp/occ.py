@@ -59,12 +59,15 @@ def read(path):
     return json.loads(REQUESTS_SESSION.get(_url(path), headers=_headers()).text)
 
 
-def update(path, decide):
+def update(path, decide, write_path=None):
     """
     Apply a change to the document at ``path`` that is valid for the document as it is when the change lands.
 
     ``decide(document)`` returns ``(payload, result)``: the fields to change (``None`` to change nothing) and any
     value to hand back to the caller. It may raise ``Rejected``. Returns ``result``.
+
+    ``write_path`` is for the few documents whose function app route to read differs from the one to write (for
+    example ``GET /universevotes`` but ``PATCH /universepolitics``).
 
     Raises ``Busy`` if the document changed on every one of ``MAX_ATTEMPTS`` attempts.
     """
@@ -75,7 +78,7 @@ def update(path, decide):
             return result
 
         response = REQUESTS_SESSION.patch(
-            _url(path),
+            _url(write_path or path),
             headers=_headers(**{"If-Match": document["_etag"]}),
             data=json.dumps(payload),
         )
