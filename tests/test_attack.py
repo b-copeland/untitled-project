@@ -159,3 +159,43 @@ def test_an_attack_on_primitives_gains_stars_and_records_history(app, client, jw
 
     assert response.status_code == 200, response.get_json()
     assert _get(f"/kingdom/{KD_ID}")["stars"] > stars0
+
+
+def _launch(client, jwt, count=5):
+    return client.post(
+        f"/api/launchmissiles/{TARGET_ID}",
+        json={"attackerValues": {"planet_busters": count}},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+
+
+def _with_missiles(count):
+    _set_up_two_kingdoms()
+    kingdom = _get(f"/kingdom/{KD_ID}")
+    _create_item(f"kingdom_{KD_ID}", {**kingdom, "missiles": {**kingdom["missiles"], "planet_busters": count}})
+
+
+def test_missiles_damage_the_target_and_are_used_up(app, client, jwt1):
+    _with_missiles(5)
+    target0 = _get(f"/kingdom/{TARGET_ID}")
+
+    response = _launch(client, jwt1)
+
+    assert response.status_code == 200, response.get_json()
+    assert _get(f"/kingdom/{KD_ID}")["missiles"]["planet_busters"] == 0
+    assert _get(f"/kingdom/{TARGET_ID}")["stars"] < target0["stars"]
+    assert len(_get(f"/kingdom/{KD_ID}/missilehistory")["missile_history"]) == 1
+
+
+@pytest.mark.parametrize("repeat", range(3))
+def test_racing_duplicate_missile_launches_use_the_missiles_once(app, client, jwt1, repeat):
+    _with_missiles(5)
+    target0 = _get(f"/kingdom/{TARGET_ID}")
+
+    responses = _run_together(app, 8, lambda c, i: _launch(c, jwt1))
+
+    assert sorted(r.status_code for r in responses) == [200] + [400] * 7, [r.get_json() for r in responses]
+    assert _get(f"/kingdom/{KD_ID}")["missiles"]["planet_busters"] == 0
+    stars_lost = target0["stars"] - _get(f"/kingdom/{TARGET_ID}")["stars"]
+    assert stars_lost == 5 * 1  # planet_busters do 1 star of damage each against no shields
+    assert len(_get(f"/kingdom/{KD_ID}/missilehistory")["missile_history"]) == 1

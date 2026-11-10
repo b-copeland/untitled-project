@@ -2686,12 +2686,7 @@ def _launch_missiles(req, kd_id, target_kd):
     try:
         attacker_raw_values = req["attackerValues"]
         
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
+        kd_info_parse = occ.read(f'/kingdom/{kd_id}')
 
         attacker_missiles = {
             key: int(value)
@@ -2706,52 +2701,62 @@ def _launch_missiles(req, kd_id, target_kd):
         if not valid_request:
             return kd_info_parse, {"message": message}, 400
         
-        max_target_kd_info = uag._get_kd_info(target_kd)
-        defender_shields = max_target_kd_info["shields"]["missiles"]
+        max_target_kd_info = occ.read(f'/kingdom/{target_kd}')
         if max_target_kd_info["status"].lower() == "dead":
             return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400
-        
-        missile_damage = _calculate_missiles_damage(
-            attacker_missiles,
-            defender_shields,
-            fuzi=kd_info_parse["race"] == "Fuzi",
-        )
 
-        message = f"Your missiles destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
-        defender_message = f"Missiles from {kd_info_parse['name']} have destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+        def launch(kd):
+            # The missiles leave under a version check, so a duplicate request finds them gone.
+            valid, launch_message = _validate_missiles_request(attacker_missiles, kd)
+            if not valid:
+                raise occ.Rejected(launch_message)
+            return {"missiles": {k: v - attacker_missiles.get(k, 0) for k, v in kd["missiles"].items()}}, None
 
+        def strike(target):
+            # The damage is worked out against the target as it is when the write lands.
+            if target["status"].lower() == "dead":
+                raise occ.Rejected("You can't attack this kingdom because they are dead!")
+            damage = _calculate_missiles_damage(
+                attacker_missiles,
+                target["shields"]["missiles"],
+                fuzi=kd_info_parse["race"] == "Fuzi",
+            )
+            target_stars = target["stars"] - damage["stars_damage"]
+            target_pop = target["population"] - damage["pop_damage"]
+            changes = {
+                "stars": max(target_stars, 0),
+                "population": target_pop,
+                "fuel": target["fuel"] - damage["fuel_damage"],
+                "projects_max_points": {
+                    key_project: uas.PROJECTS_FUNCS[key_project](max(target_stars, 0))
+                    for key_project in uas.PROJECTS
+                },
+            }
+            if target_stars <= 0 or target_pop <= 0:
+                changes["status"] = "Dead"
+            return changes, (damage, changes)
+
+        def give_back_missiles(kd):
+            return {"missiles": {k: v + attacker_missiles.get(k, 0) for k, v in kd["missiles"].items()}}, None
+
+        occ.update(f'/kingdom/{kd_id}', launch)
+        try:
+            missile_damage, defender_patch_payload = occ.update(f'/kingdom/{target_kd}', strike)
+        except BaseException:
+            occ.update(f'/kingdom/{kd_id}', give_back_missiles)
+            raise
+        if defender_patch_payload.get("status") == "Dead":
+            uam._mark_kingdom_death(target_kd)
         kd_patch_payload = {
             "missiles": {
                 k: v - attacker_missiles.get(k, 0)
                 for k, v in kd_info_parse["missiles"].items()
             }
         }
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_patch_payload, default=str),
-        )
 
-        target_stars = max_target_kd_info["stars"] - missile_damage["stars_damage"]
-        target_pop = max_target_kd_info["population"] - missile_damage["pop_damage"]
-        defender_patch_payload = {
-            "stars": target_stars,
-            "population": target_pop,
-            "fuel": max_target_kd_info["fuel"] - missile_damage["fuel_damage"],
-        }
-        if target_stars <= 0 or target_pop <= 0:
-            defender_patch_payload["status"] = "Dead"
-            uam._mark_kingdom_death(target_kd)
-        defender_patch_payload["stars"] = max(defender_patch_payload["stars"], 0)
-        defender_patch_payload["projects_max_points"] = {}
-        for key_project, project_dict in uas.PROJECTS.items():
-            project_max_func = uas.PROJECTS_FUNCS[key_project]
-            defender_patch_payload["projects_max_points"][key_project] = project_max_func(max_target_kd_info["stars"])
-        defender_kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(defender_patch_payload, default=str),
-        )
+        message = f"Your missiles destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+        defender_message = f"Missiles from {kd_info_parse['name']} have destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+
         time_now = datetime.datetime.now(datetime.timezone.utc)
         target_news_payload = {
             "time": time_now.isoformat(),
@@ -2818,6 +2823,10 @@ def _launch_missiles(req, kd_id, target_kd):
         payload = {
             "message": message,
         }
+    except occ.Rejected as rejection:
+        return None, {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return None, {"message": "Server is busy"}, 400
     finally:
         uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200
