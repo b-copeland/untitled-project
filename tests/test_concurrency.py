@@ -40,7 +40,7 @@ def _get(path):
     return json.loads(REQUESTS_SESSION.get(f"{FUNCTION_URL}{path}").text)
 
 
-def _set_up_kingdom(money, **overrides):
+def _set_up_kingdom(money, kd_id=KD_ID, **overrides):
     """A freshly created kingdom 1, in a game that has started, with the given money and any other overrides."""
     game_start = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).isoformat()
     _create_item("state", {"state": {"game_start": game_start, "active_policies": []}})
@@ -49,11 +49,11 @@ def _set_up_kingdom(money, **overrides):
     for table, initial_state in uas.INITIAL_KINGDOM_STATE.items():
         state = initial_state.copy()
         if table == "kingdom":
-            state["kdId"] = KD_ID
+            state["kdId"] = kd_id
             state["name"] = "Test Kingdom"
             state["money"] = money
             state.update(overrides)
-        _create_item(f"{table}_{KD_ID}", state)
+        _create_item(f"{table}_{kd_id}", state)
 
 
 def _run_together(app, count, request):
