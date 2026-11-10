@@ -12,6 +12,7 @@ import flask
 import flask_praetorian
 
 import untitledapp.misc as uam
+import untitledapp.occ as occ
 import untitledapp.getters as uag
 import untitledapp.shared as uas
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
@@ -1405,27 +1406,28 @@ def buy_votes():
     req = flask.request.get_json(force=True)
     kd_id = flask_praetorian.current_user().kd_id
     
+    votes = int(req["votes"])
+    votes_cost = votes * uas.GAME_CONFIG["BASE_VOTES_COST"]
+
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    try:
-        kd_info = uag._get_kd_info(kd_id)
-        
-        votes = int(req["votes"])
-        votes_cost = votes * uas.GAME_CONFIG["BASE_VOTES_COST"]
 
+    def decide(kd_info):
         valid_votes, message = _validate_buy_votes(kd_info, votes)
         if not valid_votes:
-            return flask.jsonify({"message": message}), 400
-        
-        kd_patch_payload = {
+            raise occ.Rejected(message)
+
+        return {
             "money": kd_info["money"] - votes_cost,
             "votes": kd_info["votes"] + votes,
-        }
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_patch_payload)
-        )
+        }, None
+
+    try:
+        occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Bought votes", "status": "success"}), 200)
@@ -1455,39 +1457,40 @@ def universe_policies():
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/universepolitics'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
-        kd_info = uag._get_kd_info(kd_id)
-        
-        votes = int(req["votes"])
-        policy = req["policy"]
-        option = req["option"]
+    votes = int(req["votes"])
+    policy = req["policy"]
+    option = req["option"]
 
+    def take_votes(kd_info):
         valid_votes, message = _validate_cast_votes(kd_info, votes)
         if not valid_votes:
-            return flask.jsonify({"message": message}), 400
-        
-        universe_politics = uag._get_universe_politics()
+            raise occ.Rejected(message)
+        return {"votes": kd_info["votes"] - votes}, None
 
-        kd_patch_payload = {
-            "votes": kd_info["votes"] - votes,
-        }
-
+    def add_votes(universe_politics):
         try:
             universe_politics["votes"][policy][option][kd_id] += votes
         except KeyError:
             universe_politics["votes"][policy][option][kd_id] = votes
+        return {"votes": universe_politics["votes"]}, None
 
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_patch_payload)
-        )
+    def give_back(kd_info):
+        return {"votes": kd_info["votes"] + votes}, None
 
-        universe_politics_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universepolitics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(universe_politics)
-        )
+    try:
+        # The votes are spent first, against the kingdom as it is right now, so two racing requests can not both
+        # cast the same votes. Adding to the tally is then an increment on the freshest tally. If that fails, the
+        # votes are handed back.
+        occ.update(f'/kingdom/{kd_id}', take_votes)
+        try:
+            occ.update('/universevotes', add_votes, write_path='/universepolitics')
+        except Exception:
+            occ.update(f'/kingdom/{kd_id}', give_back)
+            raise
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_locks_by_id(request_id)
 
