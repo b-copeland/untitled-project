@@ -1293,14 +1293,10 @@ def _attack_primitives(req, kd_id):
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/attackhistory'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
-        attacker_raw_values = req["attackerValues"]
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
+    attacker_raw_values = req["attackerValues"]
+
+    def decide(kd_info_parse):
+        # Validated against the attacker as it is right now: a duplicate request finds the units already gone.
         current_bonuses = {
             project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
             for project, project_dict in uas.PROJECTS.items()
@@ -1318,7 +1314,7 @@ def _attack_primitives(req, kd_id):
             kd_info_parse,
         )
         if not valid_attack_request:
-            return kd_info_parse, {"message": attack_request_message}, 400
+            raise occ.Rejected(attack_request_message)
 
         attacker_units = {
             key: int(value)
@@ -1382,7 +1378,7 @@ def _attack_primitives(req, kd_id):
             )
         )
         if stars == 0:
-            return kd_info_parse, {"message": "Attacks against primitives should conquer at least 1 star. Send more units"}, 400
+            raise occ.Rejected("Attacks against primitives should conquer at least 1 star. Send more units")
         money = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_MONEY_PER_STAR"]
         fuel = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_FUEL_PER_STAR"]
         pop = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_POPULATION_PER_STAR"]
@@ -1422,11 +1418,10 @@ def _attack_primitives(req, kd_id):
             project_max_func = uas.PROJECTS_FUNCS[key_project]
             kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
 
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_info_parse, default=str),
-        )
+        return kd_info_parse, (kd_info_parse, time_now, attack_status, attacker_message)
+
+    try:
+        kd_info_parse, time_now, attack_status, attacker_message = occ.update(f'/kingdom/{kd_id}', decide)
         kd_attack_history = {
             "time": time_now.isoformat(),
             "to": "",
