@@ -1,3 +1,4 @@
+import copy
 import datetime
 import json
 import math
@@ -2105,16 +2106,11 @@ def _rob_primitives(req, kd_id):
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/spyhistory'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        drones = int(req["drones"])
-        shielded = req["shielded"]
-        
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
+    drones = int(req["drones"])
+    shielded = req["shielded"]
+
+    def decide(kd_info_parse):
+        # Checked against the kingdom as it is right now: a duplicate request finds the attempt and drones gone.
         state = uag._get_state()
         
         start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
@@ -2128,7 +2124,7 @@ def _rob_primitives(req, kd_id):
             shielded,
         )
         if not valid_request:
-            return kd_info_parse, {"message": message}, 400
+            raise occ.Rejected(message)
 
         success_losses, _ = _calculate_spy_losses(
             drones,
@@ -2160,11 +2156,10 @@ def _rob_primitives(req, kd_id):
         }
         if shielded:
             kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_patch_payload, default=str),
-        )
+        return kd_patch_payload, (kd_info_parse, kd_patch_payload, message, status)
+
+    try:
+        kd_info_parse, kd_patch_payload, message, status = occ.update(f'/kingdom/{kd_id}', decide)
 
         time_now = datetime.datetime.now(datetime.timezone.utc)
         history_payload = {
@@ -2187,6 +2182,10 @@ def _rob_primitives(req, kd_id):
             "status": status,
             "message": message,
         }
+    except occ.Rejected as rejection:
+        return None, {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return None, {"message": "Server is busy"}, 400
     finally:
         uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200
@@ -2492,21 +2491,19 @@ def add_schedule():
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        kd_info = uag._get_kd_info(kd_id)
+    schedule_type = req.get("type")
+    schedule_time = datetime.datetime.fromisoformat(req["time"].replace('Z', '+00:00')).isoformat()
+    schedule_options = req.get("options", {})
+    schedule_id = str(uuid.uuid4())
 
-        schedule_type = req.get("type")
-        schedule_time = datetime.datetime.fromisoformat(req["time"].replace('Z', '+00:00')).isoformat()
-        schedule_options = req.get("options", {})
-        schedule_id = uuid.uuid4()
-        
+    def decide(kd_info):
         state = uag._get_state()
 
         if schedule_time < state["state"]["game_start"] or schedule_time > state["state"]["game_end"]:
-            return flask.jsonify({"message": "Scheduled time occurs outside of game duration"}), 400
-        
+            raise occ.Rejected("Scheduled time occurs outside of game duration")
+
         if len(kd_info["schedule"]) >= 10:
-            return flask.jsonify({"message": "You can not schedule more than 10 actions"}), 400
+            raise occ.Rejected("You can not schedule more than 10 actions")
 
         handler_funcs = {
             "attack": _schedule_attack,
@@ -2518,24 +2515,24 @@ def add_schedule():
         scheduled, new_schedule, message = handler_funcs[schedule_type](
             id=schedule_id,
             time=schedule_time,
-            options=schedule_options,
+            options=copy.deepcopy(schedule_options),  # the handlers rescale the options, so a rerun must start fresh
             kd_info=kd_info,
         )
         if not scheduled:
-            return flask.jsonify({"message": message}), 400
-        
+            raise occ.Rejected(message)
+
         schedule_payload = kd_info["schedule"]
         schedule_payload.append(new_schedule)
         schedule_payload_sorted = sorted(schedule_payload, key=lambda item: item["time"])
 
-        kd_payload = {
-            "schedule": schedule_payload_sorted,
-        }
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload, default=str),
-        )
+        return {"schedule": schedule_payload_sorted}, None
+
+    try:
+        occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
 
@@ -2554,24 +2551,20 @@ def cancel_schedule():
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
-        kd_info = uag._get_kd_info(kd_id)
+    schedule_id = req.get("id")
 
-        schedule_id = req.get("id")
-
+    def decide(kd_info):
         new_schedule = [
             item
             for item in kd_info["schedule"]
             if item["id"] != schedule_id
         ]
-        kd_payload = {
-            "schedule": new_schedule,
-        }
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload, default=str),
-        )
+        return {"schedule": new_schedule}, None
+
+    try:
+        occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Cancelled scheduled action", "status": "success"}), 200)
