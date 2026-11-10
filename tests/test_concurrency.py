@@ -221,3 +221,25 @@ def test_racing_kingdom_setups_apply_the_choices_once(app, client, jwt1):
     assert sorted(r.status_code for r in responses) == [200] + [400] * 5, [r.get_json() for r in responses]
     kingdom = _get(f"/kingdom/{KD_ID}")
     assert kingdom["structures"]["homes"] == int(uas.INITIAL_KINGDOM_STATE["kingdom"]["stars"])
+
+
+def test_racing_vote_purchases_charge_and_grant_once(app, client, jwt1):
+    price = uas.GAME_CONFIG["BASE_VOTES_COST"]
+    _set_up_kingdom(money=price * 3 + 5)
+    responses = _run_together(app, 8, _post(app, jwt1, "/api/votes", {"votes": 3}))
+
+    assert sorted(r.status_code for r in responses) == [200] + [400] * 7
+    kingdom = _get(f"/kingdom/{KD_ID}")
+    assert kingdom["money"] == 5
+    assert kingdom["votes"] == 3
+
+
+def test_racing_vote_casts_spend_the_votes_once_and_tally_them_once(app, client, jwt1):
+    _set_up_kingdom(money=0, votes=5)
+    _create_item("universe_votes", {"votes": {"policy_1": {"1": {}, "2": {}}}})
+    body = {"votes": 5, "policy": "policy_1", "option": "1"}
+    responses = _run_together(app, 8, _post(app, jwt1, "/api/universepolitics/policies", body))
+
+    assert sorted(r.status_code for r in responses) == [200] + [400] * 7, [r.get_json() for r in responses]
+    assert _get(f"/kingdom/{KD_ID}")["votes"] == 0
+    assert _get("/universevotes")["votes"]["policy_1"]["1"][KD_ID] == 5
