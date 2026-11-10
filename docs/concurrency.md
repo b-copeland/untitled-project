@@ -269,7 +269,10 @@ slow, with a timeout this generous) loses its lock while still working. That, pl
 the likeliest source of the duplicates seen in the beta round. I have not reproduced that exact case.
 
 The web app is also on the **Free (F1) App Service plan**, which is limited to one instance, so scaling out starts with
-changing the plan. The function app is different: it runs on a Linux Consumption plan, which scales out on its own, so
+changing the plan. The same plan allows only 5 concurrent WebSocket connections, so live notifications reach few players.
+Separately, the `/ws/listen` handler loops for as long as a player is connected, so each connection occupies one of the
+100 gunicorn threads for its whole lifetime; with enough players online, sockets alone would use up the threads that
+serve ordinary requests. (That second point is from reading the code, not from a measurement.) The function app is different: it runs on a Linux Consumption plan, which scales out on its own, so
 several function app instances can already run at once. See "What Azure actually runs" in
 [deployment.md](deployment.md).
 
