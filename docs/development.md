@@ -162,7 +162,7 @@ The function app and Azurite must be running. The tests use their own SQLite fil
 (`admin`, `user1`, `user2`), and take a little over a minute.
 
 `tests/test_refresh.py` and `tests/test_occ.py` stub the function app and need no stack. `tests/test_concurrency.py`
-races duplicate requests through the real routes.
+races duplicate requests through the real routes, and `tests/test_stress.py` fires a mixed batch of actions at once and checks that the books balance exactly (raise `STRESS_ROUNDS` to hunt for rare races).
 
 **Function app** (`funcapp/tests/`) needs only the function app's packages, not the stack:
 
