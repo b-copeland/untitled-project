@@ -136,11 +136,12 @@ Limits to keep in mind:
 | Function app: 31 single-document handlers conditional and retried | Done (merged) |
 | Function app: 7 multi-document admin handlers (`create_*`, `reset_state`, `delete_all`, `init`) | Not changed. They write several documents and can not be re-run from the top. They are admin and setup operations, not hot paths. |
 | `occ.py` helper, with unit tests that need no stack | Done |
-| Routes migrated: `POST /api/structures` (build), `POST /api/shields` | Done, as the pilot. **They still take the legacy lock as well** (see below). |
+| Routes migrated to `occ.update`: every own-kingdom route in `build.py` (structures, recruits, mobis and disband, settle, missiles, engineers, projects, targets, raze), shields, `/api/spending`, `/api/createkingdomchoices`, `/api/votes`, `/api/universepolitics/policies` | Done. **They still take the legacy lock as well** (see below). |
+| Attacks (`POST /api/attack/<kd>`) | Committed in three versioned steps (depart, resolve against the target as it is, credit), see "Attacks". News, history, reveals, notifications and aggression are still written the old way (eventual tier, not yet exactly-once). |
 | Six `acquire_lock`-in-`finally` bugs | Fixed |
-| The other ~70 lock call sites | Not migrated. Recipe above; do them by module. |
+| The other lock call sites (politics, spying, missiles, robbing, messages, shared intel, schedules, pinned, refresh) | Not migrated. Recipe above; do them by module. |
 | The refresh (`refresh.py`) | Not migrated. It needs the saga below, because it consumes queue documents before writing the kingdom. |
-| Multi-document actions (attack, spy, trade, politics) | Design below, not built. |
+| Multi-document actions other than the attack (spy, trade, politics) | Design below, not built. |
 
 **Where the remaining lock sites are** (69 call sites, counted by which documents each locks; the grouping is
 approximate, a few routes in the first group also touch other kingdoms):
@@ -227,6 +228,17 @@ The target's own document is the sequencer, so no queue or lock is needed:
 also spent money or built something in that gap, the attack sees that too, which is closer to real-time play than a
 snapshot. Scheduled attacks and auto attacks go through the same path.
 
+**Reveals are eventual and min-merged** (maintainer's decision). An attack across galaxies reveals the attacker's galaxy
+to every defender-galaxy member by writing their `revealed` document and lowering `next_resolve.revealed` on their
+kingdom document. That is why the attack's lock list contains the whole defender galaxy, but nothing about the combat
+depends on it. Taking the sooner of the stored and the new timestamp is idempotent and order-independent, so it can run
+after the strict steps, on its own, with a version-checked write per member and a sweep for any that fail. The aggression
+counter in `/empires` (`_add_aggression`) should become an increment applied to the freshest document for the same reason.
+
+**What is built so far:** steps 1 to 3 above for the attack itself, using the target's version as the sequencer. Not
+built: the `attack_id` outbox and sweep, so a crash between the steps leaves the attacker's units out with no result
+applied. The reveal, aggression and news writes are unchanged.
+
 Open question: the order is the order attacks *reach the target document*, which is the only order that exists across
 several servers. If the order players *clicked* must win over the order requests arrived, a per-target queue would be
 needed. I would not build that unless it matters in play.
@@ -310,7 +322,10 @@ conda run -n funcapp-worker python -m pytest funcapp/tests
 conda run -n funcapp python -m pytest tests/test_occ.py
 
 # End to end through the real routes (needs the stack running, like the other tests in tests/)
-conda run -n funcapp python -m pytest tests/test_concurrency.py
+conda run -n funcapp python -m pytest tests/test_concurrency.py tests/test_attack.py
+
+# Mixed actions with exact bookkeeping checks; raise STRESS_ROUNDS to hunt for rare races
+$env:STRESS_ROUNDS = 20; conda run -n funcapp python -m pytest tests/test_stress.py
 ```
 
 To see the original bug, run the same checks against the code from before these changes: the end-to-end tests fail on the
