@@ -6,10 +6,27 @@ What runs in production, how code gets there, and what is **not** automated yet.
 
 | Piece | Where it runs | How it is deployed |
 |---|---|---|
-| Web app: Flask API plus the built React frontend | Azure App Service (Linux), app `untitled-space-game-12k34j134` | Automatically, by GitHub Actions on every push to `main` |
-| Function app (`funcapp/`) | Azure Functions | **Manually** (see below). CI does not deploy it. |
-| Game state | Azure Cosmos DB | Created by hand in the Azure portal |
+| Web app: Flask API plus the built React frontend | Azure App Service (Linux, **Free F1 plan**), app `untitled-space-game-12k34j134` | Automatically, by GitHub Actions on every push to `main` |
+| Function app (`funcapp/`) | Azure Functions, app `usg-funcapp-1345kh132`, Linux Consumption (Y1) plan | **Manually** (see below). CI does not deploy it. |
+| Game state | Azure Cosmos DB, one database `dev` with containers `data`, `dev`, `test`, `prod` | Created by hand in the Azure portal |
 | Users and locks | SQLite file on the App Service | Created by the app on first start |
+| Periodic refresh | WebJob `refreshapp` on the web app, every minute | Created by hand in the portal. Not in this repository. |
+
+## What Azure actually runs
+
+Read from Azure with a Reader-only identity on 2026-11-10. Re-check before relying on it, since it is configured by hand.
+
+| Setting | Value | Why it matters |
+|---|---|---|
+| Web app plan | **Free (F1)**, 1 instance, Python 3.10 | The web app can not scale out at all on this plan. Moving to a paid tier is a prerequisite for any scale-out work, not just fixing the locks. |
+| Web app: Always On | **Off** | Microsoft documents that WebJobs on a cron schedule need Always On. On a Free plan the app can be unloaded when idle, and the plan has a daily CPU quota. It is worth checking whether refreshes have been missed. |
+| Web app: WebSockets | **Off** | The app pushes live notifications over `/ws/listen`. With this setting off they may not reach players in production. Check in the browser's network tab. |
+| Function app plan | **Linux Consumption (Y1)**, Python 3.10, no pre-warmed instances | Consumption scales out automatically under load, so several function app instances can run at once today. That is why the version checks in `funcapp/concurrency.py` matter now, even though the web app has one instance. Azure has announced the end of Linux Consumption on 2028-09-30. |
+| Cosmos DB | Session consistency, **one write region (East US)**, free tier, periodic backup | One write region is what makes the version checks a true compare-and-swap. |
+| Cosmos throughput | **1000 RU/s, manual, set on the database** | All four containers, including `prod`, share this one budget. Anything pointed at `dev` or `test` in Azure competes with production. |
+| Refresh job | `refreshapp`, runs `refresh.sh`, cron `0 * * * * *` | Every minute. The script is inside the WebJob, not in the repo, and presumably holds the refresh secret. |
+
+Which container production uses is set in the apps' settings and was not read.
 
 ## Web app: GitHub Actions
 
@@ -71,7 +88,7 @@ already point `azureFunctions.deploySubpath` at `funcapp` and enable remote buil
 
 ```powershell
 cd funcapp
-func azure functionapp publish <function-app-name>
+func azure functionapp publish usg-funcapp-1345kh132
 ```
 
 Function app settings required in Azure: `FUNCTIONS_WORKER_RUNTIME=python`, `AzureWebJobsStorage`, `COSMOS_ENDPOINT`,
@@ -86,9 +103,14 @@ Game time only moves forward when something calls `GET /api/refreshdata` with th
 <REFRESH_SECRET>`. It resolves income, builds, scheduled actions, scores and elections for every kingdom, so it has to be
 called regularly (every few seconds to a minute, depending on the game speed).
 
-**Nothing in this repository calls it.** It is called by an Azure App Service **scheduled task** (a WebJob), configured
-in the portal. If you rebuild the environment, recreate it. If the web app is ever scaled out to several instances,
-check that the job is a singleton: by default a WebJob runs on every instance, which would run overlapping refreshes.
+**Nothing in this repository calls it.** It is called by a triggered Azure App Service **WebJob** named `refreshapp`,
+which runs `refresh.sh` on the cron `0 * * * * *` (every minute). It is configured in the portal and the script is not
+in the repo. If you rebuild the environment, recreate it. Two things to keep in mind:
+
+- **Always On is off** on the Free plan, and cron-triggered WebJobs need it. If the app is ever unloaded, the job that
+  would wake it can not fire. See "What Azure actually runs".
+- If the web app is ever scaled out to several instances, check that the job is a singleton: by default a WebJob runs
+  on every instance, which would run overlapping refreshes.
 
 ## Starting a round
 
@@ -118,5 +140,7 @@ the Actions history, and a failed run can be re-run with "Re-run jobs".
 - No automated infrastructure, no staging environment, and no tests for the Flask or function app code in CI (only the
   frontend tests run).
 - Python 3.10 reached end-of-life in October 2026, and the function app's extension bundle is deprecated.
+- The web app is on the Free plan with Always On and WebSockets off, and all Cosmos containers share 1000 RU/s (see
+  "What Azure actually runs").
 - Everything that scales out (SQLite users and locks, in-memory websocket registry, in-memory rate limiter) assumes a
   single App Service instance. See [concurrency.md](concurrency.md) for what is done and what remains.

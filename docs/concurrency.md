@@ -109,6 +109,26 @@ The guarantee is **every request either applies exactly once or is told to retry
 (`tests/test_concurrency.py`, lock off): 6 identical builds give exactly one success, the kingdom is charged once and the
 structures are queued once; four simultaneous shield changes are all kept.
 
+### What the guarantee covers, and what it does not
+
+"Read, decide, then write only if unchanged" is not a check followed by a write. The condition travels **with** the write
+and Cosmos evaluates it on the server as part of the same operation, so there is no gap between the check and the write
+for something else to slip into. The database serializes writes to one document: if two conditional writes race, the
+second sees the new version and is refused. A stale read is harmless: it carries an old version, so the write is refused
+and costs one retry. This was confirmed against the Cosmos emulator (96 concurrent spends, all exactly once), and the
+production account has one write region (East US), so the same holds there.
+
+Limits to keep in mind:
+
+1. **One document at a time.** Nothing is atomic across documents. That is what the tiers and the outbox below are for.
+2. **Every writer has to send the condition.** An unconditional write is atomic too, but it does not compare, so it can
+   overwrite a checked write. This is why the legacy locks stay until all writers of a document are migrated.
+3. **A lost response is not yet handled.** If a write is applied but its response is lost (a timeout) and something
+   retries it with the old version, the retry gets a `412` as if someone else had written, and the handler would apply the
+   change again. For an append that is a duplicate. I have not seen it happen, and I do not know whether the Cosmos Python
+   SDK retries writes after a timeout. The fix is the one the attack design already uses: give each change an id that the
+   document remembers, so a repeat is recognized and skipped. The 31 `update_*` handlers do not do this yet.
+
 ## 3. What is done and what is not
 
 | | Status |
@@ -161,6 +181,27 @@ The pattern to use: **one atomic decision, then idempotent effects** (the transa
 
 This gives exactly-once effects without a transaction coordinator. The trade-off: effects on other kingdoms land a moment
 after the decision, rather than in the same instant.
+
+### Which documents need strict handling: three tiers
+
+An attack touches many documents (`_attack` writes four kingdom documents, the attack history, kingdom news twice, galaxy
+news twice and a reveal, and adds aggression and notifications; its lock list also covers `/empires`, and for a
+cross-galaxy attack a `revealed` and a kingdom document for every member of the defender's galaxy). Most of those do not
+need to be consistent with each other at the same instant. One question sorts them: **does any later decision read this
+document to decide whether something is allowed, or how big an outcome is?**
+
+| Tier | Documents | How they are written |
+|---|---|---|
+| **Strict** | the kingdom documents that hold what is at stake: the actor's and the target's (including the target's death state) | Conditional writes, sequenced by version, as designed here. An attack has at most two decision points: the attacker, then the target. |
+| **Eventual, exactly-once** | news, attack and spy history, notifications, `revealed`, galaxy news, messages | Applied from the outbox with ids, so a repeat is a no-op, normally within seconds. Appends commute, so their order does not matter. `revealed` is "set if newer". |
+| **Derived** | scores, galaxy networth, empire aggregates | Actions do not write them. The refresh already recomputes them from the kingdom documents every tick. |
+
+So the strict part of an attack is two documents, not dozens, and the rest lands a moment later without ever being able
+to disagree about the money or the land. Eventual writes can also be batched (for example, several news lines in one
+write), which saves Request Units (see section 5).
+
+Not yet read: why the lock list includes every defender-galaxy member's kingdom document, and what `_add_aggression`
+writes to `/empires`. Both need a look before they are assigned a tier.
 
 ### Attacks: concurrent attacks on one target resolve one after another
 
