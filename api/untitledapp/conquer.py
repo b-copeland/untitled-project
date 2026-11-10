@@ -1761,12 +1761,7 @@ def _spy(req, kd_id, target_kd):
         shielded = req["shielded"]
         operation = req["operation"]
 
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
+        kd_info_parse = occ.read(f'/kingdom/{kd_id}')
 
         valid_request, message = _validate_spy_request(
             drones,
@@ -1780,6 +1775,19 @@ def _spy(req, kd_id, target_kd):
         max_target_kd_info = uag._get_kd_info(target_kd)
         if max_target_kd_info["status"].lower() == "dead":
             return kd_info_parse, {"message": "You can't spy this kingdom because they are dead!"}, 400, False
+
+        def charge(kd):
+            # What the operation costs is taken up front, against the kingdom as it is right now, so a duplicate
+            # request can not spend the same drones or spy attempt twice. The drones that survive come back below.
+            valid, charge_message = _validate_spy_request(drones, kd, shielded)
+            if not valid:
+                raise occ.Rejected(charge_message)
+            charged = {"drones": kd["drones"] - drones, "spy_attempts": kd["spy_attempts"] - 1}
+            if shielded:
+                charged["fuel"] = kd["fuel"] - drones
+            return charged, None
+
+        occ.update(f'/kingdom/{kd_id}', charge)
         
         defender_drones = max_target_kd_info["drones"]
         defender_stars = max_target_kd_info["stars"]
@@ -1913,11 +1921,21 @@ def _spy(req, kd_id, target_kd):
             next_resolve = kd_info_parse["next_resolve"]
             next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until.isoformat())
             kd_patch_payload["next_resolve"] = next_resolve
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_patch_payload, default=str),
-        )
+        def settle(kd):
+            # Applied to the attacker's latest document: the drones that came home, a refunded attempt for valid
+            # Lumina intel, kidnapped civilians, and the earlier of the reveal timers.
+            settled = {"drones": kd["drones"] + (drones - losses)}
+            if is_valid_lumina_intel:
+                settled["spy_attempts"] = kd["spy_attempts"] + 1
+            if kidnap_return:
+                settled["population"] = kd["population"] + kidnap_return
+            if revealed_until:
+                settled_next_resolve = kd["next_resolve"]
+                settled_next_resolve["revealed"] = min(settled_next_resolve["revealed"], revealed_until.isoformat())
+                settled["next_resolve"] = settled_next_resolve
+            return settled, None
+
+        occ.update(f'/kingdom/{kd_id}', settle)
 
         target_patch_payload = {}
         if siphon_damage:
@@ -1933,28 +1951,34 @@ def _spy(req, kd_id, target_kd):
                 headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(siphons_out_payload, default=str),
             )
-        if homes_damage:
-            target_patch_payload["structures"] = {
-                **max_target_kd_info["structures"],
-                "homes": max_target_kd_info["structures"]["homes"] - homes_damage
-            }
-        if fuel_plant_damage:
-            target_patch_payload["structures"] = {
-                **max_target_kd_info["structures"],
-                "fuel_plants": max_target_kd_info["structures"]["fuel_plants"] - fuel_plant_damage
-            }
-        if kidnap_damage:
-            target_patch_payload["population"] = max_target_kd_info["population"] - kidnap_damage
-        if fuel_damage:
-            target_patch_payload["fuel"] = max_target_kd_info["fuel"] - fuel_damage
+        # The damage is taken off the target's latest document, not the copy read at the start, so it can not wipe
+        # out what the target did meanwhile.
+        if homes_damage or fuel_plant_damage or kidnap_damage or fuel_damage:
+            def damage(target):
+                changes = {}
+                if homes_damage:
+                    changes["structures"] = {**target["structures"], "homes": max(target["structures"]["homes"] - homes_damage, 0)}
+                if fuel_plant_damage:
+                    changes["structures"] = {**target["structures"], "fuel_plants": max(target["structures"]["fuel_plants"] - fuel_plant_damage, 0)}
+                if kidnap_damage:
+                    changes["population"] = target["population"] - kidnap_damage
+                if fuel_damage:
+                    changes["fuel"] = target["fuel"] - fuel_damage
+                return changes, None
 
+            occ.update(f'/kingdom/{target_kd}', damage)
 
         if revealed:
             revealed_until = (time_now + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
-            if revealed_until < max_target_kd_info["next_resolve"]["revealed"]:
-                next_resolve = max_target_kd_info["next_resolve"]
-                next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until)
-                target_patch_payload["next_resolve"] = next_resolve
+            def reveal_timer(target):
+                # The sooner of the stored and the new time, so the order of overlapping operations does not matter.
+                target_next_resolve = target["next_resolve"]
+                if revealed_until >= target_next_resolve["revealed"]:
+                    return None, None
+                target_next_resolve["revealed"] = revealed_until
+                return {"next_resolve": target_next_resolve}, None
+
+            occ.update(f'/kingdom/{target_kd}', reveal_timer)
 
             revealed_payload = {
                 "new_revealed": {
@@ -2049,6 +2073,10 @@ def _spy(req, kd_id, target_kd):
             "status": status,
             "message": message,
         }
+    except occ.Rejected as rejection:
+        return None, {"message": rejection.message}, rejection.status, False
+    except occ.Busy:
+        return None, {"message": "Server is busy"}, 400, False
     finally:
         uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200, success
