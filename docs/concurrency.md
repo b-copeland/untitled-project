@@ -122,6 +122,16 @@ structures are queued once; four simultaneous shield changes are all kept.
 | The refresh (`refresh.py`) | Not migrated. It needs the saga below, because it consumes queue documents before writing the kingdom. |
 | Multi-document actions (attack, spy, trade, politics) | Design below, not built. |
 
+**Where the remaining lock sites are** (69 call sites, counted by which documents each locks; the grouping is
+approximate, a few routes in the first group also touch other kingdoms):
+
+| Group | Sites | Examples | Approach |
+|---|---|---|---|
+| Own kingdom, plus one of its sub-documents | 39 | build, train, disband, projects, settle, missiles, schedules, pinned, shields, shared intel | Section 2 recipe. Mechanical, one route at a time. |
+| Several documents of different owners | 19 | politics (invites, requests, surrender, denounce, policies), election, auto spending, history | Section 4 outbox pattern, or section 2 where the "other" document is only appended to. |
+| Lock list built at runtime | 6 | attack, spy, offer/accept shared intel, surrender acceptance, kingdom reset | Section 4. Attacks follow the sequencing design below. |
+| Shared documents only | 5 | create kingdom, create empire, declare war, resolve scores, resolve empires | Mostly merge or append semantics that the function app now handles; a few need a decision step. |
+
 **Why the legacy lock is still there.** Until *every* writer of a document checks its version, a writer that does not
 check can overwrite a checked one (it reads, a checked write lands, then it writes its stale copy over it). While both
 kinds exist, a migrated route keeps the lock so the two kinds still exclude each other on one server, and the version
@@ -149,9 +159,36 @@ The pattern to use: **one atomic decision, then idempotent effects** (the transa
    normally does the work; a periodic sweep (an Azure Functions timer trigger, which the function app can host) finishes
    anything left over.
 
-This gives exactly-once effects without a transaction coordinator. Two accepted trade-offs: effects on other kingdoms land
-a moment after the decision, and an attack is resolved against the target as it was when the attacker's decision was made
-(which is the same as ordering the attack at that instant).
+This gives exactly-once effects without a transaction coordinator. The trade-off: effects on other kingdoms land a moment
+after the decision, rather than in the same instant.
+
+### Attacks: concurrent attacks on one target resolve one after another
+
+Requirement (from the maintainer): an attack is resolved against the target roughly as it was when the attacker decided,
+but if two players attack the same kingdom at the same time, the attacks must resolve **sequentially**, because each
+outcome depends on the other.
+
+The target's own document is the sequencer, so no queue or lock is needed:
+
+1. **Commit the attacker's side.** In one conditional write to the attacker's document: the units and generals leave, the
+   cost is paid, and an attack record with an id (`attack_id`) is added to its outbox. This is the same single-document
+   decision as everywhere else, so an attacker can not send the same units twice.
+2. **Resolve against the target.** Read the target document (and its version), compute the outcome from the target as it
+   is *now*, and write the target's losses with `If-Match`, recording `attack_id` in the target's list of applied attacks.
+   If another attack, or any other write, landed on the target in between, the write is refused, the target is read
+   again, and the outcome is recomputed. Attacks on the same target therefore resolve one after another, each seeing the
+   previous one's losses, in the order they commit to the target. The outcome calculators are pure functions of
+   (attacker forces, target state), so recomputing is safe; messages and notifications are sent only after the commit.
+3. **Report back.** Apply the result to the attacker (land and gains, casualties, return time) and write the news and
+   history entries, idempotently keyed by `attack_id`. The outbox sweep finishes any that a crash left behind.
+
+"Roughly as it was when the attacker decided" holds because steps 1 and 2 are normally milliseconds apart. If the target
+also spent money or built something in that gap, the attack sees that too, which is closer to real-time play than a
+snapshot. Scheduled attacks and auto attacks go through the same path.
+
+Open question: the order is the order attacks *reach the target document*, which is the only order that exists across
+several servers. If the order players *clicked* must win over the order requests arrived, a per-target queue would be
+needed. I would not build that unless it matters in play.
 
 **The refresh** is the hardest case, because it consumes queue documents (`settles`, `mobis`, `structures`, ...) *before*
 it writes the kingdom, so a conflict on the kingdom would either lose the completed items or credit them twice. It needs
@@ -183,6 +220,12 @@ queue it needs. It would work, but:
 ## 5. Other things that stop the web app from scaling out
 
 The locks were one of four per-server pieces of state. Removing them does not make a second instance safe by itself.
+
+Production runs `gunicorn -k gthread --threads=100 --timeout 600`: one process, 100 threads, requests allowed ten
+minutes. So today's duplicate actions did **not** need a second server. Up to 100 requests run at once in the same
+process, and the lock leases are 10 to 20 seconds, so a request that takes longer than its lease (the function app being
+slow, with a timeout this generous) loses its lock while still working. That, plus writers that never took the lock, is
+the likeliest source of the duplicates seen in the beta round. I have not reproduced that exact case.
 
 | State | Where | What breaks with two instances | Direction |
 |---|---|---|---|

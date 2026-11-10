@@ -50,10 +50,18 @@ Set these under the web app's Environment variables in the Azure portal. They ar
 
 ### Things the repo does not record
 
-These live in the Azure portal only. Check them before rebuilding the environment, and add them here when you do:
+These live in the Azure portal only. Check them before rebuilding the environment:
 
-- The App Service **startup command** (the app is written to run under gunicorn: `api/run.py` hooks gunicorn's
-  loggers). It has to run `run:app` from the `api/` folder, and the static React build is served from `../build`.
+- The App Service **startup command**:
+
+  ```
+  gunicorn --bind=0.0.0.0 -k gthread --threads=100 --log-syslog --log-level=debug --error-logfile=- --timeout 600 --chdir api run:app
+  ```
+
+  That is **one worker process with 100 threads**, and a 10-minute request timeout. One process is why the in-memory
+  state (SQLite users and locks, the websocket registry, the rate limiter) has worked at all: every thread sees the same
+  copy. Adding `--workers`, or scaling the App Service out to more than one instance, breaks all of it. See
+  [concurrency.md](concurrency.md).
 - The Python version selected in the portal (3.10 to match CI).
 
 ## Function app
@@ -78,8 +86,9 @@ Game time only moves forward when something calls `GET /api/refreshdata` with th
 <REFRESH_SECRET>`. It resolves income, builds, scheduled actions, scores and elections for every kingdom, so it has to be
 called regularly (every few seconds to a minute, depending on the game speed).
 
-**Nothing in this repository calls it.** The caller (a cron job, Logic App, uptime pinger or similar) must exist
-outside the repo. If you rebuild the environment, recreate it.
+**Nothing in this repository calls it.** It is called by an Azure App Service **scheduled task** (a WebJob), configured
+in the portal. If you rebuild the environment, recreate it. If the web app is ever scaled out to several instances,
+check that the job is a singleton: by default a WebJob runs on every instance, which would run overlapping refreshes.
 
 ## Starting a round
 
