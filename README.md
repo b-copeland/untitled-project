@@ -8,6 +8,7 @@ A long-running, real-time, team-based space strategy game. The design tenets are
 
 - [Development guide](docs/development.md): install, configure, run and test everything locally
 - [Deployment guide](docs/deployment.md): CI/CD, Azure resources, the periodic refresh, starting a round
+- [Concurrency](docs/concurrency.md): how duplicate and lost game actions are prevented, and the plan for the rest
 - [CLAUDE.md](CLAUDE.md): architecture and working rules (also useful as a quick orientation for people)
 
 ## Quick start

@@ -13,6 +13,7 @@ from flask_sock import Sock, ConnectionClosed
 import untitledapp.account as uaa
 import untitledapp.shared as uas
 import untitledapp.getters as uag
+import untitledapp.occ as occ
 from untitledapp import User, Locks, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
 
 bp = flask.Blueprint("misc", __name__)
@@ -301,26 +302,23 @@ def set_shields():
     
     
     kd_id = flask_praetorian.current_user().kd_id
-    kd_info = uag._get_kd_info(kd_id)
 
-    if kd_info["fuel"] <= 0:
-        return flask.jsonify({"message": "You can't set shields without fuel"}), 400
+    def decide(kd_info):
+        # Decided against the kingdom as it is when the write lands, not against a read taken before the lock.
+        if kd_info["fuel"] <= 0:
+            raise occ.Rejected("You can't set shields without fuel")
+        return {"shields": {**kd_info["shields"], **req_values}}, None
 
+    # The legacy lock stays while other routes still write the kingdom without checking its version.
     if not acquire_lock(f"/kingdom/{kd_id}"):
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    
+
     try:
-        payload = {
-            "shields": {
-                **kd_info["shields"],
-                **req_values,
-            }
-        }
-        patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(payload),
-        )
+        occ.update(f"/kingdom/{kd_id}", decide)
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         release_lock(f"/kingdom/{kd_id}")
     return flask.jsonify({"message": "Successfully updated shields", "status": "success"}), 200
