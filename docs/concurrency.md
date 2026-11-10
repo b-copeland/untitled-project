@@ -268,12 +268,33 @@ process, and the lock leases are 10 to 20 seconds, so a request that takes longe
 slow, with a timeout this generous) loses its lock while still working. That, plus writers that never took the lock, is
 the likeliest source of the duplicates seen in the beta round. I have not reproduced that exact case.
 
+The web app is also on the **Free (F1) App Service plan**, which is limited to one instance, so scaling out starts with
+changing the plan. The function app is different: it runs on a Linux Consumption plan, which scales out on its own, so
+several function app instances can already run at once. See "What Azure actually runs" in
+[deployment.md](deployment.md).
+
 | State | Where | What breaks with two instances | Direction |
 |---|---|---|---|
 | Users and locks | SQLite file (`SQLALCHEMY_DATABASE_URI`) | Each instance has its own users; the lock table is covered above | Move users to Cosmos, or a shared SQL database |
 | Websocket registry | `SOCK_HANDLERS` dict in `untitledapp/__init__.py` | A notification only reaches players whose socket is on the instance that raised it | Azure Web PubSub / SignalR, or Redis pub/sub |
 | Rate limiter | `Limiter(storage_uri="memory://")` | Limits are per instance | Shared storage for the limiter |
-| The refresh | `/api/refreshdata`, called by something outside the repo | Two overlapping refreshes must not both resolve a kingdom | Covered by per-kingdom version checks once converted |
+| The refresh | `/api/refreshdata`, called every minute by the `refreshapp` WebJob (not in the repo) | Two overlapping refreshes must not both resolve a kingdom | Covered by per-kingdom version checks once converted |
+
+### The Cosmos budget
+
+All four containers in the `dev` database share **1000 RU/s**, the free-tier allowance. Writes are what cost: measured on
+the emulator, a read of a typical document is about 1 RU, and a conditional write is about 10 RU for a small document
+and about 13 RU for a 3 KB kingdom document. These are emulator figures; they should be close to Azure's, but check the
+request charge on the real account before relying on them.
+
+| | Roughly |
+|---|---|
+| Kingdom writes the whole game can sustain | about 75 per second |
+| One attack with about ten document writes | about 120 to 150 RU, so a handful of attacks per second at most, before the refresh and everything else |
+| A throttled request (`429`) | surfaces as a 500, because the handlers' bare `except` swallows it |
+
+Practical consequences: keep the strict tier small, batch and coalesce the eventual tier, avoid retry storms on hot
+documents, and keep dev and test traffic off the production database (the local emulator exists for that).
 
 ## 6. Reproducing and testing
 
