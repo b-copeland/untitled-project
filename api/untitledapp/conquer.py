@@ -10,6 +10,7 @@ import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.misc as uam
+import untitledapp.occ as occ
 import untitledapp.getters as uag
 import untitledapp.shared as uas
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
@@ -696,26 +697,18 @@ def _attack(req, kd_id, target_kd):
         cut = 0
         sharer = None
     try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-        current_bonuses = {
-            project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-            for project, project_dict in uas.PROJECTS.items()
-            if "max_bonus" in project_dict
-        }
-
-        target_kd_info = uag._get_kd_info(target_kd)
+        # What follows is the attack in three committed steps, so that two attacks (or an attack and the defender's own
+        # actions) can overlap without losing each other's changes. See docs/concurrency.md.
+        #   1. The attacker's side: the units leave and the generals go out, checked against the attacker as it is now.
+        #      This is what stops a duplicate request from sending the same units twice.
+        #   2. The target's side: the losses are worked out from the target as it is now, and written only if it has not
+        #      changed since. If it has, the outcome is worked out again, so attacks on one target are resolved one
+        #      after another in the order they land on it.
+        #   3. The spoils are added to the attacker (and the sharer) as an increment on their latest documents.
+        kd_info_parse = occ.read(f'/kingdom/{kd_id}')
+        target_kd_info = occ.read(f'/kingdom/{target_kd}')
         if target_kd_info["status"].lower() == "dead":
             return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400
-        target_current_bonuses = {
-            project: project_dict.get("max_bonus", 0) * min(target_kd_info["projects_points"][project] / target_kd_info["projects_max_points"][project], 1.0)
-            for project, project_dict in uas.PROJECTS.items()
-            if "max_bonus" in project_dict
-        }
 
         empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
         attacker_empire = empires_inverted.get(kd_id)
@@ -723,250 +716,310 @@ def _attack(req, kd_id, target_kd):
         war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
         peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
         surprise_war_penalty = empires_info["empires"].get(defender_empire, {}).get("surprise_war_penalty", False)
-
-        valid_attack_request, attack_request_message = _validate_attack_request(
-            attacker_raw_values,
-            kd_info_parse,
-        )
-        if not valid_attack_request:
-            return kd_info_parse, {"message": attack_request_message}, 400
-
-        attacker_units = {
-            key: int(value)
-            for key, value in attacker_raw_values.items()
-            if (key in uas.UNITS and value != "")
-        }
-        defender_units = {
-            key: value
-            for key, value in target_kd_info["units"].items()
-            if uas.UNITS[key].get("defense", 0) > 0
-        }
-        defender_military_bonus = target_current_bonuses['military_bonus']
-        defender_shields = target_kd_info["shields"]["military"]
-
-        attacker_fuelless = kd_info_parse["fuel"] <= 0
-        target_fuelless = target_kd_info["fuel"] <= 0
-        attack = uag._calc_max_offense(
-            attacker_units,
-            military_bonus=float(current_bonuses['military_bonus'] or 0), 
-            other_bonuses=0,
-            generals=int(attacker_raw_values["generals"]),
-            fuelless=attacker_fuelless,
-            lumina=kd_info_parse["race"] == "Lumina",
-            denounced=defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", ""),
-            war=war,
-            surprise_war_penalty=surprise_war_penalty,
-        )
-        defense = uag._calc_max_defense(
-            defender_units,
-            military_bonus=defender_military_bonus, 
-            other_bonuses=0,
-            shields=defender_shields,
-            fuelless=target_fuelless,
-            gaian=kd_info_parse["race"] == "Gaian",
-            peace=peace,
-        )
-        attack_ratio = min(attack / defense, 1.0)
-        attacker_losses = _calc_losses(
-            attacker_units,
-            uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
-            war=war,
-            xo=kd_info_parse["race"] == "Xo",
-        )
-        defender_losses = _calc_losses(
-            defender_units,
-            uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
-            war=war,
-        )
-        time_now = datetime.datetime.now(datetime.timezone.utc)
+        denounced = defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", "")
         galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
         is_warlike = "Warlike" in galaxy_policies["active_policies"]
         n_generals = int(attacker_raw_values["generals"])
-        generals_return_times = _calc_generals_return_time(
-            n_generals,
-            uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
-            time_now,
-            current_bonuses["general_bonus"],
-            is_warlike=is_warlike,
-            coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], target_kd_info["coordinate"]),
-        )
-        new_home_attacker_units = {
-            key_unit: value_unit - attacker_units.get(key_unit, 0)
-            for key_unit, value_unit in kd_info_parse["units"].items()
-        }
-        remaining_attacker_units = {
-            key_unit: value_unit - attacker_losses.get(key_unit, 0)
-            for key_unit, value_unit in attacker_units.items()
-        }
-        generals = [
-            {
-                "return_time": general_time.isoformat(),
-                **{
-                    key_unit: math.floor(attacking_unit / n_generals) + int((attacking_unit % n_generals) > i_general)
-                    for key_unit, attacking_unit in remaining_attacker_units.items()
-                }
+
+        def project_bonuses(kd):
+            return {
+                project: project_dict.get("max_bonus", 0) * min(kd["projects_points"][project] / kd["projects_max_points"][project], 1.0)
+                for project, project_dict in uas.PROJECTS.items()
+                if "max_bonus" in project_dict
             }
-            for i_general, general_time in enumerate(generals_return_times)
-        ]
-        next_return_time = min([general["return_time"] for general in generals])
-        new_defender_units = {
-            key_unit: value_unit - defender_losses.get(key_unit, 0)
-            for key_unit, value_unit in target_kd_info["units"].items()
-        }
-        if attack > defense:
-            spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
-                1
-                + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
-                + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
+
+        def depart(kd):
+            current_bonuses = project_bonuses(kd)
+            valid_attack_request, attack_request_message = _validate_attack_request(attacker_raw_values, kd)
+            if not valid_attack_request:
+                raise occ.Rejected(attack_request_message)
+
+            attacker_units = {
+                key: int(value)
+                for key, value in attacker_raw_values.items()
+                if (key in uas.UNITS and value != "")
+            }
+            attack = uag._calc_max_offense(
+                attacker_units,
+                military_bonus=float(current_bonuses['military_bonus'] or 0),
+                other_bonuses=0,
+                generals=n_generals,
+                fuelless=kd["fuel"] <= 0,
+                lumina=kd["race"] == "Lumina",
+                denounced=denounced,
+                war=war,
+                surprise_war_penalty=surprise_war_penalty,
             )
-            min_stars_gain = math.floor(uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
-                1
-                + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
-                + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
-            ))
-            total_spoils = {
-                key_spoil: max(math.floor(value_spoil * spoils_rate), 0)
-                for key_spoil, value_spoil in target_kd_info.items()
-                if key_spoil in {"stars", "population", "money", "fuel"}
+            attacker_losses = _calc_losses(
+                attacker_units,
+                uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+                war=war,
+                xo=kd["race"] == "Xo",
+            )
+            time_now = datetime.datetime.now(datetime.timezone.utc)
+            generals_return_times = _calc_generals_return_time(
+                n_generals,
+                uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
+                time_now,
+                current_bonuses["general_bonus"],
+                is_warlike=is_warlike,
+                coordinate_distance=_calc_coordinate_distance(kd["coordinate"], target_kd_info["coordinate"]),
+            )
+            remaining_attacker_units = {
+                key_unit: value_unit - attacker_losses.get(key_unit, 0)
+                for key_unit, value_unit in attacker_units.items()
             }
-            total_spoils["stars"] = max(total_spoils["stars"], min_stars_gain)
-            total_spoils["funding"] = {
-                key_funding: max(math.floor(value_funding * spoils_rate), 0)
-                for key_funding, value_funding in target_kd_info["funding"].items()
+            generals = [
+                {
+                    "return_time": general_time.isoformat(),
+                    **{
+                        key_unit: math.floor(attacking_unit / n_generals) + int((attacking_unit % n_generals) > i_general)
+                        for key_unit, attacking_unit in remaining_attacker_units.items()
+                    }
+                }
+                for i_general, general_time in enumerate(generals_return_times)
+            ]
+            next_return_time = min([general["return_time"] for general in generals])
+            next_resolve = kd["next_resolve"]
+            next_resolve["generals"] = min(next_resolve["generals"], next_return_time)
+            payload = {
+                "units": {
+                    key_unit: value_unit - attacker_units.get(key_unit, 0)
+                    for key_unit, value_unit in kd["units"].items()
+                },
+                "generals_out": kd["generals_out"] + generals,
+                "generals_available": kd["generals_available"] - n_generals,
+                "next_resolve": next_resolve,
             }
-            spoils_values = {
-                key_spoil: max(math.floor(value_spoil * (1 - cut)), 0)
-                for key_spoil, value_spoil in total_spoils.items()
-                if key_spoil in {"stars", "population", "money", "fuel"}
+            return payload, {
+                "attack": attack,
+                "attacker_units": attacker_units,
+                "attacker_losses": attacker_losses,
+                "generals": generals,
+                "time_now": time_now,
+                "name": kd["name"],
+                "race": kd["race"],
             }
-            spoils_values["funding"] = {
-                key_funding: max(math.floor(value_funding * (1 - cut)), 0)
-                for key_funding, value_funding in total_spoils["funding"].items()
+
+        def resolve(target_doc):
+            """The outcome of the attack against the target as it is now, and the changes it makes to the target."""
+            if target_doc["status"].lower() == "dead":
+                raise occ.Rejected("You can't attack this kingdom because they are dead!")
+            target_current_bonuses = project_bonuses(target_doc)
+            defender_units = {
+                key: value
+                for key, value in target_doc["units"].items()
+                if uas.UNITS[key].get("defense", 0) > 0
             }
-            if sharer:
-                sharer_spoils_values = {
-                    key_spoil: max(math.floor(value_spoil * cut), 0)
+            attack = departure["attack"]
+            defense = uag._calc_max_defense(
+                defender_units,
+                military_bonus=target_current_bonuses['military_bonus'],
+                other_bonuses=0,
+                shields=target_doc["shields"]["military"],
+                fuelless=target_doc["fuel"] <= 0,
+                gaian=departure["race"] == "Gaian",
+                peace=peace,
+            )
+            attack_ratio = min(attack / defense, 1.0)
+            defender_losses = _calc_losses(
+                defender_units,
+                uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
+                war=war,
+            )
+            attacker_losses = departure["attacker_losses"]
+            target_new = {"units": {
+                key_unit: value_unit - defender_losses.get(key_unit, 0)
+                for key_unit, value_unit in target_doc["units"].items()
+            }}
+            outcome = {"attack": attack, "defense": defense, "defender_losses": defender_losses}
+            if attack > defense:
+                xo = int(departure["race"] == "Xo")
+                spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
+                    1
+                    + (xo * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+                    + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
+                )
+                min_stars_gain = math.floor(uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
+                    1
+                    + (xo * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+                    + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
+                ))
+                total_spoils = {
+                    key_spoil: max(math.floor(value_spoil * spoils_rate), 0)
+                    for key_spoil, value_spoil in target_doc.items()
+                    if key_spoil in {"stars", "population", "money", "fuel"}
+                }
+                total_spoils["stars"] = max(total_spoils["stars"], min_stars_gain)
+                total_spoils["funding"] = {
+                    key_funding: max(math.floor(value_funding * spoils_rate), 0)
+                    for key_funding, value_funding in target_doc["funding"].items()
+                }
+                spoils_values = {
+                    key_spoil: max(math.floor(value_spoil * (1 - cut)), 0)
                     for key_spoil, value_spoil in total_spoils.items()
                     if key_spoil in {"stars", "population", "money", "fuel"}
                 }
-                sharer_spoils_values["funding"] = {
-                    key_funding: max(math.floor(value_funding * cut), 0)
+                spoils_values["funding"] = {
+                    key_funding: max(math.floor(value_funding * (1 - cut)), 0)
                     for key_funding, value_funding in total_spoils["funding"].items()
                 }
-                sharer_message = (
-                    "You have gained "
-                    + ', '.join([f"{value} {key}" for key, value in sharer_spoils_values.items() if key != "funding"])
-                    + f', {sum(sharer_spoils_values["funding"].values())} funding'
-                    + f" for sharing intel leading to a successful attack by your galaxymate {kd_info_parse['name']}"
-                )
-                sharer_news = {
-                    "time": time_now.isoformat(),
-                    "from": kd_id,
-                    "news": sharer_message,
-                }
-                sharer_news_patch_response = REQUESTS_SESSION.patch(
-                    app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}/news',
-                    headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                    data=json.dumps(sharer_news),
-                )
-                uam._add_notifs(sharer, ["news_kingdom"])
-            else:
                 sharer_spoils_values = {}
-
-            units_destroyed = sum(defender_losses.values())
-            attack_status = "success"
-            attacker_message = (
-                "Success! You have gained "
-                + ', '.join([f"{value} {key}" for key, value in spoils_values.items() if key != "funding"])
-                + f', {sum(spoils_values["funding"].values())} funding'
-                + f" and destroyed {units_destroyed} units."
-                + " You have lost "
-                + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
-            )
-            defender_message = (
-                f"Your kingdom was defeated in battle by {kd_info_parse['name']}. You have lost "
-                + ', '.join([f"{value} {key}" for key, value in total_spoils.items() if key != "funding"])
-                + f', {sum(total_spoils["funding"].values())} funding'
-                + ' and '
-                + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
-            )
-        else:
-            attack_status = "failure"
-            attacker_message = "Failure! You have lost " + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
-            defender_message = (
-                f"Your kingdom successfully defended an attack by {kd_info_parse['name']}. You have lost "
-                + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
-            )
-            spoils_values = {}
-            sharer_spoils_values = {}
-        
-
-        kd_info_parse["units"] = new_home_attacker_units
-        kd_info_parse["generals_out"] = kd_info_parse["generals_out"] + generals
-        kd_info_parse["generals_available"] = kd_info_parse["generals_available"] - int(attacker_raw_values["generals"])
-        kd_info_parse["next_resolve"]["generals"] = min(kd_info_parse["next_resolve"]["generals"], next_return_time)
-
-        target_kd_info["units"] = new_defender_units
-        for key_spoil, value_spoil in spoils_values.items():
-            if key_spoil != "funding":
-                if key_spoil != "money":
-                    kd_info_parse[key_spoil] += value_spoil
-                else:
-                    if kd_info_parse["auto_spending_enabled"]:
-                        pct_allocated = sum(kd_info_parse["auto_spending"].values())
-                        for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
-                            kd_info_parse["funding"][key_spending] += pct_spending * value_spoil
-                        kd_info_parse["money"] += value_spoil * (1 - pct_allocated)
-                    else:
-                        kd_info_parse["money"] += value_spoil
-                target_kd_info[key_spoil] -= value_spoil
+                if sharer:
+                    sharer_spoils_values = {
+                        key_spoil: max(math.floor(value_spoil * cut), 0)
+                        for key_spoil, value_spoil in total_spoils.items()
+                        if key_spoil in {"stars", "population", "money", "fuel"}
+                    }
+                    sharer_spoils_values["funding"] = {
+                        key_funding: max(math.floor(value_funding * cut), 0)
+                        for key_funding, value_funding in total_spoils["funding"].items()
+                    }
+                units_destroyed = sum(defender_losses.values())
+                attack_status = "success"
+                attacker_message = (
+                    "Success! You have gained "
+                    + ', '.join([f"{value} {key}" for key, value in spoils_values.items() if key != "funding"])
+                    + f', {sum(spoils_values["funding"].values())} funding'
+                    + f" and destroyed {units_destroyed} units."
+                    + " You have lost "
+                    + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
+                )
+                defender_message = (
+                    f"Your kingdom was defeated in battle by {departure['name']}. You have lost "
+                    + ', '.join([f"{value} {key}" for key, value in total_spoils.items() if key != "funding"])
+                    + f', {sum(total_spoils["funding"].values())} funding'
+                    + ' and '
+                    + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
+                )
+                # Everything taken from the target, including the sharer's cut.
+                for key_spoil in ("stars", "population", "money", "fuel"):
+                    target_new[key_spoil] = (
+                        target_doc[key_spoil] - spoils_values[key_spoil] - sharer_spoils_values.get(key_spoil, 0)
+                    )
+                target_new["funding"] = {
+                    key_funding: (
+                        value_funding
+                        - spoils_values["funding"].get(key_funding, 0)
+                        - sharer_spoils_values.get("funding", {}).get(key_funding, 0)
+                    )
+                    for key_funding, value_funding in target_doc["funding"].items()
+                }
+                target_new["stars"] = max(target_new["stars"], 0)
+                target_new["projects_max_points"] = {
+                    **target_doc["projects_max_points"],
+                    **{key_project: uas.PROJECTS_FUNCS[key_project](target_new["stars"]) for key_project in uas.PROJECTS},
+                }
+                if target_new["stars"] <= 0:
+                    target_new["status"] = "Dead"
             else:
-                pct_allocated = sum(kd_info_parse["auto_spending"].values())
-                for key_funding, value_funding in value_spoil.items():
-                    target_kd_info["funding"][key_funding] -= value_funding
-                    if kd_info_parse["auto_spending_enabled"]:
-                        for key_spending, pct_spending in kd_info_parse["auto_spending"].items():
-                            kd_info_parse["funding"][key_spending] += pct_spending * value_funding
-                        kd_info_parse["money"] += value_funding * (1 - pct_allocated)
+                attack_status = "failure"
+                attacker_message = "Failure! You have lost " + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
+                defender_message = (
+                    f"Your kingdom successfully defended an attack by {departure['name']}. You have lost "
+                    + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
+                )
+                total_spoils = {}
+                spoils_values = {}
+                sharer_spoils_values = {}
+            outcome.update({
+                "status": attack_status,
+                "attacker_message": attacker_message,
+                "defender_message": defender_message,
+                "total_spoils": total_spoils,
+                "spoils_values": spoils_values,
+                "sharer_spoils_values": sharer_spoils_values,
+                "target_name": target_doc["name"],
+                "target_dead": target_new.get("status") == "Dead",
+            })
+            return target_new, outcome
+
+        def credit(spoils):
+            """Add spoils to a kingdom's latest document, spreading money over auto spending the way it always has."""
+            def add(kd):
+                changes = {}
+                funding = dict(kd["funding"])
+                money = kd["money"]
+                for key_spoil, value_spoil in spoils.items():
+                    if key_spoil == "funding":
+                        for value_funding in value_spoil.values():
+                            if kd["auto_spending_enabled"]:
+                                pct_allocated = sum(kd["auto_spending"].values())
+                                for key_spending, pct_spending in kd["auto_spending"].items():
+                                    funding[key_spending] += pct_spending * value_funding
+                                money += value_funding * (1 - pct_allocated)
+                            else:
+                                money += value_funding
+                    elif key_spoil == "money":
+                        if kd["auto_spending_enabled"]:
+                            pct_allocated = sum(kd["auto_spending"].values())
+                            for key_spending, pct_spending in kd["auto_spending"].items():
+                                funding[key_spending] += pct_spending * value_spoil
+                            money += value_spoil * (1 - pct_allocated)
+                        else:
+                            money += value_spoil
                     else:
-                        kd_info_parse["money"] += value_funding
+                        changes[key_spoil] = kd[key_spoil] + value_spoil
+                changes["money"] = money
+                changes["funding"] = funding
+                if "stars" in changes:
+                    changes["projects_max_points"] = {
+                        **kd["projects_max_points"],
+                        **{key_project: uas.PROJECTS_FUNCS[key_project](changes["stars"]) for key_project in uas.PROJECTS},
+                    }
+                return changes, None
+            return add
 
-        target_kd_info["stars"] = max(target_kd_info["stars"], 0)
-        for key_project, project_dict in uas.PROJECTS.items():
-            project_max_func = uas.PROJECTS_FUNCS[key_project]
-            kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
-            target_kd_info["projects_max_points"][key_project] = project_max_func(target_kd_info["stars"])
+        def give_back_units(kd):
+            """Undo the departure if the target turned out to be gone, so the units are not stuck out forever."""
+            returned = {
+                key_unit: value_unit + departure["attacker_units"].get(key_unit, 0)
+                for key_unit, value_unit in kd["units"].items()
+            }
+            ours = {general["return_time"] for general in departure["generals"]}
+            return {
+                "units": returned,
+                "generals_out": [g for g in kd["generals_out"] if g["return_time"] not in ours],
+                "generals_available": kd["generals_available"] + n_generals,
+            }, None
 
+        departure = occ.update(f'/kingdom/{kd_id}', depart)
+        time_now = departure["time_now"]
+        try:
+            outcome = occ.update(f'/kingdom/{target_kd}', resolve)
+        except BaseException:
+            occ.update(f'/kingdom/{kd_id}', give_back_units)
+            raise
+        attack = outcome["attack"]
+        defense = outcome["defense"]
+        attack_status = outcome["status"]
+        attacker_message = outcome["attacker_message"]
+        defender_message = outcome["defender_message"]
+        total_spoils = outcome["total_spoils"]
+        spoils_values = outcome["spoils_values"]
+        sharer_spoils_values = outcome["sharer_spoils_values"]
+        target_kd_info["name"] = outcome["target_name"]
+        kd_info_parse["name"] = departure["name"]
+
+        if spoils_values:
+            occ.update(f'/kingdom/{kd_id}', credit(spoils_values))
+        if outcome["target_dead"]:
+            uam._mark_kingdom_death(target_kd)
         if sharer and sharer_spoils_values:
-            sharer_kd_info = uag._get_kd_info(sharer)
-            for key_spoil, value_spoil in sharer_spoils_values.items():
-                if key_spoil != "funding":
-                    if key_spoil != "money":
-                        sharer_kd_info[key_spoil] += value_spoil
-                    else:
-                        if sharer_kd_info["auto_spending_enabled"]:
-                            pct_allocated = sum(sharer_kd_info["auto_spending"].values())
-                            for key_spending, pct_spending in sharer_kd_info["auto_spending"].items():
-                                sharer_kd_info["funding"][key_spending] += pct_spending * value_spoil
-                            sharer_kd_info["money"] += value_spoil * (1 - pct_allocated)
-                        else:
-                            sharer_kd_info["money"] += value_spoil
-                    target_kd_info[key_spoil] -= value_spoil
-                else:
-                    pct_allocated = sum(sharer_kd_info["auto_spending"].values())
-                    for key_funding, value_funding in value_spoil.items():
-                        target_kd_info["funding"][key_funding] -= value_funding
-                        if sharer_kd_info["auto_spending_enabled"]:
-                            for key_spending, pct_spending in sharer_kd_info["auto_spending"].items():
-                                sharer_kd_info["funding"][key_spending] += pct_spending * value_funding
-                            sharer_kd_info["money"] += value_funding * (1 - pct_allocated)
-                        else:
-                            sharer_kd_info["money"] += value_funding
-            sharer_patch_response = REQUESTS_SESSION.patch(
-                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}',
-                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps(sharer_kd_info),
+            sharer_message = (
+                "You have gained "
+                + ', '.join([f"{value} {key}" for key, value in sharer_spoils_values.items() if key != "funding"])
+                + f', {sum(sharer_spoils_values["funding"].values())} funding'
+                + f" for sharing intel leading to a successful attack by your galaxymate {kd_info_parse['name']}"
             )
+            occ.update(f'/kingdom/{sharer}', credit(sharer_spoils_values))
+            sharer_kd_info = {"name": occ.read(f'/kingdom/{sharer}')["name"]}
+            REQUESTS_SESSION.patch(
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}/news',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+                data=json.dumps({"time": time_now.isoformat(), "from": kd_id, "news": sharer_message}),
+            )
+            uam._add_notifs(sharer, ["news_kingdom"])
             try:
                 ws = SOCK_HANDLERS[sharer]
                 ws.send(json.dumps({
@@ -978,15 +1031,7 @@ def _attack(req, kd_id, target_kd):
                 }))
             except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
                 pass
-        
-        if target_kd_info["stars"] <= 0:
-            target_kd_info["status"] = "Dead"
-            uam._mark_kingdom_death(target_kd)
-        target_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(target_kd_info),
-        )
+
         target_news = {
             "time": time_now.isoformat(),
             "from": kd_id,
@@ -1003,17 +1048,12 @@ def _attack(req, kd_id, target_kd):
             }))
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
-        target_news_patch_response = REQUESTS_SESSION.patch(
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(target_news),
         )
         uam._add_notifs(target_kd, ["news_kingdom"])
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_info_parse, default=str),
-        )
         kd_attack_history = {
             "time": time_now.isoformat(),
             "to": target_kd,
@@ -1119,6 +1159,10 @@ def _attack(req, kd_id, target_kd):
             "status": attack_status,
             "message": attacker_message,
         }
+    except occ.Rejected as rejection:
+        return None, {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return None, {"message": "Server is busy"}, 400
     finally:
         uam.release_locks_by_id(request_id)
     return kd_info_parse, attack_results, 200
@@ -1398,6 +1442,10 @@ def _attack_primitives(req, kd_id):
             "status": attack_status,
             "message": attacker_message,
         }
+    except occ.Rejected as rejection:
+        return None, {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return None, {"message": "Server is busy"}, 400
     finally:
         uam.release_locks_by_id(request_id)
     return kd_info_parse, attack_results, 200
