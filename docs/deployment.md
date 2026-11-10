@@ -110,4 +110,4 @@ the Actions history, and a failed run can be re-run with "Re-run jobs".
   frontend tests run).
 - Python 3.10 reached end-of-life in October 2026, and the function app's extension bundle is deprecated.
 - Everything that scales out (SQLite users and locks, in-memory websocket registry, in-memory rate limiter) assumes a
-  single App Service instance. See issue #64 for the work on removing that limit.
+  single App Service instance. See [concurrency.md](concurrency.md) for what is done and what remains.

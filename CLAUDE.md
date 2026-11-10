@@ -81,9 +81,13 @@ after copying an old `database.db` it may not match, and the hash in SQLite must
 
 `python -m pytest tests` from the repo root, in the `funcapp` environment, with the function app and Azurite running
 against the **emulator** (see "Tests are destructive" above). The tests use the Flask test client with `TestingConfig`
-and take over a minute. The suite is small (`test_build`, `test_getters`, `test_misc`). After a run the emulator is
-empty, so re-seed with `--apply --replace`. There is no frontend test coverage to speak of (`src/App.test.js` is the
-stock stub), and CI does not run tests.
+and take about a minute. After a run the emulator is empty, so re-seed with `--apply --replace`. `test_refresh.py` and
+`test_occ.py` stub the function app and need no stack.
+
+- **Function app tests:** `python -m pytest funcapp/tests` in the `funcapp-worker` environment (no stack needed).
+- **Frontend tests:** `CI=true npm test -- --watchAll=false`. CI runs these before every build, so a failure blocks the
+  deploy. CI does not run the Python tests.
+- **Concurrency check:** `python scripts/check_concurrency.py` against the running function app (writes to the emulator).
 
 ## Design philosophy
 
@@ -111,6 +115,12 @@ From [untitled_project.txt](untitled_project.txt). Use these to judge whether a 
 - `getters.py` and `conquer.py` are large (1300 and 3000 lines). Search before adding a helper, since `shared.py` and
   `getters.py` already hold many.
 - Most routes make several round trips to the function app, so avoid adding more inside loops.
+- **Actions that spend or change state must not use read-then-write.** Use `occ.update(path, decide)` from
+  `api/untitledapp/occ.py`: validate inside `decide` (which can run more than once, so no side effects), and the write
+  only lands if the document is unchanged since it was read. The old SQLite locks (`acquire_lock`) are per server and
+  being phased out; migrated routes keep them for now. Read [docs/concurrency.md](docs/concurrency.md) first.
+- Function app `update_*` handlers must stay single-write (one `replace_item`) so `@retry_on_conflict` can re-run them.
+  `funcapp/` is published by hand, not by CI.
 - `adhoc/` is for one-off scripts. Reusable tooling goes in `scripts/`.
 - `iac/terraform.tfstate` and `funcapp/__azurite_*` are local state, not source.
 - Known tech debt: Python 3.10 is end-of-life, the function app uses a deprecated extension bundle, the CRA toolchain is

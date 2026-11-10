@@ -161,6 +161,19 @@ conda run -n funcapp python -m pytest tests
 The function app and Azurite must be running. The tests use their own SQLite file (`instance/pytest.db`) and users
 (`admin`, `user1`, `user2`), and take a little over a minute.
 
+`tests/test_refresh.py` and `tests/test_occ.py` stub the function app and need no stack. `tests/test_concurrency.py`
+races duplicate requests through the real routes.
+
+**Function app** (`funcapp/tests/`) needs only the function app's packages, not the stack:
+
+```powershell
+conda run -n funcapp-worker pip install pytest
+conda run -n funcapp-worker python -m pytest funcapp/tests
+```
+
+`scripts/check_concurrency.py` hammers the running function app with concurrent requests and reports lost updates. See
+[concurrency.md](concurrency.md).
+
 **Frontend** (`src/`, Jest):
 
 ```powershell

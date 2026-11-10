@@ -11,6 +11,7 @@ from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.misc as uam
 import untitledapp.getters as uag
+import untitledapp.occ as occ
 import untitledapp.shared as uas
 from untitledapp import alive_required, REQUESTS_SESSION, SOCK_HANDLERS
 
@@ -368,7 +369,7 @@ def allocate_mobis():
             data=json.dumps(payload),
         )
     finally:
-        uam.acquire_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_disband(kd_info, input):
@@ -428,7 +429,7 @@ def disband_mobis():
             data=json.dumps(kd_payload),
         )
     finally:
-        uam.acquire_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     
     return (flask.jsonify({"message": "Disbanded units", "status": "success"}), 200)
 
@@ -489,24 +490,22 @@ def build_structures():
     
     kd_id = flask_praetorian.current_user().kd_id
     
+    # Parsed before taking the lock, so bad input can not leave it held.
+    structures_request = {
+        k: int(v or 0)
+        for k, v in req.items()
+        if int(v or 0) != 0
+    }
+
     request_id = str(uuid.uuid4())
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/structures'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-        
-        structures_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        structures_info_parse = json.loads(structures_info.text)
+
+    def decide(kd_info_parse):
+        # The money is taken from the kingdom document, so that is where the check happens: this runs against the
+        # kingdom as it is right now, and the write below only lands if it is still that way. Runs again from the top
+        # if something else changed the kingdom first, so it must not have side effects.
+        structures_info_parse = occ.read(f'/kingdom/{kd_id}/structures')
 
         current_price = uag._get_structure_price(kd_info_parse)
         current_structures = kd_info_parse["structures"]
@@ -522,25 +521,21 @@ def build_structures():
 
         max_available_structures, current_available_structures = uag._calc_available_structures(current_price, kd_info_parse, structures)
 
-        structures_request = {
-            k: int(v or 0)
-            for k, v in req.items()
-            if int(v or 0) != 0
-        }
         valid_structures = _validate_structures(structures_request, current_available_structures)
         if not valid_structures:
-            return (flask.jsonify({"message": 'Please enter valid structures values'}), 400)
+            raise occ.Rejected('Please enter valid structures values')
 
         new_structures, min_structures_time = _get_new_structures(structures_request, start_time)
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["structures"] = min(next_resolve["structures"], min_structures_time)
         new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
-        kd_payload = {'money': new_money, 'next_resolve': next_resolve}
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
+        return {'money': new_money, 'next_resolve': next_resolve}, new_structures
+
+    # The legacy lock stays for now: other routes still write these documents without checking the version, and the
+    # lock is what keeps them from interleaving with this one on a single instance. See docs/concurrency.md.
+    try:
+        new_structures = occ.update(f'/kingdom/{kd_id}', decide)
+        # Appending to the queue is safe to retry on its own: the function app merges it into the newest version.
         structures_payload = {
             "new_structures": new_structures
         }
@@ -549,6 +544,10 @@ def build_structures():
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(structures_payload),
         )
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began building structures", "status": "success"}), 200)
@@ -608,7 +607,7 @@ def allocate_structures():
             data=json.dumps(payload),
         )
     finally:
-        uam.acquire_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_raze(kd_info, input):
@@ -664,7 +663,7 @@ def raze_structures():
             data=json.dumps(kd_payload),
         )
     finally:
-        uam.acquire_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     
     return (flask.jsonify({"message": "Razed structures", "status": "success"}), 200)
 
@@ -1072,7 +1071,7 @@ def allocate_projects():
             data=json.dumps(payload),
         )
     finally:
-        uam.acquire_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_assign_projects(req, kd_info_parse):
@@ -1152,5 +1151,5 @@ def manage_projects():
             data=json.dumps(kd_payload),
         )
     finally:
-        uam.acquire_lock(f'/kingdom/{kd_id}')
+        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Successfully updated project assignment", "status": "success"}), 200)
