@@ -112,14 +112,9 @@ def recruits():
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/mobis'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-
+    def decide(kd_info_parse):
+        # Runs against the kingdom as it is right now and again from the top if it changed before the write lands, so
+        # it must not have side effects.
         mobis_info_parse = uag._get_mobis_queue(kd_id)
         current_units = kd_info_parse["units"]
         generals_units = kd_info_parse["generals_out"]
@@ -135,7 +130,7 @@ def recruits():
         max_available_recruits, current_available_recruits = uag._calc_max_recruits(kd_info_parse, units)
         valid_recruits = _validate_recruits(recruits_input, current_available_recruits)
         if not valid_recruits:
-            return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
+            raise occ.Rejected('Please enter valid recruits value')
 
         galaxies_inverted, _ = uag._get_galaxies_inverted()
         galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
@@ -146,20 +141,22 @@ def recruits():
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["mobis"] = min(next_resolve["mobis"], min_recruits_time)
         new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_RECRUIT_COST"] * recruits_input
-        kd_payload = {'money': new_money, 'next_resolve': next_resolve}
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
+        return {'money': new_money, 'next_resolve': next_resolve}, new_recruits
+
+    try:
+        new_recruits = occ.update(f'/kingdom/{kd_id}', decide)
         recruits_payload = {
             "new_mobis": new_recruits
         }
-        kd_patch_response = REQUESTS_SESSION.patch(
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(recruits_payload),
         )
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began recruiting", "status": "success"}), 200)
@@ -231,19 +228,19 @@ def train_mobis():
     
     
     kd_id = flask_praetorian.current_user().kd_id
-    
+
+    # Parsed before taking the lock, so bad input can not leave it held.
+    mobis_request = {
+        k: int(v or 0)
+        for k, v in req.items()
+        if int(v or 0) != 0
+    }
+
     request_id = str(uuid.uuid4())
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/mobis'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-
+    def decide(kd_info_parse):
         current_units = kd_info_parse["units"]
         state = uag._get_state()
 
@@ -252,15 +249,10 @@ def train_mobis():
             datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
         )
 
-        mobis_request = {
-            k: int(v or 0)
-            for k, v in req.items()
-            if int(v or 0) != 0
-        }
         mobis_cost = _get_mobis_cost(mobis_request)
         valid_mobis = _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cost)
         if not valid_mobis:
-            return (flask.jsonify({"message": 'Please enter valid training values'}), 400)
+            raise occ.Rejected('Please enter valid training values')
 
         new_money = kd_info_parse["money"] - mobis_cost
         new_recruits = kd_info_parse["units"]["recruits"] - sum(mobis_request.values())
@@ -276,19 +268,22 @@ def train_mobis():
             },
             'next_resolve': next_resolve,
         }
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
+        return kd_payload, new_mobis
+
+    try:
+        new_mobis = occ.update(f'/kingdom/{kd_id}', decide)
         mobis_payload = {
             "new_mobis": new_mobis
         }
-        mobis_patch_response = REQUESTS_SESSION.patch(
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(mobis_payload),
         )
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began training specialists", "status": "success"}), 200)
@@ -321,30 +316,15 @@ def allocate_mobis():
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-
+    def decide(kd_info_parse):
         if req.get("recruits_before_units", None) is not None:
             recruits_before_units = req["recruits_before_units"]
-            payload = {'recruits_before_units': recruits_before_units}
-
-            patch_response = REQUESTS_SESSION.patch(
-                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps(payload),
-            )
             if recruits_before_units:
                 message = "Recruits will be trained before units during auto spending"
             else:
                 message = "Recruits will be trained after units during auto spending"
-            return (flask.jsonify({"message": message, "status": "success"}), 200)
+            return {'recruits_before_units': recruits_before_units}, message
 
-        
         req_targets = {
             key: float(value or 0) / 100
             for key, value in req.get("targets", {}).items()
@@ -358,19 +338,22 @@ def allocate_mobis():
         }
         valid_targets, message = _validate_mobis_target(new_targets, kd_info_parse)
         if not valid_targets:
-            return (flask.jsonify({"message": message}), 400)
+            raise occ.Rejected(message)
 
         payload = {'units_target': new_targets}
         if req.get("max_recruits", "") != "":
             payload["max_recruits"] = int(req["max_recruits"])
-        patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(payload),
-        )
+        return payload, "Updated spending"
+
+    try:
+        message = occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
-    return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
+    return (flask.jsonify({"message": message, "status": "success"}), 200)
 
 def _validate_disband(kd_info, input):
 
@@ -401,13 +384,11 @@ def disband_mobis():
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        kd_info = uag._get_kd_info(kd_id)
-
+    def decide(kd_info):
         valid_disband, message = _validate_disband(kd_info, req_input)
         if not valid_disband:
-            return (flask.jsonify({"message": message}), 400)
-        
+            raise occ.Rejected(message)
+
         new_units = {
             key_unit: value_unit - req_input.get(key_unit, 0)
             for key_unit, value_unit in kd_info["units"].items()
@@ -418,19 +399,21 @@ def disband_mobis():
         ])
         new_pop = kd_info["population"] + sum(req_input.values())
 
-        kd_payload = {
+        return {
             "units": new_units,
             "money": new_money,
             "population": new_pop,
-        }
-        patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
+        }, None
+
+    try:
+        occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
-    
+
     return (flask.jsonify({"message": "Disbanded units", "status": "success"}), 200)
 
 
@@ -577,14 +560,7 @@ def allocate_structures():
     
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-        
+    def decide(kd_info_parse):
         req_targets = {
             key: float(value or 0) / 100
             for key, value in req.items()
@@ -598,14 +574,16 @@ def allocate_structures():
         }
         valid_targets, message = _validate_structures_target(new_targets)
         if not valid_targets:
-            return (flask.jsonify({"message": message}), 400)
+            raise occ.Rejected(message)
 
-        payload = {'structures_target': new_targets}
-        patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(payload),
-        )
+        return {'structures_target': new_targets}, None
+
+    try:
+        occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
@@ -635,13 +613,11 @@ def raze_structures():
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        kd_info = uag._get_kd_info(kd_id)
-
+    def decide(kd_info):
         valid_raze, message = _validate_raze(kd_info, req_input)
         if not valid_raze:
-            return (flask.jsonify({"message": message}), 400)
-        
+            raise occ.Rejected(message)
+
         structures_price = uag._get_structure_price(kd_info)
 
         new_structures = {
@@ -653,15 +629,17 @@ def raze_structures():
             for value_structures in req_input.values()
         ])
 
-        kd_payload = {
+        return {
             "structures": new_structures,
             "money": new_money,
-        }
-        patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
+        }, None
+
+    try:
+        occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
     
@@ -726,23 +704,14 @@ def settle():
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/settles'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-
+    def decide(kd_info_parse):
         settle_info = uag._get_settle_queue(kd_id)
         galaxies_inverted, _ = uag._get_galaxies_inverted()
         galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
         is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
         valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info, is_expansionist)
         if not valid_settle:
-            return (flask.jsonify({"message": 'Please enter valid settle value'}), 400)
-
-
+            raise occ.Rejected('Please enter valid settle value')
 
         state = uag._get_state()
 
@@ -756,20 +725,22 @@ def settle():
         new_money = kd_info_parse["money"] - settle_price * settle_input
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["settles"] = min(next_resolve["settles"], min_settle_time)
-        kd_payload = {'money': new_money, "next_resolve": next_resolve}
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
+        return {'money': new_money, "next_resolve": next_resolve}, new_settles
+
+    try:
+        new_settles = occ.update(f'/kingdom/{kd_id}', decide)
         settle_payload = {
             "new_settles": new_settles,
         }
-        kd_patch_response = REQUESTS_SESSION.patch(
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(settle_payload),
         )
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began settling", "status": "success"}), 200)
@@ -819,14 +790,13 @@ def build_missiles():
     request_id = str(uuid.uuid4())
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/missiles'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-        
+    missiles_request = {
+        k: int(v or 0)
+        for k, v in req.items()
+        if v not in ("", 0)
+    }
+
+    def decide(kd_info_parse):
         missiles_info = uag._get_missiles_info(kd_id)
         missiles_building = uag._get_missiles_building(missiles_info)
 
@@ -838,14 +808,9 @@ def build_missiles():
             )
         )
 
-        missiles_request = {
-            k: int(v or 0)
-            for k, v in req.items()
-            if v not in ("", 0)
-        }
         valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles)
         if not valid_missiles:
-            return (flask.jsonify({"message": 'Please enter valid missiles values'}), 400)
+            raise occ.Rejected('Please enter valid missiles values')
 
         cost_multiplier = (
             1
@@ -871,11 +836,10 @@ def build_missiles():
             'fuel': new_fuel,
             'next_resolve': next_resolve,
         }
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
+        return kd_payload, missiles_time
+
+    try:
+        missiles_time = occ.update(f'/kingdom/{kd_id}', decide)
         missiles_payload = {
             "new_missiles": [
                 {
@@ -884,11 +848,15 @@ def build_missiles():
                 }
             ]
         }
-        missiles_patch_response = REQUESTS_SESSION.patch(
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(missiles_payload),
         )
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began building missiles", "status": "success"}), 200)
@@ -944,14 +912,7 @@ def train_engineers():
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/engineers'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-
+    def decide(kd_info_parse):
         engineers_info = uag._get_engineers_queue(kd_id)
         engineers_building = sum([training["amount"] for training in engineers_info])
         max_workshop_capacity, current_workshop_capacity = uag._calc_workshop_capacity(kd_info_parse, engineers_building)
@@ -959,7 +920,7 @@ def train_engineers():
 
         valid_engineers = _validate_engineers(engineers_input, current_available_engineers)
         if not valid_engineers:
-            return (flask.jsonify({"message": 'Please enter valid recruits value'}), 400)
+            raise occ.Rejected('Please enter valid recruits value')
 
         state = uag._get_state()
 
@@ -971,20 +932,22 @@ def train_engineers():
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["engineers"] = min(next_resolve["engineers"], min_engineers_time)
         new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_ENGINEER_COST"] * engineers_input
-        kd_payload = {'money': new_money, 'next_resolve': next_resolve}
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
+        return {'money': new_money, 'next_resolve': next_resolve}, new_engineers
+
+    try:
+        new_engineers = occ.update(f'/kingdom/{kd_id}', decide)
         engineers_payload = {
             "new_engineers": new_engineers
         }
-        engineers_patch_response = REQUESTS_SESSION.patch(
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(engineers_payload),
         )
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began training engineers", "status": "success"}), 200)
@@ -1001,8 +964,8 @@ def _validate_projects_target(req_targets, kd_info_parse):
     if sum(values) > 1:
         return False, "Target values must be less than 100%"
     if req_targets.get("spy_bonus", 0) > 0 and "drone_gadgets" not in kd_info_parse["completed_projects"]:
-        return False
-    
+        return False, "You have not unlocked drone_gadgets"
+
     completed_projects_targets = {
         uas.PRETTY_NAMES.get(k, k): v
         for k, v in req_targets.items()
@@ -1026,29 +989,14 @@ def allocate_projects():
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-
+    def decide(kd_info_parse):
         if req.get("enabled", None) is not None:
-            payload = {'auto_assign_projects': req["enabled"]}
-
-            patch_response = REQUESTS_SESSION.patch(
-                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps(payload),
-            )
             if req["enabled"]:
                 message = "Auto assigning engineers enabled"
             else:
                 message = "Auto assigning engineers disabled"
-            return (flask.jsonify({"message": message, "status": "success"}), 200)
+            return {'auto_assign_projects': req["enabled"]}, message
 
-        
         req_targets = {
             key: float(value or 0) / 100
             for key, value in req.get("targets", {}).items()
@@ -1062,17 +1010,19 @@ def allocate_projects():
         }
         valid_targets, message = _validate_projects_target(new_targets, kd_info_parse)
         if not valid_targets:
-            return (flask.jsonify({"message": message}), 400)
+            raise occ.Rejected(message)
 
-        payload = {'projects_target': new_targets}
-        patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(payload),
-        )
+        return {'projects_target': new_targets}, "Updated spending"
+
+    try:
+        message = occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
-    return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
+    return (flask.jsonify({"message": message, "status": "success"}), 200)
 
 def _validate_assign_projects(req, kd_info_parse):
     engineers_assigned = sum(req["assign"].values())
@@ -1107,14 +1057,7 @@ def manage_projects():
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-
+    def decide(kd_info_parse):
         new_projects_assigned = kd_info_parse["projects_assigned"].copy()
         if "clear" in req.keys():
             projects_to_clear = req["clear"]
@@ -1125,31 +1068,33 @@ def manage_projects():
             req["assign"] = {k: int(v) for k, v in req["assign"].items()}
             valid_assign = _validate_assign_projects(req, kd_info_parse)
             if not valid_assign:
-                return (flask.jsonify({"message": 'Please enter valid assign engineers value'}), 400)
-            
+                raise occ.Rejected('Please enter valid assign engineers value')
+
             new_projects_assigned = {
                 key: req["assign"].get(key, 0)
                 for key in kd_info_parse["projects_assigned"]
             }
-            
+
         elif "add" in req.keys():
             req["add"] = {k: int(v) for k, v in req["add"].items()}
             available_engineers = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
             valid_add = _validate_add_projects(req, available_engineers, kd_info_parse)
             if not valid_add:
-                return (flask.jsonify({"message": 'Please enter valid add engineers value'}), 400)
-            
+                raise occ.Rejected('Please enter valid add engineers value')
+
             new_projects_assigned = {
                 key: value + req["add"].get(key, 0)
                 for key, value in kd_info_parse["projects_assigned"].items()
             }
 
-        kd_payload = {"projects_assigned": new_projects_assigned}
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
+        return {"projects_assigned": new_projects_assigned}, None
+
+    try:
+        occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Successfully updated project assignment", "status": "success"}), 200)
