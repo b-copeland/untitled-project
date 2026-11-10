@@ -16,7 +16,7 @@ import pytest
 
 import untitledapp.misc as uam
 import untitledapp.shared as uas
-from api.untitledapp import REQUESTS_SESSION
+from api.untitledapp import REQUESTS_SESSION, User
 
 KD_ID = "1"  # user1 in the testing config owns kingdom 1
 FUNCTION_URL = "http://localhost:7071/api"
@@ -190,3 +190,34 @@ def test_spending_target_changes_made_at_the_same_time_are_all_kept(app, client,
     assert [r.status_code for r in responses] == [200] * len(kinds)
     targets = _get(f"/kingdom/{KD_ID}")["structures_target"]
     assert {k: round(targets[k] * 100) for k in kinds} == {k: 10 for k in kinds}
+
+
+def test_racing_requests_to_disable_auto_spending_release_the_funding_once(app, client, jwt1):
+    funding = {"settle": 100, "structures": 0, "military": 0, "engineers": 0}
+    _set_up_kingdom(money=0, funding=funding, auto_spending_enabled=True)
+    responses = _run_together(app, 8, _post(app, jwt1, "/api/spending", {"enabled": False}))
+
+    assert [r.status_code for r in responses] == [200] * 8
+    kingdom = _get(f"/kingdom/{KD_ID}")
+    assert kingdom["money"] == 100  # released once, not once per request
+    assert kingdom["funding"]["settle"] == 0
+
+
+def test_racing_kingdom_setups_apply_the_choices_once(app, client, jwt1):
+    _set_up_kingdom(money=0)
+    with app.app_context():
+        db = app.extensions["sqlalchemy"]
+        user = db.session.query(User).filter_by(username="user1").one()
+        user.kd_created = False
+        db.session.commit()
+
+    body = {
+        "race": "Gaian",
+        "unitsChoices": {"drones": 20000, "recruits": 0, "attack": 0, "defense": 0, "flex": 0, "engineers": 0},
+        "structuresChoices": {"homes": int(uas.INITIAL_KINGDOM_STATE["kingdom"]["stars"])},
+    }
+    responses = _run_together(app, 6, _post(app, jwt1, "/api/createkingdomchoices", body))
+
+    assert sorted(r.status_code for r in responses) == [200] + [400] * 5, [r.get_json() for r in responses]
+    kingdom = _get(f"/kingdom/{KD_ID}")
+    assert kingdom["structures"]["homes"] == int(uas.INITIAL_KINGDOM_STATE["kingdom"]["stars"])
