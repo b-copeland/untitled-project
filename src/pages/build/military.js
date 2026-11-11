@@ -1,3 +1,4 @@
+import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -12,6 +13,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./military.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 function MilitaryContent(props) {
     const kdInfo = props.data.kingdom;
@@ -82,25 +84,9 @@ function Recruits(props) {
     if (Object.keys(props.kdInfo).length === 0) {
         return null;
     }
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
-    const toasts = recruitsResults.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setRecruitsResults(recruitsResults.slice(0, index).concat(recruitsResults.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Recruits Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <div className="recruits">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Recruits Results" results={recruitsResults} setResults={setRecruitsResults} />
             <div className="text-box recruits-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Recruit Time</span>
@@ -192,7 +178,6 @@ function Specialists(props) {
         props.updateData(['mobis', 'kingdom'], [updateFunc]);
     }
 
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     if (Object.keys(props.mobisInfo).length === 0) {
         return null;
     }
@@ -215,25 +200,10 @@ function Specialists(props) {
     }
     const specialistCosts = calcSpecialistsCosts(input, props.mobisInfo.units_desc);
     const recruitsUsed = calcRecruitsUsed(input);
-    const toasts = specialistsResults.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setSpecialistsResults(specialistsResults.slice(0, index).concat(specialistsResults.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Recruits Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <div className="specialists">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
-            <div className="text-box specialists-box">
+            <ResultToasts title="Recruits Results" results={specialistsResults} setResults={setSpecialistsResults} />
+            <div className="text-box box-tight specialists-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Hangar Capacity</span>
                     <span className="text-box-item-value">
@@ -440,32 +410,16 @@ function Allocate(props) {
         setRecruitsBeforeUnits(e.target.checked)
     }
 
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     if (Object.keys(props.mobisInfo).length === 0) {
         return null;
     }
     if (Object.keys(props.kdInfo).length === 0) {
         return null;
     }
-    const toasts = specialistsResults.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setSpecialistsResults(specialistsResults.slice(0, index).concat(specialistsResults.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Recruits Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <div className="specialists">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
-            <div className="text-box specialists-box">
+            <ResultToasts title="Recruits Results" results={specialistsResults} setResults={setSpecialistsResults} />
+            <div className="text-box box-tight specialists-box">
                 <span>Choose the target allocation of units that you would like the auto-spender to build towards</span>
             </div>
             <Form>
@@ -671,7 +625,6 @@ function Disband(props) {
         props.updateData(['kingdom'], [updateFunc]);
         setInput({});
     }
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
 
     const units = props.kdInfo.units || {};
     const disbandRows = Object.keys(units).map((unitKey, iter) => {
@@ -696,28 +649,13 @@ function Disband(props) {
         </tr>
     })
     
-    const toasts = results.map((result, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-            show={true}
-            bg={result.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Disband Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{result.message}</Toast.Body>
-        </Toast>
-    )
     return (
-        <div className="military-disband">
+        <div className="col-center military-disband">
             <h2>Disband Units</h2>
-            <div className="text-box specialists-box">
+            <div className="text-box box-tight specialists-box">
                 <span>Disband units to return them to your population and receive {displayPercent(props.state.game_config?.BASE_DISBAND_COST_RETURN || 0)} of the training cost back</span>
             </div>
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Disband Results" results={results} setResults={setResults} />
             <Table className="specialists-table" striped bordered hover size="sm">
                 <thead>
                     <tr>

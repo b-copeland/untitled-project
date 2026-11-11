@@ -1,3 +1,4 @@
+import { displayPercent } from "../../../format";
 import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 
@@ -9,7 +10,6 @@ function Settle(props) {
         yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }, [props.state]);
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
         <div id="settle" ref={yourElementRef} className="help-section">
             <h2>Build - Settle</h2>

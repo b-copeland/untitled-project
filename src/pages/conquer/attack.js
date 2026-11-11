@@ -1,3 +1,4 @@
+import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -12,6 +13,7 @@ import "./attack.css";
 import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 
 const initialDefenderValues = {
@@ -151,7 +153,6 @@ function Attack(props) {
     const kingdomOptions = Object.keys(props.data.kingdoms).map((kdId) => {
         return {"value": kdId, "label": kdFullLabel(kdId)}
     })
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     if (props.data.projects.current_bonuses?.military_bonus && attackerValues.military_bonus === "") {
         setAttackerValues({
             ...attackerValues,
@@ -172,7 +173,7 @@ function Attack(props) {
             return []
         }
         const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="remaining-timer">
+            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
                 <span className="remaining-time-title">{category}</span>
                 <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
                 <br />
@@ -182,26 +183,11 @@ function Attack(props) {
     }
     const revealedStats = getRemainingSpans(selected, props.data.revealed?.revealed);
 
-    const toasts = attackResults.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setAttackResults(attackResults.slice(0, index).concat(attackResults.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Attack Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     return (
     <>
         <Header data={props.data} />
         <div className="attack">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} />
             <Modal
                 show={showOverrideModal}
                 onHide={() => setShowOverrideModal(false)}
@@ -273,7 +259,7 @@ function Attack(props) {
                 />
             </form>
             <div className="battle-stats">
-                <div className="defender-stats">
+                <div className="col-center-full defender-stats">
                     <h3>{kdFullLabel(selected)}</h3>
                     <div className="defender-detail">
                         <Table className="defender-table" striped bordered hover size="sm">
@@ -513,7 +499,7 @@ function Attack(props) {
                         </div>
                     </div>
                 </div>
-                <div className="attacker-stats">
+                <div className="col-center-full attacker-stats">
                     <h3>{kdFullLabel(props.data.kingdom.kdId)}</h3>
                     <div className="attacker-detail">
                         <Table className="attacker-table" striped bordered hover size="sm">

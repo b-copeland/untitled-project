@@ -1,3 +1,4 @@
+import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import Tab from 'react-bootstrap/Tab';
@@ -24,6 +25,7 @@ import "primereact/resources/themes/bootstrap4-dark-blue/theme.css";
 import "primeicons/primeicons.css";
 import 'bootstrap/dist/css/bootstrap.css';
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 
 
@@ -198,22 +200,9 @@ function Revealed(props) {
         return rowData.networth !== null ? rowData.networth.toLocaleString() : null
     }
     
-    const toasts = results.map((result, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-            show={true}
-            bg={result.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Reveal Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{result.message}</Toast.Body>
-        </Toast>
-    )
     const getRemainingSpans = (kdId, revealed) => {
         const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="remaining-timer">
+            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
                 <span className="remaining-time-title">{category}</span>
                 <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
                 <br />
@@ -288,9 +277,7 @@ function Revealed(props) {
     );
     return (
         <div className="revealed">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Reveal Results" results={results} setResults={setResults} />
             <Modal
                 show={showView}
                 onHide={() => setShowView(false)}
@@ -427,7 +414,7 @@ function Revealed(props) {
                 </Button>
            }
             <DataTable
-                className="revealed-table"
+                className="box-loose revealed-table"
                 value={revealedPrimeRows}
                 paginator
                 size="small"
@@ -453,7 +440,7 @@ function Revealed(props) {
                 <Column field="coordinate_distance" header="Distance" sortable /*filter*/ style={{ width: "10%" , textAlign:"right"}}/>
                 <Column field="actions" header="Actions" style={{ minWidth: '110px', width: "30%" }}/>
             </DataTable>
-            <Table className="revealed-galaxy-table" striped bordered hover>
+            <Table className="box-loose revealed-galaxy-table" striped bordered hover>
                 <thead>
                     <tr>
                         <th>Remaining</th>
@@ -528,7 +515,7 @@ function Shared(props) {
     
     const getRemainingSpans = (kdId, revealed) => {
         const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="remaining-timer">
+            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
                 <span className="remaining-time-title">{category}</span>
                 <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
                 <br />
@@ -538,7 +525,7 @@ function Shared(props) {
     }
     const getRemainingSharedSpans = (kdId, revealed, sharedStat) => {
         const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="remaining-timer">
+            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
                 {
                     (category === sharedStat)
                     ? <span className="remaining-time-title remaining-time-title-shared">{category}</span>
@@ -550,7 +537,6 @@ function Shared(props) {
         )
         return remainingSpans;
     }
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const sharedRows = Object.keys(props.shared.shared).map((sharedKey) => {
         const kdId = sharedKey?.split('_')[0];
         const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
@@ -794,7 +780,7 @@ function Shared(props) {
                 </Modal.Footer>
             </Modal>
             <h2>Accepted</h2>
-            <Table className="shared-table" striped bordered hover size="sm">
+            <Table className="table-small shared-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th>Remaining</th>
@@ -811,7 +797,7 @@ function Shared(props) {
             </Table>
             <br />
             <h2>Pending</h2>
-            <Table className="shared-requests-table" striped bordered hover size="sm">
+            <Table className="table-small shared-requests-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th>Remaining</th>
@@ -829,7 +815,7 @@ function Shared(props) {
             </Table>
             <br />
             <h2>Offers</h2>
-            <Table className="shared-offers-table" striped bordered hover size="sm">
+            <Table className="table-small shared-offers-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th>Remaining</th>
@@ -894,7 +880,7 @@ function Pinned(props) {
     
     const getRemainingSpans = (kdId, revealed) => {
         const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="remaining-timer">
+            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
                 <span className="remaining-time-title">{category}</span>
                 <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
                 <br />
@@ -1061,7 +1047,7 @@ function Pinned(props) {
                     </Button>
                 </Modal.Footer>
             </Modal>
-            <Table className="pinned-table" striped bordered hover size="sm">
+            <Table className="table-small pinned-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th>Remaining</th>

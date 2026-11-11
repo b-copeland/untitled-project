@@ -13,6 +13,7 @@ import "./empirepolitics.css";
 import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 
 function getTimeString(date) {
@@ -154,19 +155,6 @@ function Join(props) {
   ).map((galaxyId) => {
       return {"value": galaxyId, "label": galaxyId}
   })
-  const toasts = results.map((resultsItem, index) =>
-      <Toast
-          key={index}
-          onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-          show={true}
-          bg={resultsItem.status === "success" ? "success" : "warning"}
-      >
-          <Toast.Header>
-              <strong className="me-auto">Empire Results</strong>
-          </Toast.Header>
-          <Toast.Body  className="text-black">{resultsItem.message}</Toast.Body>
-      </Toast>
-  )
   const galaxyEmpireRequestRows = (props.data.galaxypolitics.empire_join_requests || []).map((empireId, iter) =>
     <tr key={"galaxy_empire_request_" + iter}>
       <td>{props.data.empires[empireId].name}</td>
@@ -233,12 +221,10 @@ function Join(props) {
   )
   return (
       <>
-      <ToastContainer position="bottom-end">
-          {toasts}
-      </ToastContainer>
+      <ResultToasts title="Empire Results" results={results} setResults={setResults} />
       {
           (props.data.empires_inverted.empires_inverted || {})[props.data.kingdomid.kd_id] === undefined
-          ? <div className="join-empire-page">
+          ? <div className="col-center join-empire-page">
               <div className="create-empire">
                 <h3>Create an Empire</h3>
                 <InputGroup className="kd-name-group">
@@ -341,7 +327,7 @@ function Join(props) {
                 </Table>
               </div>
           </div>
-          : <div className="join-empire-page">
+          : <div className="col-center join-empire-page">
               <div className="invite-empire">
                 <label id="aria-label" htmlFor="aria-example-input">
                     Invite Galaxies
@@ -711,24 +697,9 @@ function Status(props) {
             </td>
         </tr>
     )
-    const toasts = results.map((resultsItem, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-            show={true}
-            bg={resultsItem.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Empire Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{resultsItem.message}</Toast.Body>
-        </Toast>
-    )
     return (
-        <div className="empire-status">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+        <div className="col-center empire-status">
+            <ResultToasts title="Empire Results" results={results} setResults={setResults} />
             <div className="declare-war">
                 <label id="aria-label" htmlFor="aria-example-input">
                     Select an Empire
@@ -789,7 +760,7 @@ function Status(props) {
                     }
                 </div>
             </div>
-            <div className="empire-statuses">
+            <div className="col-center empire-statuses">
                 <h3>Empire Statuses</h3>
                 <Table striped bordered hover size="sm" className="galaxy-leader-table">
                     <thead>

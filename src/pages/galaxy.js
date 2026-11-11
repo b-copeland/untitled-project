@@ -342,7 +342,7 @@ function Galaxy(props) {
                 loading
                 ? <div className="galaxy-nav-container">
                     <span className="galaxy-nav-arrow-disabled">{'<<'}</span>
-                    <div className="galaxy-nav-input">
+                    <div className="box-tight galaxy-nav-input">
                         <InputGroup className="galaxy-nav-input-form">
                             <InputGroup.Text id="cluster">Cluster</InputGroup.Text>
                             <Form.Control
@@ -370,7 +370,7 @@ function Galaxy(props) {
                 </div>
                 : <div className="galaxy-nav-container">
                     <span className="galaxy-nav-arrow" onClick={moveLeft}>{'<<'}</span>
-                    <div className="galaxy-nav-input">
+                    <div className="box-tight galaxy-nav-input">
                         <InputGroup className="galaxy-nav-input-form">
                             <InputGroup.Text id="cluster">Cluster</InputGroup.Text>
                             <Form.Control

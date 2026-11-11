@@ -1,3 +1,4 @@
+import { displayPercent } from "../../../format";
 import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
@@ -10,7 +11,6 @@ function Spy(props) {
         yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }, [props.state]);
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const siphonDurationHours = props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_DRONES_SIPHON_TIME_MULTIPLIER / 3600
     const siphonMax = displayPercent(props.state.game_config?.BASE_MAX_SIPHON);
     const operationsDesc = {

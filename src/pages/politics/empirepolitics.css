@@ -1,8 +1,3 @@
-.join-empire-page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 
 .create-empire {
     margin: 15px;
@@ -32,17 +27,7 @@
     margin-bottom: 15px;
 }
 
-.empire-status {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 
-.empire-statuses {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 
 .empire-surrender-requests {
     margin: 10px;

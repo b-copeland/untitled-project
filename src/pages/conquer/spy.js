@@ -1,3 +1,4 @@
+import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -12,6 +13,7 @@ import "./spy.css";
 import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 const initialDefenderValues = {
     "drones": "",
@@ -133,20 +135,6 @@ function Spy(props) {
         {value: "kidnappopulation", "label": "Kidnap Population"},
         {value: "suicidedrones", "label": "Suicide Drones"},
     ];
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
-    const toasts = attackResults.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setAttackResults(attackResults.slice(0, index).concat(attackResults.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Attack Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     function getTimeString(date) {
         if (date === undefined) {
             return "--"
@@ -161,7 +149,7 @@ function Spy(props) {
             return []
         }
         const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="remaining-timer">
+            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
                 <span className="remaining-time-title">{category}</span>
                 <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
                 <br />
@@ -177,9 +165,7 @@ function Spy(props) {
         <>
         <Header data={props.data} />
         <div className="attack">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} />
             <h2>Spy</h2>
             <form className="attack-kingdom-form">
                 <label id="aria-label" htmlFor="aria-example-input">
@@ -217,7 +203,7 @@ function Spy(props) {
                     }}/>
             </form>
             <div className="battle-stats">
-                <div className="spy-defender-stats">
+                <div className="col-center-card spy-defender-stats">
                     <h3>{kdFullLabel(selected)}</h3>
                     <form className="spy-operation-form">
                         <label id="aria-label" htmlFor="aria-example-input">
@@ -349,9 +335,9 @@ function Spy(props) {
                                         </tr>
                                     </tbody>
                                 </Table>
-                                <div className="operation-details">
+                                <div className="col-center operation-details">
                                     <h3>Operation Details</h3>
-                                    <Table striped bordered hover size="sm" className="operation-table">
+                                    <Table striped bordered hover size="sm" className="box-loose operation-table">
                                         <thead>
                                             <tr>
                                                 <th>Type</th>
@@ -378,7 +364,7 @@ function Spy(props) {
                         </Accordion.Item>
                     </Accordion>
                 </div>
-                <div className="spy-attacker-stats">
+                <div className="col-center-card spy-attacker-stats">
                     <h3>{kdFullLabel(props.data.kingdom.kdId)}</h3>
                     <InputGroup className="mb-3 drones-input-group">
                         <InputGroup.Text id="basic-addon2" className="drones-input-group-text">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>

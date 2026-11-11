@@ -65,10 +65,6 @@
   }
 } */
 
-.main-body {
-  display: flex;
-  flex-direction: row;
-}
 
 .router {
   display: flex;

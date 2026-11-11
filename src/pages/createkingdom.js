@@ -208,9 +208,9 @@ function CreateKingdom(props) {
                 }
             </div>
             : (props.kingdomid.created === false)
-            ? <div className="kingdom-creator">
+            ? <div className="col-center kingdom-creator">
                 <div className="kingdom-creator-row">
-                    <div className="units-creator">
+                    <div className="col-center-card units-creator">
                         <h3>Total Units Points: {createKingdomData.total_points}</h3>
                         <h3>Points Remaining: {calcPointsRemaining(unitsChoices, createKingdomData.total_points)}</h3>
                         <div className="units-choices">
@@ -294,7 +294,7 @@ function CreateKingdom(props) {
                             </InputGroup>
                         </div>
                     </div>
-                    <div className="structures-creator">
+                    <div className="col-center-card structures-creator">
                         <h3>Total Stars: {createKingdomData.total_stars}</h3>
                         <h3>Stars Remaining: {calcStructuresRemaining(structuresChoices, createKingdomData.total_stars)}</h3>
                         <div className="structures-choices">

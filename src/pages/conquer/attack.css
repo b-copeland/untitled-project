@@ -25,12 +25,6 @@
     align-content: center;
 }
 
-.defender-stats {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 @media (min-width: 756px) {
     .defender-stats {
       width: 50%;
@@ -74,12 +68,6 @@
     }
 }
 
-.attacker-stats {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 @media (min-width: 756px) {
     .attacker-stats {
       width: 50%;

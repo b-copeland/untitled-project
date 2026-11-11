@@ -272,7 +272,7 @@ function Stats(props) {
     })
     const maxY = Math.max(...data.map(o => o.y))
     return (
-        <div className="stat-history">
+        <div className="col-center stat-history">
             <form className="select-stat-form">
                 <label id="aria-label" htmlFor="aria-example-input">
                     Select a stat

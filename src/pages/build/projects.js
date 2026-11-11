@@ -1,3 +1,4 @@
+import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -12,6 +13,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./projects.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 function ProjectsContent(props) {
     const kdInfo = props.data.kingdom;
@@ -69,27 +71,11 @@ function Train(props) {
     if (Object.keys(props.kdInfo).length === 0) {
         return null;
     }
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const calcTrainCosts = (input) => parseInt(input || 0) * props.engineersInfo.engineers_price;
     const trainCosts = calcTrainCosts(engineersInput);
-    const toasts = engineersResult.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setEngineersResult(engineersResult.slice(0, index).concat(engineersResult.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Structures Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <div className="engineers">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Structures Results" results={engineersResult} setResults={setEngineersResult} />
             <div className="text-box engineers-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Training Time</span>
@@ -270,26 +256,10 @@ function Assign(props) {
     }
     const engineersAssigned = calcEngineersAssigned(assignValues);
     const engineersAdded = calcEngineersAdd(addValues);
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
-    const toasts = assignResult.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setAssignResult(assignResult.slice(0, index).concat(assignResult.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Structures Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <div className="projects">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
-            <div className="text-box projects-box">
+            <ResultToasts title="Structures Results" results={assignResult} setResults={setAssignResult} />
+            <div className="text-box box-tight projects-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Total Engineers</span>
                     <span className="text-box-item-value">{props.engineersInfo.current_engineers?.toLocaleString()}</span>
@@ -1039,26 +1009,10 @@ function Allocate(props) {
     if (Object.keys(props.projectsInfo).length === 0) {
         return null;
     }
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
-    const toasts = assignResult.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setAssignResult(assignResult.slice(0, index).concat(assignResult.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Structures Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <div className="projects">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
-            <div className="text-box projects-box">
+            <ResultToasts title="Structures Results" results={assignResult} setResults={setAssignResult} />
+            <div className="text-box box-tight projects-box">
                 <span>Choose the target allocation of assigned engineers that you would like the auto-spender to assign towards</span>
             </div>
             <Form>

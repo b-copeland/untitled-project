@@ -46,10 +46,6 @@
     align-items: center;
 }
 
-.specialists-box {
-    width: 100%;
-    margin: 5px;
-}
 @media (min-width: 756px) {
     .specialists-box {
         width: 45%;
@@ -100,8 +96,3 @@
     font-size: 10px;
 }
 
-.military-disband {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}

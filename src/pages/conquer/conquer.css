@@ -9,19 +9,7 @@
     margin: 10px;
 }
 
-.revealed-table {
-    margin: 10px;
-    width: 100%;
-}
-.revealed-galaxy-table {
-    margin: 10px;
-    width: 100%;
-}
 
-.remaining-timer {
-    display: flex;
-    flex-direction: row;
-}
 @media (min-width: 756px) {
     .remaining-timer {
         flex-wrap: wrap;
@@ -58,36 +46,20 @@
 }
 
 
-.shared-table {
-    font-size: 9px;
-    width: 100%;
-}
 @media (min-width: 756px) {
     .shared-table {
         font-size: 16px;
     }
-}
-.shared-requests-table {
-    font-size: 9px;
-    width: 100%;
 }
 @media (min-width: 756px) {
     .shared-requests-table {
         font-size: 16px;
     }
 }
-.shared-offers-table {
-    font-size: 9px;
-    width: 100%;
-}
 @media (min-width: 756px) {
     .shared-offers-table {
         font-size: 16px;
     }
-}
-.pinned-table {
-    font-size: 9px;
-    width: 100%;
 }
 @media (min-width: 756px) {
     .pinned-table {

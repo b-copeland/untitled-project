@@ -1,3 +1,4 @@
+import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -12,6 +13,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./primitives.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 
 
@@ -123,7 +125,6 @@ function AttackPrimitives(props) {
         }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r))})
         props.updateData(['kingdom'], [updateFunc])
     }
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     if (props.data.projects.current_bonuses?.military_bonus && attackerValues.military_bonus === "") {
         setAttackerValues({
             ...attackerValues,
@@ -131,24 +132,9 @@ function AttackPrimitives(props) {
         });
     }
 
-    const toasts = attackResults.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setAttackResults(attackResults.slice(0, index).concat(attackResults.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Attack Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <div className="primitives">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} />
             <div className="primitives-content">
                 <div className="attack-primitives">
                     <h2>Attack Primitives</h2>
@@ -157,7 +143,7 @@ function AttackPrimitives(props) {
                         <br />
                         <span className="box-span">Primitives defense per star: {(props.data.state.primitives_defense_per_star || 100).toFixed(2)}</span>
                     </div>
-                    <div className="primitives-battle-stats">
+                    <div className="col-center primitives-battle-stats">
                         <div className="primitives-attacker-detail">
                             <Table className="attacker-table" striped bordered hover size="sm">
                                 <thead>
@@ -449,27 +435,12 @@ function RobPrimitives(props) {
         }).then(r => r.json()).then(r => {setResults(results.concat(r))})
         props.updateData(['kingdom'], [updateFunc])
     }
-    const toasts = results.map((result, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-            show={true}
-            bg={result.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Rob Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{result.message}</Toast.Body>
-        </Toast>
-    )
     if (drones > props.data.kingdom["drones"]) {
         setDrones(Math.floor(props.data.kingdom["drones"]))
     }
     return (
         <div className="primitives">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Rob Results" results={results} setResults={setResults} />
             <div className="primitives-content">
                 <div className="rob-primitives">
                 <h2>Rob Primitives</h2>

@@ -1,3 +1,4 @@
+import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -14,6 +15,7 @@ import Select from 'react-select';
 import "./schedule.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 function Schedule(props) {
     const [key, setKey] = useState('add');
@@ -804,24 +806,9 @@ function Add(props) {
             </>
         }
     }
-    const toasts = results.map((result, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-            show={true}
-            bg={result.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Schedule Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{result.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <div className="add-schedule">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Schedule Results" results={results} setResults={setResults} />
             <form className="select-schedule-form">
                 <label id="aria-label" htmlFor="aria-example-input">
                     Select an action
@@ -919,7 +906,6 @@ function Queue(props) {
         "autofill_buffer": "Autofill Buffer",
         "attempts": "Attempts",
     }
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const kdFullLabel = (kdId) => {
         if (kdId != undefined) {
             return props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")"
@@ -971,26 +957,11 @@ function Queue(props) {
             </Accordion.Item>
         </div>
     })
-    const toasts = results.map((result, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-            show={true}
-            bg={result.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Rob Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{result.message}</Toast.Body>
-        </Toast>
-    )
 
     return (
         <div className="schedule-queue">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
-            <Accordion className="queue-accordion">
+            <ResultToasts title="Rob Results" results={results} setResults={setResults} />
+            <Accordion className="box-loose queue-accordion">
                 {queueData}
             </Accordion>
         </div>

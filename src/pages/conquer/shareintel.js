@@ -10,6 +10,7 @@ import "./shareintel.css";
 import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 function ShareIntel(props) {
     const [selected, setSelected] = useState(props.initialKd || undefined);
@@ -74,7 +75,7 @@ function ShareIntel(props) {
     }
     const getRemainingSpans = (kdId, revealed) => {
         const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="remaining-timer">
+            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
                 <span className="remaining-time-title">{category}</span>
                 <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
                 <br />
@@ -91,26 +92,11 @@ function ShareIntel(props) {
     });
     shareToOptions.push({"value": "galaxy", "label": "Your galaxy"})
     
-    const toasts = shareResults.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setShareResults(shareResults.slice(0, index).concat(shareResults.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Share Intel Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <>
         <Header data={props.data} />
         <div className="share-intel">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Share Intel Results" results={shareResults} setResults={setShareResults} />
             <label id="aria-label" htmlFor="aria-example-input">
                 Kingdom to share
             </label>
@@ -151,7 +137,7 @@ function ShareIntel(props) {
                 }}
             />
             {   selected !== undefined
-                ? <div className="share-intel-choices">
+                ? <div className="col-center share-intel-choices">
                     <div className="text-box share-revealed-stats-box">
                         <h3>Revealed Stats</h3>
                         {revealedStats}

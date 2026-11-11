@@ -108,7 +108,7 @@ function Help(props) {
           </Dropdown>
         </div>
         <div className="help">
-            <div className="help-contents">
+            <div className="col-center help-contents">
                 <Guide state={state} scrollTarget={scrollTarget}/>
                 <Home state={state} scrollTarget={scrollTarget}/>
                 <News state={state} scrollTarget={scrollTarget}/>

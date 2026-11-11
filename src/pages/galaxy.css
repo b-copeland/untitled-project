@@ -21,10 +21,6 @@
     opacity: 50%;
 }
 
-.galaxy-nav-input {
-    width: 100%;
-    margin: 5px;
-}
 
 @media (min-width: 756px) {
     .galaxy-nav-input {
