@@ -18,6 +18,9 @@ import LaunchMissiles from "./conquer/launchmissiles.js";
 import Message from "./message.js";
 import Header from "../components/header";
 import HelpButton from "../components/helpbutton";
+import { IconButton } from "../components/iconbutton";
+import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsShareFill } from "react-icons/bs";
+import { GiCrossedSwords } from "react-icons/gi";
 
 function getTimeString(date) {
     if (date === undefined) {
@@ -156,6 +159,28 @@ function Galaxy(props) {
         const indirect_distance_2 = (coord_b) + (99 - coord_a)
         return Math.min(direct_distance, indirect_distance_1, indirect_distance_2);
     }
+    // What can be done to a kingdom from its row. Pin and share toggle, so the icon and label say what clicking does now.
+    const kingdomActions = (kdId) => {
+        const open = (show) => () => { setKdToShow(kdId); show(true); };
+        const pinned = props.data.pinned.indexOf(kdId) >= 0;
+        const inYourGalaxy = props.data.galaxies_inverted[kdId] == props.data.galaxies_inverted[props.data.kingdom.kdId];
+        const shared = props.data.revealed.revealed_to_galaxymates?.indexOf(kdId) >= 0;
+        return [
+            { icon: BsEye, label: "View", onClick: open(setShowView) },
+            { icon: GiCrossedSwords, label: "Attack", onClick: open(setShowAttack) },
+            { icon: BsBinoculars, label: "Spy", onClick: open(setShowSpy) },
+            { icon: BsRocketTakeoff, label: "Launch missiles", onClick: open(setShowMissile) },
+            { icon: BsChatDots, label: "Message", onClick: open(setShowMessage) },
+            pinned
+                ? { icon: BsPinAngleFill, label: "Unpin", onClick: () => onSubmitUnpin({ target: { name: kdId } }), disabled: props.loading.pinned, active: true }
+                : { icon: BsPinAngle, label: "Pin", onClick: () => onSubmitPin({ target: { name: kdId } }), disabled: props.loading.pinned },
+            ...(inYourGalaxy
+                ? [shared
+                    ? { icon: BsShareFill, label: "Stop sharing your kingdom with them", onClick: () => onSubmitUnShare(kdId), disabled: props.loading.revealed, active: true }
+                    : { icon: BsShare, label: "Share your kingdom with them", onClick: open(setShowShareInfo), disabled: props.loading.revealed }]
+                : []),
+        ];
+    };
     const galaxyRows = Object.keys(galaxyInfo).map((kdId) =>
         <tr key={kdId}>
             <td>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</td>
@@ -165,50 +190,8 @@ function Galaxy(props) {
             <td style={{textAlign: "right"}}>{galaxyInfo[kdId].aggression || ""}</td> */}
             <td style={{textAlign: "right"}}>{calcCoordinateDistance(galaxyInfo[kdId].coordinate || 0, props.data.kingdom.coordinate || 0).toString().padStart(2, '0') + ' (' + (galaxyInfo[kdId].coordinate || 0).toString().padStart(2, '0') + ')'}</td>
             <td>{galaxyInfo[kdId].status}</td>
-            <td>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowView(true)}}>
-                    View
-                </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
-                    Attack
-                </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
-                    Spy
-                </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
-                    Missile
-                </Button>
-                <Button className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowMessage(true)}}>
-                    Message
-                </Button>
-                {
-                    props.loading.pinned
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" disabled>
-                        Loading...
-                    </Button>
-                    : props.data.pinned.indexOf(kdId) >= 0
-                    ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={onSubmitUnpin}>
-                        Unpin
-                    </Button>
-                    : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={onSubmitPin}>
-                        Pin
-                    </Button>
-                }
-                {
-                    props.data.galaxies_inverted[kdId] == props.data.galaxies_inverted[props.data.kingdom.kdId]
-                    ? props.loading.revealed
-                        ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" disabled>
-                            Loading...
-                        </Button>
-                        : props.data.revealed.revealed_to_galaxymates?.indexOf(kdId) >= 0
-                        ? <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => onSubmitUnShare(kdId)}>
-                            Unshare
-                        </Button>
-                        : <Button name={kdId} className="inline-galaxy-button" variant="primary" type="submit" size="sm" onClick={() => {setKdToShow(kdId); setShowShareInfo(true)}}>
-                            Share 
-                        </Button>
-                    : null
-                }
+            <td className="galaxy-actions">
+                {kingdomActions(kdId).map((action) => <IconButton key={action.label} {...action} />)}
             </td>
         </tr>
     );
@@ -408,7 +391,7 @@ function Galaxy(props) {
                         <th style={{textAlign: "right"}}>Aggression</th> */}
                         <th style={{textAlign: "right"}}>Distance</th>
                         <th>Status</th>
-                        <th colSpan={5}>Actions</th>
+                        <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
