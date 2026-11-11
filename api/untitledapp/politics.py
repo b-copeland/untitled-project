@@ -20,6 +20,30 @@ from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_H
 bp = flask.Blueprint("politics", __name__)
 
 
+def _replace_entries(path, field, remove_if, add=None):
+    """
+    Drop the entries of a list on a politics document that match ``remove_if``, and optionally add one, on the document
+    as it is right now.
+    """
+    def change(document):
+        entries = [entry for entry in document[field] if not remove_if(entry)]
+        if add is not None:
+            entries.append(add)
+        return {field: entries}, None
+
+    occ.update(path, change)
+
+
+def _claim_entry(path, field, expected, message):
+    """Remove ``expected`` from a list on a politics document, or reject if it is no longer there."""
+    def claim(document):
+        if expected not in document[field]:
+            raise occ.Rejected(message)
+        return {field: [entry for entry in document[field] if entry != expected]}, None
+
+    occ.update(path, claim)
+
+
 def _change_empire_galaxies(empire_id, add=None, remove=None):
     """
     Add a galaxy to an empire, or take one out, on the empires document as it is right now (not the copy read at the
@@ -716,46 +740,17 @@ def request_surrender(target_empire):
             return flask.jsonify({"message": message}), 400
         
         
-        new_surrender_sender = {
-            "type": surrender_type,
-            "value": surrender_value,
-            "empire": target_empire
-        }
-        new_surrender_receiver = {
-            "type": surrender_type,
-            "value": surrender_value,
-            "empire": kd_empire,
-        }
-        new_empire_requests_receiver = [
-            item
-            for item in target_empire_politics["surrender_requests_received"]
-            if item["empire"] != kd_empire
-        ]
-        new_empire_requests_receiver.append(new_surrender_receiver)
-        new_empire_requests_sender = [
-            item
-            for item in empire_politics["surrender_requests_sent"]
-            if item["empire"] != target_empire
-        ]
-        new_empire_requests_sender.append(new_surrender_sender)
-
-        target_empire_payload = {
-            "surrender_requests_received": new_empire_requests_receiver
-        }
-
-        surrender_target_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(target_empire_payload)
+        # Each side's list is changed on that document as it is right now. Replacing an earlier request between the
+        # same two empires is the same whatever order overlapping requests arrive in.
+        _replace_entries(
+            f'/empire/{target_empire}/politics', "surrender_requests_received",
+            lambda entry: entry["empire"] == kd_empire,
+            add={"type": surrender_type, "value": surrender_value, "empire": kd_empire},
         )
-        empire_payload = {
-            "surrender_requests_sent": new_empire_requests_sender
-        }
-
-        surrender_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empire_payload)
+        _replace_entries(
+            f'/empire/{kd_empire}/politics', "surrender_requests_sent",
+            lambda entry: entry["empire"] == target_empire,
+            add={"type": surrender_type, "value": surrender_value, "empire": target_empire},
         )
     finally:
         uam.release_locks_by_id(request_id)
@@ -801,42 +796,15 @@ def cancel_request_surrender(target_empire):
             return flask.jsonify({"message": message}), 400
         
 
-        new_empire_requests_receiver = [
-            item
-            for item in target_empire_politics["surrender_requests_received"]
-            if (
-                item["empire"] != kd_empire
-                and item["type"] != surrender_type
-                and item["value"] != surrender_value
-            )
-        ]
-        new_empire_requests_sender = [
-            item
-            for item in empire_politics["surrender_requests_sent"]
-            if (
-                item["empire"] != target_empire
-                and item["type"] != surrender_type
-                and item["value"] != surrender_value
-            )
-        ]
-
-        target_empire_payload = {
-            "surrender_requests_received": new_empire_requests_receiver
-        }
-
-        surrender_target_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(target_empire_payload)
+        # Cancelling removes exactly the request that was made (it used to remove any request that shared the empire, the
+        # type or the value with it).
+        _replace_entries(
+            f'/empire/{target_empire}/politics', "surrender_requests_received",
+            lambda entry: entry["empire"] == kd_empire and entry["type"] == surrender_type and entry["value"] == surrender_value,
         )
-        empire_payload = {
-            "surrender_requests_sent": new_empire_requests_sender
-        }
-
-        surrender_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empire_payload)
+        _replace_entries(
+            f'/empire/{kd_empire}/politics', "surrender_requests_sent",
+            lambda entry: entry["empire"] == target_empire and entry["type"] == surrender_type and entry["value"] == surrender_value,
         )
     finally:
         uam.release_locks_by_id(request_id)
@@ -900,46 +868,15 @@ def offer_surrender(target_empire):
             return flask.jsonify({"message": message}), 400
         
         
-        new_surrender_sender = {
-            "type": surrender_type,
-            "value": surrender_value,
-            "empire": target_empire
-        }
-        new_surrender_receiver = {
-            "type": surrender_type,
-            "value": surrender_value,
-            "empire": kd_empire,
-        }
-        new_empire_offers_receiver = [
-            item
-            for item in target_empire_politics["surrender_offers_received"]
-            if item["empire"] != kd_empire
-        ]
-        new_empire_offers_receiver.append(new_surrender_receiver)
-        new_empire_offers_sender = [
-            item
-            for item in empire_politics["surrender_offers_sent"]
-            if item["empire"] != target_empire
-        ]
-        new_empire_offers_sender.append(new_surrender_sender)
-
-        target_empire_payload = {
-            "surrender_offers_received": new_empire_offers_receiver
-        }
-
-        surrender_target_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(target_empire_payload)
+        _replace_entries(
+            f'/empire/{target_empire}/politics', "surrender_offers_received",
+            lambda entry: entry["empire"] == kd_empire,
+            add={"type": surrender_type, "value": surrender_value, "empire": kd_empire},
         )
-        empire_payload = {
-            "surrender_offers_sent": new_empire_offers_sender
-        }
-
-        surrender_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empire_payload)
+        _replace_entries(
+            f'/empire/{kd_empire}/politics', "surrender_offers_sent",
+            lambda entry: entry["empire"] == target_empire,
+            add={"type": surrender_type, "value": surrender_value, "empire": target_empire},
         )
     finally:
         uam.release_locks_by_id(request_id)
@@ -985,42 +922,13 @@ def cancel_offer_surrender(target_empire):
             return flask.jsonify({"message": message}), 400
         
 
-        new_empire_offers_receiver = [
-            item
-            for item in target_empire_politics["surrender_offers_received"]
-            if (
-                item["empire"] != kd_empire
-                and item["type"] != surrender_type
-                and item["value"] != surrender_value
-            )
-        ]
-        new_empire_offers_sender = [
-            item
-            for item in empire_politics["surrender_offers_sent"]
-            if (
-                item["empire"] != target_empire
-                and item["type"] != surrender_type
-                and item["value"] != surrender_value
-            )
-        ]
-
-        target_empire_payload = {
-            "surrender_offers_received": new_empire_offers_receiver
-        }
-
-        surrender_target_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(target_empire_payload)
+        _replace_entries(
+            f'/empire/{target_empire}/politics', "surrender_offers_received",
+            lambda entry: entry["empire"] == kd_empire and entry["type"] == surrender_type and entry["value"] == surrender_value,
         )
-        empire_payload = {
-            "surrender_offers_sent": new_empire_offers_sender
-        }
-
-        surrender_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empire_payload)
+        _replace_entries(
+            f'/empire/{kd_empire}/politics', "surrender_offers_sent",
+            lambda entry: entry["empire"] == target_empire and entry["type"] == surrender_type and entry["value"] == surrender_value,
         )
     finally:
         uam.release_locks_by_id(request_id)
@@ -1036,110 +944,40 @@ def _surrender(
     surrender_type,
     surrender_value,
 ):
-    app = flask.current_app
-    losing_empire_politics = uag._get_empire_politics(losing_empire)
-    winning_empire_politics = uag._get_empire_politics(winning_empire)
-    if surrender_type == "stars":
-        if surrender_value == 0:
-            pass
-        else:
-            stars_pool = 0
-            for losing_kd in losing_kds:
-                losing_kd_info = uag._get_kd_info(losing_kd)
-                stars_lost = math.floor(surrender_value * losing_kd_info["stars"])
-                new_stars = losing_kd_info["stars"] - stars_lost
-                stars_pool += stars_lost
-                patch_payload = {"stars": new_stars}
-                kd_patch_response = REQUESTS_SESSION.patch(
-                    app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{losing_kd}',
-                    headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                    data=json.dumps(patch_payload)
-                )
-            stars_per_kd = math.floor(stars_pool / len(winning_kds))
-            for winning_kd in winning_kds:
-                winning_kd_info = uag._get_kd_info(winning_kd)
-                new_stars = winning_kd_info["stars"] + stars_per_kd
-                patch_payload = {"stars": new_stars}
-                kd_patch_response = REQUESTS_SESSION.patch(
-                    app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{winning_kd}',
-                    headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                    data=json.dumps(patch_payload)
-                )
+    """
+    Carry out an accepted surrender. Each change is made to the latest version of the document it concerns and does not
+    depend on the others, so it can not undo anything written meanwhile (a player spending, a refresh crediting).
+    """
+    if surrender_type == "stars" and surrender_value != 0:
+        stars_pool = 0
+        for losing_kd in losing_kds:
+            def lose(kd):
+                lost = math.floor(surrender_value * kd["stars"])
+                return {"stars": kd["stars"] - lost}, lost
 
-    winning_empire_politics_payload = {
-        "surrender_offers_sent": [
-            offer for offer in winning_empire_politics["surrender_offers_sent"]
-            if offer["empire"] != losing_empire
-        ],
-        "surrender_offers_received": [
-            offer for offer in winning_empire_politics["surrender_offers_received"]
-            if offer["empire"] != losing_empire
-        ],
-        "surrender_requests_sent": [
-            offer for offer in winning_empire_politics["surrender_requests_sent"]
-            if offer["empire"] != losing_empire
-        ],
-        "surrender_requests_received": [
-            offer for offer in winning_empire_politics["surrender_requests_received"]
-            if offer["empire"] != losing_empire
-        ],
-    }
-    winning_empire_response = REQUESTS_SESSION.patch(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{winning_empire}/politics',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps(winning_empire_politics_payload)
-    )
-    losing_empire_politics_payload = {
-        "surrender_offers_sent": [
-            offer for offer in losing_empire_politics["surrender_offers_sent"]
-            if offer["empire"] != winning_empire
-        ],
-        "surrender_offers_received": [
-            offer for offer in losing_empire_politics["surrender_offers_received"]
-            if offer["empire"] != winning_empire
-        ],
-        "surrender_requests_sent": [
-            offer for offer in losing_empire_politics["surrender_requests_sent"]
-            if offer["empire"] != winning_empire
-        ],
-        "surrender_requests_received": [
-            offer for offer in losing_empire_politics["surrender_requests_received"]
-            if offer["empire"] != winning_empire
-        ],
-    }
-    losing_empire_response = REQUESTS_SESSION.patch(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{losing_empire}/politics',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps(losing_empire_politics_payload)
-    )
+            stars_pool += occ.update(f'/kingdom/{losing_kd}', lose)
+        stars_per_kd = math.floor(stars_pool / len(winning_kds))
+        for winning_kd in winning_kds:
+            occ.update(f'/kingdom/{winning_kd}', lambda kd: ({"stars": kd["stars"] + stars_per_kd}, None))
 
-
-    empires_info["empires"][winning_empire]["aggression"][losing_empire] = 0
-    empires_info["empires"][losing_empire]["aggression"][winning_empire] = 0
-
-    empires_info["empires"][winning_empire]["war"] = [
-        empire_id for empire_id in empires_info["empires"][winning_empire]["war"]
-        if empire_id != losing_empire
-    ]
-    empires_info["empires"][losing_empire]["war"] = [
-        empire_id for empire_id in empires_info["empires"][losing_empire]["war"]
-        if empire_id != winning_empire
-    ]
+    for empire, other in ((winning_empire, losing_empire), (losing_empire, winning_empire)):
+        for field in ("surrender_offers_sent", "surrender_offers_received", "surrender_requests_sent", "surrender_requests_received"):
+            _replace_entries(f'/empire/{empire}/politics', field, lambda entry, other=other: entry["empire"] == other)
 
     time_now = datetime.datetime.now(datetime.timezone.utc)
-    time_peace_expires = time_now + datetime.timedelta(
+    time_peace_expires = (time_now + datetime.timedelta(
         seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["PEACE_DURATION_MULTIPLIER"]
-    )
-    empires_info["empires"][winning_empire]["peace"][losing_empire] = time_peace_expires.isoformat()
-    empires_info["empires"][losing_empire]["peace"][winning_empire] = time_peace_expires.isoformat()
-    empires_payload = {
-        "empires": empires_info["empires"]
-    }
-    empires_response = REQUESTS_SESSION.patch(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps(empires_info)
-    )
+    )).isoformat()
+
+    def make_peace(empires_document):
+        empires = empires_document["empires"]
+        for empire, other in ((winning_empire, losing_empire), (losing_empire, winning_empire)):
+            empires[empire].setdefault("aggression", {})[other] = 0
+            empires[empire]["war"] = [empire_id for empire_id in empires[empire]["war"] if empire_id != other]
+            empires[empire]["peace"][other] = time_peace_expires
+        return {"empires": empires}, None
+
+    occ.update('/empires', make_peace)
 
 @bp.route('/api/empire/<target_empire>/acceptsurrenderoffer', methods=['POST'])
 @flask_praetorian.auth_required
@@ -1198,9 +1036,10 @@ def accept_offer_surrender(target_empire):
             "type": surrender_type,
             "value": surrender_value
         }
-        if expected_surrender_offer not in empire_politics["surrender_offers_received"]:
-            return flask.jsonify({"message": "Could not find surrender offer"}), 400
-        
+        # Taking the offer out of this empire's list is what decides who gets to carry it out: of two leaders pressing
+        # accept together, only one finds it there.
+        _claim_entry(f'/empire/{kd_empire}/politics', "surrender_offers_received", expected_surrender_offer, "Could not find surrender offer")
+
         _surrender(
             empires_info,
             losing_empire,
@@ -1210,6 +1049,10 @@ def accept_offer_surrender(target_empire):
             surrender_type,
             surrender_value,
         )
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Surrender offer has been accepted", "status": "success"}), 200
@@ -1271,8 +1114,9 @@ def accept_request_surrender(target_empire):
             "type": surrender_type,
             "value": surrender_value
         }
-        if expected_surrender_request not in empire_politics["surrender_requests_received"]:
-            return flask.jsonify({"message": "Could not find surrender request"}), 400
+        # Taking the request out of this empire's list is what decides who gets to carry it out: of two leaders pressing
+        # accept together, only one finds it there.
+        _claim_entry(f'/empire/{kd_empire}/politics', "surrender_requests_received", expected_surrender_request, "Could not find surrender request")
 
         _surrender(
             empires_info,
@@ -1283,6 +1127,10 @@ def accept_request_surrender(target_empire):
             surrender_type,
             surrender_value,
         )
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Surrender request has been accepted", "status": "success"}), 200
