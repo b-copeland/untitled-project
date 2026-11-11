@@ -1,8 +1,8 @@
 import pytest
 import json
-from api.untitledapp import REQUESTS_SESSION
-import api.untitledapp.getters as app_getters
-import api.untitledapp.shared as app_shared
+from untitledapp import REQUESTS_SESSION
+import untitledapp.getters as app_getters
+import untitledapp.shared as app_shared
 
 def test_max_kingdom(app, client, jwt1):
     

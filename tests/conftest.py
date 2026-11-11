@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from api.untitledapp import create_app, User, REQUESTS_SESSION
+from untitledapp import create_app, User, REQUESTS_SESSION
 
 @pytest.fixture(scope="session")
 def app():
