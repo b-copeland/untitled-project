@@ -58,10 +58,6 @@
     }
 }
 
-.projects-box {
-    width: 100%;
-    margin: 5px;
-}
 @media (min-width: 756px) {
     .projects-box {
         width: 50%;

@@ -11,6 +11,7 @@ import "./launchmissiles.css";
 import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 const initialAttackerValues = {
     "planet_busters": "",
@@ -95,27 +96,12 @@ function LaunchMissiles(props) {
     const kingdomOptions = Object.keys(props.data.kingdoms).map((kdId) => {
         return {"value": kdId, "label": kdFullLabel(kdId)}
     })
-    const toasts = attackResults.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setAttackResults(attackResults.slice(0, index).concat(attackResults.slice(index + 1, 999)))}
-            show={true}
-            bg="primary"
-        >
-            <Toast.Header>
-                <strong className="me-auto">Attack Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
 
     return (
     <>
         <Header data={props.data} />
         <div className="attack">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} bg="primary" />
             <h2>Missiles</h2>
             <form className="attack-kingdom-form">
                 <label id="aria-label" htmlFor="aria-example-input">
@@ -152,7 +138,7 @@ function LaunchMissiles(props) {
                         }),
                     }}/>
             </form>
-            <div className="defender-stats">
+            <div className="col-center-full defender-stats">
                 <h3>{kdFullLabel(selected)}</h3>
                 {   targetKdInfo.hasOwnProperty("shields")
                     ? <InputGroup className="mb-3 missiles-input">
@@ -181,7 +167,7 @@ function LaunchMissiles(props) {
                     </InputGroup>
                 }
             </div>
-            <div className="attacker-stats">
+            <div className="col-center-full attacker-stats">
                 <h3>Missiles to Send</h3>
                 <Table striped bordered hover size="sm" className="launch-missiles-table">
                     <thead>

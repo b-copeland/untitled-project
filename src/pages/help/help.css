@@ -17,11 +17,6 @@
     z-index: 998;
 }
 
-.help-contents {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 
 @media (min-width: 756px) {
     .help-contents {

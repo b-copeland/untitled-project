@@ -1,3 +1,4 @@
+import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
 import {useNavigate} from "react-router-dom";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
@@ -13,6 +14,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./status.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 function StatusContent(props) {
     const [key, setKey] = useState('kingdom');
@@ -88,7 +90,6 @@ function Status(props) {
         props.updateData(['kingdom', 'kingdomid'], [updateFunc]);
     }
 
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const unitsFuelCosts = Object.keys(props.kingdom.income?.fuel?.units || {}).sort().map((unit) => 
         <div className="text-box-item" key={unit}>
             <span className="text-box-item-title">&nbsp;&nbsp;&nbsp;&nbsp;{props.state.pretty_names[unit] || unit}</span>
@@ -368,26 +369,10 @@ function Shields(props) {
           [name]: value,
         });
       };
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
-    const toasts = results.map((result, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-            show={true}
-            bg={result.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Shields Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{result.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <div className="shields">
         <div className="shields-content">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Shields Results" results={results} setResults={setResults} />
             <Table className="shields-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
@@ -581,24 +566,9 @@ function Spending(props) {
         setMilitaryInput('');
         setEngineersInput('');
     }
-    const toasts = results.map((result, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-            show={true}
-            bg={result.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Auto Spending Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{result.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <div className="spending">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Auto Spending Results" results={results} setResults={setResults} />
             <h2>Update Auto Spending:</h2>
             <Form>
                 <Form.Check 
@@ -610,7 +580,7 @@ function Spending(props) {
                     disabled={props.loading.kingdom}
                 />
             </Form>
-            <div className="spending-inputs">
+            <div className="col-center-full spending-inputs">
                 <InputGroup className="mb-3">
                     <InputGroup.Text id="text-settle-percent" className="spending-title">
                         Settle (Current: {spendingInfo.settle * 100}%)
@@ -717,7 +687,7 @@ function Military(props) {
     const maxDefense = props.mobis?.maxes?.defense || {};
     return (
         <div className="status-kingdom-content">
-            <div className="army-info">
+            <div className="col-center-card army-info">
                 <h2>Armies</h2>
                 <Table striped bordered hover className="army-table" size="sm">
                     <thead>
@@ -816,7 +786,7 @@ function Military(props) {
                     </tbody>
                 </Table>
             </div>
-            <div className="mobi-info">
+            <div className="col-center-card mobi-info">
                 <h2>Mobilization</h2>
                 <Table striped bordered hover className="mobis-table" size="sm">
                     <thead>
@@ -920,9 +890,8 @@ function Structures(props) {
     if (Object.keys(props.structures).length === 0) {
         return null;
     }
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
-        <div className="structures-status">
+        <div className="col-center structures-status">
             <h2>Structures</h2>
             <div className="structures-info">
                 <Table striped bordered hover className="structures-status-table" size="sm">

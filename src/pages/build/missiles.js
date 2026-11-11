@@ -9,6 +9,7 @@ import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./missiles.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 const initialInput = {
     "planet_busters": "",
@@ -72,26 +73,11 @@ function Missiles(props) {
     }
     const missilesCost = calcMissilesCosts(input, missilesInfo.desc);
     const missilesFuelCost = calcMissilesFuelCosts(input, missilesInfo.desc);
-    const toasts = missilesResult.map((results, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setMissilesResult(missilesResult.slice(0, index).concat(missilesResult.slice(index + 1, 999)))}
-            show={true}
-            bg={results.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Structures Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{results.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <>
         <Header data={props.data} />
         <div className="missiles">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Structures Results" results={missilesResult} setResults={setMissilesResult} />
             <Table className="missiles-table" striped bordered hover size="sm">
                 <thead>
                     <tr>

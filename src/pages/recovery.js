@@ -31,7 +31,7 @@ function ForgotAccount() {
 
     return (
         <div className="signup">
-            <div className="signup-content">
+            <div className="col-center-full signup-content">
                 <h2>Recover your account</h2>
                 <span>Enter the email address on your account. It must have been confirmed.</span>
                 <InputGroup className="account-form">
@@ -78,7 +78,7 @@ function ResetPassword() {
 
     return (
         <div className="signup">
-            <div className="signup-content">
+            <div className="col-center-full signup-content">
                 <h2>Choose a new password</h2>
                 {
                     done
@@ -122,7 +122,7 @@ function VerifyEmail() {
 
     return (
         <div className="signup">
-            <div className="signup-content">
+            <div className="col-center-full signup-content">
                 <h2>Email address</h2>
                 <span>{message}</span>
                 <Button className="signup-button" variant="primary" onClick={() => navigate("/login")}>Go to Login</Button>

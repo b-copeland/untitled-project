@@ -13,6 +13,7 @@ import "./universepolitics.css";
 import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { ResultToasts } from "../../components/results";
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -190,26 +191,11 @@ function UniversePolitics(props) {
         setPolicy2Option2Votes(e.target.value);
     }
     const calcVotesCosts = (input) => parseInt(input) * 10000
-    const toasts = results.map((result, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-            show={true}
-            bg={result.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Votes Result</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{result.message}</Toast.Body>
-        </Toast>
-    )
     return (
         <>
         <Header data={props.data} />
         <div className="universe-politics">
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
+            <ResultToasts title="Votes Result" results={results} setResults={setResults} />
             <div className="text-box universe-politics-box">
                 <span>The universe democracy elections have begun!</span>
                 <br />

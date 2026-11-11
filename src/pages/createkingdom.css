@@ -1,8 +1,3 @@
-.kingdom-creator {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 
 .kingdom-creator-row {
     width: 100%;
@@ -12,20 +7,6 @@
     flex-wrap: wrap;
 }
 
-.units-creator {
-    margin: 10px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.structures-creator {
-    margin: 10px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 
 .submit-kingdom-button {
     margin: 10px;

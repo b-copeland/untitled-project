@@ -48,7 +48,7 @@ function Content({ logged, session }) {
         <Button variant="primary" type="submit" onClick={() => setShowNav(true)}>Nav</Button>
       </div>
 
-      <div className="main-body">
+      <div className="row main-body">
         <Notifications {...notifications} />
         <SideNavbar logged={logged} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs}/>
         <div className="router">

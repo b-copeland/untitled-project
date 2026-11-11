@@ -60,12 +60,6 @@
     width: 100%
 }
 
-.spending-inputs {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%
-}
 @media (min-width: 756px) {
     .spending-inputs {
         width: 60%;
@@ -184,13 +178,6 @@
     width: 50%
 } */
 
-.army-info {
-    margin: 10px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 @media (min-width: 756px) {
     .army-info {
         width: 45%;
@@ -212,13 +199,6 @@
         font-size: 16px;
     }
 }
-.mobi-info {
-    margin: 10px;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 @media (min-width: 756px) {
     .mobi-info {
         min-width: 450px;
@@ -226,11 +206,6 @@
     }
 }
 
-.structures-status {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 .structures-info {
     width: 100%
 }

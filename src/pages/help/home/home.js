@@ -1,3 +1,4 @@
+import { displayPercent } from "../../../format";
 import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
@@ -16,7 +17,6 @@ function Home(props) {
             <td style={{textAlign: "right"}}>{props.state.game_config?.NETWORTH_VALUES[keyItem]}</td>
         </tr>
     })
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     return (
         <div id="home" ref={yourElementRef} className="help-section">
             <h2>Home</h2>

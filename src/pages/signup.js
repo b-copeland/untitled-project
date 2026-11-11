@@ -51,7 +51,7 @@ function SignUp(props) {
 
     return (
         <div className="signup">
-            <div className="signup-content">
+            <div className="col-center-full signup-content">
                 {
                     created
                     ? <>

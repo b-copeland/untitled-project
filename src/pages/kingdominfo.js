@@ -1,3 +1,4 @@
+import { displayPercentOrNothing as displayPercent } from "../format";
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -221,7 +222,6 @@ function Military(props) {
 }
 function Structures(props) {
     const structures = props.kingdom?.structures;
-    const displayPercent = (percent) => percent != null ? `${(percent * 100).toFixed(1)}%` : null;
     return (
         
         <div className="kingdom-structures-info">
@@ -276,7 +276,6 @@ function Structures(props) {
 }
 
 function Projects(props) {
-    const displayPercent = (percent) => percent != null ? `${(percent * 100).toFixed(1)}%` : null;
     
     return (
         <div className="projects">
@@ -484,7 +483,6 @@ function Projects(props) {
 }
 
 function Shields(props) {
-    const displayPercent = (percent) => percent != null ? `${(percent * 100).toFixed(1)}%` : null;
 
     return (
         <div className="shields">

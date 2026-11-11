@@ -1,3 +1,4 @@
+import { displayPercent } from "../../../format";
 import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
@@ -10,7 +11,6 @@ function Projects(props) {
         yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }, [props.state]);
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const prettyNames = props.state.pretty_names || {};
     const projectsDesc = props.state.projects || {};
     const projectsRows = Object.keys(projectsDesc).map((projectsKey, iter) => {

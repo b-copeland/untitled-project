@@ -45,11 +45,6 @@
     flex-wrap: wrap;
     justify-content: center;
 }
-.primitives-battle-stats {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 
 .primitives-attacker-text-boxes {
     display: flex;

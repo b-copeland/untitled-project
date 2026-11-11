@@ -1,0 +1,84 @@
+/*
+ * Layout pieces and form/table styles shared by the pages. Before this, the same handful of rules was copied into each
+ * page's stylesheet under a page-specific name (the "centered column" below was written out 23 times). Page stylesheets
+ * keep only what is particular to the page.
+ *
+ * Use these class names in JSX next to the page's own class: className="col-center my-page".
+ */
+
+:root {
+  --space-tight: 5px;
+  --space-loose: 10px;
+  --table-font-size: 12px;
+  --table-font-size-wide: 16px;
+  --wide-screen: 756px;
+}
+
+/* --- Layout --------------------------------------------------------------------------------------------------- */
+
+.col-center {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+}
+.col-center-full {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.col-center-card {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-loose);
+  width: 100%;
+}
+.row {
+  display: flex;
+  flex-direction: row;
+}
+.box-tight {
+  margin: var(--space-tight);
+  width: 100%;
+}
+.box-loose {
+  margin: var(--space-loose);
+  width: 100%;
+}
+.panel-medium {
+  min-width: 400px;
+  width: 40%;
+}
+.table-small {
+  font-size: 9px;
+  width: 100%;
+}
+
+/* --- Tables built with GameTable (components/gametable.js) ---------------------------------------------------- */
+
+.game-table {
+  margin: var(--space-tight);
+  width: 100%;
+  font-size: var(--table-font-size);
+}
+@media (min-width: 756px) {
+  .game-table {
+    width: 50%;
+    min-width: 450px;
+    font-size: var(--table-font-size-wide);
+  }
+}
+
+/* --- Form fields and buttons (components/forms.js) ------------------------------------------------------------ */
+
+.game-field,
+.game-field-suffix {
+  max-height: 30px;
+}
+.game-field-group {
+  max-height: 20px;
+}
+.game-button {
+  margin: var(--space-tight);
+}

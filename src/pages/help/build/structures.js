@@ -1,3 +1,4 @@
+import { displayPercent } from "../../../format";
 import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
@@ -10,7 +11,6 @@ function Structures(props) {
         yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }, [props.state]);
-    const displayPercent = (percent) => `${(percent * 100).toFixed(1)}%`;
     const structuresDescs = {
         "homes": `Houses ${props.state.game_config?.BASE_HOMES_CAPACITY} population`,
         "mines": `Produces ${props.state.game_config?.BASE_MINES_INCOME_PER_EPOCH} money per ${props.state.game_config?.BASE_EPOCH_SECONDS} seconds`,
