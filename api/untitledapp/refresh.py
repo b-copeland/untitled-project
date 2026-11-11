@@ -5,6 +5,7 @@ import json
 import math
 import os
 import time
+import time as _time
 import random
 import uuid
 
@@ -13,6 +14,7 @@ import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.misc as uam
+import untitledapp.occ as occ
 import untitledapp.build as uab
 import untitledapp.conquer as uac
 import untitledapp.getters as uag
@@ -138,7 +140,7 @@ def _resolve_siphons(
     app = flask.current_app
     request_id = str(uuid.uuid4())
     while not uam.acquire_locks([f'/kingdom/{kd_id}/siphonsout', f'/kingdom/{kd_id}/siphonsin'], timeout=999, request_id=request_id):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         siphons_out = uag._get_siphons_out(kd_id)
         siphons_in = uag._get_siphons_in(kd_id)
@@ -364,10 +366,54 @@ def _kingdom_with_income(
 
     return new_kd_info
     
-def _resolve_settles(kd_id, time_update):
+def _not_yet_credited(items, cursor):
+    """
+    The queue items that have not been credited to the kingdom by an earlier tick. The kingdom remembers, per queue,
+    the time up to which it has credited (``queues_resolved_until``), because the queue itself is only trimmed after the
+    kingdom is written: if that trim is lost, or the tick is run again, an item must not be credited twice.
+    """
+    if cursor is None:
+        return items
+    return [
+        item for item in items
+        if datetime.datetime.fromisoformat(item["time"]).astimezone(datetime.timezone.utc) >= cursor
+    ]
+
+
+def _defer(effects, effect):
+    """Run ``effect`` after the kingdom has been written (``effects`` is the list collected for this tick). Without a
+    list, which is how a step is called on its own, it runs straight away."""
+    if effects is None:
+        effect()
+    else:
+        effects.append(effect)
+
+
+def _trim_queue(path, field, time_update):
+    """
+    Drop the entries that were credited, from the queue as it is now. Anything appended since the tick read the queue
+    is kept, because this reads again and the write is conditional on what it read.
+    """
+    def trim(queue):
+        keep = [
+            entry for entry in queue[field]
+            if datetime.datetime.fromisoformat(entry["time"]).astimezone(datetime.timezone.utc) >= time_update
+        ]
+        if len(keep) == len(queue[field]):
+            return None, None
+        return {field: keep}, None
+
+    occ.update(path, trim)
+
+
+QUEUES = ("settles", "mobis", "structures", "missiles", "engineers")
+
+
+
+def _resolve_settles(kd_id, time_update, cursor=None, effects=None):
     app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/settles', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         settle_info = REQUESTS_SESSION.get(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
@@ -378,7 +424,7 @@ def _resolve_settles(kd_id, time_update):
         ready_settles = 0
         keep_settles = []
         next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-        for settle in settle_info_parse["settles"]:
+        for settle in _not_yet_credited(settle_info_parse["settles"], cursor):
             time = datetime.datetime.fromisoformat(settle["time"]).astimezone(datetime.timezone.utc)
             if time < time_update:
                 ready_settles += settle['amount']
@@ -387,14 +433,7 @@ def _resolve_settles(kd_id, time_update):
                     next_resolve = time
                 keep_settles.append(settle)
         
-        settles_payload = {
-            "settles": keep_settles
-        }
-        settles_patch = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(settles_payload),
-        )
+        _defer(effects, lambda: _trim_queue(f'/kingdom/{kd_id}/settles', "settles", time_update))
         if ready_settles:
             try:
                 ws = SOCK_HANDLERS[kd_id]
@@ -412,10 +451,10 @@ def _resolve_settles(kd_id, time_update):
     
     return ready_settles, next_resolve
     
-def _resolve_mobis(kd_id, time_update):
+def _resolve_mobis(kd_id, time_update, cursor=None, effects=None):
     app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/mobis', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         mobis_info = REQUESTS_SESSION.get(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
@@ -426,7 +465,7 @@ def _resolve_mobis(kd_id, time_update):
         ready_mobis = collections.defaultdict(int)
         keep_mobis = []
         next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-        for mobi in mobis_info_parse["mobis"]:
+        for mobi in _not_yet_credited(mobis_info_parse["mobis"], cursor):
             time = datetime.datetime.fromisoformat(mobi["time"]).astimezone(datetime.timezone.utc)
             if time < time_update:
                 mobi.pop("time")
@@ -438,14 +477,7 @@ def _resolve_mobis(kd_id, time_update):
         
         
         
-        mobis_payload = {
-            "mobis": keep_mobis
-        }
-        mobis_patch = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(mobis_payload),
-        )
+        _defer(effects, lambda: _trim_queue(f'/kingdom/{kd_id}/mobis', "mobis", time_update))
         try:
             ws = SOCK_HANDLERS[kd_id]
             count_mobis = sum(ready_mobis.values())
@@ -464,10 +496,10 @@ def _resolve_mobis(kd_id, time_update):
     
     return ready_mobis, next_resolve
     
-def _resolve_structures(kd_id, time_update):
+def _resolve_structures(kd_id, time_update, cursor=None, effects=None):
     app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/structures', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         structures_info = REQUESTS_SESSION.get(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
@@ -478,7 +510,7 @@ def _resolve_structures(kd_id, time_update):
         ready_structures = collections.defaultdict(int)
         keep_structures = []
         next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-        for structure in structures_info_parse["structures"]:
+        for structure in _not_yet_credited(structures_info_parse["structures"], cursor):
             time = datetime.datetime.fromisoformat(structure["time"]).astimezone(datetime.timezone.utc)
             if time < time_update:
                 structure.pop("time")
@@ -490,14 +522,7 @@ def _resolve_structures(kd_id, time_update):
         
         
         
-        structures_payload = {
-            "structures": keep_structures
-        }
-        structures_patch = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(structures_payload),
-        )
+        _defer(effects, lambda: _trim_queue(f'/kingdom/{kd_id}/structures', "structures", time_update))
         try:
             ws = SOCK_HANDLERS[kd_id]
             count_structures = sum(ready_structures.values())
@@ -516,10 +541,10 @@ def _resolve_structures(kd_id, time_update):
     
     return ready_structures, next_resolve
     
-def _resolve_missiles(kd_id, time_update):
+def _resolve_missiles(kd_id, time_update, cursor=None, effects=None):
     app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/missiles', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         missiles_info = REQUESTS_SESSION.get(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
@@ -530,7 +555,7 @@ def _resolve_missiles(kd_id, time_update):
         ready_missiles = collections.defaultdict(int)
         keep_missiles = []
         next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-        for missile in missiles_info_parse["missiles"]:
+        for missile in _not_yet_credited(missiles_info_parse["missiles"], cursor):
             time = datetime.datetime.fromisoformat(missile["time"]).astimezone(datetime.timezone.utc)
             if time < time_update:
                 missile.pop("time")
@@ -540,14 +565,7 @@ def _resolve_missiles(kd_id, time_update):
                 next_resolve = min(time, next_resolve)
                 keep_missiles.append(missile)
         
-        missiles_payload = {
-            "missiles": keep_missiles
-        }
-        missiles_patch = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(missiles_payload),
-        )
+        _defer(effects, lambda: _trim_queue(f'/kingdom/{kd_id}/missiles', "missiles", time_update))
         try:
             ws = SOCK_HANDLERS[kd_id]
             count_missiles = sum(ready_missiles.values())
@@ -566,10 +584,10 @@ def _resolve_missiles(kd_id, time_update):
     
     return ready_missiles, next_resolve
     
-def _resolve_engineers(kd_id, time_update):
+def _resolve_engineers(kd_id, time_update, cursor=None, effects=None):
     app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/engineers', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         engineer_info = REQUESTS_SESSION.get(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
@@ -580,7 +598,7 @@ def _resolve_engineers(kd_id, time_update):
         ready_engineers = 0
         keep_engineers = []
         next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-        for engineer in engineer_info_parse["engineers"]:
+        for engineer in _not_yet_credited(engineer_info_parse["engineers"], cursor):
             time = datetime.datetime.fromisoformat(engineer["time"]).astimezone(datetime.timezone.utc)
             if time < time_update:
                 ready_engineers += engineer['amount']
@@ -589,14 +607,7 @@ def _resolve_engineers(kd_id, time_update):
                     next_resolve = time
                 keep_engineers.append(engineer)
         
-        engineers_payload = {
-            "engineers": keep_engineers
-        }
-        engineers_patch = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(engineers_payload),
-        )
+        _defer(effects, lambda: _trim_queue(f'/kingdom/{kd_id}/engineers', "engineers", time_update))
         if ready_engineers:
             try:
                 ws = SOCK_HANDLERS[kd_id]
@@ -617,7 +628,7 @@ def _resolve_engineers(kd_id, time_update):
 def _resolve_revealed(kd_id, time_update):
     app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/revealed', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         revealed_info = REQUESTS_SESSION.get(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
@@ -659,7 +670,7 @@ def _resolve_revealed(kd_id, time_update):
 def _resolve_shared(kd_id, time_update):
     app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}/shared', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         shared_info = REQUESTS_SESSION.get(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
@@ -789,6 +800,7 @@ def _resolve_auto_spending(
     structures_info=None,
     mobis_info=None,
     engineers_info=None,
+    effects=None,
 ):
     app = flask.current_app
     resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["auto_spending"]).astimezone(datetime.timezone.utc)
@@ -804,7 +816,7 @@ def _resolve_auto_spending(
         timeout=999, 
         request_id=request_id,
     ):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         next_resolves = {}
 
@@ -830,12 +842,11 @@ def _resolve_auto_spending(
             settle_payload = {
                 "new_settles": new_settles_payload
             }
-            settles_patch_response = REQUESTS_SESSION.patch(
+            _defer(effects, lambda payload=settle_payload: REQUESTS_SESSION.patch(
                 app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
                 headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps(settle_payload),
-            )
-        
+                data=json.dumps(payload),
+            ))
         structures_price = structures_info["price"]
         max_available_structures = structures_info["max_available_structures"]
         structures_funding = kd_info_parse["funding"]["structures"]
@@ -884,12 +895,11 @@ def _resolve_auto_spending(
                     structures_payload = {
                         "new_structures": new_structures_payload
                     }
-                    structures_patch_response = REQUESTS_SESSION.patch(
+                    _defer(effects, lambda payload=structures_payload: REQUESTS_SESSION.patch(
                         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
                         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                        data=json.dumps(structures_payload),
-                    )
-
+                        data=json.dumps(payload),
+                    ))
         recruit_price = mobis_info["recruit_price"]
         recruit_time = mobis_info["recruit_time"]
         max_available_recruits = mobis_info["max_available_recruits"]
@@ -969,12 +979,11 @@ def _resolve_auto_spending(
                 new_mobis, min_mobis_time = uab._get_new_mobis(target_units_to_build_nonzero, time_update)
                 mobis_payload["new_mobis"].extend(new_mobis)
                 kd_info_parse["next_resolve"]["mobis"] = min(min_mobis_time, kd_info_parse["next_resolve"]["mobis"], next_resolves.get("mobis", uas.DATE_SENTINEL))
-            mobis_patch_response = REQUESTS_SESSION.patch(
+            _defer(effects, lambda payload=mobis_payload: REQUESTS_SESSION.patch(
                 app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
                 headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps(mobis_payload),
-            )
-
+                data=json.dumps(payload),
+            ))
         engineers_price = engineers_info["engineers_price"]
         max_available_engineers = engineers_info["max_available_engineers"]
         engineers_funding = kd_info_parse["funding"]["engineers"]
@@ -987,12 +996,11 @@ def _resolve_auto_spending(
             engineers_payload = {
                 "new_engineers": new_engineers_payload
             }
-            engineers_patch_response = REQUESTS_SESSION.patch(
+            _defer(effects, lambda payload=engineers_payload: REQUESTS_SESSION.patch(
                 app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
                 headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps(engineers_payload),
-            )
-
+                data=json.dumps(payload),
+            ))
         next_resolve_time = max(
             resolve_time + datetime.timedelta(
                 seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_AUTO_SPENDING_TIME_MULTIPLIER"]
@@ -1335,7 +1343,7 @@ def _resolve_schedules(kd_id, time_update, kd_info=None):
 
     app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_id}', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
 
     try:
         kd_info = uag._get_kd_info(kd_id)
@@ -1378,7 +1386,7 @@ def _begin_election(state):
     app = flask.current_app
     request_id = str(uuid.uuid4())
     while not uam.acquire_locks([f'/universepolitics', f'/updatestate'], timeout=999, request_id=request_id):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         election_start = datetime.datetime.fromisoformat(state["state"]["election_start"]).astimezone(datetime.timezone.utc)
         election_end = election_start + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_ELECTION_LENGTH_MULTIPLIER"])
@@ -1418,7 +1426,7 @@ def _begin_election(state):
 def _resolve_election(state):
     app = flask.current_app
     while not uam.acquire_lock(f'/updatestate', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         election_end = datetime.datetime.fromisoformat(state["state"]["election_end"]).astimezone(datetime.timezone.utc)
         next_election_start = election_end + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_ELECTION_RESULTS_DURATION_MULTIPLIER"])
@@ -1464,7 +1472,7 @@ def _resolve_scores(kd_scores, time_update, context=None):
     if context is None:
         context = _RefreshContext(state=None)
     while not uam.acquire_lock(f'/scores', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         scores = uag._get_scores()
 
@@ -1510,7 +1518,7 @@ def _update_history(
 ):
     app = flask.current_app
     while not uam.acquire_lock(f'/kingdom/{kd_info["kdId"]}/history', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         history_payload = {}
 
@@ -1563,7 +1571,7 @@ def _resolve_empires(
 ):
     app = flask.current_app
     while not uam.acquire_lock(f'/empires', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
     try:
         empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
         time_last_update = datetime.datetime.fromisoformat(empires_info["last_update"]).astimezone(datetime.timezone.utc)
@@ -1637,6 +1645,12 @@ def _resolve_empires(
     finally:
         uam.release_lock(f'/empires')
 
+def _cursor(kd_info, category):
+    """The time up to which a queue has been credited to this kingdom (see _not_yet_credited), or None."""
+    value = kd_info.get("queues_resolved_until", {}).get(category)
+    return datetime.datetime.fromisoformat(value).astimezone(datetime.timezone.utc) if value else None
+
+
 def _refresh_kd(kd_id, state, time_update, update_history, context=None):
     app = flask.current_app
     if context is None:
@@ -1651,110 +1665,137 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
         pass
 
     while not uam.acquire_lock(f'/kingdom/{kd_id}', timeout=999):
-        time.sleep(0.01)
+        _time.sleep(0.01)
 
     try:
-        next_resolves = {}
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        kd_info_parse = json.loads(kd_info.text)
-        if kd_info_parse["status"].lower() == "dead":
-            return (0, 0)
-        current_bonuses = {
-            project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-            for project, project_dict in uas.PROJECTS.items()
-            if "max_bonus" in project_dict
-        }
+        # The kingdom is written only if it is still the version this tick started from. If something else changed it
+        # meanwhile (an action by the player, an attack on it), nothing has been done yet that can not be done again:
+        # the queues are trimmed and the auto-spending items are queued only after the write, so the tick is simply
+        # worked out again from the newer kingdom.
+        for attempt in range(occ.MAX_ATTEMPTS):
+            effects = []
+            next_resolves = {}
+            kd_info = REQUESTS_SESSION.get(
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
+            )
+            kd_info_parse = json.loads(kd_info.text)
+            etag = kd_info_parse.get("_etag")
+            if kd_info_parse["status"].lower() == "dead":
+                return (0, 0)
+            current_bonuses = {
+                project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
+                for project, project_dict in uas.PROJECTS.items()
+                if "max_bonus" in project_dict
+            }
 
-        categories_to_resolve = [cat for cat, time in kd_info_parse["next_resolve"].items() if datetime.datetime.fromisoformat(time).astimezone(datetime.timezone.utc) < time_update]
-        if "settles" in categories_to_resolve:
-            new_stars, next_resolves["settles"] = _resolve_settles(
-                kd_id,
-                time_update,
-            )
-            kd_info_parse["stars"] += new_stars
-            for key_project, project_dict in uas.PROJECTS.items():
-                project_max_func = uas.PROJECTS_FUNCS[key_project]
-                kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
-        
-        if "mobis" in categories_to_resolve:
-            new_units, next_resolves["mobis"] = _resolve_mobis(kd_id, time_update)
-            for key_unit, amt_unit in new_units.items():
-                kd_info_parse["units"][key_unit] += amt_unit
-        
-        if "structures" in categories_to_resolve:
-            new_structures, next_resolves["structures"] = _resolve_structures(kd_id, time_update)
-            for key_structure, amt_structure in new_structures.items():
-                kd_info_parse["structures"][key_structure] += amt_structure
-        
-        if "missiles" in categories_to_resolve:
-            new_missiles, next_resolves["missiles"] = _resolve_missiles(kd_id, time_update)
-            for key_missiles, amt_missiles in new_missiles.items():
-                kd_info_parse["missiles"][key_missiles] += amt_missiles
-
-        if "engineers" in categories_to_resolve:
-            new_engineers, next_resolves["engineers"] = _resolve_engineers(
-                kd_id,
-                time_update,
-            )
-            kd_info_parse["units"]["engineers"] += new_engineers
-        
-        if "revealed" in categories_to_resolve:
-            next_resolves["revealed"] = _resolve_revealed(
-                kd_id,
-                time_update,
-            )
-        
-        if "shared" in categories_to_resolve:
-            next_resolves["shared"] = _resolve_shared(
-                kd_id,
-                time_update,
-            )
-
-        if "generals" in categories_to_resolve:
-            kd_info_parse, next_resolves["generals"] = _resolve_generals(
-                kd_info_parse,
-                time_update,
-            )
-        
-        if "spy_attempt" in categories_to_resolve:
-            kd_info_parse, next_resolves["spy_attempt"] = _resolve_spy(
-                kd_info_parse,
-                time_update,
-                current_bonuses,
-                context,
-            )
-        if "auto_spending" in categories_to_resolve:
-            kd_info_parse, next_resolves_auto_spending = _resolve_auto_spending(
-                kd_info_parse,
-                time_update,
-                current_bonuses,
-            )
-            next_resolves_spending_effective = {
-                k: min(
-                    datetime.datetime.fromisoformat(v).astimezone(datetime.timezone.utc),
-                    next_resolves.get(k, datetime.datetime.fromisoformat(uas.DATE_SENTINEL).astimezone(datetime.timezone.utc))
+            categories_to_resolve = [cat for cat, time in kd_info_parse["next_resolve"].items() if datetime.datetime.fromisoformat(time).astimezone(datetime.timezone.utc) < time_update]
+            if "settles" in categories_to_resolve:
+                new_stars, next_resolves["settles"] = _resolve_settles(
+                    kd_id,
+                    time_update,
+                    _cursor(kd_info_parse, "settles"),
+                    effects,
                 )
-                for k, v in next_resolves_auto_spending.items()
-            }
-            next_resolves = {
-                **next_resolves,
-                **next_resolves_spending_effective,
-            }
-        if kd_info_parse["auto_assign_projects"] and (kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values()) > 0):
-            kd_info_parse = _resolve_auto_projects(kd_info_parse)
+                kd_info_parse["stars"] += new_stars
+                for key_project, project_dict in uas.PROJECTS.items():
+                    project_max_func = uas.PROJECTS_FUNCS[key_project]
+                    kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
+        
+            if "mobis" in categories_to_resolve:
+                new_units, next_resolves["mobis"] = _resolve_mobis(kd_id, time_update, _cursor(kd_info_parse, "mobis"), effects)
+                for key_unit, amt_unit in new_units.items():
+                    kd_info_parse["units"][key_unit] += amt_unit
+        
+            if "structures" in categories_to_resolve:
+                new_structures, next_resolves["structures"] = _resolve_structures(kd_id, time_update, _cursor(kd_info_parse, "structures"), effects)
+                for key_structure, amt_structure in new_structures.items():
+                    kd_info_parse["structures"][key_structure] += amt_structure
+        
+            if "missiles" in categories_to_resolve:
+                new_missiles, next_resolves["missiles"] = _resolve_missiles(kd_id, time_update, _cursor(kd_info_parse, "missiles"), effects)
+                for key_missiles, amt_missiles in new_missiles.items():
+                    kd_info_parse["missiles"][key_missiles] += amt_missiles
 
-        for category, next_resolve_datetime in next_resolves.items():
-            kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
-        new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update)
-        kd_payload = json.dumps(new_kd_info, default=str)
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=kd_payload,
-        )
+            if "engineers" in categories_to_resolve:
+                new_engineers, next_resolves["engineers"] = _resolve_engineers(
+                    kd_id,
+                    time_update,
+                    _cursor(kd_info_parse, "engineers"),
+                    effects,
+                )
+                kd_info_parse["units"]["engineers"] += new_engineers
+        
+            if "revealed" in categories_to_resolve:
+                next_resolves["revealed"] = _resolve_revealed(
+                    kd_id,
+                    time_update,
+                )
+        
+            if "shared" in categories_to_resolve:
+                next_resolves["shared"] = _resolve_shared(
+                    kd_id,
+                    time_update,
+                )
+
+            if "generals" in categories_to_resolve:
+                kd_info_parse, next_resolves["generals"] = _resolve_generals(
+                    kd_info_parse,
+                    time_update,
+                )
+        
+            if "spy_attempt" in categories_to_resolve:
+                kd_info_parse, next_resolves["spy_attempt"] = _resolve_spy(
+                    kd_info_parse,
+                    time_update,
+                    current_bonuses,
+                    context,
+                )
+            if "auto_spending" in categories_to_resolve:
+                kd_info_parse, next_resolves_auto_spending = _resolve_auto_spending(
+                    kd_info_parse,
+                    time_update,
+                    current_bonuses,
+                    effects=effects,
+                )
+                next_resolves_spending_effective = {
+                    k: min(
+                        datetime.datetime.fromisoformat(v).astimezone(datetime.timezone.utc),
+                        next_resolves.get(k, datetime.datetime.fromisoformat(uas.DATE_SENTINEL).astimezone(datetime.timezone.utc))
+                    )
+                    for k, v in next_resolves_auto_spending.items()
+                }
+                next_resolves = {
+                    **next_resolves,
+                    **next_resolves_spending_effective,
+                }
+            if kd_info_parse["auto_assign_projects"] and (kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values()) > 0):
+                kd_info_parse = _resolve_auto_projects(kd_info_parse)
+
+            for category in QUEUES:
+                if category in categories_to_resolve:
+                    kd_info_parse.setdefault("queues_resolved_until", {})[category] = time_update.isoformat()
+            for category, next_resolve_datetime in next_resolves.items():
+                kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
+            new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update)
+            kd_payload = json.dumps(new_kd_info, default=str)
+            write_headers = {'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
+            if etag:
+                write_headers["If-Match"] = etag
+            kd_patch_response = REQUESTS_SESSION.patch(
+                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+                headers=write_headers,
+                data=kd_payload,
+            )
+            if kd_patch_response.status_code in (409, 412):
+                _time.sleep(random.uniform(0, min(0.01 * 2**attempt, 0.2)))
+                continue
+            break
+        else:
+            raise occ.Busy(f"/kingdom/{kd_id}")
+
+        for effect in effects:
+            effect()
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
 
