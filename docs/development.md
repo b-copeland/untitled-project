@@ -51,8 +51,7 @@ conda run -n funcapp-worker pip install -r funcapp/requirements.txt
 Keep the repo **outside OneDrive or any other synced folder**. Sync clients download cloud-only files on demand, which
 slows I/O and pops up download prompts, and they try to sync `node_modules`, `.git` and the live database files.
 
-Two environments are used because the Flask pins in `requirements.txt` are old and the Azure packages need newer
-versions of some of the same libraries.
+Two environments are used because the Flask and Azure packages pin different versions of some of the same libraries.
 
 ## 3. Configuration files
 
@@ -202,7 +201,7 @@ Invoke-WebRequest http://localhost:8000/api/refreshdata -Headers @{ 'Refresh-Sec
 
 | Symptom | Cause and fix |
 |---|---|
-| `KeyError: 'adapter'` from `wrapt` when Flask starts | A newer `limits` is incompatible with the pinned `wrapt`. `requirements.txt` pins `limits==3.5.0`, so reinstall it. |
+| `KeyError: 'adapter'` from `wrapt`, or other import errors when Flask starts | The Conda environment predates the 2026-11-10 dependency upgrade (the old pins had `limits==3.5.0` with `wrapt==1.12.1`). Recreate it from `requirements.txt`. |
 | Flask exits with a SQLAlchemy "unable to open database file" | `SQLALCHEMY_DATABASE_URI` in `api/.flaskenv` still points at an old absolute path. |
 | `admin` login returns 401 | The `admin` row already exists with a different password. `ADMIN_PASSWORD` only applies when the row is created. Update the hash in `api/database.db`, or delete the file to start fresh (users are re-synced from the function app on startup). |
 | Flask fails at startup with a connection error | The function app is not running yet (or is not on port 7071). |
