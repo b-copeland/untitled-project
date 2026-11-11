@@ -137,14 +137,11 @@ the Actions history, and a failed run can be re-run with "Re-run jobs".
 
 ## Known gaps
 
-- No automated infrastructure, no staging environment, and no tests for the Flask or function app code in CI (only the
-  frontend tests run).
-<<<<<<< HEAD
-- Python 3.10 reached end-of-life in October 2026, and the function app's extension bundle is deprecated.
+- No automated infrastructure and no staging environment. CI runs the frontend tests and the Python tests that need no
+  running stack (`tests/test_occ.py`, `tests/test_refresh.py`, `funcapp/tests`); the tests that race real requests need
+  the Cosmos emulator and run locally only.
+- Python 3.10 reached end-of-life in October 2026.
 - The web app is on the Free plan with Always On and WebSockets off, and all Cosmos containers share 1000 RU/s (see
   "What Azure actually runs").
-=======
-- Python 3.10 reached end-of-life in October 2026.
->>>>>>> main
 - Everything that scales out (SQLite users and locks, in-memory websocket registry, in-memory rate limiter) assumes a
   single App Service instance. See [concurrency.md](concurrency.md) for what is done and what remains.
