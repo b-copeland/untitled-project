@@ -32,14 +32,7 @@ def reveal_random_galaxy():
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
-
-        if kd_info_parse["spy_attempts"] <= 0:
+        if occ.read(f'/kingdom/{kd_id}')["spy_attempts"] <= 0:
             return (flask.jsonify({"message": 'You do not have any spy attempts remaining'}), 400)
 
         revealed_info = uag._get_revealed(kd_id)
@@ -80,22 +73,24 @@ def reveal_random_galaxy():
             for kd_id in galaxy_info[galaxy_to_reveal]
         }
 
-        
-        reveal_galaxy_response = REQUESTS_SESSION.patch(
+        def spend_attempt(kd):
+            # The attempt is spent against the kingdom as it is right now, so duplicates can not reveal twice for one.
+            if kd["spy_attempts"] <= 0:
+                raise occ.Rejected('You do not have any spy attempts remaining')
+            next_resolve = kd["next_resolve"]
+            next_resolve["revealed"] = min(next_resolve["revealed"], time)
+            return {"spy_attempts": kd["spy_attempts"] - 1, "next_resolve": next_resolve}, None
+
+        occ.update(f'/kingdom/{kd_id}', spend_attempt)
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(payload),
         )
-        
-
-        next_resolve = kd_info_parse["next_resolve"]
-        next_resolve["revealed"] = min(next_resolve["revealed"], time)
-        kd_payload = {"spy_attempts": kd_info_parse["spy_attempts"] - 1, "next_resolve": next_resolve}
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_locks_by_id(request_id)
 
@@ -123,20 +118,24 @@ def _add_aggression(
     occ.update('/empires', add)
 
 
-def _lower_reveal_timer(kd_id, revealed_until):
+def _lower_timer(kd_id, field, when):
     """
-    Make sure a kingdom's reveal timer fires no later than ``revealed_until``. Taking the sooner of the stored and the
-    new time is idempotent and does not depend on the order of overlapping calls, which is why this does not need to
-    be part of the strict steps of an attack.
+    Make sure a kingdom's ``next_resolve[field]`` timer fires no later than ``when``. Taking the sooner of the stored
+    and the new time is idempotent and does not depend on the order of overlapping calls, which is why this does not
+    need to be part of the strict steps of an action.
     """
     def lower(kd):
         next_resolve = kd["next_resolve"]
-        if revealed_until >= next_resolve["revealed"]:
+        if when >= next_resolve[field]:
             return None, None
-        next_resolve["revealed"] = revealed_until
+        next_resolve[field] = when
         return {"next_resolve": next_resolve}, None
 
     occ.update(f'/kingdom/{kd_id}', lower)
+
+
+def _lower_reveal_timer(kd_id, revealed_until):
+    _lower_timer(kd_id, "revealed", revealed_until)
 
 def _validate_attack_request(
     attacker_raw_values,
@@ -2870,19 +2869,19 @@ def accept_shared():
     ):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
+    def accept(shared_info):
+        # Moves the request into the accepted intel, on the shared document as it is right now.
+        if accepted_shared_from not in shared_info["shared_requests"]:
+            raise occ.Rejected("That intel is no longer on offer")
+        requests = dict(shared_info["shared_requests"])
+        new_shared = requests.pop(accepted_shared_from)
+        accepted = {**shared_info["shared"], accepted_kd: new_shared}
+        return {"shared_requests": requests, "shared": accepted}, new_shared
+
     try:
         kingdoms = uag._get_kingdoms()
-        
-        shared_info = uag._get_shared(kd_id)
 
-        new_shared = shared_info["shared_requests"].pop(accepted_shared_from)
-        shared_info["shared"][accepted_kd] = new_shared
-
-        shared_info_response = REQUESTS_SESSION.post(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(shared_info),
-        )
+        new_shared = occ.update(f'/kingdom/{kd_id}/shared', accept, method="post")
 
         revealed_payload = {
             "new_revealed" : {
@@ -2908,9 +2907,13 @@ def accept_shared():
             }))
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_locks_by_id(request_id)
-    return (flask.jsonify(shared_info_response.text), 200)
+    return (flask.jsonify({"message": "Accepted intel", "status": "success"}), 200)
 
 def _offer_shared(req, kd_id):
     app = flask.current_app
@@ -2954,9 +2957,6 @@ def _offer_shared(req, kd_id):
         return {"message": "You can not share intel that was shared with you"}, 400
 
     shared_resolve_time = revealed_info["revealed"][shared_kd][shared_stat]
-    your_payload = {
-        "shared_offers": your_shared_info["shared_offers"]
-    }
     if shared_to_kd == "galaxy":
         kds_to_update = [
             _id
@@ -2965,45 +2965,33 @@ def _offer_shared(req, kd_id):
         ]
     else:
         kds_to_update = [shared_to_kd]
+
+    offers = {}
     for kd_to_update in kds_to_update:
-        shared_to_shared_info = uag._get_shared(kd_to_update)
         shared_from_key = f"{shared_kd}_{kd_id}"
         shared_to_key = f"{shared_kd}_{kd_to_update}"
-        shared_to_payload = {
-            "shared_requests": shared_to_shared_info["shared_requests"]
-        }
-
-        your_payload["shared_offers"][shared_to_key] = {
+        offers[shared_to_key] = {
             "shared_to": kd_to_update,
             "shared_stat": shared_stat,
             "cut": cut,
             "time": shared_resolve_time,
         }
-        shared_to_payload["shared_requests"][shared_from_key] = {
-            "shared_by": kd_id,
-            "shared_stat": shared_stat,
-            "cut": cut,
-            "time": shared_resolve_time,
-        }
 
-        shared_to_shared_info_response = REQUESTS_SESSION.post(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_to_update}/shared',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(shared_to_payload),
-        )
+        # Added to the recipient's requests as they are right now, so offers from several players arriving together
+        # all survive.
+        def add_request(shared_info, shared_from_key=shared_from_key):
+            requests = {**shared_info["shared_requests"], shared_from_key: {
+                "shared_by": kd_id,
+                "shared_stat": shared_stat,
+                "cut": cut,
+                "time": shared_resolve_time,
+            }}
+            return {"shared_requests": requests}, None
+
+        occ.update(f'/kingdom/{kd_to_update}/shared', add_request, method="post")
         uam._add_notifs(kd_to_update, ["shared"])
+        _lower_timer(kd_to_update, "shared", shared_resolve_time)
 
-        shared_to_kd_info = uag._get_kd_info(kd_to_update)
-        if shared_resolve_time < shared_to_kd_info["next_resolve"]["shared"]:
-            shared_to_next_resolve = shared_to_kd_info["next_resolve"]
-            shared_to_next_resolve["shared"] = shared_resolve_time
-            REQUESTS_SESSION.patch(
-                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_to_update}',
-                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps({"next_resolve": shared_to_next_resolve}),
-            )
-
-        
         try:
             ws = SOCK_HANDLERS[kd_to_update]
             ws.send(json.dumps({
@@ -3015,21 +3003,12 @@ def _offer_shared(req, kd_id):
             }))
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
-    
-    your_shared_info_response = REQUESTS_SESSION.post(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps(your_payload),
-    )
-    your_info = uag._get_kd_info(kd_id)
-    if shared_resolve_time < your_info["next_resolve"]["shared"]:
-        your_next_resolve = your_info["next_resolve"]
-        your_next_resolve["shared"] = shared_resolve_time
-        REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps({"next_resolve": your_next_resolve}),
-        )
+
+    def add_offers(shared_info):
+        return {"shared_offers": {**shared_info["shared_offers"], **offers}}, None
+
+    occ.update(f'/kingdom/{kd_id}/shared', add_offers, method="post")
+    _lower_timer(kd_id, "shared", shared_resolve_time)
     payload = {
         "message": "Succesfully shared intel", "status": "success"
     }

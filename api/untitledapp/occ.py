@@ -59,7 +59,7 @@ def read(path):
     return json.loads(REQUESTS_SESSION.get(_url(path), headers=_headers()).text)
 
 
-def update(path, decide, write_path=None):
+def update(path, decide, write_path=None, method="patch"):
     """
     Apply a change to the document at ``path`` that is valid for the document as it is when the change lands.
 
@@ -67,7 +67,8 @@ def update(path, decide, write_path=None):
     value to hand back to the caller. It may raise ``Rejected``. Returns ``result``.
 
     ``write_path`` is for the few documents whose function app route to read differs from the one to write (for
-    example ``GET /universevotes`` but ``PATCH /universepolitics``).
+    example ``GET /universevotes`` but ``PATCH /universepolitics``). ``method`` is "post" for the few documents
+    written with POST (``/kingdom/<id>/shared``).
 
     Raises ``Busy`` if the document changed on every one of ``MAX_ATTEMPTS`` attempts.
     """
@@ -77,7 +78,7 @@ def update(path, decide, write_path=None):
         if payload is None:
             return result
 
-        response = REQUESTS_SESSION.patch(
+        response = getattr(REQUESTS_SESSION, method)(
             _url(write_path or path),
             headers=_headers(**{"If-Match": document["_etag"]}),
             data=json.dumps(payload),
