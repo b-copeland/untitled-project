@@ -30,12 +30,32 @@ class FakeSession:
     def __init__(self, kingdom=None):
         self.calls = []
         self.kingdom = kingdom
+        self.failures = []
+        self.docs = {}  # other documents by path, versioned like the function app's
+        self.versions = 0
 
     def _respond(self, method, url, **kwargs):
         path = url.split("/api", 1)[1]
         self.calls.append((method, path, json.loads(kwargs["data"]) if kwargs.get("data") else None))
         body = json.dumps(self.kingdom) if method == "GET" and path.startswith("/kingdom/") and self.kingdom else "{}"
-        return types.SimpleNamespace(text=body)
+        if path in self.docs:
+            if method == "GET":
+                body = json.dumps(self.docs[path])
+            elif method == "PATCH":
+                if_match = (kwargs.get("headers") or {}).get("If-Match")
+                if if_match and if_match != self.docs[path]["_etag"]:
+                    return types.SimpleNamespace(text="changed", status_code=412)
+                self.versions += 1
+                self.docs[path] = {**self.docs[path], **json.loads(kwargs["data"]), "_etag": f'"{self.versions}"'}
+        return types.SimpleNamespace(text=body, status_code=self.status_for(method, path, kwargs))
+
+    def status_for(self, method, path, kwargs):
+        """200 unless a test queued a failure for this kind of call, e.g. 412 for the kingdom write."""
+        for i, (queued_method, queued_prefix, status) in enumerate(self.failures):
+            if queued_method == method and path.startswith(queued_prefix):
+                del self.failures[i]
+                return status
+        return 200
 
     def get(self, url, **kwargs):
         return self._respond("GET", url, **kwargs)
@@ -54,6 +74,7 @@ class FakeSession:
 def session(monkeypatch):
     fake = FakeSession()
     monkeypatch.setattr(refresh, "REQUESTS_SESSION", fake)
+    monkeypatch.setattr(refresh.occ, "REQUESTS_SESSION", fake)
     monkeypatch.setattr(getters, "REQUESTS_SESSION", fake)
     # Locks live in SQLite and are not what is being tested here.
     monkeypatch.setattr(refresh.uam, "acquire_lock", lambda *a, **k: True)
@@ -305,3 +326,98 @@ def test_refresh_still_requires_the_secret(app, client, monkeypatch):
     monkeypatch.setenv("REFRESH_SECRET", "secret")
     assert client.get("/api/refreshdata").status_code == 401
     assert client.get("/api/refreshdata", headers={"Refresh-Secret": "wrong"}).status_code == 401
+
+
+# --- _refresh_kd: queues are credited once, and trimmed only after the kingdom is written -----------------------------
+
+
+def _settling(session, kingdom=None):
+    session.kingdom = _kingdom_doc(next_resolve={"settles": PAST}, **(kingdom or {}))
+    session.kingdom["_etag"] = '"k1"'
+    session.docs["/kingdom/1/settles"] = {
+        "settles": [{"time": PAST, "amount": 3}, {"time": FUTURE, "amount": 2}], "_etag": '"q0"'}
+
+
+def _refresh(app, monkeypatch, when=NOW):
+    state = {"state": {}}
+    monkeypatch.setattr(refresh, "_kingdom_with_income", lambda kd, bonuses, st, now: dict(kd))
+    with app.app_context():
+        return refresh._refresh_kd(1, state, when, False, refresh._RefreshContext(state))
+
+
+def _kingdom_writes(session):
+    return [payload for method, path, payload in session.calls if method == "PATCH" and path == "/kingdom/1"]
+
+
+def test_finished_settles_are_credited_and_the_queue_is_trimmed_after_the_kingdom_is_written(app, session, monkeypatch):
+    _settling(session)
+
+    scores = _refresh(app, monkeypatch)
+
+    assert scores[0] == 10  # 7 stars + 3 settled
+    order = [(m, p) for m, p, _ in session.calls if m == "PATCH"]
+    assert order.index(("PATCH", "/kingdom/1")) < order.index(("PATCH", "/kingdom/1/settles"))
+    assert session.docs["/kingdom/1/settles"]["settles"] == [{"time": FUTURE, "amount": 2}]
+
+
+def test_the_kingdom_is_written_with_the_version_it_was_read_at(app, session, monkeypatch):
+    _settling(session)
+    seen = []
+    original = session.patch
+
+    def patch(url, **kwargs):
+        if url.endswith("/kingdom/1"):
+            seen.append(kwargs["headers"].get("If-Match"))
+        return original(url, **kwargs)
+
+    monkeypatch.setattr(session, "patch", patch)
+    _refresh(app, monkeypatch)
+
+    assert seen == ['"k1"']
+
+
+def test_a_conflicting_write_makes_the_tick_start_again_without_crediting_twice(app, session, monkeypatch):
+    _settling(session)
+    session.failures.append(("PATCH", "/kingdom/1", 412))
+
+    scores = _refresh(app, monkeypatch)
+
+    assert scores[0] == 10
+    assert session.paths("GET").count("/kingdom/1") >= 2  # read again after the conflict
+    assert len(_kingdom_writes(session)) == 2
+    # nothing was trimmed until a write landed, and then once
+    assert session.paths("PATCH").count("/kingdom/1/settles") == 1
+
+
+def test_a_lost_trim_does_not_credit_the_same_settles_on_the_next_tick(app, session, monkeypatch):
+    _settling(session)
+    original_queue = json.loads(json.dumps(session.docs["/kingdom/1/settles"]))
+    _refresh(app, monkeypatch)
+    after_first = _kingdom_writes(session)[-1]
+    assert after_first["queues_resolved_until"]["settles"] == NOW.isoformat()
+
+    # the trim never happened (the process died after writing the kingdom), and a minute later the tick runs again
+    session.kingdom = {**after_first, "next_resolve": {"settles": PAST}, "_etag": '"k2"'}
+    session.docs["/kingdom/1/settles"] = original_queue
+    scores = _refresh(app, monkeypatch, when=NOW + datetime.timedelta(minutes=1))
+
+    assert scores[0] == 10  # still 10, not 13
+    assert session.docs["/kingdom/1/settles"]["settles"] == [{"time": FUTURE, "amount": 2}]
+
+
+def test_settles_queued_while_the_tick_runs_survive_the_trim(app, session, monkeypatch):
+    _settling(session)
+    original = session.patch
+
+    def patch(url, **kwargs):
+        response = original(url, **kwargs)
+        if url.endswith("/kingdom/1"):
+            # the player queues more settling right after the kingdom is written, before the trim
+            session.docs["/kingdom/1/settles"]["settles"].append({"time": FUTURE, "amount": 5})
+            session.docs["/kingdom/1/settles"]["_etag"] = '"q-new"'
+        return response
+
+    monkeypatch.setattr(session, "patch", patch)
+    _refresh(app, monkeypatch)
+
+    assert [entry["amount"] for entry in session.docs["/kingdom/1/settles"]["settles"]] == [2, 5]

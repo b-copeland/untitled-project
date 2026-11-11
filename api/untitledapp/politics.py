@@ -19,6 +19,44 @@ from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_H
 
 bp = flask.Blueprint("politics", __name__)
 
+
+def _change_empire_galaxies(empire_id, add=None, remove=None):
+    """
+    Add a galaxy to an empire, or take one out, on the empires document as it is right now (not the copy read at the
+    start of the request, which would overwrite changes made since). Returns the empire's galaxies afterwards.
+    """
+    def change(empires_document):
+        empire = empires_document["empires"][empire_id]
+        galaxies = [galaxy for galaxy in empire["galaxies"] if galaxy != remove]
+        if add is not None and any(
+            add in other["galaxies"] for other_id, other in empires_document["empires"].items() if other_id != empire_id
+        ):
+            # Two invitations accepted at the same moment: whichever lands first wins.
+            raise occ.Rejected("That galaxy is already part of an Empire")
+        if add is not None and add not in galaxies:
+            galaxies.append(add)
+        empire["galaxies"] = galaxies
+        return {"empires": empires_document["empires"]}, galaxies
+
+    return occ.update('/empires', change)
+
+
+
+def _change_list(path, field, add=None, remove=None):
+    """
+    Add or remove one item of a list on a politics document, on the document as it is right now. Adding an item that
+    is there, or removing one that is not, changes nothing, so this is safe to repeat and does not depend on the order
+    of requests that overlap.
+    """
+    def change(document):
+        items = [item for item in document[field] if item != remove]
+        if add is not None and add not in items:
+            items.append(add)
+        return {field: items}, None
+
+    occ.update(path, change)
+
+
 @bp.route('/api/galaxypolitics/leader', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -33,7 +71,8 @@ def galaxy_leader():
     if not uam.acquire_lock(f'/galaxy/{galaxy_id}/politics'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
+    def vote(galaxy_votes):
+        # Added to the votes as they are right now, so galaxymates voting together all count.
         galaxy_votes["votes"]["leader"][kd_id] = req["selected"]
         patch_payload = {
             "votes": galaxy_votes["votes"],
@@ -51,12 +90,13 @@ def galaxy_leader():
         ]
         if len(kds_with_most_votes) == 1 and (kds_with_most_votes[0] != current_leader):
             patch_payload["leader"] = kds_with_most_votes[0]
-        
-        galaxy_politics_info = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(patch_payload)
-        )
+            galaxy_votes["leader"] = kds_with_most_votes[0]
+        return patch_payload, galaxy_votes
+
+    try:
+        galaxy_votes = occ.update(f'/galaxy/{galaxy_id}/politics', vote)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/galaxy/{galaxy_id}/politics')
 
@@ -76,7 +116,7 @@ def galaxy_policies():
     if not uam.acquire_lock(f'/galaxy/{galaxy_id}/politics'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
+    def vote(galaxy_votes):
         galaxy_votes["votes"][req["policy"]][kd_id] = req["option"].split('_')[-1]
         patch_payload = {
             "votes": galaxy_votes["votes"],
@@ -98,12 +138,15 @@ def galaxy_policies():
             new_option_name = uas.GALAXY_POLICIES[req["policy"]]["options"][policies_with_most_votes[0]]["name"]
             new_active_policies = [policy for policy in galaxy_votes["active_policies"] if policy not in option_names] + [new_option_name]
             patch_payload["active_policies"] = new_active_policies
+            galaxy_votes[f"{req['policy']}_winner"] = policies_with_most_votes[0]
+            galaxy_votes["active_policies"] = new_active_policies
 
-        galaxy_politics_info = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(patch_payload)
-        )
+        return patch_payload, galaxy_votes
+
+    try:
+        galaxy_votes = occ.update(f'/galaxy/{galaxy_id}/politics', vote)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/galaxy/{galaxy_id}/politics')
 
@@ -196,30 +239,8 @@ def request_join_empire(target_empire):
         
         target_empire_politics = uag._get_empire_politics(target_empire)
 
-        new_empire_requests = set(target_empire_politics["empire_join_requests"])
-        new_empire_requests.add(kd_galaxy)
-
-        target_empire_payload = {
-            "empire_join_requests": list(new_empire_requests)
-        }
-
-        join_empire_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(target_empire_payload)
-        )
-
-        new_galaxy_empire_requests = set(galaxy_politics["empire_join_requests"])
-        new_galaxy_empire_requests.add(target_empire)
-        galaxy_payload = {
-            "empire_join_requests": list(new_galaxy_empire_requests)
-        }
-
-        galaxy_politics_info = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(galaxy_payload)
-        )
+        _change_list(f'/empire/{target_empire}/politics', "empire_join_requests", add=kd_galaxy)
+        _change_list(f'/galaxy/{kd_galaxy}/politics', "empire_join_requests", add=target_empire)
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Join request sent", "status": "success"}), 200
@@ -245,30 +266,8 @@ def cancel_join_empire(target_empire):
     try:
         target_empire_politics = uag._get_empire_politics(target_empire)
 
-        new_empire_requests = set(target_empire_politics["empire_join_requests"])
-        new_empire_requests.remove(kd_galaxy)
-
-        target_empire_payload = {
-            "empire_join_requests": list(new_empire_requests)
-        }
-
-        join_empire_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(target_empire_payload)
-        )
-
-        new_galaxy_empire_requests = set(galaxy_politics["empire_join_requests"])
-        new_galaxy_empire_requests.remove(target_empire)
-        galaxy_payload = {
-            "empire_join_requests": list(new_galaxy_empire_requests)
-        }
-
-        galaxy_politics_info = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{kd_galaxy}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(galaxy_payload)
-        )
+        _change_list(f'/empire/{target_empire}/politics', "empire_join_requests", remove=kd_galaxy)
+        _change_list(f'/galaxy/{kd_galaxy}/politics', "empire_join_requests", remove=target_empire)
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Join request cancelled", "status": "success"}), 200
@@ -304,31 +303,9 @@ def accept_empire_invite(target_empire):
             return flask.jsonify({"message": message}), 400
         
         
-        empires_info["empires"][target_empire]["galaxies"].append(kd_galaxy)
-        empires_payload = {
-            "empires": empires_info["empires"]
-        }
-
-        empires_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empires_payload)
-        )
-
+        _change_empire_galaxies(target_empire, add=kd_galaxy)
         target_empire_politics = uag._get_empire_politics(target_empire)
-        new_empire_requests = set(target_empire_politics["empire_invitations"])
-        new_empire_requests.remove(kd_galaxy)
-
-        target_empire_payload = {
-            "empire_invitations": list(new_empire_requests)
-        }
-
-        join_empire_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{target_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(target_empire_payload)
-        )
-
+        _change_list(f'/empire/{target_empire}/politics', "empire_invitations", remove=kd_galaxy)
         galaxy_payload = {
             "empire_invitations": [],
             "empire_join_requests": []
@@ -339,6 +316,10 @@ def accept_empire_invite(target_empire):
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(galaxy_payload)
         )
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Joined Empire", "status": "success"}), 200
@@ -381,30 +362,8 @@ def invite_galaxy(target_galaxy):
             return flask.jsonify({"message": message}), 400
         
 
-        new_empire_requests = set(empire_politics["empire_invitations"])
-        new_empire_requests.add(target_galaxy)
-
-        kd_empire_payload = {
-            "empire_invitations": list(new_empire_requests)
-        }
-
-        join_empire_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_empire_payload)
-        )
-
-        new_galaxy_empire_invitations = set(galaxy_politics["empire_invitations"])
-        new_galaxy_empire_invitations.add(kd_empire)
-        galaxy_payload = {
-            "empire_invitations": list(new_galaxy_empire_invitations)
-        }
-
-        galaxy_politics_info = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(galaxy_payload)
-        )
+        _change_list(f'/empire/{kd_empire}/politics', "empire_invitations", add=target_galaxy)
+        _change_list(f'/galaxy/{target_galaxy}/politics', "empire_invitations", add=kd_empire)
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Invitation sent", "status": "success"}), 200
@@ -437,30 +396,8 @@ def cancel_invite_galaxy(target_galaxy):
             return flask.jsonify({"message": "You are not the leader of the Empire's ruling galaxy"}), 400
         
 
-        new_empire_requests = set(empire_politics["empire_invitations"])
-        new_empire_requests.remove(target_galaxy)
-
-        kd_empire_payload = {
-            "empire_invitations": list(new_empire_requests)
-        }
-
-        join_empire_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_empire_payload)
-        )
-
-        new_galaxy_empire_invitations = set(galaxy_politics["empire_invitations"])
-        new_galaxy_empire_invitations.remove(kd_empire)
-        galaxy_payload = {
-            "empire_invitations": list(new_galaxy_empire_invitations)
-        }
-
-        galaxy_politics_info = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{target_galaxy}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(galaxy_payload)
-        )
+        _change_list(f'/empire/{kd_empire}/politics', "empire_invitations", remove=target_galaxy)
+        _change_list(f'/galaxy/{target_galaxy}/politics', "empire_invitations", remove=kd_empire)
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Invitation revoked", "status": "success"}), 200
@@ -503,30 +440,8 @@ def accept_galaxy_request(target_galaxy):
             return flask.jsonify({"message": message}), 400
         
 
-        empires_info[kd_empire]["galaxies"].append(target_galaxy)
-        empires_payload = {
-            "empires": empires_info
-        }
-
-        empires_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empires_payload)
-        )
-
-        new_empire_requests = set(empire_politics["empire_join_requests"])
-        new_empire_requests.remove(target_galaxy)
-
-        kd_empire_payload = {
-            "empire_join_requests": list(new_empire_requests)
-        }
-
-        join_empire_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empire/{kd_empire}/politics',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_empire_payload)
-        )
-
+        _change_empire_galaxies(kd_empire, add=target_galaxy)
+        _change_list(f'/empire/{kd_empire}/politics', "empire_join_requests", remove=target_galaxy)
         galaxy_payload = {
             "empire_invitations": [],
             "empire_join_requests": []
@@ -537,6 +452,10 @@ def accept_galaxy_request(target_galaxy):
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(galaxy_payload)
         )
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Galaxy added to Empire", "status": "success"}), 200
@@ -572,24 +491,11 @@ def leave_empire():
         if not valid_leave:
             return flask.jsonify({"message": message}), 400
         
-        empires_info[kd_empire]["galaxies"] = [
-            galaxy_id
-            for galaxy_id in empires_info[kd_empire]["galaxies"]
-            if galaxy_id != kd_galaxy_id
-        ]
-        empires_payload = {
-            "empires": empires_info
-        }
+        remaining_galaxies = _change_empire_galaxies(kd_empire, remove=kd_galaxy_id)
 
-        empires_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empires_payload)
-        )
-
-        if len(empires_info[kd_empire]["galaxies"]) > 0 and empire_politics["leader"] == kd_galaxy_id:
+        if len(remaining_galaxies) > 0 and empire_politics["leader"] == kd_galaxy_id:
             kd_empire_payload = {
-                "leader": random.choice(empires_info[kd_empire]["galaxies"])
+                "leader": random.choice(remaining_galaxies)
             }
 
             empire_response = REQUESTS_SESSION.patch(
@@ -636,44 +542,43 @@ def denounce(target_empire):
     try:
         empire_politics = uag._get_empire_politics(kd_empire)
 
-        valid_declare, message = _validate_denounce(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire)
-        if not valid_declare:
-            return flask.jsonify({"message": message}), 400
-        
-        empires_info["empires"][kd_empire]["denounced"] = target_empire
-
         time_now = datetime.datetime.now(datetime.timezone.utc)
-        time_denounce_expires = time_now + datetime.timedelta(
-            seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["DENOUNCE_DURATION_MULTIPLIER"]
-        )
-        empires_info["empires"][kd_empire]["denounced_expires"] = time_denounce_expires.isoformat()
 
-        aggression_increase = empires_info["empires"][kd_empire]["aggression_max"] * uas.GAME_CONFIG["DENOUNCE_AGGRO_METER_INCREASE"]
-        try:
-            empires_info["empires"][kd_empire]["aggression"][target_empire] += aggression_increase
-        except KeyError:
-            empires_info["empires"][kd_empire]["aggression"][target_empire] = aggression_increase
+        def denounce_empire(empires_document):
+            # Checked and changed on the empires document as it is right now: two leaders pressing the button together
+            # can not both denounce.
+            valid_declare, message = _validate_denounce(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_document, target_empire, kd_empire)
+            if not valid_declare:
+                raise occ.Rejected(message)
+            empires = empires_document["empires"]
+            empires[kd_empire]["denounced"] = target_empire
+            time_denounce_expires = time_now + datetime.timedelta(
+                seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["DENOUNCE_DURATION_MULTIPLIER"]
+            )
+            empires[kd_empire]["denounced_expires"] = time_denounce_expires.isoformat()
+
+            aggression_increase = empires[kd_empire]["aggression_max"] * uas.GAME_CONFIG["DENOUNCE_AGGRO_METER_INCREASE"]
+            aggression = empires[kd_empire].setdefault("aggression", {})
+            aggression[target_empire] = aggression.get(target_empire, 0) + aggression_increase
+            return {"empires": empires}, f"{empires[kd_empire]['name']} has denounced {empires[target_empire]['name']}"
+
+        news = occ.update('/empires', denounce_empire)
 
         news_payload = {
             "news": {
                 "time": time_now.isoformat(),
-                "news": f"{empires_info['empires'][kd_empire]['name']} has denounced {empires_info['empires'][target_empire]['name']}",
+                "news": news,
             }
         }
-        universe_news_update_response = REQUESTS_SESSION.patch(
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(news_payload)
         )
-
-        empires_payload = {
-            "empires": empires_info["empires"],
-        }
-        update_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empires_payload)
-        )
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Denounced!", "status": "success"}), 200
@@ -716,40 +621,40 @@ def declare_war(target_empire):
     try:
         empire_politics = uag._get_empire_politics(kd_empire)
 
-        valid_declare, message = _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire)
-        if not valid_declare:
-            return flask.jsonify({"message": message}), 400
-        
-        empires_info["empires"][kd_empire]["war"].append(target_empire)
-        empires_info["empires"][target_empire]["war"].append(kd_empire)
-
         time_now = datetime.datetime.now(datetime.timezone.utc)
-        time_surprise_war_expires = time_now + datetime.timedelta(
-            seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["SURPRISE_WAR_PENALTY_MULTIPLIER"]
-        )
-        empires_info["empires"][kd_empire]["surprise_war_penalty"] = True
-        empires_info["empires"][kd_empire]["surprise_war_penalty_expires"] = time_surprise_war_expires.isoformat()
+
+        def declare(empires_document):
+            valid_declare, message = _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_document, target_empire, kd_empire)
+            if not valid_declare:
+                raise occ.Rejected(message)
+            empires = empires_document["empires"]
+            empires[kd_empire]["war"].append(target_empire)
+            empires[target_empire]["war"].append(kd_empire)
+
+            time_surprise_war_expires = time_now + datetime.timedelta(
+                seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["SURPRISE_WAR_PENALTY_MULTIPLIER"]
+            )
+            empires[kd_empire]["surprise_war_penalty"] = True
+            empires[kd_empire]["surprise_war_penalty_expires"] = time_surprise_war_expires.isoformat()
+            return {"empires": empires}, f"{empires[kd_empire]['name']} declared a surprise war on {empires[target_empire]['name']}"
+
+        news = occ.update('/empires', declare)
 
         news_payload = {
             "news": {
                 "time": time_now.isoformat(),
-                "news": f"{empires_info['empires'][kd_empire]['name']} declared a surprise war on {empires_info['empires'][target_empire]['name']}",
+                "news": news,
             }
         }
-        universe_news_update_response = REQUESTS_SESSION.patch(
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(news_payload)
         )
-
-        empires_payload = {
-            "empires": empires_info["empires"],
-        }
-        update_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empires_payload)
-        )
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Declared war!", "status": "success"}), 200

@@ -517,32 +517,25 @@ def unshare_kd(share_to):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
-        kd_revealed = uag._get_revealed(kd_id)
-        share_to_revealed = uag._get_revealed(share_to)
-
         galaxies_inverted, _ = uag._get_galaxies_inverted()
         if galaxies_inverted[kd_id] != galaxies_inverted[share_to]:
             return flask.jsonify("You can only share your kingdom to galaxymates"), 400
 
-        kd_payload = {
-            "revealed_to_galaxymates": [revealed_to_id for revealed_to_id in kd_revealed["revealed_to_galaxymates"] if revealed_to_id != share_to]
-        }
-        share_to_payload = {
-            "revealed_galaxymates": [revealed_id for revealed_id in share_to_revealed["revealed_galaxymates"] if revealed_id != kd_id]
-        }
-        kd_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
-        share_to_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(share_to_payload),
-        )
+        # Each list loses one entry, taken from that document's latest version, so an unshare can not undo a share
+        # that landed at the same moment on the other entries.
+        def stop_sharing(revealed):
+            return {"revealed_to_galaxymates": [i for i in revealed["revealed_to_galaxymates"] if i != share_to]}, None
+
+        def stop_receiving(revealed):
+            return {"revealed_galaxymates": [i for i in revealed["revealed_galaxymates"] if i != kd_id]}, None
+
+        occ.update(f'/kingdom/{kd_id}/revealed', stop_sharing)
+        occ.update(f'/kingdom/{share_to}/revealed', stop_receiving)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         release_locks_by_id(request_id)
-    return (flask.jsonify(kd_response.text)), 200
+    return (flask.jsonify("Updated"), 200)
 
 def _add_notifs(kd_id, categories):
     app = flask.current_app
