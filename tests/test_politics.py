@@ -154,3 +154,64 @@ def test_racing_war_declarations_declare_war_once(app, client, jwt1, repeat):
     assert empires["e1"]["war"] == ["e2"] and empires["e2"]["war"] == ["e1"]
     assert empires["e1"]["surprise_war_penalty"] is True
     assert len(_get("/universenews")["news"]) == 1
+
+
+def _at_war(**e1_politics):
+    """Empire e1 (galaxy 1:1, led by kingdom 1) at war with e2 (galaxy 1:2, led by kingdom 2)."""
+    _set_up_kingdom(money=0)
+    _set_up_kingdom(money=0, kd_id="2")
+    _create_item("galaxies", {"galaxies": {"1:1": [KD_ID], "1:2": ["2"]}})
+    _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID))
+    _create_item("galaxy_votes_1:2", _galaxy_politics(leader="2"))
+    empire = {"war": [], "peace": {}, "denounced": "", "aggression": {}, "aggression_max": 100}
+    _create_item("empires", {"empires": {"e1": {**empire, "name": "One", "galaxies": ["1:1"], "war": ["e2"],
+                                                 "aggression": {"e2": 50}},
+                                          "e2": {**empire, "name": "Two", "galaxies": ["1:2"], "war": ["e1"]}}})
+    surrender_lists = {"surrender_offers_sent": [], "surrender_offers_received": [],
+                       "surrender_requests_sent": [], "surrender_requests_received": []}
+    _create_item("empire_politics_e1", _empire_politics("1:1", **{**surrender_lists, **e1_politics}))
+    _create_item("empire_politics_e2", _empire_politics("1:2", **surrender_lists))
+
+
+def test_a_surrender_request_is_recorded_on_both_sides_and_can_be_cancelled(app, client, jwt1):
+    _at_war()
+    body = {"type": "stars", "value": 0.05}
+
+    assert client.post("/api/empire/e2/surrenderrequest", json=body, headers=_auth(jwt1)).status_code == 200
+    assert _get("/empire/e2/politics")["surrender_requests_received"] == [{**body, "empire": "e1"}]
+    assert _get("/empire/e1/politics")["surrender_requests_sent"] == [{**body, "empire": "e2"}]
+
+    assert client.post("/api/empire/e2/cancelsurrenderrequest", json=body, headers=_auth(jwt1)).status_code == 200
+    assert _get("/empire/e2/politics")["surrender_requests_received"] == []
+    assert _get("/empire/e1/politics")["surrender_requests_sent"] == []
+
+
+def test_cancelling_one_request_leaves_a_different_one_between_the_same_empires(app, client, jwt1):
+    _at_war()
+    first, second = {"type": "stars", "value": 0.05}, {"type": "stars", "value": 0.1}
+    # a request replaces the earlier one between the same two empires, so make the second from the other side
+    client.post("/api/empire/e2/surrenderrequest", json=first, headers=_auth(jwt1))
+
+    client.post("/api/empire/e2/cancelsurrenderrequest", json=second, headers=_auth(jwt1))
+
+    assert _get("/empire/e2/politics")["surrender_requests_received"] == [{**first, "empire": "e1"}]
+
+
+@pytest.mark.parametrize("repeat", range(3))
+def test_racing_acceptances_of_one_surrender_offer_transfer_the_stars_once(app, client, jwt1, jwt2, repeat):
+    _at_war(surrender_offers_received=[{"empire": "e2", "type": "stars", "value": 0.1}])
+    stars0 = {kd: _get(f"/kingdom/{kd}")["stars"] for kd in (KD_ID, "2")}
+    body = {"type": "stars", "value": 0.1}
+
+    responses = _run_together(app, 6, lambda c, i: c.post(
+        "/api/empire/e2/acceptsurrenderoffer", json=body, headers=_auth(jwt1)))
+
+    assert sorted(r.status_code for r in responses) == [200] + [400] * 5, [r.get_json() for r in responses]
+    lost = int(stars0["2"] * 0.1)
+    assert _get("/kingdom/2")["stars"] == stars0["2"] - lost
+    assert _get(f"/kingdom/{KD_ID}")["stars"] == stars0[KD_ID] + lost
+    empires = _get("/empires")["empires"]
+    assert empires["e1"]["war"] == [] and empires["e2"]["war"] == []
+    assert "e2" in empires["e1"]["peace"] and "e1" in empires["e2"]["peace"]
+    assert empires["e1"]["aggression"]["e2"] == 0
+    assert _get("/empire/e1/politics")["surrender_offers_received"] == []
