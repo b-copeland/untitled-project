@@ -63,7 +63,7 @@ Set these under the web app's Environment variables in the Azure portal. They ar
 | `AZURE_FUNCTIONS_HOST_KEY` | Function host key, sent as `x-functions-key`. |
 | `SQLALCHEMY_DATABASE_URI` | SQLite location for users and locks. |
 | `REFRESH_SECRET` | Shared secret for `/api/refreshdata`. |
-| `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER` | Outgoing email. |
+| `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER`, `FRONTEND_URL` | Outgoing email and the base of the links in it. Without a key, mail is only logged. See [email.md](email.md). |
 
 ### Things the repo does not record
 
@@ -139,8 +139,12 @@ the Actions history, and a failed run can be re-run with "Re-run jobs".
 
 - No automated infrastructure, no staging environment, and no tests for the Flask or function app code in CI (only the
   frontend tests run).
+<<<<<<< HEAD
 - Python 3.10 reached end-of-life in October 2026, and the function app's extension bundle is deprecated.
 - The web app is on the Free plan with Always On and WebSockets off, and all Cosmos containers share 1000 RU/s (see
   "What Azure actually runs").
+=======
+- Python 3.10 reached end-of-life in October 2026.
+>>>>>>> main
 - Everything that scales out (SQLite users and locks, in-memory websocket registry, in-memory rate limiter) assumes a
   single App Service instance. See [concurrency.md](concurrency.md) for what is done and what remains.

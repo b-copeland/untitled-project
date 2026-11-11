@@ -39,7 +39,16 @@ jobs:
       - name: Build frontend
         run: CI=false GENERATE_SOURCEMAP=false npm run build
         
-      # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
+      # Only the tests that need no running function app or Cosmos DB. The rest (tests/test_attack.py and so on)
+      # race real requests through the stack and need the local emulator; see docs/development.md.
+      - name: Test backend (no external services)
+        run: python -m pytest tests/test_occ.py tests/test_refresh.py -q
+
+      - name: Test function app
+        run: |
+          python -m venv /tmp/funcapp-venv
+          /tmp/funcapp-venv/bin/pip install -q -r funcapp/requirements.txt pytest
+          /tmp/funcapp-venv/bin/python -m pytest funcapp/tests -q
       
       - name: tar.gz for artifacts
         run: |
@@ -70,7 +79,7 @@ jobs:
         run: tar -xzvf build_artifacts.tar.gz
           
       - name: 'Deploy to Azure Web App'
-        uses: azure/webapps-deploy@v2
+        uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'untitled-space-game-12k34j134'

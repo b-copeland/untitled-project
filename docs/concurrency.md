@@ -137,9 +137,9 @@ Limits to keep in mind:
 | Function app: 7 multi-document admin handlers (`create_*`, `reset_state`, `delete_all`, `init`) | Not changed. They write several documents and can not be re-run from the top. They are admin and setup operations, not hot paths. |
 | `occ.py` helper, with unit tests that need no stack | Done |
 | Routes migrated to `occ.update`: every own-kingdom route in `build.py` (structures, recruits, mobis and disband, settle, missiles, engineers, projects, targets, raze), shields, `/api/spending`, `/api/createkingdomchoices`, `/api/votes`, `/api/universepolitics/policies` | Done. **They still take the legacy lock as well** (see below). |
-| Attacks (`POST /api/attack/<kd>`) | Committed in three versioned steps (depart, resolve against the target as it is, credit), see "Attacks". News, history, reveals, notifications and aggression are still written the old way (eventual tier, not yet exactly-once). |
+| Attacks (`POST /api/attack/<kd>`, primitives), spying, robbing primitives, missiles, schedule add/cancel | Done. Attacks are committed in three versioned steps (depart, resolve against the target as it is, credit). Spy and missiles charge the attacker up front under a version check and apply damage to the target's latest document. Reveal timers are min-merged and aggression is an increment on the latest `/empires`. News, history, reveal documents and notifications are still written the old way (eventual tier, not yet exactly-once), and the lock lists in these routes are unchanged. |
 | Six `acquire_lock`-in-`finally` bugs | Fixed |
-| The other lock call sites (politics, spying, missiles, robbing, messages, shared intel, schedules, pinned, refresh) | Not migrated. Recipe above; do them by module. |
+| The other lock call sites (politics other than votes, messages, shared intel, pinned, `reveal_random_galaxy`, kingdom reset, the refresh) | Not migrated. Recipe above; do them by module. |
 | The refresh (`refresh.py`) | Not migrated. It needs the saga below, because it consumes queue documents before writing the kingdom. |
 | Multi-document actions other than the attack (spy, trade, politics) | Design below, not built. |
 
@@ -235,9 +235,10 @@ depends on it. Taking the sooner of the stored and the new timestamp is idempote
 after the strict steps, on its own, with a version-checked write per member and a sweep for any that fail. The aggression
 counter in `/empires` (`_add_aggression`) should become an increment applied to the freshest document for the same reason.
 
-**What is built so far:** steps 1 to 3 above for the attack itself, using the target's version as the sequencer. Not
-built: the `attack_id` outbox and sweep, so a crash between the steps leaves the attacker's units out with no result
-applied. The reveal, aggression and news writes are unchanged.
+**What is built so far:** steps 1 to 3 above for the attack itself, using the target's version as the sequencer, plus the
+min-merged reveal timers and the aggression increment. Not built: the `attack_id` outbox and sweep, so a crash between
+the steps leaves the attacker's units out with no result applied (the attacker side is compensated if the target step
+fails, but not if the process dies). News and history writes are unchanged.
 
 Open question: the order is the order attacks *reach the target document*, which is the only order that exists across
 several servers. If the order players *clicked* must win over the order requests arrived, a per-target queue would be

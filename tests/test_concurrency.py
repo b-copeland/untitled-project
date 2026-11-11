@@ -16,7 +16,7 @@ import pytest
 
 import untitledapp.misc as uam
 import untitledapp.shared as uas
-from api.untitledapp import REQUESTS_SESSION, User
+from untitledapp import REQUESTS_SESSION, User
 
 KD_ID = "1"  # user1 in the testing config owns kingdom 1
 FUNCTION_URL = "http://localhost:7071/api"
@@ -43,7 +43,8 @@ def _get(path):
 def _set_up_kingdom(money, kd_id=KD_ID, **overrides):
     """A freshly created kingdom 1, in a game that has started, with the given money and any other overrides."""
     game_start = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)).isoformat()
-    _create_item("state", {"state": {"game_start": game_start, "active_policies": []}})
+    game_end = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=30)).isoformat()
+    _create_item("state", {"state": {"game_start": game_start, "game_end": game_end, "active_policies": []}})
     _create_item("galaxies", {"galaxies": {"1": [KD_ID]}})
     _create_item("galaxy_votes_1", {"active_policies": [], "votes": {}})
     for table, initial_state in uas.INITIAL_KINGDOM_STATE.items():

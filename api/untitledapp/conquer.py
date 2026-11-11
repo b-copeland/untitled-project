@@ -1,3 +1,4 @@
+import copy
 import datetime
 import json
 import math
@@ -106,23 +107,36 @@ def _add_aggression(
     aggression_increase,
     empires_info=None,
 ):
-    app = flask.current_app
-    if not empires_info:
-        empires_info = uag._get_empire_info()
-    
-    try:
-        empires_info["empires"][source_empire]["aggression"][target_empire] += aggression_increase
-    except KeyError:
-        empires_info["empires"][source_empire]["aggression"][target_empire] = aggression_increase
+    """
+    Raise one empire's aggression towards another by an amount. Applied to the latest empires document (the
+    ``empires_info`` argument is only kept so callers need not change), so two attacks landing together both count,
+    and nothing else written to the empires meanwhile is lost.
+    """
+    def add(empires_doc):
+        empires = empires_doc["empires"]
+        if source_empire not in empires:
+            return None, None
+        aggression = empires[source_empire].setdefault("aggression", {})
+        aggression[target_empire] = aggression.get(target_empire, 0) + aggression_increase
+        return {"empires": empires}, None
 
-    empires_payload = {
-        "empires": empires_info["empires"],
-    }
-    empires_patch_response = REQUESTS_SESSION.patch(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps(empires_payload),
-    )    
+    occ.update('/empires', add)
+
+
+def _lower_reveal_timer(kd_id, revealed_until):
+    """
+    Make sure a kingdom's reveal timer fires no later than ``revealed_until``. Taking the sooner of the stored and the
+    new time is idempotent and does not depend on the order of overlapping calls, which is why this does not need to
+    be part of the strict steps of an attack.
+    """
+    def lower(kd):
+        next_resolve = kd["next_resolve"]
+        if revealed_until >= next_resolve["revealed"]:
+            return None, None
+        next_resolve["revealed"] = revealed_until
+        return {"next_resolve": next_resolve}, None
+
+    occ.update(f'/kingdom/{kd_id}', lower)
 
 def _validate_attack_request(
     attacker_raw_values,
@@ -1120,18 +1134,7 @@ def _attack(req, kd_id, target_kd):
                     headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                     data=json.dumps(payload),
                 )
-                kd_revealed_to_info = uag._get_kd_info(kd_revealed_to)
-                if revealed_until < kd_revealed_to_info["next_resolve"]["revealed"]:
-                    kd_revealed_to_next_resolve = kd_revealed_to_info["next_resolve"]
-                    kd_revealed_to_next_resolve["revealed"] = revealed_until
-                    kd_revealed_to_patch_payload = {
-                        "next_resolve": kd_revealed_to_next_resolve
-                    }
-                    REQUESTS_SESSION.patch(
-                        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}',
-                        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                        data=json.dumps(kd_revealed_to_patch_payload),
-                    )
+                _lower_reveal_timer(kd_revealed_to, revealed_until)
                 if kd_revealed_to != target_kd:
                     try:
                         ws = SOCK_HANDLERS[kd_revealed_to]
@@ -1293,14 +1296,10 @@ def _attack_primitives(req, kd_id):
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/attackhistory'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
-        attacker_raw_values = req["attackerValues"]
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
+    attacker_raw_values = req["attackerValues"]
+
+    def decide(kd_info_parse):
+        # Validated against the attacker as it is right now: a duplicate request finds the units already gone.
         current_bonuses = {
             project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
             for project, project_dict in uas.PROJECTS.items()
@@ -1318,7 +1317,7 @@ def _attack_primitives(req, kd_id):
             kd_info_parse,
         )
         if not valid_attack_request:
-            return kd_info_parse, {"message": attack_request_message}, 400
+            raise occ.Rejected(attack_request_message)
 
         attacker_units = {
             key: int(value)
@@ -1382,7 +1381,7 @@ def _attack_primitives(req, kd_id):
             )
         )
         if stars == 0:
-            return kd_info_parse, {"message": "Attacks against primitives should conquer at least 1 star. Send more units"}, 400
+            raise occ.Rejected("Attacks against primitives should conquer at least 1 star. Send more units")
         money = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_MONEY_PER_STAR"]
         fuel = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_FUEL_PER_STAR"]
         pop = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_POPULATION_PER_STAR"]
@@ -1422,11 +1421,10 @@ def _attack_primitives(req, kd_id):
             project_max_func = uas.PROJECTS_FUNCS[key_project]
             kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
 
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_info_parse, default=str),
-        )
+        return kd_info_parse, (kd_info_parse, time_now, attack_status, attacker_message)
+
+    try:
+        kd_info_parse, time_now, attack_status, attacker_message = occ.update(f'/kingdom/{kd_id}', decide)
         kd_attack_history = {
             "time": time_now.isoformat(),
             "to": "",
@@ -1766,12 +1764,7 @@ def _spy(req, kd_id, target_kd):
         shielded = req["shielded"]
         operation = req["operation"]
 
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
+        kd_info_parse = occ.read(f'/kingdom/{kd_id}')
 
         valid_request, message = _validate_spy_request(
             drones,
@@ -1785,6 +1778,19 @@ def _spy(req, kd_id, target_kd):
         max_target_kd_info = uag._get_kd_info(target_kd)
         if max_target_kd_info["status"].lower() == "dead":
             return kd_info_parse, {"message": "You can't spy this kingdom because they are dead!"}, 400, False
+
+        def charge(kd):
+            # What the operation costs is taken up front, against the kingdom as it is right now, so a duplicate
+            # request can not spend the same drones or spy attempt twice. The drones that survive come back below.
+            valid, charge_message = _validate_spy_request(drones, kd, shielded)
+            if not valid:
+                raise occ.Rejected(charge_message)
+            charged = {"drones": kd["drones"] - drones, "spy_attempts": kd["spy_attempts"] - 1}
+            if shielded:
+                charged["fuel"] = kd["fuel"] - drones
+            return charged, None
+
+        occ.update(f'/kingdom/{kd_id}', charge)
         
         defender_drones = max_target_kd_info["drones"]
         defender_stars = max_target_kd_info["stars"]
@@ -1918,11 +1924,21 @@ def _spy(req, kd_id, target_kd):
             next_resolve = kd_info_parse["next_resolve"]
             next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until.isoformat())
             kd_patch_payload["next_resolve"] = next_resolve
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_patch_payload, default=str),
-        )
+        def settle(kd):
+            # Applied to the attacker's latest document: the drones that came home, a refunded attempt for valid
+            # Lumina intel, kidnapped civilians, and the earlier of the reveal timers.
+            settled = {"drones": kd["drones"] + (drones - losses)}
+            if is_valid_lumina_intel:
+                settled["spy_attempts"] = kd["spy_attempts"] + 1
+            if kidnap_return:
+                settled["population"] = kd["population"] + kidnap_return
+            if revealed_until:
+                settled_next_resolve = kd["next_resolve"]
+                settled_next_resolve["revealed"] = min(settled_next_resolve["revealed"], revealed_until.isoformat())
+                settled["next_resolve"] = settled_next_resolve
+            return settled, None
+
+        occ.update(f'/kingdom/{kd_id}', settle)
 
         target_patch_payload = {}
         if siphon_damage:
@@ -1938,28 +1954,34 @@ def _spy(req, kd_id, target_kd):
                 headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(siphons_out_payload, default=str),
             )
-        if homes_damage:
-            target_patch_payload["structures"] = {
-                **max_target_kd_info["structures"],
-                "homes": max_target_kd_info["structures"]["homes"] - homes_damage
-            }
-        if fuel_plant_damage:
-            target_patch_payload["structures"] = {
-                **max_target_kd_info["structures"],
-                "fuel_plants": max_target_kd_info["structures"]["fuel_plants"] - fuel_plant_damage
-            }
-        if kidnap_damage:
-            target_patch_payload["population"] = max_target_kd_info["population"] - kidnap_damage
-        if fuel_damage:
-            target_patch_payload["fuel"] = max_target_kd_info["fuel"] - fuel_damage
+        # The damage is taken off the target's latest document, not the copy read at the start, so it can not wipe
+        # out what the target did meanwhile.
+        if homes_damage or fuel_plant_damage or kidnap_damage or fuel_damage:
+            def damage(target):
+                changes = {}
+                if homes_damage:
+                    changes["structures"] = {**target["structures"], "homes": max(target["structures"]["homes"] - homes_damage, 0)}
+                if fuel_plant_damage:
+                    changes["structures"] = {**target["structures"], "fuel_plants": max(target["structures"]["fuel_plants"] - fuel_plant_damage, 0)}
+                if kidnap_damage:
+                    changes["population"] = target["population"] - kidnap_damage
+                if fuel_damage:
+                    changes["fuel"] = target["fuel"] - fuel_damage
+                return changes, None
 
+            occ.update(f'/kingdom/{target_kd}', damage)
 
         if revealed:
             revealed_until = (time_now + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])).isoformat()
-            if revealed_until < max_target_kd_info["next_resolve"]["revealed"]:
-                next_resolve = max_target_kd_info["next_resolve"]
-                next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until)
-                target_patch_payload["next_resolve"] = next_resolve
+            def reveal_timer(target):
+                # The sooner of the stored and the new time, so the order of overlapping operations does not matter.
+                target_next_resolve = target["next_resolve"]
+                if revealed_until >= target_next_resolve["revealed"]:
+                    return None, None
+                target_next_resolve["revealed"] = revealed_until
+                return {"next_resolve": target_next_resolve}, None
+
+            occ.update(f'/kingdom/{target_kd}', reveal_timer)
 
             revealed_payload = {
                 "new_revealed": {
@@ -2054,6 +2076,10 @@ def _spy(req, kd_id, target_kd):
             "status": status,
             "message": message,
         }
+    except occ.Rejected as rejection:
+        return None, {"message": rejection.message}, rejection.status, False
+    except occ.Busy:
+        return None, {"message": "Server is busy"}, 400, False
     finally:
         uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200, success
@@ -2082,16 +2108,11 @@ def _rob_primitives(req, kd_id):
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/spyhistory'], request_id=request_id):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        drones = int(req["drones"])
-        shielded = req["shielded"]
-        
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
+    drones = int(req["drones"])
+    shielded = req["shielded"]
+
+    def decide(kd_info_parse):
+        # Checked against the kingdom as it is right now: a duplicate request finds the attempt and drones gone.
         state = uag._get_state()
         
         start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
@@ -2105,7 +2126,7 @@ def _rob_primitives(req, kd_id):
             shielded,
         )
         if not valid_request:
-            return kd_info_parse, {"message": message}, 400
+            raise occ.Rejected(message)
 
         success_losses, _ = _calculate_spy_losses(
             drones,
@@ -2137,11 +2158,10 @@ def _rob_primitives(req, kd_id):
         }
         if shielded:
             kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_patch_payload, default=str),
-        )
+        return kd_patch_payload, (kd_info_parse, kd_patch_payload, message, status)
+
+    try:
+        kd_info_parse, kd_patch_payload, message, status = occ.update(f'/kingdom/{kd_id}', decide)
 
         time_now = datetime.datetime.now(datetime.timezone.utc)
         history_payload = {
@@ -2164,6 +2184,10 @@ def _rob_primitives(req, kd_id):
             "status": status,
             "message": message,
         }
+    except occ.Rejected as rejection:
+        return None, {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return None, {"message": "Server is busy"}, 400
     finally:
         uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200
@@ -2469,21 +2493,19 @@ def add_schedule():
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        kd_info = uag._get_kd_info(kd_id)
+    schedule_type = req.get("type")
+    schedule_time = datetime.datetime.fromisoformat(req["time"].replace('Z', '+00:00')).isoformat()
+    schedule_options = req.get("options", {})
+    schedule_id = str(uuid.uuid4())
 
-        schedule_type = req.get("type")
-        schedule_time = datetime.datetime.fromisoformat(req["time"].replace('Z', '+00:00')).isoformat()
-        schedule_options = req.get("options", {})
-        schedule_id = uuid.uuid4()
-        
+    def decide(kd_info):
         state = uag._get_state()
 
         if schedule_time < state["state"]["game_start"] or schedule_time > state["state"]["game_end"]:
-            return flask.jsonify({"message": "Scheduled time occurs outside of game duration"}), 400
-        
+            raise occ.Rejected("Scheduled time occurs outside of game duration")
+
         if len(kd_info["schedule"]) >= 10:
-            return flask.jsonify({"message": "You can not schedule more than 10 actions"}), 400
+            raise occ.Rejected("You can not schedule more than 10 actions")
 
         handler_funcs = {
             "attack": _schedule_attack,
@@ -2495,24 +2517,24 @@ def add_schedule():
         scheduled, new_schedule, message = handler_funcs[schedule_type](
             id=schedule_id,
             time=schedule_time,
-            options=schedule_options,
+            options=copy.deepcopy(schedule_options),  # the handlers rescale the options, so a rerun must start fresh
             kd_info=kd_info,
         )
         if not scheduled:
-            return flask.jsonify({"message": message}), 400
-        
+            raise occ.Rejected(message)
+
         schedule_payload = kd_info["schedule"]
         schedule_payload.append(new_schedule)
         schedule_payload_sorted = sorted(schedule_payload, key=lambda item: item["time"])
 
-        kd_payload = {
-            "schedule": schedule_payload_sorted,
-        }
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload, default=str),
-        )
+        return {"schedule": schedule_payload_sorted}, None
+
+    try:
+        occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
 
@@ -2531,24 +2553,20 @@ def cancel_schedule():
     if not uam.acquire_lock(f'/kingdom/{kd_id}'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
-        kd_info = uag._get_kd_info(kd_id)
+    schedule_id = req.get("id")
 
-        schedule_id = req.get("id")
-
+    def decide(kd_info):
         new_schedule = [
             item
             for item in kd_info["schedule"]
             if item["id"] != schedule_id
         ]
-        kd_payload = {
-            "schedule": new_schedule,
-        }
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload, default=str),
-        )
+        return {"schedule": new_schedule}, None
+
+    try:
+        occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
         uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Cancelled scheduled action", "status": "success"}), 200)
@@ -2670,12 +2688,7 @@ def _launch_missiles(req, kd_id, target_kd):
     try:
         attacker_raw_values = req["attackerValues"]
         
-        kd_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        
-        kd_info_parse = json.loads(kd_info.text)
+        kd_info_parse = occ.read(f'/kingdom/{kd_id}')
 
         attacker_missiles = {
             key: int(value)
@@ -2690,52 +2703,62 @@ def _launch_missiles(req, kd_id, target_kd):
         if not valid_request:
             return kd_info_parse, {"message": message}, 400
         
-        max_target_kd_info = uag._get_kd_info(target_kd)
-        defender_shields = max_target_kd_info["shields"]["missiles"]
+        max_target_kd_info = occ.read(f'/kingdom/{target_kd}')
         if max_target_kd_info["status"].lower() == "dead":
             return kd_info_parse, {"message": "You can't attack this kingdom because they are dead!"}, 400
-        
-        missile_damage = _calculate_missiles_damage(
-            attacker_missiles,
-            defender_shields,
-            fuzi=kd_info_parse["race"] == "Fuzi",
-        )
 
-        message = f"Your missiles destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
-        defender_message = f"Missiles from {kd_info_parse['name']} have destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+        def launch(kd):
+            # The missiles leave under a version check, so a duplicate request finds them gone.
+            valid, launch_message = _validate_missiles_request(attacker_missiles, kd)
+            if not valid:
+                raise occ.Rejected(launch_message)
+            return {"missiles": {k: v - attacker_missiles.get(k, 0) for k, v in kd["missiles"].items()}}, None
 
+        def strike(target):
+            # The damage is worked out against the target as it is when the write lands.
+            if target["status"].lower() == "dead":
+                raise occ.Rejected("You can't attack this kingdom because they are dead!")
+            damage = _calculate_missiles_damage(
+                attacker_missiles,
+                target["shields"]["missiles"],
+                fuzi=kd_info_parse["race"] == "Fuzi",
+            )
+            target_stars = target["stars"] - damage["stars_damage"]
+            target_pop = target["population"] - damage["pop_damage"]
+            changes = {
+                "stars": max(target_stars, 0),
+                "population": target_pop,
+                "fuel": target["fuel"] - damage["fuel_damage"],
+                "projects_max_points": {
+                    key_project: uas.PROJECTS_FUNCS[key_project](max(target_stars, 0))
+                    for key_project in uas.PROJECTS
+                },
+            }
+            if target_stars <= 0 or target_pop <= 0:
+                changes["status"] = "Dead"
+            return changes, (damage, changes)
+
+        def give_back_missiles(kd):
+            return {"missiles": {k: v + attacker_missiles.get(k, 0) for k, v in kd["missiles"].items()}}, None
+
+        occ.update(f'/kingdom/{kd_id}', launch)
+        try:
+            missile_damage, defender_patch_payload = occ.update(f'/kingdom/{target_kd}', strike)
+        except BaseException:
+            occ.update(f'/kingdom/{kd_id}', give_back_missiles)
+            raise
+        if defender_patch_payload.get("status") == "Dead":
+            uam._mark_kingdom_death(target_kd)
         kd_patch_payload = {
             "missiles": {
                 k: v - attacker_missiles.get(k, 0)
                 for k, v in kd_info_parse["missiles"].items()
             }
         }
-        kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_patch_payload, default=str),
-        )
 
-        target_stars = max_target_kd_info["stars"] - missile_damage["stars_damage"]
-        target_pop = max_target_kd_info["population"] - missile_damage["pop_damage"]
-        defender_patch_payload = {
-            "stars": target_stars,
-            "population": target_pop,
-            "fuel": max_target_kd_info["fuel"] - missile_damage["fuel_damage"],
-        }
-        if target_stars <= 0 or target_pop <= 0:
-            defender_patch_payload["status"] = "Dead"
-            uam._mark_kingdom_death(target_kd)
-        defender_patch_payload["stars"] = max(defender_patch_payload["stars"], 0)
-        defender_patch_payload["projects_max_points"] = {}
-        for key_project, project_dict in uas.PROJECTS.items():
-            project_max_func = uas.PROJECTS_FUNCS[key_project]
-            defender_patch_payload["projects_max_points"][key_project] = project_max_func(max_target_kd_info["stars"])
-        defender_kd_patch_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(defender_patch_payload, default=str),
-        )
+        message = f"Your missiles destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+        defender_message = f"Missiles from {kd_info_parse['name']} have destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
+
         time_now = datetime.datetime.now(datetime.timezone.utc)
         target_news_payload = {
             "time": time_now.isoformat(),
@@ -2802,6 +2825,10 @@ def _launch_missiles(req, kd_id, target_kd):
         payload = {
             "message": message,
         }
+    except occ.Rejected as rejection:
+        return None, {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return None, {"message": "Server is busy"}, 400
     finally:
         uam.release_locks_by_id(request_id)
     return new_kd_info, payload, 200

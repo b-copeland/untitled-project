@@ -126,3 +126,117 @@ def test_attacks_and_the_targets_own_actions_at_the_same_time_lose_nothing(app, 
     assert plundered > 0 and target["stars"] < target0["stars"]
     # what the target started with, less what it spent training, less what the attacker took: nothing else
     assert target["money"] == pytest.approx(1_000_000 - trained * 5 * uas.UNITS["attack"]["cost"] - plundered)
+
+
+def _attack_primitives(client, jwt, units=100000):
+    return client.post(
+        "/api/attackprimitives",
+        json={"attackerValues": {"attack": units, "generals": 1}},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+
+
+@pytest.mark.parametrize("repeat", range(3))
+def test_racing_duplicate_attacks_on_primitives_send_the_units_once(app, client, jwt1, repeat):
+    _set_up_two_kingdoms(attacker_attack=100000)
+    stars0 = _get(f"/kingdom/{KD_ID}")["stars"]
+
+    responses = _run_together(app, 8, lambda c, i: _attack_primitives(c, jwt1))
+
+    assert sorted(r.status_code for r in responses) == [200] + [400] * 7, [r.get_json() for r in responses]
+    attacker = _get(f"/kingdom/{KD_ID}")
+    assert len(attacker["generals_out"]) == 1
+    assert attacker["units"]["attack"] == 0
+    assert attacker["stars"] > stars0
+    assert len(_get(f"/kingdom/{KD_ID}/attackhistory")["attack_history"]) == 1
+
+
+def test_an_attack_on_primitives_gains_stars_and_records_history(app, client, jwt1):
+    _set_up_two_kingdoms(attacker_attack=100000)
+    stars0 = _get(f"/kingdom/{KD_ID}")["stars"]
+
+    response = _attack_primitives(client, jwt1)
+
+    assert response.status_code == 200, response.get_json()
+    assert _get(f"/kingdom/{KD_ID}")["stars"] > stars0
+
+
+def _launch(client, jwt, count=5):
+    return client.post(
+        f"/api/launchmissiles/{TARGET_ID}",
+        json={"attackerValues": {"planet_busters": count}},
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+
+
+def _with_missiles(count):
+    _set_up_two_kingdoms()
+    kingdom = _get(f"/kingdom/{KD_ID}")
+    _create_item(f"kingdom_{KD_ID}", {**kingdom, "missiles": {**kingdom["missiles"], "planet_busters": count}})
+
+
+def test_missiles_damage_the_target_and_are_used_up(app, client, jwt1):
+    _with_missiles(5)
+    target0 = _get(f"/kingdom/{TARGET_ID}")
+
+    response = _launch(client, jwt1)
+
+    assert response.status_code == 200, response.get_json()
+    assert _get(f"/kingdom/{KD_ID}")["missiles"]["planet_busters"] == 0
+    assert _get(f"/kingdom/{TARGET_ID}")["stars"] < target0["stars"]
+    assert len(_get(f"/kingdom/{KD_ID}/missilehistory")["missile_history"]) == 1
+
+
+@pytest.mark.parametrize("repeat", range(3))
+def test_racing_duplicate_missile_launches_use_the_missiles_once(app, client, jwt1, repeat):
+    _with_missiles(5)
+    target0 = _get(f"/kingdom/{TARGET_ID}")
+
+    responses = _run_together(app, 8, lambda c, i: _launch(c, jwt1))
+
+    assert sorted(r.status_code for r in responses) == [200] + [400] * 7, [r.get_json() for r in responses]
+    assert _get(f"/kingdom/{KD_ID}")["missiles"]["planet_busters"] == 0
+    stars_lost = target0["stars"] - _get(f"/kingdom/{TARGET_ID}")["stars"]
+    assert stars_lost == 5 * 1  # planet_busters do 1 star of damage each against no shields
+    assert len(_get(f"/kingdom/{KD_ID}/missilehistory")["missile_history"]) == 1
+
+
+def _in_threads(app, count, work):
+    import threading
+
+    gate = threading.Barrier(count)
+
+    def run(i):
+        with app.app_context():
+            gate.wait()
+            work(i)
+
+    threads = [threading.Thread(target=run, args=(i,)) for i in range(count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+
+def test_aggression_added_at_the_same_time_is_all_counted(app, client):
+    import untitledapp.conquer as conquer
+
+    _create_item("empires", {"empires": {"e1": {"aggression": {}}, "e2": {"aggression": {}}}})
+
+    _in_threads(app, 16, lambda i: conquer._add_aggression("e1", "e2", 2))
+
+    assert _get("/empires")["empires"]["e1"]["aggression"]["e2"] == 32
+
+
+def test_overlapping_reveal_timers_end_up_at_the_earliest(app, client):
+    import untitledapp.conquer as conquer
+
+    _set_up_kingdom(money=0)
+    times = [f"2030-01-{day:02d}T00:00:00+00:00" for day in range(1, 17)]
+
+    _in_threads(app, 16, lambda i: conquer._lower_reveal_timer(KD_ID, times[i]))
+
+    assert _get(f"/kingdom/{KD_ID}")["next_resolve"]["revealed"] == times[0]
+    other = f"2031-01-01T00:00:00+00:00"
+    _in_threads(app, 1, lambda i: conquer._lower_reveal_timer(KD_ID, other))
+    assert _get(f"/kingdom/{KD_ID}")["next_resolve"]["revealed"] == times[0]  # a later time never moves it back
