@@ -6,191 +6,81 @@ import {
     useNavigate,
   } from "react-router-dom";
 import Button from 'react-bootstrap/Button';
-import Container from 'react-bootstrap/Container';
 import Nav from 'react-bootstrap/Nav';
-import Navbar from 'react-bootstrap/Navbar';
-import NavDropdown from 'react-bootstrap/NavDropdown';
 import Offcanvas from 'react-bootstrap/Offcanvas';
 import 'bootstrap/dist/css/bootstrap.css';
 import { logout } from "../auth";
+import { sections } from "../routes";
 
-const homePaths = [
-  "/status",
-  "/news",
-  "/galaxy",
-  "/message",
-  "/forums",
-  "/history",
-  "/scores",
-];
-const buildPaths = [
-  "/build",
-  "/settle",
-  "/structures",
-  "/military",
-  "/projects",
-  "/missiles",
-]
-const conquerPaths = [
-  "/conquer",
-  "/attack",
-  "/spy",
-  "/shareintel",
-  "/launchmissiles",
-  "/schedule",
-  "/primitives",
-]
+const bold = {"fontWeight": "bold"};
 
-const politicsPaths = [
-  "/galaxypolitics",
-  "/empirepolitics",
-  "/universepolitics",
-]
-
-const doubleClickRoutes = {
-  "/": 0,
-  "/login": 0,
-  "/status": 0,
-  "/build": 0,
-  "/conquer": 0,
-  "/galaxypolitics": 0,
-  "/help": 0,
-}
-
+/**
+ * The side navigation, built from the page table in routes.js: a bold link for each section (with a count of anything
+ * new in it), and the section's own pages underneath while you are in it. Clicking a section link that is already open
+ * (twice in a row) closes the menu on a phone.
+ */
 function SideNavbar(props) {
-  // const [show, setShow] = useState(props.showNav);
-  const [doubleClicks, setDoubleClicks] = useState(JSON.parse(JSON.stringify(doubleClickRoutes)));
-
-  const handleClose = () => props.setShowNav(false);
-  const handleShow = () => props.setShowNav(true);
-  let location = useLocation();
+  const [lastSectionClicked, setLastSectionClicked] = useState(null);
+  const location = useLocation();
   const navigate = useNavigate();
 
-  const pathname = location.pathname;
+  const closeNav = () => props.setShowNav(false);
 
   const onClickLogout = () => {
     logout();
     navigate('/login');
-  }
+  };
 
-  const handleDoubleClick = (route) => {
-    if (doubleClicks[route] == 1) {
-      props.setShowNav(false);
-      setDoubleClicks(doubleClickRoutes);
+  const onClickSection = (path) => {
+    if (lastSectionClicked === path) {
+      closeNav();
+      setLastSectionClicked(null);
     } else {
-      var newDoubleClicks = JSON.parse(JSON.stringify(doubleClickRoutes));
-      newDoubleClicks[route]++;
-      setDoubleClicks(newDoubleClicks);
+      setLastSectionClicked(path);
     }
-  }
+  };
 
-  const getNotifsCount = (categories) => {
-    var total = 0;
-    for (const category of categories) {
-      total += parseInt(props.notifs[category]);
-    }
-    return total;
-  }
+  // " (3)" when there is something new in these categories, otherwise nothing.
+  const newCount = (categories = []) => {
+    const count = categories.reduce((total, category) => total + parseInt((props.notifs || {})[category] || 0), 0);
+    return count > 0 ? ` (${count})` : "";
+  };
 
-  const getNotifsSuffix = (categories) => {
-    const count = getNotifsCount(categories);
-    if (count > 0) {
-      return ` (${count})`
-    } else {
-      return ""
-    }
-  }
-  
+  const sectionLink = (to, label, onClick) => (
+    <Nav.Link as={Link} to={to} onClick={onClick} style={bold}>{label}</Nav.Link>
+  );
+
   return (
-    <>
-      {/* <Button variant="primary" className="d-lg-none" onClick={handleShow}>
-        Launch
-      </Button> */}
-      <Offcanvas className="nav-canvas" show={props.showNav} onHide={handleClose} responsive="lg" style={{minWidth: "300px"}}>
+    <Offcanvas className="nav-canvas" show={props.showNav} onHide={closeNav} responsive="lg" style={{minWidth: "300px"}}>
       <Offcanvas.Header closeButton />
       <Offcanvas.Body>
-      <div className="navdiv">
-        <Nav className="mainnav">
-          <Nav.Link as={Link} to="/" onClick={() => handleDoubleClick("/")} style={{"fontWeight": "bold"}}>Landing</Nav.Link>
-          {
-            !props.logged
-            ? <>
+        <div className="navdiv">
+          <Nav className="mainnav">
+            {sectionLink("/", "Landing", () => onClickSection("/"))}
+            {!props.logged ? <><br />{sectionLink("/login", "Login", () => onClickSection("/login"))}</> : null}
+            {props.logged ? <>
+              {sections.map((section) => {
+                const open = section.pages.some((page) => page.path === location.pathname);
+                return (
+                  <div key={section.title}>
+                    <br />
+                    {sectionLink(section.path, section.title + newCount(section.notifs), () => onClickSection(section.path))}
+                    {open ? section.pages.filter((page) => !page.hidden).map((page) => (
+                      <Nav.Link key={page.path} as={Link} to={page.path} onClick={closeNav}>
+                        &nbsp;&nbsp;{page.label}{newCount(page.notifs)}
+                      </Nav.Link>
+                    )) : null}
+                  </div>
+                );
+              })}
               <br />
-              <Nav.Link as={Link} to="/login" onClick={() => handleDoubleClick("/login")} style={{"fontWeight": "bold"}}>Login</Nav.Link>
-            </>
-            : null
-          }
-          {
-            props.logged
-            ? <>
-              <br />
-              <Nav.Link as={Link} to="/status" onClick={() => handleDoubleClick("/status")} style={{"fontWeight": "bold"}}>Home{getNotifsSuffix(["news_kingdom", "news_galaxy", "messages"])}</Nav.Link>
-              {
-                homePaths.includes(pathname)
-                ? <>
-                  <Nav.Link as={Link} to="/news" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;News{getNotifsSuffix(["news_kingdom", "news_galaxy"])}</Nav.Link>
-                  <Nav.Link as={Link} to="/galaxy" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Galaxy</Nav.Link>
-                  <Nav.Link as={Link} to="/message" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Message{getNotifsSuffix(["messages"])}</Nav.Link>
-                  {/* <Nav.Link as={Link} to="/forums" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Forums</Nav.Link> */}
-                  <Nav.Link as={Link} to="/history" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;History</Nav.Link>
-                  <Nav.Link as={Link} to="/scores" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Scores</Nav.Link>
-                </>
-                : null
-              }
-              <br />
-              <Nav.Link as={Link} to="/build" onClick={() => handleDoubleClick("/build")} style={{"fontWeight": "bold"}}>Build</Nav.Link>
-              {
-                buildPaths.includes(pathname)
-                ? <>
-                  <Nav.Link as={Link} to="/settle" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Settle</Nav.Link>
-                  <Nav.Link as={Link} to="/structures" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Structures</Nav.Link>
-                  <Nav.Link as={Link} to="/military" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Military</Nav.Link>
-                  <Nav.Link as={Link} to="/projects" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Projects</Nav.Link>
-                  <Nav.Link as={Link} to="/missiles" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Build Missiles</Nav.Link>
-                </>
-                : null
-              }
-              <br />
-              <Nav.Link as={Link} to="/conquer" onClick={() => handleDoubleClick("/conquer")} style={{"fontWeight": "bold"}}>Conquer{getNotifsSuffix(["shared"])}</Nav.Link>
-              {
-                conquerPaths.includes(pathname)
-                ? <>
-                  <Nav.Link as={Link} to="/attack" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Attack</Nav.Link>
-                  <Nav.Link as={Link} to="/spy" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Spy</Nav.Link>
-                  <Nav.Link as={Link} to="/shareintel" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Share Intel</Nav.Link>
-                  <Nav.Link as={Link} to="/launchmissiles" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Launch Missiles</Nav.Link>
-                  <Nav.Link as={Link} to="/schedule" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Schedule</Nav.Link>
-                  <Nav.Link as={Link} to="/primitives" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Primitives</Nav.Link>
-                </>
-                : null
-              }
-              <br />
-              <Nav.Link as={Link} to="/galaxypolitics" onClick={() => handleDoubleClick("/galaxypolitics")} style={{"fontWeight": "bold"}}>Politics</Nav.Link>
-              {
-                politicsPaths.includes(pathname)
-                ? <>
-                  <Nav.Link as={Link} to="/empirepolitics" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Empire Politics</Nav.Link>
-                  <Nav.Link as={Link} to="/universepolitics" onClick={() => props.setShowNav(false)}>&nbsp;&nbsp;Universe Politics</Nav.Link>
-                </>
-                : null
-              }
-              <br />
-              <Nav.Link as={Link} to="/help" onClick={() => handleDoubleClick("/help")} style={{"fontWeight": "bold"}}>Help</Nav.Link>
-            </>
-            : null
-          }
-        </Nav>
-        {
-          props.logged
-          ? <div className="nav-logout">
-            <Button onClick={onClickLogout}>Logout</Button>
-          </div>
-          : null
-        }
-      </div>
+              {sectionLink("/help", "Help", () => onClickSection("/help"))}
+            </> : null}
+          </Nav>
+          {props.logged ? <div className="nav-logout"><Button onClick={onClickLogout}>Logout</Button></div> : null}
+        </div>
       </Offcanvas.Body>
     </Offcanvas>
-  </>
   );
 }
 

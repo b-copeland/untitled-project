@@ -1,0 +1,11 @@
+.notification-text {
+  cursor: copy;
+  user-select: text;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.copied {
+  color: var(--bs-success);
+  font-weight: bold;
+}
