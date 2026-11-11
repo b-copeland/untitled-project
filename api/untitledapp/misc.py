@@ -204,6 +204,31 @@ def _validate_kingdom_choices(
     
     return True, ""
 
+def _kingdom_setup_payload(kd_info, unit_choices, structures_choices, race):
+    """The fields that turn a freshly created kingdom into a playable one: the chosen units, structures and race."""
+    payload = {}
+    payload["drones"] = unit_choices["drones"]
+    payload["units"] = {
+        k: v + unit_choices.get(k, 0)
+        for k, v in kd_info["units"].items()
+    }
+    payload["structures"] = {
+        k: v + structures_choices.get(k, 0)
+        for k, v in kd_info["structures"].items()
+    }
+    state = uag._get_state()
+    start_time_datetime = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
+    payload["last_income"] = max(state["state"]["game_start"], datetime.datetime.now(datetime.timezone.utc).isoformat())
+    payload["next_resolve"] = kd_info["next_resolve"]
+    payload["next_resolve"]["spy_attempt"] = (
+        max(datetime.datetime.now(datetime.timezone.utc), start_time_datetime)
+        + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"])
+    ).isoformat()
+    payload["coordinate"] = random.randint(0, 99)
+    payload["race"] = race
+    return payload
+
+
 @bp.route('/api/createkingdomchoices', methods=["POST"])
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
@@ -238,29 +263,7 @@ def create_kingdom_choices():
     def decide(kd_info):
         if kd_info.get("race"):
             raise occ.Rejected("This kingdom has already been created")
-        drones = unit_choices["drones"]
-
-        payload = {}
-        payload["drones"] = drones
-        payload["units"] = {
-            k: v + unit_choices.get(k, 0)
-            for k, v in kd_info["units"].items()
-        }
-        payload["structures"] = {
-            k: v + structures_choices.get(k, 0)
-            for k, v in kd_info["structures"].items()
-        }
-        state = uag._get_state()
-        start_time_datetime = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-        payload["last_income"] = max(state["state"]["game_start"], datetime.datetime.now(datetime.timezone.utc).isoformat())
-        payload["next_resolve"] = kd_info["next_resolve"]
-        payload["next_resolve"]["spy_attempt"] = (
-            max(datetime.datetime.now(datetime.timezone.utc), start_time_datetime)
-            + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"])
-        ).isoformat()
-        payload["coordinate"] = random.randint(0, 99)
-        payload["race"] = race
-        return payload, None
+        return _kingdom_setup_payload(kd_info, unit_choices, structures_choices, race), None
 
     try:
         # The kingdom is only ever set up once: the second of two racing requests finds the race already chosen.

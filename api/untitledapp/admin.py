@@ -117,3 +117,23 @@ def reset_state():
     db.session.commit()
     uaa._update_accounts()
     return flask.jsonify(create_response.text), 200
+
+@bp.route('/api/admin/bots', methods=["POST"])
+@flask_praetorian.roles_required('admin')
+def create_bots():
+    """
+    Add bots, e.g. ``{"explorer": 25, "attacker": 25, "intel": 25, "thief": 25}``. See docs/bots.md.
+    """
+    import untitledapp.bots as bots
+
+    counts = flask.request.get_json(force=True)
+    unknown = set(counts) - set(bots.ARCHETYPES)
+    if unknown:
+        return flask.jsonify({"message": f"Unknown bot types {sorted(unknown)}; choose from {sorted(bots.ARCHETYPES)}"}), 400
+    if sum(int(n) for n in counts.values()) > 200:
+        return flask.jsonify({"message": "Create at most 200 bots at a time"}), 400
+    try:
+        created = bots.create_bots(counts)
+    except ValueError as error:
+        return flask.jsonify({"message": str(error)}), 400
+    return flask.jsonify({"message": f"Created {len(created)} bots", "status": "success", "bots": created}), 201
