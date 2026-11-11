@@ -76,3 +76,63 @@ def test_every_success_is_accounted_for_exactly_once(app, client, jwt1, seed):
         + ok[RAZE] * 2 * raze_price * uas.GAME_CONFIG["BASE_STRUCTURES_RAZE_RETURN"]
     )
     assert kingdom["money"] == pytest.approx(expected_money)
+
+
+def test_refresh_ticks_racing_player_actions_lose_and_duplicate_nothing(app, client, jwt1):
+    """
+    Finished training is credited by the periodic refresh while the player trains more and the refresh runs again and
+    again. At the end every unit is accounted for: credited exactly once, queued exactly once, nothing negative.
+    """
+    import datetime
+    import threading
+    import untitledapp.refresh as refresh
+    import untitledapp.getters as getters
+    from tests.test_concurrency import _create_item
+
+    past = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=2)).isoformat()
+    _set_up_kingdom(
+        money=5_000_000,
+        units={"attack": 30, "defense": 0, "flex": 0, "recruits": 400, "engineers": 0, "big_flex": 0},
+    )
+    kingdom = _get(f"/kingdom/{KD_ID}")
+    _create_item(f"kingdom_{KD_ID}", {**kingdom, "last_income": past, "next_resolve": {**kingdom["next_resolve"], "mobis": past}})
+    _create_item(f"mobis_{KD_ID}", {"mobis": [
+        {"time": past, "attack": 10, "defense": 0, "flex": 0, "big_flex": 0, "recruits": 0} for _ in range(5)
+    ]})
+
+    outcomes = []
+    tick_errors = []
+    gate = threading.Barrier(14)
+
+    def train():
+        client_ = app.test_client()
+        gate.wait()
+        outcomes.append(client_.post("/api/mobis", json={"attack": 5},
+                                     headers={"Authorization": f"Bearer {jwt1}"}).status_code)
+
+    def tick():
+        with app.app_context():
+            state = getters._get_state()
+            gate.wait()
+            for _ in range(3):
+                try:
+                    refresh._refresh_kd(KD_ID, state, datetime.datetime.now(datetime.timezone.utc), False)
+                except Exception as error:  # a tick that gives up is fine, the next one runs a minute later
+                    import traceback; tick_errors.append(traceback.format_exc())
+
+    threads = [threading.Thread(target=train) for _ in range(10)] + [threading.Thread(target=tick) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    trained = outcomes.count(200)
+    kingdom = _get(f"/kingdom/{KD_ID}")
+    queue = _get(f"/kingdom/{KD_ID}/mobis")["mobis"]
+    queued_attack = sum(batch.get("attack", 0) for batch in queue)
+    assert trained == 10  # money and recruits for all of them
+    assert kingdom["units"]["recruits"] == 400 - 5 * trained
+    # Some of the newly queued batches may themselves have finished by a later tick (an epoch is short in the test
+    # config), so count them wherever they ended up: in the kingdom or still queued. Each unit exists exactly once.
+    assert kingdom["units"]["attack"] + queued_attack == 30 + 5 * 10 + 5 * trained
+    assert kingdom["units"]["attack"] >= 30 + 5 * 10  # the five finished batches were credited, once

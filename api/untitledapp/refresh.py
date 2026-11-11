@@ -186,8 +186,9 @@ def _resolve_siphons(
                 data=json.dumps(siphon_out_payload),
             )
 
-        siphon_in_income = sum(siphon["siphon"] for siphon in siphons_in) / epoch_elapsed
-        if siphons_in:
+        # Two ticks at the same instant have no time between them: take nothing now and keep the siphons for the next.
+        siphon_in_income = sum(siphon["siphon"] for siphon in siphons_in) / epoch_elapsed if epoch_elapsed > 0 else 0
+        if siphons_in and epoch_elapsed > 0:
             resolve_siphons_in_payload = {
                 "siphons": []
             }
