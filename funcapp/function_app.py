@@ -8,6 +8,7 @@ from collections import defaultdict
 from azure.cosmos import CosmosClient, PartitionKey
 
 from concurrency import ConditionalContainer, retry_on_conflict
+from queues import coalesce
 
 ENDPOINT = os.environ["COSMOS_ENDPOINT"]
 KEY = os.environ["COSMOS_KEY"]
@@ -1396,7 +1397,7 @@ def update_settles(req: func.HttpRequest) -> func.HttpResponse:
     )
     try:
         if new_settles:
-            settles["settles"] = settles["settles"] + new_settles
+            settles["settles"] = coalesce(settles["settles"] + new_settles)
         if replace_settles != None:
             settles["settles"] = replace_settles
         CONTAINER.replace_item(
@@ -1450,7 +1451,7 @@ def update_mobis(req: func.HttpRequest) -> func.HttpResponse:
     )
     try:
         if new_mobis:
-            mobis["mobis"] = mobis["mobis"] + new_mobis
+            mobis["mobis"] = coalesce(mobis["mobis"] + new_mobis)
         if replace_mobis != None:
             mobis["mobis"] = replace_mobis
         CONTAINER.replace_item(
@@ -1504,7 +1505,7 @@ def update_structures(req: func.HttpRequest) -> func.HttpResponse:
     )
     try:
         if new_structures:
-            structures["structures"] = structures["structures"] + new_structures
+            structures["structures"] = coalesce(structures["structures"] + new_structures)
         if replace_structures != None:
             structures["structures"] = replace_structures
         CONTAINER.replace_item(
@@ -1558,7 +1559,7 @@ def update_missiles(req: func.HttpRequest) -> func.HttpResponse:
     )
     try:
         if new_missiles:
-            missiles["missiles"] = missiles["missiles"] + new_missiles
+            missiles["missiles"] = coalesce(missiles["missiles"] + new_missiles)
         if replace_missiles != None:
             missiles["missiles"] = replace_missiles
         CONTAINER.replace_item(
@@ -1612,7 +1613,7 @@ def update_engineers(req: func.HttpRequest) -> func.HttpResponse:
     )
     try:
         if new_engineers:
-            engineers["engineers"] = engineers["engineers"] + new_engineers
+            engineers["engineers"] = coalesce(engineers["engineers"] + new_engineers)
         if replace_engineers != None:
             engineers["engineers"] = replace_engineers
         CONTAINER.replace_item(
