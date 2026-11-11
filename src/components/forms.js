@@ -24,7 +24,7 @@ export function useFormValues(initial = {}) {
  * A text input for a number in a table cell or a form, which shows the reason in red under the box when ``error`` is
  * set (so the player sees why before sending). ``suffix`` adds a unit after the box, such as "%".
  */
-export function NumberField({ name, value, onChange, error, suffix, id, placeholder = "0", className = "game-field" }) {
+export function NumberField({ name, value, onChange, error, suffix, id, placeholder = "0", className = "game-field", disabled = false }) {
     const control = (
         <Form.Control
             className={className}
@@ -36,6 +36,7 @@ export function NumberField({ name, value, onChange, error, suffix, id, placehol
             autoComplete="off"
             inputMode="decimal"
             isInvalid={Boolean(error)}
+            disabled={disabled}
         />
     );
     return (
