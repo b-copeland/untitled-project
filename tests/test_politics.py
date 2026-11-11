@@ -1,4 +1,6 @@
 """Galaxy and empire politics, including players acting at the same moment."""
+import pytest
+
 from tests.test_attack import _in_threads
 from tests.test_concurrency import KD_ID, no_shared_lock, _create_item, _get, _run_together, _set_up_kingdom  # noqa: F401
 
@@ -115,3 +117,40 @@ def test_leaving_an_empire_removes_the_galaxy_and_hands_over_the_leadership(app,
     assert response.status_code == 200, response.get_json()
     assert _get("/empires")["empires"]["e1"]["galaxies"] == ["1:2"]
     assert _get("/empire/e1/politics")["leader"] == "1:2"
+
+
+def _two_empires():
+    _set_up_kingdom(money=0)
+    _create_item("galaxies", {"galaxies": {"1:1": [KD_ID], "1:2": ["2"]}})
+    _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID))
+    empire = {"galaxies": [], "war": [], "peace": {}, "denounced": "", "aggression": {}, "aggression_max": 100}
+    _create_item("empires", {"empires": {"e1": {**empire, "name": "One", "galaxies": ["1:1"]},
+                                          "e2": {**empire, "name": "Two", "galaxies": ["1:2"]}}})
+    _create_item("empire_politics_e1", _empire_politics("1:1"))
+    _create_item("empire_politics_e2", _empire_politics("1:2"))
+    _create_item("universe_news", {"news": []})
+
+
+@pytest.mark.parametrize("repeat", range(3))  # the overlap is down to timing
+def test_racing_denouncements_denounce_once(app, client, jwt1, repeat):
+    _two_empires()
+
+    responses = _run_together(app, 6, lambda c, i: c.post("/api/empire/e2/denounce", headers=_auth(jwt1)))
+
+    assert sorted(r.status_code for r in responses) == [200] + [400] * 5, [r.get_json() for r in responses]
+    e1 = _get("/empires")["empires"]["e1"]
+    assert e1["denounced"] == "e2" and e1["aggression"]["e2"] > 0
+    assert len(_get("/universenews")["news"]) == 1
+
+
+@pytest.mark.parametrize("repeat", range(3))
+def test_racing_war_declarations_declare_war_once(app, client, jwt1, repeat):
+    _two_empires()
+
+    responses = _run_together(app, 6, lambda c, i: c.post("/api/empire/e2/declare", headers=_auth(jwt1)))
+
+    assert sorted(r.status_code for r in responses) == [200] + [400] * 5, [r.get_json() for r in responses]
+    empires = _get("/empires")["empires"]
+    assert empires["e1"]["war"] == ["e2"] and empires["e2"]["war"] == ["e1"]
+    assert empires["e1"]["surprise_war_penalty"] is True
+    assert len(_get("/universenews")["news"]) == 1

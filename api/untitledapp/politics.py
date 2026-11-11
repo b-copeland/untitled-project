@@ -542,44 +542,43 @@ def denounce(target_empire):
     try:
         empire_politics = uag._get_empire_politics(kd_empire)
 
-        valid_declare, message = _validate_denounce(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire)
-        if not valid_declare:
-            return flask.jsonify({"message": message}), 400
-        
-        empires_info["empires"][kd_empire]["denounced"] = target_empire
-
         time_now = datetime.datetime.now(datetime.timezone.utc)
-        time_denounce_expires = time_now + datetime.timedelta(
-            seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["DENOUNCE_DURATION_MULTIPLIER"]
-        )
-        empires_info["empires"][kd_empire]["denounced_expires"] = time_denounce_expires.isoformat()
 
-        aggression_increase = empires_info["empires"][kd_empire]["aggression_max"] * uas.GAME_CONFIG["DENOUNCE_AGGRO_METER_INCREASE"]
-        try:
-            empires_info["empires"][kd_empire]["aggression"][target_empire] += aggression_increase
-        except KeyError:
-            empires_info["empires"][kd_empire]["aggression"][target_empire] = aggression_increase
+        def denounce_empire(empires_document):
+            # Checked and changed on the empires document as it is right now: two leaders pressing the button together
+            # can not both denounce.
+            valid_declare, message = _validate_denounce(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_document, target_empire, kd_empire)
+            if not valid_declare:
+                raise occ.Rejected(message)
+            empires = empires_document["empires"]
+            empires[kd_empire]["denounced"] = target_empire
+            time_denounce_expires = time_now + datetime.timedelta(
+                seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["DENOUNCE_DURATION_MULTIPLIER"]
+            )
+            empires[kd_empire]["denounced_expires"] = time_denounce_expires.isoformat()
+
+            aggression_increase = empires[kd_empire]["aggression_max"] * uas.GAME_CONFIG["DENOUNCE_AGGRO_METER_INCREASE"]
+            aggression = empires[kd_empire].setdefault("aggression", {})
+            aggression[target_empire] = aggression.get(target_empire, 0) + aggression_increase
+            return {"empires": empires}, f"{empires[kd_empire]['name']} has denounced {empires[target_empire]['name']}"
+
+        news = occ.update('/empires', denounce_empire)
 
         news_payload = {
             "news": {
                 "time": time_now.isoformat(),
-                "news": f"{empires_info['empires'][kd_empire]['name']} has denounced {empires_info['empires'][target_empire]['name']}",
+                "news": news,
             }
         }
-        universe_news_update_response = REQUESTS_SESSION.patch(
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(news_payload)
         )
-
-        empires_payload = {
-            "empires": empires_info["empires"],
-        }
-        update_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empires_payload)
-        )
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Denounced!", "status": "success"}), 200
@@ -622,40 +621,40 @@ def declare_war(target_empire):
     try:
         empire_politics = uag._get_empire_politics(kd_empire)
 
-        valid_declare, message = _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire)
-        if not valid_declare:
-            return flask.jsonify({"message": message}), 400
-        
-        empires_info["empires"][kd_empire]["war"].append(target_empire)
-        empires_info["empires"][target_empire]["war"].append(kd_empire)
-
         time_now = datetime.datetime.now(datetime.timezone.utc)
-        time_surprise_war_expires = time_now + datetime.timedelta(
-            seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["SURPRISE_WAR_PENALTY_MULTIPLIER"]
-        )
-        empires_info["empires"][kd_empire]["surprise_war_penalty"] = True
-        empires_info["empires"][kd_empire]["surprise_war_penalty_expires"] = time_surprise_war_expires.isoformat()
+
+        def declare(empires_document):
+            valid_declare, message = _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_document, target_empire, kd_empire)
+            if not valid_declare:
+                raise occ.Rejected(message)
+            empires = empires_document["empires"]
+            empires[kd_empire]["war"].append(target_empire)
+            empires[target_empire]["war"].append(kd_empire)
+
+            time_surprise_war_expires = time_now + datetime.timedelta(
+                seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["SURPRISE_WAR_PENALTY_MULTIPLIER"]
+            )
+            empires[kd_empire]["surprise_war_penalty"] = True
+            empires[kd_empire]["surprise_war_penalty_expires"] = time_surprise_war_expires.isoformat()
+            return {"empires": empires}, f"{empires[kd_empire]['name']} declared a surprise war on {empires[target_empire]['name']}"
+
+        news = occ.update('/empires', declare)
 
         news_payload = {
             "news": {
                 "time": time_now.isoformat(),
-                "news": f"{empires_info['empires'][kd_empire]['name']} declared a surprise war on {empires_info['empires'][target_empire]['name']}",
+                "news": news,
             }
         }
-        universe_news_update_response = REQUESTS_SESSION.patch(
+        REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(news_payload)
         )
-
-        empires_payload = {
-            "empires": empires_info["empires"],
-        }
-        update_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empires_payload)
-        )
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     finally:
         uam.release_locks_by_id(request_id)
     return flask.jsonify({"message": "Declared war!", "status": "success"}), 200
