@@ -1,0 +1,6 @@
+# Only for running the tests. The tests run the function app's real handlers in-process on an in-memory container
+# (tests/fake_backend.py), so they need its packages next to Flask's.
+-r requirements.txt
+azure-functions
+azure-cosmos
+pytest-xdist

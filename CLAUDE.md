@@ -14,10 +14,11 @@ fix it.
   merging and fix a failed deploy.
 - **Never commit secrets.** `api/.flaskenv` and `funcapp/local.settings.json` hold real keys and are git-ignored, along
   with the SQLite and Azurite files. Do not print their values.
-- **Tests are destructive.** The `setup` fixture in [tests/conftest.py](tests/conftest.py) calls `/deleteall` on the
-  function app before every test, wiping whatever Cosmos container it points at. Only run pytest when
-  `COSMOS_ENDPOINT` in `funcapp/local.settings.json` is `https://localhost:8081` (the local emulator), never the Azure
-  account.
+- **Tests are safe by default, destructive with `USE_EMULATOR=1`.** The default backend is in-memory
+  ([tests/fake_backend.py](tests/fake_backend.py)). With `USE_EMULATOR=1` the `setup` fixture in
+  [tests/conftest.py](tests/conftest.py) calls `/deleteall` on the function app before every test, wiping whatever Cosmos
+  container it points at. Only do that when `COSMOS_ENDPOINT` in `funcapp/local.settings.json` is
+  `https://localhost:8081` (the local emulator), never the Azure account.
 - **Windows machine.** Use PowerShell. After installing tools, refresh `PATH` from the Machine and User environment
   variables, because older terminals will not see them. Python lives in Conda environments, and `conda`, `python` and
   `node` may not be on `PATH`.
@@ -80,15 +81,16 @@ after copying an old `database.db` it may not match, and the hash in SQLite must
 
 ## Tests
 
-`python -m pytest tests` from the repo root, in the `funcapp` environment, with the function app and Azurite running
-against the **emulator** (see "Tests are destructive" above). The tests use the Flask test client with `TestingConfig`
-and take about a minute. After a run the emulator is empty, so re-seed with `--apply --replace`. `test_refresh.py` and
-`test_occ.py` stub the function app and need no stack.
+`python -m pytest tests -n 4` from the repo root, in the `funcapp` environment after `pip install -r requirements-dev.txt`.
+The backend tests run the function app's real handlers in-process on an in-memory Cosmos stand-in
+([tests/fake_backend.py](tests/fake_backend.py)), so no emulator, function host or Azurite is needed (about 30 seconds).
+`USE_EMULATOR=1` runs them against the real stack instead (slow, and it wipes the emulator; see "Tests are destructive").
 
 - **Function app tests:** `python -m pytest funcapp/tests` in the `funcapp-worker` environment (no stack needed).
 - **Frontend tests:** `CI=true npm test -- --watchAll=false`. CI runs these before every build, so a failure blocks the
   deploy. CI does not run the Python tests.
 - **Concurrency check:** `python scripts/check_concurrency.py` against the running function app (writes to the emulator).
+- Race tests (`test_concurrency`, `test_attack`, ...) rely on the fake container's small random latency to make requests overlap. Do not set `FAKE_LATENCY=0`.
 
 ## Design philosophy
 

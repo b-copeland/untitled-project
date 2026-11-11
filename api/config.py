@@ -28,8 +28,10 @@ class TestingConfig(Config):
     MAIL_PASSWORD = os.environ.get('SENDGRID_API_KEY')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
     EMAIL_BACKEND = 'memory'
+    RATELIMIT_ENABLED = False  # tests make hundreds of requests a second from one address
     FRONTEND_URL = 'http://frontend.test'
     AZURE_FUNCTION_ENDPOINT = "http://localhost:7071/api"
     AZURE_FUNCTION_KEY = ""
     # Initialize a local database for the example
-    SQLALCHEMY_DATABASE_URI = "sqlite:///pytest.db"
+    # One file per pytest-xdist worker, so parallel workers do not share users and locks.
+    SQLALCHEMY_DATABASE_URI = f"sqlite:///pytest{'_' + os.environ['PYTEST_XDIST_WORKER'] if os.environ.get('PYTEST_XDIST_WORKER') else ''}.db"

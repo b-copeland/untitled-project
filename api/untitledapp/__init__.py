@@ -212,6 +212,7 @@ def create_app(config_class='config.Config'):
         storage_uri="memory://",
     )
 
+    app.extensions["limiter_ref"] = limiter  # the per-route limits below hold only a weak reference to it
     for endpoint, limit in (
         ("account.forgot_password", "5 per minute"),
         ("account.forgot_username", "5 per minute"),

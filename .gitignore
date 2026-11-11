@@ -55,3 +55,5 @@ build/*
 *.flaskenv
 *database.db
 instance/pytest.db
+instance/pytest_gw*.db
+api/instance/

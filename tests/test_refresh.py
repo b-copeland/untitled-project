@@ -180,24 +180,57 @@ def test_empty_siphons_are_not_rewritten(app, session, monkeypatch):
 
 
 def test_siphons_in_are_cleared_after_being_collected(app, session, monkeypatch):
-    _siphons(monkeypatch, siphons_out=[], siphons_in=[{"siphon": 5}, {"siphon": 7}])
+    siphons_in = [{"siphon": 5}, {"siphon": 7}]
+    _siphons(monkeypatch, siphons_out=[], siphons_in=siphons_in)
+    session.docs["/kingdom/1/siphonsin"] = {"siphons": list(siphons_in), "_etag": '"s0"'}
 
     with app.app_context():
         _, income_in, _ = refresh._resolve_siphons(100, 1, NOW, 2.0)
 
     assert income_in == 6.0
-    assert session.calls == [("PATCH", "/kingdom/1/siphonsin", {"siphons": []})]
+    assert session.docs["/kingdom/1/siphonsin"]["siphons"] == []
+
+
+def test_siphons_added_while_collecting_are_not_cleared(app, session, monkeypatch):
+    collected = [{"siphon": 5}]
+    _siphons(monkeypatch, siphons_out=[], siphons_in=collected)
+    session.docs["/kingdom/1/siphonsin"] = {"siphons": collected + [{"siphon": 9}], "_etag": '"s0"'}
+
+    with app.app_context():
+        refresh._resolve_siphons(100, 1, NOW, 2.0)
+
+    assert session.docs["/kingdom/1/siphonsin"]["siphons"] == [{"siphon": 9}]
 
 
 def test_siphons_out_are_paid_to_the_receiver_and_the_remainder_kept(app, session, monkeypatch):
-    _siphons(monkeypatch, siphons_out=[{"from": 2, "time": FUTURE, "siphon": 10.0}], siphons_in=[])
+    out = [{"from": 2, "time": FUTURE, "siphon": 10.0}]
+    _siphons(monkeypatch, siphons_out=out, siphons_in=[])
+    session.docs["/kingdom/1/siphonsout"] = {"siphons": list(out), "_etag": '"s0"'}
 
     with app.app_context():
         refresh._resolve_siphons(100, 1, NOW, 1.0)
 
     assert session.paths("PATCH") == ["/kingdom/2/siphonsin", "/kingdom/1/siphonsout"]
-    kept = session.calls[1][2]["siphons"]
-    assert len(kept) == 1 and kept[0]["from"] == 2
+    kept = session.docs["/kingdom/1/siphonsout"]["siphons"]
+    assert len(kept) == 1 and kept[0]["from"] == 2 and kept[0]["siphon"] < 10.0
+
+
+def test_siphon_payments_wait_for_the_kingdom_to_be_written_and_are_not_repeated_when_the_tick_restarts(app, session, monkeypatch):
+    out = [{"from": 2, "time": FUTURE, "siphon": 10.0}]
+    _siphons(monkeypatch, siphons_out=out, siphons_in=[])
+    session.docs["/kingdom/1/siphonsout"] = {"siphons": list(out), "_etag": '"s0"'}
+    effects = []
+
+    with app.app_context():
+        refresh._resolve_siphons(100, 1, NOW, 1.0, effects)
+        refresh._resolve_siphons(100, 1, NOW, 1.0, effects)  # the tick restarted after a conflict
+        assert session.paths("PATCH") == []  # nothing paid yet
+        effects.clear()
+        refresh._resolve_siphons(100, 1, NOW, 1.0, effects)
+        for effect in effects:
+            effect()
+
+    assert session.paths("PATCH").count("/kingdom/2/siphonsin") == 1
 
 
 # --- _refresh_kd: when the kingdom is read again --------------------------------------------------------------------
@@ -232,7 +265,7 @@ def refresh_one(app, session, monkeypatch):
     def run(**doc_overrides):
         doc = _kingdom_doc(**doc_overrides)
         session.kingdom = doc
-        monkeypatch.setattr(refresh, "_kingdom_with_income", lambda kd, bonuses, st, now: dict(kd))
+        monkeypatch.setattr(refresh, "_kingdom_with_income", lambda kd, bonuses, st, now, *effects: dict(kd))
         with app.app_context():
             scores = refresh._refresh_kd(1, state, NOW, False, refresh._RefreshContext(state))
         return scores, session
@@ -340,7 +373,7 @@ def _settling(session, kingdom=None):
 
 def _refresh(app, monkeypatch, when=NOW):
     state = {"state": {}}
-    monkeypatch.setattr(refresh, "_kingdom_with_income", lambda kd, bonuses, st, now: dict(kd))
+    monkeypatch.setattr(refresh, "_kingdom_with_income", lambda kd, bonuses, st, now, *effects: dict(kd))
     with app.app_context():
         return refresh._refresh_kd(1, state, when, False, refresh._RefreshContext(state))
 

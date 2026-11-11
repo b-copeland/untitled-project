@@ -49,6 +49,7 @@ def create_initial_kingdom():
     db = flask.current_app.extensions["sqlalchemy"]
     req = flask.request.get_json(force=True)
     user = flask_praetorian.current_user()
+    user_id = user.id
 
     if user.kd_id != "" and user.kd_id != None:
         return (flask.jsonify({"message": "You already have a kingdom ID"}), 400)
@@ -62,6 +63,12 @@ def create_initial_kingdom():
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
+        # The check at the top of the route happened before the lock, so a double click could pass it twice. Look again,
+        # at the user as stored now.
+        stored_user = db.session.query(User).filter_by(id=user_id).populate_existing().one()
+        if stored_user.kd_id != "" and stored_user.kd_id is not None:
+            return (flask.jsonify({"message": "You already have a kingdom ID"}), 400)
+
         galaxies = uag._get_galaxy_info()
         size_galaxies = collections.defaultdict(list)
         for galaxy_id, kingdoms in galaxies.items():
@@ -126,7 +133,7 @@ def reset_initial_kingdom():
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
-        for item_id, initial_state in table_states:
+        for item_id, initial_state in table_states.items():
             state = initial_state.copy()
             if item_id.split("_")[0] == "kingdom":
                 state["kdId"] = kd_id
