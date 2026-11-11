@@ -21,7 +21,7 @@ fix it.
 - **Windows machine.** Use PowerShell. After installing tools, refresh `PATH` from the Machine and User environment
   variables, because older terminals will not see them. Python lives in Conda environments, and `conda`, `python` and
   `node` may not be on `PATH`.
-- **Pin `limits==3.5.0`** in `requirements.txt`. Newer releases crash against the pinned `wrapt==1.12.1`.
+- Dependencies were upgraded on 2026-11-10 (Flask 3, SQLAlchemy 2, flask-praetorian 1.6, wrapt 1.16, limits 3.13). The old `limits==3.5.0`/`wrapt==1.12.1` pairing is gone. If the Flask env is stale, recreate it from `requirements.txt`.
 - Python is 3.10 everywhere (CI, Azure, local). Node is only used for the React build.
 
 ## Architecture
@@ -123,5 +123,4 @@ From [untitled_project.txt](untitled_project.txt). Use these to judge whether a 
   `funcapp/` is published by hand, not by CI.
 - `adhoc/` is for one-off scripts. Reusable tooling goes in `scripts/`.
 - `iac/terraform.tfstate` and `funcapp/__azurite_*` are local state, not source.
-- Known tech debt: Python 3.10 is end-of-life, the function app uses a deprecated extension bundle, the CRA toolchain is
-  old, and GitHub reports many Dependabot alerts on `main`.
+- Known tech debt: Python 3.10 is end-of-life, the CRA toolchain is old, and GitHub reports many Dependabot alerts on `main`.
