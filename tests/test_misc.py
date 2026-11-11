@@ -1,6 +1,6 @@
 import pytest
 import json
-from api.untitledapp import REQUESTS_SESSION
+from untitledapp import REQUESTS_SESSION
 
 def test_set_shields(app, client, jwt1):
     

@@ -1,8 +1,8 @@
 import pytest
 import json
 import datetime
-from api.untitledapp import REQUESTS_SESSION
-import api.untitledapp.build as app_build
+from untitledapp import REQUESTS_SESSION
+import untitledapp.build as app_build
 
 def test__divide_across_splits():
     splits = ["split_1", "split_2", "split_3"]

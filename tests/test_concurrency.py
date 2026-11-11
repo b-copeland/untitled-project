@@ -16,7 +16,7 @@ import pytest
 
 import untitledapp.misc as uam
 import untitledapp.shared as uas
-from api.untitledapp import REQUESTS_SESSION, User
+from untitledapp import REQUESTS_SESSION, User
 
 KD_ID = "1"  # user1 in the testing config owns kingdom 1
 FUNCTION_URL = "http://localhost:7071/api"
