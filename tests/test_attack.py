@@ -240,3 +240,17 @@ def test_overlapping_reveal_timers_end_up_at_the_earliest(app, client):
     other = f"2031-01-01T00:00:00+00:00"
     _in_threads(app, 1, lambda i: conquer._lower_reveal_timer(KD_ID, other))
     assert _get(f"/kingdom/{KD_ID}")["next_resolve"]["revealed"] == times[0]  # a later time never moves it back
+
+
+def test_a_refused_auto_attack_or_auto_rob_does_not_break_the_tick(app, client):
+    """The attack and rob helpers answer a refusal with no kingdom document; the refresh must not trip over that."""
+    import untitledapp.refresh as refresh
+
+    _set_up_two_kingdoms(attacker_attack=0)
+    kingdom = _get(f"/kingdom/{KD_ID}")
+    kingdom = {**kingdom, "auto_attack_settings": {"pure": 0.5, "flex": 0.5},
+               "auto_rob_settings": {"drones": 0.5, "shielded": False, "keep": 100},
+               "spy_attempts": 500, "generals_available": 4}
+    with app.app_context():
+        assert refresh._resolve_auto_attack(kingdom) is True  # no units to send: refused, and still fine
+        assert refresh._resolve_auto_rob({**kingdom, "drones": 0}) is True

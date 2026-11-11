@@ -1019,7 +1019,8 @@ def _resolve_auto_attack(kd_info_parse):
                     math.floor(pct_units_available_flex[key_unit] * total_units.get(key_unit, 0)),
                     value_unit,
                 )
-    kd_info_parse, payload, _ = uac._attack_primitives(req, kd_info_parse["kdId"])
+    # A refused attack comes back without a kingdom document, so keep using the one we have.
+    _, payload, _ = uac._attack_primitives(req, kd_info_parse["kdId"])
     try:
         ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
         ws.send(json.dumps({
@@ -1044,7 +1045,7 @@ def _resolve_auto_rob(kd_info_parse):
             "drones": math.floor(drones_pct * kd_info_parse["drones"]),
             "shielded": shielded,
         }
-        kd_info_parse, payload, _ = uac._rob_primitives(req, kd_info_parse["kdId"])
+        _, payload, _ = uac._rob_primitives(req, kd_info_parse["kdId"])
         try:
             ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
             ws.send(json.dumps({
