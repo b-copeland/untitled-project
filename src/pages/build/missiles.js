@@ -1,244 +1,108 @@
-import React, { useEffect, useState } from "react";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
+import React, { useState } from "react";
+import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
-import Form from 'react-bootstrap/Form';
-import Button from 'react-bootstrap/Button';
-import Table from 'react-bootstrap/Table';
-import Toast from 'react-bootstrap/Toast';
-import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./missiles.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
+import { GameTable } from "../../components/gametable";
+import { NumberField, SubmitButton, useFormValues } from "../../components/forms";
+import { anyFilled, checkCount, firstError } from "../../validation";
 
-const initialInput = {
-    "planet_busters": "",
-    "star_busters": "",
-    "galaxy_busters": "",
-}
+// Star and galaxy busters have to be researched as projects before they can be built.
+const MISSILES = [
+    { key: "planet_busters", label: "Planet Buster", project: null },
+    { key: "star_busters", label: "Star Buster", project: "star_busters", projectName: "Star Busters" },
+    { key: "galaxy_busters", label: "Galaxy Buster", project: "galaxy_busters", projectName: "Galaxy Busters" },
+];
+
+const noneYet = Object.fromEntries(MISSILES.map(({ key }) => [key, ""]));
+
+const toHHMMSS = (secs) => {
+    const total = parseInt(secs, 10);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor(total / 60) % 60;
+    const seconds = total % 60;
+    return [hours, minutes, seconds]
+        .map((v) => (v < 10 ? "0" + v : v))
+        .filter((v, i) => v !== "00" || i > 0)
+        .join(":");
+};
 
 function Missiles(props) {
-    const [missilesResult, setMissilesResult] = useState([]);
-    const [input, setInput] = useState(initialInput);
+    const [results, setResults] = useState([]);
+    const form = useFormValues(noneYet);
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setInput({
-          ...input,
-          [name]: value,
-        });
-      };
-
-    if (Object.keys(props.data.kingdom).length === 0) {
+    if (Object.keys(props.data.kingdom).length === 0 || Object.keys(props.data.missiles).length === 0) {
         return null;
     }
-    if (Object.keys(props.data.missiles).length === 0) {
-        return null;
-    }
-    const kdInfo = props.data.kingdom;
-    const missilesInfo = props.data.missiles;
+    const kingdom = props.data.kingdom;
+    const info = props.data.missiles;
+    const locked = ({ project }) => project !== null && kingdom.completed_projects.indexOf(project) < 0;
 
-    const onSubmitClick = (e)=>{
-        let opts = input;
+    const costOf = (field) => MISSILES.reduce(
+        (total, { key }) => total + (parseInt(form.values[key], 10) || 0) * info.desc[key][field] * info.cost_modifier, 0);
+    const cost = costOf("cost");
+    const fuelCost = costOf("fuel_cost");
+
+    // Room for more of a kind: what the silos hold, less what is built and what is being built.
+    const room = ({ key }) => Math.max((info.capacity || 0) - (info.current[key] || 0) - (info.building[key] || 0), 0);
+    const fieldErrors = Object.fromEntries(MISSILES.map((missile) => [missile.key, checkCount(form.values[missile.key], { max: room(missile), noun: "missiles" })]));
+    const moneyError = cost > kingdom.money ? `Costs ${Math.floor(cost).toLocaleString()} money, you have ${Math.floor(kingdom.money).toLocaleString()}` : null;
+    const fuelError = fuelCost > kingdom.fuel ? `Needs ${Math.floor(fuelCost).toLocaleString()} fuel, you have ${Math.floor(kingdom.fuel).toLocaleString()}` : null;
+    const blocked = firstError(fieldErrors, moneyError, fuelError) || (anyFilled(form.values) ? null : "Enter how many of each to build");
+
+    const onSubmitClick = () => {
         const updateFunc = () => authFetch('api/missiles', {
             method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => setMissilesResult(missilesResult.concat(r)))
+            body: JSON.stringify(form.values),
+        }).then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
         props.updateData(['missiles', 'kingdom'], [updateFunc]);
-    }
-    const toHHMMSS = (secs) => {
-        var sec_num = parseInt(secs, 10)
-        var hours   = Math.floor(sec_num / 3600)
-        var minutes = Math.floor(sec_num / 60) % 60
-        var seconds = sec_num % 60
-    
-        return [hours,minutes,seconds]
-            .map(v => v < 10 ? "0" + v : v)
-            .filter((v,i) => v !== "00" || i > 0)
-            .join(":")
-    }
-    const calcMissilesCosts = (input, desc) => {
-        var total = 0
-        for (const missile in input) {
-            total += (parseInt(input[missile] || 0) * desc[missile]["cost"] * missilesInfo.cost_modifier);
-        }
-        return total
-    }
-    const calcMissilesFuelCosts = (input, desc) => {
-        var total = 0
-        for (const missile in input) {
-            total += (parseInt(input[missile] || 0) * desc[missile]["fuel_cost"] * missilesInfo.cost_modifier);
-        }
-        return total
-    }
-    const missilesCost = calcMissilesCosts(input, missilesInfo.desc);
-    const missilesFuelCost = calcMissilesFuelCosts(input, missilesInfo.desc);
+    };
+
+    const columns = [
+        { header: "Missile", align: "left", cell: ({ label }) => label },
+        {
+            header: "Built", span: (missile) => (locked(missile) ? 2 : 1),
+            cell: (missile) => locked(missile) ? `Research "${missile.projectName}" Project to Unlock` : (info.current[missile.key] || 0).toLocaleString(),
+        },
+        { header: "Building", cell: ({ key }) => (info.building[key] || 0).toLocaleString() },
+        { header: "Capacity", cell: () => (info.capacity || 0).toLocaleString() },
+        { header: "Build Time", cell: () => toHHMMSS(info.build_time || 0) },
+        { header: "Cost", cell: ({ key }) => Math.floor((info.desc[key].cost || 0) * info.cost_modifier).toLocaleString() },
+        { header: "Fuel Cost", cell: ({ key }) => Math.floor((info.desc[key].fuel_cost || 0) * info.cost_modifier).toLocaleString() },
+        {
+            header: "To Build",
+            cell: (missile) => <NumberField
+                name={missile.key} id={missile.key.replace("_", "-") + "-input"} className="game-field missiles-form"
+                value={form.values[missile.key]} onChange={form.onChange} error={fieldErrors[missile.key]}
+                disabled={locked(missile)}
+            />,
+        },
+    ];
+
     return (
         <>
-        <Header data={props.data} />
-        <div className="missiles">
-            <ResultToasts title="Structures Results" results={missilesResult} setResults={setMissilesResult} />
-            <Table className="missiles-table" striped bordered hover size="sm">
-                <thead>
-                    <tr>
-                        <th style={{textAlign: "left"}}>Missile</th>
-                        <th style={{textAlign: "right"}}>Built</th>
-                        <th style={{textAlign: "right"}}>Building</th>
-                        <th style={{textAlign: "right"}}>Capacity</th>
-                        <th style={{textAlign: "right"}}>Build Time</th>
-                        <th style={{textAlign: "right"}}>Cost</th>
-                        <th style={{textAlign: "right"}}>Fuel Cost</th>
-                        {/* <th style={{textAlign: "right"}}>Stars Damage</th>
-                        <th style={{textAlign: "right"}}>Fuel Damage</th>
-                        <th style={{textAlign: "right"}}>Pop Damage</th> */}
-                        <th style={{textAlign: "right"}}>To Build</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Planet Buster</td>
-                        <td style={{textAlign: "right"}}>{(missilesInfo.current.planet_busters || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{(missilesInfo.building.planet_busters || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{(missilesInfo.capacity || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                        <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.planet_busters.cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.planet_busters.fuel_cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
-                        {/* <td style={{textAlign: "right"}}>{(missilesInfo.desc.planet_busters.stars_damage || 0)}</td>
-                        <td style={{textAlign: "right"}}>{(missilesInfo.desc.planet_busters.fuel_damage || 0)}</td>
-                        <td style={{textAlign: "right"}}>{(missilesInfo.desc.planet_busters.pop_damage || 0)}</td> */}
-                        <td style={{textAlign: "right"}}>{
-                            <Form.Control 
-                                className="missiles-form"
-                                id="planet-busters-input"
-                                name="planet_busters"
-                                onChange={handleInputChange}
-                                value={input.planet_busters || ""} 
-                                placeholder="0"
-                                autoComplete="off"
-                            />
-                        }</td>
-                    </tr>
-                    {
-                        kdInfo.completed_projects.indexOf('star_busters') >= 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Star Buster</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.current.star_busters || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.building.star_busters || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.capacity || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.star_busters.cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.star_busters.fuel_cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
-                            {/* <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.stars_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.fuel_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.pop_damage || 0)}</td> */}
-                            <td style={{textAlign: "right"}}>{
-                                <Form.Control 
-                                    className="missiles-form"
-                                    id="star-busters-input"
-                                    name="star_busters"
-                                    onChange={handleInputChange}
-                                    value={input.star_busters || ""} 
-                                    placeholder="0"
-                                    autoComplete="off"
-                                />
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Star Buster</td>
-                            <td colSpan={2}>Research "Star Busters" Project to Unlock</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.capacity || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.star_busters.cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.star_busters.fuel_cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
-                            {/* <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.stars_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.fuel_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.desc.star_busters.pop_damage || 0)}</td> */}
-                            <td style={{textAlign: "right"}}>{
-                                <Form.Control 
-                                    className="missiles-form"
-                                    id="star-busters-input"
-                                    name="star_busters"
-                                    onChange={handleInputChange}
-                                    value={input.star_busters || ""} 
-                                    placeholder="0"
-                                    disabled
-                                    autoComplete="off"
-                                />
-                            }</td>
-                        </tr>
-                    }
-                    {
-                        kdInfo.completed_projects.indexOf('galaxy_busters') >= 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Galaxy Buster</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.current.galaxy_busters || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.building.galaxy_busters || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.capacity || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.galaxy_busters.cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.galaxy_busters.fuel_cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
-                            {/* <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.stars_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.fuel_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.pop_damage || 0)}</td> */}
-                            <td style={{textAlign: "right"}}>{
-                                <Form.Control 
-                                    className="missiles-form"
-                                    id="galaxy-busters-input"
-                                    name="galaxy_busters"
-                                    onChange={handleInputChange}
-                                    value={input.galaxy_busters || ""} 
-                                    placeholder="0"
-                                    autoComplete="off"
-                                />
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Galaxy Buster</td>
-                            <td colSpan={2}>Research "Galaxy Busters" Project to Unlock</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.capacity || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{toHHMMSS(missilesInfo.build_time || 0)}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.galaxy_busters.cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((missilesInfo.desc.galaxy_busters.fuel_cost || 0) * missilesInfo.cost_modifier).toLocaleString()}</td>
-                            {/* <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.stars_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.fuel_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(missilesInfo.desc.galaxy_busters.pop_damage || 0)}</td> */}
-                            <td style={{textAlign: "right"}}>{
-                                <Form.Control 
-                                    className="missiles-form"
-                                    id="galaxy-busters-input"
-                                    name="galaxy_busters"
-                                    onChange={handleInputChange}
-                                    value={input.galaxy_busters || ""} 
-                                    placeholder="0"
-                                    disabled
-                                    autoComplete="off"
-                                />
-                            }</td>
-                        </tr>
-                    }
-                </tbody>
-            </Table>
-            {
-                props.loading.missiles
-                ? <Button className="missiles-button" variant="primary" type="submit" disabled>
-                    Loading...
-                </Button>
-                : <Button className="missiles-button" variant="primary" type="submit" onClick={onSubmitClick}>
+            <Header data={props.data} />
+            <div className="missiles">
+                <ResultToasts title="Missiles Results" results={results} setResults={setResults} />
+                <GameTable
+                    className="missiles-table" columns={columns} rows={MISSILES} rowKey={({ key }) => key}
+                    rowClassName={(missile) => (locked(missile) ? "disabled-table-row" : undefined)}
+                />
+                <SubmitButton loading={props.loading.missiles} blocked={blocked} className="missiles-button" onClick={onSubmitClick}>
                     Build
-                </Button>
-            }
-            {
-                missilesCost !== 0
-                ? <div>
-                    <h3>Missiles Cost: {missilesCost.toLocaleString()}</h3>
-                    <h3>Missiles Fuel Cost: {missilesFuelCost.toLocaleString()}</h3>
-                </div>
-                : null
-            }
-            <HelpButton scrollTarget={"buildmissiles"}/>
-        </div>
+                </SubmitButton>
+                {cost !== 0
+                    ? <div>
+                        <h3>Missiles Cost: {cost.toLocaleString()}</h3>
+                        <h3>Missiles Fuel Cost: {fuelCost.toLocaleString()}</h3>
+                    </div>
+                    : null}
+                <HelpButton scrollTarget={"buildmissiles"}/>
+            </div>
         </>
-    )
+    );
 }
 
 export default Missiles;
