@@ -139,9 +139,11 @@ Limits to keep in mind:
 | Routes migrated to `occ.update`: every own-kingdom route in `build.py` (structures, recruits, mobis and disband, settle, missiles, engineers, projects, targets, raze), shields, `/api/spending`, `/api/createkingdomchoices`, `/api/votes`, `/api/universepolitics/policies` | Done. **They still take the legacy lock as well** (see below). |
 | Attacks (`POST /api/attack/<kd>`, primitives), spying, robbing primitives, missiles, schedule add/cancel | Done. Attacks are committed in three versioned steps (depart, resolve against the target as it is, credit). Spy and missiles charge the attacker up front under a version check and apply damage to the target's latest document. Reveal timers are min-merged and aggression is an increment on the latest `/empires`. News, history, reveal documents and notifications are still written the old way (eventual tier, not yet exactly-once), and the lock lists in these routes are unchanged. |
 | Six `acquire_lock`-in-`finally` bugs | Fixed |
-| The other lock call sites (politics other than votes, messages, shared intel, pinned, `reveal_random_galaxy`, kingdom reset, the refresh) | Not migrated. Recipe above; do them by module. |
-| The refresh (`refresh.py`) | Not migrated. It needs the saga below, because it consumes queue documents before writing the kingdom. |
-| Multi-document actions other than the attack (spy, trade, politics) | Design below, not built. |
+| Shared intel (offer, accept, unshare), random reveal, galaxy votes, empire requests/invitations/joining/leaving, denounce, declare war | Done (version checks; messages, notifications and plain share were already safe because the function app appends them atomically). |
+| The refresh's kingdom write (`_refresh_kd`) | Done. Version-checked write, tick recomputed on conflict, queue trims and auto-spending appends only after the write, `queues_resolved_until` per queue so nothing is credited twice. |
+| **Not migrated** | Refresh sub-steps that write other documents (siphons, revealed/shared expiry, scores, empires, history, election), surrender requests/offers and their acceptance, `create_empire`, kingdom reset, `pinned`. Each takes a legacy lock and writes a document nothing else writes much. |
+| The legacy lock framework itself | **Still in place everywhere.** It can only be removed once every writer of a document checks its version, and the not-migrated list above is why it can not be yet. |
+| Outbox and sweeper (exactly-once news/history, crash recovery between the steps of an action) | Not built. See section 4. |
 
 **Where the remaining lock sites are** (69 call sites, counted by which documents each locks; the grouping is
 approximate, a few routes in the first group also touch other kingdoms):
