@@ -136,69 +136,70 @@ def _resolve_siphons(
     kd_id,
     time_update,
     epoch_elapsed,
+    effects=None,
 ):
+    """
+    Work out what is siphoned from and to this kingdom this tick. Paying the siphoners and updating the two lists are
+    effects, run after the kingdom has been written (see ``_defer``), because the tick is worked out again if that
+    write conflicts and they must not be done twice. They are applied to the lists as they are then, so siphons
+    added meanwhile are kept.
+    """
     app = flask.current_app
-    request_id = str(uuid.uuid4())
-    while not uam.acquire_locks([f'/kingdom/{kd_id}/siphonsout', f'/kingdom/{kd_id}/siphonsin'], timeout=999, request_id=request_id):
-        _time.sleep(0.01)
-    try:
-        siphons_out = uag._get_siphons_out(kd_id)
-        siphons_in = uag._get_siphons_in(kd_id)
+    siphons_out = uag._get_siphons_out(kd_id)
+    siphons_in = uag._get_siphons_in(kd_id)
 
-        total_siphons = sum([siphon["siphon"] for siphon in siphons_out])
-        siphon_pool = min(gross_income * uas.GAME_CONFIG["BASE_MAX_SIPHON"], total_siphons)
-        keep_siphons = []
-        for siphon_out in siphons_out:
-            from_kd = siphon_out["from"]
-            time_expiry = datetime.datetime.fromisoformat(siphon_out["time"]).astimezone(datetime.timezone.utc)
-            pct_siphon = siphon_out["siphon"] / total_siphons
-            siphon_money = pct_siphon * siphon_pool * epoch_elapsed
-            payload_siphons_in = {
-                "new_siphons": {
-                    "from": kd_id,
-                    "siphon": siphon_money,
-                    "time": time_expiry.isoformat(),
-                    "remaining_siphon": siphon_out["siphon"] - siphon_money,
-                }
+    total_siphons = sum([siphon["siphon"] for siphon in siphons_out])
+    siphon_pool = min(gross_income * uas.GAME_CONFIG["BASE_MAX_SIPHON"], total_siphons)
+    keep_siphons = []
+    payments = []
+    for siphon_out in siphons_out:
+        from_kd = siphon_out["from"]
+        time_expiry = datetime.datetime.fromisoformat(siphon_out["time"]).astimezone(datetime.timezone.utc)
+        pct_siphon = siphon_out["siphon"] / total_siphons
+        siphon_money = pct_siphon * siphon_pool * epoch_elapsed
+        payments.append((from_kd, {
+            "new_siphons": {
+                "from": kd_id,
+                "siphon": siphon_money,
+                "time": time_expiry.isoformat(),
+                "remaining_siphon": siphon_out["siphon"] - siphon_money,
             }
-            siphons_in_response = REQUESTS_SESSION.patch(
+        }))
+        if time_expiry > time_update:
+            keep_siphons.append(
+                {
+                    "from": siphon_out["from"],
+                    "time": siphon_out["time"],
+                    "siphon": siphon_out["siphon"] - siphon_money
+                }
+            )
+
+    def pay():
+        for from_kd, payload_siphons_in in payments:
+            REQUESTS_SESSION.patch(
                 app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{from_kd}/siphonsin',
                 headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps(payload_siphons_in),
             )
-            if time_expiry > time_update:
-                keep_siphons.append(
-                    {
-                        "from": siphon_out["from"],
-                        "time": siphon_out["time"],
-                        "siphon": siphon_out["siphon"] - siphon_money
-                    }
-                )
-        
-        # Writing an empty list over an empty list changes nothing, so only write when there was something to change.
-        if siphons_out:
-            siphon_out_payload = {
-                "siphons": keep_siphons,
-            }
-            siphon_out_response = REQUESTS_SESSION.patch(
-                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsout',
-                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps(siphon_out_payload),
-            )
 
-        # Two ticks at the same instant have no time between them: take nothing now and keep the siphons for the next.
-        siphon_in_income = sum(siphon["siphon"] for siphon in siphons_in) / epoch_elapsed if epoch_elapsed > 0 else 0
-        if siphons_in and epoch_elapsed > 0:
-            resolve_siphons_in_payload = {
-                "siphons": []
-            }
-            resolve_siphons_in = REQUESTS_SESSION.patch(
-                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/siphonsin',
-                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps(resolve_siphons_in_payload),
-            )
-    finally:
-        uam.release_locks_by_id(request_id)
+    def settle_out():
+        # What was processed is replaced by what is left of it; anything added since is kept as it is.
+        occ.update(f'/kingdom/{kd_id}/siphonsout', lambda doc: (
+            {"siphons": [entry for entry in doc["siphons"] if entry not in siphons_out] + keep_siphons}, None))
+
+    def collect_in():
+        occ.update(f'/kingdom/{kd_id}/siphonsin', lambda doc: (
+            {"siphons": [entry for entry in doc["siphons"] if entry not in siphons_in]}, None))
+
+    # Writing an empty list over an empty list changes nothing, so only write when there was something to change.
+    if siphons_out:
+        _defer(effects, pay)
+        _defer(effects, settle_out)
+
+    # Two ticks at the same instant have no time between them: take nothing now and keep the siphons for the next.
+    siphon_in_income = sum(siphon["siphon"] for siphon in siphons_in) / epoch_elapsed if epoch_elapsed > 0 else 0
+    if siphons_in and epoch_elapsed > 0:
+        _defer(effects, collect_in)
     return siphon_pool, siphon_in_income, siphons_in
 
 def _calc_networth(
@@ -231,6 +232,7 @@ def _kingdom_with_income(
     current_bonuses,
     state,
     time_now,
+    effects=None,
 ):
     time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_now - time_last_income).total_seconds()
@@ -255,6 +257,7 @@ def _kingdom_with_income(
         kd_info_parse["kdId"],
         time_now,
         epoch_elapsed,
+        effects,
     )
     income["money"]["net"] = (income["money"]["gross"] + income["money"]["siphons_in"] - income["money"]["siphons_out"])
     new_income = income["money"]["net"] * epoch_elapsed
@@ -626,96 +629,50 @@ def _resolve_engineers(kd_id, time_update, cursor=None, effects=None):
     
     return ready_engineers, next_resolve
     
-def _resolve_revealed(kd_id, time_update):
-    app = flask.current_app
-    while not uam.acquire_lock(f'/kingdom/{kd_id}/revealed', timeout=999):
-        _time.sleep(0.01)
-    try:
-        revealed_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        revealed_info_parse = json.loads(revealed_info.text)
+def _utc(time_str):
+    return datetime.datetime.fromisoformat(time_str).astimezone(datetime.timezone.utc)
 
+
+def _resolve_revealed(kd_id, time_update):
+    """Forget what has stopped being revealed, working from the document as it is when the write lands."""
+    def expire(revealed_info):
         keep_revealed = collections.defaultdict(dict)
         keep_galaxies = {}
-        next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
+        next_resolve = _utc(uas.DATE_SENTINEL)
 
-        for revealed_kd_id, revealed_dict in revealed_info_parse["revealed"].items():
+        for revealed_kd_id, revealed_dict in revealed_info["revealed"].items():
             for revealed_stat, time_str in revealed_dict.items():
-                time = datetime.datetime.fromisoformat(time_str).astimezone(datetime.timezone.utc)
+                time = _utc(time_str)
                 if time > time_update:
                     next_resolve = min(time, next_resolve)
                     keep_revealed[revealed_kd_id][revealed_stat] = time_str
 
-        for galaxy_id, time_str in revealed_info_parse["galaxies"].items():
-            time = datetime.datetime.fromisoformat(time_str).astimezone(datetime.timezone.utc)
+        for galaxy_id, time_str in revealed_info["galaxies"].items():
+            time = _utc(time_str)
             if time > time_update:
                 keep_galaxies[galaxy_id] = time_str
                 next_resolve = min(time, next_resolve)
 
-        revealed_payload = {
-            "revealed": keep_revealed,
-            "galaxies": keep_galaxies,
-        }
-        revealed_patch = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(revealed_payload),
-        )
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}/revealed')
-    
-    return next_resolve
-    
+        return {"revealed": keep_revealed, "galaxies": keep_galaxies}, next_resolve
+
+    return occ.update(f'/kingdom/{kd_id}/revealed', expire)
+
+
 def _resolve_shared(kd_id, time_update):
-    app = flask.current_app
-    while not uam.acquire_lock(f'/kingdom/{kd_id}/shared', timeout=999):
-        _time.sleep(0.01)
-    try:
-        shared_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        shared_info_parse = json.loads(shared_info.text)
+    """Forget shared intel, requests and offers that have expired, from the document as it is when the write lands."""
+    def expire(shared_info):
+        next_resolve = _utc(uas.DATE_SENTINEL)
+        kept = {}
+        for field in ("shared", "shared_requests", "shared_offers"):
+            kept[field] = {}
+            for shared_kd_id, shared_dict in shared_info[field].items():
+                time = _utc(shared_dict["time"])
+                if time > time_update:
+                    next_resolve = min(time, next_resolve)
+                    kept[field][shared_kd_id] = shared_dict
+        return kept, next_resolve
 
-        keep_shared = collections.defaultdict(dict)
-        keep_shared_requests = collections.defaultdict(dict)
-        keep_shared_offers = collections.defaultdict(dict)
-        next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-
-        for shared_kd_id, shared_dict in shared_info_parse["shared"].items():
-            time = datetime.datetime.fromisoformat(shared_dict["time"]).astimezone(datetime.timezone.utc)
-            if time > time_update:
-                next_resolve = min(time, next_resolve)
-                keep_shared[shared_kd_id] = shared_dict
-
-        for shared_kd_id, shared_dict in shared_info_parse["shared_requests"].items():
-            time = datetime.datetime.fromisoformat(shared_dict["time"]).astimezone(datetime.timezone.utc)
-            if time > time_update:
-                next_resolve = min(time, next_resolve)
-                keep_shared_requests[shared_kd_id] = shared_dict
-
-        for shared_kd_id, shared_dict in shared_info_parse["shared_offers"].items():
-            time = datetime.datetime.fromisoformat(shared_dict["time"]).astimezone(datetime.timezone.utc)
-            if time > time_update:
-                next_resolve = min(time, next_resolve)
-                keep_shared_offers[shared_kd_id] = shared_dict
-
-        shared_payload = {
-            "shared": keep_shared,
-            "shared_requests": keep_shared_requests,
-            "shared_offers": keep_shared_offers,
-        }
-        shared_post = REQUESTS_SESSION.post(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(shared_payload),
-        )
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}/shared')
-    
-    return next_resolve
+    return occ.update(f'/kingdom/{kd_id}/shared', expire, method="post")
 
 def _resolve_generals(kd_info_parse, time_update):
     generals_keep = []
@@ -1472,11 +1429,9 @@ def _resolve_scores(kd_scores, time_update, context=None):
     app = flask.current_app
     if context is None:
         context = _RefreshContext(state=None)
-    while not uam.acquire_lock(f'/scores', timeout=999):
-        _time.sleep(0.01)
-    try:
-        scores = uag._get_scores()
-
+    def decide(scores):
+        # Worked out from the scores as they are when the write lands, so a tick that overlaps another does not
+        # overwrite its points.
         new_scores = {
             **scores,
             **kd_scores,
@@ -1505,13 +1460,9 @@ def _resolve_scores(kd_scores, time_update, context=None):
             galaxy = galaxies_inverted[kd_id]
             new_scores["galaxy_networth"][galaxy] += networth
         
-        update_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/scores',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(new_scores)
-        )
-    finally:
-        uam.release_lock(f'/scores')
+        return new_scores, None
+
+    occ.update('/scores', decide)
 
 def _update_history(
     kd_info,
@@ -1571,10 +1522,18 @@ def _resolve_empires(
     time_update,
 ):
     app = flask.current_app
-    while not uam.acquire_lock(f'/empires', timeout=999):
-        _time.sleep(0.01)
-    try:
-        empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+
+    def decide(empires_info):
+        # Worked out from the empires as they are when the write lands: a tick that overlaps a player declaring war or
+        # a galaxy joining does not overwrite it. The news is sent after the write, not on every attempt.
+        galaxy_info = uag._get_galaxy_info()
+        empires_inverted = {
+            galaxy_kd: empire_id
+            for empire_id, empire_info in empires_info["empires"].items()
+            for galaxy in empire_info["galaxies"]
+            for galaxy_kd in galaxy_info[galaxy]
+        }
+        news_items = []
         time_last_update = datetime.datetime.fromisoformat(empires_info["last_update"]).astimezone(datetime.timezone.utc)
         seconds_elapsed = (time_update - time_last_update).total_seconds()
         epoch_elapsed = seconds_elapsed / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
@@ -1623,28 +1582,23 @@ def _resolve_empires(
                                 "news": f"{empires_info['empires'][empire_id]['name']} declared war by aggression on {empires_info['empires'][other_empire_id]['name']}",
                             }
                         }
-                        universe_news_update_response = REQUESTS_SESSION.patch(
-                            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
-                            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                            data=json.dumps(news_payload)
-                        )
+                        news_items.append(news_payload)
             for other_empire_id in empires_info["empires"][empire_id]["aggression"]:
                 empires_info["empires"][empire_id]["aggression"][other_empire_id] = max(
                     empires_info["empires"][empire_id]["aggression"][other_empire_id] - decay,
                     0,
                 )
-        empires_payload = {
+        return {
             "empires": empires_info["empires"],
             "last_update": time_update.isoformat(),
-        }
+        }, news_items
 
-        update_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
+    for news_payload in occ.update('/empires', decide):
+        REQUESTS_SESSION.patch(
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(empires_payload)
+            data=json.dumps(news_payload)
         )
-    finally:
-        uam.release_lock(f'/empires')
 
 def _cursor(kd_info, category):
     """The time up to which a queue has been credited to this kingdom (see _not_yet_credited), or None."""
@@ -1778,7 +1732,7 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
                     kd_info_parse.setdefault("queues_resolved_until", {})[category] = time_update.isoformat()
             for category, next_resolve_datetime in next_resolves.items():
                 kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
-            new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update)
+            new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update, effects)
             kd_payload = json.dumps(new_kd_info, default=str)
             write_headers = {'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
             if etag:

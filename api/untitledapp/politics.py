@@ -204,17 +204,20 @@ def create_empire():
     empire_name = req.get("empireName", "")
     kd_id = flask_praetorian.current_user().kd_id
 
-    galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
-    empires_inverted, _, _, _ = uag._get_empires_inverted()
-
-    valid_name, message = _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted)
-    if not valid_name:
-        return flask.jsonify({"message": message}), 400
-    
     if not uam.acquire_lock(f'/empires'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    
+
     try:
+        # Validated inside the lock, against the empires as they are now: validated before it, two clicks could both
+        # pass "you are not in an Empire yet" and create two. (The function app's create handler writes several
+        # documents, so it can not be made a single versioned write; the lock is what protects it for now.)
+        galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
+        empires_inverted, _, _, _ = uag._get_empires_inverted()
+
+        valid_name, message = _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted)
+        if not valid_name:
+            return flask.jsonify({"message": message}), 400
+
         empire_payload = {
             "empire_name": empire_name,
             "galaxy_id": kd_galaxy,
