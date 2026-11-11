@@ -107,23 +107,36 @@ def _add_aggression(
     aggression_increase,
     empires_info=None,
 ):
-    app = flask.current_app
-    if not empires_info:
-        empires_info = uag._get_empire_info()
-    
-    try:
-        empires_info["empires"][source_empire]["aggression"][target_empire] += aggression_increase
-    except KeyError:
-        empires_info["empires"][source_empire]["aggression"][target_empire] = aggression_increase
+    """
+    Raise one empire's aggression towards another by an amount. Applied to the latest empires document (the
+    ``empires_info`` argument is only kept so callers need not change), so two attacks landing together both count,
+    and nothing else written to the empires meanwhile is lost.
+    """
+    def add(empires_doc):
+        empires = empires_doc["empires"]
+        if source_empire not in empires:
+            return None, None
+        aggression = empires[source_empire].setdefault("aggression", {})
+        aggression[target_empire] = aggression.get(target_empire, 0) + aggression_increase
+        return {"empires": empires}, None
 
-    empires_payload = {
-        "empires": empires_info["empires"],
-    }
-    empires_patch_response = REQUESTS_SESSION.patch(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps(empires_payload),
-    )    
+    occ.update('/empires', add)
+
+
+def _lower_reveal_timer(kd_id, revealed_until):
+    """
+    Make sure a kingdom's reveal timer fires no later than ``revealed_until``. Taking the sooner of the stored and the
+    new time is idempotent and does not depend on the order of overlapping calls, which is why this does not need to
+    be part of the strict steps of an attack.
+    """
+    def lower(kd):
+        next_resolve = kd["next_resolve"]
+        if revealed_until >= next_resolve["revealed"]:
+            return None, None
+        next_resolve["revealed"] = revealed_until
+        return {"next_resolve": next_resolve}, None
+
+    occ.update(f'/kingdom/{kd_id}', lower)
 
 def _validate_attack_request(
     attacker_raw_values,
@@ -1121,18 +1134,7 @@ def _attack(req, kd_id, target_kd):
                     headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                     data=json.dumps(payload),
                 )
-                kd_revealed_to_info = uag._get_kd_info(kd_revealed_to)
-                if revealed_until < kd_revealed_to_info["next_resolve"]["revealed"]:
-                    kd_revealed_to_next_resolve = kd_revealed_to_info["next_resolve"]
-                    kd_revealed_to_next_resolve["revealed"] = revealed_until
-                    kd_revealed_to_patch_payload = {
-                        "next_resolve": kd_revealed_to_next_resolve
-                    }
-                    REQUESTS_SESSION.patch(
-                        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_revealed_to}',
-                        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                        data=json.dumps(kd_revealed_to_patch_payload),
-                    )
+                _lower_reveal_timer(kd_revealed_to, revealed_until)
                 if kd_revealed_to != target_kd:
                     try:
                         ws = SOCK_HANDLERS[kd_revealed_to]

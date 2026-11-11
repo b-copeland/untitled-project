@@ -199,3 +199,44 @@ def test_racing_duplicate_missile_launches_use_the_missiles_once(app, client, jw
     stars_lost = target0["stars"] - _get(f"/kingdom/{TARGET_ID}")["stars"]
     assert stars_lost == 5 * 1  # planet_busters do 1 star of damage each against no shields
     assert len(_get(f"/kingdom/{KD_ID}/missilehistory")["missile_history"]) == 1
+
+
+def _in_threads(app, count, work):
+    import threading
+
+    gate = threading.Barrier(count)
+
+    def run(i):
+        with app.app_context():
+            gate.wait()
+            work(i)
+
+    threads = [threading.Thread(target=run, args=(i,)) for i in range(count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+
+def test_aggression_added_at_the_same_time_is_all_counted(app, client):
+    import untitledapp.conquer as conquer
+
+    _create_item("empires", {"empires": {"e1": {"aggression": {}}, "e2": {"aggression": {}}}})
+
+    _in_threads(app, 16, lambda i: conquer._add_aggression("e1", "e2", 2))
+
+    assert _get("/empires")["empires"]["e1"]["aggression"]["e2"] == 32
+
+
+def test_overlapping_reveal_timers_end_up_at_the_earliest(app, client):
+    import untitledapp.conquer as conquer
+
+    _set_up_kingdom(money=0)
+    times = [f"2030-01-{day:02d}T00:00:00+00:00" for day in range(1, 17)]
+
+    _in_threads(app, 16, lambda i: conquer._lower_reveal_timer(KD_ID, times[i]))
+
+    assert _get(f"/kingdom/{KD_ID}")["next_resolve"]["revealed"] == times[0]
+    other = f"2031-01-01T00:00:00+00:00"
+    _in_threads(app, 1, lambda i: conquer._lower_reveal_timer(KD_ID, other))
+    assert _get(f"/kingdom/{KD_ID}")["next_resolve"]["revealed"] == times[0]  # a later time never moves it back
