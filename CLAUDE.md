@@ -49,6 +49,7 @@ fix it.
   `COSMOS_CONTAINER_NAME`.
 - **Startup coupling:** with the real config, `create_app` calls the function app's `/accounts` to sync users into
   SQLite, so **the function app must be running before Flask starts**.
+- **Email:** `untitledapp/mailer.py` (smtp, console or memory backend) and the account recovery routes in `account.py`. See [docs/email.md](docs/email.md).
 - **Real-time push:** clients open a websocket at `/ws/listen` and register their JWT. `SOCK_HANDLERS` maps `kd_id` to
   the open socket.
 - **Frontend:** pages in `src/pages/*` (build, conquer, politics, help, home, galaxy, messages, admin), auth in

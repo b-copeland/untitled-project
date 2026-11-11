@@ -46,7 +46,7 @@ Set these under the web app's Environment variables in the Azure portal. They ar
 | `AZURE_FUNCTIONS_HOST_KEY` | Function host key, sent as `x-functions-key`. |
 | `SQLALCHEMY_DATABASE_URI` | SQLite location for users and locks. |
 | `REFRESH_SECRET` | Shared secret for `/api/refreshdata`. |
-| `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER` | Outgoing email. |
+| `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER`, `FRONTEND_URL` | Outgoing email and the base of the links in it. Without a key, mail is only logged. See [email.md](email.md). |
 
 ### Things the repo does not record
 

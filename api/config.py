@@ -10,6 +10,8 @@ class Config:
     MAIL_USERNAME = 'apikey'
     MAIL_PASSWORD = os.environ.get('SENDGRID_API_KEY')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
+    EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND')  # smtp, console or memory; see untitledapp/mailer.py
+    FRONTEND_URL = os.environ.get('FRONTEND_URL')  # base of the links in emails; defaults to the request's host
     AZURE_FUNCTION_ENDPOINT = os.environ.get('AZURE_FUNCTION_ENDPOINT')
     AZURE_FUNCTION_KEY = os.environ.get('AZURE_FUNCTIONS_HOST_KEY')
     # Initialize a local database for the example
@@ -25,6 +27,8 @@ class TestingConfig(Config):
     MAIL_USERNAME = 'apikey'
     MAIL_PASSWORD = os.environ.get('SENDGRID_API_KEY')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
+    EMAIL_BACKEND = 'memory'
+    FRONTEND_URL = 'http://frontend.test'
     AZURE_FUNCTION_ENDPOINT = "http://localhost:7071/api"
     AZURE_FUNCTION_KEY = ""
     # Initialize a local database for the example
