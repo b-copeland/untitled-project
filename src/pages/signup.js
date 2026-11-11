@@ -12,6 +12,7 @@ function SignUp(props) {
     const navigate = useNavigate();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [email, setEmail] = useState("");
     const [message, setMessage] = useState("");
     const [created, setCreated] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -33,6 +34,7 @@ function SignUp(props) {
         const opts = {
             "username": username,
             "password": password,
+            "email": email,
         };
         setLoading(true);
         fetch('api/signup', {
@@ -84,6 +86,20 @@ function SignUp(props) {
                                 placeholder=""
                                 type="password"
                                 autoComplete="new-password"
+                            />
+                        </InputGroup>
+                        <InputGroup className="account-form">
+                            <InputGroup.Text>
+                                Email (optional)
+                            </InputGroup.Text>
+                            <Form.Control 
+                                id="email"
+                                name="email"
+                                value={email} 
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="for password recovery"
+                                type="email"
+                                autoComplete="email"
                             />
                         </InputGroup>
                         {

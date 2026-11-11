@@ -36,6 +36,8 @@ class User(db.Model):
     is_active = db.Column(db.Boolean, default=True, server_default='true')
     is_verified = db.Column(db.Boolean, default=True, server_default='false')
     kd_death_date = db.Column(db.Text)
+    email = db.Column(db.Text)
+    email_verified = db.Column(db.Boolean, default=False, server_default='false')
 
     @property
     def rolenames(self):
@@ -102,6 +104,19 @@ def _custom_limit_key_func():
         token = get_remote_address()
     return token
 
+def _add_missing_columns():
+    """create_all() makes new tables but never adds a column to an existing one, so do that for the SQLite file that
+    already exists in production. Only columns added after the first release belong here."""
+    import sqlalchemy
+    inspector = sqlalchemy.inspect(db.engine)
+    existing = {column["name"] for column in inspector.get_columns("user")}
+    with db.engine.begin() as connection:
+        if "email" not in existing:
+            connection.execute(sqlalchemy.text('ALTER TABLE user ADD COLUMN email TEXT'))
+        if "email_verified" not in existing:
+            connection.execute(sqlalchemy.text("ALTER TABLE user ADD COLUMN email_verified BOOLEAN DEFAULT 0"))
+
+
 def create_app(config_class='config.Config'):
     # Initialize flask app for the example
     app = flask.Flask(__name__, static_folder='../../build', static_url_path=None)
@@ -126,6 +141,7 @@ def create_app(config_class='config.Config'):
     if config_class.lower() == "config.config":
         with app.app_context():
             db.create_all()
+            _add_missing_columns()
             accounts_response = REQUESTS_SESSION.get(
                 app.config.get("AZURE_FUNCTION_ENDPOINT") + f'/accounts',
                 headers={'x-functions-key': app.config.get('AZURE_FUNCTION_KEY')},
@@ -195,6 +211,15 @@ def create_app(config_class='config.Config'):
         default_limits=["100 per minute",],
         storage_uri="memory://",
     )
+
+    for endpoint, limit in (
+        ("account.forgot_password", "5 per minute"),
+        ("account.forgot_username", "5 per minute"),
+        ("account.reset_password", "10 per minute"),
+        ("account.verify_email", "10 per minute"),
+        ("account.set_email", "5 per minute"),
+    ):
+        app.view_functions[endpoint] = limiter.limit(limit)(app.view_functions[endpoint])
 
     @sock.route('/ws/listen')
     # @flask_praetorian.auth_required

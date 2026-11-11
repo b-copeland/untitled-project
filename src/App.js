@@ -22,6 +22,7 @@ import "./App.css";
 import Admin from "./pages/admin.js";
 import Landing from "./pages/landing.js";
 import SignUp from "./pages/signup.js";
+import {ForgotAccount, ResetPassword, VerifyEmail} from "./pages/recovery.js";
 import CreateKingdom from "./pages/createkingdom.js";
 import StatusContent from "./pages/home/status.js";
 import NewsContent from "./pages/home/news.js";
@@ -198,6 +199,9 @@ function Content(props) {
                 </Route>
                 <Route path="/help" element={<Help/>}/>
                 <Route path="/signup" element={<SignUp logged={props.logged}/>}/>
+                <Route path="/forgot" element={<ForgotAccount/>}/>
+                <Route path="/resetpassword" element={<ResetPassword/>}/>
+                <Route path="/verifyemail" element={<VerifyEmail/>}/>
                 <Route path="/" element={<Landing logged={props.logged}/>}/>
               </Routes>
             </div>
@@ -293,6 +297,7 @@ function Login(props) {
           ? <h2>{message}</h2>
           : null
         }
+        <div><a href="/forgot">Forgot your password or username?</a></div>
       </form>
       : <button onClick={() => logout()}>Logout</button>}
     </div>
