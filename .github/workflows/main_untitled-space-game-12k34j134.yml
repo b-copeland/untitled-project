@@ -39,10 +39,12 @@ jobs:
       - name: Build frontend
         run: CI=false GENERATE_SOURCEMAP=false npm run build
         
-      # Only the tests that need no running function app or Cosmos DB. The rest (tests/test_attack.py and so on)
-      # race real requests through the stack and need the local emulator; see docs/development.md.
-      - name: Test backend (no external services)
-        run: python -m pytest tests/test_occ.py tests/test_refresh.py -q
+      # The backend tests run the function app's handlers in-process on an in-memory container, so they need no
+      # emulator or function host (see tests/fake_backend.py).
+      - name: Test backend
+        run: |
+          pip install -r requirements-dev.txt
+          python -m pytest tests -q -n 2
 
       - name: Test function app
         run: |

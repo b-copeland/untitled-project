@@ -147,21 +147,26 @@ start time (`/api/updatestate`) and reset a round (`/api/resetstate`).
 
 ## 5. Tests
 
-**Backend** (`tests/`, pytest):
+**Backend** (`tests/`, pytest). The tests run the function app's real handlers in-process on an in-memory Cosmos stand-in
+(`tests/fake_backend.py`), so they need **no emulator, function host or Azurite**:
 
 ```powershell
-conda run -n funcapp python -m pytest tests
+conda run -n funcapp pip install -r requirements-dev.txt
+conda run -n funcapp python -m pytest tests -n 4      # about 30 seconds; without -n about two minutes
 ```
 
-> **Warning:** before every test, `tests/conftest.py` calls the function app's `/deleteall`, which blanks every document
-> in whatever Cosmos container the function app points at. Only run it when `COSMOS_ENDPOINT` is the emulator. After a
-> run, reseed with `--apply --replace`.
+The stand-in keeps the properties the code relies on (a new `_etag` on every write, atomic compare-and-swap on
+`If-Match`, the same exceptions Cosmos raises) and adds a couple of milliseconds of latency to every container call
+(`FAKE_LATENCY`, in seconds), because without it threads rarely overlap and a race test would pass on code that has the
+race. To run against the real stack instead (function app on port 7071 over the Cosmos emulator), set `USE_EMULATOR=1`:
 
-The function app and Azurite must be running. The tests use their own SQLite file (`instance/pytest.db`) and users
-(`admin`, `user1`, `user2`), and take a little over a minute.
+```powershell
+$env:USE_EMULATOR = 1; conda run -n funcapp python -m pytest tests
+```
 
-`tests/test_refresh.py` and `tests/test_occ.py` stub the function app and need no stack. `tests/test_concurrency.py`
-races duplicate requests through the real routes, and `tests/test_stress.py` fires a mixed batch of actions at once and checks that the books balance exactly (raise `STRESS_ROUNDS` to hunt for rare races).
+> **Warning:** in that mode `tests/conftest.py` calls the function app's `/deleteall` before every test, which blanks
+> every document in whatever container it points at. Only use it when `COSMOS_ENDPOINT` is the emulator, and reseed
+> with `--apply --replace` afterwards. It takes about eleven minutes.
 
 **Function app** (`funcapp/tests/`) needs only the function app's packages, not the stack:
 
