@@ -118,3 +118,9 @@
   width: 30%;
   margin: 10px;
 }
+/* Fuel or money has run out (components/header.js). */
+.header-alert {
+  border-color: var(--bs-danger);
+  color: var(--bs-danger);
+  font-weight: bold;
+}

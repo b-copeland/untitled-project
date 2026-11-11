@@ -1,163 +1,76 @@
-import React, { useEffect, useState } from "react";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
+import React from "react";
 import 'bootstrap/dist/css/bootstrap.css';
-import Table from 'react-bootstrap/Table';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import "./scores.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { GameTable } from "../../components/gametable";
+
+const kingdomLabel = (data, kdId) => (
+    kdId !== "" ? `${data.kingdoms[parseInt(kdId)]} (${data.galaxies_inverted[kdId]})` : "Unknown"
+);
+
+const decimals = (value) => value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * One leaderboard. ``rows`` are [id, value] pairs, best first. Your own kingdom is highlighted and your rank stated
+ * above the table, because on a long list the first question is always "where am I?". Kingdoms in your galaxy are
+ * tinted too, since the galaxy is the team.
+ */
+function Leaderboard({ rows, valueHeader, nameHeader = "Kingdom", label, formatValue = (value) => value.toLocaleString(), mine, mates = [] }) {
+    const yourIndex = rows.findIndex(([id]) => mine !== undefined && String(id) === String(mine));
+    const rank = yourIndex >= 0 ? `You are ranked ${yourIndex + 1} of ${rows.length}.` : null;
+    const columns = [
+        { header: "Rank", align: "left", cell: (_, index) => index + 1 },
+        { header: nameHeader, align: "left", cell: ([id]) => label(id) },
+        { header: valueHeader, cell: ([, value]) => formatValue(value) },
+    ];
+    const rowClassName = ([id]) => (
+        String(id) === String(mine) ? "scores-you" : mates.includes(String(id)) ? "scores-mate" : undefined
+    );
+    return (
+        <div className="kingdom">
+            {rank ? <p className="scores-rank">{rank}</p> : null}
+            <GameTable
+                className="scores-table" columns={columns} rows={rows} rowClassName={rowClassName}
+                rowKey={([id]) => id} size="sm"
+            />
+        </div>
+    );
+}
 
 function Scores(props) {
-    const [key, setKey] = useState('points');
+    const { data } = props;
+    const mine = data.kingdomid?.kd_id;
+    const galaxy = data.galaxies_inverted?.[mine];
+    const mates = Object.keys(data.galaxies_inverted || {}).filter((id) => data.galaxies_inverted[id] === galaxy && id !== String(mine));
+    const shared = { mine, mates, label: (id) => kingdomLabel(data, id) };
 
     return (
-    <>
-      <Header data={props.data} />
-      <Tabs
-        id="controlled-tab-example"
-        defaultActiveKey="points"
-        justify
-        fill
-        variant="tabs"
-      >
-        <Tab eventKey="points" title="Points">
-          <Points
-            data={props.data}
-            />
-        </Tab>
-        <Tab eventKey="networth" title="Networth">
-          <Networth
-            data={props.data}/>
-        </Tab>
-        <Tab eventKey="stars" title="Stars">
-          <Stars
-            data={props.data}/>
-        </Tab>
-        <Tab eventKey="galaxy" title="Galaxy Networth">
-          <GalaxyNetworth
-            data={props.data}/>
-        </Tab>
-      </Tabs>
-      <HelpButton scrollTarget={"scores"}/>
-    </>
+        <>
+            <Header data={data} />
+            <Tabs id="controlled-tab-example" defaultActiveKey="points" justify fill variant="tabs">
+                <Tab eventKey="points" title="Points">
+                    <Leaderboard rows={data.scores?.points || []} valueHeader="Points" formatValue={decimals} {...shared} />
+                </Tab>
+                <Tab eventKey="networth" title="Networth">
+                    <Leaderboard rows={data.scores?.networth || []} valueHeader="Networth" {...shared} />
+                </Tab>
+                <Tab eventKey="stars" title="Stars">
+                    <Leaderboard rows={data.scores?.stars || []} valueHeader="Stars" {...shared} />
+                </Tab>
+                <Tab eventKey="galaxy" title="Galaxy Networth">
+                    <Leaderboard
+                        rows={data.scores?.galaxy_networth || []} valueHeader="Networth" nameHeader="Galaxy"
+                        label={(id) => id} mine={galaxy} mates={[]}
+                    />
+                </Tab>
+            </Tabs>
+            <HelpButton scrollTarget={"scores"}/>
+        </>
     );
 }
 
-const kdFullLabel = (kingdoms, galaxiesInverted, kdId) => {
-    if (kdId != "") {
-        return kingdoms[parseInt(kdId)] + " (" + galaxiesInverted[kdId] + ")"
-    } else {
-        return "Unknown"
-    }
-}
-
-function Points(props) {
-    const scores = props.data.scores?.points || [];
-    const rows = scores.map((row, iter) =>
-        <tr key={iter}>
-            <td style={{textAlign: "left"}}>{iter + 1}</td>
-            <td style={{textAlign: "left"}}>{kdFullLabel(props.data.kingdoms, props.data.galaxies_inverted, row[0])}</td>
-            <td style={{textAlign: "right"}}>{row[1].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-        </tr>
-    );
-    return (
-        <div className="kingdom">
-            <Table striped bordered hover className="scores-table">
-                <thead>
-                    <tr>
-                        <th style={{textAlign: "left"}}>Rank</th>
-                        <th style={{textAlign: "left"}}>Kingdom</th>
-                        <th style={{textAlign: "right"}}>Points</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows}
-                </tbody>
-            </Table>
-        </div>
-    );
-}
-
-function Networth(props) {
-    const scores = props.data.scores?.networth || [];
-    const rows = scores.map((row, iter) =>
-        <tr key={iter}>
-            <td style={{textAlign: "left"}}>{iter + 1}</td>
-            <td style={{textAlign: "left"}}>{kdFullLabel(props.data.kingdoms, props.data.galaxies_inverted, row[0])}</td>
-            <td style={{textAlign: "right"}}>{row[1].toLocaleString()}</td>
-        </tr>
-    );
-    return (
-        <div className="kingdom">
-            <Table striped bordered hover className="scores-table">
-                <thead>
-                    <tr>
-                        <th style={{textAlign: "left"}}>Rank</th>
-                        <th style={{textAlign: "left"}}>Kingdom</th>
-                        <th style={{textAlign: "right"}}>Networth</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows}
-                </tbody>
-            </Table>
-        </div>
-    );
-}
-
-function Stars(props) {
-    const scores = props.data.scores?.stars || [];
-    const rows = scores.map((row, iter) =>
-        <tr key={iter}>
-            <td style={{textAlign: "left"}}>{iter + 1}</td>
-            <td style={{textAlign: "left"}}>{kdFullLabel(props.data.kingdoms, props.data.galaxies_inverted, row[0])}</td>
-            <td style={{textAlign: "right"}}>{row[1].toLocaleString()}</td>
-        </tr>
-    );
-    return (
-        <div className="kingdom">
-            <Table striped bordered hover className="scores-table">
-                <thead>
-                    <tr>
-                        <th style={{textAlign: "left"}}>Rank</th>
-                        <th style={{textAlign: "left"}}>Kingdom</th>
-                        <th style={{textAlign: "right"}}>Stars</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows}
-                </tbody>
-            </Table>
-        </div>
-    );
-}
-
-function GalaxyNetworth(props) {
-    const scores = props.data.scores?.galaxy_networth || [];
-    const rows = scores.map((row, iter) =>
-        <tr key={iter}>
-            <td style={{textAlign: "left"}}>{iter + 1}</td>
-            <td style={{textAlign: "left"}}>{row[0]}</td>
-            <td style={{textAlign: "right"}}>{row[1].toLocaleString()}</td>
-        </tr>
-    );
-    return (
-        <div className="kingdom">
-            <Table striped bordered hover className="scores-table">
-                <thead>
-                    <tr>
-                        <th style={{textAlign: "left"}}>Rank</th>
-                        <th style={{textAlign: "left"}}>Galaxy</th>
-                        <th style={{textAlign: "right"}}>Networth</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows}
-                </tbody>
-            </Table>
-        </div>
-    );
-}
-
+export { Leaderboard };
 export default Scores;
