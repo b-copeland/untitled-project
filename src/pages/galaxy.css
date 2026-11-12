@@ -47,7 +47,8 @@
 @media (min-width: 756px) {
     .attack-modal {
         width: 80%;
-        min-width: 750px;
+        min-width: 0;
+        max-width: 1000px;
     }
 }
 
@@ -59,7 +60,8 @@
 @media (min-width: 756px) {
     .spy-modal {
         width: 80%;
-        min-width: 750px;
+        min-width: 0;
+        max-width: 1000px;
     }
 }
 
@@ -70,7 +72,8 @@
 @media (min-width: 756px) {
     .missile-modal {
         width: 80%;
-        min-width: 750px;
+        min-width: 0;
+        max-width: 1000px;
     }
 }
 
@@ -81,7 +84,8 @@
 @media (min-width: 756px) {
     .message-modal {
         width: 80%;
-        min-width: 750px;
+        min-width: 0;
+        max-width: 1000px;
     }
 }
 .galaxy-actions {

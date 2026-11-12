@@ -13,8 +13,8 @@ import { logout } from "../auth";
 import { sections } from "../routes";
 
 /**
- * The side navigation, built from the page table in routes.js: a heading for each section (with a count of anything new in
- * it) and its pages listed underneath. The list scrolls. From the lg breakpoint up it is a fixed column; below
+ * The side navigation, built from the page table in routes.js: a label for each section (not a link; with a count of anything new in
+ * it) and its pages, all links at one indent, underneath. The list scrolls. From the lg breakpoint up it is a fixed column; below
  * that it is a drawer opened from the top bar, and it closes whenever you navigate.
  */
 function SideNavbar(props) {
@@ -36,7 +36,7 @@ function SideNavbar(props) {
   };
 
   const sectionLink = (to, label) => (
-    <Nav.Link as={Link} to={to} onClick={closeNav} className="nav-heading" active={location.pathname === to}>{label}</Nav.Link>
+    <Nav.Link as={Link} to={to} onClick={closeNav} className="nav-page" active={location.pathname === to}>{label}</Nav.Link>
   );
 
   return (
@@ -50,9 +50,7 @@ function SideNavbar(props) {
             {props.logged ? <>
               {sections.map((section) => (
                 <div key={section.title} className="nav-group">
-                  <Nav.Link as={Link} to={section.path} onClick={closeNav} className="nav-heading">
-                    {section.title}{newCount(section.notifs)}
-                  </Nav.Link>
+                  <div className="nav-heading">{section.title}{newCount(section.notifs)}</div>
                   {section.pages.filter((page) => !page.hidden).map((page) => (
                     <Nav.Link key={page.path} as={Link} to={page.path} onClick={closeNav} className="nav-page" active={location.pathname === page.path}>
                       {page.label}{newCount(page.notifs)}

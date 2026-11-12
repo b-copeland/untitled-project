@@ -122,3 +122,7 @@
 .amount-input-slider { margin: 0; }
 .amount-input-error { color: var(--bs-danger, #dc3545); font-size: 0.8em; text-align: right; }
 .table > :not(caption) > * > * { vertical-align: middle; }
+
+/* Modals never grow wider than the screen; anything wider inside scrolls (a page shown in a modal, such as Attack). */
+.modal-dialog { max-width: calc(100vw - 1rem); }
+.modal-body { overflow-x: auto; min-width: 0; }

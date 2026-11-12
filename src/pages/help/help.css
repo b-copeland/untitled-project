@@ -45,3 +45,20 @@
         font-size: 16px;
     }
 }
+/* Topic list beside the article on a wide screen, a drop-down above it on a narrow one. */
+.help { flex-direction: column; align-items: stretch; width: 100%; }
+.help-select { margin-bottom: 1rem; }
+.help-article { min-width: 0; }
+.help-article .help-section { width: 100%; align-items: flex-start; }
+.help-pager { display: flex; justify-content: space-between; gap: 1rem; margin: 1.5rem 0 0.5rem; padding-top: 1rem; border-top: 1px solid var(--bs-border-color); }
+.help-pager-link { background: none; border: 0; padding: 0; color: var(--bs-link-color); cursor: pointer; }
+.help-pager-link:hover { text-decoration: underline; }
+@media (min-width: 992px) {
+    .help { flex-direction: row; align-items: flex-start; gap: 2rem; }
+    .help-topics { flex: 0 0 200px; position: sticky; top: 1rem; max-height: 85vh; overflow-y: auto; }
+    .help-article { flex: 1 1 0; max-width: 720px; }
+    .help-nav { flex-direction: column; flex-wrap: nowrap; }
+    .help-nav-group { margin-bottom: 0.75rem; }
+    .help-nav-title { padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--bs-secondary-color, #6c757d); }
+    .help-nav .nav-link { padding: 0.35rem 0.75rem; }
+}
