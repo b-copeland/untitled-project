@@ -32,11 +32,11 @@ export function StatusTag({ kind }) {
     return <span className={"status-tag " + className} title={title}>{text}</span>;
 }
 
-/** A label (and optional small ``hint``) on the left and its control on the right; stacks on a narrow screen. ``status`` adds a StatusTag. */
-export function FieldRow({ label, hint, htmlFor, status, children }) {
+/** A label (and optional small ``hint``) on the left and its control on the right; stacks on a narrow screen. ``status`` adds a StatusTag, ``tip`` puts a detail in a tooltip instead of on the page. */
+export function FieldRow({ label, hint, tip, htmlFor, status, children }) {
     return (
         <div className="field-row">
-            <label className="field-row-label" htmlFor={htmlFor}>
+            <label className={"field-row-label" + (tip ? " has-tip" : "")} htmlFor={htmlFor} title={tip}>
                 <span>{label} {status ? <StatusTag kind={status} /> : null}</span>
                 {hint ? <small>{hint}</small> : null}
             </label>

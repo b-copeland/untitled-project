@@ -83,3 +83,4 @@
     .area-attack { grid-area: attack; } .area-forecast { grid-area: forecast; } .area-send { grid-area: send; }
     .area-drones { grid-area: drones; } .area-know { grid-area: know; }
 }
+.field-row-label.has-tip { cursor: help; }

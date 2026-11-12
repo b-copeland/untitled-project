@@ -122,7 +122,7 @@ function AttackPrimitives(props) {
                 <Panel title="Your attack" hint="Choose what to send. The forecast updates as you go; nothing is sent until you press Send.">
                     {ATTACK_UNITS.map(([key, name]) => (
                         (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
-                            ? <FieldRow key={key} label={name} hint={`${unitsDesc[key]?.offense || "--"} offense each`} htmlFor={"prim-" + key}>
+                            ? <FieldRow key={key} label={name} tip={`${unitsDesc[key]?.offense || "--"} offense each`} htmlFor={"prim-" + key}>
                                 <AmountInput name={key} id={"prim-" + key} label={name} value={attackerValues[key]} onChange={onChange} max={myUnits[key] || 0} />
                             </FieldRow>
                             : null
