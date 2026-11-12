@@ -8,7 +8,7 @@ import Alert from 'react-bootstrap/Alert';
 import "./spy.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
-import { ResultToasts } from "../../components/results";
+import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
 import { Panel, FieldRow, Stats, VersusBar, Picker, useDebounced, clockUntil } from "../../components/planner";
 
@@ -45,7 +45,7 @@ function Spy(props) {
     const [share, setShare] = useState(false);
     const [confirming, setConfirming] = useState(false);
 
-    const loadTarget = (kdId) => authFetch("api/kingdom/" + kdId).then(r => r.json()).then(r => setTargetKdInfo(r));
+    const loadTarget = (kdId) => authFetch("api/kingdom/" + kdId).then(safeJson).then(r => setTargetKdInfo(r));
     useEffect(() => {
         if (props.initialKd !== undefined) {
             loadTarget(props.initialKd);
@@ -72,15 +72,15 @@ function Spy(props) {
         authFetch('api/calculatespy/' + asked.selected, {
             method: 'POST',
             body: JSON.stringify({ drones: asked.drones, shielded: asked.shieldDrones, defenderValues: asked.defenderValues, operation: asked.operation }),
-        }).then(r => r.json()).then(r => { if (current) setForecast(r); }).finally(() => { if (current) setForecasting(false); });
+        }).then(safeJson).then(r => { if (current) setForecast(r); }).finally(() => { if (current) setForecasting(false); });
         return () => { current = false; };
     }, [request]);
 
     const send = () => {
         setConfirming(false);
-        const body = { drones, shielded: shieldDrones, operation, share_to_galaxy: share, cut };
+        const body = { drones, shielded: shieldDrones, operation, share_to_galaxy: share, cut: cut === "" ? 0 : cut };
         const updateFunc = async () => authFetch('api/spy/' + selected, { method: 'POST', body: JSON.stringify(body) })
-            .then(r => r.json()).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); });
+            .then(safeJson).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); });
         props.updateData(['kingdom', 'spyhistory', 'revealed', 'shared'], [updateFunc]);
     };
 

@@ -7,7 +7,7 @@ import { FiSend, FiArrowLeft, FiEdit } from "react-icons/fi";
 import Header from "../components/header";
 import "./message.css";
 import HelpButton from "../components/helpbutton";
-import { ResultToasts } from "../components/results";
+import { ResultToasts, safeJson } from "../components/results";
 import { Picker } from "../components/planner";
 
 const shortTime = (time) => {
@@ -54,7 +54,7 @@ function Message(props) {
         if (!text || selected === undefined) return;
         const body = { message: text, time: new Date().toISOString() };
         const updateFunc = async () => authFetch('api/messages/' + selected, { method: 'POST', body: JSON.stringify(body) })
-            .then(r => r.json()).then(r => { setResults((previous) => previous.concat(r)); if (r.status === "success") setDraft(""); });
+            .then(safeJson).then(r => { setResults((previous) => previous.concat(r)); if (r.status === "success") setDraft(""); });
         props.updateData(['messages'], [updateFunc]);
     };
     const onKeyDown = (event) => {

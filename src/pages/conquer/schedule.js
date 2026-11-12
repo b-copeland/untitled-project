@@ -10,7 +10,7 @@ import { GiCrossedSwords, GiSpaceship, GiMagnifyingGlass, GiNinjaHeroicStance, G
 import "./schedule.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
-import { ResultToasts } from "../../components/results";
+import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
 import { Panel, FieldRow, Picker } from "../../components/planner";
 import { displayPercent } from "../../format";
@@ -141,7 +141,7 @@ function Add(props) {
         // The server wants the same options the old form sent: percentages and counts as the player typed them.
         const body = { type: kind, time: date.toISOString(), options };
         const updateFunc = async () => authFetch('api/schedule', { method: 'POST', body: JSON.stringify(body) })
-            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
         props.updateData(['kingdom'], [updateFunc]);
     };
 
@@ -262,7 +262,7 @@ function Queue(props) {
     const [results, setResults] = useState([]);
     const cancel = (id) => {
         const updateFunc = async () => authFetch('api/schedule/cancel', { method: 'POST', body: JSON.stringify({ id }) })
-            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
         props.updateData(['kingdom'], [updateFunc]);
     };
 

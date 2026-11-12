@@ -96,3 +96,15 @@ def test_scheduled_actions_added_at_the_same_time_are_all_kept_and_one_can_be_ca
 def _in_game_time():
     import datetime
     return (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)).isoformat()
+
+
+@pytest.mark.parametrize("repeat", range(4))
+def test_a_blank_cut_is_the_same_as_none(app, client, jwt1, repeat):
+    """The Spy page sends the cut box as typed; empty used to crash the route with a 500 whenever the spy succeeded."""
+    _set_up_two_kingdoms()
+    response = client.post(
+        f"/api/spy/{TARGET_ID}",
+        json={"drones": 1000, "shielded": False, "operation": "spymilitary", "share_to_galaxy": False, "cut": ""},
+        headers={"Authorization": f"Bearer {jwt1}"},
+    )
+    assert response.status_code == 200, response.get_json()

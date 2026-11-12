@@ -7,7 +7,7 @@ import Alert from 'react-bootstrap/Alert';
 import "./shareintel.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
-import { ResultToasts } from "../../components/results";
+import { ResultToasts, safeJson } from "../../components/results";
 import { Panel, FieldRow, Picker, clockUntil } from "../../components/planner";
 import { checkPercent } from "../../validation";
 
@@ -44,7 +44,7 @@ function ShareIntel(props) {
     const onShare = () => {
         const body = { shared: selected, shared_to: shareTo, shared_stat: stat, cut: cut === "" ? 0 : cut };
         const updateFunc = async () => authFetch('api/offershared', { method: 'POST', body: JSON.stringify(body) })
-            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
         props.updateData(['shared'], [updateFunc]);
     };
     const pickKingdom = (kdId) => { setSelected(kdId); setStat(undefined); };

@@ -2040,7 +2040,7 @@ def _spy(req, kd_id, target_kd):
 
         if success and operation in uas.REVEAL_OPERATIONS:
             share_to_galaxy = req.get("share_to_galaxy", False)
-            cut = float(req.get("cut", 0))
+            cut = float(req.get("cut") or 0)
             if share_to_galaxy:
                 req_share = {
                     "shared": target_kd,
@@ -2920,7 +2920,7 @@ def _offer_shared(req, kd_id):
     shared_kd = str(req["shared"])
     shared_stat = req["shared_stat"]
     shared_to_kd = str(req["shared_to"])
-    cut = float(req.get("cut", 0)) / 100
+    cut = float(req.get("cut") or 0) / 100
     kingdoms = uag._get_kingdoms()
 
     if (

@@ -29,3 +29,9 @@ export function ResultToasts({ title, results, setResults, bg }) {
         </ToastContainer>
     );
 }
+
+/** Reads a response as JSON; a server error that sends back a web page instead becomes a message the player can see. */
+export const safeJson = (response) => response.json().catch(() => ({
+    status: "error",
+    message: `The server had a problem with that request (${response.status}). Try again.`,
+}));

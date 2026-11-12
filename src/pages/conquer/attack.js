@@ -8,7 +8,7 @@ import Alert from 'react-bootstrap/Alert';
 import "./attack.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
-import { ResultToasts } from "../../components/results";
+import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
 import { Panel, FieldRow, Stats, VersusBar, Picker, useDebounced, clockUntil } from "../../components/planner";
 import { displayPercent } from "../../format";
@@ -34,7 +34,7 @@ function Attack(props) {
     const [attackResults, setAttackResults] = useState([]);
     const [confirming, setConfirming] = useState(false);
 
-    const loadTarget = (kdId) => authFetch("api/kingdom/" + kdId).then(r => r.json()).then(r => setTargetKdInfo(r));
+    const loadTarget = (kdId) => authFetch("api/kingdom/" + kdId).then(safeJson).then(r => setTargetKdInfo(r));
     useEffect(() => {
         if (props.initialKd !== undefined) {
             loadTarget(props.initialKd);
@@ -75,7 +75,7 @@ function Attack(props) {
         authFetch('api/calculate/' + target, {
             method: 'POST',
             body: JSON.stringify({ attackerValues: mine, defenderValues: theirs }),
-        }).then(r => r.json()).then(r => { if (current) setForecast(r); }).finally(() => { if (current) setForecasting(false); });
+        }).then(safeJson).then(r => { if (current) setForecast(r); }).finally(() => { if (current) setForecasting(false); });
         return () => { current = false; };
     }, [request]);
 
@@ -85,7 +85,7 @@ function Attack(props) {
         }
         setSuggesting(true);
         const body = { buffer: attackerValues.buffer, generals: attackerValues.generals || "1", defenderValues };
-        const answer = await authFetch('api/autofill/' + selected, { method: 'POST', body: JSON.stringify(body) }).then(r => r.json());
+        const answer = await authFetch('api/autofill/' + selected, { method: 'POST', body: JSON.stringify(body) }).then(safeJson);
         setSuggesting(false);
         if (answer.attacker_units) {
             setAttackerValues((previous) => ({ ...previous, generals: previous.generals || "1", ...answer.attacker_units }));
@@ -101,7 +101,7 @@ function Attack(props) {
         const updateFunc = async () => authFetch('api/attack/' + selected, {
             method: 'POST',
             body: JSON.stringify({ attackerValues }),
-        }).then(r => r.json()).then(r => { setAttackResults((previous) => previous.concat(r)); setForecast({}); });
+        }).then(safeJson).then(r => { setAttackResults((previous) => previous.concat(r)); setForecast({}); });
         props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects', 'galaxynews'], [updateFunc]);
     };
 

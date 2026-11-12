@@ -10,7 +10,7 @@ import Alert from 'react-bootstrap/Alert';
 import "./primitives.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
-import { ResultToasts } from "../../components/results";
+import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
 import { Panel, FieldRow, Stats, useDebounced } from "../../components/planner";
 import { displayPercent } from "../../format";
@@ -90,24 +90,24 @@ function AttackPrimitives(props) {
         let current = true;
         setForecasting(true);
         authFetch('api/calculateprimitives', { method: 'POST', body: JSON.stringify({ attackerValues: values }) })
-            .then(r => r.json()).then(r => { if (current) setForecast(r); }).finally(() => { if (current) setForecasting(false); });
+            .then(safeJson).then(r => { if (current) setForecast(r); }).finally(() => { if (current) setForecasting(false); });
         return () => { current = false; };
     }, [request]);
 
     const send = () => {
         setConfirming(false);
         const updateFunc = async () => authFetch('api/attackprimitives', { method: 'POST', body: JSON.stringify({ attackerValues }) })
-            .then(r => r.json()).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); });
+            .then(safeJson).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); });
         props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects'], [updateFunc]);
     };
     const toggleAuto = (event) => {
         const updateFunc = () => authFetch('api/attackprimitives/auto', { method: 'post', body: JSON.stringify({ enabled: event.target.checked }) })
-            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
         props.updateData(['kingdom'], [updateFunc]);
     };
     const saveAuto = () => {
         const updateFunc = () => authFetch('api/attackprimitives/auto', { method: 'post', body: JSON.stringify({ pure: autoPure, flex: autoFlex }) })
-            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
         props.updateData(['kingdom'], [updateFunc]);
     };
 
@@ -206,7 +206,7 @@ function RobPrimitives(props) {
 
     const post = (path, body, refresh = ['kingdom']) => {
         const updateFunc = () => authFetch(path, { method: 'post', body: JSON.stringify(body) })
-            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
         props.updateData(refresh, [updateFunc]);
     };
     const send = () => { setConfirming(false); post('api/robprimitives', { drones, shielded: shieldDrones }, ['kingdom', 'spyhistory']); setDrones(""); };
