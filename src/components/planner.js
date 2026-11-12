@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Select from "react-select";
 import ProgressBar from "react-bootstrap/ProgressBar";
 import "./planner.css";
@@ -19,12 +19,25 @@ export function Panel({ title, hint, children, className = "" }) {
     );
 }
 
-/** A label (and optional small ``hint``) on the left and its control on the right; stacks on a narrow screen. */
-export function FieldRow({ label, hint, htmlFor, children }) {
+const TAGS = {
+    revealed: ["Revealed", "tag-revealed", "You have intel on this, so the number is exact."],
+    needed: ["Estimate needed", "tag-needed", "Not revealed to you, and it matters. Check the starting estimate and change it if you know better."],
+    estimate: ["Your estimate", "tag-estimate", "You are using your own figure."],
+    optional: ["Optional", "tag-optional", "Not needed. Fill it in to sharpen the forecast."],
+};
+
+/** A small badge saying where a number comes from: revealed (exact), needed (estimate it), or optional. */
+export function StatusTag({ kind }) {
+    const [text, className, title] = TAGS[kind];
+    return <span className={"status-tag " + className} title={title}>{text}</span>;
+}
+
+/** A label (and optional small ``hint``) on the left and its control on the right; stacks on a narrow screen. ``status`` adds a StatusTag. */
+export function FieldRow({ label, hint, htmlFor, status, children }) {
     return (
         <div className="field-row">
             <label className="field-row-label" htmlFor={htmlFor}>
-                {label}
+                <span>{label} {status ? <StatusTag kind={status} /> : null}</span>
                 {hint ? <small>{hint}</small> : null}
             </label>
             <div className="field-row-control">{children}</div>
@@ -99,6 +112,44 @@ export function Picker({ options, value, onChange, placeholder, autoFocus = fals
             styles={{ ...pick, menuPortal: (base) => ({ ...base, zIndex: 2000 }) }}
         />
     );
+}
+
+/**
+ * Asks the server about a plan, but only after the player has stopped changing it for ``ms`` (so dragging a slider is
+ * one request, not hundreds), never twice for the same plan, and ignoring an answer that has been overtaken by a newer
+ * question. ``plan`` is the thing to ask about, or null for nothing to ask; ``ask(plan)`` returns a promise of the answer.
+ * Returns ``[answer, pending, setAnswer]``: ``pending`` is true from the first change until the answer is back, and
+ * ``setAnswer`` lets the page put in an answer it got some other way.
+ */
+export function useServerForecast(plan, ask, ms = 700) {
+    const wanted = plan === null ? "" : JSON.stringify(plan);
+    const settled = useDebounced(wanted, ms);
+    const [answer, setAnswerState] = useState({});
+    const [answeredFor, setAnsweredFor] = useState("");
+    const given = useRef("");  // the plan an answer was handed to us for, so it is not asked again
+    useEffect(() => {
+        if (!settled) {
+            setAnswerState({});
+            setAnsweredFor("");
+            return;
+        }
+        if (settled === given.current) {
+            return;
+        }
+        let current = true;
+        Promise.resolve(ask(JSON.parse(settled)))
+            .then((result) => { if (current) { setAnswerState(result); setAnsweredFor(settled); } })
+            .catch(() => { if (current) setAnsweredFor(settled); });
+        return () => { current = false; };
+    }, [settled]);
+    // Put in an answer got some other way. ``forPlan`` is the plan it answers, if it is also the page's next plan.
+    const setAnswer = (result, forPlan) => {
+        const key = forPlan === undefined || forPlan === null ? "" : JSON.stringify(forPlan);
+        given.current = key;
+        setAnswerState(result);
+        setAnsweredFor(key);
+    };
+    return [answer, wanted !== "" && wanted !== answeredFor, setAnswer];
 }
 
 /** ``value``, but only after it has stopped changing for ``ms``. For asking the server about what is being typed. */

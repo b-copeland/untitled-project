@@ -72,6 +72,8 @@ function BuildStructures(props) {
     const stars = STRUCTURES.reduce((sum, [key]) => sum + (parseInt(form.values[key], 10) || 0), 0);
     const blocked = firstError(fieldErrors, totalError) || (anyFilled(form.values) ? null : "Enter how many of each to build");
     // The most of one kind that fits: what is left of the room after the others, and what the money still covers.
+    // What one kind could take with nothing else ordered: it sets the slider's length, so the slider holds still.
+    const soloMax = Math.max(Math.min(available, info.price > 0 ? Math.floor(kingdom.money / info.price) : available), 0);
     const maxFor = (key) => {
         const others = stars - (parseInt(form.values[key], 10) || 0);
         const room = available - others;
@@ -86,7 +88,7 @@ function BuildStructures(props) {
         { header: "# Building", cell: ([key]) => whole(info.hour_24[key]) },
         {
             header: "To Build", className: "structures-form-data",
-            cell: ([key, label]) => <AmountInput name={key} label={label} id={`${key.replace("_", "-")}-input`} value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]} max={maxFor(key)} />,
+            cell: ([key, label]) => <AmountInput name={key} label={label} id={`${key.replace("_", "-")}-input`} value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]} max={maxFor(key)} soloMax={soloMax} />,
         },
     ];
 
@@ -157,7 +159,7 @@ function AllocateStructures(props) {
         {
             header: "New Allocation", className: "structures-form-data",
             cell: ([key, label]) => <AmountInput name={key} label={label} suffix="%" value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]}
-                max={Math.max(100 - Object.entries(afterChange).filter(([other]) => other !== key).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0)} />,
+                soloMax={100} max={Math.max(100 - Object.entries(afterChange).filter(([other]) => other !== key).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0)} />,
         },
     ];
     const total = Object.values(afterChange).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);

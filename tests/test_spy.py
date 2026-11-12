@@ -108,3 +108,17 @@ def test_a_blank_cut_is_the_same_as_none(app, client, jwt1, repeat):
         headers={"Authorization": f"Bearer {jwt1}"},
     )
     assert response.status_code == 200, response.get_json()
+
+
+def test_the_spy_forecast_carries_the_servers_own_success_chance(app, client, jwt1):
+    _set_up_two_kingdoms()
+    response = client.post(
+        f"/api/calculatespy/{TARGET_ID}",
+        json={"drones": 10, "shielded": False, "operation": "spymilitary",
+              "defenderValues": {"drones": "100", "stars": "100", "shields": "0"}},
+        headers={"Authorization": f"Bearer {jwt1}"},
+    )
+    assert response.status_code == 200, response.get_json()
+    body = response.get_json()
+    assert 0 < body["success_chance"] <= 1
+    assert f"{body['success_chance']:.2%}" in body["message"]

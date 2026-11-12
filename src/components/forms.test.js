@@ -32,3 +32,18 @@ test("a max that is not a number does not break the slider", () => {
     render(<Harness max={NaN} />);
     expect(screen.getByLabelText("Homes slider").disabled).toBe(true);
 });
+
+test("the slider keeps its length when others use the pool, greys the lost part and stops there", () => {
+    function Shared({ available }) {
+        const [value, setValue] = useState("");
+        return <AmountInput name="homes" label="Homes" value={value} max={available} soloMax={100} onChange={(e) => setValue(e.target.value)} />;
+    }
+    render(<Shared available={40} />);
+    const slider = screen.getByLabelText("Homes slider");
+    expect(slider.max).toBe("100");                           // always the full, solo length
+    expect(slider.style.getPropertyValue("--avail")).toBe("40%");  // 60% of it greyed out
+    fireEvent.change(slider, { target: { value: "90" } });
+    expect(screen.getByLabelText("Homes").value).toBe("40");  // the thumb stops at the grey line
+    fireEvent.click(screen.getByRole("button", { name: "Max" }));
+    expect(screen.getByLabelText("Homes").value).toBe("40");
+});

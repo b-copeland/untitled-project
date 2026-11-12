@@ -12,7 +12,7 @@ import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
-import { Panel, FieldRow, Stats, useDebounced } from "../../components/planner";
+import { Panel, FieldRow, Stats, useServerForecast } from "../../components/planner";
 import { displayPercent } from "../../format";
 
 const whole = (value) => Math.floor(value || 0).toLocaleString();
@@ -57,8 +57,6 @@ function AutoPanel({ title, hint, enabled, onToggle, disabled, children, onSave,
 
 function AttackPrimitives(props) {
     const [attackerValues, setAttackerValues] = useState(initialAttackerValues);
-    const [forecast, setForecast] = useState({});
-    const [forecasting, setForecasting] = useState(false);
     const [results, setResults] = useState([]);
     const [confirming, setConfirming] = useState(false);
     const [autoPure, setAutoPure] = useState("");
@@ -80,19 +78,11 @@ function AttackPrimitives(props) {
     const sending = ATTACK_UNITS.reduce((sum, [key]) => sum + (parseInt(attackerValues[key], 10) || 0), 0);
     const generals = parseInt(attackerValues.generals, 10) || 0;
 
-    const request = useDebounced(JSON.stringify(attackerValues), 700);
-    useEffect(() => {
-        const values = JSON.parse(request);
-        if (ATTACK_UNITS.every(([key]) => !(parseInt(values[key], 10) > 0))) {
-            setForecast({});
-            return;
-        }
-        let current = true;
-        setForecasting(true);
-        authFetch('api/calculateprimitives', { method: 'POST', body: JSON.stringify({ attackerValues: values }) })
-            .then(safeJson).then(r => { if (current) setForecast(r); }).finally(() => { if (current) setForecasting(false); });
-        return () => { current = false; };
-    }, [request]);
+    // The forecast comes from the server, a moment after the player stops changing things.
+    const [forecast, forecasting, setForecast] = useServerForecast(
+        sending > 0 ? attackerValues : null,
+        (values) => authFetch('api/calculateprimitives', { method: 'POST', body: JSON.stringify({ attackerValues: values }) }).then(safeJson),
+    );
 
     const send = () => {
         setConfirming(false);
@@ -231,7 +221,7 @@ function RobPrimitives(props) {
                     </FieldRow>
                 </Panel>
                 <Panel title="Forecast">
-                    <Stats items={[{ label: "Expected haul", value: whole(sending * perDrone) + " money" }]} />
+                    <Stats items={[{ label: "Money per drone (the server's rate)", value: perDrone.toFixed(2) }]} />
                     <div className="planner-actions">
                         <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => setConfirming(true)}>Send drones</Button>
                     </div>

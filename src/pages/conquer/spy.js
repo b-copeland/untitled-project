@@ -5,12 +5,13 @@ import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Alert from 'react-bootstrap/Alert';
+import ProgressBar from 'react-bootstrap/ProgressBar';
 import "./spy.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
-import { Panel, FieldRow, Stats, VersusBar, Picker, useDebounced, clockUntil } from "../../components/planner";
+import { Panel, FieldRow, Stats, Picker, useServerForecast, clockUntil } from "../../components/planner";
 
 const initialDefenderValues = { drones: "", stars: "", shields: "" };
 
@@ -35,8 +36,6 @@ function Spy(props) {
     const [defenderValues, setDefenderValues] = useState(initialDefenderValues);
     const [selected, setSelected] = useState(props.initialKd || undefined);
     const [operation, setOperation] = useState("");
-    const [forecast, setForecast] = useState({});
-    const [forecasting, setForecasting] = useState(false);
     const [targetKdInfo, setTargetKdInfo] = useState({});
     const [results, setResults] = useState([]);
     const [drones, setDrones] = useState("");
@@ -59,22 +58,14 @@ function Spy(props) {
     const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
     const options = Object.keys(props.data.kingdoms).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
 
-    // The forecast follows what is typed.
-    const request = useDebounced(JSON.stringify({ selected, operation, drones, shieldDrones, defenderValues }), 700);
-    useEffect(() => {
-        const asked = JSON.parse(request);
-        if (asked.selected === undefined || !asked.operation) {
-            setForecast({});
-            return;
-        }
-        let current = true;
-        setForecasting(true);
-        authFetch('api/calculatespy/' + asked.selected, {
+    // The forecast comes from the server, a moment after the player stops changing things.
+    const [forecast, forecasting, setForecast] = useServerForecast(
+        selected !== undefined && operation ? { selected, operation, drones: String(drones || ""), shieldDrones, defenderValues } : null,
+        (plan) => authFetch('api/calculatespy/' + plan.selected, {
             method: 'POST',
-            body: JSON.stringify({ drones: asked.drones, shielded: asked.shieldDrones, defenderValues: asked.defenderValues, operation: asked.operation }),
-        }).then(safeJson).then(r => { if (current) setForecast(r); }).finally(() => { if (current) setForecasting(false); });
-        return () => { current = false; };
-    }, [request]);
+            body: JSON.stringify({ drones: plan.drones, shielded: plan.shieldDrones, defenderValues: plan.defenderValues, operation: plan.operation }),
+        }).then(safeJson),
+    );
 
     const send = () => {
         setConfirming(false);
@@ -85,13 +76,13 @@ function Spy(props) {
     };
 
     const sendingDrones = parseInt(drones, 10) || 0;
-    const hasForecast = forecast.total_defense !== undefined;
-    // Drones count against the "max success threshold": above it the operation is certain to work.
-    const ratio = hasForecast && forecast.total_defense > 0 ? sendingDrones / forecast.total_defense : 0;
-    // The server's own rule: drones against the threshold (never below a minimum), less the target's spy shields.
-    const minChance = props.data.state.game_config?.BASE_SPY_MIN_SUCCESS_CHANCE ?? 0;
-    const theirShields = targetKdInfo.shields ? targetKdInfo.shields.spy : (parseFloat(defenderValues.shields) || 0) / 100;
-    const chance = hasForecast ? Math.min(Math.max(ratio, minChance), 1) * (1 - theirShields) : 0;
+    const hasForecast = forecast.success_chance !== undefined;
+    const chance = hasForecast ? forecast.success_chance : 0;
+    // The server treats anything left blank as zero, which would read as "certain". Say so unless it is known or entered.
+    const dronesKnown = targetKdInfo.drones !== undefined;
+    const starsKnown = targetKdInfo.stars !== undefined;
+    const shieldsKnown = targetKdInfo.shields !== undefined;
+    const guessing = !(dronesKnown || String(defenderValues.drones).trim() !== "") || !(starsKnown || String(defenderValues.stars).trim() !== "");
     const problems = [];
     if (selected === undefined) problems.push("Choose a target");
     if (!operation) problems.push("Choose an operation");
@@ -102,10 +93,10 @@ function Spy(props) {
     const intel = Object.entries((props.data.revealed?.revealed || {})[selected] || {});
     const chosen = OPERATIONS.find((op) => op.value === operation);
 
-    const knownField = (key, shown) => targetKdInfo.hasOwnProperty(key)
-        ? <strong>{shown}</strong>
-        : <Form.Control id={"spy-def-" + key} name={key} size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
-            value={defenderValues[key]} onChange={(e) => setDefenderValues((previous) => ({ ...previous, [key]: e.target.value }))} />;
+    const setDefender = (key) => (e) => setDefenderValues((previous) => ({ ...previous, [key]: e.target.value }));
+    const entered = (key) => String(defenderValues[key]).trim() !== "";
+    // Where each of their numbers comes from. None of them is needed to send the spies: they only sharpen the forecast.
+    const statusOf = (known, key) => (known ? "revealed" : entered(key) ? "estimate" : "optional");
 
     return (
         <>
@@ -153,26 +144,39 @@ function Spy(props) {
                     </Panel>
                 </div>
 
-                <Panel title="3. What you know about them"
-                    hint={targetKdInfo.drones !== undefined ? "Revealed to you, so these are exact." : "Not revealed to you: enter what you think they have, to improve the forecast."}>
-                    <FieldRow label="Drones" htmlFor="spy-def-drones">{knownField("drones", whole(targetKdInfo.drones))}</FieldRow>
-                    <FieldRow label="Stars" htmlFor="spy-def-stars">{knownField("stars", whole(targetKdInfo.stars))}</FieldRow>
-                    <FieldRow label="Spy shields (%)" htmlFor="spy-def-shields">{knownField("shields", targetKdInfo.shields ? Math.round(targetKdInfo.shields.spy * 100) + "%" : "")}</FieldRow>
+                <Panel title="3. What you know about them (optional)"
+                    hint="You do not need any of this to send spies. The forecast uses it to work out your chance, so the more you know or can guess, the better the forecast.">
+                    <FieldRow label="Drones" status={statusOf(dronesKnown, "drones")} htmlFor="spy-def-drones">
+                        {dronesKnown ? <span className="known-value">{whole(targetKdInfo.drones)}</span>
+                            : <Form.Control id="spy-def-drones" size="sm" inputMode="numeric" placeholder="unknown" autoComplete="off" value={defenderValues.drones} onChange={setDefender("drones")} />}
+                    </FieldRow>
+                    <FieldRow label="Stars" status={statusOf(starsKnown, "stars")} htmlFor="spy-def-stars">
+                        {starsKnown ? <span className="known-value">{whole(targetKdInfo.stars)}</span>
+                            : <Form.Control id="spy-def-stars" size="sm" inputMode="numeric" placeholder="unknown" autoComplete="off" value={defenderValues.stars} onChange={setDefender("stars")} />}
+                    </FieldRow>
+                    <FieldRow label="Spy shields" status={statusOf(shieldsKnown, "shields")} htmlFor="spy-def-shields">
+                        {shieldsKnown ? <span className="known-value">{Math.round(targetKdInfo.shields.spy * 100)}%</span>
+                            : <div className="attack-buffer"><Form.Control id="spy-def-shields" size="sm" inputMode="decimal" placeholder="unknown" autoComplete="off" value={defenderValues.shields} onChange={setDefender("shields")} /><span>%</span></div>}
+                    </FieldRow>
                 </Panel>
 
                 <Panel title="4. Forecast" hint={hasForecast ? undefined : "Choose a target and an operation to see your chances."}>
                     {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
                     {hasForecast ? <>
-                        <div className={"planner-verdict " + (chance >= 0.75 ? "good" : "bad")}>
-                            About a {Math.round(chance * 100)}% chance of success
-                            {forecasting ? " (updating...)" : ""}
-                        </div>
-                        <VersusBar ratio={ratio} yours="Your drones" theirs="the full-success threshold" />
+                        {guessing
+                            ? <Alert variant="secondary">
+                                You have not entered their drones and stars and they are not revealed, so the chance below is not meaningful yet. Fill in what you know, or send anyway.
+                            </Alert>
+                            : <>
+                                <div className={"planner-verdict " + (chance >= 0.75 ? "good" : "bad")}>
+                                    About a {Math.round(chance * 100)}% chance of success
+                                    {forecasting ? " (updating...)" : ""}
+                                </div>
+                                <ProgressBar now={chance * 100} variant={chance >= 0.75 ? "success" : chance < 0.4 ? "danger" : "warning"} />
+                            </>}
                         <Stats items={[
-                            { label: "Success chance", value: Math.round(chance * 100) + "%", tone: chance >= 0.75 ? "good" : chance < 0.4 ? "bad" : undefined },
-                            { label: "Stars-based defense", value: whole(forecast.stars_defense) },
-                            { label: "Drone-based defense", value: whole(forecast.drones_defense) },
-                            { label: "Success threshold", value: whole(forecast.total_defense) },
+                            { label: "Drones lost if it works", value: whole(forecast.drone_losses?.success) },
+                            { label: "Drones lost if it fails", value: whole(forecast.drone_losses?.failure) },
                         ]} />
                         <div className="planner-notes">{forecast.message}</div>
                     </> : null}
@@ -189,7 +193,7 @@ function Spy(props) {
                     <Modal.Header closeButton><Modal.Title>Run this operation?</Modal.Title></Modal.Header>
                     <Modal.Body>
                         <p>{chosen?.label} on <strong>{selected !== undefined ? kdLabel(selected) : ""}</strong> with {whole(sendingDrones)} drones{shieldDrones ? " (shielded)" : ""}. It uses one spy attempt.</p>
-                        {hasForecast && chance < 1 ? <Alert variant={chance < 0.4 ? "danger" : "warning"}>About a {Math.round(chance * 100)}% chance of success with this many drones.</Alert> : null}
+                        {hasForecast && !guessing && chance < 1 ? <Alert variant={chance < 0.4 ? "danger" : "warning"}>About a {Math.round(chance * 100)}% chance of success with this many drones.</Alert> : null}
                     </Modal.Body>
                     <Modal.Footer>
                         <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>

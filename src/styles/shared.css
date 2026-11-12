@@ -120,6 +120,13 @@
 .amount-input-suffix { color: var(--bs-secondary-color, #6c757d); }
 .amount-input-max { flex: 0 0 auto; }
 .amount-input-slider { margin: 0; }
+/* Blue for what this box can still take, grey for what the other boxes have already used up (--avail is set inline). */
+.amount-input-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--avail, 100%), var(--bs-gray-400, #ced4da) var(--avail, 100%), var(--bs-gray-400, #ced4da) 100%);
+}
+.amount-input-slider::-moz-range-track {
+  background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--avail, 100%), var(--bs-gray-400, #ced4da) var(--avail, 100%), var(--bs-gray-400, #ced4da) 100%);
+}
 .amount-input-error { color: var(--bs-danger, #dc3545); font-size: 0.8em; text-align: right; }
 .table > :not(caption) > * > * { vertical-align: middle; }
 

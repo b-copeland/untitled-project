@@ -71,16 +71,23 @@ export function SubmitButton({ loading, blocked, onClick, children, variant = "p
 }
 
 /**
- * A number input with a slider from 0 to ``max`` and a "Max" button that fills in the most that can be done. It is
- * built to sit in a table cell or a card: the box and button share a row, the slider is underneath, and the error
- * shows under both. ``onChange`` gets an event-like ``{target: {name, value}}`` so it works with ``useFormValues``.
- * With ``max`` below 1 the slider and button are disabled (there is nothing to do). ``suffix`` adds a unit, such as "%".
+ * A number input with a slider and a "Max" button, for spending from something shared (money, a pool of recruits,
+ * 100%) across several boxes at once.
+ *
+ * ``soloMax`` is the most this box could take if nothing else were using the shared pool, and it sets the slider's
+ * scale, so the slider never changes length as the other boxes are filled in. ``max`` is what is left for this box
+ * right now; the part of the slider past it is greyed out and the thumb will not go there. Without ``soloMax`` the two
+ * are the same. ``onChange`` gets an event-like ``{target: {name, value}}`` so it works with ``useFormValues``.
+ * ``suffix`` adds a unit, such as "%".
  */
-export function AmountInput({ name, id, value, onChange, max = 0, error, suffix, disabled = false, label }) {
-    const top = Number.isFinite(max) ? Math.max(Math.floor(max), 0) : (max === Infinity ? 1e9 : 0);
+export function AmountInput({ name, id, value, onChange, max = 0, soloMax, error, suffix, disabled = false, label }) {
+    const whole = (n) => (Number.isFinite(n) ? Math.max(Math.floor(n), 0) : (n === Infinity ? 1e9 : 0));
+    const available = whole(max);
+    const scale = Math.max(whole(soloMax === undefined ? max : soloMax), available);
     const number = parseFloat(value) || 0;
     const set = (next) => onChange({ target: { name, value: next === 0 ? "" : String(next) } });
-    const none = disabled || top < 1;
+    const none = disabled || scale < 1;
+    const free = scale > 0 ? (available / scale) * 100 : 0;
     return (
         <div className="amount-input">
             <div className="amount-input-row">
@@ -98,18 +105,19 @@ export function AmountInput({ name, id, value, onChange, max = 0, error, suffix,
                     disabled={disabled}
                 />
                 {suffix ? <span className="amount-input-suffix">{suffix}</span> : null}
-                <Button variant="outline-secondary" size="sm" className="amount-input-max" disabled={none}
-                    onClick={() => set(top)} title={`Fill in the most you can: ${top.toLocaleString()}`}>
+                <Button variant="outline-secondary" size="sm" className="amount-input-max" disabled={disabled || available < 1}
+                    onClick={() => set(available)} title={`Fill in the most you can: ${available.toLocaleString()}`}>
                     Max
                 </Button>
             </div>
             <Form.Range
                 className="amount-input-slider"
+                style={{ "--avail": `${free}%` }}
                 aria-label={`${label || name} slider`}
-                min={0} max={top} step={1}
-                value={Math.min(number, top)}
+                min={0} max={scale} step={1}
+                value={Math.min(number, scale)}
                 disabled={none}
-                onChange={(event) => set(parseInt(event.target.value, 10))}
+                onChange={(event) => set(Math.min(parseInt(event.target.value, 10), available))}
             />
             {error ? <div className="amount-input-error">{error}</div> : null}
         </div>

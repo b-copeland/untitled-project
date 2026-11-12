@@ -59,6 +59,11 @@ function Missiles(props) {
         };
         return Math.max(Math.min(room(missile), left("cost", kingdom.money), left("fuel_cost", kingdom.fuel)), 0);
     };
+    const soloFor = (missile) => {
+        const each = (field) => info.desc[missile.key][field] * info.cost_modifier;
+        const afford = (field, have) => (each(field) > 0 ? Math.floor(have / each(field)) : Infinity);
+        return Math.max(Math.min(room(missile), afford("cost", kingdom.money), afford("fuel_cost", kingdom.fuel)), 0);
+    };
     const blocked = firstError(fieldErrors, moneyError, fuelError) || (anyFilled(form.values) ? null : "Enter how many of each to build");
 
     const onSubmitClick = () => {
@@ -85,7 +90,7 @@ function Missiles(props) {
             cell: (missile) => <AmountInput
                 name={missile.key} label={missile.label} id={missile.key.replace("_", "-") + "-input"}
                 value={form.values[missile.key]} onChange={form.onChange} error={fieldErrors[missile.key]}
-                max={maxFor(missile)} disabled={locked(missile)}
+                max={maxFor(missile)} soloMax={soloFor(missile)} disabled={locked(missile)}
             />,
         },
     ];

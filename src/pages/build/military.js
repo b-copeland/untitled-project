@@ -197,6 +197,10 @@ function Specialists(props) {
     const specialistCosts = calcSpecialistsCosts(input, props.mobisInfo.units_desc);
     const recruitsUsed = calcRecruitsUsed(input);
     // The most of one unit: the recruits left after the others, and what the money covers after the others.
+    const soloTrain = (unit) => {
+        const each = props.mobisInfo.units_desc[unit].cost || 0;
+        return Math.max(Math.min(props.kdInfo.units.recruits || 0, each > 0 ? Math.floor((props.kdInfo.money || 0) / each) : Infinity), 0);
+    };
     const maxTrain = (unit) => {
         const mine = parseInt(input[unit] || 0) || 0;
         const each = props.mobisInfo.units_desc[unit].cost || 0;
@@ -244,7 +248,7 @@ function Specialists(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.hangar_capacity || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{
-                            <AmountInput name="attack" id="attackers-input" label="attack" value={input.attack} onChange={handleInputChange} max={maxTrain("attack")} />
+                            <AmountInput name="attack" id="attackers-input" label="attack" value={input.attack} onChange={handleInputChange} max={maxTrain("attack")} soloMax={soloTrain("attack")} />
                         }</td>
                     </tr>
                     <tr>
@@ -257,7 +261,7 @@ function Specialists(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.hangar_capacity || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{
-                            <AmountInput name="defense" id="defenders-input" label="defense" value={input.defense} onChange={handleInputChange} max={maxTrain("defense")} />
+                            <AmountInput name="defense" id="defenders-input" label="defense" value={input.defense} onChange={handleInputChange} max={maxTrain("defense")} soloMax={soloTrain("defense")} />
                         }</td>
                     </tr>
                     <tr>
@@ -270,7 +274,7 @@ function Specialists(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.hangar_capacity || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{
-                            <AmountInput name="flex" id="flexers-input" label="flex" value={input.flex} onChange={handleInputChange} max={maxTrain("flex")} />
+                            <AmountInput name="flex" id="flexers-input" label="flex" value={input.flex} onChange={handleInputChange} max={maxTrain("flex")} soloMax={soloTrain("flex")} />
                         }</td>
                     </tr>
                     {
@@ -285,7 +289,7 @@ function Specialists(props) {
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{
-                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} max={maxTrain("big_flex")} />
+                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} max={maxTrain("big_flex")} soloMax={soloTrain("big_flex")} />
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
@@ -297,7 +301,7 @@ function Specialists(props) {
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{
-                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} max={maxTrain("big_flex")} disabled />
+                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} max={maxTrain("big_flex")} soloMax={soloTrain("big_flex")} disabled />
                             }</td>
                         </tr>
                     }
@@ -436,7 +440,7 @@ function Allocate(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.attack || 0))}</td>
                         <td style={{textAlign: "right"}}>{
-                            <AmountInput name="attack" id="attackers-input" label="attack" value={input.attack} onChange={handleInputChange} suffix="%" max={maxAllocate("attack")} />
+                            <AmountInput name="attack" id="attackers-input" label="attack" value={input.attack} onChange={handleInputChange} suffix="%" max={maxAllocate("attack")} soloMax={100} />
                         }</td>
                     </tr>
                     <tr>
@@ -450,7 +454,7 @@ function Allocate(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.defense || 0))}</td>
                         <td style={{textAlign: "right"}}>{
-                            <AmountInput name="defense" id="defenders-input" label="defense" value={input.defense} onChange={handleInputChange} suffix="%" max={maxAllocate("defense")} />
+                            <AmountInput name="defense" id="defenders-input" label="defense" value={input.defense} onChange={handleInputChange} suffix="%" max={maxAllocate("defense")} soloMax={100} />
                         }</td>
                     </tr>
                     <tr>
@@ -464,7 +468,7 @@ function Allocate(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.flex || 0))}</td>
                         <td style={{textAlign: "right"}}>{
-                            <AmountInput name="flex" id="flexers-input" label="flex" value={input.flex} onChange={handleInputChange} suffix="%" max={maxAllocate("flex")} />
+                            <AmountInput name="flex" id="flexers-input" label="flex" value={input.flex} onChange={handleInputChange} suffix="%" max={maxAllocate("flex")} soloMax={100} />
                         }</td>
                     </tr>
                     {
@@ -480,7 +484,7 @@ function Allocate(props) {
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.big_flex || 0))}</td>
                             <td style={{textAlign: "right"}}>{
-                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} suffix="%" max={maxAllocate("big_flex")} />
+                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} suffix="%" max={maxAllocate("big_flex")} soloMax={100} />
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
@@ -493,7 +497,7 @@ function Allocate(props) {
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.big_flex || 0))}</td>
                             <td style={{textAlign: "right"}}>{
-                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} suffix="%" max={maxAllocate("big_flex")} disabled />
+                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} suffix="%" max={maxAllocate("big_flex")} soloMax={100} disabled />
                             }</td>
                         </tr>
                     }
