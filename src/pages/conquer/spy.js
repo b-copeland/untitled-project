@@ -121,7 +121,7 @@ function Spy(props) {
                     </Panel>
 
                     <Panel className="area-drones" title="2. Your drones">
-                        <FieldRow label="Drones to send" hint={`${whole(maxDrones)} available, ${kingdom.spy_attempts ?? 0} spy attempts left`} htmlFor="spy-drones">
+                        <FieldRow label="Drones to send" hint={`${kingdom.spy_attempts ?? 0} spy attempts left`} htmlFor="spy-drones">
                             <AmountInput name="drones" id="spy-drones" label="Drones to send" value={drones}
                                 onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
                         </FieldRow>

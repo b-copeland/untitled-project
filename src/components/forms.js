@@ -110,15 +110,18 @@ export function AmountInput({ name, id, value, onChange, max = 0, soloMax, error
                     Max
                 </Button>
             </div>
-            <Form.Range
-                className="amount-input-slider"
-                style={{ "--avail": `${free}%`, "--val": `${scale > 0 ? (Math.min(number, scale) / scale) * 100 : 0}%` }}
-                aria-label={`${label || name} slider`}
-                min={0} max={scale} step={1}
-                value={Math.min(number, scale)}
-                disabled={none}
-                onChange={(event) => set(Math.min(parseInt(event.target.value, 10), available))}
-            />
+            <div className="amount-input-track">
+                <Form.Range
+                    className="amount-input-slider"
+                    style={{ "--avail": `${free}%`, "--val": `${scale > 0 ? (Math.min(number, scale) / scale) * 100 : 0}%` }}
+                    aria-label={`${label || name} slider`}
+                    min={0} max={scale} step={1}
+                    value={Math.min(number, scale)}
+                    disabled={none}
+                    onChange={(event) => set(Math.min(parseInt(event.target.value, 10), available))}
+                />
+                <span className="amount-input-cap" title="The most you can choose">{available.toLocaleString()}</span>
+            </div>
             {error ? <div className="amount-input-error">{error}</div> : null}
         </div>
     );

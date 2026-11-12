@@ -214,12 +214,12 @@ function Attack(props) {
                     <Panel className="area-attack" title="3. Your attack">
                         {ATTACK_UNITS.map(([key, name]) => (
                             (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
-                                ? <FieldRow key={key} label={name} hint={`${whole(myUnits[key])} available, ${unitsDesc[key]?.offense || "--"} offense each`} htmlFor={"att-" + key}>
+                                ? <FieldRow key={key} label={name} hint={`${unitsDesc[key]?.offense || "--"} offense each`} htmlFor={"att-" + key}>
                                     <AmountInput name={key} id={"att-" + key} label={name} value={attackerValues[key]} onChange={onAttacker} max={myUnits[key] || 0} />
                                 </FieldRow>
                                 : null
                         ))}
-                        <FieldRow label="Generals" hint={`${kingdom.generals_available ?? 0} available`} htmlFor="att-generals">
+                        <FieldRow label="Generals" htmlFor="att-generals">
                             <AmountInput name="generals" id="att-generals" label="Generals" value={attackerValues.generals} onChange={onAttacker} max={kingdom.generals_available || 0} />
                         </FieldRow>
                         <FieldRow label="Suggestion margin" hint="Extra offense a suggestion adds" htmlFor="att-buffer">

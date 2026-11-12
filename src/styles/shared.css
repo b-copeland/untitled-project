@@ -119,7 +119,9 @@
 .amount-input-box { flex: 1 1 auto; min-width: 0; width: 100%; text-align: right; }
 .amount-input-suffix { color: var(--bs-secondary-color, #6c757d); }
 .amount-input-max { flex: 0 0 auto; }
-.amount-input-slider { margin: 0; }
+.amount-input-track { display: flex; align-items: center; gap: 8px; }
+.amount-input-cap { flex: 0 0 auto; min-width: 2.5ch; text-align: right; font-size: 0.8em; color: var(--bs-secondary-color, #6c757d); }
+.amount-input-slider { margin: 0; flex: 1 1 auto; min-width: 0; }
 /* Three tones: dark blue up to what is chosen (--val), light blue for what is still free to choose, grey for what the other boxes have used up (--avail). Both are set inline. */
 .amount-input-slider::-webkit-slider-runnable-track {
   background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--avail, 100%), var(--bs-gray-400, #ced4da) var(--avail, 100%), var(--bs-gray-400, #ced4da) 100%);
