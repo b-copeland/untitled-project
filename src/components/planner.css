@@ -68,9 +68,10 @@
     .wide-layout { grid-template-columns: 1fr 1fr; }
 }
 @container (min-width: 1050px) {
-    .wide-layout { gap: 0 0.75rem; }
-    .wide-layout .panel { margin-bottom: 0.75rem; padding: 0.75rem; }
-    .wide-layout .field-row { padding: 0.3rem 0; }
+    .wide-layout { gap: 0 1.25rem; }
+    .wide-layout .panel { margin-bottom: 1.25rem; padding: 1.1rem 1.25rem; }
+    .wide-layout .field-row { padding: 0.55rem 0; }
+    .wide-layout .panel-title { margin-bottom: 0.5rem; }
     .attack-layout { grid-template-columns: 1fr 1.1fr 1.1fr; grid-template-areas:
         "target matchup matchup"
         "def attack forecast"

@@ -197,13 +197,13 @@ function Attack(props) {
                                         value={defenderValues[key]} onChange={onDefender} />}
                             </FieldRow>
                         ))}
-                        <FieldRow label="Military efficiency" status={bonusKnown ? "revealed" : edited.military_bonus ? "estimate" : "needed"} hint={bonusKnown ? undefined : "Assumed to be the highest it can be"} htmlFor="def-military_bonus">
+                        <FieldRow label="Military efficiency" status={bonusKnown ? "revealed" : edited.military_bonus ? "estimate" : "needed"} htmlFor="def-military_bonus">
                             {bonusKnown
                                 ? <span className="known-value">{displayPercent(targetKdInfo.current_bonuses.military_bonus)}</span>
                                 : <div className="attack-buffer"><Form.Control id="def-military_bonus" name="military_bonus" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
                                     value={defenderValues.military_bonus} onChange={onDefender} /><span>%</span></div>}
                         </FieldRow>
-                        <FieldRow label="Shields" status={shieldsKnown ? "revealed" : edited.shields ? "estimate" : "needed"} hint={shieldsKnown ? undefined : "Assumed to be the highest they can be"} htmlFor="def-shields">
+                        <FieldRow label="Shields" status={shieldsKnown ? "revealed" : edited.shields ? "estimate" : "needed"} htmlFor="def-shields">
                             {shieldsKnown
                                 ? <span className="known-value">{displayPercent(targetKdInfo.shields.military)}</span>
                                 : <div className="attack-buffer"><Form.Control id="def-shields" name="shields" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
