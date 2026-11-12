@@ -84,3 +84,4 @@
     .area-drones { grid-area: drones; } .area-know { grid-area: know; }
 }
 .field-row-label.has-tip { cursor: help; }
+.unit-stat { display: inline-flex; align-items: center; gap: 2px; margin-left: 0.35rem; padding: 0 0.4rem; border-radius: 999px; background: var(--bs-secondary-bg, #e9ecef); color: var(--bs-secondary-color, #6c757d); font-size: 0.75rem; font-weight: 600; vertical-align: middle; }

@@ -10,7 +10,7 @@ import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
-import { Panel, FieldRow, Stats, VersusBar, Picker, useServerForecast, clockUntil } from "../../components/planner";
+import { Panel, FieldRow, UnitStat, Stats, VersusBar, Picker, useServerForecast, clockUntil } from "../../components/planner";
 import { displayPercent } from "../../format";
 
 /*
@@ -190,7 +190,7 @@ function Attack(props) {
                 {context ? <>
                     <Panel className="area-def" title="2. Their defense">
                         {DEFENDER_UNITS.map(([key, name]) => (
-                            <FieldRow key={key} label={name} status={unitStatus(key)} tip={unitsDesc[key]?.defense ? `${unitsDesc[key].defense} defense each` : undefined} htmlFor={"def-" + key}>
+                            <FieldRow key={key} label={name} status={unitStatus(key)} stat={<UnitStat kind="defense" value={unitsDesc[key]?.defense} />} htmlFor={"def-" + key}>
                                 {unitsKnown
                                     ? <span className="known-value">{whole(targetKdInfo.units[key])}</span>
                                     : <Form.Control id={"def-" + key} name={key} size="sm" inputMode="numeric" placeholder="0" autoComplete="off"
@@ -214,7 +214,7 @@ function Attack(props) {
                     <Panel className="area-attack" title="3. Your attack">
                         {ATTACK_UNITS.map(([key, name]) => (
                             (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
-                                ? <FieldRow key={key} label={name} tip={`${unitsDesc[key]?.offense || "--"} offense each`} htmlFor={"att-" + key}>
+                                ? <FieldRow key={key} label={name} stat={<UnitStat kind="offense" value={unitsDesc[key]?.offense} />} htmlFor={"att-" + key}>
                                     <AmountInput name={key} id={"att-" + key} label={name} value={attackerValues[key]} onChange={onAttacker} max={myUnits[key] || 0} />
                                 </FieldRow>
                                 : null

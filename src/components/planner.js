@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Select from "react-select";
 import ProgressBar from "react-bootstrap/ProgressBar";
+import { GiCrossedSwords, GiShield } from "react-icons/gi";
 import "./planner.css";
 
 /*
@@ -33,11 +34,20 @@ export function StatusTag({ kind }) {
 }
 
 /** A label (and optional small ``hint``) on the left and its control on the right; stacks on a narrow screen. ``status`` adds a StatusTag, ``tip`` puts a detail in a tooltip instead of on the page. */
-export function FieldRow({ label, hint, tip, htmlFor, status, children }) {
+const UNIT_STATS = { offense: [GiCrossedSwords, "offense each"], defense: [GiShield, "defense each"] };
+
+/** A unit's offense or defense as a small icon and number, e.g. a sword and 5. The icon is the column header. */
+export function UnitStat({ kind, value }) {
+    const [Icon, words] = UNIT_STATS[kind];
+    if (!value) return null;
+    return <span className="unit-stat" title={`${value} ${words}`} aria-label={`${value} ${words}`}><Icon aria-hidden="true" />{value}</span>;
+}
+
+export function FieldRow({ label, hint, tip, stat, htmlFor, status, children }) {
     return (
         <div className="field-row">
             <label className={"field-row-label" + (tip ? " has-tip" : "")} htmlFor={htmlFor} title={tip}>
-                <span>{label} {status ? <StatusTag kind={status} /> : null}</span>
+                <span>{label} {stat} {status ? <StatusTag kind={status} /> : null}</span>
                 {hint ? <small>{hint}</small> : null}
             </label>
             <div className="field-row-control">{children}</div>
