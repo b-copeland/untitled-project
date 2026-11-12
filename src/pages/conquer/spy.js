@@ -101,12 +101,12 @@ function Spy(props) {
     return (
         <>
             <Header data={props.data} />
-            <div className="planner spy">
+            <div className="planner wide spy">
                 <ResultToasts title="Spy Results" results={results} setResults={setResults} />
                 <h2>Spy</h2>
 
-                <div className="planner-grid">
-                    <Panel title="1. Target and operation">
+                <div className="wide-layout spy-layout">
+                    <Panel className="area-target" title="1. Target and operation">
                         <FieldRow label="Target" htmlFor="spy-target">
                             <Picker id="spy-target" options={options} value={selected} onChange={onPickTarget}
                                 placeholder="Type a kingdom to filter" autoFocus={selected === undefined} />
@@ -120,7 +120,7 @@ function Spy(props) {
                             : null}
                     </Panel>
 
-                    <Panel title="2. Your drones">
+                    <Panel className="area-drones" title="2. Your drones">
                         <FieldRow label="Drones to send" hint={`${whole(maxDrones)} available, ${kingdom.spy_attempts ?? 0} spy attempts left`} htmlFor="spy-drones">
                             <AmountInput name="drones" id="spy-drones" label="Drones to send" value={drones}
                                 onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
@@ -141,9 +141,8 @@ function Spy(props) {
                             </FieldRow>
                         </> : null}
                     </Panel>
-                </div>
 
-                <Panel title="3. What you know about them">
+                <Panel className="area-know" title="3. What you know about them">
                     <FieldRow label="Drones" status={statusOf(dronesKnown, "drones")} htmlFor="spy-def-drones">
                         {dronesKnown ? <span className="known-value">{whole(targetKdInfo.drones)}</span>
                             : <Form.Control id="spy-def-drones" size="sm" inputMode="numeric" placeholder="unknown" autoComplete="off" value={defenderValues.drones} onChange={setDefender("drones")} />}
@@ -158,7 +157,7 @@ function Spy(props) {
                     </FieldRow>
                 </Panel>
 
-                <Panel title="4. Forecast">
+                <Panel className="area-forecast" title="4. Forecast">
                     {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
                     {hasForecast ? <>
                         {guessing
@@ -180,12 +179,14 @@ function Spy(props) {
                     </> : null}
                 </Panel>
 
-                <Panel title="5. Send">
+                <Panel className="area-send" title="5. Send">
                     <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => setConfirming(true)}>
                         Send spies
                     </Button>
                     {blocked ? <div className="planner-why">{blocked}</div> : null}
                 </Panel>
+
+                </div>
 
                 <Modal show={confirming} onHide={() => setConfirming(false)} animation={false}>
                     <Modal.Header closeButton><Modal.Title>Run this operation?</Modal.Title></Modal.Header>

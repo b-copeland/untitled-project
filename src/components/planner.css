@@ -60,3 +60,25 @@
 .matchup { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
 .matchup .stat { padding: 0.5rem 0.75rem; border: 1px solid var(--bs-border-color); border-radius: 0.5rem; }
 .matchup .stat small { display: block; color: var(--bs-secondary-color, #6c757d); font-weight: 400; font-size: 0.75rem; }
+
+/* Wide pages (Attack, Spy): on a wide screen or modal everything sits on one screen, as columns of panels. */
+.planner.wide { max-width: 1500px; }
+.wide-layout { display: grid; grid-template-columns: 1fr; gap: 0 1rem; align-items: start; }
+@container (min-width: 700px) {
+    .wide-layout { grid-template-columns: 1fr 1fr; }
+}
+@container (min-width: 1050px) {
+    .wide-layout { gap: 0 0.75rem; }
+    .wide-layout .panel { margin-bottom: 0.75rem; padding: 0.75rem; }
+    .wide-layout .field-row { padding: 0.3rem 0; }
+    .attack-layout { grid-template-columns: 1fr 1.1fr 1.1fr; grid-template-areas:
+        "target matchup matchup"
+        "def attack forecast"
+        "def attack send"; }
+    .spy-layout { grid-template-columns: 1fr 1fr 1fr; grid-template-areas:
+        "target drones know"
+        "forecast forecast send"; }
+    .area-target { grid-area: target; } .area-matchup { grid-area: matchup; } .area-def { grid-area: def; }
+    .area-attack { grid-area: attack; } .area-forecast { grid-area: forecast; } .area-send { grid-area: send; }
+    .area-drones { grid-area: drones; } .area-know { grid-area: know; }
+}

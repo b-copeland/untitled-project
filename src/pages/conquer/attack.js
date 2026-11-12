@@ -163,11 +163,12 @@ function Attack(props) {
     return (
         <>
             <Header data={props.data} />
-            <div className="planner attack">
+            <div className="planner wide attack">
                 <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} />
                 <h2>Attack</h2>
+                <div className="wide-layout attack-layout">
 
-                <Panel title="1. Choose a target">
+                <Panel className="area-target" title="1. Choose a target">
                     <Picker id="attack-target" options={options} value={selected} onChange={loadTarget}
                         placeholder="Type a kingdom to filter" autoFocus={selected === undefined} />
                     {loadingTarget ? <p className="planner-hint-line">Loading what is known about them...</p> : null}
@@ -176,7 +177,7 @@ function Attack(props) {
                         : null}
                 </Panel>
 
-                {context ? <Panel title="The matchup">
+                {context ? <Panel className="area-matchup" title="The matchup">
                     <div className="matchup">
                         <Stats items={[{ label: "Their defense", value: hasForecast ? whole(forecast.defender_defense) : "--" }]} />
                         <Stats items={[{ label: "Your offense", value: hasForecast ? whole(forecast.attacker_offense) : "--", tone: hasForecast ? (wins ? "good" : "bad") : undefined }]} />
@@ -186,8 +187,8 @@ function Attack(props) {
                     </div>
                 </Panel> : null}
 
-                {context ? <div className="planner-grid">
-                    <Panel title="2. Their defense">
+                {context ? <>
+                    <Panel className="area-def" title="2. Their defense">
                         {DEFENDER_UNITS.map(([key, name]) => (
                             <FieldRow key={key} label={name} status={unitStatus(key)} hint={unitsDesc[key]?.defense ? `${unitsDesc[key].defense} defense each` : undefined} htmlFor={"def-" + key}>
                                 {unitsKnown
@@ -210,7 +211,7 @@ function Attack(props) {
                         </FieldRow>
                     </Panel>
 
-                    <Panel title="3. Your attack">
+                    <Panel className="area-attack" title="3. Your attack">
                         {ATTACK_UNITS.map(([key, name]) => (
                             (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
                                 ? <FieldRow key={key} label={name} hint={`${whole(myUnits[key])} available, ${unitsDesc[key]?.offense || "--"} offense each`} htmlFor={"att-" + key}>
@@ -236,9 +237,9 @@ function Attack(props) {
                         </div>
                         {notice ? <Alert variant="warning" className="mt-2 mb-0">{notice}</Alert> : null}
                     </Panel>
-                </div> : null}
+                </> : null}
 
-                {context ? <Panel title="4. Forecast">
+                {context ? <Panel className="area-forecast" title="4. Forecast">
                     {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
                     {hasForecast ? <>
                         <div className={"planner-verdict " + (wins ? "good" : "bad")}>
@@ -266,13 +267,15 @@ function Attack(props) {
                     </> : null}
                 </Panel> : null}
 
-                <Panel title="5. Send">
+                <Panel className="area-send" title="5. Send">
                     <Button variant={wins || !hasForecast ? "primary" : "danger"} size="lg" disabled={Boolean(blocked) || props.loading.kingdom}
                         title={blocked} onClick={() => setConfirming(true)}>
                         Send attack
                     </Button>
                     {blocked ? <div className="planner-why">{blocked}</div> : null}
                 </Panel>
+
+                </div>
 
                 <Modal show={confirming} onHide={() => setConfirming(false)} animation={false}>
                     <Modal.Header closeButton><Modal.Title>Send this attack?</Modal.Title></Modal.Header>
