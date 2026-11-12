@@ -1,11 +1,10 @@
 """
 Bots: computer-run kingdoms, to make a round feel populated and to exercise the game's systems (issue #76).
 
-This is the first half of the plan, the *setup*. A bot is a normal kingdom that belongs to a normal (but unusable)
+This is the *setup*. A bot is a normal kingdom that belongs to a normal (but unusable)
 account, set up the way a sensible player of one playstyle would set theirs up. The game's own auto builder (auto
 spending, build targets, auto attack, auto rob, auto project assignment, all resolved by the periodic refresh) then
-plays it. The second half, bots that decide to *do* things (pick targets, spy, vote), is not here yet; see
-"Not yet" in docs/bots.md.
+plays it. The part that decides to *do* things (pick targets, spy, vote) is botbrain.py.
 
 The four playstyles are the ones in untitled_project.txt, each with the race whose bonuses suit it:
 
@@ -28,6 +27,7 @@ import secrets
 
 import flask
 
+import untitledapp.botbrain as botbrain
 import untitledapp.build as uab
 import untitledapp.conquer as uac
 import untitledapp.misc as uam
@@ -169,6 +169,14 @@ def vary(values, rng, spread=0.25):
 def settings_for(archetype, rng):
     """The auto builder fields for one bot's kingdom document (the part that is not the starting units/structures)."""
     settings = {
+        # What marks a kingdom as a bot, and the brain's state: its type, when it next thinks (spread out so a hundred
+        # new bots do not all think at once) and the log of what it decided. See botbrain.py.
+        "bot": {
+            "type": archetype.key,
+            "next_think": botbrain.first_think_time(
+                botbrain.PERSONALITIES[archetype.key], rng, datetime.datetime.now(datetime.timezone.utc)).isoformat(),
+            "log": [],
+        },
         "auto_spending_enabled": True,
         "auto_spending": vary(archetype.auto_spending, rng, 0.2),
         "structures_target": vary(archetype.structures_target, rng),

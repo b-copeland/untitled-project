@@ -19,6 +19,7 @@ import untitledapp.build as uab
 import untitledapp.conquer as uac
 import untitledapp.getters as uag
 import untitledapp.shared as uas
+import untitledapp.botbrain as botbrain
 from untitledapp import db, User, REQUESTS_SESSION, SOCK_HANDLERS
 
 bp = flask.Blueprint("refresh", __name__)
@@ -1123,7 +1124,9 @@ def _resolve_schedule_attack(new_kd_info, schedule):
                 for key_unit, value_unit in autofill_payload["attacker_units"].items():
                     req["attackerValues"][key_unit] = value_unit
             else:
-                return new_kd_info
+                # Not beatable with what is revealed now: do nothing. (This used to return the kingdom, which the
+                # caller then tried to run as an action.)
+                return (lambda: None), ()
     
     if not prefer_autofill or not use_autofill:
         pure_pct = schedule["options"].get("pure_offense", 0)
@@ -1233,7 +1236,7 @@ def _resolve_schedule_intelspy(new_kd_info, schedule):
     share_to_galaxy = schedule["options"].get("share_to_galaxy", False)
 
     def _loop_spies(kd_id, drones_pct, max_tries, shielded, operation, target_kd, share_to_galaxy):
-        kd_info = uag._get_kd(kd_id)
+        kd_info = uag._get_kd_info(kd_id)
         for _ in range(max_tries):
             req = {
                 "drones": math.floor(drones_pct * kd_info["drones"]),
@@ -1256,7 +1259,7 @@ def _resolve_schedule_aggressivespy(new_kd_info, schedule):
     target_kd = schedule["options"].get("target", "")
 
     def _loop_spies(kd_id, drones_pct, attempts, shielded, operation, target_kd):
-        kd_info = uag._get_kd(kd_id)
+        kd_info = uag._get_kd_info(kd_id)
         for _ in range(attempts):
             req = {
                 "drones": math.floor(drones_pct * kd_info["drones"]),
@@ -1766,6 +1769,11 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
     if new_kd_info["auto_rob_enabled"]:
         if _resolve_auto_rob(new_kd_info):
             new_kd_info = uag._get_kd_info(kd_id)
+
+    if new_kd_info.get("bot"):
+        # A bot decides what to do on its own timer; this only queues scheduled actions on it, so the kingdom as
+        # read above is what the score and history should use.
+        botbrain.maybe_think(new_kd_info, time_update, state)
 
     score_stars = new_kd_info["stars"]
     score_networth = new_kd_info["networth"]

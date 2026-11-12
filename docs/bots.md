@@ -38,20 +38,68 @@ POST /api/admin/bots     {"explorer": 25, "attacker": 25, "intel": 25, "thief": 
 At most 200 per call. Names are `bot_<type>_<n>`. Each goes into the galaxy with the fewest members, like a new player.
 Resetting the round (`/api/resetstate`) clears every account's kingdom, bots included; create them again afterwards.
 
-## Not yet: bots that act
+## Bots that act: the brain
 
-The auto builder only does what it can: it builds, settles, trains, and (for attackers and thieves) attacks or robs
-primitives on a timer. What it can not do is *decide*, and that is the harder half:
+`api/untitledapp/botbrain.py` is the part that *decides*. It is built from what the in-game guide and help pages say a
+good player does, as a few small rules per action (all numbers are `TUNE` guesses, in one `Personality` per archetype):
 
-- pick a target and attack another kingdom (the issue suggests rolling, per cycle, a random 0-40% of flex units to send);
-- spy and reveal, share the intel with the galaxy (intel bots), launch missiles;
-- vote in galaxy, empire and universe politics, buy votes, join empires, declare war.
+| Action | Rule |
+|---|---|
+| Attack | Never blind. Of the kingdoms it has fresh **military intel** on (the intel must outlast the wait), pick the one with the most stars that it can beat with a random 2-12% buffer (the same autofill the Attack page uses). Send 1-3 generals; the rest of the army stays home. No beatable target: send spies for military intel instead. Attackers only (to start with). |
+| Intel | Spy for a reveal operation on a kingdom it has none, or little, on. Intel bots share what they learn with the galaxy (90% of the time), others sometimes. Thieves leave their auto-rob's spy attempts alone; nobody spends its last. |
+| Aggressive spying | Thieves siphon funds from the richest kingdom they know the money of; if they know nobody's, they spy for it first. |
+| Missiles | If it holds any, fire 30-60% at the biggest kingdom it has seen. (No archetype builds silos yet, so this is dormant.) |
+| Politics | Votes for the galaxy policies that suit the playstyle (Expansionist for explorers, Warlike for attackers, Intelligence for the intel bot, ...). In an election, spends the votes it has on the universe policies. It never buys votes. |
 
-A sketch for when this is picked up: a bot "brain" run from the refresh (or a timer function) every N ticks, with one
-small function per action that reads the state a player would see, rolls its randomness, and calls the same internal
-action functions the routes use (`_attack`, `_spy`, `_offer_shared`, ...), never the HTTP routes. Each decision should be
-logged to the bot's own history so a round can be replayed. `tests/test_bots.py` already runs a bot through several
-refresh ticks without error, which is the harness to extend.
+**How it acts.** The brain never calls an action. It adds entries to the bot's own **schedule** (the Schedule page's
+queue) at random times over the coming interval, and the refresh runs them when they fall due through the same code the
+routes use. So the check "is this attack still winnable" happens when it is sent, and one bot's actions land at different
+moments. **When it acts** is random too: every bot has its own `next_think` (in the kingdom document under `bot`), first
+set at random when it is created and moved on by a random 1-5 epochs (depending on playstyle) after every think. A hundred
+bots therefore think a few at a time, tick after tick. This is the answer to "bots should not all act in the same tick".
+
+**What it can see.** Only what a player sees: names, galaxies and the intel revealed to the bot. Never hidden state.
+
+**The log.** Each decision, and what became of it, goes to the bot's `bot.log` (the last 40), e.g.
+`{"time": ..., "kind": "attack", "why": "attack Delta: 41,200 offense vs 38,900 defense with a 6% buffer", "outcome": "scheduled for ..."}`.
+Read it in the kingdom document (`GET /kingdom/<id>` on the function app).
+
+**Where it runs.** `refresh._refresh_kd` calls `botbrain.maybe_think` for every kingdom that has a `bot` field, after the
+kingdom's own tick. Kingdoms made before the brain existed have no `bot` field and stay passive; create new bots (or add
+`"bot": {"type": "attacker", "next_think": "<now>", "log": []}` to one by hand).
+
+**Tests.** `tests/test_bot_brain.py`: every rule on a made-up world, the spreading of times, and one bot driven through
+the real refresh until a spy it queued has run.
+
+### Bugs found on the way (fixed)
+- Scheduled **Intel Spy** and **Aggressive Spy** called `uag._get_kd`, which does not exist, so they could never run for
+  anybody. Now `_get_kd_info`.
+- A scheduled **attack with autofill** that was not winnable returned the kingdom document where the caller expected an
+  action, which crashed the rest of that kingdom's due schedules. It now does nothing.
+
+### Not yet
+- Buying votes, joining or creating empires, declaring war, surrendering. The help says empire politics is not enabled, so
+  nothing to do there yet.
+- Sharing intel it already has (as opposed to intel it just spied for) with `_offer_shared`; and accepting intel offered to it.
+- Primitives: the auto builder already handles them (auto attack / auto rob).
+- Reacting to being attacked or spied on (revenge, more defense, shields up).
+- Choosing targets by distance (return time) and by who has attacked the bot or its galaxy.
+
+## Questions for Ben
+Nothing is blocked on these; I picked a default and moved on.
+1. **Should attackers ever hit their own empire or galaxy?** Currently never: a bot only acts against other galaxies.
+2. **Aggression toward real players.** Bots treat players and bots alike. Should bots go easier on players (smaller
+   `attack_chance`, or never attack a kingdom that has logged in recently)? With ~100 bots and a few humans, humans may get
+   farmed.
+3. **Vote preferences.** I chose galaxy and universe votes from the policy text (see `PERSONALITIES`). Check they are the
+   ones you would want, in particular the explorer voting for "Treatied" (military units cost 20% more) in the universe.
+4. **Existing bots** have no `bot` field. Want an admin route that adds it to the ones already created, or is
+   re-creating them fine?
+5. **Think rate.** One think costs ~6 function-app calls (more when it evaluates attacks: ~5 per candidate, up to 6
+   candidates). At 100 bots thinking every 1-5 half-hours that is fine, but it adds to the refresh. Is the refresh time
+   budget a concern?
+6. **The 0-40% flex idea in the issue** (send a random share of flex units each cycle) is not used: the attack uses the
+   autofill, which picks the units. If you want the random share, it would replace autofill for flex-heavy attackers.
 
 ## Known gaps
 
