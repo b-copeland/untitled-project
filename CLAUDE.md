@@ -144,8 +144,10 @@ From [untitled_project.txt](untitled_project.txt). Use these to judge whether a 
   being phased out; migrated routes keep them for now. Read [docs/concurrency.md](docs/concurrency.md) first.
 - Function app `update_*` handlers must stay single-write (one `replace_item`) so `@retry_on_conflict` can re-run them.
   `funcapp/` is published by hand, not by CI.
-- Build queues are folded on every append (`funcapp/queues.py`): entries within `QUEUE_MERGE_SECONDS` (default 60) of each
-  other become one, with the latest time and summed counts. Queue entries therefore have no identity beyond their time.
+- Build queues are folded on every append (`funcapp/queues.py`): finish times are rounded up to a grid of 0.1% of the epoch
+  (`QUEUE_MERGE_FRACTION` of `EPOCH_SECONDS`, 1.8 s) and entries sharing a time are summed. Nothing finishes early, nothing is
+  more than one window late, and re-folding never moves anything. Queue entries have no identity beyond their time, and
+  must not carry extra keys (the refresh treats every key but `time` as a unit or structure name).
 - `adhoc/` is for one-off scripts. Reusable tooling goes in `scripts/`.
 - `iac/terraform.tfstate` and `funcapp/__azurite_*` are local state, not source.
 - Known tech debt: Python 3.10 is end-of-life, the CRA toolchain is old, and GitHub reports many Dependabot alerts on `main`.
