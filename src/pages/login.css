@@ -1,0 +1,4 @@
+.login-page { display: flex; justify-content: center; padding: 2rem 0; }
+.login-card { width: 100%; max-width: 400px; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); }
+.login-title { margin-bottom: 1.25rem; text-align: center; }
+.login-links { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; margin-top: 1rem; font-size: 0.9rem; }

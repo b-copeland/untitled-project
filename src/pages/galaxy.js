@@ -381,7 +381,7 @@ function Galaxy(props) {
             
             {!(galaxiesArray[galaxyIndex] != undefined)
                 ? <NonexistentGalaxy />
-                : <Table striped bordered hover className="galaxies-table" size="sm" >
+                : <div className="table-scroll"><Table striped bordered hover className="galaxies-table" size="sm" >
                     <thead>
                         <tr>
                         <th>Kingdom</th>
@@ -397,7 +397,7 @@ function Galaxy(props) {
                     <tbody>
                         {galaxyRows}
                     </tbody>
-                </Table>
+                </Table></div>
             }
             <HelpButton scrollTarget={"galaxy"}/>
         </div>
