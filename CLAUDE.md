@@ -53,10 +53,30 @@ fix it.
 - **Email:** `untitledapp/mailer.py` (smtp, console or memory backend) and the account recovery routes in `account.py`. See [docs/email.md](docs/email.md).
 - **Real-time push:** clients open a websocket at `/ws/listen` and register their JWT. `SOCK_HANDLERS` maps `kd_id` to
   the open socket.
-- **Frontend:** pages in `src/pages/*` (build, conquer, politics, help, home, galaxy, messages, admin), auth in
-  `src/auth`, shared components in `src/components`. In production, Flask serves the built frontend from `build/`.
+- **Frontend:** pages in `src/pages/*`, auth in `src/auth`, shared components in `src/components`. In production, Flask
+  serves the built frontend from `build/`. See "Frontend conventions" below.
 - **Config:** [api/config.py](api/config.py) has `Config` (environment variables) and `TestingConfig` (SQLite
   `pytest.db`, function app at `http://localhost:7071/api`, SQLite users `admin`/`user1`/`user2`).
+
+## Frontend conventions
+
+- **Adding a page:** one entry in [src/routes.js](src/routes.js). The router and the sidebar both read it, so there is
+  nothing else to wire. Game pages get `{data, loading, updateData}`; add `props: (context) => ({...})` for anything else.
+- **Tables:** `GameTable` ([src/components/gametable.js](src/components/gametable.js)) from column definitions, not
+  hand-written `<tr>`s. **Forms:** `useFormValues`, `NumberField`, `SubmitButton`
+  ([src/components/forms.js](src/components/forms.js)). **Results of an action:** `ResultToasts`
+  ([src/components/results.js](src/components/results.js)). **Numbers:** [src/format.js](src/format.js).
+- **Check before sending:** [src/validation.js](src/validation.js) mirrors what the server enforces so the player sees why
+  a request would fail, as a red message under the field and the button's tooltip, before it is sent. The server still
+  decides. [src/pages/build/structures.js](src/pages/build/structures.js) is the model; military, projects, attack, spy,
+  launch missiles, schedule and politics forms are not converted yet.
+- **CSS:** shared layout classes and tokens are in [src/styles/shared.css](src/styles/shared.css) (`col-center`,
+  `box-tight`, `game-table`, ...). Put a rule in a page stylesheet only if it is particular to that page. Before adding a
+  rule, check it is not already a shared class.
+- **Icons:** `react-icons`, shown through `IconButton` (name in the tooltip and the accessible label).
+- **Tests:** Jest, next to the code (`npm test`). `src/setupTests.js` stubs `matchMedia`. Mock `components/header` and
+  `components/helpbutton` when testing a page, and set mock implementations in `beforeEach` (Create React App resets mocks).
+- [docs/ux-review.md](docs/ux-review.md) has the page-by-page UX review and proposals.
 
 ## Running locally
 
