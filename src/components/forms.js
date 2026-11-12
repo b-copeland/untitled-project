@@ -69,3 +69,49 @@ export function SubmitButton({ loading, blocked, onClick, children, variant = "p
         </Button>
     );
 }
+
+/**
+ * A number input with a slider from 0 to ``max`` and a "Max" button that fills in the most that can be done. It is
+ * built to sit in a table cell or a card: the box and button share a row, the slider is underneath, and the error
+ * shows under both. ``onChange`` gets an event-like ``{target: {name, value}}`` so it works with ``useFormValues``.
+ * With ``max`` below 1 the slider and button are disabled (there is nothing to do). ``suffix`` adds a unit, such as "%".
+ */
+export function AmountInput({ name, id, value, onChange, max = 0, error, suffix, disabled = false, label }) {
+    const top = Math.max(Math.floor(max), 0);
+    const number = parseFloat(value) || 0;
+    const set = (next) => onChange({ target: { name, value: next === 0 ? "" : String(next) } });
+    const none = disabled || top < 1;
+    return (
+        <div className="amount-input">
+            <div className="amount-input-row">
+                <Form.Control
+                    className="amount-input-box"
+                    id={id || `${name}-input`}
+                    name={name}
+                    aria-label={label || name}
+                    value={value || ""}
+                    onChange={onChange}
+                    placeholder="0"
+                    autoComplete="off"
+                    inputMode="decimal"
+                    isInvalid={Boolean(error)}
+                    disabled={disabled}
+                />
+                {suffix ? <span className="amount-input-suffix">{suffix}</span> : null}
+                <Button variant="outline-secondary" size="sm" className="amount-input-max" disabled={none}
+                    onClick={() => set(top)} title={`Fill in the most you can: ${top.toLocaleString()}`}>
+                    Max
+                </Button>
+            </div>
+            <Form.Range
+                className="amount-input-slider"
+                aria-label={`${label || name} slider`}
+                min={0} max={top} step={1}
+                value={Math.min(number, top)}
+                disabled={none}
+                onChange={(event) => set(parseInt(event.target.value, 10))}
+            />
+            {error ? <div className="amount-input-error">{error}</div> : null}
+        </div>
+    );
+}

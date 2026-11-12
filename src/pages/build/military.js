@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import InputGroup from 'react-bootstrap/InputGroup';
+import { AmountInput } from "../../components/forms";
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
@@ -84,6 +85,8 @@ function Recruits(props) {
     if (Object.keys(props.kdInfo).length === 0) {
         return null;
     }
+    const price = props.mobisInfo.recruit_price || 0;
+    const maxRecruitsNow = Math.min(props.mobisInfo.current_available_recruits || 0, price > 0 ? Math.floor((props.kdInfo.money || 0) / price) : Infinity);
     return (
         <div className="recruits">
             <ResultToasts title="Recruits Results" results={recruitsResults} setResults={setRecruitsResults} />
@@ -120,18 +123,11 @@ function Recruits(props) {
                     <span className="text-box-item-title">Available New Recruits</span>
                     <span className="text-box-item-value">{props.mobisInfo.current_available_recruits?.toLocaleString()}</span>
                 </div>
-                <InputGroup className="recruits-input-group">
-                    <InputGroup.Text id="recruits-input-display">
-                        New Recruits
-                    </InputGroup.Text>
-                    <Form.Control 
-                        id="recruits-input"
-                        onChange={handleRecruitsInput}
-                        value={recruitsInput || ""} 
-                        placeholder="0"
-                        autoComplete="off"
-                    />
-                </InputGroup>
+                <div className="amount-field">
+                    <label htmlFor="recruits-input">New recruits</label>
+                    <AmountInput name="recruits" id="recruits-input" label="New recruits" value={recruitsInput}
+                        onChange={handleRecruitsInput} max={maxRecruitsNow} />
+                </div>
                 {props.loading.mobis
                 ? <Button className="recruits-button" variant="primary" type="submit" disabled>
                     Loading...
@@ -200,6 +196,14 @@ function Specialists(props) {
     }
     const specialistCosts = calcSpecialistsCosts(input, props.mobisInfo.units_desc);
     const recruitsUsed = calcRecruitsUsed(input);
+    // The most of one unit: the recruits left after the others, and what the money covers after the others.
+    const maxTrain = (unit) => {
+        const mine = parseInt(input[unit] || 0) || 0;
+        const each = props.mobisInfo.units_desc[unit].cost || 0;
+        const recruitsLeft = (props.kdInfo.units.recruits || 0) - (recruitsUsed - mine);
+        const moneyLeft = each > 0 ? Math.floor(((props.kdInfo.money || 0) - (specialistCosts - mine * each)) / each) : Infinity;
+        return Math.max(Math.min(recruitsLeft, moneyLeft), 0);
+    };
     return (
         <div className="specialists">
             <ResultToasts title="Recruits Results" results={specialistsResults} setResults={setSpecialistsResults} />
@@ -215,7 +219,7 @@ function Specialists(props) {
                     <span className="text-box-item-value">{props.mobisInfo.units.current.recruits?.toLocaleString()}</span>
                 </div>
             </div>
-            <Table className="specialists-table" striped bordered hover size="sm">
+            <div className="table-scroll"><Table className="specialists-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Unit</th>
@@ -240,15 +244,7 @@ function Specialists(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.hangar_capacity || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{
-                            <Form.Control 
-                                className="specialists-form"
-                                id="attackers-input"
-                                name="attack"
-                                onChange={handleInputChange}
-                                value={input.attack || ""} 
-                                placeholder="0"
-                                autoComplete="off"
-                            />
+                            <AmountInput name="attack" id="attackers-input" label="attack" value={input.attack} onChange={handleInputChange} max={maxTrain("attack")} />
                         }</td>
                     </tr>
                     <tr>
@@ -261,15 +257,7 @@ function Specialists(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.hangar_capacity || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{
-                            <Form.Control 
-                                className="specialists-form"
-                                id="defenders-input"
-                                name="defense"
-                                onChange={handleInputChange}
-                                value={input.defense || ""} 
-                                placeholder="0"
-                                autoComplete="off"
-                            />
+                            <AmountInput name="defense" id="defenders-input" label="defense" value={input.defense} onChange={handleInputChange} max={maxTrain("defense")} />
                         }</td>
                     </tr>
                     <tr>
@@ -282,15 +270,7 @@ function Specialists(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.hangar_capacity || 0)}</td>
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{
-                            <Form.Control 
-                                className="specialists-form"
-                                id="flexers-input"
-                                name="flex"
-                                onChange={handleInputChange}
-                                value={input.flex || ""} 
-                                placeholder="0"
-                                autoComplete="off"
-                            />
+                            <AmountInput name="flex" id="flexers-input" label="flex" value={input.flex} onChange={handleInputChange} max={maxTrain("flex")} />
                         }</td>
                     </tr>
                     {
@@ -305,15 +285,7 @@ function Specialists(props) {
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{
-                                <Form.Control 
-                                    className="specialists-form"
-                                    id="big-flexers-input"
-                                    name="big_flex"
-                                    onChange={handleInputChange}
-                                    value={input.big_flex || ""} 
-                                    placeholder="0"
-                                    autoComplete="off"
-                                />
+                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} max={maxTrain("big_flex")} />
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
@@ -325,21 +297,12 @@ function Specialists(props) {
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.hangar_capacity || 0)}</td>
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{
-                                <Form.Control 
-                                    className="specialists-form"
-                                    id="big-flexers-input"
-                                    name="big_flex"
-                                    onChange={handleInputChange}
-                                    value={input.big_flex || ""} 
-                                    placeholder="0"
-                                    disabled
-                                    autoComplete="off"
-                                />
+                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} max={maxTrain("big_flex")} disabled />
                             }</td>
                         </tr>
                     }
                 </tbody>
-            </Table>
+            </Table></div>
             {
                 props.loading.mobis
                 ? <Button className="specialists-button" variant="primary" type="submit" disabled>
@@ -410,6 +373,8 @@ function Allocate(props) {
         setRecruitsBeforeUnits(e.target.checked)
     }
 
+    // A unit's slider can go as far as is left of 100% once the other units' new numbers are counted.
+    const maxAllocate = (unit) => Math.max(100 - Object.entries(input).filter(([other]) => other !== unit).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0);
     if (Object.keys(props.mobisInfo).length === 0) {
         return null;
     }
@@ -444,7 +409,7 @@ function Allocate(props) {
                     autoComplete="off"
                 />
             </InputGroup>
-            <Table className="specialists-table" striped bordered hover size="sm">
+            <div className="table-scroll"><Table className="specialists-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Unit</th>
@@ -471,18 +436,7 @@ function Allocate(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.attack.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.attack || 0))}</td>
                         <td style={{textAlign: "right"}}>{
-                            <InputGroup className="mb-3 allocate-input-group">
-                                <Form.Control 
-                                    className="specialists-form"
-                                    id="attackers-input"
-                                    name="attack"
-                                    onChange={handleInputChange}
-                                    value={input.attack || ""} 
-                                    placeholder="0"
-                                    autoComplete="off"
-                                />
-                                <InputGroup.Text id="basic-addon2" className="allocate-input-group-text">%</InputGroup.Text>
-                            </InputGroup>
+                            <AmountInput name="attack" id="attackers-input" label="attack" value={input.attack} onChange={handleInputChange} suffix="%" max={maxAllocate("attack")} />
                         }</td>
                     </tr>
                     <tr>
@@ -496,18 +450,7 @@ function Allocate(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.defense.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.defense || 0))}</td>
                         <td style={{textAlign: "right"}}>{
-                            <InputGroup className="mb-3 allocate-input-group">
-                                <Form.Control 
-                                    className="specialists-form"
-                                    id="defenders-input"
-                                    name="defense"
-                                    onChange={handleInputChange}
-                                    value={input.defense || ""} 
-                                    placeholder="0"
-                                    autoComplete="off"
-                                />
-                                <InputGroup.Text id="basic-addon2" className="allocate-input-group-text">%</InputGroup.Text>
-                            </InputGroup>
+                            <AmountInput name="defense" id="defenders-input" label="defense" value={input.defense} onChange={handleInputChange} suffix="%" max={maxAllocate("defense")} />
                         }</td>
                     </tr>
                     <tr>
@@ -521,18 +464,7 @@ function Allocate(props) {
                         <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.flex.fuel || 0)}</td> */}
                         <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.flex || 0))}</td>
                         <td style={{textAlign: "right"}}>{
-                            <InputGroup className="mb-3 allocate-input-group">
-                                <Form.Control 
-                                    className="specialists-form"
-                                    id="flexers-input"
-                                    name="flex"
-                                    onChange={handleInputChange}
-                                    value={input.flex || ""} 
-                                    placeholder="0"
-                                    autoComplete="off"
-                                />
-                                <InputGroup.Text id="basic-addon2" className="allocate-input-group-text">%</InputGroup.Text>
-                            </InputGroup>
+                            <AmountInput name="flex" id="flexers-input" label="flex" value={input.flex} onChange={handleInputChange} suffix="%" max={maxAllocate("flex")} />
                         }</td>
                     </tr>
                     {
@@ -548,18 +480,7 @@ function Allocate(props) {
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.big_flex || 0))}</td>
                             <td style={{textAlign: "right"}}>{
-                                <InputGroup className="mb-3 allocate-input-group">
-                                    <Form.Control 
-                                        className="specialists-form"
-                                        id="big-flexers-input"
-                                        name="big_flex"
-                                        onChange={handleInputChange}
-                                        value={input.big_flex || ""} 
-                                        placeholder="0"
-                                        autoComplete="off"
-                                    />
-                                    <InputGroup.Text id="basic-addon2" className="allocate-input-group-text">%</InputGroup.Text>
-                                </InputGroup>
+                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} suffix="%" max={maxAllocate("big_flex")} />
                             }</td>
                         </tr>
                         : <tr className="disabled-table-row">
@@ -572,24 +493,12 @@ function Allocate(props) {
                             <td style={{textAlign: "right"}}>{(props.mobisInfo.units_desc.big_flex.fuel || 0)}</td> */}
                             <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.units_target?.big_flex || 0))}</td>
                             <td style={{textAlign: "right"}}>{
-                                <InputGroup className="mb-3 allocate-input-group">
-                                    <Form.Control 
-                                        className="specialists-form"
-                                        id="big-flexers-input"
-                                        name="big_flex"
-                                        onChange={handleInputChange}
-                                        value={input.big_flex || ""} 
-                                        placeholder="0"
-                                        disabled
-                                        autoComplete="off"
-                                    />
-                                    <InputGroup.Text id="basic-addon2" className="allocate-input-group-text">%</InputGroup.Text>
-                                </InputGroup>
+                                <AmountInput name="big_flex" id="big-flexers-input" label="big_flex" value={input.big_flex} onChange={handleInputChange} suffix="%" max={maxAllocate("big_flex")} disabled />
                             }</td>
                         </tr>
                     }
                 </tbody>
-            </Table>
+            </Table></div>
             {
                 props.loading.kingdom
                 ? <Button className="specialists-button" variant="primary" type="submit" disabled>
@@ -636,15 +545,8 @@ function Disband(props) {
             <td style={{textAlign: "left"}}>{prettyNames[unitKey] || unitKey}</td>
             <td style={{textAlign: "right"}}>{units[unitKey] || 0}</td>
             <td style={{textAlign: "right"}}>{
-                <Form.Control 
-                    className="specialists-form"
-                    id={"disband-" + unitKey}
-                    name={unitKey}
-                    onChange={handleInputChange}
-                    value={input[unitKey] || ""} 
-                    placeholder="0"
-                    autoComplete="off"
-                />
+                <AmountInput name={unitKey} id={"disband-" + unitKey} label={prettyNames[unitKey] || unitKey}
+                    value={input[unitKey]} onChange={handleInputChange} max={Math.floor(units[unitKey] || 0)} />
             }</td>
         </tr>
     })
@@ -656,7 +558,7 @@ function Disband(props) {
                 <span>Disband units to return them to your population and receive {displayPercent(props.state.game_config?.BASE_DISBAND_COST_RETURN || 0)} of the training cost back</span>
             </div>
             <ResultToasts title="Disband Results" results={results} setResults={setResults} />
-            <Table className="specialists-table" striped bordered hover size="sm">
+            <div className="table-scroll"><Table className="specialists-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Unit</th>
@@ -667,7 +569,7 @@ function Disband(props) {
                 <tbody>
                     {disbandRows}
                 </tbody>
-            </Table>
+            </Table></div>
             {
                 props.loading.kingdom
                 ? <Button className="specialists-button" variant="warning" type="submit" disabled>

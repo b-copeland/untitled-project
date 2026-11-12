@@ -10,7 +10,7 @@ import "./settle.css"
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
-import { SubmitButton } from "../../components/forms";
+import { AmountInput, SubmitButton } from "../../components/forms";
 import { checkCount, firstError } from "../../validation";
 
 
@@ -20,6 +20,9 @@ function Settle(props) {
 
     const settleInfo = props.data.settle;
     // Fine to send only if it is a whole number from 1 up to what can be settled right now.
+    // The most that can go out now: the room there is, and what the money covers.
+    const maxSettle = Math.min(settleInfo.current_available_settle || 0,
+        settleInfo.settle_price > 0 && props.data.kingdom?.money !== undefined ? Math.floor(props.data.kingdom.money / settleInfo.settle_price) : Infinity);
     const inputError = checkCount(settleInput, { max: settleInfo.current_available_settle || 0, noun: "stars" });
     const blocked = firstError(inputError) || (parseInt(settleInput, 10) > 0 ? null : "Enter how many stars to settle");
 
@@ -57,21 +60,11 @@ function Settle(props) {
                         <span className="text-box-item-value">{settleInfo.current_available_settle?.toLocaleString()}</span>
                     </div>
                 </div>
-                <InputGroup className="settle-input-group" hasValidation>
-                    <InputGroup.Text id="settle-input-display">
-                        Stars to Settle
-                    </InputGroup.Text>
-                    <Form.Control
-                        id="settle-input"
-                        onChange={(e) => setSettleInput(e.target.value)}
-                        value={settleInput || ""}
-                        placeholder="0"
-                        autoComplete="off"
-                        inputMode="numeric"
-                        isInvalid={Boolean(inputError)}
-                    />
-                    <Form.Control.Feedback type="invalid">{inputError}</Form.Control.Feedback>
-                </InputGroup>
+                <div className="settle-amount">
+                    <label htmlFor="settle-input">Stars to settle</label>
+                    <AmountInput name="settle" id="settle-input" label="Stars to settle" value={settleInput}
+                        onChange={(e) => setSettleInput(e.target.value)} error={inputError} max={maxSettle} />
+                </div>
                 <SubmitButton loading={props.loading.settle} blocked={blocked} className="settle-button" onClick={onSubmitClick}>
                     Settle
                 </SubmitButton>

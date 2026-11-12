@@ -120,3 +120,5 @@
         max-height: 32px;
     }
 }
+.amount-field { width: 100%; max-width: 320px; margin: 8px auto; display: flex; flex-direction: column; gap: 4px; }
+.amount-field .amount-input { margin-left: 0; max-width: none; }

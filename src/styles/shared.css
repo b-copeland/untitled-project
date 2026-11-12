@@ -111,3 +111,14 @@
 @media (min-width: 756px) {
   .icon-button { width: 34px; height: 34px; font-size: 20px; }
 }
+
+/* --- AmountInput: box + Max button + slider (components/forms.js) --------------------------------------------- */
+
+.amount-input { display: flex; flex-direction: column; gap: 2px; min-width: 190px; max-width: 280px; margin-left: auto; }
+.amount-input-row { display: flex; align-items: center; gap: 6px; }
+.amount-input-box { flex: 1 1 auto; min-width: 0; width: 100%; text-align: right; }
+.amount-input-suffix { color: var(--bs-secondary-color, #6c757d); }
+.amount-input-max { flex: 0 0 auto; }
+.amount-input-slider { margin: 0; }
+.amount-input-error { color: var(--bs-danger, #dc3545); font-size: 0.8em; text-align: right; }
+.table > :not(caption) > * > * { vertical-align: middle; }
