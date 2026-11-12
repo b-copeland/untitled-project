@@ -20,7 +20,11 @@ const decimals = (value) => value.toLocaleString(undefined, { minimumFractionDig
  */
 function Leaderboard({ rows, valueHeader, nameHeader = "Kingdom", label, formatValue = (value) => value.toLocaleString(), mine, mates = [] }) {
     const yourIndex = rows.findIndex(([id]) => mine !== undefined && String(id) === String(mine));
-    const rank = yourIndex >= 0 ? `You are ranked ${yourIndex + 1} of ${rows.length}.` : null;
+    const above = yourIndex > 0 ? rows[yourIndex - 1] : null;
+    const gap = above ? Number(above[1]) - Number(rows[yourIndex][1]) : 0;
+    const rank = yourIndex >= 0
+        ? `You are ranked ${yourIndex + 1} of ${rows.length}.` + (above ? ` ${formatValue(gap)} more to pass ${label(above[0])}.` : " You are in the lead.")
+        : null;
     const columns = [
         { header: "Rank", align: "left", cell: (_, index) => index + 1 },
         { header: nameHeader, align: "left", cell: ([id]) => label(id) },

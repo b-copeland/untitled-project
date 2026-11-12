@@ -23,8 +23,8 @@ happened, what needs doing, and what is cheap to do next**, quickly, on a phone 
    Specialists / Levy / Allocate / Disband. The tab names are sensible but the first tab is a very long page and the rest
    are short; people will not find "Spending" (it is where you switch auto spending on) under Home > Status.
 5. **Forms say "no" late.** **[mostly built]** Settle, Structures, Missiles, Military, Projects, Attack, Spy, Primitives,
-   Share Intel and Schedule now say what is wrong (or disable the button with the reason) before sending. Launch Missiles and
-   the politics forms still send first and report in a toast.
+   Share Intel and Schedule now say what is wrong (or disable the button with the reason) before sending. The
+   politics forms still send first and report in a toast. (Launch Missiles is now converted too.)
 6. **Results are toasts in the corner and disappear.** Fine for "built", poor for an attack report, which is the most
    important thing the game ever tells you. They are kept in News/History, but nothing says so. A failed request used to
    show nothing at all; it now shows a message **[built]**. Attack and Spy now ask "are you sure?" with the forecast
@@ -70,11 +70,13 @@ Kingdom summary, income breakdown, statuses (shields, siphons), who it is reveal
 - Proposed: a **"since you were last here"** line at the top (news items, attacks, queues finished), using the existing news
   and history data and the time of the last login.
 
-### Home > News (291 lines)
-Tabs Kingdom / Galaxy / Empire / Universe with Time, Time Since, To, News columns.
-- Problem: long text in a table; attacks on you look the same as spam; read/unread state is a counter in the sidebar only.
-- Proposed: a **feed**, newest first, with a coloured icon per type (attack, spy, missile, shared intel), the first line
-  bold and the detail collapsed; unread items marked until viewed; filter chips. Time as "3h ago" with the exact time on hover.
+### Home > News **[feed built]**
+Tabs Kingdom / Galaxy / Empire / Universe. Was four differently built tables (two paged DataTables, two plain tables).
+- Built: one `NewsFeed` for all four tabs: newest first, "3h ago" with the exact time on hover, who it is from / to, a
+  search box, and "Show more" in pages of 20. The Kingdom and Galaxy tabs keep their unread counts.
+- Not built: a coloured icon per type and unread markers per item. The news items are `{time, from, to, news}` with no type
+  field, so an icon would mean guessing from the text; the clean way is for the server to add a `kind` when it writes the
+  item (see the questions at the end).
 
 ### Home > Galaxy (408 lines) **[partly built]**
 A table of the galaxy's kingdoms with actions in modals.
@@ -100,7 +102,8 @@ History: Attack / Spy / Missiles / Stats tabs with line charts.
   thing the charts lack.
 - Scores **[built]**: four near-identical tables became one leaderboard component; your row and your galaxymates' rows are
   highlighted and the page says "You are ranked 12 of 98" (on a list of 100 kingdoms, finding yourself was the main job).
-  Proposed next: jump-to-me button, and the gap to the kingdom above ("2,300 networth to pass Delta").
+  Built since: the rank line now also says the gap to the kingdom above ("2,300 more to pass Delta") or that you lead.
+  Proposed next: a jump-to-me button.
 
 ### Build > Queue (218 lines)
 Funding boxes plus an accordion of five queues (settle, structures, units, engineers, missiles).
@@ -197,8 +200,11 @@ future (this also fixes a time-zone bug in the old default), the details for tha
 the server's, and a summary before you schedule. The queue is a list of cards with Cancel.
 - Proposed: a week calendar of what will run.
 
-### Conquer > Launch Missiles
-Not reworked. Same pattern as Attack would apply (target, missiles with sliders, forecast, confirm).
+### Conquer > Launch Missiles **[rebuilt]**
+The same planner pattern: target and their missile shields (tagged *Revealed* / *Your estimate* / *Optional*), a slider with Max
+per missile kind capped by what you hold, a forecast from `/api/calculatemissiles` after the usual pause, and a confirmation
+that lists what is being fired. Unlike Attack, the API only returns a sentence ("The missiles will destroy ..."), so the
+forecast is shown as that sentence rather than as numbers; giving it a structured reply is the next step if a bar is wanted.
 
 ### Forecasts: how they are fetched **[built]**
 All projections on Attack, Spy and Primitives come from the API. To keep the number of requests small:
@@ -241,7 +247,7 @@ Point-buy for starting units and structures with live stats.
   are already on). From the `lg` breakpoint up it is a fixed column.
 - Section labels carry the count of anything new (messages, news, shared intel); pages carry their own.
 - Still proposed: the kingdom name and galaxy at the top of the sidebar, and a badge for things that need a decision
-  (an unanswered surrender offer, a finished project). `Forums` has a route and no link; remove it or finish it.
+  (an unanswered surrender offer, a finished project). The unlinked `Forums` placeholder is removed.
 
 ## Help **[built]**
 
@@ -291,5 +297,24 @@ Built (see the sections above for the detail):
   Also fixed: a blank "cut" on a spy operation crashed the route.
 - This document.
 
-Not built: the Status dashboard, News feed, Queue timeline, Launch Missiles rework, politics inbox, Create Kingdom presets,
+Not built: the Status dashboard, Queue timeline, politics inbox, Create Kingdom presets,
 View Kingdom cards, result report cards. None of the UI has been seen in a browser by me.
+
+## Overnight round 2 (branch `ux-review-2`)
+
+Built: Launch Missiles on the planner pattern, News as one feed component, the Scores gap line, the dead Forums route removed.
+Each has a test; the whole Jest suite passes. Still not seen in a browser.
+
+### Questions for Ben
+These are decisions I did not want to guess at. Nothing is blocked on them.
+1. **Header net rates.** You said not to bloat the header. I did not add rates there. Would you rather have them on the
+   Status dashboard only (my suggestion), or as a tooltip on fuel and money?
+2. **Galaxy cards.** Your question "can you still see the whole galaxy at a glance?" is the right worry about cards. Proposal:
+   keep the table at desk width and use cards only below the `md` breakpoint, where the table scrolls anyway. Agree?
+3. **News icons.** To tag items by type the server would add a `kind` field when it writes news. Small change in
+   `funcapp`, which is published by hand. OK to do?
+4. **Launch Missiles forecast.** Wants `/api/calculatemissiles` to return numbers (stars, fuel, pop damage) as well as the
+   sentence, so the page can show them as stats. OK to add them (the old `message` stays)?
+5. **Status dashboard, politics inbox, unified military table** are the three biggest remaining items. Each is a page of
+   500 to 1000 lines that I cannot look at in a browser, so I stopped rather than rebuild them blind. Which do you want first?
+6. **Create Kingdom presets** are covered by issue #61, so I left them alone.
