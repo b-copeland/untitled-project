@@ -5,34 +5,56 @@ Auto spending queues something on every tick, and several of those land within s
 collects many entries that finish at practically the same moment. Each one is a few hundred bytes in a document that is
 read and rewritten on every append, and each one is a row for the player to read on the queue page.
 
-``coalesce`` folds entries whose times are close together into one. The merged entry takes the *latest* time of the
-group, so nothing finishes earlier than it was promised; the cost to the player is that an entry can finish up to
-``window`` seconds later than it would have. Counts are added together. A group is anchored at its first entry, so one
-never spans more than ``window`` seconds however many entries chain together.
+``coalesce`` rounds every entry's finish time *up* to the next multiple of ``window`` seconds and adds together the
+entries that land on the same time. So:
 
-It is a sort and one pass over a list of a few dozen items, far cheaper than the write it saves.
+* nothing finishes early, and nothing is late by more than ``window``;
+* it cannot drift: rounding a time that is already rounded changes nothing, so an entry is never pushed back again by
+  later appends, however many there are;
+* entries carry no extra fields (the refresh treats every key but ``time`` as a unit or structure name);
+* it is one pass with a dictionary, plus a sort of the (already merged) distinct times, so a queue of tens of thousands
+  of entries costs milliseconds.
+
+The window is a fraction of the game's epoch: ``QUEUE_MERGE_FRACTION`` (0.1% by default) of ``EPOCH_SECONDS`` (1800 s,
+so 1.8 s). It scales with the round speed.
 """
 import datetime
 import os
 
-DEFAULT_WINDOW_SECONDS = 60
+# Keep EPOCH_SECONDS equal to BASE_EPOCH_SECONDS in api/untitledapp/shared.py (tests/test_queue_batching.py checks it).
+DEFAULT_EPOCH_SECONDS = 30 * 60
+DEFAULT_FRACTION = 0.001
+
+_ORIGIN = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+_MS = datetime.timedelta(milliseconds=1)
 
 
 def window_seconds():
-    return float(os.environ.get("QUEUE_MERGE_SECONDS", DEFAULT_WINDOW_SECONDS))
+    epoch = float(os.environ.get("EPOCH_SECONDS", DEFAULT_EPOCH_SECONDS))
+    return epoch * float(os.environ.get("QUEUE_MERGE_FRACTION", DEFAULT_FRACTION))
 
 
-def _when(entry):
-    return datetime.datetime.fromisoformat(entry["time"]).astimezone(datetime.timezone.utc)
+def _millis(text):
+    return (datetime.datetime.fromisoformat(text).astimezone(datetime.timezone.utc) - _ORIGIN) // _MS
 
 
 def _is_count(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _merge(group):
-    merged = {"time": max((entry["time"] for entry in group), key=lambda t: _when({"time": t}))}
-    for entry in group:
+def coalesce(entries, window=None):
+    """Round entry times up to a ``window``-second grid and add together entries that share a time."""
+    window = window_seconds() if window is None else window
+    window_ms = int(round(window * 1000))
+    if window_ms <= 0 or len(entries) < 2:
+        return list(entries)
+
+    slots = {}
+    for entry in entries:
+        slot = -(-_millis(entry["time"]) // window_ms)  # ceiling division
+        merged = slots.get(slot)
+        if merged is None:
+            slots[slot] = merged = {"time": (_ORIGIN + slot * window_ms * _MS).isoformat()}
         for key, value in entry.items():
             if key == "time":
                 continue
@@ -40,19 +62,4 @@ def _merge(group):
                 merged[key] = merged.get(key, 0) + value
             else:
                 merged.setdefault(key, value)
-    return merged
-
-
-def coalesce(entries, window=None):
-    """Fold queue entries whose times are within ``window`` seconds (default ``QUEUE_MERGE_SECONDS``) into one."""
-    window = window_seconds() if window is None else window
-    if window <= 0 or len(entries) < 2:
-        return list(entries)
-
-    groups = []
-    for entry in sorted(entries, key=_when):
-        if groups and (_when(entry) - _when(groups[-1][0])).total_seconds() <= window:
-            groups[-1].append(entry)
-        else:
-            groups.append([entry])
-    return [group[0] if len(group) == 1 else _merge(group) for group in groups]
+    return [slots[slot] for slot in sorted(slots)]
