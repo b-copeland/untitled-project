@@ -56,6 +56,7 @@ Clock, stars, fuel, population, money, networth, spy attempts, generals. Eight e
 - Proposed: show **net rate** under fuel and money (`+1,200/h`, or `runs out in 3h` when negative), because the stock alone
   does not say whether to act. Pin the strip to the top on scroll. Group as "Economy: stars, pop, money, fuel" and
   "Actions: spy attempts, generals" with the actions highlighted when non-zero (they are a use-it-or-lose-it resource).
+- BEN COMMENT: be careful not to overbloat the header
 
 ### Home > Status (1057 lines, 5 tabs)
 Kingdom summary, income breakdown, statuses (shields, siphons), who it is revealed to, and auto spending controls.
@@ -84,6 +85,7 @@ A table of the galaxy's kingdoms with actions in modals.
 - Proposed: on a phone show each kingdom as a **card** (name, race, stars, distance, status, icon row). Sort and filter
   (e.g. only attackable, only revealed). Show **what you know** (revealed stats age) on the row, so you can see which targets
   have fresh intel.
+  BEN COMMENT: can you still see the whole galaxy at a glance?
 
 ### Home > Message **[built]**
 Was a flat list of messages with a select box.
@@ -219,6 +221,7 @@ Point-buy for starting units and structures with live stats.
 - Proposed: **presets** ("Explorer", "Attacker", "Support", "Thief", the same four playstyles as the bots in `docs/bots.md`) that
   fill the point-buy, which the player can then adjust. A new player faces 14 inputs and a points budget with no hint
   of what a good start is.
+  BEN COMMENT - there is an issue for this one about seeding default playstyle choices https://github.com/b-copeland/untitled-project/issues/61
 
 ### View Kingdom (538 lines)
 - Problem: five tabs mirroring the Status tabs, with "Not Revealed!" when you lack intel.
