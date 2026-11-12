@@ -47,3 +47,14 @@ test("the slider keeps its length when others use the pool, greys the lost part 
     fireEvent.click(screen.getByRole("button", { name: "Max" }));
     expect(screen.getByLabelText("Homes").value).toBe("40");
 });
+
+test("the slider is dark up to the choice, light up to what is free, grey after", () => {
+    function Shared() {
+        const [value, setValue] = useState("25");
+        return <AmountInput name="homes" label="Homes" value={value} max={60} soloMax={100} onChange={(e) => setValue(e.target.value)} />;
+    }
+    render(<Shared />);
+    const style = screen.getByLabelText("Homes slider").style;
+    expect(style.getPropertyValue("--val")).toBe("25%");
+    expect(style.getPropertyValue("--avail")).toBe("60%");
+});

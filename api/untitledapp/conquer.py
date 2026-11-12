@@ -224,13 +224,13 @@ def attack_context(target_kd):
         "shields": kd_info_parse.get("shields", {}).get("military", 0),
         "generals_available": kd_info_parse["generals_available"],
     }
-    # A stand-in for whatever is not revealed: assume they are about as strong as you are. It is a starting point to
+    # A stand-in for whatever is not revealed: an army as big as yours, with the largest bonus and shields there can be. It is a starting point to
     # edit, and the page only uses the parts that "revealed" says are missing.
     estimate = {
         "basis": "your own army",
         "units": {key: kd_info_parse["units"].get(key, 0) for key in ("recruits", "defense", "flex", "big_flex")},
-        "military_bonus": round(current_bonuses["military_bonus"] * 100, 1),
-        "shields": round(kd_info_parse.get("shields", {}).get("military", 0.10) * 100, 1),
+        "military_bonus": round(uas.PROJECTS["military_bonus"]["max_bonus"] * 100, 1),
+        "shields": round(uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_MAX"] * 100, 1),
     }
     payload = {
         "revealed": {

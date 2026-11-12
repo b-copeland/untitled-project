@@ -41,7 +41,7 @@ function Attack(props) {
     const [edited, setEdited] = useState({});            // which of their numbers the player has changed from the starting estimate
     const [selected, setSelected] = useState(props.initialKd || undefined);
     const [targetKdInfo, setTargetKdInfo] = useState({});
-    const [context, setContext] = useState(null);         // from the server: revealed flags, an estimate, your own defense
+    const [context, setContext] = useState(null);         // revealed flags, an estimate, your own defense
     const [loadingTarget, setLoadingTarget] = useState(false);
     const [suggesting, setSuggesting] = useState(false);
     const [attackResults, setAttackResults] = useState([]);
@@ -76,7 +76,7 @@ function Attack(props) {
             setAttackerValues(next);
             setForecast(answer, planFor(target, next, defender));
         } else {
-            setNotice(answer.message || "The server could not suggest an attack.");
+            setNotice(answer.message || "No attack could be suggested.");
         }
     };
 
@@ -140,6 +140,7 @@ function Attack(props) {
     const unitsKnown = Boolean(context?.revealed.units);
     const bonusKnown = Boolean(context?.revealed.military_bonus);
     const shieldsKnown = Boolean(context?.revealed.shields);
+    const allKnown = unitsKnown && bonusKnown && shieldsKnown;
     const hasForecast = forecast.attacker_offense !== undefined;
     const wins = hasForecast && forecast.attacker_offense > forecast.defender_defense;
     const ratio = hasForecast && forecast.defender_defense > 0 ? forecast.attacker_offense / forecast.defender_defense : 0;
@@ -175,7 +176,7 @@ function Attack(props) {
                         : null}
                 </Panel>
 
-                {context ? <Panel title="The matchup" hint={hasForecast ? "From the server, for the attack below." : "Choose units to see the outcome."}>
+                {context ? <Panel title="The matchup" hint={hasForecast ? "For the attack below." : "Choose units to see the outcome."}>
                     <div className="matchup">
                         <Stats items={[{ label: "Their defense", value: hasForecast ? whole(forecast.defender_defense) : "--" }]} />
                         <Stats items={[{ label: "Your offense", value: hasForecast ? whole(forecast.attacker_offense) : "--", tone: hasForecast ? (wins ? "good" : "bad") : undefined }]} />
@@ -184,13 +185,13 @@ function Attack(props) {
                         <Stats items={[{ label: "Your defense if you sent everything", value: whole(context.mine.defense_if_all_sent) }]} />
                     </div>
                     {!unitsKnown ? <p className="planner-hint-line mt-2">
-                        Their army is not revealed to you, so their defense is worked out from the estimate in step 2 (it starts as {context.estimate.basis}).
+                        Their army is not revealed to you, so their defense is worked out from the estimate in step 2 (it starts as an army as big as yours, with the highest bonus and shields possible).
                     </p> : null}
                 </Panel> : null}
 
                 {context ? <div className="planner-grid">
                     <Panel title="2. Their defense"
-                        hint={unitsKnown ? "Their army is revealed, so those numbers are exact." : "Their army is not revealed. We have started you off with an estimate; change it if you know better."}>
+                        hint={allKnown ? "All of this is revealed to you, so the numbers are exact." : unitsKnown ? "Their army is revealed. The tags show what is still a guess." : "Their army is not revealed. We have started you off with an estimate; change it if you know better."}>
                         {DEFENDER_UNITS.map(([key, name]) => (
                             <FieldRow key={key} label={name} status={unitStatus(key)} hint={unitsDesc[key]?.defense ? `${unitsDesc[key].defense} defense each` : undefined} htmlFor={"def-" + key}>
                                 {unitsKnown
@@ -199,13 +200,13 @@ function Attack(props) {
                                         value={defenderValues[key]} onChange={onDefender} />}
                             </FieldRow>
                         ))}
-                        <FieldRow label="Military efficiency" status={bonusKnown ? "revealed" : "optional"} hint={bonusKnown ? undefined : "Assumed to match yours"} htmlFor="def-military_bonus">
+                        <FieldRow label="Military efficiency" status={bonusKnown ? "revealed" : edited.military_bonus ? "estimate" : "needed"} hint={bonusKnown ? undefined : "Assumed to be the highest it can be"} htmlFor="def-military_bonus">
                             {bonusKnown
                                 ? <span className="known-value">{displayPercent(targetKdInfo.current_bonuses.military_bonus)}</span>
                                 : <div className="attack-buffer"><Form.Control id="def-military_bonus" name="military_bonus" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
                                     value={defenderValues.military_bonus} onChange={onDefender} /><span>%</span></div>}
                         </FieldRow>
-                        <FieldRow label="Shields" status={shieldsKnown ? "revealed" : "optional"} hint={shieldsKnown ? undefined : "Assumed to match yours"} htmlFor="def-shields">
+                        <FieldRow label="Shields" status={shieldsKnown ? "revealed" : edited.shields ? "estimate" : "needed"} hint={shieldsKnown ? undefined : "Assumed to be the highest they can be"} htmlFor="def-shields">
                             {shieldsKnown
                                 ? <span className="known-value">{displayPercent(targetKdInfo.shields.military)}</span>
                                 : <div className="attack-buffer"><Form.Control id="def-shields" name="shields" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"

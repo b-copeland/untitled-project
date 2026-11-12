@@ -221,7 +221,7 @@ function RobPrimitives(props) {
                     </FieldRow>
                 </Panel>
                 <Panel title="Forecast">
-                    <Stats items={[{ label: "Money per drone (the server's rate)", value: perDrone.toFixed(2) }]} />
+                    <Stats items={[{ label: "Money per drone", value: perDrone.toFixed(2) }]} />
                     <div className="planner-actions">
                         <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => setConfirming(true)}>Send drones</Button>
                     </div>

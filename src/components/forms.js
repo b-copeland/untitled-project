@@ -112,7 +112,7 @@ export function AmountInput({ name, id, value, onChange, max = 0, soloMax, error
             </div>
             <Form.Range
                 className="amount-input-slider"
-                style={{ "--avail": `${free}%` }}
+                style={{ "--avail": `${free}%`, "--val": `${scale > 0 ? (Math.min(number, scale) / scale) * 100 : 0}%` }}
                 aria-label={`${label || name} slider`}
                 min={0} max={scale} step={1}
                 value={Math.min(number, scale)}

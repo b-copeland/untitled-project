@@ -46,9 +46,15 @@
 }
 @media (min-width: 756px) {
     .attack-modal {
-        width: 80%;
+        width: 85%;
         min-width: 0;
-        max-width: 1000px;
+        max-width: 1100px;
+    }
+}
+@media (min-width: 1200px) {
+    .attack-modal {
+        width: 92%;
+        max-width: 1400px;
     }
 }
 

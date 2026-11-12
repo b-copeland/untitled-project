@@ -125,31 +125,35 @@ export function useServerForecast(plan, ask, ms = 700) {
     const wanted = plan === null ? "" : JSON.stringify(plan);
     const settled = useDebounced(wanted, ms);
     const [answer, setAnswerState] = useState({});
-    const [answeredFor, setAnsweredFor] = useState("");
+    const [inflight, setInflight] = useState(false);
     const given = useRef("");  // the plan an answer was handed to us for, so it is not asked again
     useEffect(() => {
         if (!settled) {
             setAnswerState({});
-            setAnsweredFor("");
+            setInflight(false);
             return;
         }
         if (settled === given.current) {
+            given.current = "";
+            setInflight(false);
             return;
         }
         let current = true;
+        setInflight(true);
         Promise.resolve(ask(JSON.parse(settled)))
-            .then((result) => { if (current) { setAnswerState(result); setAnsweredFor(settled); } })
-            .catch(() => { if (current) setAnsweredFor(settled); });
+            .then((result) => { if (current) { setAnswerState(result); setInflight(false); } })
+            .catch(() => { if (current) setInflight(false); });
         return () => { current = false; };
     }, [settled]);
     // Put in an answer got some other way. ``forPlan`` is the plan it answers, if it is also the page's next plan.
     const setAnswer = (result, forPlan) => {
-        const key = forPlan === undefined || forPlan === null ? "" : JSON.stringify(forPlan);
-        given.current = key;
+        given.current = forPlan === undefined || forPlan === null ? "" : JSON.stringify(forPlan);
         setAnswerState(result);
-        setAnsweredFor(key);
+        setInflight(false);
     };
-    return [answer, wanted !== "" && wanted !== answeredFor, setAnswer];
+    // Waiting out the pause, or waiting for an answer: nothing else, so it cannot get stuck on.
+    const pending = (wanted !== settled && wanted !== given.current) || inflight;
+    return [answer, pending, setAnswer];
 }
 
 /** ``value``, but only after it has stopped changing for ``ms``. For asking the server about what is being typed. */
