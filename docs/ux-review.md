@@ -154,6 +154,7 @@ The Revealed / Shared / Pinned lists. The text action buttons are now the same i
   would remove that (see below).
 
 ### Conquer > Attack **[rebuilt]**
+Principle for these planner pages: no explanatory subtitles under the section titles. The tags, labels and the forecast should be self-evident; text is kept only where it reports something (an alert, a warning).
 Was two tables of text boxes, three buttons in a row (Autofill, Calculate, Attack) and a text blob for the result.
 Now five steps on one page, in a column on a phone and two columns on a wide screen or a wide modal:
 1. **Choose a target.** Picking one loads, from the API (`/api/attackcontext`), what is revealed about them, a starting

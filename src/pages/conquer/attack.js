@@ -176,7 +176,7 @@ function Attack(props) {
                         : null}
                 </Panel>
 
-                {context ? <Panel title="The matchup" hint={hasForecast ? "For the attack below." : "Choose units to see the outcome."}>
+                {context ? <Panel title="The matchup">
                     <div className="matchup">
                         <Stats items={[{ label: "Their defense", value: hasForecast ? whole(forecast.defender_defense) : "--" }]} />
                         <Stats items={[{ label: "Your offense", value: hasForecast ? whole(forecast.attacker_offense) : "--", tone: hasForecast ? (wins ? "good" : "bad") : undefined }]} />
@@ -184,14 +184,10 @@ function Attack(props) {
                         <Stats items={[{ label: "Your defense after this attack", value: homeAfter !== undefined ? whole(homeAfter) : "--", tone: homeAfter !== undefined && homeAfter < homeNow * 0.8 ? "bad" : undefined }]} />
                         <Stats items={[{ label: "Your defense if you sent everything", value: whole(context.mine.defense_if_all_sent) }]} />
                     </div>
-                    {!unitsKnown ? <p className="planner-hint-line mt-2">
-                        Their army is not revealed to you, so their defense is worked out from the estimate in step 2 (it starts as an army as big as yours, with the highest bonus and shields possible).
-                    </p> : null}
                 </Panel> : null}
 
                 {context ? <div className="planner-grid">
-                    <Panel title="2. Their defense"
-                        hint={allKnown ? "All of this is revealed to you, so the numbers are exact." : unitsKnown ? "Their army is revealed. The tags show what is still a guess." : "Their army is not revealed. We have started you off with an estimate; change it if you know better."}>
+                    <Panel title="2. Their defense">
                         {DEFENDER_UNITS.map(([key, name]) => (
                             <FieldRow key={key} label={name} status={unitStatus(key)} hint={unitsDesc[key]?.defense ? `${unitsDesc[key].defense} defense each` : undefined} htmlFor={"def-" + key}>
                                 {unitsKnown
@@ -214,8 +210,7 @@ function Attack(props) {
                         </FieldRow>
                     </Panel>
 
-                    <Panel title="3. Your attack"
-                        hint="We have suggested an attack that should win against the numbers on the left. Change it as you like. Nothing is sent until you press Send.">
+                    <Panel title="3. Your attack">
                         {ATTACK_UNITS.map(([key, name]) => (
                             (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
                                 ? <FieldRow key={key} label={name} hint={`${whole(myUnits[key])} available, ${unitsDesc[key]?.offense || "--"} offense each`} htmlFor={"att-" + key}>
@@ -243,7 +238,7 @@ function Attack(props) {
                     </Panel>
                 </div> : null}
 
-                {context ? <Panel title="4. Forecast" hint={hasForecast ? undefined : "Choose some units to see how it would go."}>
+                {context ? <Panel title="4. Forecast">
                     {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
                     {hasForecast ? <>
                         <div className={"planner-verdict " + (wins ? "good" : "bad")}>

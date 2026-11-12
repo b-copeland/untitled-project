@@ -115,14 +115,13 @@ function Spy(props) {
                             <Picker id="spy-operation" options={OPERATIONS} value={operation} onChange={setOperation}
                                 placeholder="Choose an operation" searchable={false} />
                         </FieldRow>
-                        {chosen ? <p className="planner-hint-line">{chosen.group === "Hostile" ? "A hostile operation: the target is told it was you if it is caught." : "Gathers information. It does not harm the target."}</p> : null}
                         {intel.length > 0
                             ? <Stats items={intel.map(([what, until]) => ({ label: `${what} revealed for`, value: clockUntil(until) }))} />
                             : null}
                     </Panel>
 
-                    <Panel title="2. Your drones" hint={`You have ${whole(maxDrones)} drones and ${kingdom.spy_attempts ?? 0} spy attempt${kingdom.spy_attempts === 1 ? "" : "s"}.`}>
-                        <FieldRow label="Drones to send" htmlFor="spy-drones">
+                    <Panel title="2. Your drones">
+                        <FieldRow label="Drones to send" hint={`${whole(maxDrones)} available, ${kingdom.spy_attempts ?? 0} spy attempts left`} htmlFor="spy-drones">
                             <AmountInput name="drones" id="spy-drones" label="Drones to send" value={drones}
                                 onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
                         </FieldRow>
@@ -144,8 +143,7 @@ function Spy(props) {
                     </Panel>
                 </div>
 
-                <Panel title="3. What you know about them (optional)"
-                    hint="You do not need any of this to send spies. The forecast uses it to work out your chance, so the more you know or can guess, the better the forecast.">
+                <Panel title="3. What you know about them">
                     <FieldRow label="Drones" status={statusOf(dronesKnown, "drones")} htmlFor="spy-def-drones">
                         {dronesKnown ? <span className="known-value">{whole(targetKdInfo.drones)}</span>
                             : <Form.Control id="spy-def-drones" size="sm" inputMode="numeric" placeholder="unknown" autoComplete="off" value={defenderValues.drones} onChange={setDefender("drones")} />}
@@ -160,7 +158,7 @@ function Spy(props) {
                     </FieldRow>
                 </Panel>
 
-                <Panel title="4. Forecast" hint={hasForecast ? undefined : "Choose a target and an operation to see your chances."}>
+                <Panel title="4. Forecast">
                     {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
                     {hasForecast ? <>
                         {guessing
