@@ -194,8 +194,8 @@ class World:
         return self.galaxy_of.get(self.kd_id)
 
     def outsiders(self):
-        """Kingdoms in other galaxies, the only ones worth acting against."""
-        return [kd for kd in self.names if kd != self.kd_id and self.galaxy_of.get(kd) != self.my_galaxy]
+        """Kingdoms in other galaxies, the only ones worth acting against (one that is in no galaxy is not a real kingdom)."""
+        return [kd for kd in self.names if kd != self.kd_id and kd in self.galaxy_of and self.galaxy_of[kd] != self.my_galaxy]
 
     def seconds_left(self, target, category):
         """How long ``category`` of ``target`` stays revealed to us, in seconds (0 if it is not)."""
