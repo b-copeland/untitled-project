@@ -19,7 +19,7 @@ const renderAt = (path) => render(
 
 test("the landing page opens at /", async () => {
     renderAt("/");
-    expect(await screen.findByText(/Welcome to/)).toBeTruthy();
+    expect(await screen.findByText("Untitled Space Game")).toBeTruthy();
 });
 
 test("the login form opens at /login", async () => {

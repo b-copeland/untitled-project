@@ -29,6 +29,8 @@ import { IconButton } from "../../components/iconbutton";
 import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsGlobe2, BsCheckLg, BsHourglassSplit } from "react-icons/bs";
 import { GiCrossedSwords } from "react-icons/gi";
 
+import { ResultToasts } from "../../components/results";
+
 // The action buttons in the tables here are icons, as on the Galaxy page: the word the button used to show is its tooltip.
 const ICONS = {
     View: [BsEye, "View"], Attack: [GiCrossedSwords, "Attack"], Spy: [BsBinoculars, "Spy"], Missile: [BsRocketTakeoff, "Launch missiles"],
@@ -39,7 +41,6 @@ function ActionButton({ children, disabled, onClick }) {
     const [icon, label] = ICONS[String(children).trim()] || [BsEye, String(children).trim()];
     return <IconButton icon={icon} label={label} onClick={onClick} disabled={disabled} active={String(children).trim() === "Unpin"} />;
 }
-import { ResultToasts } from "../../components/results";
 
 
 

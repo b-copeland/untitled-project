@@ -1,549 +1,271 @@
-import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
+import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
-import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
-import Table from 'react-bootstrap/Table';
-import Toast from 'react-bootstrap/Toast';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
-import ToastContainer from 'react-bootstrap/ToastContainer'
+import Modal from 'react-bootstrap/Modal';
+import Alert from 'react-bootstrap/Alert';
 import "./primitives.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
+import { AmountInput } from "../../components/forms";
+import { Panel, FieldRow, Stats, useDebounced } from "../../components/planner";
+import { displayPercent } from "../../format";
 
-
+const whole = (value) => Math.floor(value || 0).toLocaleString();
+const percentOf = (fraction) => (fraction === undefined || fraction === null ? "" : Math.round(fraction * 1000) / 10);
 
 function Primitives(props) {
-    const [key, setKey] = useState('attack');
-
     return (
-    <>
-      <Header data={props.data} />
-      <Tabs
-        id="controlled-tab-example"
-        defaultActiveKey="attack"
-        justify
-        fill
-        variant="tabs"
-      >
-        <Tab eventKey="attack" title="Attack">
-          <AttackPrimitives
-            loading={props.loading}
-            updateData={props.updateData}
-            data={props.data}
-            />
-        </Tab>
-        <Tab eventKey="rob" title="Rob">
-          <RobPrimitives
-            loading={props.loading}
-            updateData={props.updateData}
-            data={props.data}/>
-        </Tab>
-      </Tabs>
-      <HelpButton scrollTarget={"primitives"}/>
-    </>
+        <>
+            <Header data={props.data} />
+            <div className="planner primitives">
+                <h2>Primitives</h2>
+                <Tabs id="primitives-tabs" defaultActiveKey="attack" justify fill variant="tabs">
+                    <Tab eventKey="attack" title="Attack">
+                        <AttackPrimitives loading={props.loading} updateData={props.updateData} data={props.data} />
+                    </Tab>
+                    <Tab eventKey="rob" title="Rob">
+                        <RobPrimitives loading={props.loading} updateData={props.updateData} data={props.data} />
+                    </Tab>
+                </Tabs>
+                <HelpButton scrollTarget={"primitives"}/>
+            </div>
+        </>
     );
 }
 
-const initialAttackerValues = {
-    "recruits": "",
-    "attack": "",
-    "flex": "",
-    "big_flex": "",
-    "military_bonus": "",
-    "generals": "",
+const ATTACK_UNITS = [["attack", "Attackers"], ["flex", "Flexers"], ["big_flex", "Big flexers"]];
+const initialAttackerValues = { recruits: "", attack: "", flex: "", big_flex: "", military_bonus: "", generals: "" };
+
+/** An on/off switch with the settings under it, for the automatic version of an action. */
+function AutoPanel({ title, hint, enabled, onToggle, disabled, children, onSave, saveLabel = "Save settings" }) {
+    return (
+        <Panel title={title} hint={hint}>
+            <Form.Check type="switch" id={"auto-" + title.replace(/\s+/g, "-").toLowerCase()} label={enabled ? "On" : "Off"}
+                checked={enabled} onChange={onToggle} disabled={disabled} />
+            {children}
+            <div className="planner-actions">
+                <Button variant="outline-primary" onClick={onSave} disabled={disabled}>{saveLabel}</Button>
+            </div>
+        </Panel>
+    );
 }
 
 function AttackPrimitives(props) {
     const [attackerValues, setAttackerValues] = useState(initialAttackerValues);
-    const [calcMessage, setCalcMessage] = useState({"message": "Press calculate to project results"})
-    const [loadingCalc, setLoadingCalc] = useState(false);
-    const [attackResults, setAttackResults] = useState([]);
-    const [enabled, setEnabled] = useState(props.data.kingdom.auto_attack_enabled)
+    const [forecast, setForecast] = useState({});
+    const [forecasting, setForecasting] = useState(false);
+    const [results, setResults] = useState([]);
+    const [confirming, setConfirming] = useState(false);
     const [autoPure, setAutoPure] = useState("");
     const [autoFlex, setAutoFlex] = useState("");
 
-    const handleAttackerChange = (e) => {
-        const { name, value } = e.target;
-        setAttackerValues({
-          ...attackerValues,
-          [name]: value,
-        });
-    };
-    const handleEnabledChange = (e) => {
-        let opts = {
-            'enabled': e.target.checked
+    const kingdom = props.data.kingdom;
+    const unitsDesc = props.data.mobis?.units_desc || {};
+    const myUnits = kingdom.units || {};
+    const settings = kingdom.auto_attack_settings || {};
+
+    useEffect(() => {
+        const bonus = props.data.projects.current_bonuses?.military_bonus;
+        if (bonus && attackerValues.military_bonus === "") {
+            setAttackerValues((previous) => ({ ...previous, military_bonus: bonus }));
         }
-        const updateFunc = () => authFetch('api/attackprimitives/auto', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r))})
-        props.updateData(['kingdom'], [updateFunc])
-        setEnabled(e.target.checked)
-    }
-    const handleAutoPureInput = (e) => {
-        setAutoPure(e.target.value)
-    }
-    const handleAutoFlexInput = (e) => {
-        setAutoFlex(e.target.value)
-    }
-  
-    const onClickAttack = () => {
-        const opts = {
-            "attackerValues": attackerValues,
-        };
-        const updateFunc = async () => authFetch('api/attackprimitives', {
-            method: 'POST',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("")})
+    }, [props.data.projects.current_bonuses?.military_bonus]);
+
+    const onChange = (event) => setAttackerValues((previous) => ({ ...previous, [event.target.name]: event.target.value }));
+    const sending = ATTACK_UNITS.reduce((sum, [key]) => sum + (parseInt(attackerValues[key], 10) || 0), 0);
+    const generals = parseInt(attackerValues.generals, 10) || 0;
+
+    const request = useDebounced(JSON.stringify(attackerValues), 700);
+    useEffect(() => {
+        const values = JSON.parse(request);
+        if (ATTACK_UNITS.every(([key]) => !(parseInt(values[key], 10) > 0))) {
+            setForecast({});
+            return;
+        }
+        let current = true;
+        setForecasting(true);
+        authFetch('api/calculateprimitives', { method: 'POST', body: JSON.stringify({ attackerValues: values }) })
+            .then(r => r.json()).then(r => { if (current) setForecast(r); }).finally(() => { if (current) setForecasting(false); });
+        return () => { current = false; };
+    }, [request]);
+
+    const send = () => {
+        setConfirming(false);
+        const updateFunc = async () => authFetch('api/attackprimitives', { method: 'POST', body: JSON.stringify({ attackerValues }) })
+            .then(r => r.json()).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); });
         props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects'], [updateFunc]);
     };
-    const onClickCalculate = async (e) => {
-        const opts = {
-            "attackerValues": attackerValues,
-        };
-        const updateFunc = async () => authFetch('api/calculateprimitives', {
-            method: 'POST',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => setCalcMessage(r))
-        setLoadingCalc(true);
-        await updateFunc();
-        setLoadingCalc(false);
+    const toggleAuto = (event) => {
+        const updateFunc = () => authFetch('api/attackprimitives/auto', { method: 'post', body: JSON.stringify({ enabled: event.target.checked }) })
+            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+        props.updateData(['kingdom'], [updateFunc]);
     };
-    const onSubmitAutoSettingsClick = async (e)=>{
-        let opts = {
-            "pure": autoPure,
-            "flex": autoFlex,
-        }
-        const updateFunc = () => authFetch('api/attackprimitives/auto', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r))})
-        props.updateData(['kingdom'], [updateFunc])
-    }
-    if (props.data.projects.current_bonuses?.military_bonus && attackerValues.military_bonus === "") {
-        setAttackerValues({
-            ...attackerValues,
-            ["military_bonus"]: props.data.projects.current_bonuses.military_bonus,
-        });
-    }
+    const saveAuto = () => {
+        const updateFunc = () => authFetch('api/attackprimitives/auto', { method: 'post', body: JSON.stringify({ pure: autoPure, flex: autoFlex }) })
+            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+        props.updateData(['kingdom'], [updateFunc]);
+    };
+
+    const problems = [];
+    if (sending === 0) problems.push("Choose units to send");
+    if (generals < 1) problems.push("Send at least 1 general");
+    ATTACK_UNITS.forEach(([key, name]) => {
+        if ((parseInt(attackerValues[key], 10) || 0) > (myUnits[key] || 0)) problems.push(`You only have ${whole(myUnits[key])} ${name.toLowerCase()}`);
+    });
+    if (generals > (kingdom.generals_available || 0)) problems.push(`You only have ${kingdom.generals_available} generals`);
+    const blocked = problems[0];
+    const hasForecast = forecast.attacker_offense !== undefined;
 
     return (
-        <div className="primitives">
-            <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} />
-            <div className="primitives-content">
-                <div className="attack-primitives">
-                    <h2>Attack Primitives</h2>
-                    <div className="text-box primitives-box">
-                        <span className="box-span">Your military will exploit primitive galaxies to conquer distant stars.</span>
-                        <br />
-                        <span className="box-span">Primitives defense per star: {(props.data.state.primitives_defense_per_star || 100).toFixed(2)}</span>
+        <div className="primitives-tab">
+            <ResultToasts title="Attack Results" results={results} setResults={setResults} />
+            <p className="planner-hint-line">
+                Your military exploits primitive galaxies to conquer distant stars. The primitives hold
+                {" "}{(props.data.state.primitives_defense_per_star || 100).toFixed(2)} defense per star.
+            </p>
+            <div className="planner-grid">
+                <Panel title="Your attack" hint="Choose what to send. The forecast updates as you go; nothing is sent until you press Send.">
+                    {ATTACK_UNITS.map(([key, name]) => (
+                        (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
+                            ? <FieldRow key={key} label={name} hint={`${whole(myUnits[key])} available, ${unitsDesc[key]?.offense || "--"} offense each`} htmlFor={"prim-" + key}>
+                                <AmountInput name={key} id={"prim-" + key} label={name} value={attackerValues[key]} onChange={onChange} max={myUnits[key] || 0} />
+                            </FieldRow>
+                            : null
+                    ))}
+                    <FieldRow label="Generals" hint={`${kingdom.generals_available ?? 0} available`} htmlFor="prim-generals">
+                        <AmountInput name="generals" id="prim-generals" label="Generals" value={attackerValues.generals} onChange={onChange} max={kingdom.generals_available || 0} />
+                    </FieldRow>
+                </Panel>
+                <Panel title="Forecast" hint={hasForecast ? undefined : "Choose some units to see how it would go."}>
+                    {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
+                    {hasForecast ? <>
+                        <Stats items={[{ label: "Your offense", value: whole(forecast.attacker_offense) }, { label: "Unit loss rate", value: displayPercent(forecast.attacker_unit_losses_rate) }]} />
+                        <div className="planner-notes">{forecast.message}{forecasting ? " (updating...)" : ""}</div>
+                        <table className="planner-table table table-sm">
+                            <thead><tr><th>Units lost</th><th>You</th></tr></thead>
+                            <tbody>
+                                {ATTACK_UNITS.map(([key, name]) => forecast.attacker_losses?.[key]
+                                    ? <tr key={key}><td>{name}</td><td>{whole(forecast.attacker_losses[key])}</td></tr>
+                                    : null)}
+                            </tbody>
+                        </table>
+                    </> : null}
+                    <div className="planner-actions">
+                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => setConfirming(true)}>Send attack</Button>
                     </div>
-                    <div className="col-center primitives-battle-stats">
-                        <div className="primitives-attacker-detail">
-                            <Table className="attacker-table" striped bordered hover size="sm">
-                                <thead>
-                                    <tr>
-                                        <th>Unit</th>
-                                        <th style={{textAlign: "right"}}>Available</th>
-                                        <th style={{textAlign: "right"}}>Offense</th>
-                                        <th style={{textAlign: "right"}}>Input</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Attackers</td>
-                                        <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
-                                        <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
-                                        <td style={{textAlign: "right"}}>
-                                            <Form.Control 
-                                                className="unit-form"
-                                                id="attack-input"
-                                                name="attack"
-                                                onChange={handleAttackerChange}
-                                                value={attackerValues.attack || ""} 
-                                                placeholder="0"
-                                                autoComplete="off"
-                                            />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Flexers</td>
-                                        <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
-                                        <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
-                                        <td style={{textAlign: "right"}}>
-                                            <Form.Control 
-                                                className="unit-form"
-                                                id="flexers-input"
-                                                name="flex"
-                                                onChange={handleAttackerChange}
-                                                value={attackerValues.flex || ""} 
-                                                placeholder="0"
-                                                autoComplete="off"
-                                            />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Big Flexers</td>
-                                        <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
-                                        <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
-                                        <td style={{textAlign: "right"}}>
-                                            <Form.Control 
-                                                className="unit-form"
-                                                id="big-flexers-input"
-                                                name="big_flex"
-                                                onChange={handleAttackerChange}
-                                                value={attackerValues.big_flex || ""} 
-                                                placeholder="0"
-                                                autoComplete="off"
-                                            />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Military Efficiency</td>
-                                        <td style={{textAlign: "right"}}></td>
-                                        <td style={{textAlign: "right"}}></td>
-                                        <td style={{textAlign: "right"}}>
-                                            <Form.Control 
-                                                className="unit-form"
-                                                id="military-efficiency-input"
-                                                name="military_bonus"
-                                                onChange={handleAttackerChange}
-                                                value={displayPercent(props.data.projects.current_bonuses?.military_bonus)} 
-                                                placeholder="0"
-                                                disabled
-                                                autoComplete="off"
-                                            />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Other Bonuses</td>
-                                        <td style={{textAlign: "right"}}></td>
-                                        <td style={{textAlign: "right"}}></td>
-                                        <td style={{textAlign: "right"}}>
-                                            <Form.Control 
-                                                className="unit-form"
-                                                id="other-bonuses-input"
-                                                name="other_bonuses"
-                                                value="0%" 
-                                                placeholder="0%"
-                                                disabled
-                                                autoComplete="off"
-                                            />
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Generals</td>
-                                        <td style={{textAlign: "right"}}>{props.data.kingdom?.generals_available}</td>
-                                        <td style={{textAlign: "right"}}></td>
-                                        <td style={{textAlign: "right"}}>
-                                            <Form.Control 
-                                                className="unit-form"
-                                                id="generals-input"
-                                                name="generals"
-                                                onChange={handleAttackerChange}
-                                                value={attackerValues.generals || ""} 
-                                                placeholder="0"
-                                                autoComplete="off"
-                                            />
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </Table>
-                            <div className="primitives-attacker-text-boxes">
-                                <div className="text-box primitives-losses-box">
-                                    <h4>Your Losses</h4> 
-                                    <div className="text-box-item">
-                                        <span className="text-box-item-title">Attackers</span>
-                                        <span className="text-box-item-value">{calcMessage.attacker_losses?.attack?.toLocaleString() || "--"}</span>
-                                    </div>
-                                    <div className="text-box-item">
-                                        <span className="text-box-item-title">Flexers</span>
-                                        <span className="text-box-item-value">{calcMessage.attacker_losses?.flex?.toLocaleString() || "--"}</span>
-                                    </div>
-                                    <div className="text-box-item">
-                                        <span className="text-box-item-title">Big Flexers</span>
-                                        <span className="text-box-item-value">{calcMessage.attacker_losses?.big_flex?.toLocaleString() || "--"}</span>
-                                    </div>
-                                    <br />
-                                    <br />
-                                    <br />
-                                    <div className="text-box-item">
-                                        <span className="text-box-item-title">Unit Loss Rate</span>
-                                        <span className="text-box-item-value">{displayPercent(calcMessage.attacker_unit_losses_rate) || "--"}</span>
-                                    </div>
-                                </div>
-                                <div className="text-box primitives-offense-box">
-                                    <h4>Your Offense</h4> 
-                                    <div className="text-box-item">
-                                        <span className="attacker-offense">{calcMessage.attacker_offense?.toLocaleString() || "--"}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="text-box attack-results-box">
-                        <span className="box-span">{calcMessage.message}</span>
-                    </div>
-                    <div className="attack-buttons">
-                        {
-                            loadingCalc
-                            ? <Button className="calculate-button" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="calculate-button" variant="primary" type="submit" onClick={onClickCalculate}>
-                                Calculate
-                            </Button>
-                        }
-                        {
-                            props.loading.kingdom
-                            ? <Button className="attack-button" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="attack-button" variant="primary" type="submit" onClick={onClickAttack}>
-                                Attack
-                            </Button>
-                        }
-                    </div>
-                </div>
-                <div className="primitives-attack-auto">
-                    <h2>Auto Settings</h2>
-                    <Form>
-                        <Form.Check 
-                            type="switch"
-                            id="enable-auto-attack-switch"
-                            label="Enable Auto Attack"
-                            checked={props.data.kingdom.auto_attack_enabled || false}
-                            onChange={handleEnabledChange}
-                            disabled={props.loading.kingdom}
-                        />
-                    </Form>
-                    <InputGroup className="mb-3 auto-attack-percent">
-                        <InputGroup.Text id="text-pure-percent" className="auto-attack-percent-text">
-                            Pure Offense to Send (Current: {props.data.kingdom.auto_attack_settings?.pure * 100}%)
-                        </InputGroup.Text>
-                        <Form.Control 
-                            id="pure-percent"
-                            aria-describedby="basic-addon3" 
-                            onChange={handleAutoPureInput}
-                            value={autoPure} 
-                            placeholder={(props.data.kingdom.auto_attack_settings?.pure || 0) * 100}
-                            autoComplete="off"
-                        />
-                        <InputGroup.Text id="pure-offense-pct" style={{width: '12%'}}>
-                            %
-                        </InputGroup.Text>
-                    </InputGroup>
-                    <InputGroup className="mb-3 auto-attack-percent">
-                        <InputGroup.Text id="text-settle-percent" className="auto-attack-percent-text">
-                            Flex Offense to Send (Current: {props.data.kingdom.auto_attack_settings?.flex * 100}%)
-                        </InputGroup.Text>
-                        <Form.Control 
-                            id="flex-percent"
-                            aria-describedby="basic-addon3" 
-                            onChange={handleAutoFlexInput}
-                            value={autoFlex} 
-                            placeholder={(props.data.kingdom.auto_attack_settings?.flex || 0) * 100}
-                            autoComplete="off"
-                        />
-                        <InputGroup.Text id="flex-offense-pct" style={{width: '12%'}}>
-                            %
-                        </InputGroup.Text>
-                    </InputGroup>
-                    {props.loading.kingdom
-                    ? <Button className="auto-attack-settings-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="auto-attack-settings-button" variant="primary" type="submit" onClick={onSubmitAutoSettingsClick}>
-                        Update
-                    </Button>
-                    }
-                </div>
+                    {blocked ? <div className="planner-why">{blocked}</div> : null}
+                </Panel>
             </div>
+
+            <AutoPanel title="Automatic attacks" hint="Send part of your army at the primitives on its own, whenever it is ready."
+                enabled={kingdom.auto_attack_enabled || false} onToggle={toggleAuto} disabled={props.loading.kingdom} onSave={saveAuto}>
+                <FieldRow label="Attackers to send" hint={`Now ${percentOf(settings.pure)}%`} htmlFor="pure-percent">
+                    <div className="attack-buffer"><Form.Control id="pure-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoPure}
+                        placeholder={String(percentOf(settings.pure) || 0)} onChange={(e) => setAutoPure(e.target.value)} /><span>%</span></div>
+                </FieldRow>
+                <FieldRow label="Flexers to send" hint={`Now ${percentOf(settings.flex)}%`} htmlFor="flex-percent">
+                    <div className="attack-buffer"><Form.Control id="flex-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoFlex}
+                        placeholder={String(percentOf(settings.flex) || 0)} onChange={(e) => setAutoFlex(e.target.value)} /><span>%</span></div>
+                </FieldRow>
+            </AutoPanel>
+
+            <Modal show={confirming} onHide={() => setConfirming(false)} animation={false}>
+                <Modal.Header closeButton><Modal.Title>Send this attack?</Modal.Title></Modal.Header>
+                <Modal.Body>
+                    <p>Send {whole(sending)} units and {generals} general{generals === 1 ? "" : "s"} at the primitives.</p>
+                    {hasForecast ? <Alert variant="info">Your forecast offense is {whole(forecast.attacker_offense)}.</Alert> : null}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
+                    <Button onClick={send}>Send attack</Button>
+                </Modal.Footer>
+            </Modal>
         </div>
-    )
+    );
 }
 
 function RobPrimitives(props) {
     const [results, setResults] = useState([]);
     const [drones, setDrones] = useState("");
     const [shieldDrones, setShieldDrones] = useState(false);
-    const [enabled, setEnabled] = useState(props.data.kingdom.auto_rob_enabled || false)
     const [autoDrones, setAutoDrones] = useState("");
-    const [autoSpyAttemptsKeep, setAutoSpyAttemptsKeep] = useState("");
-    const [autoShieldDrones, setAutoShieldDrones] = useState(props.data.kingdom.auto_rob_settings?.shielded || false);
+    const [autoKeep, setAutoKeep] = useState("");
+    const [autoShield, setAutoShield] = useState(props.data.kingdom.auto_rob_settings?.shielded || false);
+    const [confirming, setConfirming] = useState(false);
 
-    const handleShieldChange = (e) => {
-        setShieldDrones(e.target.checked)
+    const kingdom = props.data.kingdom;
+    const settings = kingdom.auto_rob_settings || {};
+    const maxDrones = Math.floor(kingdom.drones || 0);
+    const sending = parseInt(drones, 10) || 0;
+    const perDrone = props.data.state.primitives_rob_per_drone || 4;
+
+    const post = (path, body, refresh = ['kingdom']) => {
+        const updateFunc = () => authFetch(path, { method: 'post', body: JSON.stringify(body) })
+            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+        props.updateData(refresh, [updateFunc]);
     };
-    const handleDronesChange = (e) => {
-        setDrones(e.target.value);
-    };
-    const handleAutoSpyAttemptsKeepChange = (e) => {
-        setAutoSpyAttemptsKeep(e.target.value);
-    };
-    const handleEnabledChange = (e) => {
-        let opts = {
-            'enabled': e.target.checked
-        }
-        const updateFunc = () => authFetch('api/robprimitives/auto', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['kingdom'], [updateFunc])
-        setEnabled(e.target.checked)
-    }
-    const handleAutoDronesInput = (e) => {
-        setAutoDrones(e.target.value)
-    }
-    const handleAutoShieldChange = (e) => {
-        setAutoShieldDrones(e.target.checked);
-        let opts = {
-            'shielded': e.target.checked
-        }
-        const updateFunc = () => authFetch('api/robprimitives/auto', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['kingdom'], [updateFunc])
-        setEnabled(e.target.checked)
-    };
-    const onClickAttack = () => {
-        const opts = {
-            "drones": drones,
-            "shielded": shieldDrones,
-        };
-        const updateFunc = async () => authFetch('api/robprimitives', {
-            method: 'POST',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['kingdom', 'spyhistory'], [updateFunc]);
-    };
-    const onSubmitAutoSettingsClick = async (e)=>{
-        let opts = {
-            "drones": autoDrones,
-            "keep": autoSpyAttemptsKeep,
-            "shielded": autoShieldDrones,
-        }
-        const updateFunc = () => authFetch('api/robprimitives/auto', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['kingdom'], [updateFunc])
-    }
-    if (drones > props.data.kingdom["drones"]) {
-        setDrones(Math.floor(props.data.kingdom["drones"]))
-    }
+    const send = () => { setConfirming(false); post('api/robprimitives', { drones, shielded: shieldDrones }, ['kingdom', 'spyhistory']); setDrones(""); };
+
+    const problems = [];
+    if (sending < 1) problems.push("Send at least 1 drone");
+    if (sending > maxDrones) problems.push(`You only have ${whole(maxDrones)} drones`);
+    if ((kingdom.spy_attempts || 0) < 1) problems.push("You have no spy attempts left");
+    const blocked = problems[0];
+
     return (
-        <div className="primitives">
+        <div className="primitives-tab">
             <ResultToasts title="Rob Results" results={results} setResults={setResults} />
-            <div className="primitives-content">
-                <div className="rob-primitives">
-                <h2>Rob Primitives</h2>
-                <div className="text-box primitives-box">
-                    <span className="box-span">Your drones will exploit primitive galaxies to steal resources.</span>
-                    <br />
-                    <span className="box-span">Primitives money per drone: {(props.data.state.primitives_rob_per_drone || 4).toFixed(2)}</span>
-                </div>
-                <InputGroup className="mb-3 rob-drones-input-group">
-                    <InputGroup.Text id="basic-addon2" className="rob-drones-input-text">Drones (Max {Math.floor(props.data.kingdom?.drones).toLocaleString()})</InputGroup.Text>
-                    <Form.Control 
-                        className="unit-form"
-                        id="drones-input"
-                        name="drones"
-                        onChange={handleDronesChange}
-                        value={drones || ""} 
-                        placeholder="0"
-                        autoComplete="off"
-                    />
-                </InputGroup>
-                <Form>
-                    <Form.Check 
-                        type="switch"
-                        id="shield-drones-switch"
-                        label="Shield Drones?"
-                        checked={shieldDrones}
-                        onChange={handleShieldChange}
-                    />
-                </Form>
-                <span>Spy Attempts Remaining: {props.data.kingdom["spy_attempts"]}</span>
-                {
-                    props.loading.kingdom
-                    ? <Button className="rob-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="rob-button" variant="primary" type="submit" onClick={onClickAttack}>
-                        Rob
-                    </Button>
-                }
-                </div>
-                <div className="auto-rob-primitives">
-                    <h2>Auto Settings</h2>
-                    <Form>
-                        <Form.Check 
-                            type="switch"
-                            id="enable-auto-rob-switch"
-                            label="Enable Auto Rob"
-                            checked={props.data.kingdom.auto_rob_enabled || false}
-                            onChange={handleEnabledChange}
-                            disabled={props.loading.kingdom}
-                        />
-                    </Form>
-                    <InputGroup className="mb-3">
-                        <InputGroup.Text id="text-drones-percent" className="auto-drones-input-text">
-                            Drones to Send (Current: {props.data.kingdom.auto_rob_settings?.drones * 100}%)
-                        </InputGroup.Text>
-                        <Form.Control 
-                            id="drones-percent"
-                            aria-describedby="basic-addon3" 
-                            onChange={handleAutoDronesInput}
-                            value={autoDrones} 
-                            placeholder={(props.data.kingdom.auto_rob_settings?.drones || 0) * 100}
-                            autoComplete="off"
-                        />
-                        <InputGroup.Text id="text-engineers-percent" style={{width: '12%'}}>
-                            %
-                        </InputGroup.Text>
-                    </InputGroup>
-                    <InputGroup className="mb-3">
-                        <InputGroup.Text id="text-spy-attempts" className="auto-drones-input-text">
-                        Spy Attempts to Keep (Current: {props.data.kingdom.auto_rob_settings?.keep})
-                        </InputGroup.Text>
-                        <Form.Control 
-                            id="keep-attempts"
-                            aria-describedby="basic-addon3" 
-                            onChange={handleAutoSpyAttemptsKeepChange}
-                            value={autoSpyAttemptsKeep} 
-                            placeholder={props.data.kingdom.auto_rob_settings?.keep || 0}
-                            autoComplete="off"
-                        />
-                    </InputGroup>
-                    <Form>
-                        <Form.Check 
-                            type="switch"
-                            id="enable-auto-rob-shields-switch"
-                            label="Shield Auto Robs?"
-                            checked={autoShieldDrones}
-                            onChange={handleAutoShieldChange}
-                            disabled={props.loading.kingdom}
-                        />
-                    </Form>
-                    {props.loading.kingdom
-                    ? <Button className="auto-attack-settings-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="auto-attack-settings-button" variant="primary" type="submit" onClick={onSubmitAutoSettingsClick}>
-                        Update
-                    </Button>
-                    }
-                </div>
+            <p className="planner-hint-line">Your drones exploit primitive galaxies to steal resources: about {perDrone.toFixed(2)} money per drone.</p>
+            <div className="planner-grid">
+                <Panel title="Your drones" hint={`You have ${whole(maxDrones)} drones and ${kingdom.spy_attempts ?? 0} spy attempts.`}>
+                    <FieldRow label="Drones to send" htmlFor="rob-drones">
+                        <AmountInput name="drones" id="rob-drones" label="Drones to send" value={drones} onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
+                    </FieldRow>
+                    <FieldRow label="Shield the drones" hint="Protects them if the rob fails">
+                        <Form.Check type="switch" id="shield-drones-switch" checked={shieldDrones} onChange={(e) => setShieldDrones(e.target.checked)} />
+                    </FieldRow>
+                </Panel>
+                <Panel title="Forecast">
+                    <Stats items={[{ label: "Expected haul", value: whole(sending * perDrone) + " money" }]} />
+                    <div className="planner-actions">
+                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => setConfirming(true)}>Send drones</Button>
+                    </div>
+                    {blocked ? <div className="planner-why">{blocked}</div> : null}
+                </Panel>
             </div>
+
+            <AutoPanel title="Automatic robs" hint="Send drones on its own whenever you have spy attempts to spare."
+                enabled={kingdom.auto_rob_enabled || false} onToggle={(e) => post('api/robprimitives/auto', { enabled: e.target.checked })}
+                disabled={props.loading.kingdom}
+                onSave={() => post('api/robprimitives/auto', { drones: autoDrones, keep: autoKeep, shielded: autoShield })}>
+                <FieldRow label="Drones to send" hint={`Now ${percentOf(settings.drones)}%`} htmlFor="drones-percent">
+                    <div className="attack-buffer"><Form.Control id="drones-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoDrones}
+                        placeholder={String(percentOf(settings.drones) || 0)} onChange={(e) => setAutoDrones(e.target.value)} /><span>%</span></div>
+                </FieldRow>
+                <FieldRow label="Spy attempts to keep" hint={`Now ${settings.keep ?? 0}`} htmlFor="keep-attempts">
+                    <Form.Control id="keep-attempts" size="sm" inputMode="numeric" autoComplete="off" value={autoKeep}
+                        placeholder={String(settings.keep || 0)} onChange={(e) => setAutoKeep(e.target.value)} />
+                </FieldRow>
+                <FieldRow label="Shield automatic robs">
+                    <Form.Check type="switch" id="enable-auto-rob-shields-switch" checked={autoShield} onChange={(e) => setAutoShield(e.target.checked)} />
+                </FieldRow>
+            </AutoPanel>
+
+            <Modal show={confirming} onHide={() => setConfirming(false)} animation={false}>
+                <Modal.Header closeButton><Modal.Title>Send these drones?</Modal.Title></Modal.Header>
+                <Modal.Body>Rob the primitives with {whole(sending)} drones{shieldDrones ? " (shielded)" : ""}. It uses one spy attempt.</Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
+                    <Button onClick={send}>Send drones</Button>
+                </Modal.Footer>
+            </Modal>
         </div>
-    )
+    );
 }
-  
+
 export default Primitives;

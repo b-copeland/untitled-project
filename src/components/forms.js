@@ -77,7 +77,7 @@ export function SubmitButton({ loading, blocked, onClick, children, variant = "p
  * With ``max`` below 1 the slider and button are disabled (there is nothing to do). ``suffix`` adds a unit, such as "%".
  */
 export function AmountInput({ name, id, value, onChange, max = 0, error, suffix, disabled = false, label }) {
-    const top = Math.max(Math.floor(max), 0);
+    const top = Number.isFinite(max) ? Math.max(Math.floor(max), 0) : (max === Infinity ? 1e9 : 0);
     const number = parseFloat(value) || 0;
     const set = (next) => onChange({ target: { name, value: next === 0 ? "" : String(next) } });
     const none = disabled || top < 1;
