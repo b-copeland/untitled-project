@@ -1,263 +1,110 @@
-import React, { useEffect, useState } from "react";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
+import React, { useState } from "react";
+import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Button from 'react-bootstrap/Button';
-import Toast from 'react-bootstrap/Toast';
-import ToastContainer from 'react-bootstrap/ToastContainer';
 import Form from 'react-bootstrap/Form';
-import InputGroup from 'react-bootstrap/InputGroup';
+import Alert from 'react-bootstrap/Alert';
 import "./shareintel.css";
-import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
+import { Panel, FieldRow, Picker, clockUntil } from "../../components/planner";
+import { checkPercent } from "../../validation";
 
 function ShareIntel(props) {
     const [selected, setSelected] = useState(props.initialKd || undefined);
-    const [selectedStat, setSelectedStat] = useState(undefined);
-    const [selectedShareTo, setSelectedShareTo] = useState(undefined);
-    const [shareResults, setShareResults] = useState([]);
-    const [cutInput, setCutInput] = useState(0.0);
+    const [stat, setStat] = useState(undefined);
+    const [shareTo, setShareTo] = useState(undefined);
+    const [cut, setCut] = useState("");
+    const [results, setResults] = useState([]);
 
-    const onClickShare = () => {
-        if (selected != undefined && selectedStat != undefined && selectedShareTo != undefined) {
-            const opts = {
-                "shared": selected,
-                "shared_to": selectedShareTo,
-                "shared_stat": selectedStat,
-                "cut": cutInput,
-            };
-            const updateFunc = async () => authFetch('api/offershared', {
-                method: 'POST',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => setShareResults(shareResults.concat(r)))
-            props.updateData(['shared'], [updateFunc]);
-        }
-    };
-
-    const handleChange = (selectedOption) => {
-        setSelected(selectedOption.value);
-    };
-    const handleStatChange = (selectedOption) => {
-        setSelectedStat(selectedOption.value);
-    };
-    const handleShareToChange = (selectedOption) => {
-        setSelectedShareTo(selectedOption.value);
-    };
-    const handleCutInput = (e) => {
-        setCutInput(e.target.value);
-    }
-    const kdFullLabel = (kdId) => {
-        if (kdId != undefined) {
-            return props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")"
-        } else {
-            return "Defender"
-        }
-        
-    }
     if (props.loading.revealed) {
-        return <h2>Loading...</h2>
+        return <h2>Loading...</h2>;
     }
     if (Object.keys(props.data.revealed).length === 0) {
-        return <div className="share-intel"><h2>You do not have any intel to share!</h2></div>
+        return <div className="share-intel"><h2>You do not have any intel to share!</h2></div>;
     }
-    const kingdomOptions = Object.keys(props.data.revealed["revealed"]).map((kdId) => {
-        return {"value": kdId, "label": kdFullLabel(kdId)}
-    });
-    function getTimeString(date) {
-        if (date === undefined) {
-            return "--"
-        }
-        const hours = Math.abs(Date.parse(date) - Date.now()) / 3.6e6;
-        var n = new Date(0, 0);
-        n.setSeconds(+hours * 60 * 60);
-        return n.toTimeString().slice(0, 8);
-    }
-    const getRemainingSpans = (kdId, revealed) => {
-        const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
-                <span className="remaining-time-title">{category}</span>
-                <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
-                <br />
-            </div>
-        )
-        return remainingSpans;
-    }
-    const revealedStats = getRemainingSpans(selected, props.data.revealed["revealed"]);
-    const revealedOptions = Object.keys(props.data.revealed["revealed"][selected] || {}).map((stat) => {
-        return {"value": stat, "label": stat}
-    })
-    const shareToOptions = props.data.galaxies[props.data.galaxies_inverted[props.data.kingdomid.kd_id]].map((kdId) => {
-        return {"value": kdId, "label": kdFullLabel(kdId)}
-    });
-    shareToOptions.push({"value": "galaxy", "label": "Your galaxy"})
-    
+
+    const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
+    const revealed = props.data.revealed["revealed"];
+    const kingdomOptions = Object.keys(revealed).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
+    const statOptions = Object.entries(revealed[selected] || {}).map(([name, until]) => ({ value: name, label: `${name}  (${clockUntil(until)} left)` }));
+    const myGalaxy = props.data.galaxies[props.data.galaxies_inverted[props.data.kingdomid.kd_id]] || [];
+    const shareToOptions = [{ value: "galaxy", label: "Your whole galaxy" }, ...myGalaxy.map((kdId) => ({ value: kdId, label: kdLabel(kdId) }))];
+    const whoName = shareTo === "galaxy" ? "your galaxy" : shareTo !== undefined ? props.data.kingdoms[parseInt(shareTo)] : undefined;
+
+    const cutError = checkPercent(cut);
+    const problems = [];
+    if (selected === undefined) problems.push("Choose which kingdom's intel to share");
+    else if (stat === undefined) problems.push("Choose which stat to share");
+    else if (shareTo === undefined) problems.push("Choose who to share it with");
+    if (cutError) problems.push(cutError);
+    const blocked = problems[0];
+
+    const onShare = () => {
+        const body = { shared: selected, shared_to: shareTo, shared_stat: stat, cut: cut === "" ? 0 : cut };
+        const updateFunc = async () => authFetch('api/offershared', { method: 'POST', body: JSON.stringify(body) })
+            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+        props.updateData(['shared'], [updateFunc]);
+    };
+    const pickKingdom = (kdId) => { setSelected(kdId); setStat(undefined); };
+
     return (
         <>
-        <Header data={props.data} />
-        <div className="share-intel">
-            <ResultToasts title="Share Intel Results" results={shareResults} setResults={setShareResults} />
-            <label id="aria-label" htmlFor="aria-example-input">
-                Kingdom to share
-            </label>
-            <Select
-                className="share-intel-kingdom-select"
-                options={kingdomOptions}
-                onChange={handleChange}
-                autoFocus={selected == undefined}
-                defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}
-                styles={{
-                    control: (baseStyles, state) => ({
-                        ...baseStyles,
-                        borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
-                        backgroundColor: 'var(--bs-body-bg)',
-                    }),
-                    placeholder: (baseStyles, state) => ({
-                        ...baseStyles,
-                        color: 'var(--bs-primary-text)',
-                    }),
-                    input: (baseStyles, state) => ({
-                        ...baseStyles,
-                        color: 'var(--bs-secondary-text)',
-                    }),
-                    option: (baseStyles, state) => ({
-                        ...baseStyles,
-                        backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
-                        color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
-                    }),
-                    menuList: (baseStyles, state) => ({
-                        ...baseStyles,
-                        backgroundColor: 'var(--bs-secondary-bg)',
-                        // borderColor: 'var(--bs-secondary-bg)',
-                    }),
-                    singleValue: (baseStyles, state) => ({
-                        ...baseStyles,
-                        color: 'var(--bs-secondary-text)',
-                    }),
-                }}
-            />
-            {   selected !== undefined
-                ? <div className="col-center share-intel-choices">
-                    <div className="text-box share-revealed-stats-box">
-                        <h3>Revealed Stats</h3>
-                        {revealedStats}
-                    </div>
-                    <div className="share-input">
-                        <label id="aria-label" htmlFor="aria-example-input">
-                            Select a stat to share
-                        </label>
-                        <Select
-                            className="share-intel-select"
-                            options={revealedOptions}
-                            onChange={handleStatChange}
-                            autoFocus={false}
-                            isSearchable={false}
-                            styles={{
-                                control: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
-                                    backgroundColor: 'var(--bs-body-bg)',
-                                }),
-                                placeholder: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    color: 'var(--bs-primary-text)',
-                                }),
-                                input: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    color: 'var(--bs-secondary-text)',
-                                }),
-                                option: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
-                                    color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
-                                }),
-                                menuList: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    backgroundColor: 'var(--bs-secondary-bg)',
-                                    // borderColor: 'var(--bs-secondary-bg)',
-                                }),
-                                singleValue: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    color: 'var(--bs-secondary-text)',
-                                }),
-                            }}
-                            // defaultValue={revealedOptions.filter(option => option.value === props.initialKd)}
-                        />
-                    </div>
-                    <div className="share-input">
-                        <label id="aria-label" htmlFor="aria-example-input">
-                            Share to
-                        </label>
-                        <Select
-                            className="share-to-select"
-                            options={shareToOptions}
-                            onChange={handleShareToChange}
-                            autoFocus={true}
-                            isSearchable={false}
-                            styles={{
-                                control: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
-                                    backgroundColor: 'var(--bs-body-bg)',
-                                }),
-                                placeholder: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    color: 'var(--bs-primary-text)',
-                                }),
-                                input: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    color: 'var(--bs-secondary-text)',
-                                }),
-                                option: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
-                                    color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
-                                }),
-                                menuList: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    backgroundColor: 'var(--bs-secondary-bg)',
-                                    // borderColor: 'var(--bs-secondary-bg)',
-                                }),
-                                singleValue: (baseStyles, state) => ({
-                                    ...baseStyles,
-                                    color: 'var(--bs-secondary-text)',
-                                }),
-                            }}
-                            // defaultValue={revealedOptions.filter(option => option.value === props.initialKd)}
-                        />
-                    </div>
-                    <div className="share-input">
-                        <label id="aria-label" htmlFor="aria-example-input">
-                            Select Cut
-                        </label>
-                        <InputGroup className="mb-3">
-                            <Form.Control 
-                                className="cut-form"
-                                id="cut-input"
-                                onChange={handleCutInput}
-                                value={cutInput || ""}
-                                placeholder="0"
-                                autoComplete="off"
-                            />
-                            <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
-                        </InputGroup>
-                    </div>
-                    {
-                        props.loading.shared
-                        ? <Button className="share-button" variant="primary" type="submit" disabled>
-                            Loading...
-                        </Button>
-                        : <Button className="share-button" variant="primary" type="submit" onClick={onClickShare}>
-                            Share
-                        </Button>
-                    }
+            <Header data={props.data} />
+            <div className="planner share-intel">
+                <ResultToasts title="Share Intel Results" results={results} setResults={setResults} />
+                <h2>Share intel</h2>
+                <p className="planner-hint-line">
+                    Intel you have revealed on a kingdom can be offered to a galaxymate, who can then plan an attack on it. You can
+                    ask for a cut of what they win. They choose whether to accept, and you only get the cut if they do and the attack succeeds.
+                </p>
+
+                <div className="planner-grid">
+                    <Panel title="1. What to share">
+                        <FieldRow label="Kingdom" hint="Ones you have intel on" htmlFor="share-kingdom">
+                            <Picker id="share-kingdom" options={kingdomOptions} value={selected} onChange={pickKingdom}
+                                placeholder="Choose a kingdom" autoFocus={selected === undefined} />
+                        </FieldRow>
+                        <FieldRow label="Stat" hint={selected === undefined ? "Choose a kingdom first" : "Shared intel runs out when the reveal does"} htmlFor="share-stat">
+                            <Picker id="share-stat" options={statOptions} value={stat} onChange={setStat}
+                                placeholder={selected === undefined ? "--" : "Choose a stat"} searchable={false} />
+                        </FieldRow>
+                    </Panel>
+
+                    <Panel title="2. Who gets it, and your cut">
+                        <FieldRow label="Share with" htmlFor="share-to">
+                            <Picker id="share-to" options={shareToOptions} value={shareTo} onChange={setShareTo}
+                                placeholder="Choose who" searchable={false} />
+                        </FieldRow>
+                        <FieldRow label="Your cut" hint="Share of their winnings you receive" htmlFor="cut-input">
+                            <div className="attack-buffer">
+                                <Form.Control id="cut-input" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
+                                    value={cut} onChange={(e) => setCut(e.target.value)} isInvalid={Boolean(cutError)} />
+                                <span>%</span>
+                            </div>
+                            {cutError ? <div className="amount-input-error">{cutError}</div> : null}
+                        </FieldRow>
+                    </Panel>
                 </div>
-                : null
-            }
-            <HelpButton scrollTarget={"shareintel"}/>
-        </div>
+
+                <Panel title="3. Check and offer">
+                    {selected !== undefined && stat !== undefined && shareTo !== undefined
+                        ? <Alert variant="info" className="mb-3">
+                            You are offering <strong>{whoName}</strong> your <strong>{stat}</strong> intel on <strong>{props.data.kingdoms[parseInt(selected)]}</strong>.
+                            {parseFloat(cut) > 0
+                                ? <> If they attack {props.data.kingdoms[parseInt(selected)]} and win, you receive <strong>{cut}%</strong> of the spoils.</>
+                                : <> You are asking for nothing in return.</>}
+                            {" "}Nothing is shared until they accept.
+                        </Alert>
+                        : <p className="planner-hint-line">Fill in the steps above to see exactly what you are offering.</p>}
+                    <Button size="lg" onClick={onShare} disabled={Boolean(blocked) || props.loading.shared} title={blocked}>Offer intel</Button>
+                    {blocked ? <div className="planner-why">{blocked}</div> : null}
+                </Panel>
+                <HelpButton scrollTarget={"shareintel"}/>
+            </div>
         </>
-    )
+    );
 }
 
 export default ShareIntel;
