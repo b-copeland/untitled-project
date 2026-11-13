@@ -97,3 +97,11 @@
 .galaxy-actions {
     white-space: nowrap;
 }
+
+.galaxy-view-toggle { margin: 0 0 0.75rem; align-self: flex-end; }
+.galaxy-cards { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; }
+.galaxy-card { border: 1px solid var(--bs-border-color); border-radius: 0.75rem; padding: 0.75rem 1rem; background: var(--bs-body-bg); }
+.galaxy-card-name { font-weight: 600; font-size: 1.05rem; margin-bottom: 0.25rem; }
+.galaxy-card-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 1rem; margin: 0 0 0.5rem; }
+.galaxy-card-facts dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
+.galaxy-card-facts dd { margin: 0; }

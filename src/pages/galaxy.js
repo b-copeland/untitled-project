@@ -10,6 +10,7 @@ import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Modal from 'react-bootstrap/Modal';
+import ButtonGroup from 'react-bootstrap/ButtonGroup';
 import "./galaxy.css";
 import Kingdom from "./kingdominfo.js";
 import Attack from "./conquer/attack.js";
@@ -32,7 +33,18 @@ function getTimeString(date) {
     return n.toTimeString().slice(0, 8);
 }
 
+// Table or cards, remembered for next time. Storage can be unavailable (private windows), so it is only a convenience.
+const VIEW_KEY = "galaxy-view";
+const savedView = () => {
+    try { return window.localStorage.getItem(VIEW_KEY) === "cards" ? "cards" : "table"; } catch (e) { return "table"; }
+};
+
 function Galaxy(props) {
+    const [view, setViewState] = useState(savedView);
+    const setView = (next) => {
+        setViewState(next);
+        try { window.localStorage.setItem(VIEW_KEY, next); } catch (e) { /* not remembered */ }
+    };
     const [galaxyInfo, setGalaxyInfo] = useState({});
     const [galaxyIndex, setGalaxyIndex] = useState();
     // const [galaxiesArray, setGalaxiesArray] = useState(Object.keys(props.data.galaxies));
@@ -195,6 +207,30 @@ function Galaxy(props) {
             </td>
         </tr>
     );
+    const kingdomFacts = (kdId) => ({
+        name: galaxyInfo[kdId].name || props.data.kingdoms[kdId] || "",
+        race: galaxyInfo[kdId].race || "",
+        stars: galaxyInfo[kdId].stars?.toLocaleString() || "",
+        distance: calcCoordinateDistance(galaxyInfo[kdId].coordinate || 0, props.data.kingdom.coordinate || 0).toString().padStart(2, '0') + ' (' + (galaxyInfo[kdId].coordinate || 0).toString().padStart(2, '0') + ')',
+        status: galaxyInfo[kdId].status,
+    });
+    const galaxyCards = Object.keys(galaxyInfo).map((kdId) => {
+        const facts = kingdomFacts(kdId);
+        return (
+            <div key={kdId} className="galaxy-card">
+                <div className="galaxy-card-name">{facts.name}</div>
+                <dl className="galaxy-card-facts">
+                    <div><dt>Race</dt><dd>{facts.race || "?"}</dd></div>
+                    <div><dt>Stars</dt><dd>{facts.stars || "?"}</dd></div>
+                    <div><dt>Distance</dt><dd>{facts.distance}</dd></div>
+                    <div><dt>Status</dt><dd>{facts.status || "?"}</dd></div>
+                </dl>
+                <div className="galaxy-actions">
+                    {kingdomActions(kdId).map((action) => <IconButton key={action.label} {...action} />)}
+                </div>
+            </div>
+        );
+    });
     const NonexistentGalaxy = () => {
         setLoading(false);
         return <h3>This galaxy does not exist!</h3>
@@ -379,8 +415,14 @@ function Galaxy(props) {
                 </div>
             }
             
+            <ButtonGroup size="sm" className="galaxy-view-toggle" aria-label="Show kingdoms as">
+                <Button variant={view === "table" ? "primary" : "outline-secondary"} aria-pressed={view === "table"} onClick={() => setView("table")}>Table</Button>
+                <Button variant={view === "cards" ? "primary" : "outline-secondary"} aria-pressed={view === "cards"} onClick={() => setView("cards")}>Cards</Button>
+            </ButtonGroup>
             {!(galaxiesArray[galaxyIndex] != undefined)
                 ? <NonexistentGalaxy />
+                : view === "cards"
+                ? <div className="galaxy-cards">{galaxyCards}</div>
                 : <div className="table-scroll"><Table striped bordered hover className="galaxies-table" size="sm" >
                     <thead>
                         <tr>
