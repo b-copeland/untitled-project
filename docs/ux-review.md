@@ -23,8 +23,8 @@ happened, what needs doing, and what is cheap to do next**, quickly, on a phone 
    Specialists / Levy / Allocate / Disband. The tab names are sensible but the first tab is a very long page and the rest
    are short; people will not find "Spending" (it is where you switch auto spending on) under Home > Status.
 5. **Forms say "no" late.** **[mostly built]** Settle, Structures, Missiles, Military, Projects, Attack, Spy, Primitives,
-   Share Intel and Schedule now say what is wrong (or disable the button with the reason) before sending. Launch Missiles and
-   the politics forms still send first and report in a toast.
+   Share Intel and Schedule now say what is wrong (or disable the button with the reason) before sending. The
+   politics forms still send first and report in a toast. (Launch Missiles is now converted too.)
 6. **Results are toasts in the corner and disappear.** Fine for "built", poor for an attack report, which is the most
    important thing the game ever tells you. They are kept in News/History, but nothing says so. A failed request used to
    show nothing at all; it now shows a message **[built]**. Attack and Spy now ask "are you sure?" with the forecast
@@ -56,6 +56,7 @@ Clock, stars, fuel, population, money, networth, spy attempts, generals. Eight e
 - Proposed: show **net rate** under fuel and money (`+1,200/h`, or `runs out in 3h` when negative), because the stock alone
   does not say whether to act. Pin the strip to the top on scroll. Group as "Economy: stars, pop, money, fuel" and
   "Actions: spy attempts, generals" with the actions highlighted when non-zero (they are a use-it-or-lose-it resource).
+- BEN COMMENT: be careful not to overbloat the header
 
 ### Home > Status (1057 lines, 5 tabs)
 Kingdom summary, income breakdown, statuses (shields, siphons), who it is revealed to, and auto spending controls.
@@ -69,11 +70,13 @@ Kingdom summary, income breakdown, statuses (shields, siphons), who it is reveal
 - Proposed: a **"since you were last here"** line at the top (news items, attacks, queues finished), using the existing news
   and history data and the time of the last login.
 
-### Home > News (291 lines)
-Tabs Kingdom / Galaxy / Empire / Universe with Time, Time Since, To, News columns.
-- Problem: long text in a table; attacks on you look the same as spam; read/unread state is a counter in the sidebar only.
-- Proposed: a **feed**, newest first, with a coloured icon per type (attack, spy, missile, shared intel), the first line
-  bold and the detail collapsed; unread items marked until viewed; filter chips. Time as "3h ago" with the exact time on hover.
+### Home > News **[feed built]**
+Tabs Kingdom / Galaxy / Empire / Universe. Was four differently built tables (two paged DataTables, two plain tables).
+- Built: one `NewsFeed` for all four tabs: newest first, "3h ago" with the exact time on hover, who it is from / to, a
+  search box, and "Show more" in pages of 20. The Kingdom and Galaxy tabs keep their unread counts.
+- Not built: a coloured icon per type and unread markers per item. The news items are `{time, from, to, news}` with no type
+  field, so an icon would mean guessing from the text; the clean way is for the server to add a `kind` when it writes the
+  item (see the questions at the end).
 
 ### Home > Galaxy (408 lines) **[partly built]**
 A table of the galaxy's kingdoms with actions in modals.
@@ -84,6 +87,7 @@ A table of the galaxy's kingdoms with actions in modals.
 - Proposed: on a phone show each kingdom as a **card** (name, race, stars, distance, status, icon row). Sort and filter
   (e.g. only attackable, only revealed). Show **what you know** (revealed stats age) on the row, so you can see which targets
   have fresh intel.
+  BEN COMMENT: can you still see the whole galaxy at a glance?
 
 ### Home > Message **[built]**
 Was a flat list of messages with a select box.
@@ -98,7 +102,8 @@ History: Attack / Spy / Missiles / Stats tabs with line charts.
   thing the charts lack.
 - Scores **[built]**: four near-identical tables became one leaderboard component; your row and your galaxymates' rows are
   highlighted and the page says "You are ranked 12 of 98" (on a list of 100 kingdoms, finding yourself was the main job).
-  Proposed next: jump-to-me button, and the gap to the kingdom above ("2,300 networth to pass Delta").
+  Built since: the rank line now also says the gap to the kingdom above ("2,300 more to pass Delta") or that you lead.
+  Proposed next: a jump-to-me button.
 
 ### Build > Queue (218 lines)
 Funding boxes plus an accordion of five queues (settle, structures, units, engineers, missiles).
@@ -195,8 +200,11 @@ future (this also fixes a time-zone bug in the old default), the details for tha
 the server's, and a summary before you schedule. The queue is a list of cards with Cancel.
 - Proposed: a week calendar of what will run.
 
-### Conquer > Launch Missiles
-Not reworked. Same pattern as Attack would apply (target, missiles with sliders, forecast, confirm).
+### Conquer > Launch Missiles **[rebuilt]**
+The same planner pattern: target and their missile shields (tagged *Revealed* / *Your estimate* / *Optional*), a slider with Max
+per missile kind capped by what you hold, a forecast from `/api/calculatemissiles` after the usual pause, and a confirmation
+that lists what is being fired. Unlike Attack, the API only returns a sentence ("The missiles will destroy ..."), so the
+forecast is shown as that sentence rather than as numbers; giving it a structured reply is the next step if a bar is wanted.
 
 ### Forecasts: how they are fetched **[built]**
 All projections on Attack, Spy and Primitives come from the API. To keep the number of requests small:
@@ -219,6 +227,7 @@ Point-buy for starting units and structures with live stats.
 - Proposed: **presets** ("Explorer", "Attacker", "Support", "Thief", the same four playstyles as the bots in `docs/bots.md`) that
   fill the point-buy, which the player can then adjust. A new player faces 14 inputs and a points budget with no hint
   of what a good start is.
+  BEN COMMENT - there is an issue for this one about seeding default playstyle choices https://github.com/b-copeland/untitled-project/issues/61
 
 ### View Kingdom (538 lines)
 - Problem: five tabs mirroring the Status tabs, with "Not Revealed!" when you lack intel.
@@ -238,7 +247,7 @@ Point-buy for starting units and structures with live stats.
   are already on). From the `lg` breakpoint up it is a fixed column.
 - Section labels carry the count of anything new (messages, news, shared intel); pages carry their own.
 - Still proposed: the kingdom name and galaxy at the top of the sidebar, and a badge for things that need a decision
-  (an unanswered surrender offer, a finished project). `Forums` has a route and no link; remove it or finish it.
+  (an unanswered surrender offer, a finished project). The unlinked `Forums` placeholder is removed.
 
 ## Help **[built]**
 
@@ -288,5 +297,42 @@ Built (see the sections above for the detail):
   Also fixed: a blank "cut" on a spy operation crashed the route.
 - This document.
 
-Not built: the Status dashboard, News feed, Queue timeline, Launch Missiles rework, politics inbox, Create Kingdom presets,
+Not built: the Status dashboard, Queue timeline, politics inbox, Create Kingdom presets,
 View Kingdom cards, result report cards. None of the UI has been seen in a browser by me.
+
+## Round 3 (branch `ux-review-2`), towards merging
+
+1. **Scores:** the "N more to pass X" text is removed; the rank line is back to "You are ranked 12 of 98."
+2. **Build pages: slider only.** `AmountInput` is now just the slider, with the number chosen on its left and the most you
+   can choose on its right (press it to fill it in). The box and the Max button are gone from Settle, Structures,
+   Military, Projects and Missiles. The planner pages (Attack, Spy, Primitives, Schedule, Launch Missiles) keep the box,
+   because the exact number matters there (`<AmountInput box>`). The reasoning: the auto builder does most of the
+   building, so the Build pages need a quick way to set an amount, not precision. Sliders can no longer be pushed past what
+   is possible, so the "At most N" errors on those pages only appear for things the slider cannot stop.
+3. **Attack and Spy: confirm only the troublesome cases.** Attack sends straight away when their army is revealed and the
+   forecast says it wins; it asks first if their army is not revealed (no Spy on Military), there is no forecast, or the
+   forecast says it would fail. Spy sends straight away, hostile operations included, and asks only when the chance is known and below 40%.
+## Round 2 (branch `ux-review-2`), after review
+
+Ben's answers to the round 2 questions, and what was done with them:
+1. **Status dashboard and header tooltip: both.** Built. Status opens on a new **Overview** tab of four cards (Economy,
+   Military, Growth, Threats) with per-hour rates, generals out and when the next is back, stars with nothing on them,
+   shields, siphons and the latest kingdom news; each card links to where you act. The other tabs are unchanged. In the
+   header, Fuel and Money have a tooltip with the net rate per hour, and when falling fuel runs out. The strip itself did
+   not grow.
+2. **Galaxy: table or cards, with a toggle.** Built. A Table / Cards switch above the list, remembered per browser.
+3. **News: keep the sortable, filterable tables; tagging the payload is fine.** The feed rework is reverted. News items now
+   carry a `kind` (attack, spy, missiles, intel), written by Flask (the function app stores items as given, so no
+   funcapp change), and the Kingdom and Galaxy tables have a sortable, filterable **Type** column. Items from before
+   the change have an empty Type.
+4. **Missile forecast numbers.** `/api/calculatemissiles` also returns `damage` ({stars, fuel, pop}) and
+   `shields_assumed`; the page shows them as stats. The sentence is still returned.
+5. **Status dashboard and unified military before politics.** Both built; politics untouched.
+   **Military** is now one page: recruits at the top, a hangar-space bar, then one units table (cost, off/def, fuel,
+   have, training) with a **Train / Allocate / Disband** switch that changes only the last column and the button. The
+   Levy placeholder is gone. Locked big flexers say which project unlocks them. Each form says why it can not be sent.
+6. **Create Kingdom needs a bigger rework** (React state is not smooth: updates lag or jump). Not started; noted as the
+   next big item.
+
+Also kept from round 2: Launch Missiles on the planner pattern, the Scores gap line, the Forums placeholder removed.
+None of it has been seen in a browser by me.

@@ -10,7 +10,6 @@ import StatusContent from "./pages/home/status.js";
 import NewsContent from "./pages/home/news.js";
 import Galaxy from "./pages/galaxy.js";
 import Message from "./pages/message.js";
-import Forums from "./pages/home/forums.js";
 import Scores from "./pages/home/scores.js";
 import History from "./pages/home/history.js";
 import Build from "./pages/build/build.js";
@@ -56,7 +55,6 @@ export const sections = [
         props: ({ data }) => ({ initialGalaxyId: data.galaxies_inverted[data.kingdomid.kd_id] }),
       },
       { path: "/message", label: "Message", component: Message, notifs: ["messages"] },
-      { path: "/forums", label: "Forums", component: Forums, hidden: true },
       { path: "/history", label: "History", component: History },
       { path: "/scores", label: "Scores", component: Scores },
     ],

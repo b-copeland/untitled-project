@@ -44,6 +44,10 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    /* Its own width, not the table's: otherwise a wide table makes this wider than the screen, centred, and cut off at both
+       edges with nothing to scroll. The table scrolls inside its wrapper instead. */
+    width: 100%;
+    min-width: 0;
 }
 
 @media (min-width: 756px) {
@@ -99,3 +103,11 @@
 
 .amount-field { width: 100%; max-width: 320px; margin: 8px auto; display: flex; flex-direction: column; gap: 4px; }
 .amount-field .amount-input { margin-left: 0; max-width: none; }
+
+/* One page: recruits, hangar space, then the units table with a Train / Allocate / Disband switch. */
+.military { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.military-capacity { width: 100%; max-width: 600px; margin: 8px 0; }
+.military-capacity-label { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 4px; }
+.military-modes { margin: 8px 0; }
+.military-note { margin: 4px 0 8px; color: var(--bs-secondary-color, #6c757d); text-align: center; }
+.military-summary { display: flex; gap: 1.5rem; margin: 6px 0; }

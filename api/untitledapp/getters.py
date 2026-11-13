@@ -1208,6 +1208,25 @@ def pinned():
     pinned_info = _get_pinned(kd_id)
     return (flask.jsonify(pinned_info["pinned"]), 200)
 
+def _military_estimate(info):
+    """
+    What a kingdom's army is worth at most, from the units that are revealed: all its units counted (those out with
+    generals too) with the largest military bonus, shields and generals bonus there can be, so a target that looks
+    beatable by this really is. Only when the units are revealed; otherwise None.
+    """
+    if "units" not in info:
+        return None
+    units = dict(info["units"])
+    for general_units in info.get("generals_out", []) or []:
+        for key, value in general_units.items():
+            if key != "return_time":
+                units[key] = units.get(key, 0) + value
+    return {
+        "offense": _calc_max_offense(units, lumina=info.get("race") == "Lumina"),
+        "defense": _calc_max_defense(units, gaian=info.get("race") == "Gaian"),
+    }
+
+
 def _get_max_kingdoms(kd_id, kingdoms):
     revealed_info = _get_revealed(kd_id)
     galaxies_inverted, _ = _get_galaxies_inverted()
@@ -1216,6 +1235,10 @@ def _get_max_kingdoms(kd_id, kingdoms):
         other_kd_id: _get_max_kd_info(other_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted)
         for other_kd_id in kingdoms
     }
+    for info in payload.values():
+        estimate = _military_estimate(info)
+        if estimate is not None:
+            info["military_estimate"] = estimate
     return payload
 
 @bp.route('/api/kingdomsinfo', methods=['POST'])

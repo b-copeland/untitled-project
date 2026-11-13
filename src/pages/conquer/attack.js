@@ -35,6 +35,14 @@ const planFor = (selected, attacker, defender) => ({
     defender,
 });
 
+/**
+ * An attack is sent straight away unless something about it is troublesome: their army is not revealed (the forecast is
+ * a guess), there is no forecast yet, or the forecast says it would fail. Then the player is asked first.
+ */
+export function attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) {
+    return !unitsKnown || !hasForecast || !wins;
+}
+
 function Attack(props) {
     const [defenderValues, setDefenderValues] = useState(noDefender);
     const [attackerValues, setAttackerValues] = useState(noAttacker);
@@ -215,12 +223,12 @@ function Attack(props) {
                         {ATTACK_UNITS.map(([key, name]) => (
                             (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
                                 ? <FieldRow key={key} label={name} stat={<UnitStat kind="offense" value={unitsDesc[key]?.offense} />} htmlFor={"att-" + key}>
-                                    <AmountInput name={key} id={"att-" + key} label={name} value={attackerValues[key]} onChange={onAttacker} max={myUnits[key] || 0} />
+                                    <AmountInput box name={key} id={"att-" + key} label={name} value={attackerValues[key]} onChange={onAttacker} max={myUnits[key] || 0} />
                                 </FieldRow>
                                 : null
                         ))}
                         <FieldRow label="Generals" htmlFor="att-generals">
-                            <AmountInput name="generals" id="att-generals" label="Generals" value={attackerValues.generals} onChange={onAttacker} max={kingdom.generals_available || 0} />
+                            <AmountInput box name="generals" id="att-generals" label="Generals" value={attackerValues.generals} onChange={onAttacker} max={kingdom.generals_available || 0} />
                         </FieldRow>
                         <FieldRow label="Suggestion margin" hint="Extra offense a suggestion adds" htmlFor="att-buffer">
                             <div className="attack-buffer">
@@ -269,7 +277,7 @@ function Attack(props) {
 
                 <Panel className="area-send" title="5. Send">
                     <Button variant={wins || !hasForecast ? "primary" : "danger"} size="lg" disabled={Boolean(blocked) || props.loading.kingdom}
-                        title={blocked} onClick={() => setConfirming(true)}>
+                        title={blocked} onClick={() => (attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) ? setConfirming(true) : send())}>
                         Send attack
                     </Button>
                     {blocked ? <div className="planner-why">{blocked}</div> : null}

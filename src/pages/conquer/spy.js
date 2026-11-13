@@ -32,6 +32,14 @@ const OPERATIONS = [
 
 const whole = (value) => Math.floor(value || 0).toLocaleString();
 
+/**
+ * Spies are sent straight away, hostile operations too. The player is asked first only when the chance of success is
+ * known and below 40%.
+ */
+export function spyNeedsConfirmation({ hasForecast, guessing, chance }) {
+    return hasForecast && !guessing && chance < 0.4;
+}
+
 function Spy(props) {
     const [defenderValues, setDefenderValues] = useState(initialDefenderValues);
     const [selected, setSelected] = useState(props.initialKd || undefined);
@@ -122,7 +130,7 @@ function Spy(props) {
 
                     <Panel className="area-drones" title="2. Your drones">
                         <FieldRow label="Drones to send" hint={`${kingdom.spy_attempts ?? 0} spy attempts left`} htmlFor="spy-drones">
-                            <AmountInput name="drones" id="spy-drones" label="Drones to send" value={drones}
+                            <AmountInput box name="drones" id="spy-drones" label="Drones to send" value={drones}
                                 onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
                         </FieldRow>
                         <FieldRow label="Shield the drones" hint="Protects them if the operation fails">
@@ -180,7 +188,7 @@ function Spy(props) {
                 </Panel>
 
                 <Panel className="area-send" title="5. Send">
-                    <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => setConfirming(true)}>
+                    <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance }) ? setConfirming(true) : send())}>
                         Send spies
                     </Button>
                     {blocked ? <div className="planner-why">{blocked}</div> : null}

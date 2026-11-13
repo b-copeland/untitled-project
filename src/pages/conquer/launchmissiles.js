@@ -1,270 +1,154 @@
 import React, { useEffect, useState } from "react";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
+import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Button from 'react-bootstrap/Button';
-import Form from 'react-bootstrap/Form';
-import Table from 'react-bootstrap/Table';
-import InputGroup from 'react-bootstrap/InputGroup';
-import Toast from 'react-bootstrap/Toast';
-import ToastContainer from 'react-bootstrap/ToastContainer';
+import Modal from 'react-bootstrap/Modal';
+import Alert from 'react-bootstrap/Alert';
 import "./launchmissiles.css";
-import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
-import { ResultToasts } from "../../components/results";
+import { ResultToasts, safeJson } from "../../components/results";
+import { AmountInput, useFormValues } from "../../components/forms";
+import { Panel, FieldRow, Stats, Picker, useServerForecast } from "../../components/planner";
+import { checkPercent } from "../../validation";
+import { displayNumber } from "../../format";
 
-const initialAttackerValues = {
-    "planet_busters": "",
-    "star_busters": "",
-    "galaxy_busters": "",
-}
+const MISSILES = [
+    { key: "planet_busters", label: "Planet Buster" },
+    { key: "star_busters", label: "Star Buster" },
+    { key: "galaxy_busters", label: "Galaxy Buster" },
+];
+const noneYet = Object.fromEntries(MISSILES.map(({ key }) => [key, ""]));
 
 function LaunchMissiles(props) {
     const [selected, setSelected] = useState(props.initialKd || undefined);
-    const [calcMessage, setCalcMessage] = useState({"message": "Press calculate to project results"})
-    const [loadingCalc, setLoadingCalc] = useState(false);
     const [targetKdInfo, setTargetKdInfo] = useState({});
-    const [attackResults, setAttackResults] = useState([]);
-    const [attackerValues, setAttackerValues] = useState(initialAttackerValues);
-    const [defenderShields, setDefenderShielders] = useState("");
+    const [results, setResults] = useState([]);
+    const [shields, setShields] = useState("");
+    const [confirming, setConfirming] = useState(false);
+    const form = useFormValues(noneYet);
 
+    const loadTarget = (kdId) => authFetch("api/kingdom/" + kdId).then(safeJson).then(setTargetKdInfo);
     useEffect(() => {
-        if (props.initialKd != undefined) {
-            const fetchData = async () => {
-                await authFetch("api/kingdom/" + props.initialKd).then(r => r.json()).then(r => setTargetKdInfo(r));
-            };
-            fetchData();
-        }
+        if (props.initialKd !== undefined) loadTarget(props.initialKd);
     }, []);
-    
-    const handleChange = (selectedOption) => {
-        setSelected(selectedOption.value);
-        const fetchData = async () => {
-            await authFetch("api/kingdom/" + selectedOption.value).then(r => r.json()).then(r => setTargetKdInfo(r));
-        };
-        fetchData();
+    const onPickTarget = (kdId) => { setSelected(kdId); setTargetKdInfo({}); loadTarget(kdId); };
+
+    const have = props.data.kingdom.missiles || {};
+    const desc = props.data.missiles?.desc || {};
+    const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
+    const options = Object.keys(props.data.kingdoms).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
+
+    const shieldsKnown = targetKdInfo.shields !== undefined;
+    const shieldsError = shieldsKnown ? null : checkPercent(shields);
+    const sending = Object.fromEntries(MISSILES.map(({ key }) => [key, parseInt(form.values[key], 10) || 0]));
+    const total = MISSILES.reduce((sum, { key }) => sum + sending[key], 0);
+    const fieldError = (key) => (sending[key] > (have[key] || 0) ? `You only have ${displayNumber(have[key])}` : null);
+
+    // What the missiles will do comes from the server, a moment after the player stops changing things.
+    const [forecast, forecasting] = useServerForecast(
+        selected !== undefined && total > 0 ? { selected, shields, values: form.values } : null,
+        (plan) => authFetch('api/calculatemissiles/' + plan.selected, {
+            method: 'POST',
+            body: JSON.stringify({ attackerValues: plan.values, defenderShields: plan.shields }),
+        }).then(safeJson),
+    );
+
+    const problems = [];
+    if (selected === undefined) problems.push("Choose a target");
+    if (total < 1) problems.push("Choose at least one missile");
+    MISSILES.forEach(({ key }) => { const error = fieldError(key); if (error) problems.push(error); });
+    if (shieldsError) problems.push(shieldsError);
+    const blocked = problems[0];
+
+    const send = () => {
+        setConfirming(false);
+        const updateFunc = async () => authFetch('api/launchmissiles/' + selected, {
+            method: 'POST',
+            body: JSON.stringify({ attackerValues: form.values }),
+        }).then(safeJson).then((r) => { setResults((previous) => previous.concat(r)); form.reset(); });
+        props.updateData(['kingdom', 'missilehistory'], [updateFunc]);
     };
-    const handleAttackerChange = (e) => {
-        const { name, value } = e.target;
-        setAttackerValues({
-          ...attackerValues,
-          [name]: value,
-        });
-    };
-    const handleShieldsChange = (e) => {
-        setDefenderShielders(e.target.value);
-    }
-    const onClickAttack = () => {
-        if (selected != undefined) {
-            const opts = {
-                "attackerValues": attackerValues,
-            };
-            const updateFunc = async () => authFetch('api/launchmissiles/' + selected, {
-                method: 'POST',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("")})
-            props.updateData(['kingdom', 'missilehistory'], [updateFunc]);
-        } else {
-            setCalcMessage({"message": "Please select a target in order to attack"})
-        }
-    };
-    const onClickCalculate = async (e) => {
-        if (selected != undefined) {
-            const opts = {
-                "attackerValues": attackerValues,
-                "defenderShields": defenderShields,
-            };
-            const updateFunc = async () => authFetch('api/calculatemissiles/' + selected, {
-                method: 'POST',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => setCalcMessage(r))
-            setLoadingCalc(true);
-            await updateFunc();
-            setLoadingCalc(false);
-        } else {
-            setCalcMessage({"message": "Please select a target in order to calculate"})
-        }
-    };
-    const kdFullLabel = (kdId) => {
-        if (kdId != undefined) {
-            return props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")"
-        } else {
-            return "Defender"
-        }
-        
-    }
-    const kingdomOptions = Object.keys(props.data.kingdoms).map((kdId) => {
-        return {"value": kdId, "label": kdFullLabel(kdId)}
-    })
 
     return (
-    <>
-        <Header data={props.data} />
-        <div className="attack">
-            <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} bg="primary" />
-            <h2>Missiles</h2>
-            <form className="attack-kingdom-form">
-                <label id="aria-label" htmlFor="aria-example-input">
-                    Select a target (type to filter)
-                </label>
-                <Select className="attack-kingdom-select" options={kingdomOptions} onChange={handleChange} autoFocus={selected == undefined} defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}
-                    styles={{
-                        control: (baseStyles, state) => ({
-                            ...baseStyles,
-                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
-                            backgroundColor: 'var(--bs-body-bg)',
-                        }),
-                        placeholder: (baseStyles, state) => ({
-                            ...baseStyles,
-                            color: 'var(--bs-primary-text)',
-                        }),
-                        input: (baseStyles, state) => ({
-                            ...baseStyles,
-                            color: 'var(--bs-secondary-text)',
-                        }),
-                        option: (baseStyles, state) => ({
-                            ...baseStyles,
-                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
-                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
-                        }),
-                        menuList: (baseStyles, state) => ({
-                            ...baseStyles,
-                            backgroundColor: 'var(--bs-secondary-bg)',
-                            // borderColor: 'var(--bs-secondary-bg)',
-                        }),
-                        singleValue: (baseStyles, state) => ({
-                            ...baseStyles,
-                            color: 'var(--bs-secondary-text)',
-                        }),
-                    }}/>
-            </form>
-            <div className="col-center-full defender-stats">
-                <h3>{kdFullLabel(selected)}</h3>
-                {   targetKdInfo.hasOwnProperty("shields")
-                    ? <InputGroup className="mb-3 missiles-input">
-                        <Form.Control
-                            className="unit-form"
-                            id="missile-shields-input"
-                            name="shields"
-                            value={targetKdInfo.shields.missiles * 100 || ""} 
-                            placeholder="Missile Shields"
-                            disabled
-                            autoComplete="off"
-                        />
-                        <InputGroup.Text id="basic-addon2">%</InputGroup.Text>
-                    </InputGroup>
-                    : <InputGroup className="mb-3 missiles-input">
-                        <Form.Control
-                            className="unit-form"
-                            id="missile-shields-input"
-                            name="shields"
-                            onChange={handleShieldsChange}
-                            value={defenderShields || ""} 
-                            placeholder="Missile Shields"
-                            autoComplete="off"
-                        />
-                        <InputGroup.Text id="basic-addon2" className="missile-shields-input-group-text">%</InputGroup.Text>
-                    </InputGroup>
-                }
-            </div>
-            <div className="col-center-full attacker-stats">
-                <h3>Missiles to Send</h3>
-                <Table striped bordered hover size="sm" className="launch-missiles-table">
-                    <thead>
-                        <tr>
-                            <th>Missile</th>
-                            <th style={{textAlign: "right"}}>Available</th>
-                            <th style={{textAlign: "right"}}>Stars Damage</th>
-                            <th style={{textAlign: "right"}}>Fuel Damage</th>
-                            <th style={{textAlign: "right"}}>Pop Damage</th>
-                            <th style={{textAlign: "right"}}>To Send</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Planet Busters</td>
-                            <td style={{textAlign: "right"}}>{props.data.kingdom.missiles?.planet_busters?.toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.planet_busters?.stars_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.planet_busters?.fuel_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.planet_busters?.pop_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>
-                                <Form.Control 
-                                    className="launch-missile-form"
-                                    id="planet-busters-input"
-                                    name="planet_busters"
-                                    onChange={handleAttackerChange}
-                                    value={attackerValues.planet_busters || ""} 
-                                    placeholder="0"
-                                    autoComplete="off"
-                                />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Star Busters</td>
-                            <td style={{textAlign: "right"}}>{props.data.kingdom.missiles?.star_busters?.toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.star_busters?.stars_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.star_busters?.fuel_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.star_busters?.pop_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>
-                                <Form.Control 
-                                    className="launch-missile-form"
-                                    id="star-busters-input"
-                                    name="star_busters"
-                                    onChange={handleAttackerChange}
-                                    value={attackerValues.star_busters || ""} 
-                                    placeholder="0"
-                                    autoComplete="off"
-                                />
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Galaxy Busters</td>
-                            <td style={{textAlign: "right"}}>{props.data.kingdom.missiles?.galaxy_busters?.toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.galaxy_busters?.stars_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.galaxy_busters?.fuel_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>{(props.data.missiles.desc?.galaxy_busters?.pop_damage || 0)}</td>
-                            <td style={{textAlign: "right"}}>
-                                <Form.Control 
-                                    className="launch-missile-form"
-                                    id="galaxy-busters-input"
-                                    name="galaxy_busters"
-                                    onChange={handleAttackerChange}
-                                    value={attackerValues.galaxy_busters || ""} 
-                                    placeholder="0"
-                                    autoComplete="off"
-                                />
-                            </td>
-                        </tr>
-                    </tbody>
-                </Table>
-                <div className="text-box spy-results-box">
-                    <span className="box-span">{calcMessage.message}</span>
+        <>
+            <Header data={props.data} />
+            <div className="planner wide launch-missiles">
+                <ResultToasts title="Missile Results" results={results} setResults={setResults} bg="primary" />
+                <h2>Missiles</h2>
+                <div className="wide-layout missiles-layout">
+                    <Panel title="1. Target">
+                        <FieldRow label="Target" htmlFor="missile-target">
+                            <Picker id="missile-target" options={options} value={selected} onChange={onPickTarget}
+                                placeholder="Type a kingdom to filter" autoFocus={selected === undefined} />
+                        </FieldRow>
+                        <FieldRow label="Their missile shields" status={shieldsKnown ? "revealed" : shields !== "" ? "estimate" : "optional"} htmlFor="missile-shields">
+                            {shieldsKnown
+                                ? <span className="known-value">{Math.round(targetKdInfo.shields.missiles * 100)}%</span>
+                                : <div className="attack-buffer">
+                                    <input id="missile-shields" className="form-control form-control-sm" inputMode="decimal" placeholder="unknown"
+                                        autoComplete="off" value={shields} onChange={(e) => setShields(e.target.value)} />
+                                    <span>%</span>
+                                </div>}
+                        </FieldRow>
+                        {shieldsError ? <div className="amount-input-error">{shieldsError}</div> : null}
+                    </Panel>
+
+                    <Panel title="2. Missiles to send">
+                        {MISSILES.map(({ key, label }) => (
+                            <FieldRow key={key} label={label}
+                                tip={`Damages ${desc[key]?.stars_damage || 0} stars, ${desc[key]?.fuel_damage || 0} fuel and ${desc[key]?.pop_damage || 0} population each (before shields)`}
+                                htmlFor={`${key}-input`}>
+                                <AmountInput box name={key} label={label} value={form.values[key]} onChange={form.onChange}
+                                    max={have[key] || 0} error={fieldError(key)} />
+                            </FieldRow>
+                        ))}
+                    </Panel>
+
+                    <Panel title="3. Forecast">
+                        {total < 1 ? <p className="planner-why">Choose some missiles to see what they would do.</p> : null}
+                        {total > 0 && forecast.damage ? <>
+                            <Stats items={[
+                                { label: "Stars destroyed", value: displayNumber(forecast.damage.stars) },
+                                { label: "Fuel destroyed", value: displayNumber(forecast.damage.fuel) },
+                                { label: "Population killed", value: displayNumber(forecast.damage.pop) },
+                            ]} />
+                            {forecasting ? <div className="planner-why">updating...</div> : null}
+                        </> : null}
+                        {total > 0 && !forecast.damage && forecast.message ? <Alert variant="warning">{forecast.message}</Alert> : null}
+                        {total > 0 && !shieldsKnown && shields === "" ? <Alert variant="secondary">
+                            Their shields are not revealed and not entered, so this assumes none.
+                        </Alert> : null}
+                    </Panel>
+
+                    <Panel title="4. Launch">
+                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => setConfirming(true)}>
+                            Launch missiles
+                        </Button>
+                        {blocked ? <div className="planner-why">{blocked}</div> : null}
+                    </Panel>
                 </div>
-                <div className="attack-buttons">
-                    {
-                        loadingCalc
-                        ? <Button className="calculate-button" variant="primary" type="submit" disabled>
-                            Loading...
-                        </Button>
-                        : <Button className="calculate-button" variant="primary" type="submit" onClick={onClickCalculate}>
-                            Calculate
-                        </Button>
-                    }
-                    {
-                        props.loading.kingdom
-                        ? <Button className="attack-button" variant="primary" type="submit" disabled>
-                            Loading...
-                        </Button>
-                        : <Button className="attack-button" variant="primary" type="submit" onClick={onClickAttack}>
-                            Launch
-                        </Button>
-                    }
-                </div>
+
+                <Modal show={confirming} onHide={() => setConfirming(false)} animation={false}>
+                    <Modal.Header closeButton><Modal.Title>Launch these missiles?</Modal.Title></Modal.Header>
+                    <Modal.Body>
+                        <p>At <strong>{selected !== undefined ? kdLabel(selected) : ""}</strong>. Missiles that are launched are used up.</p>
+                        <Stats items={MISSILES.filter(({ key }) => sending[key] > 0).map(({ key, label }) => ({ label, value: displayNumber(sending[key]) }))} />
+                        {forecast.damage ? <Stats items={[
+                            { label: "Stars", value: displayNumber(forecast.damage.stars) },
+                            { label: "Fuel", value: displayNumber(forecast.damage.fuel) },
+                            { label: "Population", value: displayNumber(forecast.damage.pop) },
+                        ]} /> : null}
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
+                        <Button onClick={send}>Launch</Button>
+                    </Modal.Footer>
+                </Modal>
+                <HelpButton scrollTarget={"launchmissiles"} />
             </div>
-            <HelpButton scrollTarget={"launchmissiles"}/>
-        </div>
         </>
-    )
+    );
 }
 
 export default LaunchMissiles;

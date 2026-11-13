@@ -147,7 +147,7 @@ function Add(props) {
 
     const percentRow = (name, label, hint) => (
         <FieldRow label={label} hint={hint} htmlFor={"sched-" + name}>
-            <AmountInput name={name} id={"sched-" + name} label={label} suffix="%" value={options[name]} onChange={onText} max={100} />
+            <AmountInput box name={name} id={"sched-" + name} label={label} suffix="%" value={options[name]} onChange={onText} max={100} />
         </FieldRow>
     );
     const targetRow = (
@@ -157,7 +157,7 @@ function Add(props) {
     );
     const generalsRow = (
         <FieldRow label="Generals" hint="1 to 4" htmlFor="sched-generals">
-            <AmountInput name="generals" id="sched-generals" label="Generals" value={options.generals} onChange={onText} max={4} />
+            <AmountInput box name="generals" id="sched-generals" label="Generals" value={options.generals} onChange={onText} max={4} />
         </FieldRow>
     );
 
@@ -219,14 +219,14 @@ function Add(props) {
                             </FieldRow>
                             {kind === "intelspy" ? <>
                                 <FieldRow label="Max tries" hint="Retries if it fails, 1 to 10" htmlFor="sched-max_tries">
-                                    <AmountInput name="max_tries" id="sched-max_tries" label="Max tries" value={options.max_tries} onChange={onText} max={10} />
+                                    <AmountInput box name="max_tries" id="sched-max_tries" label="Max tries" value={options.max_tries} onChange={onText} max={10} />
                                 </FieldRow>
                                 <FieldRow label="Share with your galaxy">
                                     <Form.Check type="switch" id="sched-share" checked={Boolean(options.share_to_galaxy)} onChange={(e) => set("share_to_galaxy", e.target.checked)} />
                                 </FieldRow>
                             </> : (
                                 <FieldRow label="Attempts" hint="1 to 10" htmlFor="sched-attempts">
-                                    <AmountInput name="attempts" id="sched-attempts" label="Attempts" value={options.attempts} onChange={onText} max={10} />
+                                    <AmountInput box name="attempts" id="sched-attempts" label="Attempts" value={options.attempts} onChange={onText} max={10} />
                                 </FieldRow>
                             )}
                         </> : null}
@@ -234,7 +234,7 @@ function Add(props) {
                             {targetRow}
                             {[["planet_busters", "Planet busters"], ["star_busters", "Star busters"], ["galaxy_busters", "Galaxy busters"]].map(([name, label]) => (
                                 <FieldRow key={name} label={label} hint={`${(props.data.missiles?.current?.[name] || 0).toLocaleString()} built now`} htmlFor={"sched-" + name}>
-                                    <AmountInput name={name} id={"sched-" + name} label={label} value={options[name]} onChange={onText}
+                                    <AmountInput box name={name} id={"sched-" + name} label={label} value={options[name]} onChange={onText}
                                         max={Math.max(props.data.missiles?.capacity || 0, props.data.missiles?.current?.[name] || 0)} />
                                 </FieldRow>
                             ))}

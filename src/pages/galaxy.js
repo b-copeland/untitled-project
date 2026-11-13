@@ -10,6 +10,7 @@ import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Modal from 'react-bootstrap/Modal';
+import ButtonGroup from 'react-bootstrap/ButtonGroup';
 import "./galaxy.css";
 import Kingdom from "./kingdominfo.js";
 import Attack from "./conquer/attack.js";
@@ -32,7 +33,29 @@ function getTimeString(date) {
     return n.toTimeString().slice(0, 8);
 }
 
+// Table or cards, remembered for next time. Storage can be unavailable (private windows), so it is only a convenience.
+const VIEW_KEY = "galaxy-view";
+// With nothing saved yet, a phone-sized screen starts on cards (the table scrolls sideways there) and a wide one on the table.
+const savedView = () => {
+    try {
+        const saved = window.localStorage.getItem(VIEW_KEY);
+        if (saved === "cards" || saved === "table") return saved;
+    } catch (e) { /* no storage: use the screen */ }
+    try { return window.matchMedia("(max-width: 767px)").matches ? "cards" : "table"; } catch (e) { return "table"; }
+};
+
+/** "3h" or "40m" until the date; the age of the intel on a kingdom is how long it has left. */
+const timeLeft = (date) => {
+    const minutes = Math.max((Date.parse(date) - Date.now()) / 60000, 0);
+    return minutes >= 60 ? `${Math.floor(minutes / 60)}h` : `${Math.floor(minutes)}m`;
+};
+
 function Galaxy(props) {
+    const [view, setViewState] = useState(savedView);
+    const setView = (next) => {
+        setViewState(next);
+        try { window.localStorage.setItem(VIEW_KEY, next); } catch (e) { /* not remembered */ }
+    };
     const [galaxyInfo, setGalaxyInfo] = useState({});
     const [galaxyIndex, setGalaxyIndex] = useState();
     // const [galaxiesArray, setGalaxiesArray] = useState(Object.keys(props.data.galaxies));
@@ -195,6 +218,50 @@ function Galaxy(props) {
             </td>
         </tr>
     );
+    const kingdomFacts = (kdId) => ({
+        name: galaxyInfo[kdId].name || props.data.kingdoms[kdId] || "",
+        race: galaxyInfo[kdId].race || "",
+        stars: galaxyInfo[kdId].stars?.toLocaleString() || "",
+        distance: calcCoordinateDistance(galaxyInfo[kdId].coordinate || 0, props.data.kingdom.coordinate || 0).toString().padStart(2, '0') + ' (' + (galaxyInfo[kdId].coordinate || 0).toString().padStart(2, '0') + ')',
+        status: galaxyInfo[kdId].status,
+        networth: galaxyInfo[kdId].networth !== undefined ? Math.floor(galaxyInfo[kdId].networth).toLocaleString() : "",
+        offense: galaxyInfo[kdId].military_estimate?.offense?.toLocaleString(),
+        defense: galaxyInfo[kdId].military_estimate?.defense?.toLocaleString(),
+        // What is revealed about them and for how long, e.g. "military 3h, kingdom 40m".
+        // A galaxymate who shares with you is known in full, with no timer.
+        intel: (props.data.revealed?.revealed_galaxymates || []).includes(kdId) ? "shared with you"
+            : Object.entries(props.data.revealed?.revealed?.[kdId] || {}).map(([what, until]) => `${what} ${timeLeft(until)}`).join(", "),
+    });
+    const galaxyCards = Object.keys(galaxyInfo).map((kdId) => {
+        const facts = kingdomFacts(kdId);
+        return (
+            <div key={kdId} className="galaxy-card">
+                <div className="galaxy-card-name">
+                    <button type="button" className="galaxy-card-name-button" title="View this kingdom"
+                        onClick={() => { setKdToShow(kdId); setShowView(true); }}>
+                        {facts.name}
+                    </button>
+                </div>
+                <dl className="galaxy-card-facts">
+                    <div><dt>Race</dt><dd>{facts.race || "?"}</dd></div>
+                    <div><dt>Stars</dt><dd>{facts.stars || "?"}</dd></div>
+                    <div><dt>Networth</dt><dd>{facts.networth || "?"}</dd></div>
+                    <div><dt>Distance</dt><dd>{facts.distance}</dd></div>
+                    <div title="The most their army could be worth, with the largest bonuses and shields there can be">
+                        <dt>Offense</dt><dd>{facts.offense !== undefined ? `≤ ${facts.offense}` : "?"}</dd>
+                    </div>
+                    <div title="The most their army could be worth, with the largest bonuses and shields there can be">
+                        <dt>Defense</dt><dd>{facts.defense !== undefined ? `≤ ${facts.defense}` : "?"}</dd>
+                    </div>
+                    <div><dt>Status</dt><dd>{facts.status || "?"}</dd></div>
+                    <div><dt>Intel</dt><dd>{facts.intel || "none"}</dd></div>
+                </dl>
+                <div className="galaxy-actions">
+                    {kingdomActions(kdId).map((action) => <IconButton key={action.label} {...action} />)}
+                </div>
+            </div>
+        );
+    });
     const NonexistentGalaxy = () => {
         setLoading(false);
         return <h3>This galaxy does not exist!</h3>
@@ -379,8 +446,14 @@ function Galaxy(props) {
                 </div>
             }
             
+            <ButtonGroup size="sm" className="galaxy-view-toggle" aria-label="Show kingdoms as">
+                <Button variant={view === "table" ? "primary" : "outline-secondary"} aria-pressed={view === "table"} onClick={() => setView("table")}>Table</Button>
+                <Button variant={view === "cards" ? "primary" : "outline-secondary"} aria-pressed={view === "cards"} onClick={() => setView("cards")}>Cards</Button>
+            </ButtonGroup>
             {!(galaxiesArray[galaxyIndex] != undefined)
                 ? <NonexistentGalaxy />
+                : view === "cards"
+                ? <div className="galaxy-cards">{galaxyCards}</div>
                 : <div className="table-scroll"><Table striped bordered hover className="galaxies-table" size="sm" >
                     <thead>
                         <tr>

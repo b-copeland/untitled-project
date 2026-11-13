@@ -135,3 +135,10 @@
 /* Modals never grow wider than the screen; anything wider inside scrolls (a page shown in a modal, such as Attack). */
 .modal-dialog { max-width: calc(100vw - 1rem); }
 .modal-body { overflow-x: auto; min-width: 0; }
+
+/* The slider-only form (the Build pages): the number on the left, the most you can choose on the right. */
+.amount-input-bare { min-width: 140px; }
+.amount-input-value { flex: 0 0 auto; min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; }
+.amount-input-cap-button { background: none; border: 0; padding: 0; cursor: pointer; color: var(--bs-link-color, #0d6efd); }
+.amount-input-cap-button:hover:not(:disabled) { text-decoration: underline; }
+.amount-input-cap-button:disabled { color: var(--bs-secondary-color, #6c757d); cursor: default; }

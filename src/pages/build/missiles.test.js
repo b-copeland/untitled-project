@@ -24,33 +24,28 @@ test("locked missiles say what unlocks them and cannot be typed into", () => {
     expect(document.getElementById("planet-busters-input").disabled).toBe(false);
 });
 
-test("more than the silos have room for is refused, counting what is built and building", () => {
+test("the slider stops at the room in the silos, counting what is built and building", () => {
     render(<Missiles data={data()} loading={{}} updateData={jest.fn()} />);
     type("planet-busters-input", "6");   // 10 capacity - 4 built - 1 building = room for 5
-    expect(screen.getByText("At most 5 missiles")).toBeTruthy();
-    expect(build().disabled).toBe(true);
-    type("planet-busters-input", "5");
+    expect(document.getElementById("planet-busters-input").value).toBe("5");
     expect(build().disabled).toBe(false);
 });
 
-test("fuel over what you have blocks the button with the reason", () => {
+test("the fuel left after the others caps a slider", () => {
     const poor = data(["star_busters"]);
     poor.kingdom.fuel = 8000;
     render(<Missiles data={poor} loading={{}} updateData={jest.fn()} />);
-    type("planet-busters-input", "5");  // 5,000 fuel: fine
+    type("planet-busters-input", "5");  // 5,000 fuel
+    type("star-busters-input", "2");    // would be 4,000 more; only 3,000 are left, so one
+    expect(document.getElementById("star-busters-input").value).toBe("1");
     expect(build().disabled).toBe(false);
-    type("star-busters-input", "2");    // plus 4,000: 9,000 > 8,000
-
-    expect(build().disabled).toBe(true);
-    expect(build().title).toMatch(/Needs 9,000 fuel, you have 8,000/);
 });
 
-test("money over what you have blocks the button with the reason", () => {
+test("the money left after the others caps a slider", () => {
     const poor = data();
     poor.kingdom.money = 9000;
     render(<Missiles data={poor} loading={{}} updateData={jest.fn()} />);
-    type("planet-busters-input", "5");  // 10,000 money > 9,000
-
-    expect(build().disabled).toBe(true);
-    expect(build().title).toMatch(/Costs 10,000 money, you have 9,000/);
+    type("planet-busters-input", "5");  // 10,000 money > 9,000: four are affordable
+    expect(document.getElementById("planet-busters-input").value).toBe("4");
+    expect(build().disabled).toBe(false);
 });
