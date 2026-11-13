@@ -20,7 +20,7 @@ const galaxyInfo = {
 };
 const data = {
     galaxies: { "1:1": [] }, galaxies_inverted: { 1: "1:1", 2: "1:1", 3: "1:1" }, kingdoms: { 1: "Me", 2: "Delta", 3: "Echo" },
-    kingdom: { kdId: "1", coordinate: 0 }, pinned: [], revealed: { revealed: { 2: { military: new Date(Date.now() + 3 * 3.6e6 + 60000).toISOString() } } },
+    kingdom: { kdId: "1", coordinate: 0 }, pinned: [], revealed: { revealed_galaxymates: ["3"], revealed: { 2: { military: new Date(Date.now() + 3 * 3.6e6 + 60000).toISOString() } } },
     shields: {},
 };
 const show = () => render(<MemoryRouter><Galaxy data={data} loading={{}} updateData={jest.fn()} initialGalaxyId="1:1" /></MemoryRouter>);
@@ -40,6 +40,7 @@ test("a phone-sized screen starts on cards, with the army ceiling and how fresh 
     expect(screen.getByText("≤ 5,000")).toBeTruthy();
     expect(screen.getByText("12,345")).toBeTruthy();
     expect(screen.getByText("military 3h")).toBeTruthy();
+    expect(screen.getByText("shared with you")).toBeTruthy();   // Echo is a galaxymate who shares
     // Echo has nothing revealed: unknowns say so rather than showing zero.
     expect(screen.getAllByText("?").length).toBeGreaterThan(3);
 });

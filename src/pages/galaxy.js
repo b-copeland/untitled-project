@@ -228,7 +228,9 @@ function Galaxy(props) {
         offense: galaxyInfo[kdId].military_estimate?.offense?.toLocaleString(),
         defense: galaxyInfo[kdId].military_estimate?.defense?.toLocaleString(),
         // What is revealed about them and for how long, e.g. "military 3h, kingdom 40m".
-        intel: Object.entries(props.data.revealed?.revealed?.[kdId] || {}).map(([what, until]) => `${what} ${timeLeft(until)}`).join(", "),
+        // A galaxymate who shares with you is known in full, with no timer.
+        intel: (props.data.revealed?.revealed_galaxymates || []).includes(kdId) ? "shared with you"
+            : Object.entries(props.data.revealed?.revealed?.[kdId] || {}).map(([what, until]) => `${what} ${timeLeft(until)}`).join(", "),
     });
     const galaxyCards = Object.keys(galaxyInfo).map((kdId) => {
         const facts = kingdomFacts(kdId);
