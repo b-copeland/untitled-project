@@ -28,3 +28,10 @@ test("nothing is shown before the kingdom has loaded", () => {
     const { container } = render(<Header data={{ kingdom: {} }} />);
     expect(container.textContent).toBe("");
 });
+
+test("fuel and money carry their net rate per hour in a tooltip, and when a falling stock runs out", () => {
+    const withIncome = { ...kingdom, fuel: 1000, income: { fuel: { net: -250 }, money: { net: 600 } } };
+    render(<Header data={{ kingdom: withIncome, state: { game_config: { BASE_EPOCH_SECONDS: 1800 } } }} />);
+    expect(screen.getByText("Fuel: 1,000").closest(".header-item").title).toBe("-500 fuel per hour; runs out in about 2.0 h");
+    expect(screen.getByText("Money: 1,000,000").closest(".header-item").title).toBe("+1,200 income per hour");
+});
