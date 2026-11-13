@@ -15,20 +15,25 @@ import "./status.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
+import Overview from "./overview";
 
 function StatusContent(props) {
-    const [key, setKey] = useState('kingdom');
+    const [key, setKey] = useState('overview');
 
     return (
     <>
       <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
-        defaultActiveKey="kingdom"
+        activeKey={key}
+        onSelect={(k) => setKey(k)}
         justify
         fill
         variant="tabs"
       >
+        <Tab eventKey="overview" title="Overview">
+          <Overview data={props.data} openTab={setKey} />
+        </Tab>
         <Tab eventKey="kingdom" title="Kingdom">
           <Status
             kingdom={props.data.kingdom}
