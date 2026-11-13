@@ -20,9 +20,12 @@ test("an intel operation with a fair chance is sent without asking", () => {
     expect(spyNeedsConfirmation({ group: "Gather intel", hasForecast: false, guessing: true, chance: 0 })).toBe(false);
 });
 
-test("a hostile operation, or a long shot, asks first", () => {
-    expect(spyNeedsConfirmation({ group: "Hostile", hasForecast: true, guessing: false, chance: 0.9 })).toBe(true);
-    expect(spyNeedsConfirmation({ group: "Gather intel", hasForecast: true, guessing: false, chance: 0.2 })).toBe(true);
+test("hostile operations are sent without asking too", () => {
+    expect(spyNeedsConfirmation({ group: "Hostile", hasForecast: true, guessing: false, chance: 0.9 })).toBe(false);
+});
+
+test("only a known long shot asks first", () => {
+    expect(spyNeedsConfirmation({ hasForecast: true, guessing: false, chance: 0.2 })).toBe(true);
     // A chance that is only a guess is not a reason to ask.
-    expect(spyNeedsConfirmation({ group: "Gather intel", hasForecast: true, guessing: true, chance: 0.2 })).toBe(false);
+    expect(spyNeedsConfirmation({ hasForecast: true, guessing: true, chance: 0.2 })).toBe(false);
 });

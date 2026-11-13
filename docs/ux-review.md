@@ -311,8 +311,7 @@ View Kingdom cards, result report cards. None of the UI has been seen in a brows
    is possible, so the "At most N" errors on those pages only appear for things the slider cannot stop.
 3. **Attack and Spy: confirm only the troublesome cases.** Attack sends straight away when their army is revealed and the
    forecast says it wins; it asks first if their army is not revealed (no Spy on Military), there is no forecast, or the
-   forecast says it would fail. Spy sends straight away except for a hostile operation or a known chance below 40%.
-   (The "hostile" and "40%" lines are my choice; say if you want them different.)
+   forecast says it would fail. Spy sends straight away, hostile operations included, and asks only when the chance is known and below 40%.
 ## Round 2 (branch `ux-review-2`), after review
 
 Ben's answers to the round 2 questions, and what was done with them:

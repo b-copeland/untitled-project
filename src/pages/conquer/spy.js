@@ -33,11 +33,11 @@ const OPERATIONS = [
 const whole = (value) => Math.floor(value || 0).toLocaleString();
 
 /**
- * Spies are sent straight away unless the operation is troublesome: a hostile one (a failure shows your drones to the
- * target), or one with a known chance below 40%. Then the player is asked first.
+ * Spies are sent straight away, hostile operations too. The player is asked first only when the chance of success is
+ * known and below 40%.
  */
-export function spyNeedsConfirmation({ group, hasForecast, guessing, chance }) {
-    return group === "Hostile" || (hasForecast && !guessing && chance < 0.4);
+export function spyNeedsConfirmation({ hasForecast, guessing, chance }) {
+    return hasForecast && !guessing && chance < 0.4;
 }
 
 function Spy(props) {
@@ -188,7 +188,7 @@ function Spy(props) {
                 </Panel>
 
                 <Panel className="area-send" title="5. Send">
-                    <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ group: chosen?.group, hasForecast, guessing, chance }) ? setConfirming(true) : send())}>
+                    <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance }) ? setConfirming(true) : send())}>
                         Send spies
                     </Button>
                     {blocked ? <div className="planner-why">{blocked}</div> : null}
