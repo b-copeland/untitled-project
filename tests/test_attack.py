@@ -254,3 +254,54 @@ def test_a_refused_auto_attack_or_auto_rob_does_not_break_the_tick(app, client):
     with app.app_context():
         assert refresh._resolve_auto_attack(kingdom) is True  # no units to send: refused, and still fine
         assert refresh._resolve_auto_rob({**kingdom, "drones": 0}) is True
+
+
+def _get_json(client, jwt, path):
+    return client.get(path, headers={"Authorization": f"Bearer {jwt}"})
+
+
+def test_the_attack_context_gives_the_target_an_estimate_and_your_own_defense(app, client, jwt1):
+    _set_up_two_kingdoms()
+
+    response = _get_json(client, jwt1, f"/api/attackcontext/{TARGET_ID}")
+
+    assert response.status_code == 200, response.get_json()
+    body = response.get_json()
+    assert body["revealed"] == {"units": False, "military_bonus": False, "shields": False}
+    assert body["estimate"]["basis"] == "your own army"
+    assert set(body["estimate"]["units"]) == {"recruits", "defense", "flex", "big_flex"}
+    assert body["mine"]["defense_if_all_sent"] <= body["mine"]["defense_now"]
+
+
+def test_the_attack_context_says_which_parts_of_the_target_are_revealed(app, client, jwt1):
+    _set_up_two_kingdoms()
+    _create_item(f"revealed_{KD_ID}", {"revealed": {TARGET_ID: {"military": "2999-01-01T00:00:00+00:00"}},
+                                       "galaxies": {}, "revealed_galaxymates": [], "revealed_to_galaxymates": []})
+
+    body = _get_json(client, jwt1, f"/api/attackcontext/{TARGET_ID}").get_json()
+
+    assert body["revealed"] == {"units": True, "military_bonus": False, "shields": False}
+
+
+def test_a_forecast_says_what_is_left_at_home_when_the_units_go(app, client, jwt1):
+    _set_up_two_kingdoms()
+    _create_item(f"kingdom_{KD_ID}", {**_get(f"/kingdom/{KD_ID}"), "units": {"attack": 500, "defense": 800, "flex": 100, "recruits": 0, "engineers": 0, "big_flex": 0}})
+
+    response = client.post(
+        f"/api/calculate/{TARGET_ID}",
+        json={"attackerValues": {"attack": "500", "flex": "100", "generals": "1"},
+              "defenderValues": {"recruits": "", "defense": "10", "flex": "", "big_flex": "", "military_bonus": "25", "shields": "10"}},
+        headers={"Authorization": f"Bearer {jwt1}"},
+    )
+
+    assert response.status_code == 200, response.get_json()
+    body = response.get_json()
+    assert body["attacker_home_defense_after"] < body["attacker_home_defense_before"]
+
+
+def test_attack_news_is_tagged_with_its_kind(app, client, jwt1):
+    _set_up_two_kingdoms()
+    assert _attack(client, jwt1).status_code == 200
+    assert _get(f"/kingdom/{TARGET_ID}/news")["news"][0]["kind"] == "attack"
+    assert _get("/galaxy/1/news")["news"][0]["kind"] == "attack"
+    assert _get("/galaxy/2/news")["news"][0]["kind"] == "attack"

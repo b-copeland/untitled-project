@@ -33,6 +33,7 @@ function cellsOf(columns, row, rowIndex) {
  */
 export function GameTable({ columns, rows, rowKey = (row) => row.key, rowClassName, className = "game-table", size = "sm", children }) {
     return (
+        <div className="table-scroll">
         <Table className={className} striped bordered hover size={size}>
             <thead>
                 <tr>
@@ -50,5 +51,6 @@ export function GameTable({ columns, rows, rowKey = (row) => row.key, rowClassNa
                 {children}
             </tbody>
         </Table>
+        </div>
     );
 }

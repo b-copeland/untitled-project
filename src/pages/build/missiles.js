@@ -6,7 +6,7 @@ import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
-import { NumberField, SubmitButton, useFormValues } from "../../components/forms";
+import { AmountInput, SubmitButton, useFormValues } from "../../components/forms";
 import { anyFilled, checkCount, firstError } from "../../validation";
 
 // Star and galaxy busters have to be researched as projects before they can be built.
@@ -50,6 +50,20 @@ function Missiles(props) {
     const fieldErrors = Object.fromEntries(MISSILES.map((missile) => [missile.key, checkCount(form.values[missile.key], { max: room(missile), noun: "missiles" })]));
     const moneyError = cost > kingdom.money ? `Costs ${Math.floor(cost).toLocaleString()} money, you have ${Math.floor(kingdom.money).toLocaleString()}` : null;
     const fuelError = fuelCost > kingdom.fuel ? `Needs ${Math.floor(fuelCost).toLocaleString()} fuel, you have ${Math.floor(kingdom.fuel).toLocaleString()}` : null;
+    // The most of one kind: the room in the silos, and what the money and fuel still cover after the other kinds.
+    const maxFor = (missile) => {
+        const mine = parseInt(form.values[missile.key], 10) || 0;
+        const left = (field, have) => {
+            const each = info.desc[missile.key][field] * info.cost_modifier;
+            return each > 0 ? Math.floor((have - (costOf(field) - mine * each)) / each) : Infinity;
+        };
+        return Math.max(Math.min(room(missile), left("cost", kingdom.money), left("fuel_cost", kingdom.fuel)), 0);
+    };
+    const soloFor = (missile) => {
+        const each = (field) => info.desc[missile.key][field] * info.cost_modifier;
+        const afford = (field, have) => (each(field) > 0 ? Math.floor(have / each(field)) : Infinity);
+        return Math.max(Math.min(room(missile), afford("cost", kingdom.money), afford("fuel_cost", kingdom.fuel)), 0);
+    };
     const blocked = firstError(fieldErrors, moneyError, fuelError) || (anyFilled(form.values) ? null : "Enter how many of each to build");
 
     const onSubmitClick = () => {
@@ -73,10 +87,10 @@ function Missiles(props) {
         { header: "Fuel Cost", cell: ({ key }) => Math.floor((info.desc[key].fuel_cost || 0) * info.cost_modifier).toLocaleString() },
         {
             header: "To Build",
-            cell: (missile) => <NumberField
-                name={missile.key} id={missile.key.replace("_", "-") + "-input"} className="game-field missiles-form"
+            cell: (missile) => <AmountInput
+                name={missile.key} label={missile.label} id={missile.key.replace("_", "-") + "-input"}
                 value={form.values[missile.key]} onChange={form.onChange} error={fieldErrors[missile.key]}
-                disabled={locked(missile)}
+                max={maxFor(missile)} soloMax={soloFor(missile)} disabled={locked(missile)}
             />,
         },
     ];

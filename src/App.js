@@ -6,6 +6,7 @@ import { useGameData, initGlobalData } from "./data/gameData";
 import { useNotifications, Notifications } from "./components/notifications";
 import SideNavbar from "./components/navbar";
 import Button from 'react-bootstrap/Button';
+import { FiMenu } from "react-icons/fi";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css";
 import { sections, publicRoutes, createKingdomRoute, propsFor } from "./routes";
@@ -44,11 +45,12 @@ function Content({ logged, session }) {
 
   return (
     <div className="main">
-      <div className="d-lg-none nav-button">
-        <Button variant="primary" type="submit" onClick={() => setShowNav(true)}>Nav</Button>
+      <div className="topbar d-lg-none">
+        <Button variant="outline-secondary" aria-label="Open menu" onClick={() => setShowNav(true)}><FiMenu /></Button>
+        <span className="topbar-title">Untitled Project</span>
       </div>
 
-      <div className="row main-body">
+      <div className="main-body">
         <Notifications {...notifications} />
         <SideNavbar logged={logged} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs}/>
         <div className="router">

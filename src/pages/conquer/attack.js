@@ -1,714 +1,317 @@
-import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
+import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
-import Table from 'react-bootstrap/Table';
-import InputGroup from 'react-bootstrap/InputGroup';
 import Modal from 'react-bootstrap/Modal';
-import Toast from 'react-bootstrap/Toast';
-import ToastContainer from 'react-bootstrap/ToastContainer'
+import Alert from 'react-bootstrap/Alert';
 import "./attack.css";
-import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
-import { ResultToasts } from "../../components/results";
+import { ResultToasts, safeJson } from "../../components/results";
+import { AmountInput } from "../../components/forms";
+import { Panel, FieldRow, UnitStat, Stats, VersusBar, Picker, useServerForecast, clockUntil } from "../../components/planner";
+import { displayPercent } from "../../format";
 
+/*
+ * Every figure on this page that is a projection (offense, defense, losses, spoils, what is left at home) comes from
+ * the server (/api/calculate, /api/autofill, /api/attackcontext). The page only holds what the player typed and asks
+ * again, after a pause, when it changes.
+ */
 
-const initialDefenderValues = {
-    "recruits": "",
-    "defense": "",
-    "flex": "",
-    "big_flex": "",
-    "military_bonus": "25",
-    "shields": "10",
+const noDefender = { recruits: "", defense: "", flex: "", big_flex: "", military_bonus: "", shields: "" };
+const noAttacker = { attack: "", flex: "", big_flex: "", generals: "", buffer: "1.0" };
+
+const ATTACK_UNITS = [["attack", "Attackers"], ["flex", "Flexers"], ["big_flex", "Big flexers"]];
+const DEFENDER_UNITS = [["recruits", "Recruits"], ["defense", "Defenders"], ["flex", "Flexers"], ["big_flex", "Big flexers"]];
+
+const whole = (value) => Math.floor(value || 0).toLocaleString();
+const text = (value) => (value ? String(value) : "");
+
+// The plan the server is asked about: fixed order and plain strings, so the same plan is always the same question.
+const planFor = (selected, attacker, defender) => ({
+    selected,
+    attacker: { attack: text(attacker.attack), flex: text(attacker.flex), big_flex: text(attacker.big_flex), generals: text(attacker.generals) },
+    defender,
+});
+
+/**
+ * An attack is sent straight away unless something about it is troublesome: their army is not revealed (the forecast is
+ * a guess), there is no forecast yet, or the forecast says it would fail. Then the player is asked first.
+ */
+export function attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) {
+    return !unitsKnown || !hasForecast || !wins;
 }
-const initialAttackerValues = {
-    "attack": "",
-    "flex": "",
-    "big_flex": "",
-    "generals": "",
-    "buffer": "1.0",
-}
-
 
 function Attack(props) {
-    const [defenderValues, setDefenderValues] = useState(initialDefenderValues);
-    const [attackerValues, setAttackerValues] = useState(initialAttackerValues);
+    const [defenderValues, setDefenderValues] = useState(noDefender);
+    const [attackerValues, setAttackerValues] = useState(noAttacker);
+    const [edited, setEdited] = useState({});            // which of their numbers the player has changed from the starting estimate
     const [selected, setSelected] = useState(props.initialKd || undefined);
-    const [calcMessage, setCalcMessage] = useState({"message": "Press calculate to project results"})
-    const [loadingCalc, setLoadingCalc] = useState(false);
     const [targetKdInfo, setTargetKdInfo] = useState({});
+    const [context, setContext] = useState(null);         // revealed flags, an estimate, your own defense
+    const [loadingTarget, setLoadingTarget] = useState(false);
+    const [suggesting, setSuggesting] = useState(false);
     const [attackResults, setAttackResults] = useState([]);
-    const [showOverrideModal, setShowOverrideModal] = useState(false);
+    const [confirming, setConfirming] = useState(false);
+    const [notice, setNotice] = useState(null);
 
+    const kingdom = props.data.kingdom;
+    const unitsDesc = props.data.mobis?.units_desc || {};
+    const myUnits = kingdom.units || {};
+
+    const sending = ATTACK_UNITS.reduce((sum, [key]) => sum + (parseInt(attackerValues[key], 10) || 0), 0);
+    const generals = parseInt(attackerValues.generals, 10) || 0;
+
+    const [forecast, pending, setForecast] = useServerForecast(
+        selected !== undefined && sending > 0 ? planFor(selected, attackerValues, defenderValues) : null,
+        (plan) => authFetch('api/calculate/' + plan.selected, {
+            method: 'POST',
+            body: JSON.stringify({ attackerValues: plan.attacker, defenderValues: plan.defender }),
+        }).then(safeJson),
+    );
+
+    // Ask for a suggested attack against these numbers. It only fills the form in; nothing is sent.
+    const suggest = async (target, defender, attacker = attackerValues) => {
+        setSuggesting(true);
+        setNotice(null);
+        const body = { buffer: attacker.buffer, generals: attacker.generals || "1", defenderValues: defender };
+        const answer = await authFetch('api/autofill/' + target, { method: 'POST', body: JSON.stringify(body) }).then(safeJson);
+        setSuggesting(false);
+        if (answer.attacker_units) {
+            const next = { ...attacker, generals: attacker.generals || "1" };
+            ATTACK_UNITS.forEach(([key]) => { next[key] = text(answer.attacker_units[key]); });
+            setAttackerValues(next);
+            setForecast(answer, planFor(target, next, defender));
+        } else {
+            setNotice(answer.message || "No attack could be suggested.");
+        }
+    };
+
+    // Choosing a target loads what is known about it and about you, fills in estimates for the rest, and suggests an attack.
+    const loadTarget = async (kdId) => {
+        setLoadingTarget(true);
+        setSelected(kdId);
+        setTargetKdInfo({});
+        setContext(null);
+        setEdited({});
+        setNotice(null);
+        setForecast({});
+        const [info, ctx] = await Promise.all([
+            authFetch("api/kingdom/" + kdId).then(safeJson),
+            authFetch("api/attackcontext/" + kdId).then(safeJson),
+        ]);
+        setLoadingTarget(false);
+        if (!ctx.mine) {
+            setNotice(ctx.message || "Could not load that target.");
+            return;
+        }
+        setTargetKdInfo(info);
+        setContext(ctx);
+        const guess = ctx.estimate;
+        const defender = {
+            recruits: text(info.units ? "" : guess.units.recruits),
+            defense: text(info.units ? "" : guess.units.defense),
+            flex: text(info.units ? "" : guess.units.flex),
+            big_flex: text(info.units ? "" : guess.units.big_flex),
+            military_bonus: String(guess.military_bonus),
+            shields: String(guess.shields),
+        };
+        setDefenderValues(defender);
+        suggest(kdId, defender, noAttacker);
+    };
     useEffect(() => {
-        if (props.initialKd != undefined) {
-            const fetchData = async () => {
-                await authFetch("api/kingdom/" + props.initialKd).then(r => r.json()).then(r => setTargetKdInfo(r));
-            };
-            fetchData();
+        if (props.initialKd !== undefined) {
+            loadTarget(props.initialKd);
         }
     }, []);
-    const handleChange = (selectedOption) => {
-        setSelected(selectedOption.value);
-        const fetchData = async () => {
-            await authFetch("api/kingdom/" + selectedOption.value).then(r => r.json()).then(r => setTargetKdInfo(r));
-        };
-        fetchData();
-    };
-    const handleDefenderChange = (e) => {
-        const { name, value } = e.target;
-        setDefenderValues({
-          ...defenderValues,
-          [name]: value,
-        });
-    };
-    const handleAttackerChange = (e) => {
-        const { name, value } = e.target;
-        setAttackerValues({
-          ...attackerValues,
-          [name]: value,
-        });
-    };
-    const countUnits = (input) => {
-        var total = 0
-        for (const unit in Object.keys(props.data.state.units || {})) {
-            total += (parseInt(input[unit] || 0));
-        }
-        return total
-    }
-    const onClickAttack = (e, overrideWarning=false) => {
-        if (selected != undefined) {
-            const defenderUnits = countUnits(defenderValues);
-            if (defenderUnits > 0 || overrideWarning || targetKdInfo.hasOwnProperty("units")) {
-                const opts = {
-                    "attackerValues": attackerValues,
-                };
-                const updateFunc = async () => authFetch('api/attack/' + selected, {
-                    method: 'POST',
-                    body: JSON.stringify(opts)
-                }).then(r => r.json()).then(r => {setAttackResults(attackResults.concat(r)); setCalcMessage("")})
-                props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects', 'galaxynews'], [updateFunc]);
-                setShowOverrideModal(false);
-            } else {
-                setShowOverrideModal(true);
-            }
-        } else {
-            setCalcMessage({"message": "Please select a target in order to attack"})
-        }
-    };
-    const onClickCalculate = async (e) => {
-        if (selected != undefined) {
-            const opts = {
-                "attackerValues": attackerValues,
-                "defenderValues": defenderValues,
-            };
-            const updateFunc = async () => authFetch('api/calculate/' + selected, {
-                method: 'POST',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => setCalcMessage(r))
-            setLoadingCalc(true);
-            await updateFunc();
-            setLoadingCalc(false);
-        } else {
-            setCalcMessage({"message": "Please select a target in order to calculate"})
-        }
-    };
-    const onClickAutofill = async (e) => {
-        if (selected != undefined) {
-            const opts = {
-                "buffer": attackerValues.buffer,
-                "generals": attackerValues.generals,
-                "defenderValues": defenderValues,
-            };
-            const updateFunc = async () => authFetch('api/autofill/' + selected, {
-                method: 'POST',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => {
-                setCalcMessage(r);
-                setAttackerValues({
-                  ...attackerValues,
-                  ...r.attacker_units,
-                });
 
-            })
-            setLoadingCalc(true);
-            await updateFunc();
-            setLoadingCalc(false);
-        } else {
-            setCalcMessage({"message": "Please select a target in order to calculate"})
-        }
+    const onDefender = (event) => {
+        setEdited((previous) => ({ ...previous, [event.target.name]: true }));
+        setDefenderValues((previous) => ({ ...previous, [event.target.name]: event.target.value }));
     };
-    const kdFullLabel = (kdId) => {
-        if (kdId != undefined) {
-            return props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")"
-        } else {
-            return "Defender"
-        }
-        
-    }
+    const onAttacker = (event) => setAttackerValues((previous) => ({ ...previous, [event.target.name]: event.target.value }));
+    const onClear = () => { setAttackerValues((previous) => ({ ...previous, attack: "", flex: "", big_flex: "", generals: "" })); setForecast({}); };
 
-    const kingdomOptions = Object.keys(props.data.kingdoms).map((kdId) => {
-        return {"value": kdId, "label": kdFullLabel(kdId)}
-    })
-    if (props.data.projects.current_bonuses?.military_bonus && attackerValues.military_bonus === "") {
-        setAttackerValues({
-            ...attackerValues,
-            ["military_bonus"]: props.data.projects.current_bonuses.military_bonus,
-        });
-    }
-    function getTimeString(date) {
-        if (date === undefined) {
-            return "--"
-        }
-        const hours = Math.abs(Date.parse(date) - Date.now()) / 3.6e6;
-        var n = new Date(0, 0);
-        n.setSeconds(+hours * 60 * 60);
-        return n.toTimeString().slice(0, 8);
-    }
-    const getRemainingSpans = (kdId, revealed) => {
-        if (revealed === undefined) {
-            return []
-        }
-        const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
-                <span className="remaining-time-title">{category}</span>
-                <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
-                <br />
-            </div>
-        )
-        return remainingSpans;
-    }
-    const revealedStats = getRemainingSpans(selected, props.data.revealed?.revealed);
+    const send = () => {
+        setConfirming(false);
+        const updateFunc = async () => authFetch('api/attack/' + selected, {
+            method: 'POST',
+            body: JSON.stringify({ attackerValues }),
+        }).then(safeJson).then(r => { setAttackResults((previous) => previous.concat(r)); setForecast({}); });
+        props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects', 'galaxynews'], [updateFunc]);
+    };
+
+    const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
+    const options = Object.keys(props.data.kingdoms).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
+
+    const unitsKnown = Boolean(context?.revealed.units);
+    const bonusKnown = Boolean(context?.revealed.military_bonus);
+    const shieldsKnown = Boolean(context?.revealed.shields);
+    const allKnown = unitsKnown && bonusKnown && shieldsKnown;
+    const hasForecast = forecast.attacker_offense !== undefined;
+    const wins = hasForecast && forecast.attacker_offense > forecast.defender_defense;
+    const ratio = hasForecast && forecast.defender_defense > 0 ? forecast.attacker_offense / forecast.defender_defense : 0;
+    const homeNow = forecast.attacker_home_defense_before ?? context?.mine.defense_now;
+    const homeAfter = forecast.attacker_home_defense_after;
+    const intel = Object.entries((props.data.revealed?.revealed || {})[selected] || {});
+
+    const problems = [];
+    if (selected === undefined) problems.push("Choose a target");
+    if (sending === 0) problems.push("Choose units to send");
+    if (generals < 1) problems.push("Send at least 1 general");
+    ATTACK_UNITS.forEach(([key, name]) => {
+        if ((parseInt(attackerValues[key], 10) || 0) > (myUnits[key] || 0)) problems.push(`You only have ${whole(myUnits[key])} ${name.toLowerCase()}`);
+    });
+    if (generals > (kingdom.generals_available || 0)) problems.push(`You only have ${kingdom.generals_available} generals`);
+    const blocked = problems[0];
+
+    const unitStatus = (key) => (unitsKnown ? "revealed" : edited[key] ? "estimate" : "needed");
 
     return (
-    <>
-        <Header data={props.data} />
-        <div className="attack">
-            <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} />
-            <Modal
-                show={showOverrideModal}
-                onHide={() => setShowOverrideModal(false)}
-                animation={false}
-                dialogClassName="attack-override-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Attack?</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <div>
-                        <span>You're trying to make an attack without inputting any information about the target's units</span>
-                        <br />
-                        <br />
-                        <span>Are you sure?</span>
-                        <br />
-                        <br />
-                        <Button variant="primary" type="submit" onClick={(e) => onClickAttack(e, true)}>
-                            Attack 
-                        </Button>
-                    </div>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowOverrideModal(false)}>
-                    Cancel
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <h2>Attack</h2>
-            <form className="attack-kingdom-form">
-                <label id="aria-label" htmlFor="aria-example-input">
-                    Select a target (type to filter)
-                </label>
-                <Select
-                    className="attack-kingdom-select"
-                    options={kingdomOptions}
-                    onChange={handleChange}
-                    autoFocus={selected == undefined}
-                    defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}
-                    styles={{
-                        control: (baseStyles, state) => ({
-                            ...baseStyles,
-                            borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
-                            backgroundColor: 'var(--bs-body-bg)',
-                        }),
-                        placeholder: (baseStyles, state) => ({
-                            ...baseStyles,
-                            color: 'var(--bs-primary-text)',
-                        }),
-                        input: (baseStyles, state) => ({
-                            ...baseStyles,
-                            color: 'var(--bs-secondary-text)',
-                        }),
-                        option: (baseStyles, state) => ({
-                            ...baseStyles,
-                            backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
-                            color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
-                        }),
-                        menuList: (baseStyles, state) => ({
-                            ...baseStyles,
-                            backgroundColor: 'var(--bs-secondary-bg)',
-                            // borderColor: 'var(--bs-secondary-bg)',
-                        }),
-                        singleValue: (baseStyles, state) => ({
-                            ...baseStyles,
-                            color: 'var(--bs-secondary-text)',
-                        }),
-                    }}
-                />
-            </form>
-            <div className="battle-stats">
-                <div className="col-center-full defender-stats">
-                    <h3>{kdFullLabel(selected)}</h3>
-                    <div className="defender-detail">
-                        <Table className="defender-table" striped bordered hover size="sm">
-                            <thead>
-                                <tr>
-                                    <th>Input</th>
-                                    <th style={{textAlign: "right"}}>Defense</th>
-                                    <th style={{textAlign: "right"}}>Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Recruits</td>
-                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.recruits?.defense || "--"}</td>
-                                    <td style={{textAlign: "right"}}>
-                                        {   targetKdInfo.hasOwnProperty("units")
-                                            ? <Form.Control 
-                                                className="unit-form"
-                                                id="recruits-input"
-                                                name="recruits"
-                                                value={targetKdInfo.units.recruits?.toLocaleString() || "0"} 
-                                                placeholder="0"
-                                                disabled
-                                                autoComplete="off"
-                                            />
-                                            : <Form.Control 
-                                                className="unit-form"
-                                                id="recruits-input"
-                                                name="recruits"
-                                                onChange={handleDefenderChange}
-                                                value={defenderValues.recruits || ""} 
-                                                placeholder="0"
-                                                autoComplete="off"
-                                            />
-                                        }
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Defenders</td>
-                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.defense?.defense || "--"}</td>
-                                    <td style={{textAlign: "right"}}>
-                                        {   targetKdInfo.hasOwnProperty("units")
-                                            ? <Form.Control 
-                                                className="unit-form"
-                                                id="defenders-input"
-                                                name="defense"
-                                                onChange={handleDefenderChange}
-                                                value={targetKdInfo.units.defense?.toLocaleString() || "0"} 
-                                                placeholder="0"
-                                                disabled
-                                                autoComplete="off"
-                                            />
-                                            : <Form.Control 
-                                                className="unit-form"
-                                                id="defenders-input"
-                                                name="defense"
-                                                onChange={handleDefenderChange}
-                                                value={defenderValues.defense || ""} 
-                                                placeholder="0"
-                                                autoComplete="off"
-                                            />
-                                        }
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Flexers</td>
-                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.flex?.defense || "--"}</td>
-                                    <td style={{textAlign: "right"}}>
-                                        {   targetKdInfo.hasOwnProperty("units")
-                                            ? <Form.Control 
-                                                className="unit-form"
-                                                id="flexers-input"
-                                                name="flex"
-                                                value={targetKdInfo.units.flex?.toLocaleString() || "0"} 
-                                                placeholder="0"
-                                                disabled
-                                                autoComplete="off"
-                                            />
-                                            : <Form.Control 
-                                                className="unit-form"
-                                                id="flexers-input"
-                                                name="flex"
-                                                onChange={handleDefenderChange}
-                                                value={defenderValues.flex || ""} 
-                                                placeholder="0"
-                                                autoComplete="off"
-                                            />
-                                        }
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Big Flexers</td>
-                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.big_flex?.defense || "--"}</td>
-                                    <td style={{textAlign: "right"}}>
-                                        {   targetKdInfo.hasOwnProperty("units")
-                                            ? <Form.Control 
-                                                className="unit-form"
-                                                id="big-flexers-input"
-                                                name="big_flex"
-                                                value={targetKdInfo.units.big_flex?.toLocaleString() || "0"} 
-                                                placeholder="0"
-                                                disabled
-                                                autoComplete="off"
-                                            />
-                                            : <Form.Control 
-                                                className="unit-form"
-                                                id="big-flexers-input"
-                                                name="big_flex"
-                                                onChange={handleDefenderChange}
-                                                value={defenderValues.big_flex || ""} 
-                                                placeholder="0"
-                                                autoComplete="off"
-                                            />
-                                        }
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Military Efficiency</td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}>
-                                        {   targetKdInfo.hasOwnProperty("current_bonuses")
-                                            ? <InputGroup className="mb-3 unit-input-group">
-                                                <Form.Control
-                                                    className="unit-form"
-                                                    id="military-efficiency-input"
-                                                    name="military_bonus"
-                                                    value={targetKdInfo.current_bonuses.military_bonus * 100 || ""} 
-                                                    placeholder="0"
-                                                    disabled
-                                                    autoComplete="off"
-                                                />
-                                                <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
-                                            </InputGroup>
-                                            : <InputGroup className="mb-3 unit-input-group">
-                                                <Form.Control
-                                                    className="unit-form"
-                                                    id="military-efficiency-input"
-                                                    name="military_bonus"
-                                                    onChange={handleDefenderChange}
-                                                    value={defenderValues.military_bonus || ""} 
-                                                    placeholder="0"
-                                                    autoComplete="off"
-                                                />
-                                                <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
-                                            </InputGroup>
-                                        }
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Shields</td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}>
-                                        {   targetKdInfo.hasOwnProperty("shields")
-                                            ? <InputGroup className="mb-3 unit-input-group">
-                                                <Form.Control
-                                                    className="unit-form"
-                                                    id="shields-input"
-                                                    name="shields"
-                                                    value={targetKdInfo.shields.military * 100 || ""} 
-                                                    placeholder="0"
-                                                    disabled
-                                                    autoComplete="off"
-                                                />
-                                                <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
-                                            </InputGroup>
-                                            : <InputGroup className="mb-3 unit-input-group">
-                                                <Form.Control
-                                                    className="unit-form"
-                                                    id="shields-input"
-                                                    name="shields"
-                                                    onChange={handleDefenderChange}
-                                                    value={defenderValues.shields || ""} 
-                                                    placeholder="0"
-                                                    autoComplete="off"
-                                                />
-                                                <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
-                                            </InputGroup>
-                                        }
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Other Bonuses</td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}>
-                                        <InputGroup className="mb-3 unit-input-group">
-                                            <Form.Control
-                                            className="unit-form"
-                                            id="other-bonuses-input"
-                                            name="other_bonuses"
-                                            value={defenderValues.other_bonuses * 100 || ""} 
-                                            placeholder="0"
-                                            disabled
-                                            autoComplete="off"
-                                            />
-                                            <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
-                                        </InputGroup>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </Table>
-                        <div className="defender-text-boxes">
-                            <div className="text-box defender-losses-box">
-                                <h4>Their Losses</h4> 
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Recruits</span>
-                                    <span className="text-box-item-value">{calcMessage.defender_losses?.recruits?.toLocaleString() || "--"}</span>
-                                </div>
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Defenders</span>
-                                    <span className="text-box-item-value">{calcMessage.defender_losses?.defense?.toLocaleString() || "--"}</span>
-                                </div>
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Flexers</span>
-                                    <span className="text-box-item-value">{calcMessage.defender_losses?.flex?.toLocaleString() || "--"}</span>
-                                </div>
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Big Flexers</span>
-                                    <span className="text-box-item-value">{calcMessage.defender_losses?.big_flex?.toLocaleString() || "--"}</span>
-                                </div>
-                                <br />
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Unit Loss Rate</span>
-                                    <span className="text-box-item-value">{displayPercent(calcMessage.defender_unit_losses_rate) || "--"}</span>
-                                </div>
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Stars Loss Rate</span>
-                                    <span className="text-box-item-value">{displayPercent(calcMessage.defender_stars_loss_rate) || "--"}</span>
-                                </div>
+        <>
+            <Header data={props.data} />
+            <div className="planner wide attack">
+                <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} />
+                <h2>Attack</h2>
+                <div className="wide-layout attack-layout">
 
-                            </div>
-                            <div className="text-box defender-defense-box">
-                                <h4>Their Defense</h4> 
-                                <div className="text-box-item">
-                                    <span className="defender-defense">{calcMessage.defender_defense?.toLocaleString() || "--"}</span>
-                                </div>
-                            </div>
-                        </div>
+                <Panel className="area-target" title="1. Choose a target">
+                    <Picker id="attack-target" options={options} value={selected} onChange={loadTarget}
+                        placeholder="Type a kingdom to filter" autoFocus={selected === undefined} />
+                    {loadingTarget ? <p className="planner-hint-line">Loading what is known about them...</p> : null}
+                    {intel.length > 0
+                        ? <Stats items={intel.map(([what, until]) => ({ label: `${what} revealed for`, value: clockUntil(until) }))} />
+                        : null}
+                </Panel>
+
+                {context ? <Panel className="area-matchup" title="The matchup">
+                    <div className="matchup">
+                        <Stats items={[{ label: "Their defense", value: hasForecast ? whole(forecast.defender_defense) : "--" }]} />
+                        <Stats items={[{ label: "Your offense", value: hasForecast ? whole(forecast.attacker_offense) : "--", tone: hasForecast ? (wins ? "good" : "bad") : undefined }]} />
+                        <Stats items={[{ label: "Your defense now", value: whole(homeNow) }]} />
+                        <Stats items={[{ label: "Your defense after this attack", value: homeAfter !== undefined ? whole(homeAfter) : "--", tone: homeAfter !== undefined && homeAfter < homeNow * 0.8 ? "bad" : undefined }]} />
+                        <Stats items={[{ label: "Your defense if you sent everything", value: whole(context.mine.defense_if_all_sent) }]} />
                     </div>
-                </div>
-                <div className="col-center-full attacker-stats">
-                    <h3>{kdFullLabel(props.data.kingdom.kdId)}</h3>
-                    <div className="attacker-detail">
-                        <Table className="attacker-table" striped bordered hover size="sm">
-                            <thead>
-                                <tr>
-                                    <th>Input</th>
-                                    <th style={{textAlign: "right"}}>Offense</th>
-                                    <th style={{textAlign: "right"}}>Available</th>
-                                    <th style={{textAlign: "right"}}>Value</th>
-                                </tr>
-                            </thead>
+                </Panel> : null}
+
+                {context ? <>
+                    <Panel className="area-def" title="2. Their defense">
+                        {DEFENDER_UNITS.map(([key, name]) => (
+                            <FieldRow key={key} label={name} status={unitStatus(key)} stat={<UnitStat kind="defense" value={unitsDesc[key]?.defense} />} htmlFor={"def-" + key}>
+                                {unitsKnown
+                                    ? <span className="known-value">{whole(targetKdInfo.units[key])}</span>
+                                    : <Form.Control id={"def-" + key} name={key} size="sm" inputMode="numeric" placeholder="0" autoComplete="off"
+                                        value={defenderValues[key]} onChange={onDefender} />}
+                            </FieldRow>
+                        ))}
+                        <FieldRow label="Military efficiency" status={bonusKnown ? "revealed" : edited.military_bonus ? "estimate" : "needed"} htmlFor="def-military_bonus">
+                            {bonusKnown
+                                ? <span className="known-value">{displayPercent(targetKdInfo.current_bonuses.military_bonus)}</span>
+                                : <div className="attack-buffer"><Form.Control id="def-military_bonus" name="military_bonus" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
+                                    value={defenderValues.military_bonus} onChange={onDefender} /><span>%</span></div>}
+                        </FieldRow>
+                        <FieldRow label="Shields" status={shieldsKnown ? "revealed" : edited.shields ? "estimate" : "needed"} htmlFor="def-shields">
+                            {shieldsKnown
+                                ? <span className="known-value">{displayPercent(targetKdInfo.shields.military)}</span>
+                                : <div className="attack-buffer"><Form.Control id="def-shields" name="shields" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
+                                    value={defenderValues.shields} onChange={onDefender} /><span>%</span></div>}
+                        </FieldRow>
+                    </Panel>
+
+                    <Panel className="area-attack" title="3. Your attack">
+                        {ATTACK_UNITS.map(([key, name]) => (
+                            (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
+                                ? <FieldRow key={key} label={name} stat={<UnitStat kind="offense" value={unitsDesc[key]?.offense} />} htmlFor={"att-" + key}>
+                                    <AmountInput box name={key} id={"att-" + key} label={name} value={attackerValues[key]} onChange={onAttacker} max={myUnits[key] || 0} />
+                                </FieldRow>
+                                : null
+                        ))}
+                        <FieldRow label="Generals" htmlFor="att-generals">
+                            <AmountInput box name="generals" id="att-generals" label="Generals" value={attackerValues.generals} onChange={onAttacker} max={kingdom.generals_available || 0} />
+                        </FieldRow>
+                        <FieldRow label="Suggestion margin" hint="Extra offense a suggestion adds" htmlFor="att-buffer">
+                            <div className="attack-buffer">
+                                <Form.Control id="att-buffer" name="buffer" size="sm" inputMode="decimal" autoComplete="off" value={attackerValues.buffer} onChange={onAttacker} />
+                                <span>%</span>
+                            </div>
+                        </FieldRow>
+                        <div className="planner-actions">
+                            <Button variant="outline-primary" onClick={() => suggest(selected, defenderValues)} disabled={suggesting}
+                                title="Fills in units that should beat the defense on the left. Does not send anything.">
+                                {suggesting ? "Working..." : "Suggest again"}
+                            </Button>
+                            <Button variant="link" onClick={onClear}>Clear</Button>
+                        </div>
+                        {notice ? <Alert variant="warning" className="mt-2 mb-0">{notice}</Alert> : null}
+                    </Panel>
+                </> : null}
+
+                {context ? <Panel className="area-forecast" title="4. Forecast">
+                    {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
+                    {hasForecast ? <>
+                        <div className={"planner-verdict " + (wins ? "good" : "bad")}>
+                            {wins ? "This attack should succeed" : "This attack would fail"}
+                            {pending ? " (updating...)" : ""}
+                        </div>
+                        <VersusBar ratio={ratio} yours="Your offense" theirs="their defense" />
+                        <Stats items={[
+                            { label: wins ? "Margin" : "Short by", value: whole(Math.abs(forecast.attacker_offense - forecast.defender_defense)), tone: wins ? "good" : "bad" },
+                        ]} />
+                        <div className="planner-notes">{forecast.message}</div>
+                        <table className="planner-table table table-sm">
+                            <thead><tr><th>Units lost</th><th>You</th><th>Them</th></tr></thead>
                             <tbody>
-                                <tr>
-                                    <td>Attackers</td>
-                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.attack?.offense || "--"}</td>
-                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.attack?.toLocaleString()}</td>
-                                    <td style={{textAlign: "right"}}>
-                                        <Form.Control 
-                                            className="unit-form"
-                                            id="attack-input"
-                                            name="attack"
-                                            onChange={handleAttackerChange}
-                                            value={attackerValues.attack || ""} 
-                                            placeholder="0"
-                                            autoComplete="off"
-                                        />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Flexers</td>
-                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.flex?.offense || "--"}</td>
-                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.flex?.toLocaleString()}</td>
-                                    <td style={{textAlign: "right"}}>
-                                        <Form.Control 
-                                            className="unit-form"
-                                            id="flexers-input"
-                                            name="flex"
-                                            onChange={handleAttackerChange}
-                                            value={attackerValues.flex || ""} 
-                                            placeholder="0"
-                                            autoComplete="off"
-                                        />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Big Flexers</td>
-                                    <td style={{textAlign: "right"}}>{props.data.mobis?.units_desc?.big_flex?.offense || "--"}</td>
-                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.units?.big_flex?.toLocaleString() || 0}</td>
-                                    <td style={{textAlign: "right"}}>
-                                        <Form.Control 
-                                            className="unit-form"
-                                            id="big-flexers-input"
-                                            name="big_flex"
-                                            onChange={handleAttackerChange}
-                                            value={attackerValues.big_flex || ""} 
-                                            placeholder="0"
-                                            autoComplete="off"
-                                        />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Military Efficiency</td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}>
-                                        <Form.Control 
-                                            className="unit-form"
-                                            id="military-efficiency-input"
-                                            name="military_bonus"
-                                            onChange={handleAttackerChange}
-                                            value={displayPercent(props.data.projects.current_bonuses?.military_bonus)} 
-                                            placeholder="0"
-                                            disabled
-                                            autoComplete="off"
-                                        />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Other Bonuses</td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}>
-                                        <Form.Control 
-                                            className="unit-form"
-                                            id="other-bonuses-input"
-                                            name="other_bonuses"
-                                            value="0%" 
-                                            placeholder="0%"
-                                            disabled
-                                            autoComplete="off"
-                                        />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Generals</td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}>{props.data.kingdom?.generals_available}</td>
-                                    <td style={{textAlign: "right"}}>
-                                        <Form.Control 
-                                            className="unit-form"
-                                            id="generals-input"
-                                            name="generals"
-                                            onChange={handleAttackerChange}
-                                            value={attackerValues.generals || ""} 
-                                            placeholder="0"
-                                            autoComplete="off"
-                                        />
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>Autofill Buffer</td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}></td>
-                                    <td style={{textAlign: "right"}}>
-                                        <InputGroup className="mb-3 unit-input-group">
-                                            <Form.Control
-                                                className="unit-form"
-                                                id="buffer-input"
-                                                name="buffer"
-                                                onChange={handleAttackerChange}
-                                                value={attackerValues.buffer || ""} 
-                                                placeholder="1.0"
-                                                autoComplete="off"
-                                            />
-                                            <InputGroup.Text id="basic-addon2" className="unit-input-group-text">%</InputGroup.Text>
-                                        </InputGroup>
-                                    </td>
-                                </tr>
+                                {[["attack", "Attackers"], ["flex", "Flexers"], ["big_flex", "Big flexers"], ["defense", "Defenders"], ["recruits", "Recruits"]].map(([key, name]) => {
+                                    const yours = forecast.attacker_losses?.[key];
+                                    const theirs = forecast.defender_losses?.[key];
+                                    return (yours || theirs)
+                                        ? <tr key={key}><td>{name}</td><td>{yours ? whole(yours) : "--"}</td><td>{theirs ? whole(theirs) : "--"}</td></tr>
+                                        : null;
+                                })}
+                                <tr><td>Loss rate</td><td>{displayPercent(forecast.attacker_unit_losses_rate)}</td><td>{displayPercent(forecast.defender_unit_losses_rate)}</td></tr>
                             </tbody>
-                        </Table>
-                        <div className="attacker-text-boxes">
-                            <div className="text-box attacker-losses-box">
-                                <h4>Your Losses</h4> 
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Attackers</span>
-                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.attack?.toLocaleString() || "--"}</span>
-                                </div>
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Flexers</span>
-                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.flex?.toLocaleString() || "--"}</span>
-                                </div>
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Big Flexers</span>
-                                    <span className="text-box-item-value">{calcMessage.attacker_losses?.big_flex?.toLocaleString() || "--"}</span>
-                                </div>
-                                <br />
-                                <br />
-                                <br />
-                                <div className="text-box-item">
-                                    <span className="text-box-item-title">Unit Loss Rate</span>
-                                    <span className="text-box-item-value">{displayPercent(calcMessage.attacker_unit_losses_rate) || "--"}</span>
-                                </div>
-                            </div>
-                            <div className="text-box attacker-defense-box">
-                                <h4>Your Offense</h4> 
-                                <div className="text-box-item">
-                                    <span className="attacker-offense">{calcMessage.attacker_offense?.toLocaleString() || "--"}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                        </table>
+                    </> : null}
+                </Panel> : null}
+
+                <Panel className="area-send" title="5. Send">
+                    <Button variant={wins || !hasForecast ? "primary" : "danger"} size="lg" disabled={Boolean(blocked) || props.loading.kingdom}
+                        title={blocked} onClick={() => (attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) ? setConfirming(true) : send())}>
+                        Send attack
+                    </Button>
+                    {blocked ? <div className="planner-why">{blocked}</div> : null}
+                </Panel>
+
                 </div>
+
+                <Modal show={confirming} onHide={() => setConfirming(false)} animation={false}>
+                    <Modal.Header closeButton><Modal.Title>Send this attack?</Modal.Title></Modal.Header>
+                    <Modal.Body>
+                        <p>
+                            Send {whole(sending)} units and {generals} general{generals === 1 ? "" : "s"} at <strong>{selected !== undefined ? kdLabel(selected) : ""}</strong>.
+                        </p>
+                        {hasForecast
+                            ? <Alert variant={wins ? "success" : "danger"}>
+                                {wins ? "Forecast: it should succeed." : "Forecast: it would fail."} Your {whole(forecast.attacker_offense)} offense against their {whole(forecast.defender_defense)} defense.
+                            </Alert>
+                            : <Alert variant="warning">There is no forecast for this attack yet.</Alert>}
+                        {!unitsKnown
+                            ? <Alert variant="warning">Their army is not revealed to you, so the forecast rests on an estimate.</Alert>
+                            : null}
+                        {homeAfter !== undefined
+                            ? <p className="mb-0">Your home defense goes from {whole(homeNow)} to {whole(homeAfter)} while they are away.</p>
+                            : null}
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
+                        <Button variant={wins ? "primary" : "danger"} onClick={send}>Send attack</Button>
+                    </Modal.Footer>
+                </Modal>
+                <HelpButton scrollTarget={"attack"}/>
             </div>
-            {/* <div className="attack-results"> */}
-                <div className="text-box attack-results-box">
-                    <span className="box-span">{calcMessage.message}</span>
-                </div>
-            {/* </div> */}
-            <div className="attack-buttons">
-                {
-                    loadingCalc
-                    ? <Button className="autofill-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="autofill-button" variant="primary" type="submit" onClick={onClickAutofill}>
-                        Autofill
-                    </Button>
-                }
-                {
-                    loadingCalc
-                    ? <Button className="calculate-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="calculate-button" variant="primary" type="submit" onClick={onClickCalculate}>
-                        Calculate
-                    </Button>
-                }
-                {
-                    props.loading.kingdom
-                    ? <Button className="attack-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="attack-button" variant="primary" type="submit" onClick={onClickAttack}>
-                        Attack
-                    </Button>
-                }
-            </div>
-            {
-                revealedStats.length > 0
-                ? <div className="text-box revealed-stats-box">
-                    <h3>Target's Revealed Stats</h3>
-                    {revealedStats}
-                </div>
-                : null
-            }
-            <HelpButton scrollTarget={"attack"}/>
-        </div>
-    </>
-    )
+        </>
+    );
 }
 
 export default Attack;

@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useEffect} from "react";
 import "./navbar.css";
 import {
     Link,
@@ -12,32 +12,21 @@ import 'bootstrap/dist/css/bootstrap.css';
 import { logout } from "../auth";
 import { sections } from "../routes";
 
-const bold = {"fontWeight": "bold"};
-
 /**
- * The side navigation, built from the page table in routes.js: a bold link for each section (with a count of anything
- * new in it), and the section's own pages underneath while you are in it. Clicking a section link that is already open
- * (twice in a row) closes the menu on a phone.
+ * The side navigation, built from the page table in routes.js: a label for each section (not a link; with a count of anything new in
+ * it) and its pages, all links at one indent, underneath. The list scrolls. From the lg breakpoint up it is a fixed column; below
+ * that it is a drawer opened from the top bar, and it closes whenever you navigate.
  */
 function SideNavbar(props) {
-  const [lastSectionClicked, setLastSectionClicked] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
 
   const closeNav = () => props.setShowNav(false);
+  useEffect(() => { props.setShowNav(false); }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onClickLogout = () => {
     logout();
     navigate('/login');
-  };
-
-  const onClickSection = (path) => {
-    if (lastSectionClicked === path) {
-      closeNav();
-      setLastSectionClicked(null);
-    } else {
-      setLastSectionClicked(path);
-    }
   };
 
   // " (3)" when there is something new in these categories, otherwise nothing.
@@ -46,35 +35,30 @@ function SideNavbar(props) {
     return count > 0 ? ` (${count})` : "";
   };
 
-  const sectionLink = (to, label, onClick) => (
-    <Nav.Link as={Link} to={to} onClick={onClick} style={bold}>{label}</Nav.Link>
+  const sectionLink = (to, label) => (
+    <Nav.Link as={Link} to={to} onClick={closeNav} className="nav-page" active={location.pathname === to}>{label}</Nav.Link>
   );
 
   return (
-    <Offcanvas className="nav-canvas" show={props.showNav} onHide={closeNav} responsive="lg" style={{minWidth: "300px"}}>
-      <Offcanvas.Header closeButton />
+    <Offcanvas className="nav-canvas" show={props.showNav} onHide={closeNav} responsive="lg">
+      <Offcanvas.Header closeButton><Offcanvas.Title>Menu</Offcanvas.Title></Offcanvas.Header>
       <Offcanvas.Body>
         <div className="navdiv">
           <Nav className="mainnav">
-            {sectionLink("/", "Landing", () => onClickSection("/"))}
-            {!props.logged ? <><br />{sectionLink("/login", "Login", () => onClickSection("/login"))}</> : null}
+            {sectionLink("/", "Landing")}
+            {!props.logged ? <>{sectionLink("/login", "Login")}</> : null}
             {props.logged ? <>
-              {sections.map((section) => {
-                const open = section.pages.some((page) => page.path === location.pathname);
-                return (
-                  <div key={section.title}>
-                    <br />
-                    {sectionLink(section.path, section.title + newCount(section.notifs), () => onClickSection(section.path))}
-                    {open ? section.pages.filter((page) => !page.hidden).map((page) => (
-                      <Nav.Link key={page.path} as={Link} to={page.path} onClick={closeNav}>
-                        &nbsp;&nbsp;{page.label}{newCount(page.notifs)}
-                      </Nav.Link>
-                    )) : null}
-                  </div>
-                );
-              })}
-              <br />
-              {sectionLink("/help", "Help", () => onClickSection("/help"))}
+              {sections.map((section) => (
+                <div key={section.title} className="nav-group">
+                  <div className="nav-heading">{section.title}{newCount(section.notifs)}</div>
+                  {section.pages.filter((page) => !page.hidden).map((page) => (
+                    <Nav.Link key={page.path} as={Link} to={page.path} onClick={closeNav} className="nav-page" active={location.pathname === page.path}>
+                      {page.label}{newCount(page.notifs)}
+                    </Nav.Link>
+                  ))}
+                </div>
+              ))}
+              {sectionLink("/help", "Help")}
             </> : null}
           </Nav>
           {props.logged ? <div className="nav-logout"><Button onClick={onClickLogout}>Logout</Button></div> : null}

@@ -1,4 +1,5 @@
 .galaxy {
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -45,8 +46,15 @@
 }
 @media (min-width: 756px) {
     .attack-modal {
-        width: 80%;
-        min-width: 750px;
+        width: 85%;
+        min-width: 0;
+        max-width: 1100px;
+    }
+}
+@media (min-width: 1200px) {
+    .attack-modal {
+        width: 92%;
+        max-width: 1400px;
     }
 }
 
@@ -58,7 +66,8 @@
 @media (min-width: 756px) {
     .spy-modal {
         width: 80%;
-        min-width: 750px;
+        min-width: 0;
+        max-width: 1000px;
     }
 }
 
@@ -69,7 +78,8 @@
 @media (min-width: 756px) {
     .missile-modal {
         width: 80%;
-        min-width: 750px;
+        min-width: 0;
+        max-width: 1000px;
     }
 }
 
@@ -80,9 +90,22 @@
 @media (min-width: 756px) {
     .message-modal {
         width: 80%;
-        min-width: 750px;
+        min-width: 0;
+        max-width: 1000px;
     }
 }
 .galaxy-actions {
     white-space: nowrap;
 }
+
+.galaxy-view-toggle { margin: 0 0 0.75rem; align-self: flex-end; }
+.galaxy-cards { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.75rem; }
+.galaxy-card { border: 1px solid var(--bs-border-color); border-radius: 0.75rem; padding: 0.75rem 1rem; background: var(--bs-body-bg); }
+.galaxy-card-name { font-weight: 600; font-size: 1.05rem; margin-bottom: 0.25rem; }
+.galaxy-card-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 1rem; margin: 0 0 0.5rem; }
+.galaxy-card-facts dt { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
+.galaxy-card-facts dd { margin: 0; }
+/* In the link colour, like the icon buttons beside it, so it reads as something to press. */
+.galaxy-card-name-button { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; text-align: left; cursor: pointer;
+    color: var(--bs-link-color, #0d6efd); }
+.galaxy-card-name-button:hover, .galaxy-card-name-button:focus-visible { text-decoration: underline; color: var(--bs-link-hover-color, #0a58ca); }

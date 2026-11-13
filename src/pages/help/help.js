@@ -1,12 +1,8 @@
-import React, { useMemo, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import 'bootstrap/dist/css/bootstrap.css';
-import Button from 'react-bootstrap/Button';
-import Table from 'react-bootstrap/Table';
-import Tab from 'react-bootstrap/Tab';
-import Tabs from 'react-bootstrap/Tabs';
-import Dropdown from 'react-bootstrap/Dropdown';
-import DropdownButton from 'react-bootstrap/DropdownButton';
+import Nav from 'react-bootstrap/Nav';
+import Form from 'react-bootstrap/Form';
 import Guide from "./guide.js";
 import Home from "./home/home.js";
 import News from "./home/news.js";
@@ -34,109 +30,68 @@ import CreateKingdom from "./other/createkingdom.js";
 import ViewKingdom from "./other/viewkingdom.js";
 import "./help.css";
 
+// Every topic, in the order of the game's own navigation: [id, label, component]. Each page's help section is one topic.
+const TOPICS = [
+    ["Start here", [["guide", "Guide", Guide]]],
+    ["Home", [["home", "Status", Home], ["news", "News", News], ["galaxy", "Galaxy", Galaxy], ["message", "Message", Message], ["history", "History", History], ["scores", "Scores", Scores]]],
+    ["Build", [["build", "Overview", Build], ["settle", "Settle", Settle], ["structures", "Structures", Structures], ["military", "Military", Military], ["projects", "Projects", Projects], ["buildmissiles", "Build Missiles", BuildMissiles]]],
+    ["Conquer", [["conquer", "Overview", Conquer], ["attack", "Attack", Attack], ["spy", "Spy", Spy], ["shareintel", "Share Intel", ShareIntel], ["launchmissiles", "Launch Missiles", LaunchMissiles], ["schedule", "Schedule", Schedule], ["primitives", "Primitives", Primitives]]],
+    ["Politics", [["politics", "Galaxy Politics", Politics], ["empirepolitics", "Empire Politics", EmpirePolitics], ["universepolitics", "Universe Politics", UniversePolitics]]],
+    ["Other", [["createkingdom", "Create Kingdom", CreateKingdom], ["viewkingdom", "View Kingdom", ViewKingdom]]],
+];
+const FLAT = TOPICS.flatMap(([, topics]) => topics);
+
+/**
+ * The help, one topic at a time: a list of topics on the left on a wide screen and a drop-down on a narrow one, with
+ * Previous / Next at the bottom. It opens on the topic for the page it was asked from (``scrollTarget``) or the link's
+ * #hash.
+ */
 function Help(props) {
-    let location = useLocation();
+    const location = useLocation();
     const [state, setState] = useState({});
-    const [scrollTarget, setScrollTarget] = useState(props.scrollTarget || location.hash.slice(1));
+    const wanted = props.scrollTarget || location.hash.slice(1);
+    const [selected, setSelected] = useState(FLAT.some(([id]) => id === wanted) ? wanted : "guide");
 
     useEffect(() => {
-        const fetchData = () => {
-            fetch('api/state', {keepalive: true}).then(
-                r => r.json()
-            ).then(r => setState(r)).catch(
-                err => {
-                    console.log('Failed to fetch state');
-                    console.log(err);
-                }
-            );
-        }
-        fetchData();
+        fetch('api/state', {keepalive: true}).then(r => r.json()).then(r => setState(r)).catch(
+            err => console.log('Failed to fetch state', err)
+        );
     }, []);
-    return (
-      <>
-        <div id="top" />
-        <div className="help-dropdown-div">
-          <Dropdown
-              id={`help-dropdown`}
-              size="sm"
-              variant="secondary"
-              >
-              <Dropdown.Toggle>
-                  Go To
-              </Dropdown.Toggle>
 
-              <Dropdown.Menu
-                  className="help-dropdown-button"
-              >
-                  <Dropdown.Item href="#top">Top</Dropdown.Item>
-                  <Dropdown.Item href="#guide">Guide</Dropdown.Item>
-                  <Dropdown.Divider />
-                  <Dropdown.Header>Home</Dropdown.Header>
-                  <Dropdown.Item href="#home">Home</Dropdown.Item>
-                  <Dropdown.Item href="#news">News</Dropdown.Item>
-                  <Dropdown.Item href="#galaxy">Galaxy</Dropdown.Item>
-                  <Dropdown.Item href="#message">Message</Dropdown.Item>
-                  <Dropdown.Item href="#history">History</Dropdown.Item>
-                  <Dropdown.Item href="#scores">Scores</Dropdown.Item>
-                  <Dropdown.Divider />
-                  <Dropdown.Header>Build</Dropdown.Header>
-                  <Dropdown.Item href="#build">Build</Dropdown.Item>
-                  <Dropdown.Item href="#settle">Settle</Dropdown.Item>
-                  <Dropdown.Item href="#structures">Structures</Dropdown.Item>
-                  <Dropdown.Item href="#military">Military</Dropdown.Item>
-                  <Dropdown.Item href="#projects">Projects</Dropdown.Item>
-                  <Dropdown.Item href="#buildmissiles">Build Missiles</Dropdown.Item>
-                  <Dropdown.Divider />
-                  <Dropdown.Header>Conquer</Dropdown.Header>
-                  <Dropdown.Item href="#conquer">Conquer</Dropdown.Item>
-                  <Dropdown.Item href="#attack">Attack</Dropdown.Item>
-                  <Dropdown.Item href="#spy">Spy</Dropdown.Item>
-                  <Dropdown.Item href="#shareintel">Share Intel</Dropdown.Item>
-                  <Dropdown.Item href="#launchmissiles">Launch Missiles</Dropdown.Item>
-                  <Dropdown.Item href="#schedule">Schedule</Dropdown.Item>
-                  <Dropdown.Item href="#primitives">Primitives</Dropdown.Item>
-                  <Dropdown.Divider />
-                  <Dropdown.Header>Politics</Dropdown.Header>
-                  <Dropdown.Item href="#politics">Politics</Dropdown.Item>
-                  <Dropdown.Item href="#empirepolitics">Empire Politics</Dropdown.Item>
-                  <Dropdown.Item href="#universepolitics">Universe Politics</Dropdown.Item>
-                  <Dropdown.Divider />
-                  <Dropdown.Header>Other</Dropdown.Header>
-                  <Dropdown.Item href="#createkingdom">Create Kingdom</Dropdown.Item>
-                  <Dropdown.Item href="#viewkingdom">View Kingdom</Dropdown.Item>
-              </Dropdown.Menu>
-          </Dropdown>
-        </div>
+    const index = FLAT.findIndex(([id]) => id === selected);
+    const Topic = FLAT[index][2];
+
+    return (
         <div className="help">
-            <div className="col-center help-contents">
-                <Guide state={state} scrollTarget={scrollTarget}/>
-                <Home state={state} scrollTarget={scrollTarget}/>
-                <News state={state} scrollTarget={scrollTarget}/>
-                <Galaxy state={state} scrollTarget={scrollTarget}/>
-                <Message state={state} scrollTarget={scrollTarget}/>
-                <History state={state} scrollTarget={scrollTarget}/>
-                <Scores state={state} scrollTarget={scrollTarget}/>
-                <Build state={state} scrollTarget={scrollTarget}/>
-                <Settle state={state} scrollTarget={scrollTarget}/>
-                <Structures state={state} scrollTarget={scrollTarget}/>
-                <Military state={state} scrollTarget={scrollTarget}/>
-                <Projects state={state} scrollTarget={scrollTarget}/>
-                <BuildMissiles state={state} scrollTarget={scrollTarget}/>
-                <Conquer state={state} scrollTarget={scrollTarget}/>
-                <Attack state={state} scrollTarget={scrollTarget}/>
-                <Spy state={state} scrollTarget={scrollTarget}/>
-                <ShareIntel state={state} scrollTarget={scrollTarget}/>
-                <LaunchMissiles state={state} scrollTarget={scrollTarget}/>
-                <Schedule state={state} scrollTarget={scrollTarget}/>
-                <Primitives state={state} scrollTarget={scrollTarget}/>
-                <Politics state={state} scrollTarget={scrollTarget}/>
-                <EmpirePolitics state={state} scrollTarget={scrollTarget}/>
-                <UniversePolitics state={state} scrollTarget={scrollTarget}/>
-                <CreateKingdom state={state} scrollTarget={scrollTarget}/>
-                <ViewKingdom state={state} scrollTarget={scrollTarget}/>
-            </div>
+            <aside className="help-topics">
+                <Form.Select className="help-select d-lg-none" aria-label="Help topic" value={selected} onChange={(e) => setSelected(e.target.value)}>
+                    {TOPICS.map(([group, topics]) => (
+                        <optgroup key={group} label={group}>
+                            {topics.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                        </optgroup>
+                    ))}
+                </Form.Select>
+                <Nav className="help-nav d-none d-lg-flex" variant="pills" activeKey={selected} onSelect={(key) => setSelected(key)}>
+                    {TOPICS.map(([group, topics]) => (
+                        <div key={group} className="help-nav-group">
+                            <div className="help-nav-title">{group}</div>
+                            {topics.map(([id, label]) => <Nav.Link key={id} eventKey={id}>{label}</Nav.Link>)}
+                        </div>
+                    ))}
+                </Nav>
+            </aside>
+            <article className="help-article">
+                <Topic key={selected} state={state} scrollTarget={null} />
+                <div className="help-pager">
+                    {index > 0
+                        ? <button type="button" className="help-pager-link" onClick={() => setSelected(FLAT[index - 1][0])}>&larr; {FLAT[index - 1][1]}</button>
+                        : <span />}
+                    {index < FLAT.length - 1
+                        ? <button type="button" className="help-pager-link" onClick={() => setSelected(FLAT[index + 1][0])}>{FLAT[index + 1][1]} &rarr;</button>
+                        : null}
+                </div>
+            </article>
         </div>
-      </>
     )
 }
 

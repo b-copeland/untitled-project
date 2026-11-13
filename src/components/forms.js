@@ -69,3 +69,83 @@ export function SubmitButton({ loading, blocked, onClick, children, variant = "p
         </Button>
     );
 }
+
+/**
+ * A slider for choosing an amount, for spending from something shared (money, a pool of recruits, 100%) across several
+ * sliders at once. By default it is the slider alone, with the number chosen on its left and the most that can be
+ * chosen on its right (press it to fill it in): that is all the Build pages need, as the auto builder does most of the
+ * work. ``box`` adds a number box and a Max button for the planner pages (Attack, Spy, ...), where the exact number
+ * matters.
+ *
+ * ``soloMax`` is the most this box could take if nothing else were using the shared pool, and it sets the slider's
+ * scale, so the slider never changes length as the other boxes are filled in. ``max`` is what is left for this box
+ * right now; the part of the slider past it is greyed out and the thumb will not go there. Without ``soloMax`` the two
+ * are the same. ``onChange`` gets an event-like ``{target: {name, value}}`` so it works with ``useFormValues``.
+ * ``suffix`` adds a unit, such as "%".
+ */
+export function AmountInput({ name, id, value, onChange, max = 0, soloMax, error, suffix, disabled = false, label, box = false }) {
+    const whole = (n) => (Number.isFinite(n) ? Math.max(Math.floor(n), 0) : (n === Infinity ? 1e9 : 0));
+    const available = whole(max);
+    const scale = Math.max(whole(soloMax === undefined ? max : soloMax), available);
+    const number = parseFloat(value) || 0;
+    const set = (next) => onChange({ target: { name, value: next === 0 ? "" : String(next) } });
+    const none = disabled || scale < 1;
+    const free = scale > 0 ? (available / scale) * 100 : 0;
+    const slider = (
+        <Form.Range
+            className="amount-input-slider"
+            id={box ? undefined : (id || `${name}-input`)}
+            style={{ "--avail": `${free}%`, "--val": `${scale > 0 ? (Math.min(number, scale) / scale) * 100 : 0}%` }}
+            aria-label={box ? `${label || name} slider` : (label || name)}
+            min={0} max={scale} step={1}
+            value={Math.min(number, scale)}
+            disabled={none}
+            onChange={(event) => set(Math.min(parseInt(event.target.value, 10), available))}
+        />
+    );
+    if (!box) {
+        // Just the slider: the number chosen on its left, and the most that can be chosen on its right, which fills it in when pressed.
+        return (
+            <div className="amount-input amount-input-bare">
+                <div className="amount-input-track">
+                    <output className="amount-input-value" aria-live="off">{Math.min(number, scale).toLocaleString()}{suffix || ""}</output>
+                    {slider}
+                    <button type="button" className="amount-input-cap amount-input-cap-button" disabled={disabled || available < 1}
+                        onClick={() => set(available)} title={`Fill in the most you can: ${available.toLocaleString()}`}>
+                        {available.toLocaleString()}
+                    </button>
+                </div>
+                {error ? <div className="amount-input-error">{error}</div> : null}
+            </div>
+        );
+    }
+    return (
+        <div className="amount-input">
+            <div className="amount-input-row">
+                <Form.Control
+                    className="amount-input-box"
+                    id={id || `${name}-input`}
+                    name={name}
+                    aria-label={label || name}
+                    value={value || ""}
+                    onChange={onChange}
+                    placeholder="0"
+                    autoComplete="off"
+                    inputMode="decimal"
+                    isInvalid={Boolean(error)}
+                    disabled={disabled}
+                />
+                {suffix ? <span className="amount-input-suffix">{suffix}</span> : null}
+                <Button variant="outline-secondary" size="sm" className="amount-input-max" disabled={disabled || available < 1}
+                    onClick={() => set(available)} title={`Fill in the most you can: ${available.toLocaleString()}`}>
+                    Max
+                </Button>
+            </div>
+            <div className="amount-input-track">
+                {slider}
+                <span className="amount-input-cap" title="The most you can choose">{available.toLocaleString()}</span>
+            </div>
+            {error ? <div className="amount-input-error">{error}</div> : null}
+        </div>
+    );
+}

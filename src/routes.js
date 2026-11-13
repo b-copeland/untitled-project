@@ -10,7 +10,6 @@ import StatusContent from "./pages/home/status.js";
 import NewsContent from "./pages/home/news.js";
 import Galaxy from "./pages/galaxy.js";
 import Message from "./pages/message.js";
-import Forums from "./pages/home/forums.js";
 import Scores from "./pages/home/scores.js";
 import History from "./pages/home/history.js";
 import Build from "./pages/build/build.js";
@@ -49,14 +48,13 @@ export const sections = [
     path: "/status",
     notifs: ["news_kingdom", "news_galaxy", "messages"],
     pages: [
-      { path: "/status", label: "Status", component: StatusContent, hidden: true },
+      { path: "/status", label: "Status", component: StatusContent },
       { path: "/news", label: "News", component: NewsContent, notifs: ["news_kingdom", "news_galaxy"] },
       {
         path: "/galaxy", label: "Galaxy", component: Galaxy,
         props: ({ data }) => ({ initialGalaxyId: data.galaxies_inverted[data.kingdomid.kd_id] }),
       },
       { path: "/message", label: "Message", component: Message, notifs: ["messages"] },
-      { path: "/forums", label: "Forums", component: Forums, hidden: true },
       { path: "/history", label: "History", component: History },
       { path: "/scores", label: "Scores", component: Scores },
     ],
@@ -65,7 +63,7 @@ export const sections = [
     title: "Build",
     path: "/build",
     pages: [
-      { path: "/build", label: "Build", component: Build, hidden: true },
+      { path: "/build", label: "Overview", component: Build },
       { path: "/settle", label: "Settle", component: Settle },
       { path: "/structures", label: "Structures", component: Structures },
       { path: "/military", label: "Military", component: MilitaryContent },
@@ -78,7 +76,7 @@ export const sections = [
     path: "/conquer",
     notifs: ["shared"],
     pages: [
-      { path: "/conquer", label: "Conquer", component: ConquerContent, hidden: true },
+      { path: "/conquer", label: "Overview", component: ConquerContent },
       { path: "/attack", label: "Attack", component: Attack },
       { path: "/spy", label: "Spy", component: Spy },
       { path: "/shareintel", label: "Share Intel", component: ShareIntel },
@@ -91,7 +89,7 @@ export const sections = [
     title: "Politics",
     path: "/galaxypolitics",
     pages: [
-      { path: "/galaxypolitics", label: "Galaxy Politics", component: GalaxyPolitics, hidden: true },
+      { path: "/galaxypolitics", label: "Galaxy Politics", component: GalaxyPolitics },
       { path: "/empirepolitics", label: "Empire Politics", component: EmpirePolitics },
       { path: "/universepolitics", label: "Universe Politics", component: UniversePolitics },
     ],
@@ -116,7 +114,7 @@ export const createKingdomRoute = {
   props: ({ loading, updateData, data }) => ({ loading, updateData, kingdomid: data.kingdomid, state: data.state }),
 };
 
-// The first page of each section, shown in bold in the navigation. Clicking one that is already open closes the menu.
+// The paths of one section's pages.
 export const sectionPaths = (section) => section.pages.map((page) => page.path);
 
 export const gamePages = sections.flatMap((section) => section.pages);

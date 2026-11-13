@@ -34,11 +34,11 @@ const renderNav = (path, notifs = {}) => render(
     </MemoryRouter>
 );
 
-test("the navigation lists a section's pages only while you are in that section", () => {
+test("the navigation lists every section with its pages underneath", () => {
     renderNav("/settle");
 
     expect(screen.getByText(/Structures/)).toBeTruthy();
-    expect(screen.queryByText(/Launch Missiles/)).toBeNull();
+    expect(screen.getByText(/Launch Missiles/)).toBeTruthy();
     ["Home", "Build", "Conquer", "Politics", "Help"].forEach((title) => expect(screen.getByText(title)).toBeTruthy());
 });
 

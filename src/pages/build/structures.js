@@ -8,7 +8,7 @@ import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
-import { NumberField, SubmitButton, useFormValues } from "../../components/forms";
+import { AmountInput, SubmitButton, useFormValues } from "../../components/forms";
 import { displayPercent } from "../../format";
 import { anyFilled, checkCount, checkPercent, checkTotal, firstError } from "../../validation";
 
@@ -71,6 +71,15 @@ function BuildStructures(props) {
     const totalError = checkTotal(form.values, { max: available, noun: "structures" });
     const stars = STRUCTURES.reduce((sum, [key]) => sum + (parseInt(form.values[key], 10) || 0), 0);
     const blocked = firstError(fieldErrors, totalError) || (anyFilled(form.values) ? null : "Enter how many of each to build");
+    // The most of one kind that fits: what is left of the room after the others, and what the money still covers.
+    // What one kind could take with nothing else ordered: it sets the slider's length, so the slider holds still.
+    const soloMax = Math.max(Math.min(available, info.price > 0 ? Math.floor(kingdom.money / info.price) : available), 0);
+    const maxFor = (key) => {
+        const others = stars - (parseInt(form.values[key], 10) || 0);
+        const room = available - others;
+        const affordable = info.price > 0 ? Math.floor((kingdom.money - others * info.price) / info.price) : room;
+        return Math.max(Math.min(room, affordable), 0);
+    };
 
     const columns = [
         { header: "Structure", align: "left", cell: ([, label]) => label },
@@ -79,7 +88,7 @@ function BuildStructures(props) {
         { header: "# Building", cell: ([key]) => whole(info.hour_24[key]) },
         {
             header: "To Build", className: "structures-form-data",
-            cell: ([key]) => <NumberField name={key} id={`${key.replace("_", "-")}-input`} value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]} />,
+            cell: ([key, label]) => <AmountInput name={key} label={label} id={`${key.replace("_", "-")}-input`} value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]} max={maxFor(key)} soloMax={soloMax} />,
         },
     ];
 
@@ -149,7 +158,8 @@ function AllocateStructures(props) {
         { header: "Current Allocation", cell: ([key]) => displayPercent(current[key] || 0) },
         {
             header: "New Allocation", className: "structures-form-data",
-            cell: ([key]) => <NumberField name={key} suffix="%" value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]} />,
+            cell: ([key, label]) => <AmountInput name={key} label={label} suffix="%" value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]}
+                soloMax={100} max={Math.max(100 - Object.entries(afterChange).filter(([other]) => other !== key).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0)} />,
         },
     ];
     const total = Object.values(afterChange).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
@@ -188,7 +198,7 @@ function RazeStructures(props) {
         { header: "Available", cell: (key) => structures[key] || 0 },
         {
             header: "To Raze",
-            cell: (key) => <NumberField name={key} id={"raze-" + key} value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]} />,
+            cell: (key) => <AmountInput name={key} label={prettyNames[key] || key} id={"raze-" + key} value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]} max={Math.floor(structures[key] || 0)} />,
         },
     ];
 

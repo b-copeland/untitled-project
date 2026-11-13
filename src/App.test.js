@@ -19,17 +19,17 @@ const renderAt = (path) => render(
 
 test("the landing page opens at /", async () => {
     renderAt("/");
-    expect(await screen.findByText(/Welcome to/)).toBeTruthy();
+    expect(await screen.findByText("Untitled Space Game")).toBeTruthy();
 });
 
 test("the login form opens at /login", async () => {
     renderAt("/login");
-    expect(await screen.findByPlaceholderText("Username")).toBeTruthy();
+    expect(await screen.findByLabelText("Username")).toBeTruthy();
 });
 
 test("a signed-out visitor sent to a game page lands on the login page", async () => {
     renderAt("/attack");
-    expect(await screen.findByPlaceholderText("Username")).toBeTruthy();
+    expect(await screen.findByLabelText("Username")).toBeTruthy();
 });
 
 test("the account recovery pages are open to everyone", async () => {
