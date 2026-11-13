@@ -35,6 +35,14 @@ const planFor = (selected, attacker, defender) => ({
     defender,
 });
 
+/**
+ * An attack is sent straight away unless something about it is troublesome: their army is not revealed (the forecast is
+ * a guess), there is no forecast yet, or the forecast says it would fail. Then the player is asked first.
+ */
+export function attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) {
+    return !unitsKnown || !hasForecast || !wins;
+}
+
 function Attack(props) {
     const [defenderValues, setDefenderValues] = useState(noDefender);
     const [attackerValues, setAttackerValues] = useState(noAttacker);
@@ -269,7 +277,7 @@ function Attack(props) {
 
                 <Panel className="area-send" title="5. Send">
                     <Button variant={wins || !hasForecast ? "primary" : "danger"} size="lg" disabled={Boolean(blocked) || props.loading.kingdom}
-                        title={blocked} onClick={() => setConfirming(true)}>
+                        title={blocked} onClick={() => (attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) ? setConfirming(true) : send())}>
                         Send attack
                     </Button>
                     {blocked ? <div className="planner-why">{blocked}</div> : null}

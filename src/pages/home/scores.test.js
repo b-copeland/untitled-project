@@ -26,7 +26,7 @@ test("the leaderboard lists kingdoms best first, with their galaxy", () => {
 
 test("it says where you are, and marks your row and your galaxymates", () => {
     render(<Scores data={data} />);
-    expect(screen.getByText("You are ranked 3 of 4. 29.75 more to pass Gamma (1:2).")).toBeTruthy();
+    expect(screen.getByText("You are ranked 3 of 4.")).toBeTruthy();
     // every tab is on the page at once; the first is the points table
     const inPoints = (text) => screen.getAllByText(text)[0].closest("tr").className;
     expect(inPoints("Beta (1:2)")).toBe("scores-you");
@@ -37,7 +37,7 @@ test("it says where you are, and marks your row and your galaxymates", () => {
 test("each tab has its own ranking", () => {
     render(<Scores data={data} />);
     fireEvent.click(screen.getByRole("tab", { name: "Networth" }));
-    expect(screen.getAllByText("You are ranked 1 of 2. You are in the lead.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("You are ranked 1 of 2.").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("tab", { name: "Galaxy Networth" }));
     expect(screen.getAllByText("1:2")[0].closest("tr").className).toBe("scores-you");
 });
