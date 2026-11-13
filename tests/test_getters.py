@@ -213,3 +213,15 @@ def test__calc_max_recruits():
         }
     }
     assert app_getters._calc_max_recruits(kd_recruits_training, units_recruits_training) == (max_recruits - 10, max_recruits - 10)
+
+def test_military_estimate_counts_units_out_with_generals_and_only_when_units_are_revealed():
+    import untitledapp.getters as getters
+
+    assert getters._military_estimate({"name": "x"}) is None
+    home = getters._military_estimate({"units": {"attack": 100, "defense": 50}})
+    with_generals_out = getters._military_estimate({
+        "units": {"attack": 100, "defense": 50}, "generals_out": [{"attack": 100, "return_time": "2099-01-01"}]})
+    assert home["offense"] > 0 and home["defense"] > 0
+    assert with_generals_out["offense"] > home["offense"] and with_generals_out["defense"] == home["defense"]
+    # Lumina's offense is reduced, and Gaian's defense is not the same as anybody else's.
+    assert getters._military_estimate({"units": {"attack": 100}, "race": "Lumina"})["offense"] < getters._military_estimate({"units": {"attack": 100}})["offense"]

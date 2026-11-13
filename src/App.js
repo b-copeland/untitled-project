@@ -6,6 +6,7 @@ import { useGameData, initGlobalData } from "./data/gameData";
 import { useNotifications, Notifications } from "./components/notifications";
 import SideNavbar from "./components/navbar";
 import Button from 'react-bootstrap/Button';
+import { FiMenu } from "react-icons/fi";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css";
 import { sections, publicRoutes, createKingdomRoute, propsFor } from "./routes";
@@ -25,10 +26,30 @@ const ProtectedRoute = ({ logged, session, kingdomid, redirectPath = '/login' })
   if (kingdomid.kd_id === undefined) {
     return <h2>Loading...</h2>;
   }
-  if (kingdomid.kd_id === "" || kingdomid.created === false) {
+  if (!hasKingdom(kingdomid)) {
     return <Navigate to="/createkingdom" replace />;
   }
   return <Outlet />;
+};
+
+/** True once the player has a kingdom that is set up and playable. */
+const hasKingdom = (kingdomid) => Boolean(kingdomid.kd_id) && kingdomid.created !== false;
+
+/**
+ * Wraps the page where a new player makes their kingdom: only for a signed-in player who does not have one yet. Anyone
+ * else is sent where they belong (the login page, or the game).
+ */
+const NewKingdomRoute = ({ logged, kingdomid, children }) => {
+  if (!logged) {
+    return <Navigate to="/login" replace />;
+  }
+  if (kingdomid.kd_id === undefined) {
+    return <h2>Loading...</h2>;
+  }
+  if (hasKingdom(kingdomid)) {
+    return <Navigate to="/status" replace />;
+  }
+  return children;
 };
 
 function Content({ logged, session }) {
@@ -44,13 +65,14 @@ function Content({ logged, session }) {
 
   return (
     <div className="main">
-      <div className="d-lg-none nav-button">
-        <Button variant="primary" type="submit" onClick={() => setShowNav(true)}>Nav</Button>
+      <div className="topbar d-lg-none">
+        <Button variant="outline-secondary" aria-label="Open menu" onClick={() => setShowNav(true)}><FiMenu /></Button>
+        <span className="topbar-title">Untitled Project</span>
       </div>
 
-      <div className="row main-body">
+      <div className="main-body">
         <Notifications {...notifications} />
-        <SideNavbar logged={logged} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs}/>
+        <SideNavbar logged={logged} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs} hasKingdom={hasKingdom(data.kingdomid)}/>
         <div className="router">
           <div className="router-body">
             <Routes>
@@ -58,8 +80,10 @@ function Content({ logged, session }) {
                 <Route key={route.path} path={route.path}
                   element={renderPage(route, route.props ? route.props(context) : {})}/>
               ))}
-              <Route path={createKingdomRoute.path}
-                element={renderPage(createKingdomRoute, createKingdomRoute.props(context))}/>
+              <Route path={createKingdomRoute.path} element={
+                <NewKingdomRoute logged={logged} kingdomid={data.kingdomid}>
+                  {renderPage(createKingdomRoute, createKingdomRoute.props(context))}
+                </NewKingdomRoute>}/>
               <Route element={<ProtectedRoute logged={logged} session={session} kingdomid={data.kingdomid}/>}>
                 {sections.flatMap((section) => section.pages).map((route) => (
                   <Route key={route.path} path={route.path} element={renderPage(route, propsFor(route, context))}/>

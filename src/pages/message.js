@@ -1,172 +1,137 @@
-import React, { useEffect, useState } from "react";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../auth";
+import React, { useEffect, useRef, useState } from "react";
+import { authFetch } from "../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
-import Toast from 'react-bootstrap/Toast';
-import ToastContainer from 'react-bootstrap/ToastContainer';
-import Select from 'react-select';
+import { FiSend, FiArrowLeft, FiEdit } from "react-icons/fi";
 import Header from "../components/header";
 import "./message.css";
 import HelpButton from "../components/helpbutton";
+import { ResultToasts, safeJson } from "../components/results";
+import { Picker } from "../components/planner";
 
+const shortTime = (time) => {
+    const date = new Date(time);
+    const sameDay = date.toDateString() === new Date().toDateString();
+    return sameDay ? date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : date.toLocaleDateString([], { month: "short", day: "numeric" });
+};
+
+/**
+ * Messages as a chat: your conversations on the left (newest first, with a preview), the chosen one on the right as
+ * bubbles with a box to write in at the bottom. On a phone it shows one at a time, with a back arrow.
+ */
 function Message(props) {
+    const [selected, setSelected] = useState(props.initialKd || undefined);
+    const [draft, setDraft] = useState("");
+    const [results, setResults] = useState([]);
+    const [composing, setComposing] = useState(false);  // picking someone new to write to
+    const thread = useRef(null);
 
     useEffect(() => {
-        const updateFunc = () => {
-            authFetch("api/clearnotifs", {
-                method: "POST",
-                body: JSON.stringify({"categories": ["messages"]})
-            });
-        }
-        props.updateData(['notifs'], [updateFunc])
-    }, [])
+        const updateFunc = () => authFetch("api/clearnotifs", { method: "POST", body: JSON.stringify({ categories: ["messages"] }) });
+        props.updateData(['notifs'], [updateFunc]);
+    }, []);
 
-    const [selected, setSelected] = useState(props.initialKd || undefined);
-    const [message, setMessage] = useState("");
-    const [results, setResults] = useState([]);
+    const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
+    const options = Object.keys(props.data.kingdoms).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
 
-    const kdFullLabel = (kdId) => {
-        if (kdId != undefined) {
-            return props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")"
-        } else {
-            return "Defender"
-        }
-        
+    // Group every message by who it was with, oldest first inside a conversation, newest conversation first.
+    const byPerson = {};
+    (props.data.messages || []).forEach((message) => { (byPerson[message.with] = byPerson[message.with] || []).push(message); });
+    Object.values(byPerson).forEach((list) => list.sort((a, b) => new Date(a.time) - new Date(b.time)));
+    const people = Object.keys(byPerson).sort((a, b) => new Date(byPerson[b].at(-1).time) - new Date(byPerson[a].at(-1).time));
+    if (selected !== undefined && !byPerson[selected]) {
+        byPerson[selected] = [];  // a conversation that has not started yet
     }
-    const handleChange = (selectedOption) => {
-        setSelected(selectedOption?.value || undefined);
-    };
-    const handleMessageInput = (e) => {
-        setMessage(e.target.value);
-    };
-    const onClickSubmit = () => {
-        const opts = {
-            "message": message,
-            "time": new Date().toISOString(),
-        };
-        const updateFunc = async () => authFetch('api/messages/' + selected, {
-            method: 'POST',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
+    const shown = selected !== undefined ? byPerson[selected] : [];
+
+    useEffect(() => {
+        if (thread.current) thread.current.scrollTop = thread.current.scrollHeight;
+    }, [selected, shown.length]);
+
+    const send = () => {
+        const text = draft.trim();
+        if (!text || selected === undefined) return;
+        const body = { message: text, time: new Date().toISOString() };
+        const updateFunc = async () => authFetch('api/messages/' + selected, { method: 'POST', body: JSON.stringify(body) })
+            .then(safeJson).then(r => { setResults((previous) => previous.concat(r)); if (r.status === "success") setDraft(""); });
         props.updateData(['messages'], [updateFunc]);
     };
-    const kingdomOptions = Object.keys(props.data.kingdoms).map((kdId) => {
-        return {"value": kdId, "label": kdFullLabel(kdId)}
-    })
-    const relevantMessages = selected !== undefined ? props.data.messages.filter((message) => message.with === selected) : props.data.messages;
-    const messageDivs = relevantMessages.map((message, iter) => {
-        if (message.from) {
-            return <div className="message" key={"message_" + iter}>
-                <span className="title-span">{kdFullLabel(props.data.kingdom.kdId) + "\n" + new Date(message.time).toLocaleString()}</span>
-                <div className="text-box message-box">
-                    <span className="message-text">{message.message}</span>
-                </div>
-            </div>
-        } else {
-            return <div className="message" key={"message_" + iter}>
-                <div className="text-box message-box">
-                    <span>{message.message}</span>
-                </div>
-                <span className="title-span" style={{textAlign: "right"}}>{kdFullLabel(message.with) + "\n" + new Date(message.time).toLocaleString()}</span>
-            </div>
+    const onKeyDown = (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            send();
         }
-    });
-    const toasts = results.map((result, index) =>
-        <Toast
-            key={index}
-            onClose={(e) => setResults(results.slice(0, index).concat(results.slice(index + 1, 999)))}
-            show={true}
-            bg={result.status === "success" ? "success" : "warning"}
-        >
-            <Toast.Header>
-                <strong className="me-auto">Message Results</strong>
-            </Toast.Header>
-            <Toast.Body  className="text-black">{result.message}</Toast.Body>
-        </Toast>
-    );
+    };
+    const open = (kdId) => { setSelected(kdId); setComposing(false); setDraft(""); };
+
     return (
         <>
-            <ToastContainer position="bottom-end">
-                {toasts}
-            </ToastContainer>
             <Header data={props.data} />
-            <div className="messages">
-                <form className="attack-kingdom-form">
-                    <label id="aria-label" htmlFor="aria-example-input">
-                        Select a Kingdom
-                    </label>
-                    <Select
-                        className="attack-kingdom-select"
-                        isClearable={true}
-                        backspaceRemovesValue={true}
-                        options={kingdomOptions}
-                        onChange={handleChange}
-                        autoFocus={false}
-                        defaultValue={kingdomOptions.filter(option => option.value === props.initialKd)}
-                        styles={{
-                            control: (baseStyles, state) => ({
-                                ...baseStyles,
-                                borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
-                                backgroundColor: 'var(--bs-body-bg)',
-                            }),
-                            placeholder: (baseStyles, state) => ({
-                                ...baseStyles,
-                                color: 'var(--bs-primary-text)',
-                            }),
-                            input: (baseStyles, state) => ({
-                                ...baseStyles,
-                                color: 'var(--bs-secondary-text)',
-                            }),
-                            option: (baseStyles, state) => ({
-                                ...baseStyles,
-                                backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
-                                color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
-                            }),
-                            menuList: (baseStyles, state) => ({
-                                ...baseStyles,
-                                backgroundColor: 'var(--bs-secondary-bg)',
-                                // borderColor: 'var(--bs-secondary-bg)',
-                            }),
-                            singleValue: (baseStyles, state) => ({
-                                ...baseStyles,
-                                color: 'var(--bs-secondary-text)',
-                            }),
-                        }}
-                    />
-                </form>
-                {
-                    selected !== undefined
-                    ? <div className="send-message">
-                        <h3>Send Message</h3>
-                        <Form.Control
-                            className="send-message-input" 
-                            as="textarea"
-                            rows={3}
-                            onChange={handleMessageInput}
-                            placeholder={"Send a message... be nice"}
-                        />
-                        {
-                            props.loading.messages
-                            ? <Button className="message-button" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="message-button" variant="primary" type="submit" onClick={onClickSubmit}>
-                                Send
-                            </Button>
-                        }
+            <div className={"messenger" + (selected !== undefined ? " messenger-open" : "")}>
+                <ResultToasts title="Message Results" results={results} setResults={setResults} />
+                <aside className="messenger-list">
+                    <div className="messenger-list-head">
+                        <h2>Messages</h2>
+                        <Button variant="outline-primary" size="sm" onClick={() => setComposing(!composing)} title="Write to someone new">
+                            <FiEdit aria-hidden="true" /> New
+                        </Button>
                     </div>
-                    : null
-                }
-                <div className="latest-messages">
-                    <h3>Latest Messages</h3>
-                    <span>Only last 100 messages are saved</span>
-                    {messageDivs}
-                </div>
+                    {composing
+                        ? <div className="messenger-new"><Picker id="message-new" options={options} onChange={open} placeholder="Who to write to?" autoFocus /></div>
+                        : null}
+                    <ul className="messenger-people">
+                        {people.length === 0 && !composing ? <li className="messenger-empty">No messages yet. Press New to write to someone.</li> : null}
+                        {people.map((kdId) => {
+                            const last = byPerson[kdId].at(-1);
+                            return (
+                                <li key={kdId}>
+                                    <button type="button" className={"messenger-person" + (kdId === selected ? " active" : "")} onClick={() => open(kdId)}>
+                                        <span className="messenger-avatar" aria-hidden="true">{String(props.data.kingdoms[parseInt(kdId)] || "?").charAt(0).toUpperCase()}</span>
+                                        <span className="messenger-person-text">
+                                            <span className="messenger-person-name">{props.data.kingdoms[parseInt(kdId)]}<small>{shortTime(last.time)}</small></span>
+                                            <span className="messenger-preview">{last.from ? "You: " : ""}{last.message}</span>
+                                        </span>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </aside>
+
+                <section className="messenger-thread">
+                    {selected === undefined
+                        ? <div className="messenger-placeholder">Choose a conversation, or press New to start one.</div>
+                        : <>
+                            <header className="messenger-thread-head">
+                                <button type="button" className="messenger-back" onClick={() => setSelected(undefined)} aria-label="Back to conversations"><FiArrowLeft /></button>
+                                <div>
+                                    <strong>{props.data.kingdoms[parseInt(selected)]}</strong>
+                                    <small>{props.data.galaxies_inverted[selected]}</small>
+                                </div>
+                            </header>
+                            <div className="messenger-bubbles" ref={thread}>
+                                {shown.length === 0 ? <div className="messenger-placeholder">No messages yet. Say hello.</div> : null}
+                                {shown.map((message, index) => (
+                                    <div key={index} className={"bubble-row " + (message.from ? "mine" : "theirs")}>
+                                        <div className="bubble">
+                                            <span className="bubble-text">{message.message}</span>
+                                            <time>{new Date(message.time).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</time>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="messenger-compose">
+                                <Form.Control as="textarea" rows={1} value={draft} placeholder="Write a message (Enter to send, Shift+Enter for a new line)"
+                                    onChange={(e) => setDraft(e.target.value)} onKeyDown={onKeyDown} aria-label="Message" />
+                                <Button onClick={send} disabled={!draft.trim() || props.loading.messages} aria-label="Send"><FiSend aria-hidden="true" /></Button>
+                            </div>
+                        </>}
+                </section>
                 <HelpButton scrollTarget={"message"}/>
             </div>
         </>
-    )
+    );
 }
 
 export default Message;

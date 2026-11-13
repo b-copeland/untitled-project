@@ -38,3 +38,5 @@
     border: none;
     width: 95%;
 }
+.settle-amount { width: 100%; max-width: 320px; margin: 8px; display: flex; flex-direction: column; gap: 4px; }
+.settle-amount .amount-input { margin-left: 0; max-width: none; }

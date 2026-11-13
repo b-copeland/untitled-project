@@ -167,6 +167,83 @@ def _validate_attack_request(
     
     return True, ""
 
+def _home_defense(kd_info_parse, current_bonuses, units_sent):
+    """The defense that stays at home once ``units_sent`` have gone out, by the same rules used for any defender."""
+    units_home = {
+        key: max(value - units_sent.get(key, 0), 0)
+        for key, value in kd_info_parse["units"].items()
+    }
+    return uag._calc_max_defense(
+        units_home,
+        military_bonus=current_bonuses["military_bonus"],
+        other_bonuses=0,
+        shields=kd_info_parse.get("shields", {}).get("military", 0),
+        fuelless=kd_info_parse["fuel"] <= 0,
+        gaian=kd_info_parse["race"] == "Gaian",
+    )
+
+
+def _home_defense_projection(kd_info_parse, current_bonuses, attacker_units):
+    return {
+        "attacker_home_defense_before": _home_defense(kd_info_parse, current_bonuses, {}),
+        "attacker_home_defense_after": _home_defense(kd_info_parse, current_bonuses, attacker_units),
+    }
+
+
+@bp.route('/api/attackcontext/<target_kd>', methods=['GET'])
+@flask_praetorian.auth_required
+@alive_required
+def attack_context(target_kd):
+    """
+    What the Attack page needs the moment a target is chosen: what is known about the target, a stand-in for what is
+    not (clearly marked as an estimate), and how well defended you are now and would be after sending everything.
+    """
+    app = flask.current_app
+    kd_id = flask_praetorian.current_user().kd_id
+    if str(target_kd) == str(kd_id):
+        return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
+
+    kd_info_parse = json.loads(REQUESTS_SESSION.get(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
+    ).text)
+    current_bonuses = {
+        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
+        for project, project_dict in uas.PROJECTS.items()
+        if "max_bonus" in project_dict
+    }
+    revealed = uag._get_revealed(kd_id)
+    target = uag._get_max_kd_info(target_kd, kd_id, revealed)
+
+    sendable = ("attack", "flex", "big_flex")
+    all_out = {key: kd_info_parse["units"].get(key, 0) for key in sendable}
+    mine = {
+        "defense_now": _home_defense(kd_info_parse, current_bonuses, {}),
+        "defense_if_all_sent": _home_defense(kd_info_parse, current_bonuses, all_out),
+        "military_bonus": current_bonuses["military_bonus"],
+        "shields": kd_info_parse.get("shields", {}).get("military", 0),
+        "generals_available": kd_info_parse["generals_available"],
+    }
+    # A stand-in for whatever is not revealed: an army as big as yours, with the largest bonus and shields there can be. It is a starting point to
+    # edit, and the page only uses the parts that "revealed" says are missing.
+    estimate = {
+        "basis": "your own army",
+        "units": {key: kd_info_parse["units"].get(key, 0) for key in ("recruits", "defense", "flex", "big_flex")},
+        "military_bonus": round(uas.PROJECTS["military_bonus"]["max_bonus"] * 100, 1),
+        "shields": round(uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_MAX"] * 100, 1),
+    }
+    payload = {
+        "revealed": {
+            "units": "units" in target,
+            "military_bonus": "current_bonuses" in target,
+            "shields": "shields" in target,
+        },
+        "estimate": estimate,
+        "mine": mine,
+    }
+    return (flask.jsonify(payload), 200)
+
+
 def _calc_losses(
     unit_dict,
     loss_rate,
@@ -405,7 +482,8 @@ def calculate_attack(target_kd):
         "attacker_unit_losses_rate": uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
         "defender_stars_loss_rate": uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"],
         "generals_return_times": generals_return_times,
-        "message": message
+        "message": message,
+        **_home_defense_projection(kd_info_parse, current_bonuses, attacker_units),
     }
 
     return (flask.jsonify(payload), 200)
@@ -643,6 +721,7 @@ def _autofill_attack(req, kd_id, target_kd):
         "generals_return_times": generals_return_times,
         "message": message,
         "attacker_units": attacker_units,
+        **_home_defense_projection(kd_info_parse, current_bonuses, attacker_units),
     }
     return payload, 200
 
@@ -1030,7 +1109,7 @@ def _attack(req, kd_id, target_kd):
             REQUESTS_SESSION.patch(
                 app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}/news',
                 headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps({"time": time_now.isoformat(), "from": kd_id, "news": sharer_message}),
+                data=json.dumps({"time": time_now.isoformat(), "from": kd_id, "news": sharer_message, "kind": "intel"}),
             )
             uam._add_notifs(sharer, ["news_kingdom"])
             try:
@@ -1049,6 +1128,7 @@ def _attack(req, kd_id, target_kd):
             "time": time_now.isoformat(),
             "from": kd_id,
             "news": defender_message,
+            "kind": "attack",
         }
         try:
             ws = SOCK_HANDLERS[target_kd]
@@ -1098,11 +1178,13 @@ def _attack(req, kd_id, target_kd):
             "time": time_now.isoformat(),
             "from": kd_id,
             "to": target_kd,
+            "kind": "attack",
         }
         defender_galaxy_payload = {
             "time": time_now.isoformat(),
             "from": kd_id,
             "to": target_kd,
+            "kind": "attack",
         }
         if attack > defense:
             attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} successfully attacked {target_kd_info['name']} and gained {spoils_values['stars']} stars."
@@ -1718,6 +1800,8 @@ def calculate_spy(target_kd):
         "stars_defense": stars_defense,
         "drones_defense": drones_defense,
         "total_defense": stars_defense + drones_defense,
+        "success_chance": spy_probability,
+        "drone_losses": {"success": success_losses, "failure": failure_losses},
     }
     return (flask.jsonify(payload), 200)
     
@@ -2019,6 +2103,7 @@ def _spy(req, kd_id, target_kd):
             "time": time_now.isoformat(),
             "from": "" if success else kd_id,
             "news": target_message,
+            "kind": "spy",
         }
         target_news_patch_response = REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
@@ -2040,7 +2125,7 @@ def _spy(req, kd_id, target_kd):
 
         if success and operation in uas.REVEAL_OPERATIONS:
             share_to_galaxy = req.get("share_to_galaxy", False)
-            cut = float(req.get("cut", 0))
+            cut = float(req.get("cut") or 0)
             if share_to_galaxy:
                 req_share = {
                     "shared": target_kd,
@@ -2659,6 +2744,9 @@ def calculate_missiles(target_kd):
 
     payload = {
         "message": message,
+        # The same damage as numbers, so the page can show it without parsing the sentence.
+        "damage": {key.replace('_damage', ''): value for key, value in missile_damage.items()},
+        "shields_assumed": defender_shields,
     }
     return (flask.jsonify(payload), 200)         
     
@@ -2763,6 +2851,7 @@ def _launch_missiles(req, kd_id, target_kd):
             "time": time_now.isoformat(),
             "from": kd_id,
             "news": defender_message,
+            "kind": "missiles",
         }
         target_news_patch_response = REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
@@ -2785,11 +2874,13 @@ def _launch_missiles(req, kd_id, target_kd):
             "time": time_now.isoformat(),
             "from": kd_id,
             "to": target_kd,
+            "kind": "missiles",
         }
         defender_galaxy_payload = {
             "time": time_now.isoformat(),
             "from": kd_id,
             "to": target_kd,
+            "kind": "missiles",
         }
         attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} launched missiles at {max_target_kd_info['name']} and destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
 
@@ -2920,7 +3011,7 @@ def _offer_shared(req, kd_id):
     shared_kd = str(req["shared"])
     shared_stat = req["shared_stat"]
     shared_to_kd = str(req["shared_to"])
-    cut = float(req.get("cut", 0)) / 100
+    cut = float(req.get("cut") or 0) / 100
     kingdoms = uag._get_kingdoms()
 
     if (

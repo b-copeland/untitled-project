@@ -1,0 +1,93 @@
+.panel {
+    width: 100%;
+    margin: 0 0 1rem;
+    padding: 1rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    background: var(--bs-body-bg);
+}
+.panel-title { font-size: 1.1rem; margin: 0 0 0.25rem; }
+.panel-hint { margin: 0 0 0.75rem; color: var(--bs-secondary-color, #6c757d); font-size: 0.9rem; }
+
+.field-row { display: grid; grid-template-columns: 1fr; gap: 0.25rem; padding: 0.5rem 0; border-top: 1px solid var(--bs-border-color-translucent, #dee2e6); }
+.field-row:first-of-type { border-top: 0; }
+.field-row-label { margin: 0; font-weight: 500; display: flex; flex-direction: column; }
+.field-row-label small { font-weight: 400; color: var(--bs-secondary-color, #6c757d); }
+@media (min-width: 576px) {
+    .field-row { grid-template-columns: minmax(130px, 40%) 1fr; align-items: center; gap: 1rem; }
+}
+
+.stats { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; margin: 0.5rem 0; }
+.stat { min-width: 90px; }
+.stat dt { font-size: 0.75rem; font-weight: 400; text-transform: uppercase; letter-spacing: 0.05em; color: var(--bs-secondary-color, #6c757d); }
+.stat dd { margin: 0; font-size: 1.15rem; font-weight: 600; }
+.stat-good dd { color: var(--bs-success); }
+.stat-bad dd { color: var(--bs-danger); }
+
+.versus { position: relative; margin: 0.75rem 0; }
+.versus .progress { height: 14px; }
+.versus-mark { position: absolute; left: 50%; top: -3px; height: 20px; width: 2px; background: var(--bs-body-color); }
+.versus-caption { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--bs-secondary-color, #6c757d); margin-top: 0.25rem; }
+
+.picker { width: 100%; }
+
+/* The pages that use these: one column on a phone, two where there is room (a page shown in a modal gets the room of the modal). */
+.planner { width: 100%; max-width: 1000px; margin: 0 auto; container-type: inline-size; }
+.planner-grid { display: grid; grid-template-columns: 1fr; gap: 0 1rem; }
+@container (min-width: 700px) {
+    .planner-grid { grid-template-columns: 1fr 1fr; align-items: start; }
+}
+.planner-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.planner-verdict { font-size: 1.25rem; font-weight: 700; margin: 0.25rem 0 0.5rem; }
+.planner-verdict.good { color: var(--bs-success); }
+.planner-verdict.bad { color: var(--bs-danger); }
+.planner-notes { white-space: pre-line; font-size: 0.9rem; }
+.planner-table { width: 100%; font-size: 0.9rem; }
+.planner-table th, .planner-table td { padding: 0.25rem 0.5rem; }
+.planner-table td:not(:first-child), .planner-table th:not(:first-child) { text-align: right; }
+
+.attack-buffer { display: flex; align-items: center; gap: 6px; max-width: 120px; }
+.planner-subtitle { font-size: 1rem; margin: 1rem 0 0; }
+.planner-why { margin-top: 0.5rem; color: var(--bs-secondary-color, #6c757d); font-size: 0.9rem; }
+.planner-hint-line { margin: 0.5rem 0 0.75rem; color: var(--bs-secondary-color, #6c757d); font-size: 0.9rem; }
+
+.status-tag { display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; vertical-align: middle; white-space: nowrap; }
+.tag-revealed { background: var(--bs-success-bg-subtle, #d1e7dd); color: var(--bs-success-text-emphasis, #0a3622); }
+.tag-needed { background: var(--bs-warning-bg-subtle, #fff3cd); color: var(--bs-warning-text-emphasis, #664d03); }
+.tag-estimate { background: var(--bs-info-bg-subtle, #cff4fc); color: var(--bs-info-text-emphasis, #055160); }
+.tag-optional { background: var(--bs-secondary-bg, #e9ecef); color: var(--bs-secondary-color, #6c757d); }
+.known-value { font-weight: 600; }
+.matchup { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
+.matchup .stat { padding: 0.5rem 0.75rem; border: 1px solid var(--bs-border-color); border-radius: 0.5rem; }
+.matchup .stat small { display: block; color: var(--bs-secondary-color, #6c757d); font-weight: 400; font-size: 0.75rem; }
+
+/* Wide pages (Attack, Spy): on a wide screen or modal everything sits on one screen, as columns of panels. */
+.planner.wide { max-width: 1500px; }
+.wide-layout { display: grid; grid-template-columns: 1fr; gap: 0 1rem; align-items: start; }
+@container (min-width: 700px) {
+    .wide-layout { grid-template-columns: 1fr 1fr; }
+}
+@container (min-width: 1050px) {
+    .wide-layout { gap: 0 1.25rem; }
+    .wide-layout .panel { margin-bottom: 1.25rem; padding: 1.1rem 1.25rem; }
+    .wide-layout .field-row { padding: 0.55rem 0; }
+    .wide-layout .panel-title { margin-bottom: 0.5rem; }
+    .attack-layout { grid-template-columns: 1fr 1.1fr 1.1fr; grid-template-areas:
+        "target matchup matchup"
+        "def attack forecast"
+        "def attack send"; }
+    .spy-layout { grid-template-columns: 1fr 1fr 1fr; grid-template-areas:
+        "target drones know"
+        "forecast forecast send"; }
+    .area-target { grid-area: target; } .area-matchup { grid-area: matchup; } .area-def { grid-area: def; }
+    .area-attack { grid-area: attack; } .area-forecast { grid-area: forecast; } .area-send { grid-area: send; }
+    .area-drones { grid-area: drones; } .area-know { grid-area: know; }
+}
+.field-row-label.has-tip { cursor: help; }
+.unit-stat { display: inline-flex; align-items: center; gap: 2px; margin-left: 0.35rem; padding: 0 0.4rem; border-radius: 999px; background: var(--bs-secondary-bg, #e9ecef); color: var(--bs-secondary-color, #6c757d); font-size: 0.75rem; font-weight: 600; vertical-align: middle; }
+
+/* Numbers line up on the right: their revealed figures, and every number box in a row. */
+.field-row-control .form-control:not([type="datetime-local"]) { text-align: right; }
+.field-row-control .known-value { display: block; text-align: right; }
+.field-row-control .attack-buffer { margin-left: auto; }
+.field-row-control .attack-buffer + .amount-input-error { text-align: right; }

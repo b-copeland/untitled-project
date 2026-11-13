@@ -1,3 +1,16 @@
 .scores-table {
     max-width: 500px;
 }
+.scores-rank {
+    text-align: center;
+    margin: 6px 0;
+}
+
+/* Your own row, and your galaxymates', in the leaderboards. */
+.scores-table tr.scores-you > td {
+    background-color: rgba(13, 110, 253, 0.35);
+    font-weight: bold;
+}
+.scores-table tr.scores-mate > td {
+    background-color: rgba(13, 110, 253, 0.12);
+}

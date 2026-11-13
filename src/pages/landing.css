@@ -1,29 +1,18 @@
-.landing {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    padding: 20px;
-}
-@media (min-width: 756px) {
-    .landing-content {
-        width: 45%;
-        max-width: 450px;
-    }
-}
+.landing { width: 100%; max-width: 1000px; margin: 0 auto; padding: 1rem 0 5rem; display: flex; flex-direction: column; gap: 2.5rem; }
 
-.landing-buttons {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    margin: 20px;
-}
+.landing-hero { text-align: center; padding: 2.5rem 1rem; border-radius: 1rem; background: var(--bs-tertiary-bg, #f1f3f5); }
+.landing-hero h1 { font-weight: 700; font-size: clamp(2rem, 6vw, 3.25rem); margin-bottom: 1rem; }
+.landing-tagline { max-width: 36rem; margin: 0 auto 1.5rem; font-size: 1.15rem; color: var(--bs-secondary-color, #6c757d); }
+.landing-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-bottom: 1rem; }
+.landing-help-link { font-size: 0.95rem; }
 
-.landing-button {
-    margin: 5px;
-}
+.landing-playstyles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; }
+.landing-card { height: 100%; text-align: center; }
+.landing-card-icon { font-size: 2.5rem; color: var(--bs-primary); margin-bottom: 0.5rem; }
+.landing-card h2 { font-size: 1.2rem; }
 
-.landing-page-item {
-    margin: 5px;
-}
+.landing-round { text-align: center; }
+.landing-round dl { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem 2.5rem; margin: 1rem 0; }
+.landing-round dt { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--bs-secondary-color, #6c757d); }
+.landing-round dd { margin: 0; font-weight: 600; }
+.landing-note { color: var(--bs-secondary-color, #6c757d); }

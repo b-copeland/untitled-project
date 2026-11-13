@@ -18,13 +18,13 @@ test("the button waits for a number", () => {
     expect(screen.getByText("Settle Cost: 4,000")).toBeTruthy();
 });
 
-test.each([["31", "At most 30 stars"], ["-2", "Enter a whole number, 0 or more"], ["x", "Enter a whole number, 0 or more"]])(
-    "%s is refused with a reason before it is sent", (value, reason) => {
-        render(<Settle data={data} loading={{}} updateData={jest.fn()} />);
-        type(value);
-        expect(screen.getByText(reason)).toBeTruthy();
-        expect(settle().disabled).toBe(true);
-    });
+test("the slider stops at what can be settled, so asking for more gives the most", () => {
+    render(<Settle data={data} loading={{}} updateData={jest.fn()} />);
+    type("40");   // 30 are available
+    expect(document.getElementById("settle-input").value).toBe("30");
+    expect(settle().disabled).toBe(false);
+    expect(screen.getByText("Settle Cost: 12,000")).toBeTruthy();
+});
 
 test("zero is not a settlement", () => {
     render(<Settle data={data} loading={{}} updateData={jest.fn()} />);
@@ -39,5 +39,5 @@ test("a valid request is sent and the box emptied", () => {
     fireEvent.click(settle());
 
     expect(updateData).toHaveBeenCalledWith(["settle", "kingdom"], [expect.any(Function)]);
-    expect(document.getElementById("settle-input").value).toBe("");
+    expect(document.getElementById("settle-input").value).toBe("0");
 });

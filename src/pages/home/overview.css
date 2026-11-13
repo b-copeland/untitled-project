@@ -1,0 +1,22 @@
+.overview {
+    width: 100%;
+    max-width: 1100px;
+    margin: 1rem auto;
+    padding: 0 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+}
+.overview-card {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background: var(--bs-body-bg);
+}
+.overview-card-title { font-size: 1.1rem; margin: 0 0 0.25rem; }
+.overview-card-title a, .overview-card-title .link-button { color: inherit; text-decoration: none; }
+.overview-card-title a:hover, .overview-card-title .link-button:hover { text-decoration: underline; }
+.link-button { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.overview-line { margin: 0.25rem 0 0; }
+.overview-warning { margin: 0.25rem 0 0; color: var(--bs-danger); }
+.overview-muted { color: var(--bs-secondary-color, #6c757d); }

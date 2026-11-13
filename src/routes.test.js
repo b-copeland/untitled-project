@@ -30,15 +30,15 @@ test("a game page gets the shared props, and the extra ones it asked for", () =>
 
 const renderNav = (path, notifs = {}) => render(
     <MemoryRouter initialEntries={[path]}>
-        <SideNavbar logged={true} showNav={true} setShowNav={() => {}} notifs={notifs}/>
+        <SideNavbar logged={true} hasKingdom={true} showNav={true} setShowNav={() => {}} notifs={notifs}/>
     </MemoryRouter>
 );
 
-test("the navigation lists a section's pages only while you are in that section", () => {
+test("the navigation lists every section with its pages underneath", () => {
     renderNav("/settle");
 
     expect(screen.getByText(/Structures/)).toBeTruthy();
-    expect(screen.queryByText(/Launch Missiles/)).toBeNull();
+    expect(screen.getByText(/Launch Missiles/)).toBeTruthy();
     ["Home", "Build", "Conquer", "Politics", "Help"].forEach((title) => expect(screen.getByText(title)).toBeTruthy());
 });
 
@@ -58,4 +58,15 @@ test("the navigation for someone not signed in is just landing and login", () =>
 
     expect(screen.getByText("Login")).toBeTruthy();
     expect(screen.queryByText("Build")).toBeNull();
+});
+
+test("the navigation for a player with no kingdom yet offers only making one, and help", () => {
+    render(
+        <MemoryRouter><SideNavbar logged={true} hasKingdom={false} showNav={true} setShowNav={() => {}} notifs={{}}/></MemoryRouter>
+    );
+
+    expect(screen.getByText("Create your kingdom")).toBeTruthy();
+    expect(screen.getByText("Help")).toBeTruthy();
+    expect(screen.queryByText("Build")).toBeNull();
+    expect(screen.queryByText("Status")).toBeNull();
 });
