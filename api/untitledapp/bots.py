@@ -66,10 +66,14 @@ class Archetype:
     # TUNE: shields (fractions, each within its game maximum). They cost fuel to keep.
     shields: dict = dataclasses.field(default_factory=dict)
 
+    # What a new player sees on the kingdom creator, where the same archetypes are offered as quick starts.
+    label: str = ""
+
 
 ARCHETYPES = {
     "explorer": Archetype(
         key="explorer",
+        label="Explorer",
         race="Gaian",
         description="Claims stars with cheap fast settling and builds the economy; defends rather than attacks.",
         unit_choices={"drones": 2000, "recruits": 2000, "attack": 0, "defense": 1400, "flex": 0, "engineers": 900},
@@ -84,6 +88,7 @@ ARCHETYPES = {
     ),
     "attacker": Archetype(
         key="attacker",
+        label="Attacker",
         race="Xo",
         description="Grows by attacking other kingdoms with a mix of pure offense and flex units, on a timer.",
         unit_choices={"drones": 1000, "recruits": 1000, "attack": 1200, "defense": 0, "flex": 1000, "engineers": 400},
@@ -98,6 +103,7 @@ ARCHETYPES = {
     ),
     "intel": Archetype(
         key="intel",
+        label="Intel",
         race="Lumina",
         description="Support: drone-heavy, reveals other kingdoms and shares what it learns with its galaxy.",
         unit_choices={"drones": 6000, "recruits": 1000, "attack": 0, "defense": 1000, "flex": 0, "engineers": 800},
@@ -112,6 +118,7 @@ ARCHETYPES = {
     ),
     "thief": Archetype(
         key="thief",
+        label="Thief",
         race="Vult",
         description="Lives off drones: robs primitives on a timer and keeps enough defense to be left alone.",
         unit_choices={"drones": 8000, "recruits": 1000, "attack": 0, "defense": 800, "flex": 0, "engineers": 700},
@@ -188,6 +195,52 @@ def settings_for(archetype, rng):
         settings["auto_rob_enabled"] = True
         settings["auto_rob_settings"] = dict(archetype.auto_rob)
     return settings
+
+
+def player_settings(archetype, auto_builder):
+    """
+    The auto builder fields for a *player* who picked this archetype as a quick start. The plan is stored exactly as the
+    archetype has it (no variation: a player sees the same numbers every time), but nothing runs unless the player chose
+    to switch the auto builder on: the spending split, build targets and auto attack / rob settings are only filled in,
+    where the Status and Primitives pages show them. ``auto_builder`` switches on auto spending, auto assigning engineers
+    to projects, auto attack or rob (where the archetype has one) and its shields.
+    """
+    settings = {
+        "auto_spending": dict(archetype.auto_spending),
+        "structures_target": dict(archetype.structures_target),
+        "units_target": dict(archetype.units_target),
+        "projects_target": dict(archetype.projects_target),
+        "recruits_before_units": archetype.recruits_before_units,
+        "max_recruits": archetype.max_recruits,
+    }
+    if archetype.auto_attack:
+        settings["auto_attack_settings"] = dict(archetype.auto_attack)
+    if archetype.auto_rob:
+        settings["auto_rob_settings"] = dict(archetype.auto_rob)
+    if auto_builder:
+        settings["auto_spending_enabled"] = True
+        settings["auto_assign_projects"] = True
+        settings["shields"] = {"military": 0.0, "spy": 0.0, "spy_radar": 0.0, "missiles": 0.0, **archetype.shields}
+        if archetype.auto_attack:
+            settings["auto_attack_enabled"] = True
+        if archetype.auto_rob:
+            settings["auto_rob_enabled"] = True
+    return settings
+
+
+def preset_view(archetype):
+    """An archetype as the kingdom creator page needs it: what it starts with and what its plan would do."""
+    return {
+        "key": archetype.key,
+        "label": archetype.label or archetype.key.title(),
+        "description": archetype.description,
+        "race": archetype.race,
+        "unitsChoices": dict(archetype.unit_choices),
+        "structuresChoices": dict(archetype.structures_choices),
+        "autoSpending": dict(archetype.auto_spending),
+        "autoAttack": bool(archetype.auto_attack),
+        "autoRob": bool(archetype.auto_rob),
+    }
 
 
 def _smallest_galaxy(rng):

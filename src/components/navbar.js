@@ -47,7 +47,11 @@ function SideNavbar(props) {
           <Nav className="mainnav">
             {sectionLink("/", "Landing")}
             {!props.logged ? <>{sectionLink("/login", "Login")}</> : null}
-            {props.logged ? <>
+            {props.logged && !props.hasKingdom ? <>
+              {sectionLink("/createkingdom", "Create your kingdom")}
+              {sectionLink("/help", "Help")}
+            </> : null}
+            {props.logged && props.hasKingdom ? <>
               {sections.map((section) => (
                 <div key={section.title} className="nav-group">
                   <div className="nav-heading">{section.title}{newCount(section.notifs)}</div>

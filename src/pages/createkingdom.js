@@ -1,505 +1,354 @@
-import React, { useEffect, useState } from "react";
-import {useNavigate} from "react-router-dom";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../auth";
-import 'bootstrap/dist/css/bootstrap.css';
-import Form from 'react-bootstrap/Form';
-import InputGroup from 'react-bootstrap/InputGroup';
-import Button from 'react-bootstrap/Button';
-import Select from 'react-select';
-import "./createkingdom.css";
+import React, { useCallback, useEffect, useState } from "react";
+import Alert from "react-bootstrap/Alert";
+import Button from "react-bootstrap/Button";
+import Form from "react-bootstrap/Form";
+import Modal from "react-bootstrap/Modal";
+import { authFetch } from "../auth";
+import { AmountInput, SubmitButton, useFormValues } from "../components/forms";
 import HelpButton from "../components/helpbutton";
+import { FieldRow, Panel, Stats } from "../components/planner";
+import { safeJson } from "../components/results";
+import { checkChoices, kingdomStats } from "../kingdomstats";
+import { raceDescriptions } from "../races";
+import "./createkingdom.css";
 
-const initialStructuresChoices = {
-    "homes": 60,
-    "mines": 80,
-    "fuel_plants": 30,
-    "hangars": 48,
-    "drone_factories": 60,
-    "missile_silos": 0,
-    "workshops": 12,
+/*
+ * Where a new player makes their kingdom: a name, a way to play, then a look at the result. The way to play is one of
+ * the quick starts (the same four archetypes the bots use: each is a race, a starting kingdom and a plan for the auto
+ * builder) or "Custom", where the player spends the starting unit points and stars themselves. Nothing is made until the
+ * last button, and then it is one request.
+ */
+
+const MAX_NAME = 24;
+
+const UNITS = [
+    ["drones", "Drones", "Spy on other kingdoms and rob primitives. Factories make more over time."],
+    ["recruits", "Recruits", "Raw people. Military units are trained from them later."],
+    ["attack", "Attackers", "Offense only. The cheapest way to hit hard."],
+    ["defense", "Defenders", "Defense only. Keeps what you have."],
+    ["flex", "Flexers", "Offense and defense in one unit, for more points."],
+    ["engineers", "Engineers", "Work on projects. Workshops are where they live."],
+];
+
+const STRUCTURES = [
+    ["homes", "Homes", "Hold your population, which pays income."],
+    ["mines", "Mines", "Make money."],
+    ["fuel_plants", "Fuel Plants", "Make the fuel your people and units burn."],
+    ["hangars", "Hangars", "Hold your military. Units beyond their room can't be kept."],
+    ["drone_factories", "Drone Factories", "Build drones over time."],
+    ["missile_silos", "Missile Silos", "Hold missiles."],
+    ["workshops", "Workshops", "House engineers."],
+];
+
+const SPENDING_WORDS = { settle: "settling new stars", structures: "building structures", military: "training military", engineers: "engineers and projects" };
+
+const percent = (fraction) => `${Math.round(fraction * 100)}%`;
+
+/** "50% on settling new stars, 30% on building structures", from a preset's auto spending split. */
+const describeSpending = (split) => Object.entries(split)
+    .filter(([, share]) => share > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([what, share]) => `${percent(share)} on ${SPENDING_WORDS[what] || what}`)
+    .join(", ");
+
+/** What the auto builder of a preset does, for the question about switching it on. */
+function autoBuilderSummary(preset) {
+    const lines = [`spends your income: ${describeSpending(preset.autoSpending)}`];
+    if (preset.autoAttack) lines.push("sends units against primitives (neutral stars) whenever your generals are free");
+    if (preset.autoRob) lines.push("robs primitives with your drones on a timer");
+    return lines;
 }
 
-const initialUnitsChoices = {
-    "drones": 2000,
-    "recruits": 500,
-    "attack": 500,
-    "defense": 800,
-    "flex": 500,
-    "engineers": 500,
+function RaceNotes({ race, descriptions }) {
+    const notes = descriptions[race];
+    if (!notes) return null;
+    return (
+        <ul className="race-notes">
+            {notes.pros.map((line) => <li key={line} className="race-pro">{line}</li>)}
+            {notes.cons.map((line) => <li key={line} className="race-con">{line}</li>)}
+        </ul>
+    );
+}
+
+function KingdomStats({ stats }) {
+    const n = (value) => Math.floor(value).toLocaleString();
+    return (
+        <Stats items={[
+            { label: "Offense", value: n(stats.offense) },
+            { label: "Defense", value: n(stats.defense) },
+            { label: "Population", value: n(stats.population) },
+            { label: "Income", value: n(stats.income) },
+            { label: "Fuel made", value: n(stats.fuelProduction) },
+            { label: "Fuel used", value: n(stats.fuelUsage), tone: stats.fuelUsage > stats.fuelProduction ? "bad" : undefined },
+            { label: "Hangar room", value: `${n(stats.hangarUsed)} / ${n(stats.hangarCapacity)}`, tone: stats.hangarUsed > stats.hangarCapacity ? "bad" : undefined },
+            { label: "Drones made", value: n(stats.dronesPerTick) },
+            { label: "Engineers housed", value: `${n(stats.engineers)} / ${n(stats.workshopCapacity)}`, tone: stats.engineers > stats.workshopCapacity ? "bad" : undefined },
+        ]} />
+    );
+}
+
+function StepsBar({ steps, current }) {
+    const at = steps.findIndex((step) => step.id === current);
+    return (
+        <ol className="creator-steps" aria-label="Steps">
+            {steps.map((step, index) => (
+                <li key={step.id} className={index === at ? "current" : index < at ? "done" : ""} aria-current={index === at ? "step" : undefined}>
+                    <span className="creator-step-number">{index + 1}</span> {step.label}
+                </li>
+            ))}
+        </ol>
+    );
 }
 
 function CreateKingdom(props) {
-    const [kdName, setKdName] = useState("");
-    const [kdMessage, setKdMessage] = useState({});
-    const [createKingdomData, setCreateKingdomData] = useState({});
-    const [structuresChoices, setStructuresChoices] = useState(initialStructuresChoices);
-    const [unitsChoices, setUnitsChoices] = useState(initialUnitsChoices);
-    const [race, setRace] = useState();
-    const [createLoading, setCreateLoading] = useState(false);
-    const navigate = useNavigate();
-    
-    useEffect(() => {
-        authFetch('api/createkingdomdata').then(
-            r => r.json()
-        ).then(r => setCreateKingdomData(r)).catch(
-            err => {
-                console.log('Failed to fetch createkingdomdata');
-                console.log(err);
-            }
-        );
+    const { kingdomid, kingdoms = {}, state, updateData } = props;
+    const [creatorData, setCreatorData] = useState(null);
+    const [loadFailed, setLoadFailed] = useState(false);
+    const [name, setName] = useState("");
+    const [stepId, setStepId] = useState(null);
+    const [choice, setChoice] = useState(null); // a preset's key, "custom", or nothing yet
+    const [seedFrom, setSeedFrom] = useState(null); // the preset whose numbers the custom form started from
+    const [race, setRace] = useState("");
+    const units = useFormValues({});
+    const structures = useFormValues({});
+    const [askAuto, setAskAuto] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState("");
+
+    const load = useCallback(() => {
+        setLoadFailed(false);
+        authFetch("api/createkingdomdata")
+            .then((r) => r.json())
+            .then((data) => (data.presets ? setCreatorData(data) : setLoadFailed(true)))
+            .catch(() => setLoadFailed(true));
     }, []);
+    useEffect(load, [load]);
 
-    const handleNameInput = (e) => {
-        setKdName(e.target.value);
+    if (loadFailed) {
+        return (
+            <div className="creator">
+                <Alert variant="danger">Could not load the kingdom creator.</Alert>
+                <Button onClick={load}>Try again</Button>
+            </div>
+        );
     }
-    const handleStructuresInputChange = (e) => {
-        const { name, value } = e.target;
-        setStructuresChoices({
-          ...structuresChoices,
-          [name]: value,
-        });
-      };
-    const handleUnitsInputChange = (e) => {
-        const { name, value } = e.target;
-        setUnitsChoices({
-        ...unitsChoices,
-        [name]: value,
-        });
+    if (kingdomid.kd_id === undefined || creatorData === null || Object.keys(state).length === 0) {
+        return <h2>Loading...</h2>;
+    }
+
+    // A kingdom that was made but never set up (Reset Kingdom, or the old two-step flow) keeps its name.
+    const hasKingdom = Boolean(kingdomid.kd_id);
+    const steps = [
+        ...(hasKingdom ? [] : [{ id: "name", label: "Name" }]),
+        { id: "style", label: "How you play" },
+        { id: "confirm", label: "Create" },
+    ];
+    const current = steps.some((step) => step.id === stepId) ? stepId : steps[0].id;
+    const goTo = (id) => { setError(""); setStepId(id); };
+    const next = () => goTo(steps[steps.findIndex((step) => step.id === current) + 1].id);
+    const back = () => goTo(steps[steps.findIndex((step) => step.id === current) - 1].id);
+
+    const kingdomName = hasKingdom ? (kingdoms[kingdomid.kd_id] || "your kingdom") : name.trim();
+    const descriptions = raceDescriptions(state.game_config);
+    const presets = creatorData.presets;
+    const preset = presets.find((candidate) => candidate.key === choice);
+
+    // The name step.
+    const taken = Object.values(kingdoms).some((existing) => String(existing).toLowerCase() === name.trim().toLowerCase());
+    const nameProblem = name.trim() === "" ? "Choose a name"
+        : name.trim().length > MAX_NAME ? `Names are at most ${MAX_NAME} characters`
+        : taken ? "Another kingdom already has that name"
+        : null;
+
+    // The style step.
+    const startCustom = (from) => {
+        const source = from || presets[0];
+        setSeedFrom(source.key);
+        setRace(source.race);
+        Object.entries(source.unitsChoices).forEach(([unit, amount]) => units.set(unit, String(amount)));
+        UNITS.forEach(([unit]) => { if (!(unit in source.unitsChoices)) units.set(unit, ""); });
+        STRUCTURES.forEach(([structure]) => structures.set(structure, String(source.structuresChoices[structure] || "")));
     };
-    const handleRaceChange = (selectedOption) => {
-        setRace(selectedOption.value);
+    const choose = (key) => {
+        if (key === "custom" && choice !== "custom") startCustom(preset);
+        setChoice(key);
     };
+    const check = choice === "custom"
+        ? checkChoices({ units: units.values, structures: structures.values, race }, creatorData)
+        : { pointsLeft: 0, starsLeft: 0, blocked: preset ? null : "Choose how you want to play" };
+    const chosenUnits = preset ? preset.unitsChoices : units.values;
+    const chosenStructures = preset ? preset.structuresChoices : structures.values;
+    const chosenRace = preset ? preset.race : race;
 
-    const onSubmitNameClick = (e)=>{
-        if (kdName != "") {
-            let opts = {
-                'kdName': kdName,
-            };
-            setKdMessage("");
-            setCreateLoading(true);
-            const updateFunc = () => authFetch('api/createkingdom', {
-                method: 'post',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => {setKdMessage(r);setCreateLoading(false)})
-            props.updateData(['kingdomid'], [updateFunc])
+    const submit = async (autoBuilder) => {
+        setAskAuto(false);
+        setSubmitting(true);
+        setError("");
+        const body = preset
+            ? { preset: preset.key, autoBuilder }
+            : { race, unitsChoices: units.values, structuresChoices: structures.values };
+        if (!hasKingdom) body.kdName = name.trim();
+        try {
+            const response = await authFetch("api/createkingdom", { method: "post", body: JSON.stringify(body) });
+            const result = await safeJson(response);
+            if (response.ok) {
+                // The page is replaced once the kingdom shows as created; the rest of the game's data follows (gameData.js).
+                await updateData(["kingdomid"]);
+            } else {
+                setError(result.message || "The kingdom could not be created");
+                if (result.field === "name") setStepId("name");
+            }
+        } catch (err) {
+            setError("Could not reach the server, try again");
+        } finally {
+            setSubmitting(false);
         }
-    }
+    };
+    const onCreate = () => (preset ? setAskAuto(true) : submit(false));
 
-    const onSubmitKingdomClick = (e)=>{
-        let opts = {
-            'unitsChoices': unitsChoices,
-            'structuresChoices': structuresChoices,
-            'race': race || "",
-        };
-        setKdMessage("")
-        const updateFunc = () => authFetch('api/createkingdomchoices', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => setKdMessage(r))
-        props.updateData(['kingdomid'], [updateFunc])
-    }
+    const unitCost = creatorData.selection_points;
+    const unitMax = (unit) => (Number(units.values[unit]) || 0) + Math.max(Math.floor(check.pointsLeft / unitCost[unit]), 0);
+    const structureMax = (structure) => (Number(structures.values[structure]) || 0) + Math.max(check.starsLeft, 0);
 
-    const onClickGoHome = (e)=>{
-        navigate("/status")
-        props.updateData(['all'], [])
-    }
-
-    if (Object.keys(createKingdomData).length === 0) {
-        return <h2>Loading...</h2>
-    }
-    if (Object.keys(props.state).length === 0) {
-        return <h2>Loading...</h2>
-    }
-
-    const calcStructuresRemaining = (structuresData, availableStructures) => {
-        var total = 0
-        for (const structure in structuresData) {
-            total += parseInt(structuresData[structure] || 0);
-        }
-        return availableStructures - total
-    }
-
-    const calcPointsRemaining = (unitsData, availablePoints) => {
-        var total = 0
-        for (const unit in unitsData) {
-            total += parseInt(unitsData[unit] || 0) * createKingdomData.selection_points[unit];
-        }
-        return availablePoints - total
-    }
-
-    const calcOffense = (unitsData) => {
-        var total = 0;
-        for (const unit in unitsData) {
-            const unitDesc = props.state.units[unit] || {};
-            total += (unitDesc.offense || 0) * unitsData[unit]
-        }
-        return total
-    }
-    const calcDefense = (unitsData) => {
-        var total = 0;
-        for (const unit in unitsData) {
-            const unitDesc = props.state.units[unit] || {};
-            total += (unitDesc.defense || 0) * unitsData[unit]
-        }
-        return total
-    }
-    const calcUnitsFuelConsumption = (unitsData) => {
-        var total = 0;
-        for (const unit in unitsData) {
-            const unitDesc = props.state.units[unit] || {};
-            total += (unitDesc.fuel || 0) * unitsData[unit]
-        }
-        return total
-    }
-    const calcUnitsHangarCapacity = (unitsData) => {
-        var total = 0;
-        for (const unit in unitsData) {
-            const unitDesc = props.state.units[unit] || {};
-            total += (unitDesc.hangar_capacity || 0) * unitsData[unit]
-        }
-        return total
-    }
-    const offense = calcOffense(unitsChoices);
-    const defense = calcDefense(unitsChoices);
-    const unitsFuel = calcUnitsFuelConsumption(unitsChoices);
-    const hangarCapacityUsed = calcUnitsHangarCapacity(unitsChoices);
-    const maxPop = structuresChoices.homes * props.state.structures.pop_per_home;
-    const popIncome = maxPop * props.state.income_per_pop;
-    const popFuel = maxPop * props.state.fuel_consumption_per_pop;
-    const minesIncome = structuresChoices.mines * props.state.structures.income_per_mine;
-    const fuelPlantsIncome = structuresChoices.fuel_plants * props.state.structures.fuel_per_fuel_plant;
-    const fuelPlantsCap = structuresChoices.fuel_plants * props.state.structures.fuel_cap_per_fuel_plant;
-    const hangarCapacityMax = structuresChoices.hangars * props.state.structures.hangar_capacity;
-    const droneProduction = structuresChoices.drone_factories * props.state.structures.drone_production_per_drone_plant;
-    const missileCapacity = structuresChoices.missile_silos * props.state.structures.missile_capacity_per_missile_silo;
-    const workshopCapacity = structuresChoices.workshops * props.state.structures.engineers_capacity_per_workshop;
-    
-    const raceOptions = props.state.races.map(race => ({value: race, "label": race}))
     return (
-        <div>
-        {
-            (props.kingdomid.kd_id === "")
-            ? <div>
-                <h2>Choose a kingdom name</h2>
-                <InputGroup className="kd-name-group">
-                    <InputGroup.Text id="kd-name-input-display">
-                        Kingdom Name
-                    </InputGroup.Text>
-                    <Form.Control 
-                        id="kd-name-input"
-                        onChange={handleNameInput}
-                        value={kdName || ""} 
-                        placeholder=""
-                        autoComplete="off"
-                    />
-                </InputGroup>
-                {createLoading
-                ? <Button className="submit-name-button" variant="primary" type="submit" disabled>
-                    Loading...
-                </Button>
-                : <Button className="submit-name-button" variant="primary" type="submit" onClick={onSubmitNameClick}>
-                    Submit
-                </Button>
-                }
-                {
-                    kdMessage.message !== ""
-                    ? <h4>{kdMessage.message}</h4>
-                    : null
-                }
-            </div>
-            : (props.kingdomid.created === false)
-            ? <div className="col-center kingdom-creator">
-                <div className="kingdom-creator-row">
-                    <div className="col-center-card units-creator">
-                        <h3>Total Units Points: {createKingdomData.total_points}</h3>
-                        <h3>Points Remaining: {calcPointsRemaining(unitsChoices, createKingdomData.total_points)}</h3>
-                        <div className="units-choices">
-                            <InputGroup className="units-choices-input">
-                                <InputGroup.Text id="drones-input-group">
-                                    Drones ({createKingdomData.selection_points.drones} points)
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="drones-input"
-                                    name="drones"
-                                    onChange={handleUnitsInputChange}
-                                    value={unitsChoices.drones || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="units-choices-input">
-                                <InputGroup.Text id="recruits-input-group">
-                                    Recruits ({createKingdomData.selection_points.recruits} points)
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="recruits-input"
-                                    name="recruits"
-                                    onChange={handleUnitsInputChange}
-                                    value={unitsChoices.recruits || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="units-choices-input">
-                                <InputGroup.Text id="attack-input-group">
-                                    Attackers ({createKingdomData.selection_points.attack} points)
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="attack-input"
-                                    name="attack"
-                                    onChange={handleUnitsInputChange}
-                                    value={unitsChoices.attack || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="units-choices-input">
-                                <InputGroup.Text id="defense-input-group">
-                                    Defenders ({createKingdomData.selection_points.defense} points)
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="defense-input"
-                                    name="defense"
-                                    onChange={handleUnitsInputChange}
-                                    value={unitsChoices.defense || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="units-choices-input">
-                                <InputGroup.Text id="flex-input-group">
-                                    Flexers ({createKingdomData.selection_points.flex} points)
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="flex-input"
-                                    name="flex"
-                                    onChange={handleUnitsInputChange}
-                                    value={unitsChoices.flex || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="units-choices-input">
-                                <InputGroup.Text id="engineers-input-group">
-                                    Engineers ({createKingdomData.selection_points.engineers} points)
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="engineers-input"
-                                    name="engineers"
-                                    onChange={handleUnitsInputChange}
-                                    value={unitsChoices.engineers || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
+        <div className="creator">
+            <h2>Create your kingdom</h2>
+            <StepsBar steps={steps} current={current} />
+            {error ? <Alert variant="danger" className="py-2">{error}</Alert> : null}
+
+            {current === "name" ? (
+                <Panel title="Name your kingdom" hint="Other players see this name. Rounds last days to weeks, so a good plan counts for more than constant clicking.">
+                    <Form onSubmit={(event) => { event.preventDefault(); if (!nameProblem) next(); }}>
+                        <Form.Group controlId="kd-name-input">
+                            <Form.Label>Kingdom name</Form.Label>
+                            <Form.Control value={name} onChange={(event) => setName(event.target.value)} autoComplete="off" autoFocus
+                                maxLength={MAX_NAME + 10} isInvalid={name !== "" && Boolean(nameProblem)} />
+                            <Form.Control.Feedback type="invalid">{nameProblem}</Form.Control.Feedback>
+                        </Form.Group>
+                        <div className="creator-actions">
+                            <SubmitButton blocked={nameProblem} onClick={(event) => { event.preventDefault(); next(); }}>Next</SubmitButton>
                         </div>
-                    </div>
-                    <div className="col-center-card structures-creator">
-                        <h3>Total Stars: {createKingdomData.total_stars}</h3>
-                        <h3>Stars Remaining: {calcStructuresRemaining(structuresChoices, createKingdomData.total_stars)}</h3>
-                        <div className="structures-choices">
-                            <InputGroup className="structures-choices-input">
-                                <InputGroup.Text id="homes-input-group">
-                                    Homes
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="homes-input"
-                                    name="homes"
-                                    onChange={handleStructuresInputChange}
-                                    value={structuresChoices.homes || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="structures-choices-input">
-                                <InputGroup.Text id="mines-input-group">
-                                    Mines
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="mines-input"
-                                    name="mines"
-                                    onChange={handleStructuresInputChange}
-                                    value={structuresChoices.mines || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="structures-choices-input">
-                                <InputGroup.Text id="fuel-plants-input-group">
-                                    Fuel Plants
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="fuel-plants-input"
-                                    name="fuel_plants"
-                                    onChange={handleStructuresInputChange}
-                                    value={structuresChoices.fuel_plants || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="structures-choices-input">
-                                <InputGroup.Text id="hangars-input-group">
-                                    Hangars
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="hangars-input"
-                                    name="hangars"
-                                    onChange={handleStructuresInputChange}
-                                    value={structuresChoices.hangars || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="structures-choices-input">
-                                <InputGroup.Text id="drone-factories-input-group">
-                                    Drone Factories
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="drone-factories-input"
-                                    name="drone_factories"
-                                    onChange={handleStructuresInputChange}
-                                    value={structuresChoices.drone_factories || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="structures-choices-input">
-                                <InputGroup.Text id="missile-silos-input-group">
-                                    Missile Silos
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="missile-silos-input"
-                                    name="missile_silos"
-                                    onChange={handleStructuresInputChange}
-                                    value={structuresChoices.missile_silos || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
-                            <InputGroup className="structures-choices-input">
-                                <InputGroup.Text id="workshops-input-group">
-                                    Workshops
-                                </InputGroup.Text>
-                                <Form.Control 
-                                    id="workshops-input"
-                                    name="workshops"
-                                    onChange={handleStructuresInputChange}
-                                    value={structuresChoices.workshops || ""} 
-                                    placeholder=""
-                                    autoComplete="off"
-                                />
-                            </InputGroup>
+                    </Form>
+                </Panel>
+            ) : null}
+
+            {current === "style" ? (
+                <>
+                    <Panel title="How do you want to play?"
+                        hint="Pick the closest to your style. Each is a race and a starting kingdom, and comes with a ready-made plan for the auto builder that you can switch on or leave off. You can change anything later.">
+                        <div className="preset-cards" role="radiogroup" aria-label="Quick starts">
+                            {presets.map((candidate) => (
+                                <button key={candidate.key} type="button" role="radio" aria-checked={choice === candidate.key}
+                                    className={"preset-card" + (choice === candidate.key ? " selected" : "")} onClick={() => choose(candidate.key)}>
+                                    <strong>{candidate.label}</strong>
+                                    <span className="preset-race">{candidate.race}</span>
+                                    <span>{candidate.description}</span>
+                                </button>
+                            ))}
+                            <button type="button" role="radio" aria-checked={choice === "custom"}
+                                className={"preset-card" + (choice === "custom" ? " selected" : "")} onClick={() => choose("custom")}>
+                                <strong>Custom</strong>
+                                <span className="preset-race">Your choice</span>
+                                <span>Spend the starting points and stars yourself, and pick your own race.</span>
+                            </button>
                         </div>
+                    </Panel>
+
+                    {preset ? (
+                        <Panel title={`${preset.label}: ${preset.race}`}>
+                            <RaceNotes race={preset.race} descriptions={descriptions} />
+                            <KingdomStats stats={kingdomStats(state, preset.unitsChoices, preset.structuresChoices)} />
+                        </Panel>
+                    ) : null}
+
+                    {choice === "custom" ? (
+                        <>
+                            <Panel title="Race" hint="Races give a bonus and a drawback for the whole round.">
+                                <Form.Select aria-label="Race" value={race} onChange={(event) => setRace(event.target.value)}>
+                                    <option value="" disabled>Choose a race</option>
+                                    {state.races.map((option) => <option key={option} value={option}>{option}</option>)}
+                                </Form.Select>
+                                <RaceNotes race={race} descriptions={descriptions} />
+                                <div className="creator-seed">
+                                    Start from a quick start:{" "}
+                                    {presets.map((candidate) => (
+                                        <Button key={candidate.key} variant={seedFrom === candidate.key ? "secondary" : "outline-secondary"} size="sm"
+                                            onClick={() => startCustom(candidate)}>{candidate.label}</Button>
+                                    ))}
+                                </div>
+                            </Panel>
+                            <div className="creator-grid">
+                                <Panel title="Units" hint={`${check.pointsLeft.toLocaleString()} of ${creatorData.total_points.toLocaleString()} points left to spend.`}>
+                                    {UNITS.map(([unit, label, hint]) => (
+                                        <FieldRow key={unit} label={label} hint={`${unitCost[unit]} point${unitCost[unit] === 1 ? "" : "s"} each. ${hint}`} htmlFor={`${unit}-input`}>
+                                            <AmountInput box name={unit} label={label} value={units.values[unit]} onChange={units.onChange}
+                                                max={unitMax(unit)} soloMax={Math.floor(creatorData.total_points / unitCost[unit])} />
+                                        </FieldRow>
+                                    ))}
+                                </Panel>
+                                <Panel title="Structures" hint={`${check.starsLeft} of ${creatorData.total_stars} stars left to build on.`}>
+                                    {STRUCTURES.map(([structure, label, hint]) => (
+                                        <FieldRow key={structure} label={label} hint={hint} htmlFor={`${structure}-input`}>
+                                            <AmountInput box name={structure} label={label} value={structures.values[structure]} onChange={structures.onChange}
+                                                max={structureMax(structure)} soloMax={creatorData.total_stars} />
+                                        </FieldRow>
+                                    ))}
+                                </Panel>
+                            </div>
+                            <Panel title="What this makes">
+                                <KingdomStats stats={kingdomStats(state, units.values, structures.values)} />
+                            </Panel>
+                        </>
+                    ) : null}
+
+                    <div className="creator-actions">
+                        {steps.length > 2 ? <Button variant="outline-secondary" onClick={back}>Back</Button> : null}
+                        <SubmitButton blocked={check.blocked} onClick={next}>Next</SubmitButton>
                     </div>
-                </div>
-                <form className="race-form">
-                    <label id="aria-label" htmlFor="aria-example-input">
-                        Select a Race
-                    </label>
-                    <Select id="select-race" className="race-select" options={raceOptions} onChange={handleRaceChange} autoFocus={false} 
-                        styles={{
-                            control: (baseStyles, state) => ({
-                                ...baseStyles,
-                                borderColor: state.isFocused ? 'var(--bs-body-color)' : 'var(--bs-primary-text)',
-                                backgroundColor: 'var(--bs-body-bg)',
-                            }),
-                            placeholder: (baseStyles, state) => ({
-                                ...baseStyles,
-                                color: 'var(--bs-primary-text)',
-                            }),
-                            input: (baseStyles, state) => ({
-                                ...baseStyles,
-                                color: 'var(--bs-secondary-text)',
-                            }),
-                            option: (baseStyles, state) => ({
-                                ...baseStyles,
-                                backgroundColor: state.isFocused ? 'var(--bs-primary-bg-subtle)' : 'var(--bs-secondary-bg-subtle)',
-                                color: state.isFocused ? 'var(--bs-primary-text)' : 'var(--bs-secondary-text)',
-                            }),
-                            menuList: (baseStyles, state) => ({
-                                ...baseStyles,
-                                backgroundColor: 'var(--bs-secondary-bg)',
-                                // borderColor: 'var(--bs-secondary-bg)',
-                            }),
-                            singleValue: (baseStyles, state) => ({
-                                ...baseStyles,
-                                color: 'var(--bs-secondary-text)',
-                            }),
-                        }}/>
-                </form>
-                {props.loading.kingdomid
-                ? <Button className="submit-kingdom-button" variant="primary" type="submit" disabled>
-                    Loading...
-                </Button>
-                : <Button className="submit-kingdom-button" variant="primary" type="submit" onClick={onSubmitKingdomClick}>
-                    Submit
-                </Button>
-                }
-                {
-                    kdMessage.message !== ""
-                    ? <h4>{kdMessage.message}</h4>
-                    : null
-                }
-                <div className="text-box kingdom-card">
-                    <h4>Kingdom Stats</h4>
-                    <br />
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Offense</span>
-                        <span className="text-box-item-value">{offense.toLocaleString()}</span>
+                </>
+            ) : null}
+
+            {current === "confirm" ? (
+                <>
+                    <Panel title="Ready?" hint={hasKingdom ? undefined : "You will be placed in the galaxy with the fewest kingdoms, with other players to work with."}>
+                        <Stats items={[
+                            { label: "Kingdom", value: kingdomName },
+                            { label: "Playstyle", value: preset ? preset.label : "Custom" },
+                            { label: "Race", value: chosenRace },
+                        ]} />
+                        <RaceNotes race={chosenRace} descriptions={descriptions} />
+                        <KingdomStats stats={kingdomStats(state, chosenUnits, chosenStructures)} />
+                    </Panel>
+                    <div className="creator-actions">
+                        <Button variant="outline-secondary" onClick={back} disabled={submitting}>Back</Button>
+                        <SubmitButton loading={submitting} onClick={onCreate}>Create kingdom</SubmitButton>
                     </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Defense</span>
-                        <span className="text-box-item-value">{defense.toLocaleString()}</span>
-                    </div>
-                    <br />
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Population</span>
-                        <span className="text-box-item-value">{maxPop.toLocaleString()}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Income</span>
-                        <span className="text-box-item-value">{(popIncome + minesIncome).toLocaleString()}</span>
-                    </div>
-                    <br />
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Fuel Production</span>
-                        <span className="text-box-item-value">{fuelPlantsIncome.toLocaleString()}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Fuel Usage</span>
-                        <span className="text-box-item-value">{(unitsFuel + popFuel).toLocaleString()}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Fuel Capacity</span>
-                        <span className="text-box-item-value">{fuelPlantsCap.toLocaleString()}</span>
-                    </div>
-                    <br />
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Hangar Capacity</span>
-                        <span className="text-box-item-value">{hangarCapacityUsed.toLocaleString()} / {hangarCapacityMax.toLocaleString()}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Drones Production</span>
-                        <span className="text-box-item-value">{droneProduction}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Missile Capacity</span>
-                        <span className="text-box-item-value">{missileCapacity}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Workshop Capacity</span>
-                        <span className="text-box-item-value">{unitsChoices.engineers.toLocaleString()} / {workshopCapacity.toLocaleString()}</span>
-                    </div>
-                </div>
-            </div>
-            : <div>
-                <h2>Kingdom Created!</h2>
-                <Button variant="primary" type="submit" onClick={onClickGoHome}>Go to Home</Button>
-            </div>
-        }
-            <HelpButton scrollTarget={"createkingdom"}/>
+                </>
+            ) : null}
+
+            <Modal show={askAuto} onHide={() => setAskAuto(false)} centered>
+                <Modal.Header closeButton><Modal.Title>Switch on the auto builder?</Modal.Title></Modal.Header>
+                <Modal.Body>
+                    {preset ? (
+                        <>
+                            <p>The {preset.label} plan is saved with your kingdom either way. With the auto builder on, it:</p>
+                            <ul>{autoBuilderSummary(preset).map((line) => <li key={line}>{line}</li>)}</ul>
+                            <p>
+                                That keeps your kingdom growing while you are away, but it spends and acts without asking. Left off, nothing
+                                happens until you decide. You can change your mind at any time: auto spending on the Status page, and
+                                {preset.autoAttack || preset.autoRob ? " auto attack and robbing on the Primitives page" : " the rest of the plan on the Build pages"}.
+                            </p>
+                        </>
+                    ) : null}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="outline-secondary" onClick={() => submit(false)}>Keep it off</Button>
+                    <Button variant="primary" onClick={() => submit(true)}>Switch it on</Button>
+                </Modal.Footer>
+            </Modal>
+            <HelpButton scrollTarget={"createkingdom"} />
         </div>
-    )
+    );
 }
 
 export default CreateKingdom;

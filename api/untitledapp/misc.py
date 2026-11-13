@@ -41,33 +41,29 @@ def _validate_kingdom_name(
     
     return True, ""
 
-@bp.route('/api/createkingdom', methods=["POST"])
-@flask_praetorian.auth_required
-# @flask_praetorian.roles_required('verified')
-def create_initial_kingdom():
+def _create_kingdom_documents(user_id, name):
+    """
+    Make a kingdom's documents in the function app, in the galaxy with the fewest kingdoms, and record its id on the
+    user. Returns ``(kd_id, message)``: the message is empty when it worked. If the user turns out to have a kingdom
+    already (a double click got here first), that kingdom's id is returned and nothing is made.
+    """
     app = flask.current_app
     db = flask.current_app.extensions["sqlalchemy"]
-    req = flask.request.get_json(force=True)
-    user = flask_praetorian.current_user()
-    user_id = user.id
 
-    if user.kd_id != "" and user.kd_id != None:
-        return (flask.jsonify({"message": "You already have a kingdom ID"}), 400)
-
-    valid_name, message = _validate_kingdom_name(req["kdName"])
-    if not valid_name:
-        return (flask.jsonify({"message": message}), 400)
-    
     request_id = str(uuid.uuid4())
     if not acquire_locks(["/kingdoms", "/galaxies"], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
+        return None, "Server is busy"
 
     try:
-        # The check at the top of the route happened before the lock, so a double click could pass it twice. Look again,
-        # at the user as stored now.
+        # The checks at the top of the route happened before the lock, so a double click could pass them twice. Look
+        # again, at the user as stored now.
         stored_user = db.session.query(User).filter_by(id=user_id).populate_existing().one()
         if stored_user.kd_id != "" and stored_user.kd_id is not None:
-            return (flask.jsonify({"message": "You already have a kingdom ID"}), 400)
+            return stored_user.kd_id, ""
+
+        valid_name, message = _validate_kingdom_name(name)
+        if not valid_name:
+            return None, message
 
         galaxies = uag._get_galaxy_info()
         size_galaxies = collections.defaultdict(list)
@@ -81,11 +77,11 @@ def create_initial_kingdom():
         create_kd_response = REQUESTS_SESSION.post(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps({"kingdom_name": req["kdName"], "galaxy": chosen_galaxy}),
+            data=json.dumps({"kingdom_name": name, "galaxy": chosen_galaxy}),
         )
         if create_kd_response.status_code != 201:
-            return (flask.jsonify({"message": "Error creating kingdom"}), 400)
-        
+            return None, "Error creating kingdom"
+
         kd_id = create_kd_response.text
 
         for table, initial_state in uas.INITIAL_KINGDOM_STATE.items():
@@ -93,16 +89,16 @@ def create_initial_kingdom():
             state = initial_state.copy()
             if table == "kingdom":
                 state["kdId"] = kd_id
-                state["name"] = req["kdName"]
+                state["name"] = name
 
-            create_response = REQUESTS_SESSION.post(
+            REQUESTS_SESSION.post(
                 app.config['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
                 headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
                 data=json.dumps({
                     "item": item_id,
                     "state": state,
                 }),
-            )        
+            )
 
         db.session.expunge_all()
         user = flask_praetorian.current_user()
@@ -111,7 +107,115 @@ def create_initial_kingdom():
         uaa._update_accounts()
     finally:
         release_locks_by_id(request_id)
-    return flask.jsonify({"message": ""}), 200
+    return kd_id, ""
+
+
+def _plan_from_request(req):
+    """
+    What the player asked their kingdom to start as, checked: ``({units, structures, race, settings}, "")``, or
+    ``(None, reason)``. Either a quick start (``preset``: one of the bot archetypes, with ``autoBuilder`` saying whether
+    its auto builder is switched on) or the player's own ``unitsChoices``, ``structuresChoices`` and ``race``.
+    """
+    # The bots module imports this one, so it can only be imported once this one is loaded.
+    import untitledapp.bots as bots
+
+    settings = {}
+    preset = req.get("preset")
+    if preset:
+        archetype = bots.ARCHETYPES.get(preset)
+        if archetype is None:
+            return None, "Unknown quick start"
+        unit_choices = dict(archetype.unit_choices)
+        structures_choices = dict(archetype.structures_choices)
+        race = archetype.race
+        settings = bots.player_settings(archetype, bool(req.get("autoBuilder", False)))
+    else:
+        try:
+            unit_choices = {unit: 0 for unit in uas.KINGDOM_CREATOR_POINTS}
+            unit_choices.update({k: int(v or 0) for k, v in (req.get("unitsChoices") or {}).items()})
+            structures_choices = {k: int(v or 0) for k, v in (req.get("structuresChoices") or {}).items()}
+        except (AttributeError, TypeError, ValueError):
+            return None, "Unit and structure amounts must be whole numbers"
+        race = req.get("race") or ""
+
+    valid_kd, message = _validate_kingdom_choices(unit_choices, structures_choices, race)
+    if not valid_kd:
+        return None, message
+    return {"units": unit_choices, "structures": structures_choices, "race": race, "settings": settings}, ""
+
+
+def _finish_kingdom(kd_id, plan):
+    """Set a freshly made kingdom up as the plan says, once. Returns the response."""
+    db = flask.current_app.extensions["sqlalchemy"]
+
+    if not acquire_lock(f"/kingdom/{kd_id}"):
+        return (flask.jsonify({"message": "Server is busy"}), 400)
+
+    def decide(kd_info):
+        if kd_info.get("race"):
+            raise occ.Rejected("This kingdom has already been created")
+        payload = _kingdom_setup_payload(kd_info, plan["units"], plan["structures"], plan["race"])
+        payload.update(plan["settings"])
+        if plan["settings"].get("auto_spending_enabled"):
+            # Same as a player switching auto spending on: it first runs after one auto-spending interval.
+            payload["next_resolve"]["auto_spending"] = (
+                datetime.datetime.now(datetime.timezone.utc)
+                + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_AUTO_SPENDING_TIME_MULTIPLIER"])
+            ).isoformat()
+        return payload, None
+
+    try:
+        # The kingdom is only ever set up once: the second of two racing requests finds the race already chosen.
+        occ.update(f"/kingdom/{kd_id}", decide)
+
+        db.session.expunge_all()
+        user = flask_praetorian.current_user()
+        user.kd_created = True
+        db.session.commit()
+        uaa._update_accounts()
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
+    finally:
+        release_lock(f"/kingdom/{kd_id}")
+
+    return (flask.jsonify({"message": ""}), 200)
+
+
+@bp.route('/api/createkingdom', methods=["POST"])
+@bp.route('/api/createkingdomchoices', methods=["POST"])
+@flask_praetorian.auth_required
+# @flask_praetorian.roles_required('verified')
+def create_kingdom():
+    """
+    Make the player's kingdom and set it up, in one request: ``kdName`` plus either a quick start (``preset``,
+    ``autoBuilder``) or ``unitsChoices``, ``structuresChoices`` and ``race``. Everything is checked before anything is
+    made. A player who already has a kingdom that was never set up (the old two-step flow, or Reset Kingdom) leaves
+    ``kdName`` out and only sets it up.
+    """
+    req = flask.request.get_json(force=True)
+    user = flask_praetorian.current_user()
+    user_id = user.id
+
+    if user.kd_created:
+        return (flask.jsonify({"message": "This kingdom has already been created"}), 400)
+
+    plan, message = _plan_from_request(req)
+    if plan is None:
+        return (flask.jsonify({"message": message}), 400)
+
+    kd_id = user.kd_id
+    if kd_id == "" or kd_id is None:
+        name = str(req.get("kdName") or "").strip()
+        valid_name, message = _validate_kingdom_name(name)
+        if not valid_name:
+            return (flask.jsonify({"message": message, "field": "name"}), 400)
+        kd_id, message = _create_kingdom_documents(user_id, name)
+        if kd_id is None:
+            return (flask.jsonify({"message": message}), 400)
+
+    return _finish_kingdom(kd_id, plan)
 
 
 @bp.route('/api/resetkingdom', methods=["POST"])
@@ -165,10 +269,13 @@ def create_kingdom_data():
     Return information to inform kingdom creator page
     """
 
+    import untitledapp.bots as bots  # imports this module, so only once it is loaded
+
     payload = {
         "total_points": uas.KINGDOM_CREATOR_STARTING_POINTS,
         "selection_points": uas.KINGDOM_CREATOR_POINTS,
         "total_stars": uas.INITIAL_KINGDOM_STATE["kingdom"]["stars"],
+        "presets": [bots.preset_view(archetype) for archetype in bots.ARCHETYPES.values()],
     }
     return (flask.jsonify(payload), 200)
 
@@ -177,6 +284,11 @@ def _validate_kingdom_choices(
     structures_choices,
     race,
 ):
+    if any((key_unit not in uas.KINGDOM_CREATOR_POINTS for key_unit in unit_choices)):
+        return False, "Unknown unit"
+    if any((key_structure not in uas.INITIAL_KINGDOM_STATE["kingdom"]["structures"] for key_structure in structures_choices)):
+        return False, "Unknown structure"
+
     sum_units_points = sum([
         value_unit * uas.KINGDOM_CREATOR_POINTS[key_unit]
         for key_unit, value_unit in unit_choices.items()
@@ -228,60 +340,6 @@ def _kingdom_setup_payload(kd_info, unit_choices, structures_choices, race):
     payload["race"] = race
     return payload
 
-
-@bp.route('/api/createkingdomchoices', methods=["POST"])
-@flask_praetorian.auth_required
-# @flask_praetorian.roles_required('verified')
-def create_kingdom_choices():
-    app = flask.current_app
-    db = flask.current_app.extensions["sqlalchemy"]
-    req = flask.request.get_json(force=True)
-    user = flask_praetorian.current_user()
-
-    if user.kd_created:
-        return (flask.jsonify({"message": "This kingdom has already been created"}), 400)
-
-    unit_choices = {
-        k: int(v or 0)
-        for k, v in req["unitsChoices"].items()
-    }
-    structures_choices = {
-        k: int(v or 0)
-        for k, v in req["structuresChoices"].items()
-    }
-    race = req["race"]
-
-    valid_kd, message = _validate_kingdom_choices(unit_choices, structures_choices, race)
-    if not valid_kd:
-        return (flask.jsonify({"message": message}), 400)
-    
-    kd_id = user.kd_id
-
-    if not acquire_lock(f"/kingdom/{kd_id}"):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    
-    def decide(kd_info):
-        if kd_info.get("race"):
-            raise occ.Rejected("This kingdom has already been created")
-        return _kingdom_setup_payload(kd_info, unit_choices, structures_choices, race), None
-
-    try:
-        # The kingdom is only ever set up once: the second of two racing requests finds the race already chosen.
-        occ.update(f"/kingdom/{kd_id}", decide)
-
-        db.session.expunge_all()
-        user = flask_praetorian.current_user()
-        user.kd_created = True
-        db.session.commit()
-        uaa._update_accounts()
-    except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
-    except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        release_lock(f"/kingdom/{kd_id}")
-
-    return (flask.jsonify({"message": ""}), 200)
 
 def _validate_shields(req_values):
 
