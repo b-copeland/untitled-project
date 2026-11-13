@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { authFetch } from "../auth";
 import { useInterval } from "../hooks";
 import { displayNumber } from "../format";
+import OverlayTrigger from "react-bootstrap/OverlayTrigger";
+import Tooltip from "react-bootstrap/Tooltip";
 
 /**
  * The server's clock, ticking. It asks the server for the time once, then counts from there with the local clock, so a
@@ -76,12 +78,19 @@ function Header(props) {
                 {STATS.map(({ label, value, alert, why, tip }) => {
                     const warn = alert ? alert(kingdom) : false;
                     const rate = tip ? tip(kingdom, props.data.state?.game_config?.BASE_EPOCH_SECONDS) : undefined;
-                    const title = [warn ? why : null, rate].filter(Boolean).join(". ") || undefined;
-                    return (
-                        <div key={label} className={"header-item" + (warn ? " header-alert" : "")} title={title}>
+                    const note = [warn ? why : null, rate].filter(Boolean).join(". ");
+                    const item = (
+                        <div className={"header-item" + (warn ? " header-alert" : "")} tabIndex={note ? 0 : undefined}>
                             <span>{label}: {value(kingdom)}</span>
                         </div>
                     );
+                    // A Bootstrap tooltip rather than a title attribute: it appears at once, and on tap or keyboard focus.
+                    return note ? (
+                        <OverlayTrigger key={label} placement="bottom" trigger={["hover", "focus", "click"]}
+                            overlay={<Tooltip id={"header-tip-" + label}>{note}</Tooltip>}>
+                            {item}
+                        </OverlayTrigger>
+                    ) : React.cloneElement(item, { key: label });
                 })}
             </div>
         </div>
