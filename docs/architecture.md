@@ -31,6 +31,12 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
 - **The game tick.** Nothing advances on its own. Something must call `GET /api/refreshdata` with the `Refresh-Secret`
   header (in production a scheduled job every minute). The refresh credits income and finished queues, runs scheduled
   actions and auto actions, updates scores, history and elections. See `refresh.py`.
+- **The end of a round** (`roundend.py`). When `game_end` passes, the refresh finishes one last tick and closes the
+  round: it claims `game_over` on the state document (version-checked, so overlapping ticks close it once) and writes
+  an `archive_<n>` document with the final standings, which a reset keeps (`GET /api/archive`, `/api/archive/<n>`).
+  From then on the refresh does nothing (bots included), a `before_request` refuses every write except signing in, the
+  account and the admin's tools, and every kingdom's information is public. `POST /api/admin/endround` ends a round
+  early; `/api/resetstate` clears `game_over` for the next one.
 - **The frontend** fetches each data key (`kingdom`, `structures`, ...) from its own `/api/<key>` route
   (`src/data/gameData.js`), polls the kingdom every 10 seconds, and refetches what an action changed. Game constants come
   from the server (`data.state.game_config`, `data.state.pretty_names`), not from copies in the browser.
@@ -158,6 +164,7 @@ In game code take `kd_id` from `flask_praetorian.current_user()` and nothing els
 | Galaxy, empire and universe politics, votes, war, surrender | `politics.py` |
 | Read routes (`/api/kingdom`, `/api/structures`, ...) and the calculations they share | `getters.py` |
 | The tick | `refresh.py` (`refresh_data` calls `_refresh_kd` per kingdom) |
+| The end of a round: archive, read-only game | `roundend.py` |
 | Constants, formulas, initial kingdom | `shared.py` |
 | Optimistic concurrency helper | `occ.py` |
 | Bots (archetypes, also the quick starts on Create Kingdom) | `bots.py`, [bots.md](bots.md) |

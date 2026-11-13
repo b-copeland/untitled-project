@@ -117,6 +117,7 @@ def test_an_election_is_opened_once_and_a_vote_cast_meanwhile_survives(app):
 
 def test_overlapping_ticks_open_an_election_once(app):
     stale_state = _election_state()
+    _create_item("universe_votes", _universe_votes())  # opening an election clears the votes, so they must exist
 
     def tick(_):
         with app.app_context():

@@ -71,6 +71,11 @@ function Header(props) {
     const kingdom = props.data.kingdom;
     return (
         <div className="header-container">
+            {props.data.state?.state?.game_over && (
+                <div className="header-over" role="status">
+                    The round is over. The game is read only now, and every kingdom is public.
+                </div>
+            )}
             <div className="header-contents">
                 <div className="header-item">
                     <Clock interval={1000}/>

@@ -19,6 +19,7 @@ import untitledapp.conquer as uac
 import untitledapp.getters as uag
 import untitledapp.shared as uas
 import untitledapp.botbrain as botbrain
+import untitledapp.roundend as uare
 from untitledapp import REQUESTS_SESSION, SOCK_HANDLERS
 
 bp = flask.Blueprint("refresh", __name__)
@@ -1657,6 +1658,9 @@ def refresh_data():
     time_now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     if time_now < state["state"]["game_start"]:
         return ("Not started", 200)
+    if uare.is_over(state):
+        return ("Round over", 200)  # the engine is stopped: nothing advances, bots included
+    round_ending = uare.is_due(state, datetime.datetime.now(datetime.timezone.utc))  # this tick is the last one
     if time_now > state["state"]["election_end"] and state["state"]["election_end"] != "":
         state = _resolve_election(state)
     elif time_now > state["state"]["election_start"] and state["state"]["election_end"] == "":
@@ -1706,6 +1710,9 @@ def refresh_data():
     }
     _resolve_scores(kd_scores_split, time_update, context)
     _resolve_empires(kd_scores_split, time_update)
+
+    if round_ending:
+        uare.end_round(state, reason="The round reached its end time")
 
     if failed_kd_ids:
         return f"Refreshed, but {len(failed_kd_ids)} kingdoms failed: {failed_kd_ids}", 200
