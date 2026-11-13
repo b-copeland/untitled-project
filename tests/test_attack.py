@@ -297,3 +297,11 @@ def test_a_forecast_says_what_is_left_at_home_when_the_units_go(app, client, jwt
     assert response.status_code == 200, response.get_json()
     body = response.get_json()
     assert body["attacker_home_defense_after"] < body["attacker_home_defense_before"]
+
+
+def test_attack_news_is_tagged_with_its_kind(app, client, jwt1):
+    _set_up_two_kingdoms()
+    assert _attack(client, jwt1).status_code == 200
+    assert _get(f"/kingdom/{TARGET_ID}/news")["news"][0]["kind"] == "attack"
+    assert _get("/galaxy/1/news")["news"][0]["kind"] == "attack"
+    assert _get("/galaxy/2/news")["news"][0]["kind"] == "attack"

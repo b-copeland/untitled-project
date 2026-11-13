@@ -300,21 +300,27 @@ Built (see the sections above for the detail):
 Not built: the Status dashboard, Queue timeline, politics inbox, Create Kingdom presets,
 View Kingdom cards, result report cards. None of the UI has been seen in a browser by me.
 
-## Overnight round 2 (branch `ux-review-2`)
+## Round 2 (branch `ux-review-2`), after review
 
-Built: Launch Missiles on the planner pattern, News as one feed component, the Scores gap line, the dead Forums route removed.
-Each has a test; the whole Jest suite passes. Still not seen in a browser.
+Ben's answers to the round 2 questions, and what was done with them:
+1. **Status dashboard and header tooltip: both.** Built. Status opens on a new **Overview** tab of four cards (Economy,
+   Military, Growth, Threats) with per-hour rates, generals out and when the next is back, stars with nothing on them,
+   shields, siphons and the latest kingdom news; each card links to where you act. The other tabs are unchanged. In the
+   header, Fuel and Money have a tooltip with the net rate per hour, and when falling fuel runs out. The strip itself did
+   not grow.
+2. **Galaxy: table or cards, with a toggle.** Built. A Table / Cards switch above the list, remembered per browser.
+3. **News: keep the sortable, filterable tables; tagging the payload is fine.** The feed rework is reverted. News items now
+   carry a `kind` (attack, spy, missiles, intel), written by Flask (the function app stores items as given, so no
+   funcapp change), and the Kingdom and Galaxy tables have a sortable, filterable **Type** column. Items from before
+   the change have an empty Type.
+4. **Missile forecast numbers.** `/api/calculatemissiles` also returns `damage` ({stars, fuel, pop}) and
+   `shields_assumed`; the page shows them as stats. The sentence is still returned.
+5. **Status dashboard and unified military before politics.** Both built; politics untouched.
+   **Military** is now one page: recruits at the top, a hangar-space bar, then one units table (cost, off/def, fuel,
+   have, training) with a **Train / Allocate / Disband** switch that changes only the last column and the button. The
+   Levy placeholder is gone. Locked big flexers say which project unlocks them. Each form says why it can not be sent.
+6. **Create Kingdom needs a bigger rework** (React state is not smooth: updates lag or jump). Not started; noted as the
+   next big item.
 
-### Questions for Ben
-These are decisions I did not want to guess at. Nothing is blocked on them.
-1. **Header net rates.** You said not to bloat the header. I did not add rates there. Would you rather have them on the
-   Status dashboard only (my suggestion), or as a tooltip on fuel and money?
-2. **Galaxy cards.** Your question "can you still see the whole galaxy at a glance?" is the right worry about cards. Proposal:
-   keep the table at desk width and use cards only below the `md` breakpoint, where the table scrolls anyway. Agree?
-3. **News icons.** To tag items by type the server would add a `kind` field when it writes news. Small change in
-   `funcapp`, which is published by hand. OK to do?
-4. **Launch Missiles forecast.** Wants `/api/calculatemissiles` to return numbers (stars, fuel, pop damage) as well as the
-   sentence, so the page can show them as stats. OK to add them (the old `message` stays)?
-5. **Status dashboard, politics inbox, unified military table** are the three biggest remaining items. Each is a page of
-   500 to 1000 lines that I cannot look at in a browser, so I stopped rather than rebuild them blind. Which do you want first?
-6. **Create Kingdom presets** are covered by issue #61, so I left them alone.
+Also kept from round 2: Launch Missiles on the planner pattern, the Scores gap line, the Forums placeholder removed.
+None of it has been seen in a browser by me.

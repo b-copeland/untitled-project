@@ -1109,7 +1109,7 @@ def _attack(req, kd_id, target_kd):
             REQUESTS_SESSION.patch(
                 app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}/news',
                 headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps({"time": time_now.isoformat(), "from": kd_id, "news": sharer_message}),
+                data=json.dumps({"time": time_now.isoformat(), "from": kd_id, "news": sharer_message, "kind": "intel"}),
             )
             uam._add_notifs(sharer, ["news_kingdom"])
             try:
@@ -1128,6 +1128,7 @@ def _attack(req, kd_id, target_kd):
             "time": time_now.isoformat(),
             "from": kd_id,
             "news": defender_message,
+            "kind": "attack",
         }
         try:
             ws = SOCK_HANDLERS[target_kd]
@@ -1177,11 +1178,13 @@ def _attack(req, kd_id, target_kd):
             "time": time_now.isoformat(),
             "from": kd_id,
             "to": target_kd,
+            "kind": "attack",
         }
         defender_galaxy_payload = {
             "time": time_now.isoformat(),
             "from": kd_id,
             "to": target_kd,
+            "kind": "attack",
         }
         if attack > defense:
             attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} successfully attacked {target_kd_info['name']} and gained {spoils_values['stars']} stars."
@@ -2100,6 +2103,7 @@ def _spy(req, kd_id, target_kd):
             "time": time_now.isoformat(),
             "from": "" if success else kd_id,
             "news": target_message,
+            "kind": "spy",
         }
         target_news_patch_response = REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
@@ -2847,6 +2851,7 @@ def _launch_missiles(req, kd_id, target_kd):
             "time": time_now.isoformat(),
             "from": kd_id,
             "news": defender_message,
+            "kind": "missiles",
         }
         target_news_patch_response = REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
@@ -2869,11 +2874,13 @@ def _launch_missiles(req, kd_id, target_kd):
             "time": time_now.isoformat(),
             "from": kd_id,
             "to": target_kd,
+            "kind": "missiles",
         }
         defender_galaxy_payload = {
             "time": time_now.isoformat(),
             "from": kd_id,
             "to": target_kd,
+            "kind": "missiles",
         }
         attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} launched missiles at {max_target_kd_info['name']} and destroyed " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
 

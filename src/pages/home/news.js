@@ -14,6 +14,9 @@ import "primeicons/primeicons.css";
 import 'bootstrap/dist/css/bootstrap.css';
 import HelpButton from "../../components/helpbutton";
 
+// The kind of news an item is, as the server tags it. Items written before the tag existed have none.
+const NEWS_KINDS = { attack: "Attack", spy: "Spy", missiles: "Missiles", intel: "Intel" };
+
 function getTimeSinceString(date) {
     if (date === undefined) {
         return "--"
@@ -133,6 +136,7 @@ function Kingdom(props) {
         time_since: { value: null, matchMode: FilterMatchMode.LESS_THAN_OR_EQUAL_TO },
         from: { value: null, matchMode: FilterMatchMode.CONTAINS },
         news: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        kind: { value: null, matchMode: FilterMatchMode.CONTAINS },
     });
 
     if (props.news.length === 0) {
@@ -146,6 +150,7 @@ function Kingdom(props) {
                 "time_since": getHoursSince(newsItem.time),
                 "from": (newsItem.from != "") ? props.kdNames[newsItem.from] + ' (' + props.galaxyMap[newsItem.from] + ')' : "",
                 "news": newsItem.news,
+                "kind": NEWS_KINDS[newsItem.kind] || "",
             }
         }
     );
@@ -167,7 +172,8 @@ function Kingdom(props) {
                 header={"Kingdom News"}
             >
                 <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '55%' }}/>
+                <Column field="kind" header="Type" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '45%' }}/>
                 {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
                 <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
                 <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '15%' }}/>
@@ -184,6 +190,7 @@ function Galaxy(props) {
         from: { value: null, matchMode: FilterMatchMode.CONTAINS },
         to: { value: null, matchMode: FilterMatchMode.CONTAINS },
         news: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        kind: { value: null, matchMode: FilterMatchMode.CONTAINS },
     });
     if (props.galaxynews.length === 0) {
         return null;
@@ -197,6 +204,7 @@ function Galaxy(props) {
                 "from": (newsItem.from != "") ? props.kdNames[newsItem.from] + ' (' + props.galaxyMap[newsItem.from] + ')' : "",
                 "to": (newsItem.to != "") ? props.kdNames[newsItem.to] + ' (' + props.galaxyMap[newsItem.to] + ')' : "",
                 "news": newsItem.news,
+                "kind": NEWS_KINDS[newsItem.kind] || "",
             }
         }
     );
@@ -216,7 +224,8 @@ function Galaxy(props) {
                 header={"Galaxy News"}
             >
                 <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '45%' }}/>
+                <Column field="kind" header="Type" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '35%' }}/>
                 {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
                 <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
                 <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
