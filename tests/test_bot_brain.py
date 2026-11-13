@@ -217,6 +217,8 @@ def _make_kingdom_one_a_bot(kind="attacker", **fields):
     long_ago = (datetime.datetime.now(datetime.timezone.utc) - 2 * HOUR).isoformat()
     with_bot = {"bot": {"type": kind, "next_think": (NOW - HOUR).isoformat(), "log": []}, "last_income": long_ago, **fields}
     kd = _get(f"/kingdom/{KD_ID}")
+    if "next_resolve" in fields:  # only the named categories change
+        with_bot["next_resolve"] = {**kd["next_resolve"], **fields["next_resolve"]}
     _create_item(f"kingdom_{KD_ID}", {**kd, **with_bot})
 
 
@@ -289,3 +291,18 @@ def test_a_player_kingdom_is_left_alone_by_the_refresh(app, client):
     with app.app_context():
         assert brain.maybe_think(_get(f"/kingdom/{KD_ID}"), datetime.datetime.now(datetime.timezone.utc)) is False
     assert "bot" not in _get(f"/kingdom/{KD_ID}")
+
+
+def test_auto_spending_copes_with_a_general_carrying_a_unit_the_plan_does_not_list(app, client):
+    """Regression: attackers send big_flex units that their unit targets do not name, and the refresh used to raise KeyError
+    for them every tick (found by running the bots on a real stack)."""
+    _make_kingdom_one_a_bot(
+        "attacker",
+        units_target={"attack": 0.5, "defense": 0.5},
+        funding={"settle": 0, "structures": 0, "military": 5000, "engineers": 0},
+        generals_out=[{"return_time": (NOW + 5 * HOUR).isoformat(), "attack": 10, "flex": 5, "big_flex": 3}],
+        next_resolve={"auto_spending": (NOW - HOUR).isoformat()},
+    )
+    with app.app_context():
+        state = refresh.uag._get_state()
+        refresh._refresh_kd(KD_ID, state, datetime.datetime.now(datetime.timezone.utc), False)

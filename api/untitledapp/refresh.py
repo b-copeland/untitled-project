@@ -883,7 +883,8 @@ def _resolve_auto_spending(
                 for key_unit, value_unit in general.items():
                     if key_unit == "return_time":
                         continue
-                    total_units[key_unit] += value_unit
+                    # A general can carry a unit the plan does not list (e.g. big_flex), which must not crash the refresh.
+                    total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
             count_total_units = sum(total_units.values())
             pct_total_units = {
                 k: v / count_total_units
@@ -978,7 +979,7 @@ def _resolve_auto_attack(kd_info_parse):
 
     req = {
         "attackerValues": {
-            "generals": kd_info_parse["generals_available"]
+            "generals": kd_info_parse["generals_available"] - (botbrain.RESERVED_GENERALS if kd_info_parse.get("bot") else 0)
         }
     }
     total_units = kd_info_parse["units"].copy()
@@ -1763,7 +1764,8 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
     new_kd_info = json.loads(kd_payload)
     if _resolve_schedules(kd_id, time_update, new_kd_info):
         new_kd_info = uag._get_kd_info(kd_id)
-    if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > 0:
+    reserved_generals = botbrain.RESERVED_GENERALS if new_kd_info.get("bot") else 0  # kept for the bot's own attacks
+    if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > reserved_generals:
         if _resolve_auto_attack(new_kd_info):
             new_kd_info = uag._get_kd_info(kd_id)
     if new_kd_info["auto_rob_enabled"]:

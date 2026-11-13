@@ -80,7 +80,20 @@ kingdom's own tick. Kingdoms made before the brain existed have no `bot` field a
 **Tests.** `tests/test_bot_brain.py`: every rule on a made-up world, the spreading of times, and one bot driven through
 the real refresh until a spy it queued has run.
 
+### Seeing them work
+
+`python scripts/simulate_bots.py` runs a round of bots on the local stack at 60 times the normal speed; see
+[development.md](development.md#simulating-a-round-with-bots). In a 14-minute run (24 bots, 28 epochs, 3 galaxies) no refresh failed, the bots cast 48 galaxy votes, ran 367 spy
+operations, scheduled 6 attacks on real kingdoms, and the whole universe recorded 23 attacks (the rest are auto attacks on
+primitives). Star totals moved both ways, as conquests landed.
+
+**Generals.** An attacker's auto attack sends every free general at once (at primitives), which left the brain none for
+an attack on a real kingdom. A bot's auto attack now keeps `botbrain.RESERVED_GENERALS` (2) back.
+
 ### Bugs found on the way (fixed)
+- The refresh raised `KeyError` for any kingdom whose general carried a unit its unit targets do not list (attackers with
+  big flex), so those kingdoms were skipped every tick. Found by running the bots.
+- `api/run.py` replaced Flask's log handlers with gunicorn's even without gunicorn, so no refresh error ever reached the log.
 - Scheduled **Intel Spy** and **Aggressive Spy** called `uag._get_kd`, which does not exist, so they could never run for
   anybody. Now `_get_kd_info`.
 - A scheduled **attack with autofill** that was not winnable returned the kingdom document where the caller expected an

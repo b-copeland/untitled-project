@@ -48,6 +48,9 @@ import untitledapp.shared as uas
 LOG_SIZE = 40
 SCHEDULE_LIMIT = 10  # what the game allows
 EPOCH = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+# Generals a bot's auto attack leaves alone. Auto attack otherwise sends every free general at once (at primitives), so
+# the brain, which needs one for an attack on a real kingdom, would never find any.
+RESERVED_GENERALS = 2
 
 
 @dataclasses.dataclass(frozen=True)
