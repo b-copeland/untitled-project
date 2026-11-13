@@ -109,6 +109,26 @@ The guarantee is **every request either applies exactly once or is told to retry
 (`tests/test_concurrency.py`, lock off): 6 identical builds give exactly one success, the kingdom is charged once and the
 structures are queued once; four simultaneous shield changes are all kept.
 
+### What the guarantee covers, and what it does not
+
+"Read, decide, then write only if unchanged" is not a check followed by a write. The condition travels **with** the write
+and Cosmos evaluates it on the server as part of the same operation, so there is no gap between the check and the write
+for something else to slip into. The database serializes writes to one document: if two conditional writes race, the
+second sees the new version and is refused. A stale read is harmless: it carries an old version, so the write is refused
+and costs one retry. This was confirmed against the Cosmos emulator (96 concurrent spends, all exactly once), and the
+production account has one write region (East US), so the same holds there.
+
+Limits to keep in mind:
+
+1. **One document at a time.** Nothing is atomic across documents. That is what the tiers and the outbox below are for.
+2. **Every writer has to send the condition.** An unconditional write is atomic too, but it does not compare, so it can
+   overwrite a checked write. This is why the legacy locks stay until all writers of a document are migrated.
+3. **A lost response is not yet handled.** If a write is applied but its response is lost (a timeout) and something
+   retries it with the old version, the retry gets a `412` as if someone else had written, and the handler would apply the
+   change again. For an append that is a duplicate. I have not seen it happen, and I do not know whether the Cosmos Python
+   SDK retries writes after a timeout. The fix is the one the attack design already uses: give each change an id that the
+   document remembers, so a repeat is recognized and skipped. The 31 `update_*` handlers do not do this yet.
+
 ## 3. What is done and what is not
 
 | | Status |
@@ -116,11 +136,24 @@ structures are queued once; four simultaneous shield changes are all kept.
 | Function app: 31 single-document handlers conditional and retried | Done (merged) |
 | Function app: 7 multi-document admin handlers (`create_*`, `reset_state`, `delete_all`, `init`) | Not changed. They write several documents and can not be re-run from the top. They are admin and setup operations, not hot paths. |
 | `occ.py` helper, with unit tests that need no stack | Done |
-| Routes migrated: `POST /api/structures` (build), `POST /api/shields` | Done, as the pilot. **They still take the legacy lock as well** (see below). |
+| Routes migrated to `occ.update`: every own-kingdom route in `build.py` (structures, recruits, mobis and disband, settle, missiles, engineers, projects, targets, raze), shields, `/api/spending`, `/api/createkingdomchoices`, `/api/votes`, `/api/universepolitics/policies` | Done. **They still take the legacy lock as well** (see below). |
+| Attacks (`POST /api/attack/<kd>`, primitives), spying, robbing primitives, missiles, schedule add/cancel | Done. Attacks are committed in three versioned steps (depart, resolve against the target as it is, credit). Spy and missiles charge the attacker up front under a version check and apply damage to the target's latest document. Reveal timers are min-merged and aggression is an increment on the latest `/empires`. News, history, reveal documents and notifications are still written the old way (eventual tier, not yet exactly-once), and the lock lists in these routes are unchanged. |
 | Six `acquire_lock`-in-`finally` bugs | Fixed |
-| The other ~70 lock call sites | Not migrated. Recipe above; do them by module. |
-| The refresh (`refresh.py`) | Not migrated. It needs the saga below, because it consumes queue documents before writing the kingdom. |
-| Multi-document actions (attack, spy, trade, politics) | Design below, not built. |
+| Shared intel (offer, accept, unshare), random reveal, galaxy votes, empire requests/invitations/joining/leaving, denounce, declare war | Done (version checks; messages, notifications and plain share were already safe because the function app appends them atomically). |
+| The refresh's kingdom write (`_refresh_kd`) | Done. Version-checked write, tick recomputed on conflict, queue trims and auto-spending appends only after the write, `queues_resolved_until` per queue so nothing is credited twice. |
+| **Not migrated** | Refresh sub-steps that write other documents (siphons, revealed/shared expiry, scores, empires, history, election), surrender requests/offers and their acceptance, `create_empire`, kingdom reset, `pinned`. Each takes a legacy lock and writes a document nothing else writes much. |
+| The legacy lock framework itself | **Still in place everywhere.** It can only be removed once every writer of a document checks its version, and the not-migrated list above is why it can not be yet. |
+| Outbox and sweeper (exactly-once news/history, crash recovery between the steps of an action) | Not built. See section 4. |
+
+**Where the remaining lock sites are** (69 call sites, counted by which documents each locks; the grouping is
+approximate, a few routes in the first group also touch other kingdoms):
+
+| Group | Sites | Examples | Approach |
+|---|---|---|---|
+| Own kingdom, plus one of its sub-documents | 39 | build, train, disband, projects, settle, missiles, schedules, pinned, shields, shared intel | Section 2 recipe. Mechanical, one route at a time. |
+| Several documents of different owners | 19 | politics (invites, requests, surrender, denounce, policies), election, auto spending, history | Section 4 outbox pattern, or section 2 where the "other" document is only appended to. |
+| Lock list built at runtime | 6 | attack, spy, offer/accept shared intel, surrender acceptance, kingdom reset | Section 4. Attacks follow the sequencing design below. |
+| Shared documents only | 5 | create kingdom, create empire, declare war, resolve scores, resolve empires | Mostly merge or append semantics that the function app now handles; a few need a decision step. |
 
 **Why the legacy lock is still there.** Until *every* writer of a document checks its version, a writer that does not
 check can overwrite a checked one (it reads, a checked write lands, then it writes its stale copy over it). While both
@@ -149,9 +182,69 @@ The pattern to use: **one atomic decision, then idempotent effects** (the transa
    normally does the work; a periodic sweep (an Azure Functions timer trigger, which the function app can host) finishes
    anything left over.
 
-This gives exactly-once effects without a transaction coordinator. Two accepted trade-offs: effects on other kingdoms land
-a moment after the decision, and an attack is resolved against the target as it was when the attacker's decision was made
-(which is the same as ordering the attack at that instant).
+This gives exactly-once effects without a transaction coordinator. The trade-off: effects on other kingdoms land a moment
+after the decision, rather than in the same instant.
+
+### Which documents need strict handling: three tiers
+
+An attack touches many documents (`_attack` writes four kingdom documents, the attack history, kingdom news twice, galaxy
+news twice and a reveal, and adds aggression and notifications; its lock list also covers `/empires`, and for a
+cross-galaxy attack a `revealed` and a kingdom document for every member of the defender's galaxy). Most of those do not
+need to be consistent with each other at the same instant. One question sorts them: **does any later decision read this
+document to decide whether something is allowed, or how big an outcome is?**
+
+| Tier | Documents | How they are written |
+|---|---|---|
+| **Strict** | the kingdom documents that hold what is at stake: the actor's and the target's (including the target's death state) | Conditional writes, sequenced by version, as designed here. An attack has at most two decision points: the attacker, then the target. |
+| **Eventual, exactly-once** | news, attack and spy history, notifications, `revealed`, galaxy news, messages | Applied from the outbox with ids, so a repeat is a no-op, normally within seconds. Appends commute, so their order does not matter. `revealed` is "set if newer". |
+| **Derived** | scores, galaxy networth, empire aggregates | Actions do not write them. The refresh already recomputes them from the kingdom documents every tick. |
+
+So the strict part of an attack is two documents, not dozens, and the rest lands a moment later without ever being able
+to disagree about the money or the land. Eventual writes can also be batched (for example, several news lines in one
+write), which saves Request Units (see section 5).
+
+Not yet read: why the lock list includes every defender-galaxy member's kingdom document, and what `_add_aggression`
+writes to `/empires`. Both need a look before they are assigned a tier.
+
+### Attacks: concurrent attacks on one target resolve one after another
+
+Requirement (from the maintainer): an attack is resolved against the target roughly as it was when the attacker decided,
+but if two players attack the same kingdom at the same time, the attacks must resolve **sequentially**, because each
+outcome depends on the other.
+
+The target's own document is the sequencer, so no queue or lock is needed:
+
+1. **Commit the attacker's side.** In one conditional write to the attacker's document: the units and generals leave, the
+   cost is paid, and an attack record with an id (`attack_id`) is added to its outbox. This is the same single-document
+   decision as everywhere else, so an attacker can not send the same units twice.
+2. **Resolve against the target.** Read the target document (and its version), compute the outcome from the target as it
+   is *now*, and write the target's losses with `If-Match`, recording `attack_id` in the target's list of applied attacks.
+   If another attack, or any other write, landed on the target in between, the write is refused, the target is read
+   again, and the outcome is recomputed. Attacks on the same target therefore resolve one after another, each seeing the
+   previous one's losses, in the order they commit to the target. The outcome calculators are pure functions of
+   (attacker forces, target state), so recomputing is safe; messages and notifications are sent only after the commit.
+3. **Report back.** Apply the result to the attacker (land and gains, casualties, return time) and write the news and
+   history entries, idempotently keyed by `attack_id`. The outbox sweep finishes any that a crash left behind.
+
+"Roughly as it was when the attacker decided" holds because steps 1 and 2 are normally milliseconds apart. If the target
+also spent money or built something in that gap, the attack sees that too, which is closer to real-time play than a
+snapshot. Scheduled attacks and auto attacks go through the same path.
+
+**Reveals are eventual and min-merged** (maintainer's decision). An attack across galaxies reveals the attacker's galaxy
+to every defender-galaxy member by writing their `revealed` document and lowering `next_resolve.revealed` on their
+kingdom document. That is why the attack's lock list contains the whole defender galaxy, but nothing about the combat
+depends on it. Taking the sooner of the stored and the new timestamp is idempotent and order-independent, so it can run
+after the strict steps, on its own, with a version-checked write per member and a sweep for any that fail. The aggression
+counter in `/empires` (`_add_aggression`) should become an increment applied to the freshest document for the same reason.
+
+**What is built so far:** steps 1 to 3 above for the attack itself, using the target's version as the sequencer, plus the
+min-merged reveal timers and the aggression increment. Not built: the `attack_id` outbox and sweep, so a crash between
+the steps leaves the attacker's units out with no result applied (the attacker side is compensated if the target step
+fails, but not if the process dies). News and history writes are unchanged.
+
+Open question: the order is the order attacks *reach the target document*, which is the only order that exists across
+several servers. If the order players *clicked* must win over the order requests arrived, a per-target queue would be
+needed. I would not build that unless it matters in play.
 
 **The refresh** is the hardest case, because it consumes queue documents (`settles`, `mobis`, `structures`, ...) *before*
 it writes the kingdom, so a conflict on the kingdom would either lose the completed items or credit them twice. It needs
@@ -184,12 +277,42 @@ queue it needs. It would work, but:
 
 The locks were one of four per-server pieces of state. Removing them does not make a second instance safe by itself.
 
+Production runs `gunicorn -k gthread --threads=100 --timeout 600`: one process, 100 threads, requests allowed ten
+minutes. So today's duplicate actions did **not** need a second server. Up to 100 requests run at once in the same
+process, and the lock leases are 10 to 20 seconds, so a request that takes longer than its lease (the function app being
+slow, with a timeout this generous) loses its lock while still working. That, plus writers that never took the lock, is
+the likeliest source of the duplicates seen in the beta round. I have not reproduced that exact case.
+
+The web app is also on the **Free (F1) App Service plan**, which is limited to one instance, so scaling out starts with
+changing the plan. The same plan allows only 5 concurrent WebSocket connections, so live notifications reach few players.
+Separately, the `/ws/listen` handler loops for as long as a player is connected, so each connection occupies one of the
+100 gunicorn threads for its whole lifetime; with enough players online, sockets alone would use up the threads that
+serve ordinary requests. (That second point is from reading the code, not from a measurement.) The function app is different: it runs on a Linux Consumption plan, which scales out on its own, so
+several function app instances can already run at once. See "What Azure actually runs" in
+[deployment.md](deployment.md).
+
 | State | Where | What breaks with two instances | Direction |
 |---|---|---|---|
 | Users and locks | SQLite file (`SQLALCHEMY_DATABASE_URI`) | Each instance has its own users; the lock table is covered above | Move users to Cosmos, or a shared SQL database |
 | Websocket registry | `SOCK_HANDLERS` dict in `untitledapp/__init__.py` | A notification only reaches players whose socket is on the instance that raised it | Azure Web PubSub / SignalR, or Redis pub/sub |
 | Rate limiter | `Limiter(storage_uri="memory://")` | Limits are per instance | Shared storage for the limiter |
-| The refresh | `/api/refreshdata`, called by something outside the repo | Two overlapping refreshes must not both resolve a kingdom | Covered by per-kingdom version checks once converted |
+| The refresh | `/api/refreshdata`, called every minute by the `refreshapp` WebJob (not in the repo) | Two overlapping refreshes must not both resolve a kingdom | Covered by per-kingdom version checks once converted |
+
+### The Cosmos budget
+
+All four containers in the `dev` database share **1000 RU/s**, the free-tier allowance. Writes are what cost: measured on
+the emulator, a read of a typical document is about 1 RU, and a conditional write is about 10 RU for a small document
+and about 13 RU for a 3 KB kingdom document. These are emulator figures; they should be close to Azure's, but check the
+request charge on the real account before relying on them.
+
+| | Roughly |
+|---|---|
+| Kingdom writes the whole game can sustain | about 75 per second |
+| One attack with about ten document writes | about 120 to 150 RU, so a handful of attacks per second at most, before the refresh and everything else |
+| A throttled request (`429`) | surfaces as a 500, because the handlers' bare `except` swallows it |
+
+Practical consequences: keep the strict tier small, batch and coalesce the eventual tier, avoid retry storms on hot
+documents, and keep dev and test traffic off the production database (the local emulator exists for that).
 
 ## 6. Reproducing and testing
 
@@ -202,7 +325,10 @@ conda run -n funcapp-worker python -m pytest funcapp/tests
 conda run -n funcapp python -m pytest tests/test_occ.py
 
 # End to end through the real routes (needs the stack running, like the other tests in tests/)
-conda run -n funcapp python -m pytest tests/test_concurrency.py
+conda run -n funcapp python -m pytest tests/test_concurrency.py tests/test_attack.py
+
+# Mixed actions with exact bookkeeping checks; raise STRESS_ROUNDS to hunt for rare races
+$env:STRESS_ROUNDS = 20; conda run -n funcapp python -m pytest tests/test_stress.py
 ```
 
 To see the original bug, run the same checks against the code from before these changes: the end-to-end tests fail on the
