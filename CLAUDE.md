@@ -90,6 +90,8 @@ Start the pieces in this order. Each needs its own long-running process.
 4. **Function app:** `func host start` from `funcapp/` (Azure Functions Core Tools 4).
 5. **API:** `flask run -p 8000` from `api/` (needs `FLASK_APP=run` and the rest of `api/.flaskenv`).
 6. **Frontend:** `npm start` from the repo root.
+7. **Refresh loop:** `python scripts/refresh_loop.py` (any Python; it reads `REFRESH_SECRET` from `api/.flaskenv`). Nothing else
+   calls `/api/refreshdata` locally, so without it income, builds, reveal expiry, scheduled actions and bots do not advance.
 
 Conda environments under `C:\Users\bcope\miniconda3\envs\`:
 - `funcapp`: Python 3.10 with `requirements.txt`, for Flask and pytest.
