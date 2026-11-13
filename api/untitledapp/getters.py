@@ -61,6 +61,10 @@ def get_state():
         "surrender_options": uas.SURRENDER_OPTIONS,
     }), 200
 
+def _round_is_over():
+    return bool(_get_state()["state"].get("game_over"))
+
+
 def _get_scores():
     app = flask.current_app
     get_response = REQUESTS_SESSION.get(
@@ -71,46 +75,29 @@ def _get_scores():
     return get_response_json
 
 
-def _get_scores_redacted(revealed, kd_id, galaxies_inverted):
+def _get_scores_redacted(revealed, kd_id, galaxies_inverted, everything_public=False):
     scores = _get_scores()
 
-    top_nw = sorted(scores["networth"].items(), key=lambda item: -item[1])
-    top_stars = sorted(scores["stars"].items(), key=lambda item: -item[1])
-    top_points = sorted(scores["points"].items(), key=lambda item: -item[1])
+    def mine(other_id):
+        return other_id == kd_id or galaxies_inverted[other_id] == galaxies_inverted[kd_id]
 
-    top_nw_redacted = []
-    top_stars_redacted = []
-    top_points_redacted = []
-    for item in top_nw:
-        if "stats" in revealed["revealed"].get(item[0], {}) or item[0] == kd_id or galaxies_inverted[item[0]] == galaxies_inverted[kd_id]:
-            top_nw_redacted.append(item)
-        else:
-            top_nw_redacted.append(
-                ("", item[1])
-            )
-    for item in top_stars:
-        if "stats" in revealed["revealed"].get(item[0], {}) or item[0] == kd_id or galaxies_inverted[item[0]] == galaxies_inverted[kd_id]:
-            top_stars_redacted.append(item)
-        else:
-            top_stars_redacted.append(
-                ("", item[1])
-            )
-    for item in top_points:
-        if item[0] == kd_id or galaxies_inverted[item[0]] == galaxies_inverted[kd_id]:
-            top_points_redacted.append(item)
-        else:
-            top_points_redacted.append(
-                ("", item[1])
-            )
-        
-    top_galaxy_networth = sorted(scores["galaxy_networth"].items(), key=lambda x: -x[1])
-    payload = {
-        "networth": top_nw_redacted,
-        "stars": top_stars_redacted,
-        "points": top_points_redacted,
-        "galaxy_networth": top_galaxy_networth,
+    def shown(other_id, needs_reveal=True):
+        if everything_public:  # the round is over: every kingdom's name and numbers are public
+            return True
+        if needs_reveal and "stats" in revealed["revealed"].get(other_id, {}):
+            return True
+        return mine(other_id)
+
+    def redact(category, needs_reveal=True):
+        ranked = sorted(scores[category].items(), key=lambda item: -item[1])
+        return [item if shown(item[0], needs_reveal) else ("", item[1]) for item in ranked]
+
+    return {
+        "networth": redact("networth"),
+        "stars": redact("stars"),
+        "points": redact("points", needs_reveal=False),
+        "galaxy_networth": sorted(scores["galaxy_networth"].items(), key=lambda x: -x[1]),
     }
-    return payload
 
 @bp.route('/api/scores', methods=["GET"])
 @flask_praetorian.auth_required
@@ -120,7 +107,7 @@ def get_scores():
     kd_id = flask_praetorian.current_user().kd_id
     revealed = _get_revealed(kd_id)
     galaxies_inverted, _ = _get_galaxies_inverted()
-    scores_redacted = _get_scores_redacted(revealed, kd_id, galaxies_inverted)
+    scores_redacted = _get_scores_redacted(revealed, kd_id, galaxies_inverted, everything_public=_round_is_over())
     return flask.jsonify(scores_redacted), 200
 
 @bp.route('/api/kingdomid')
@@ -793,6 +780,9 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
     
     kd_info_parse = json.loads(kd_info.text)
     if max:
+        return kd_info_parse
+
+    if _round_is_over():  # everything about every kingdom is public once the round is over
         return kd_info_parse
 
     if other_kd_id in revealed_info["revealed_galaxymates"]:

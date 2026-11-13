@@ -50,6 +50,12 @@ fix it.
   `COSMOS_CONTAINER_NAME`.
 - **Startup coupling:** with the real config, `create_app` calls the function app's `/accounts` to sync users into
   SQLite, so **the function app must be running before Flask starts**.
+- **End of a round:** `untitledapp/roundend.py`. When `game_end` passes, the refresh finishes one tick, archives the round
+  (`archive_<n>`, kept across resets, `GET /api/archive`), sets `game_over` in the state, and from then on every write is
+  refused, the refresh does nothing and all kingdom information is public. `POST /api/admin/endround` ends one early;
+  `/api/resetstate` opens the next. A frontend banner shows when `state.game_over` is set.
+- **Simulating bots locally:** `scripts/simulate_bots.py` with `EPOCH_SECONDS` set on Flask and the function app; see
+  [docs/development.md](docs/development.md#simulating-a-round-with-bots).
 - **Email:** `untitledapp/mailer.py` (smtp, console or memory backend) and the account recovery routes in `account.py`. See [docs/email.md](docs/email.md).
 - **Real-time push:** clients open a websocket at `/ws/listen` and register their JWT. `SOCK_HANDLERS` maps `kd_id` to
   the open socket.

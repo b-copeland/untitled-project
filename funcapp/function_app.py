@@ -22,6 +22,7 @@ CONTAINER = ConditionalContainer(DATABASE.get_container_client(CONTAINER_NAME))
 
 APP = func.FunctionApp()
 
+ARCHIVE_PREFIX = "archive_"  # finished rounds (api/untitledapp/roundend.py) outlive a reset
 RESET_KEEP_IDS = [
     "accounts",
     "state",
@@ -174,7 +175,7 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
     try:
         items = CONTAINER.read_all_items()
         for item in items:
-            if item["id"] not in RESET_KEEP_IDS:
+            if item["id"] not in RESET_KEEP_IDS and not item["id"].startswith(ARCHIVE_PREFIX):
                 CONTAINER.delete_item(
                     item=item["id"],
                     partition_key=item["id"],

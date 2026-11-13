@@ -104,3 +104,15 @@
   color: var(--bs-danger);
   font-weight: bold;
 }
+
+/* The round has ended (components/header.js): a full-width line above the numbers. */
+.header-container { flex-wrap: wrap; }
+.header-over {
+  flex-basis: 100%;
+  text-align: center;
+  padding: 6px;
+  margin-bottom: 4px;
+  border: 1px solid var(--bs-warning);
+  color: var(--bs-warning-text-emphasis, inherit);
+  background: var(--bs-warning-bg-subtle, transparent);
+}
