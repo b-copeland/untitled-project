@@ -43,12 +43,14 @@ test("hangar space is shown, and a locked unit says what unlocks it", () => {
     expect(document.getElementById("big_flex-train-input").disabled).toBe(true);
 });
 
-test("training is refused with the reason before it is sent", () => {
+test("training waits for units, and the slider stops at the recruits you have", () => {
     show();
     const train = () => screen.getByRole("button", { name: "Train units" });
     expect(train().disabled).toBe(true);
+    expect(train().title).toBe("Choose some units to train");
     fireEvent.change(document.getElementById("attack-train-input"), { target: { value: "20" } });
     expect(train().disabled).toBe(false);
-    fireEvent.change(document.getElementById("attack-train-input"), { target: { value: "60" } });
-    expect(train().title).toMatch(/50 recruits/);
+    fireEvent.change(document.getElementById("attack-train-input"), { target: { value: "60" } });  // only 50 recruits
+    expect(document.getElementById("attack-train-input").value).toBe("50");
+    expect(train().disabled).toBe(false);
 });

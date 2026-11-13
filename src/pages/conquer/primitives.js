@@ -123,12 +123,12 @@ function AttackPrimitives(props) {
                     {ATTACK_UNITS.map(([key, name]) => (
                         (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
                             ? <FieldRow key={key} label={name} stat={<UnitStat kind="offense" value={unitsDesc[key]?.offense} />} htmlFor={"prim-" + key}>
-                                <AmountInput name={key} id={"prim-" + key} label={name} value={attackerValues[key]} onChange={onChange} max={myUnits[key] || 0} />
+                                <AmountInput box name={key} id={"prim-" + key} label={name} value={attackerValues[key]} onChange={onChange} max={myUnits[key] || 0} />
                             </FieldRow>
                             : null
                     ))}
                     <FieldRow label="Generals" htmlFor="prim-generals">
-                        <AmountInput name="generals" id="prim-generals" label="Generals" value={attackerValues.generals} onChange={onChange} max={kingdom.generals_available || 0} />
+                        <AmountInput box name="generals" id="prim-generals" label="Generals" value={attackerValues.generals} onChange={onChange} max={kingdom.generals_available || 0} />
                     </FieldRow>
                 </Panel>
                 <Panel title="Forecast" hint={hasForecast ? undefined : "Choose some units to see how it would go."}>
@@ -214,7 +214,7 @@ function RobPrimitives(props) {
             <div className="planner-grid">
                 <Panel title="Your drones" hint={`You have ${whole(maxDrones)} drones and ${kingdom.spy_attempts ?? 0} spy attempts.`}>
                     <FieldRow label="Drones to send" htmlFor="rob-drones">
-                        <AmountInput name="drones" id="rob-drones" label="Drones to send" value={drones} onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
+                        <AmountInput box name="drones" id="rob-drones" label="Drones to send" value={drones} onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
                     </FieldRow>
                     <FieldRow label="Shield the drones" hint="Protects them if the rob fails">
                         <Form.Check type="switch" id="shield-drones-switch" checked={shieldDrones} onChange={(e) => setShieldDrones(e.target.checked)} />

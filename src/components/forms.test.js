@@ -2,9 +2,9 @@ import React, { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { AmountInput } from "./forms";
 
-function Harness({ max, error }) {
+function Harness({ max, error, box = true }) {
     const [value, setValue] = useState("");
-    return <AmountInput name="homes" label="Homes" value={value} max={max} error={error} onChange={(e) => setValue(e.target.value)} />;
+    return <AmountInput box={box} name="homes" label="Homes" value={value} max={max} error={error} onChange={(e) => setValue(e.target.value)} />;
 }
 
 test("Max fills in the most that can be done", () => {
@@ -36,7 +36,7 @@ test("a max that is not a number does not break the slider", () => {
 test("the slider keeps its length when others use the pool, greys the lost part and stops there", () => {
     function Shared({ available }) {
         const [value, setValue] = useState("");
-        return <AmountInput name="homes" label="Homes" value={value} max={available} soloMax={100} onChange={(e) => setValue(e.target.value)} />;
+        return <AmountInput box name="homes" label="Homes" value={value} max={available} soloMax={100} onChange={(e) => setValue(e.target.value)} />;
     }
     render(<Shared available={40} />);
     const slider = screen.getByLabelText("Homes slider");
@@ -51,10 +51,33 @@ test("the slider keeps its length when others use the pool, greys the lost part 
 test("the slider is dark up to the choice, light up to what is free, grey after", () => {
     function Shared() {
         const [value, setValue] = useState("25");
-        return <AmountInput name="homes" label="Homes" value={value} max={60} soloMax={100} onChange={(e) => setValue(e.target.value)} />;
+        return <AmountInput box name="homes" label="Homes" value={value} max={60} soloMax={100} onChange={(e) => setValue(e.target.value)} />;
     }
     render(<Shared />);
     const style = screen.getByLabelText("Homes slider").style;
     expect(style.getPropertyValue("--val")).toBe("25%");
     expect(style.getPropertyValue("--avail")).toBe("60%");
+});
+
+test("by default it is the slider alone: the number on its left, the most on its right, and no box", () => {
+    render(<Harness max={10} box={false} />);
+    expect(screen.queryByRole("textbox")).toBeNull();
+    const slider = screen.getByLabelText("Homes");
+    expect(slider.type).toBe("range");
+    fireEvent.change(slider, { target: { value: "7" } });
+    expect(screen.getByText("7")).toBeTruthy();
+    expect(slider.value).toBe("7");
+});
+
+test("pressing the most on its right fills it in", () => {
+    render(<Harness max={42} box={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "42" }));
+    expect(screen.getByLabelText("Homes").value).toBe("42");
+});
+
+test("the slider-only form shows an error and is off when there is nothing to do", () => {
+    render(<Harness max={0} box={false} error="Nope" />);
+    expect(screen.getByLabelText("Homes").disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "0" }).disabled).toBe(true);
+    expect(screen.getByText("Nope")).toBeTruthy();
 });

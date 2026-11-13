@@ -73,7 +73,7 @@ fix it.
 - **CSS:** shared layout classes and tokens are in [src/styles/shared.css](src/styles/shared.css) (`col-center`,
   `box-tight`, `game-table`, ...). Put a rule in a page stylesheet only if it is particular to that page. Before adding a
   rule, check it is not already a shared class.
-- **Number inputs for amounts:** `AmountInput` (forms.js) is a box, a slider and a Max button; give it the most that can be done. **Planning pages** (Attack, Spy, Primitives, Share Intel, Schedule) are built from `Panel`, `FieldRow`, `Stats`, `VersusBar` and `Picker` in [src/components/planner.js](src/components/planner.js), with a forecast that follows the inputs and a confirm step before anything is sent.
+- **Number inputs for amounts:** `AmountInput` (forms.js) is a slider with the number chosen on its left and the most on its right (press it to fill it in); give it the most that can be done. `box` adds a number box and a Max button, used on the planner pages where the exact number matters. **Planning pages** (Attack, Spy, Primitives, Share Intel, Schedule) are built from `Panel`, `FieldRow`, `Stats`, `VersusBar` and `Picker` in [src/components/planner.js](src/components/planner.js), with a forecast that follows the inputs and a confirm step before anything is sent.
 - **Icons:** `react-icons`, shown through `IconButton` (name in the tooltip and the accessible label).
 - **Tests:** Jest, next to the code (`npm test`). `src/setupTests.js` stubs `matchMedia`. Mock `components/header` and
   `components/helpbutton` when testing a page, and set mock implementations in `beforeEach` (Create React App resets mocks).

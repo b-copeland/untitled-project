@@ -99,7 +99,7 @@ function LaunchMissiles(props) {
                             <FieldRow key={key} label={label}
                                 tip={`Damages ${desc[key]?.stars_damage || 0} stars, ${desc[key]?.fuel_damage || 0} fuel and ${desc[key]?.pop_damage || 0} population each (before shields)`}
                                 htmlFor={`${key}-input`}>
-                                <AmountInput name={key} label={label} value={form.values[key]} onChange={form.onChange}
+                                <AmountInput box name={key} label={label} value={form.values[key]} onChange={form.onChange}
                                     max={have[key] || 0} error={fieldError(key)} />
                             </FieldRow>
                         ))}

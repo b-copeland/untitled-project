@@ -300,6 +300,19 @@ Built (see the sections above for the detail):
 Not built: the Status dashboard, Queue timeline, politics inbox, Create Kingdom presets,
 View Kingdom cards, result report cards. None of the UI has been seen in a browser by me.
 
+## Round 3 (branch `ux-review-2`), towards merging
+
+1. **Scores:** the "N more to pass X" text is removed; the rank line is back to "You are ranked 12 of 98."
+2. **Build pages: slider only.** `AmountInput` is now just the slider, with the number chosen on its left and the most you
+   can choose on its right (press it to fill it in). The box and the Max button are gone from Settle, Structures,
+   Military, Projects and Missiles. The planner pages (Attack, Spy, Primitives, Schedule, Launch Missiles) keep the box,
+   because the exact number matters there (`<AmountInput box>`). The reasoning: the auto builder does most of the
+   building, so the Build pages need a quick way to set an amount, not precision. Sliders can no longer be pushed past what
+   is possible, so the "At most N" errors on those pages only appear for things the slider cannot stop.
+3. **Attack and Spy: confirm only the troublesome cases.** Attack sends straight away when their army is revealed and the
+   forecast says it wins; it asks first if their army is not revealed (no Spy on Military), there is no forecast, or the
+   forecast says it would fail. Spy sends straight away except for a hostile operation or a known chance below 40%.
+   (The "hostile" and "40%" lines are my choice; say if you want them different.)
 ## Round 2 (branch `ux-review-2`), after review
 
 Ben's answers to the round 2 questions, and what was done with them:
