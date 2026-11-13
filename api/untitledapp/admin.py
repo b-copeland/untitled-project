@@ -109,6 +109,12 @@ def reset_state():
         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/resetstate',
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
     )
+    # A new round is open for play again; the finished one stays in its archive.
+    REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + '/updatestate',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps({"game_over": ""}),
+    )
     query = db.session.query(User).all()
     for user in query:
         user.kd_id = None
