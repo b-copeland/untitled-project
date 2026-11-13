@@ -107,9 +107,15 @@ function LaunchMissiles(props) {
 
                     <Panel title="3. Forecast">
                         {total < 1 ? <p className="planner-why">Choose some missiles to see what they would do.</p> : null}
-                        {total > 0 && forecast.message ? <Alert variant="info">
-                            {forecast.message}{forecasting ? " (updating...)" : ""}
-                        </Alert> : null}
+                        {total > 0 && forecast.damage ? <>
+                            <Stats items={[
+                                { label: "Stars destroyed", value: displayNumber(forecast.damage.stars) },
+                                { label: "Fuel destroyed", value: displayNumber(forecast.damage.fuel) },
+                                { label: "Population killed", value: displayNumber(forecast.damage.pop) },
+                            ]} />
+                            {forecasting ? <div className="planner-why">updating...</div> : null}
+                        </> : null}
+                        {total > 0 && !forecast.damage && forecast.message ? <Alert variant="warning">{forecast.message}</Alert> : null}
                         {total > 0 && !shieldsKnown && shields === "" ? <Alert variant="secondary">
                             Their shields are not revealed and not entered, so this assumes none.
                         </Alert> : null}
@@ -128,7 +134,11 @@ function LaunchMissiles(props) {
                     <Modal.Body>
                         <p>At <strong>{selected !== undefined ? kdLabel(selected) : ""}</strong>. Missiles that are launched are used up.</p>
                         <Stats items={MISSILES.filter(({ key }) => sending[key] > 0).map(({ key, label }) => ({ label, value: displayNumber(sending[key]) }))} />
-                        {forecast.message ? <Alert variant="info">{forecast.message}</Alert> : null}
+                        {forecast.damage ? <Stats items={[
+                            { label: "Stars", value: displayNumber(forecast.damage.stars) },
+                            { label: "Fuel", value: displayNumber(forecast.damage.fuel) },
+                            { label: "Population", value: displayNumber(forecast.damage.pop) },
+                        ]} /> : null}
                     </Modal.Body>
                     <Modal.Footer>
                         <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>

@@ -122,3 +122,16 @@ def test_the_spy_forecast_carries_the_servers_own_success_chance(app, client, jw
     body = response.get_json()
     assert 0 < body["success_chance"] <= 1
     assert f"{body['success_chance']:.2%}" in body["message"]
+
+
+def test_the_missile_forecast_gives_damage_as_numbers_as_well_as_a_sentence(app, client, jwt1):
+    _set_up_two_kingdoms()
+    _create_item(f"kingdom_{KD_ID}", {**_get(f"/kingdom/{KD_ID}"), "missiles": {"planet_busters": 5, "star_busters": 0, "galaxy_busters": 0}})
+
+    response = client.post(f"/api/calculatemissiles/{TARGET_ID}", json={"attackerValues": {"planet_busters": "3"}, "defenderShields": "50"},
+                           headers={"Authorization": f"Bearer {jwt1}"})
+
+    body = response.get_json()
+    assert response.status_code == 200 and body["message"].startswith("The missiles will destroy")
+    assert set(body["damage"]) == {"stars", "fuel", "pop"} and body["damage"]["stars"] > 0
+    assert body["shields_assumed"] == 0.5

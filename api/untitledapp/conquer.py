@@ -2740,6 +2740,9 @@ def calculate_missiles(target_kd):
 
     payload = {
         "message": message,
+        # The same damage as numbers, so the page can show it without parsing the sentence.
+        "damage": {key.replace('_damage', ''): value for key, value in missile_damage.items()},
+        "shields_assumed": defender_shields,
     }
     return (flask.jsonify(payload), 200)         
     
