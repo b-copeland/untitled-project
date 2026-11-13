@@ -201,3 +201,38 @@ test("refetches what a kingdom timer produced when that timer rolls over", async
   });
   await waitFor(() => expect(callsTo("api/mobis")).toBe(2));
 });
+
+test("everything is fetched again the moment a new player's kingdom is created, and again after a reset", async () => {
+  responses[ENDPOINTS.kingdomid] = { kd_id: "", created: false };
+  const { result } = setup();
+  await waitFor(() => expect(GAME_KEYS.every((key) => !result.current.loading[key])).toBe(true));
+  expect(callsTo(KINGDOM)).toBe(1);
+
+  responses[ENDPOINTS.kingdomid] = { kd_id: "7", created: true };
+  await act(async () => {
+    await result.current.updateData(["kingdomid"]);
+  });
+  await waitFor(() => expect(callsTo(KINGDOM)).toBe(2));
+  expect(callsTo(ENDPOINTS.structures)).toBe(2);
+
+  // Reset Kingdom turns it off and on again.
+  responses[ENDPOINTS.kingdomid] = { kd_id: "7", created: false };
+  await act(async () => {
+    await result.current.updateData(["kingdomid"]);
+  });
+  responses[ENDPOINTS.kingdomid] = { kd_id: "7", created: true };
+  await act(async () => {
+    await result.current.updateData(["kingdomid"]);
+  });
+  await waitFor(() => expect(callsTo(KINGDOM)).toBe(3));
+});
+
+test("a player who already had a kingdom does not trigger a second fetch of everything", async () => {
+  responses[ENDPOINTS.kingdomid] = { kd_id: "7", created: true };
+  const { result } = setup();
+  await waitFor(() => expect(GAME_KEYS.every((key) => !result.current.loading[key])).toBe(true));
+  await act(async () => {
+    await result.current.updateData(["kingdomid"]);
+  });
+  expect(callsTo(KINGDOM)).toBe(1);
+});

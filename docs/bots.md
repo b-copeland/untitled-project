@@ -27,6 +27,15 @@ so a hundred bots are not a hundred copies.
 the same validators the routes use, and `tests/test_bots.py` fails if an edit makes one illegal, so a bad number can not
 reach a bot.
 
+### Also the players' quick starts
+
+The same four archetypes are offered to new players on the Create Kingdom page (`Archetype.label` is the name they
+see; `bots.preset_view` is what `/api/createkingdomdata` sends). Picking one starts the kingdom with the archetype's race,
+units and structures and stores its plan exactly (no variation: `bots.player_settings`), but **nothing runs unless the
+player says so**: the page asks whether to switch the auto builder on, and only then are auto spending, auto assigning
+engineers, shields and auto attack or rob enabled. So an edit to an archetype changes what new players are offered as
+well as what bots do; `problems()` still has to pass.
+
 ### Creating them
 
 As an admin (log in at `/admin` or with the `admin` account):

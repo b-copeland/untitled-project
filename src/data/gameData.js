@@ -229,6 +229,17 @@ export function useGameData({ logged }) {
     }
   }, [nextResolve, updateData]);
 
+  // A new player's data was fetched before their kingdom existed (so it is empty or an error), and kingdom polling was
+  // off. The moment the kingdom is made, fetch everything again. The same goes after Reset Kingdom.
+  const created = data.kingdomid.created;
+  const wasCreated = useRef(created);
+  useEffect(() => {
+    if (created === true && wasCreated.current === false) {
+      updateData(["all"]);
+    }
+    wasCreated.current = created;
+  }, [created, updateData]);
+
   const loading = useMemo(() => {
     const result = {};
     GAME_KEYS.forEach((key) => {

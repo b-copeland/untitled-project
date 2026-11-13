@@ -1,80 +1,42 @@
-import { displayPercent } from "../../../format";
-import React, { useMemo, useEffect, useState, useRef } from "react";
+import { raceDescriptions } from "../../../races";
+import React, { useEffect, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
 
 function CreateKingdom(props) {
     const yourElementRef = useRef(null);
-  
+
     useEffect(() => {
       if (Object.keys(props.state).length > 0 && props.scrollTarget === "createkingdom") {
         yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
       }
     }, [props.state]);
-    
-    const racesDesc = {
-        "Gaian": {
-            pros: <div>
-                <span>{`Settle Cost -${displayPercent(props.state.game_config?.GAIAN_SETTLE_COST_REDUCTION || 0)}`}</span>
-                <br/>
-                <span>{`Settle Time -${displayPercent(props.state.game_config?.GAIAN_SETTLE_TIME_REDUCTION || 0)}`}</span>
-            </div>,
-            cons: <span>{`Defense -${displayPercent(props.state.game_config?.GAIAN_DEFENSE_REDUCTION || 0)}`}</span>,
-        },
-        "Vult": {
-            pros: <div>
-                <span>{`Drone Production +${displayPercent(props.state.game_config?.VULT_DRONE_PRODUCTION_INCREASE || 0)}`}</span>
-                <br/>
-                <span>Aggressive spy operations ignore spy shields and spy radar</span>
-            </div>,
-            cons: <span>{`Population -${displayPercent(props.state.game_config?.VULT_POPULATION_REDUCTION || 0)}`}</span>,
-        },
-        "Lumina": {
-            pros: <div>
-                <span>{`Fuel Production +${displayPercent(props.state.game_config?.LUMINA_FUEL_PRODUCTION_INCREASE || 0)}`}</span>
-                <br/>
-                <span>Intel spy operations do not consume spy attempts (when sending at least 50% of your drones)</span>
-            </div>,
-            cons: <span>{`Offense -${displayPercent(props.state.game_config?.LUMINA_OFFENSE_REDUCTION || 0)}`}</span>,
-        },
-        "Xo": {
-            pros: <div>
-                <span>{`Attack Gains +${displayPercent(props.state.game_config?.XO_ATTACK_GAINS_INCREASE || 0)}`}</span>
-                <br/>
-                <span>{`Attack Unit Losses -${displayPercent(props.state.game_config?.XO_ATTACK_UNIT_LOSSES_REDUCTION || 0)}`}</span>
-            </div>,
-            cons: <span>{`Workshop Capacity -${displayPercent(props.state.game_config?.XO_WORKSHOP_CAPACITY_REDUCTION || 0)}`}</span>,
-        },
-        "Fuzi": {
-            pros: <div>
-                <span>{`Missiles Cost -${displayPercent(props.state.game_config?.FUZI_MISSILE_COST_REDUCTION || 0)}`}</span>
-                <br/>
-                <span>{`Missiles Silo Capacity +${displayPercent(props.state.game_config?.FUZI_MISSILE_SILO_CAPACITY_INCREASE || 0)}`}</span>
-                <br/>
-                <span>{`Ignores missile shields beyond ${displayPercent(props.state.game_config?.FUZI_MISSILE_SHIELDS_MAX || 0)}`}</span>
-            </div>,
-            cons: null
-        },
-    };
-    const prettyNames = props.state.pretty_names || {};
+
+    const lines = (list) => list.map((line, index) => <React.Fragment key={line}>{index > 0 ? <br/> : null}<span>{line}</span></React.Fragment>);
+    const racesDesc = raceDescriptions(props.state.game_config);
     const racesRows = Object.keys(racesDesc).map((racesKey, iter) => {
         return <tr key={"races_" + iter}>
             <td style={{textAlign: "left"}}>{racesKey}</td>
-            <td style={{textAlign: "left"}}>{racesDesc[racesKey].pros}</td>
-            <td style={{textAlign: "left"}}>{racesDesc[racesKey].cons}</td>
+            <td style={{textAlign: "left"}}>{lines(racesDesc[racesKey].pros)}</td>
+            <td style={{textAlign: "left"}}>{lines(racesDesc[racesKey].cons)}</td>
         </tr>
     })
     return (
         <div id="createkingdom" ref={yourElementRef} className="help-section">
             <h2>Create Kingdom</h2>
             <p>
-                The Create Kingdom page allows you to choose your kingdom name and starting state. You 
-                will randomly be placed into the galaxy with the fewest kingdoms when you create your 
-                kingdom.
+                Making your kingdom takes three steps: choose a name, choose how you want to play, and check the result. Nothing is
+                made until the last button. You will be placed in the galaxy with the fewest kingdoms.
             </p>
             <p>
-                You must use all kingdom creator points and stars in order to build your kingdom. The stats section 
-                at the bottom of the page will update as you change your selection.
+                The quick starts (Explorer, Attacker, Intel and Thief) are each a race and a starting kingdom, with a ready-made plan for
+                the auto builder. The plan is always saved with your kingdom; you are asked whether to switch the auto builder on. Left
+                off, nothing is spent or sent until you do it yourself, and you can switch it on later from the Status page (auto
+                spending) and the Primitives page (auto attack and robbing).
+            </p>
+            <p>
+                Custom lets you spend the starting unit points and stars yourself. You must use all of both. The numbers under
+                the choices update as you change them.
             </p>
             <Table striped bordered hover size="sm" className="races-table">
                 <thead>

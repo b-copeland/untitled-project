@@ -111,7 +111,7 @@ export const publicRoutes = [
 export const createKingdomRoute = {
   path: "/createkingdom",
   component: CreateKingdom,
-  props: ({ loading, updateData, data }) => ({ loading, updateData, kingdomid: data.kingdomid, state: data.state }),
+  props: ({ updateData, data }) => ({ updateData, kingdomid: data.kingdomid, kingdoms: data.kingdoms, state: data.state }),
 };
 
 // The paths of one section's pages.
