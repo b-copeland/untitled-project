@@ -236,7 +236,12 @@ function Galaxy(props) {
         const facts = kingdomFacts(kdId);
         return (
             <div key={kdId} className="galaxy-card">
-                <div className="galaxy-card-name">{facts.name}</div>
+                <div className="galaxy-card-name">
+                    <button type="button" className="galaxy-card-name-button" title="View this kingdom"
+                        onClick={() => { setKdToShow(kdId); setShowView(true); }}>
+                        {facts.name}
+                    </button>
+                </div>
                 <dl className="galaxy-card-facts">
                     <div><dt>Race</dt><dd>{facts.race || "?"}</dd></div>
                     <div><dt>Stars</dt><dd>{facts.stars || "?"}</dd></div>

@@ -45,6 +45,14 @@ test("a phone-sized screen starts on cards, with the army ceiling and how fresh 
     expect(screen.getAllByText("?").length).toBeGreaterThan(3);
 });
 
+test("the kingdom's name on a card opens its view", async () => {
+    narrow(true);
+    show();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delta" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Delta" }));
+    expect(await screen.findByText("View")).toBeTruthy();   // the View modal's title
+});
+
 test("a wide screen starts on the table, and the choice is remembered", async () => {
     narrow(false);
     const { unmount } = show();
