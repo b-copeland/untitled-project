@@ -1,4 +1,5 @@
 import math
+import os
 import random
 from functools import partial
 
@@ -93,8 +94,15 @@ RACES = [
     "Fuzi",
 ]
 
+def _epoch_seconds():
+    """Half an hour, unless ``EPOCH_SECONDS`` says otherwise (local simulation only: a short epoch makes a round run fast).
+    Set the same value for the function app, whose queue folding scales with it (``funcapp/queues.py``)."""
+    value = float(os.environ.get("EPOCH_SECONDS", 30 * 60))
+    return int(value) if value == int(value) else value
+
+
 GAME_CONFIG = {
-    "BASE_EPOCH_SECONDS": 30 * 60, 
+    "BASE_EPOCH_SECONDS": _epoch_seconds(),
 
     "BASE_SETTLE_STARS_POWER": 0.5,
     "BASE_SETTLE_COST_CONSTANT": 50,

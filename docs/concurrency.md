@@ -46,13 +46,19 @@ Rules:
 4. **Do the follow-up writes after `update` returns,** as appends or merges (`new_structures`, news items). These are
    safe to land a moment later.
 5. **Never read the document before `update` and use that copy inside `decide`.** That is the stale read this replaces.
+   Handing that copy to `update` itself is different and fine: `occ.update(path, decide, document=copy)` decides
+   against it first instead of reading again, and the write is conditional on its `_etag`, so if it is out of date the
+   write is refused and `decide` runs again on a fresh read. Use it when the route has just read the document (to check
+   the request or show a preview) and saves the second read.
 6. **Return the full nested object** for any nested field you change (`next_resolve`, `units`, ...). The kingdom PATCH is a
    shallow merge, so a partial nested object replaces the whole one ([data-model.md](data-model.md#how-the-function-app-writes)).
 7. **Do not add `acquire_lock` to new code.** Routes that already take a legacy lock keep it until every writer of that
    document is migrated, because an unconditional writer could otherwise overwrite a conditional one.
 
 `occ.update` also takes `write_path` (for documents read and written at different routes, such as `GET /universevotes`
-and `PATCH /universepolitics`) and `method="post"` (for `/kingdom/<id>/shared`).
+and `PATCH /universepolitics`), `method="post"` (for `/kingdom/<id>/shared`) and `document` (see rule 5). With a
+`document`, if `decide` finds nothing to change in it, nothing is read or written, so pass one only where "nothing to
+change in what I read" is a good enough answer.
 
 ## Which documents need strict handling
 

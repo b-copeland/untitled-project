@@ -23,7 +23,10 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
 - State changes: `occ.update(path, decide)`; see [docs/concurrency.md](../docs/concurrency.md). Raise `occ.Rejected` for a
   refusal. Follow-up writes after `update` returns.
 - Reads: `occ.read(path)` or the existing getters (`_get_kd_info`, `_get_state`, `_get_galaxies_inverted`, ...). Search
-  `getters.py` and `shared.py` before writing a new helper; both are large and hold many.
+  `getters.py` and `shared.py` before writing a new helper; both are large and hold many. The shared documents are
+  read at most once per request through the getters (`request_cache.py`); pass anything else you have already read
+  down instead of reading it again, including to `occ.update(..., document=...)`. Count the calls with
+  `scripts/profile_calls.py` ([docs/cost.md](../docs/cost.md#rules)).
 - Calculations: plain functions of their inputs, no Flask or HTTP inside, so they can be unit tested and reused by the
   forecasts and the bots.
 - Other kingdoms' data: through `_get_max_kd_info`, which keeps only the fields the caller has revealed. `max=True`
