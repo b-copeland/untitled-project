@@ -36,7 +36,8 @@ Read the handler in `funcapp/function_app.py` before relying on one, but these a
 | | `/accounts` | Replaces the whole list. |
 
 Not retried, because they write several documents or create one: `/init`, `/deleteall`, `/resetstate`, `POST /kingdom`,
-`POST /galaxy/<id>`, `POST /empire`, `/createitem` (creates the document, or shallow-merges into an existing one).
+`POST /galaxy/<id>`, `POST /empire`, `/createitem` (creates the document, or shallow-merges into an existing one),
+`POST /user` and `POST /username/<key>` (create only, `409` if the document exists).
 
 Routes that exist but do not work with the current documents, so do not call them: `PATCH /empire/<id>/news`,
 `PATCH /kingdom/<id>/shared`, `/sharedrequests` ([status.md](status.md#code-health)).
@@ -127,3 +128,20 @@ Fields added after creation:
 `kd_created`, `kd_death_date`, `email`, `email_verified`, `is_active`, `is_verified`. The `Locks` table holds the legacy locks.
 Both live in a file on one machine and are being phased out
 ([architecture.md](architecture.md#target-no-sqlite)): add nothing to them.
+
+## Users (Cosmos, being introduced)
+
+Where users are moving ([decisions/0004](decisions/0004-users-in-cosmos.md)). The function app routes exist; until the
+Flask user store and the migration land, SQLite is still the source and nothing writes these documents.
+
+| id | Holds | Written by |
+|---|---|---|
+| `user_<id>` | Every `User` field except `id`, plus `id_number` (the numeric user id, an int) | `POST /user` (create only, `409` if it exists); `PATCH /user/<id>` (shallow merge, honours `If-Match`; never changes `id_number`) |
+| `username_<key>` | `user_id`: the int id of the user with that name. `key` is the lowercase hex of the UTF-8 username, so any name is a valid id and lookups stay case-sensitive | `POST /username/<key>`: creating it is the uniqueness check, `409` if the name is taken |
+| `user_counter` | `next_id`: the next free user id | `PATCH /usercounter` with `If-Match` (`occ.update`). `GET /usercounter` creates it with `next_id: 1` if it is missing |
+
+`GET /users` is one cross-partition query over the user documents, in id order, filtered by any of `email`, `kd_id`
+and `prefix` (of the username). It is for admin and rare lookups only, never per request or per tick.
+
+Users outlive a round: `/resetstate` keeps every `user_` and `username_` document. `/deleteall` (tests) removes them
+rather than blanking them, so names become free again.

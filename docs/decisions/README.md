@@ -8,6 +8,7 @@ the other docs; they are not instructions themselves. Read one before arguing to
 | [0001](0001-versions-not-locks.md) | Optimistic concurrency with document versions instead of locks or queues |
 | [0002](0002-attack-sequencing.md) | Concurrent attacks on one target resolve one after another, sequenced by the target's version |
 | [0003](0003-ux-review.md) | Outcomes of the UX review: what the maintainer chose and why |
+| [0004](0004-users-in-cosmos.md) | Users move from SQLite to Cosmos documents behind the function app |
 
 To add one: copy the shape below into the next number, and link it from this table.
 

@@ -136,10 +136,10 @@ SQLite holds the `User` rows and the legacy `Locks` table, in a file on one mach
 being phased out. Progress is in [status.md](status.md#parallelism-gaps).
 
 - **Locks** go when the concurrency migration finishes.
-- **Users: undecided.** The replacement must work with flask-praetorian (the login and JWT framework), which expects a
-  user model backed by a database. Options to weigh: a shared SQL database that SQLAlchemy can use unchanged; or users
-  in Cosmos behind a small user class (praetorian itself only calls `lookup`, `identify`, `identity`, `rolenames`,
-  `password` and `is_valid` on it, but this has not been tried). Do not start either without asking.
+- **Users move to Cosmos** ([decisions/0004](decisions/0004-users-in-cosmos.md)): `user_<id>`, `username_<key>` and
+  `user_counter` documents behind function app routes ([data-model.md](data-model.md#users-cosmos-being-introduced)),
+  with a plain user class that flask-praetorian can use (it only calls `lookup`, `identify`, `identity`, `rolenames`,
+  `password` and `is_valid`). The routes exist; the Flask store and the migration do not yet.
 
 Until then: add nothing to SQLite, and in game code take `kd_id` from `flask_praetorian.current_user()` and nothing else
 new from `User`.
