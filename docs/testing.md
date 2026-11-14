@@ -36,6 +36,7 @@ Slower checks, when the change calls for them:
 | An action route | The success case, each rejection message, the documents afterwards, and a race test: several identical requests with `_run_together`, exactly one succeeds and the kingdom is charged once |
 | A read route | The response for your own kingdom, and that hidden fields are absent for a kingdom you have not revealed |
 | The refresh | Run it at two times and compare with one run at the later time; run it twice at the same time and check nothing is credited twice |
+| How many function app calls a route or refresh step makes | A count in `tests/test_efficiency.py` (its `calls` fixture records them against the real handlers), and before and after numbers from `scripts/profile_calls.py` in the pull request |
 | A function app handler | In `funcapp/tests`: append and replace both land, and concurrent calls lose nothing |
 | A page or component | A Jest test: what it shows for given data, the blocked reason on the button, the request body it sends |
 | A doc | `tests/test_docs.py` checks that links and code paths exist and that the data model lists every kingdom field |

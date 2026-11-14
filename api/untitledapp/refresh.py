@@ -52,11 +52,12 @@ def _calc_pop_change_per_epoch(
     kd_info_parse,
     fuelless: bool,
     epoch_elapsed,
+    mobis_queue=None,
 ):
+    """``mobis_queue`` is the units still in training, if the caller has them (read otherwise)."""
     current_units = kd_info_parse["units"]
     generals_units = kd_info_parse["generals_out"]
-    mobis_info = uag._get_mobis_queue(kd_info_parse["kdId"])
-    mobis_units = mobis_info
+    mobis_units = mobis_queue if mobis_queue is not None else uag._get_mobis_queue(kd_info_parse["kdId"])
     int_fuelless = int(fuelless)
 
     start_time = datetime.datetime.now(datetime.timezone.utc)
@@ -184,13 +185,14 @@ def _resolve_siphons(
             )
 
     def settle_out():
-        # What was processed is replaced by what is left of it; anything added since is kept as it is.
+        # What was processed is replaced by what is left of it; anything added since is kept as it is. The document
+        # holds the list as "siphons_out"; the write's "siphons" replaces it (see the function app's update_siphonsout).
         occ.update(f'/kingdom/{kd_id}/siphonsout', lambda doc: (
-            {"siphons": [entry for entry in doc["siphons"] if entry not in siphons_out] + keep_siphons}, None))
+            {"siphons": [entry for entry in doc["siphons_out"] if entry not in siphons_out] + keep_siphons}, None))
 
     def collect_in():
         occ.update(f'/kingdom/{kd_id}/siphonsin', lambda doc: (
-            {"siphons": [entry for entry in doc["siphons"] if entry not in siphons_in]}, None))
+            {"siphons": [entry for entry in doc["siphons_in"] if entry not in siphons_in]}, None))
 
     # Writing an empty list over an empty list changes nothing, so only write when there was something to change.
     if siphons_out:
@@ -234,6 +236,7 @@ def _kingdom_with_income(
     state,
     time_now,
     effects=None,
+    mobis_queue=None,
 ):
     time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_now - time_last_income).total_seconds()
@@ -307,7 +310,7 @@ def _kingdom_with_income(
     new_drones = income["drones"] * epoch_elapsed
 
     fuelless = kd_info_parse["fuel"] <= 0
-    pop_change, _ = _calc_pop_change_per_epoch(kd_info_parse, fuelless, epoch_elapsed)
+    pop_change, _ = _calc_pop_change_per_epoch(kd_info_parse, fuelless, epoch_elapsed, mobis_queue)
     income["population"] = pop_change / epoch_elapsed
 
     structures_to_reduce = _calc_structures_losses(kd_info_parse, epoch_elapsed)
@@ -394,10 +397,11 @@ def _defer(effects, effect):
         effects.append(effect)
 
 
-def _trim_queue(path, field, time_update):
+def _trim_queue(path, field, time_update, document=None):
     """
     Drop the entries that were credited, from the queue as it is now. Anything appended since the tick read the queue
-    is kept, because this reads again and the write is conditional on what it read.
+    is kept, because the write is conditional on the version it decided against. ``document`` is the queue as the tick
+    read it: the trim decides against it first and reads again only if the queue has changed since.
     """
     def trim(queue):
         keep = [
@@ -408,228 +412,94 @@ def _trim_queue(path, field, time_update):
             return None, None
         return {field: keep}, None
 
-    occ.update(path, trim)
+    occ.update(path, trim, document=document)
 
 
 QUEUES = ("settles", "mobis", "structures", "missiles", "engineers")
 
+# Per queue: the websocket message when something in it finishes. Settles and engineers entries are
+# ``{"time", "amount"}``; the others are ``{"time", <unit or structure>: count, ...}``.
+_QUEUE_NOTICES = {
+    "settles": ("Settles", "Finished settling {} stars"),
+    "mobis": ("Mobis", "Finished mobilizing {} units"),
+    "structures": ("Structures", "Finished building {} structures"),
+    "missiles": ("Missiles", "Finished building {} missiles"),
+    "engineers": ("Engineers", "Finished training {} engineers"),
+}
+_AMOUNT_QUEUES = ("settles", "engineers")
 
 
-def _resolve_settles(kd_id, time_update, cursor=None, effects=None):
+def _read_queue(kd_id, category):
+    """The queue document ``/kingdom/<kd_id>/<category>``, with its ``_etag``."""
     app = flask.current_app
-    while not uam.acquire_lock(f'/kingdom/{kd_id}/settles', timeout=999):
+    return json.loads(REQUESTS_SESSION.get(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/{category}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
+    ).text)
+
+
+def _resolve_queue(kd_id, category, time_update, cursor=None, effects=None, pending=None):
+    """
+    Credit what has finished in one build queue (``category`` is one of ``QUEUES``). Returns ``(ready, next_resolve)``:
+    what finished (a count for settles and engineers, ``{key: count}`` for the others) and when the next entry is due.
+
+    The finished entries are trimmed from the queue after the kingdom is written (an effect). The entries still to come
+    are put in ``pending[category]`` when ``pending`` is given, so later steps of the same tick (auto spending, the
+    population cap) use them instead of reading the queue again.
+    """
+    lock = f'/kingdom/{kd_id}/{category}'
+    while not uam.acquire_lock(lock, timeout=999):
         _time.sleep(0.01)
     try:
-        settle_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/settles',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        settle_info_parse = json.loads(settle_info.text)
-
-        ready_settles = 0
-        keep_settles = []
+        document = _read_queue(kd_id, category)
+        by_amount = category in _AMOUNT_QUEUES
+        ready = 0 if by_amount else collections.defaultdict(int)
+        still_to_come = []
         next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-        for settle in _not_yet_credited(settle_info_parse["settles"], cursor):
-            time = datetime.datetime.fromisoformat(settle["time"]).astimezone(datetime.timezone.utc)
+        for entry in _not_yet_credited(document[category], cursor):
+            time = datetime.datetime.fromisoformat(entry["time"]).astimezone(datetime.timezone.utc)
             if time < time_update:
-                ready_settles += settle['amount']
+                if by_amount:
+                    ready += entry["amount"]
+                else:
+                    for key, amount in entry.items():
+                        if key != "time":
+                            ready[key] += amount
             else:
-                if time < next_resolve:
-                    next_resolve = time
-                keep_settles.append(settle)
-        
-        _defer(effects, lambda: _trim_queue(f'/kingdom/{kd_id}/settles', "settles", time_update))
-        if ready_settles:
+                next_resolve = min(time, next_resolve)
+                still_to_come.append(entry)
+        if pending is not None:
+            pending[category] = still_to_come
+
+        _defer(effects, lambda: _trim_queue(lock, category, time_update, document))
+        count = ready if by_amount else sum(ready.values())
+        if count:
+            notice_category, message = _QUEUE_NOTICES[category]
             try:
                 ws = SOCK_HANDLERS[kd_id]
                 ws.send(json.dumps({
-                    "message": f"Finished settling {ready_settles} stars",
+                    "message": message.format(count),
                     "status": "info",
-                    "category": "Settles",
+                    "category": notice_category,
                     "delay": 5000,
                     "update": [],
                 }))
             except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
                 pass
     finally:
-        uam.release_lock(f'/kingdom/{kd_id}/settles')
-    
-    return ready_settles, next_resolve
-    
-def _resolve_mobis(kd_id, time_update, cursor=None, effects=None):
-    app = flask.current_app
-    while not uam.acquire_lock(f'/kingdom/{kd_id}/mobis', timeout=999):
-        _time.sleep(0.01)
-    try:
-        mobis_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        mobis_info_parse = json.loads(mobis_info.text)
+        uam.release_lock(lock)
 
-        ready_mobis = collections.defaultdict(int)
-        keep_mobis = []
-        next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-        for mobi in _not_yet_credited(mobis_info_parse["mobis"], cursor):
-            time = datetime.datetime.fromisoformat(mobi["time"]).astimezone(datetime.timezone.utc)
-            if time < time_update:
-                mobi.pop("time")
-                for key_unit, amt_unit in mobi.items():
-                    ready_mobis[key_unit] += amt_unit
-            else:
-                next_resolve = min(time, next_resolve)
-                keep_mobis.append(mobi)
-        
-        
-        
-        _defer(effects, lambda: _trim_queue(f'/kingdom/{kd_id}/mobis', "mobis", time_update))
-        try:
-            ws = SOCK_HANDLERS[kd_id]
-            count_mobis = sum(ready_mobis.values())
-            if count_mobis:
-                ws.send(json.dumps({
-                    "message": f"Finished mobilizing {count_mobis} units",
-                    "status": "info",
-                    "category": "Mobis",
-                    "delay": 5000,
-                    "update": [],
-                }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}/mobis')
-    
-    return ready_mobis, next_resolve
-    
-def _resolve_structures(kd_id, time_update, cursor=None, effects=None):
-    app = flask.current_app
-    while not uam.acquire_lock(f'/kingdom/{kd_id}/structures', timeout=999):
-        _time.sleep(0.01)
-    try:
-        structures_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        structures_info_parse = json.loads(structures_info.text)
+    return ready, next_resolve
 
-        ready_structures = collections.defaultdict(int)
-        keep_structures = []
-        next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-        for structure in _not_yet_credited(structures_info_parse["structures"], cursor):
-            time = datetime.datetime.fromisoformat(structure["time"]).astimezone(datetime.timezone.utc)
-            if time < time_update:
-                structure.pop("time")
-                for key_structure, amt_structure in structure.items():
-                    ready_structures[key_structure] += amt_structure
-            else:
-                next_resolve = min(time, next_resolve)
-                keep_structures.append(structure)
-        
-        
-        
-        _defer(effects, lambda: _trim_queue(f'/kingdom/{kd_id}/structures', "structures", time_update))
-        try:
-            ws = SOCK_HANDLERS[kd_id]
-            count_structures = sum(ready_structures.values())
-            if count_structures:
-                ws.send(json.dumps({
-                    "message": f"Finished building {count_structures} structures",
-                    "status": "info",
-                    "category": "Structures",
-                    "delay": 5000,
-                    "update": [],
-                }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}/structures')
-    
-    return ready_structures, next_resolve
-    
-def _resolve_missiles(kd_id, time_update, cursor=None, effects=None):
-    app = flask.current_app
-    while not uam.acquire_lock(f'/kingdom/{kd_id}/missiles', timeout=999):
-        _time.sleep(0.01)
-    try:
-        missiles_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/missiles',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        missiles_info_parse = json.loads(missiles_info.text)
 
-        ready_missiles = collections.defaultdict(int)
-        keep_missiles = []
-        next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-        for missile in _not_yet_credited(missiles_info_parse["missiles"], cursor):
-            time = datetime.datetime.fromisoformat(missile["time"]).astimezone(datetime.timezone.utc)
-            if time < time_update:
-                missile.pop("time")
-                for key_missile, amt_missile in missile.items():
-                    ready_missiles[key_missile] += amt_missile
-            else:
-                next_resolve = min(time, next_resolve)
-                keep_missiles.append(missile)
-        
-        _defer(effects, lambda: _trim_queue(f'/kingdom/{kd_id}/missiles', "missiles", time_update))
-        try:
-            ws = SOCK_HANDLERS[kd_id]
-            count_missiles = sum(ready_missiles.values())
-            if count_missiles:
-                ws.send(json.dumps({
-                    "message": f"Finished building {count_missiles} missiles",
-                    "status": "info",
-                    "category": "Missiles",
-                    "delay": 5000,
-                    "update": [],
-                }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}/missiles')
-    
-    return ready_missiles, next_resolve
-    
-def _resolve_engineers(kd_id, time_update, cursor=None, effects=None):
-    app = flask.current_app
-    while not uam.acquire_lock(f'/kingdom/{kd_id}/engineers', timeout=999):
-        _time.sleep(0.01)
-    try:
-        engineer_info = REQUESTS_SESSION.get(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/engineers',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-        )
-        engineer_info_parse = json.loads(engineer_info.text)
+def _pending_queue(kd_id, category, cursor, pending):
+    """The entries of a build queue that are still to come, from ``pending`` if the tick has read the queue already,
+    otherwise read once and kept there for the rest of the tick."""
+    if category not in pending:
+        pending[category] = list(_not_yet_credited(_read_queue(kd_id, category)[category], cursor))
+    return pending[category]
 
-        ready_engineers = 0
-        keep_engineers = []
-        next_resolve = datetime.datetime(year=2099, month=1, day=1).astimezone(datetime.timezone.utc)
-        for engineer in _not_yet_credited(engineer_info_parse["engineers"], cursor):
-            time = datetime.datetime.fromisoformat(engineer["time"]).astimezone(datetime.timezone.utc)
-            if time < time_update:
-                ready_engineers += engineer['amount']
-            else:
-                if time < next_resolve:
-                    next_resolve = time
-                keep_engineers.append(engineer)
-        
-        _defer(effects, lambda: _trim_queue(f'/kingdom/{kd_id}/engineers', "engineers", time_update))
-        if ready_engineers:
-            try:
-                ws = SOCK_HANDLERS[kd_id]
-                ws.send(json.dumps({
-                    "message": f"Finished training {ready_engineers} engineers",
-                    "status": "info",
-                    "category": "Engineers",
-                    "delay": 5000,
-                    "update": [],
-                }))
-            except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-                pass
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}/engineers')
-    
-    return ready_engineers, next_resolve
-    
+
 def _utc(time_str):
     return datetime.datetime.fromisoformat(time_str).astimezone(datetime.timezone.utc)
 
@@ -939,11 +809,12 @@ def _resolve_auto_spending(
                 new_mobis, min_mobis_time = uab._get_new_mobis(target_units_to_build_nonzero, time_update)
                 mobis_payload["new_mobis"].extend(new_mobis)
                 kd_info_parse["next_resolve"]["mobis"] = min(min_mobis_time, kd_info_parse["next_resolve"]["mobis"], next_resolves.get("mobis", uas.DATE_SENTINEL))
-            _defer(effects, lambda payload=mobis_payload: REQUESTS_SESSION.patch(
-                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
-                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps(payload),
-            ))
+            if mobis_payload["new_mobis"]:  # an empty append would still be a write
+                _defer(effects, lambda payload=mobis_payload: REQUESTS_SESSION.patch(
+                    app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+                    headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+                    data=json.dumps(payload),
+                ))
         engineers_price = engineers_info["engineers_price"]
         max_available_engineers = engineers_info["max_available_engineers"]
         engineers_funding = kd_info_parse["funding"]["engineers"]
@@ -1650,39 +1521,42 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
             }
 
             categories_to_resolve = [cat for cat, time in kd_info_parse["next_resolve"].items() if datetime.datetime.fromisoformat(time).astimezone(datetime.timezone.utc) < time_update]
+            # The entries of each build queue still to come, read at most once per attempt and shared by the steps
+            # below (crediting, auto spending, the population cap). See _resolve_queue and _pending_queue.
+            pending = {}
             if "settles" in categories_to_resolve:
-                new_stars, next_resolves["settles"] = _resolve_settles(
-                    kd_id,
-                    time_update,
-                    _cursor(kd_info_parse, "settles"),
-                    effects,
+                new_stars, next_resolves["settles"] = _resolve_queue(
+                    kd_id, "settles", time_update, _cursor(kd_info_parse, "settles"), effects, pending,
                 )
                 kd_info_parse["stars"] += new_stars
                 for key_project, project_dict in uas.PROJECTS.items():
                     project_max_func = uas.PROJECTS_FUNCS[key_project]
                     kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
-        
+
             if "mobis" in categories_to_resolve:
-                new_units, next_resolves["mobis"] = _resolve_mobis(kd_id, time_update, _cursor(kd_info_parse, "mobis"), effects)
+                new_units, next_resolves["mobis"] = _resolve_queue(
+                    kd_id, "mobis", time_update, _cursor(kd_info_parse, "mobis"), effects, pending,
+                )
                 for key_unit, amt_unit in new_units.items():
                     kd_info_parse["units"][key_unit] += amt_unit
-        
+
             if "structures" in categories_to_resolve:
-                new_structures, next_resolves["structures"] = _resolve_structures(kd_id, time_update, _cursor(kd_info_parse, "structures"), effects)
+                new_structures, next_resolves["structures"] = _resolve_queue(
+                    kd_id, "structures", time_update, _cursor(kd_info_parse, "structures"), effects, pending,
+                )
                 for key_structure, amt_structure in new_structures.items():
                     kd_info_parse["structures"][key_structure] += amt_structure
-        
+
             if "missiles" in categories_to_resolve:
-                new_missiles, next_resolves["missiles"] = _resolve_missiles(kd_id, time_update, _cursor(kd_info_parse, "missiles"), effects)
+                new_missiles, next_resolves["missiles"] = _resolve_queue(
+                    kd_id, "missiles", time_update, _cursor(kd_info_parse, "missiles"), effects, pending,
+                )
                 for key_missiles, amt_missiles in new_missiles.items():
                     kd_info_parse["missiles"][key_missiles] += amt_missiles
 
             if "engineers" in categories_to_resolve:
-                new_engineers, next_resolves["engineers"] = _resolve_engineers(
-                    kd_id,
-                    time_update,
-                    _cursor(kd_info_parse, "engineers"),
-                    effects,
+                new_engineers, next_resolves["engineers"] = _resolve_queue(
+                    kd_id, "engineers", time_update, _cursor(kd_info_parse, "engineers"), effects, pending,
                 )
                 kd_info_parse["units"]["engineers"] += new_engineers
         
@@ -1712,10 +1586,19 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
                     context,
                 )
             if "auto_spending" in categories_to_resolve:
+                # What the Settle, Build, Military and Engineers pages would show, worked out from the kingdom as this
+                # tick has it (with what finished just now credited, and only what is still to come in the queues),
+                # instead of each reading the kingdom, its queue, the state and the galaxy's politics again.
+                galaxy_policies = context.galaxy_politics(kd_id, context.galaxies_inverted[kd_id])
+                queue = lambda category: _pending_queue(kd_id, category, _cursor(kd_info_parse, category), pending)
                 kd_info_parse, next_resolves_auto_spending = _resolve_auto_spending(
                     kd_info_parse,
                     time_update,
                     current_bonuses,
+                    settle_info=uag._get_settle(kd_id, kd_info_parse, queue("settles"), galaxy_policies),
+                    structures_info=uag._get_structures_info(kd_id, kd_info_parse, queue("structures"), state),
+                    mobis_info=uag._get_mobis(kd_id, kd_info_parse, queue("mobis"), state, galaxy_policies),
+                    engineers_info=uag._get_engineers(kd_id, kd_info_parse, queue("engineers")),
                     effects=effects,
                 )
                 next_resolves_spending_effective = {
@@ -1737,7 +1620,8 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
                     kd_info_parse.setdefault("queues_resolved_until", {})[category] = time_update.isoformat()
             for category, next_resolve_datetime in next_resolves.items():
                 kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
-            new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update, effects)
+            # The mobis still to come, if this tick has read them (None: the population step reads them itself).
+            new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update, effects, pending.get("mobis"))
             kd_payload = json.dumps(new_kd_info, default=str)
             write_headers = {'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
             if etag:

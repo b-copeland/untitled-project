@@ -22,6 +22,7 @@ for any number of web app instances, with no lock state anywhere.
 
 ``decide`` can run more than once, so it must not have side effects. Do those after ``update`` returns.
 """
+import copy
 import json
 import random
 import time
@@ -59,7 +60,7 @@ def read(path):
     return json.loads(REQUESTS_SESSION.get(_url(path), headers=_headers()).text)
 
 
-def update(path, decide, write_path=None, method="patch"):
+def update(path, decide, write_path=None, method="patch", document=None):
     """
     Apply a change to the document at ``path`` that is valid for the document as it is when the change lands.
 
@@ -70,10 +71,20 @@ def update(path, decide, write_path=None, method="patch"):
     example ``GET /universevotes`` but ``PATCH /universepolitics``). ``method`` is "post" for the few documents
     written with POST (``/kingdom/<id>/shared``).
 
+    ``document`` is the document as the caller has just read it (with its ``_etag``), to decide against first instead
+    of reading it again. It is safe to pass one that may have changed since: the write is conditional on its
+    ``_etag``, so if it is out of date the write is refused and the next attempt reads the document as it is. One
+    caveat: if ``decide`` finds nothing to change in the caller's copy, nothing is read or written, so pass a document
+    only where "nothing to change in what I read" is a good enough answer (trimming what the caller has already seen).
+
     Raises ``Busy`` if the document changed on every one of ``MAX_ATTEMPTS`` attempts.
     """
+    supplied = document if document is not None and "_etag" in document else None
     for attempt in range(MAX_ATTEMPTS):
-        document = read(path)
+        if attempt == 0 and supplied is not None:
+            document = copy.deepcopy(supplied)  # decide may change what it is given; the caller's copy stays as it was
+        else:
+            document = read(path)
         payload, result = decide(document)
         if payload is None:
             return result

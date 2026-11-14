@@ -39,7 +39,17 @@ The steady load, without anyone acting:
 
 1. **Count round trips.** Before adding a route or a refresh step, count the function app calls it makes. Never call the
    function app inside a loop over kingdoms when one read of a list would do. Read a document once per request and pass
-   it down.
+   it down:
+   - The shared documents (`state`, `galaxies`, `empires`, `kingdoms`, a galaxy's politics) are read through the getters
+     (`_get_state`, `_get_galaxy_info`, ...), which read each at most once per request (`request_cache.py`). Do not read
+     them with a raw `REQUESTS_SESSION.get`.
+   - The page getters (`_get_settle`, `_get_structures_info`, `_get_mobis`, `_get_engineers`) take the kingdom, its
+     queue, the state or the galaxy's politics when the caller already has them. The refresh passes what it has read.
+   - If a route reads a document and then decides on it, pass the copy to `occ.update(..., document=copy)` instead of
+     letting it read again ([concurrency.md](concurrency.md#writing-an-action), rule 5).
+   - Measure, do not guess: `python scripts/profile_calls.py` runs a game of bots in-process (no stack, no Azure) and
+     prints the function app calls, Cosmos reads and writes, and bytes written per route and per refresh tick;
+     `--sites` shows which function made each call. `tests/test_efficiency.py` pins the counts for the hot paths.
 2. **Write less.** Writes cost ten times reads. Batch eventual writes (several news lines in one append). Do not write a
    document that did not change. Derived data (scores, aggregates) is computed by the refresh, never written by actions.
 3. **Keep documents small.** A write costs more the bigger the document. Trim lists that grow forever (news, history),

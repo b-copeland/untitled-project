@@ -21,7 +21,33 @@ guard = flask_praetorian.Praetorian()
 cors = flask_cors.CORS()
 mail = Mail()
 
-REQUESTS_SESSION = requests.Session()
+class _FunctionAppSession(requests.Session):
+    """The session every module uses to call the function app. A write drops what this request has cached of the
+    document it changes (see request_cache.py), before it is sent and again after, so no read in between or after
+    sees the old version."""
+
+    def _write(self, method, url, **kwargs):
+        from untitledapp import request_cache
+        request_cache.invalidate(url)
+        try:
+            return self.request(method, url, **kwargs)
+        finally:
+            request_cache.invalidate(url)
+
+    def post(self, url, data=None, json=None, **kwargs):
+        return self._write("POST", url, data=data, json=json, **kwargs)
+
+    def put(self, url, data=None, **kwargs):
+        return self._write("PUT", url, data=data, **kwargs)
+
+    def patch(self, url, data=None, **kwargs):
+        return self._write("PATCH", url, data=data, **kwargs)
+
+    def delete(self, url, **kwargs):
+        return self._write("DELETE", url, **kwargs)
+
+
+REQUESTS_SESSION = _FunctionAppSession()
 
 SOCK_HANDLERS = {}
 
@@ -189,6 +215,11 @@ def create_app(config_class='config.Config'):
             ))
             db.session.commit()
         
+    # Shared documents are read at most once per request (request_cache.py).
+    from untitledapp import request_cache
+    app.before_request(request_cache.start)
+    app.teardown_request(request_cache.end)
+
     import untitledapp.account as uaa
     import untitledapp.admin as uaad
     import untitledapp.build as uab

@@ -43,7 +43,10 @@ Assume several web processes and several function app instances are serving requ
 requests can overlap. Concretely:
 
 - **No game state in process memory or on local disk.** No module-level dicts, caches or counters that hold game data,
-  and nothing new in SQLite. Constants are fine. If something must be shared, it goes in a Cosmos document.
+  and nothing new in SQLite. Constants are fine. If something must be shared, it goes in a Cosmos document. The one
+  cache is `request_cache.py`, and it lives on `flask.g` for a single request: the shared documents (`state`,
+  `galaxies`, `empires`, `kingdoms`, galaxy politics) are read at most once per request, and the request's own writes
+  drop its copy. Nothing in it outlives the request, so it holds no state between requests or processes.
 - **Every change to a document is either conditional or commutative.** Conditional: decide against the document and
   write only if it is unchanged (`occ.update`, see [concurrency.md](concurrency.md)). Commutative: an append or a merge the
   function app applies to the newest version (`new_news`, `new_structures`, ...). A plain "read, change, write back" with

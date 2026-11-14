@@ -9,18 +9,22 @@ import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.shared as uas
+from untitledapp import request_cache
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
 
 bp = flask.Blueprint("getters", __name__)
 
-def _get_state():
+def _get_shared_document(path):
+    """A document every kingdom shares, read at most once per request (see request_cache.py)."""
     app = flask.current_app
-    get_response = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/state',
+    return request_cache.read(path, lambda: REQUESTS_SESSION.get(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + path,
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-    )
-    get_response_json = json.loads(get_response.text)
-    return get_response_json
+    ).text)
+
+
+def _get_state():
+    return _get_shared_document('/state')
 
 @bp.route('/api/state', methods=["GET"])
 # @flask_praetorian.roles_required('verified')
@@ -206,14 +210,7 @@ def messages():
     return (flask.jsonify(messages_parse["messages"]), 200)
 
 def _get_kingdoms():
-    app = flask.current_app
-    kd_info = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdoms',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
-    return kd_info_parse["kingdoms"]
+    return _get_shared_document('/kingdoms')["kingdoms"]
 
 @bp.route('/api/kingdoms')
 @flask_praetorian.auth_required
@@ -223,14 +220,7 @@ def kingdoms():
     return (flask.jsonify(kingdoms), 200)
 
 def _get_galaxy_info():
-    app = flask.current_app
-    galaxy_info = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxies',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-    )
-    galaxy_info_parse = json.loads(galaxy_info.text)
-    
-    return galaxy_info_parse["galaxies"]
+    return _get_shared_document('/galaxies')["galaxies"]
 
 
 
@@ -259,14 +249,7 @@ def galaxies_inverted():
     return (flask.jsonify(galaxies_inverted), 200)
 
 def _get_empire_info():
-    app = flask.current_app
-    empire_info = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/empires',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-    )
-    empire_info_parse = json.loads(empire_info.text)
-    
-    return empire_info_parse
+    return _get_shared_document('/empires')
 
 
 def _get_empires_inverted():
@@ -450,17 +433,19 @@ def _calc_units(
 
     units["current_total"] = current_total
 
+    # Each entry's time is parsed once, not once per horizon.
+    timed_mobis = [
+        (datetime.datetime.fromisoformat(mobi["time"]).astimezone(datetime.timezone.utc), mobi)
+        for mobi in mobis_units
+    ]
     for hours in [1, 2, 4, 8, 24]:
         hour_units = {
             key: 0
             for key in uas.UNITS.keys()
         }
         max_time = start_time + datetime.timedelta(hours=hours)
-        for mobi in mobis_units:
-            
-            
-            
-            if datetime.datetime.fromisoformat(mobi["time"]).astimezone(datetime.timezone.utc) < max_time:
+        for mobi_time, mobi in timed_mobis:
+            if mobi_time < max_time:
                 for key_unit in hour_units.keys():
                     hour_units[key_unit] += mobi.get(key_unit, 0)
 
@@ -596,23 +581,17 @@ def _get_mobis_queue(kd_id):
     mobis_info_parse = json.loads(mobis_info.text)
     return mobis_info_parse["mobis"]
 
-def _get_mobis(kd_id):
-    
-
-    app = flask.current_app
-    kd_info = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
-
-    mobis_info_parse = _get_mobis_queue(kd_id)
+def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policies=None):
+    """What the Military page shows. A caller that already holds the kingdom, its mobis queue, the state or the
+    galaxy's politics passes them, and only what is missing is read."""
+    kd_info_parse = kd_info if kd_info is not None else _get_kd_info(kd_id)
+    mobis_info_parse = mobis_queue if mobis_queue is not None else _get_mobis_queue(kd_id)
     current_units = kd_info_parse["units"]
     generals_units = kd_info_parse["generals_out"]
     mobis_units = mobis_info_parse
 
-    state = _get_state()
+    if state is None:
+        state = _get_state()
 
     start_time = max(
         datetime.datetime.now(datetime.timezone.utc),
@@ -627,8 +606,8 @@ def _get_mobis(kd_id):
     )[:10]
     len_queue = len(mobis_info_parse)
 
-    galaxies_inverted, _ = _get_galaxies_inverted()
-    galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    if galaxy_policies is None:
+        galaxy_policies, _ = _get_galaxy_politics(kd_id)
     is_conscription = "Conscription" in galaxy_policies["active_policies"]
     recruit_time = _calc_recruit_time(is_conscription, (uas.GAME_CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"] + uas.GAME_CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"]) / 2)
 
@@ -671,6 +650,10 @@ def _calc_structures(
         "current": {k: current_structures.get(k, 0) for k in uas.STRUCTURES}
     }
 
+    timed_structures = [  # each entry's time parsed once, not once per horizon
+        (datetime.datetime.fromisoformat(entry["time"]).astimezone(datetime.timezone.utc), entry)
+        for entry in building_structures
+    ]
     for hours in epochs:
         epoch_seconds = hours * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
         hour_structures = {
@@ -678,8 +661,8 @@ def _calc_structures(
             for key in uas.STRUCTURES
         }
         max_time = start_time + datetime.timedelta(seconds=epoch_seconds)
-        for building_structure in building_structures:
-            if datetime.datetime.fromisoformat(building_structure["time"]).astimezone(datetime.timezone.utc) < max_time:
+        for structure_time, building_structure in timed_structures:
+            if structure_time < max_time:
                 for key_structure in hour_structures.keys():
                     hour_structures[key_structure] += building_structure.get(key_structure, 0)
 
@@ -703,34 +686,32 @@ def _calc_available_structures(structure_price, kd_info, structures_info):
     return max_available_structures, current_available_structures
 
 
-def _get_structures_info(kd_id):
-    
+def _get_structures_queue(kd_id):
     app = flask.current_app
     structures_info = REQUESTS_SESSION.get(
         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/structures',
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     )
-    
-    structures_info_parse = json.loads(structures_info.text)
+    return json.loads(structures_info.text)["structures"]
 
-    kd_info = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
+
+def _get_structures_info(kd_id, kd_info=None, structures_queue=None, state=None):
+    """What the Build page shows. A caller that already holds the kingdom, its structures queue or the state passes
+    them, and only what is missing is read."""
+    building_structures = structures_queue if structures_queue is not None else _get_structures_queue(kd_id)
+    kd_info_parse = kd_info if kd_info is not None else _get_kd_info(kd_id)
 
     top_queue = sorted(
-        structures_info_parse["structures"],
+        building_structures,
         key=lambda queue: queue["time"],
     )[:10]
-    len_queue = len(structures_info_parse["structures"])
+    len_queue = len(building_structures)
 
     current_price = _get_structure_price(kd_info_parse)
     current_structures = kd_info_parse["structures"]
-    building_structures = structures_info_parse["structures"]
 
-    state = _get_state()
+    if state is None:
+        state = _get_state()
 
     start_time = max(
         datetime.datetime.now(datetime.timezone.utc),
@@ -905,16 +886,11 @@ def _get_available_settle(kd_info, settle_info, is_expansionist):
 
 
 
-def _get_settle(kd_id):
-    
-    app = flask.current_app
-    kd_info = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
-    settle_info = _get_settle_queue(kd_id)
+def _get_settle(kd_id, kd_info=None, settle_queue=None, galaxy_policies=None):
+    """What the Settle page shows. A caller that already holds the kingdom, its settle queue or the galaxy's politics
+    passes them, and only what is missing is read."""
+    kd_info_parse = kd_info if kd_info is not None else _get_kd_info(kd_id)
+    settle_info = settle_queue if settle_queue is not None else _get_settle_queue(kd_id)
 
     top_queue = sorted(
         settle_info,
@@ -922,8 +898,8 @@ def _get_settle(kd_id):
     )[:10]
     len_queue = len(settle_info)
 
-    galaxies_inverted, _ = _get_galaxies_inverted()
-    galaxy_policies, _ = _get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
+    if galaxy_policies is None:
+        galaxy_policies, _ = _get_galaxy_politics(kd_id)
     is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
     settle_price = _get_settle_price(kd_info_parse, is_expansionist)
     max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info, is_expansionist)
@@ -1067,18 +1043,11 @@ def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
     return max_available_engineers, current_available_engineers
 
 
-def _get_engineers(kd_id):
-    
-
-    app = flask.current_app
-    kd_info = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
-
-    engineers_info = _get_engineers_queue(kd_id)
+def _get_engineers(kd_id, kd_info=None, engineers_queue=None):
+    """What the Engineers page shows. A caller that already holds the kingdom or its engineers queue passes them, and
+    only what is missing is read."""
+    kd_info_parse = kd_info if kd_info is not None else _get_kd_info(kd_id)
+    engineers_info = engineers_queue if engineers_queue is not None else _get_engineers_queue(kd_id)
     engineers_building = sum([training["amount"] for training in engineers_info])
     max_workshop_capacity, current_workshop_capacity = _calc_workshop_capacity(kd_info_parse, engineers_building)
     max_available_engineers, current_available_engineers = _calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
@@ -1254,17 +1223,10 @@ def max_kingdoms():
     return (flask.jsonify(payload), 200)
 
 def _get_galaxy_politics(kd_id, galaxy_id=None):
-    app = flask.current_app
     if not galaxy_id:
         galaxies_inverted, _ = _get_galaxies_inverted()
         galaxy_id = galaxies_inverted[kd_id]
-    galaxy_politics_info = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/galaxy/{galaxy_id}/politics',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-    )
-    
-    galaxy_politics_info_parse = json.loads(galaxy_politics_info.text)
-    return galaxy_politics_info_parse, galaxy_id
+    return _get_shared_document(f'/galaxy/{galaxy_id}/politics'), galaxy_id
 
 @bp.route('/api/galaxypolitics', methods=['GET'])
 @flask_praetorian.auth_required
