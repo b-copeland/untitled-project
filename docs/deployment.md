@@ -36,14 +36,17 @@ started by hand from the Actions tab with "Run workflow").
 **build job** (Ubuntu runner)
 1. Check out the code and set up Python 3.10.
 2. `pip install -r requirements.txt`.
-3. `npm install`, then `npm test` (the frontend Jest tests), then `npm run build` (React production build into `build/`).
-4. Tar everything except `venv/`, `node_modules/` and `.git/` into `build_artifacts.tar.gz` and upload it.
+3. `npm install`, then the frontend Jest tests, then `npm run build` (React production build into `build/`).
+4. The backend tests (`pytest tests`, on the in-memory backend) and the function app tests (`pytest funcapp/tests`, in
+   their own virtual environment).
+5. Tar everything except `venv/`, `node_modules/` and `.git/` into `build_artifacts.tar.gz` and upload it.
 
 **deploy job** (environment `Production`)
 1. Download and extract the artifact.
-2. `azure/webapps-deploy@v2` publishes it to the `Production` slot of `untitled-space-game-12k34j134`.
+2. `azure/webapps-deploy@v3` publishes it to the `Production` slot of `untitled-space-game-12k34j134`.
 
-If the build job fails (a test, the frontend build, or `pip install`), nothing is deployed.
+If the build job fails (any test suite, the frontend build, or `pip install`), nothing is deployed. The workflow runs on
+pushes to `main` only, not on pull requests.
 
 ### Required secret
 
@@ -75,15 +78,16 @@ These live in the Azure portal only. Check them before rebuilding the environmen
   gunicorn --bind=0.0.0.0 -k gthread --threads=100 --log-syslog --log-level=debug --error-logfile=- --timeout 600 --chdir api run:app
   ```
 
-  That is **one worker process with 100 threads**, and a 10-minute request timeout. One process is why the in-memory
-  state (SQLite users and locks, the websocket registry, the rate limiter) has worked at all: every thread sees the same
-  copy. Adding `--workers`, or scaling the App Service out to more than one instance, breaks all of it. See
-  [concurrency.md](concurrency.md).
+  As recorded on 2026-11-10, and confirmed unchanged by the maintainer on 2026-11-14, that is one worker process with
+  100 threads and a 10-minute request timeout. **Code must not rely on that:** design for several processes on several instances
+  ([architecture.md](architecture.md#1-design-for-many-processes-on-many-machines)). The pieces that still keep state
+  in one process are listed in [status.md](status.md#parallelism-gaps).
 - The Python version selected in the portal (3.10 to match CI).
 
 ## Function app
 
-`funcapp/` is not deployed by CI. Deploy it from VS Code with the Azure Functions extension (the workspace settings
+`funcapp/` is not deployed by CI yet (the intent is that it will be; see [status.md](status.md#deployment-and-operations)).
+Until then, deploy it from VS Code with the Azure Functions extension (the workspace settings
 already point `azureFunctions.deploySubpath` at `funcapp` and enable remote build), or from a terminal:
 
 ```powershell
@@ -137,11 +141,5 @@ the Actions history, and a failed run can be re-run with "Re-run jobs".
 
 ## Known gaps
 
-- No automated infrastructure and no staging environment. CI runs the frontend tests and the Python tests that need no
-  running stack (`tests/test_occ.py`, `tests/test_refresh.py`, `funcapp/tests`); the tests that race real requests need
-  the Cosmos emulator and run locally only.
-- Python 3.10 reached end-of-life in October 2026.
-- The web app is on the Free plan with Always On and WebSockets off, and all Cosmos containers share 1000 RU/s (see
-  "What Azure actually runs").
-- Everything that scales out (SQLite users and locks, in-memory websocket registry, in-memory rate limiter) assumes a
-  single App Service instance. See [concurrency.md](concurrency.md) for what is done and what remains.
+Listed in [status.md](status.md#deployment-and-operations), with the rest of what is unfinished. What the plans cost and
+how to keep usage within them is in [cost.md](cost.md).

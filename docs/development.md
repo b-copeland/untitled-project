@@ -15,8 +15,8 @@ Four processes, plus a database emulator:
 | API (`api/`) | Flask: logins, game rules, websocket | 8000 |
 | Frontend (`src/`) | React dev server, proxies `/api` and `/ws` to the API | 3000 |
 
-The API calls the function app while it starts up, so **start the function app before the API**. See the
-[architecture overview](../CLAUDE.md#architecture) for how the pieces fit together.
+The API calls the function app while it starts up, so **start the function app before the API**. See
+[architecture.md](architecture.md) for how the pieces fit together.
 
 ## 1. Prerequisites
 
@@ -33,8 +33,8 @@ The API calls the function app while it starts up, so **start the function app b
 ## 2. Install dependencies
 
 ```powershell
-git clone https://github.com/b-copeland/untitled-project.git C:\dev\untitled-project
-cd C:\dev\untitled-project
+git clone https://github.com/b-copeland/untitled-project.git
+cd untitled-project
 
 # Frontend
 npm ci
@@ -67,7 +67,7 @@ paste their values anywhere.
 | `ADMIN_PASSWORD` | Password for the `admin` user. **Only used when the `admin` row does not exist yet**, so changing it later has no effect on an existing `database.db`. |
 | `AZURE_FUNCTION_ENDPOINT` | `http://localhost:7071/api` |
 | `AZURE_FUNCTIONS_HOST_KEY` | Function host key. Not needed locally (can be empty). |
-| `SQLALCHEMY_DATABASE_URI` | SQLite file for users, e.g. `sqlite:///C:/dev/untitled-project/api/database.db`. **Use an absolute path and update it if you move the repo.** |
+| `SQLALCHEMY_DATABASE_URI` | SQLite file for users: `sqlite:///<absolute path to the repo>/api/database.db`, with forward slashes. **Use an absolute path and update it if you move the repo.** |
 | `REFRESH_SECRET` | Shared secret for `/api/refreshdata` (see below). |
 | `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER` | Outgoing email. `api/config.py` reads `SENDGRID_API_KEY`, so a `MAIL_PASSWORD` entry in this file has no effect. Email only matters for sign-up flows. |
 
@@ -86,7 +86,7 @@ them.
     "COSMOS_CONTAINER_NAME": "dev",
     "COSMOS_ENDPOINT": "https://localhost:8081",
     "COSMOS_KEY": "<the emulator's well-known key, shown on the emulator's start page>",
-    "REQUESTS_CA_BUNDLE": "C:\\dev\\cosmos-emulator.pem",
+    "REQUESTS_CA_BUNDLE": "<absolute path to cosmos-emulator.pem, see below>",
     "AZURE_COSMOS_ENDPOINT": "<Azure account URL, only for seeding>",
     "AZURE_COSMOS_KEY": "<Azure account key, only for seeding>"
   }
@@ -97,15 +97,16 @@ them.
 `scripts/seed_cosmos_emulator.py`, to read the real data. Keeping both in this file means the function app itself can
 never be pointed at Azure by accident while `COSMOS_ENDPOINT` says localhost.
 
-The Python worker has to trust the emulator's self-signed certificate. Export it once to PEM and point
-`REQUESTS_CA_BUNDLE` at it:
+The Python worker has to trust the emulator's self-signed certificate. Export it once to a PEM file in any folder
+outside the repo (`$pem` below) and point `REQUESTS_CA_BUNDLE` at it:
 
 ```powershell
+$pem = '<a folder outside the repo>\cosmos-emulator.pem'
 $cert = Get-ChildItem Cert:\LocalMachine\My, Cert:\CurrentUser\My |
   Where-Object { $_.FriendlyName -eq 'DocumentDbEmulatorCertificate' } |
   Sort-Object NotAfter -Descending | Select-Object -First 1
 "-----BEGIN CERTIFICATE-----`n" + [Convert]::ToBase64String($cert.RawData, 'InsertLineBreaks') + "`n-----END CERTIFICATE-----`n" |
-  Set-Content C:\dev\cosmos-emulator.pem
+  Set-Content $pem
 ```
 
 ## 4. Start everything
@@ -118,7 +119,7 @@ the function host (it launches the worker with whichever `python` it finds first
 & "$env:ProgramFiles\Azure Cosmos DB Emulator\Microsoft.Azure.Cosmos.Emulator.exe" /NoUI /NoExplorer
 
 # 2. Azurite
-azurite --silent --location C:\dev\azurite --skipApiVersionCheck
+azurite --silent --location <a folder outside the repo> --skipApiVersionCheck
 
 # 3. Seed the emulator from the real Azure data (first time, and after every pytest run)
 conda run -n funcapp-worker python scripts/seed_cosmos_emulator.py           # report only
@@ -146,6 +147,8 @@ documents, and the admin page (`/admin` in the frontend) can then create the gal
 start time (`/api/updatestate`) and reset a round (`/api/resetstate`).
 
 ## 5. Tests
+
+`.\scripts\check.ps1` runs all three suites below. What to test for each kind of change is in [testing.md](testing.md).
 
 **Backend** (`tests/`, pytest). The tests run the function app's real handlers in-process on an in-memory Cosmos stand-in
 (`tests/fake_backend.py`), so they need **no emulator, function host or Azurite**:
@@ -184,13 +187,14 @@ conda run -n funcapp-worker python -m pytest funcapp/tests
 $env:CI = 'true'; npm test -- --watchAll=false
 ```
 
-This needs no backend. CI runs it on every push to `main`.
+This needs no backend. CI runs all three suites on every push to `main`, before deploying.
 
 ## 6. Day-to-day workflow
 
-1. Branch from `main`, commit, push, open a pull request.
-2. Merge it. **Every push to `main` deploys to production**, so read [deployment](deployment.md) first.
-3. Check the GitHub Actions run after merging.
+1. Branch from `main`, commit, push, open a pull request. Run `.\scripts\check.ps1` first: CI does not run on pull
+   requests.
+2. Merge it (squash). **Every push to `main` deploys to production**, so read [deployment](deployment.md) first.
+3. Check the GitHub Actions run after merging, and fix a failed deploy.
 
 ## Periodic refresh
 
