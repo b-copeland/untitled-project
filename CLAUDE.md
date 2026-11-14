@@ -1,160 +1,113 @@
 # untitled-project
 
-A long-running, real-time, team-based space strategy game played in the browser ("Cloud Web App Fun"). Players run a
-**kingdom** inside a **galaxy** (their team), galaxies belong to an **empire**, and everyone shares one **universe**.
-Kingdoms build, attack, spy, rob, trade and vote. The design tenets are in [untitled_project.txt](untitled_project.txt)
-and summarized below. Solo-maintained personal project with no live users, so a broken deploy is low stakes, but still
-fix it.
+A long-running, real-time, team-based space strategy game in the browser. Players run a **kingdom** inside a **galaxy**
+(their team); galaxies form **empires**; everyone shares one **universe**. Kingdoms build, attack, spy, rob, trade and
+vote. Solo-maintained personal project with no live users and no funding: a broken deploy is low stakes but still gets
+fixed, and anything that costs money needs the maintainer's agreement.
 
-## Working here
+This file is the rules and the map. The detail is in `docs/`. Read the doc for your task before you start.
 
-- **Repo location:** `C:\dev\untitled-project`. An old copy in OneDrive is stale. Never read or edit it.
-- **Workflow:** branch, commit, open a PR, merge. Each PR is squash-merged. Do not commit straight to `main`.
-- **Every push to `main` deploys to production** (GitHub Actions to Azure App Service). Check the Actions run after
-  merging and fix a failed deploy.
-- **Never commit secrets.** `api/.flaskenv` and `funcapp/local.settings.json` hold real keys and are git-ignored, along
-  with the SQLite and Azurite files. Do not print their values.
-- **Tests are safe by default, destructive with `USE_EMULATOR=1`.** The default backend is in-memory
-  ([tests/fake_backend.py](tests/fake_backend.py)). With `USE_EMULATOR=1` the `setup` fixture in
-  [tests/conftest.py](tests/conftest.py) calls `/deleteall` on the function app before every test, wiping whatever Cosmos
-  container it points at. Only do that when `COSMOS_ENDPOINT` in `funcapp/local.settings.json` is
-  `https://localhost:8081` (the local emulator), never the Azure account.
-- **Windows machine.** Use PowerShell. After installing tools, refresh `PATH` from the Machine and User environment
-  variables, because older terminals will not see them. Python lives in Conda environments, and `conda`, `python` and
-  `node` may not be on `PATH`.
-- Dependencies were upgraded on 2026-11-10 (Flask 3, SQLAlchemy 2, flask-praetorian 1.6, wrapt 1.16, limits 3.13). The old `limits==3.5.0`/`wrapt==1.12.1` pairing is gone. If the Flask env is stale, recreate it from `requirements.txt`.
-- Python is 3.10 everywhere (CI, Azure, local). Node is only used for the React build.
+## Read first
 
-## Architecture
+| Task | Read |
+|---|---|
+| Any change | This file, then [docs/architecture.md](docs/architecture.md) |
+| Designing a feature or changing a rule | [docs/game-design.md](docs/game-design.md): tenets in priority order, glossary, "does it belong" checklist |
+| A route, a refresh step, a page, a document, a constant | [docs/recipes.md](docs/recipes.md): step-by-step checklists |
+| Anything that writes game state | [docs/concurrency.md](docs/concurrency.md) |
+| Document shapes and how the function app writes them | [docs/data-model.md](docs/data-model.md) |
+| A page or form | [docs/ux.md](docs/ux.md) |
+| Testing, and when a change is done | [docs/testing.md](docs/testing.md) |
+| Anything that adds requests, writes or services | [docs/cost.md](docs/cost.md) |
+| What is unfinished or known broken | [docs/status.md](docs/status.md) |
+| Why something is the way it is | [docs/decisions/](docs/decisions/README.md) |
+| Running locally, deploying, bots, email | [docs/development.md](docs/development.md), [docs/deployment.md](docs/deployment.md), [docs/bots.md](docs/bots.md), [docs/email.md](docs/email.md) |
 
-| Layer | Stack | Location | Local port |
-|---|---|---|---|
-| Frontend | React (Create React App), react-bootstrap, primereact, victory | `src/` | 3000 |
-| API | Flask, SQLAlchemy, flask-praetorian (JWT), Flask-Sock, Flask-Limiter | `api/untitledapp/` | 8000 |
-| Game state | Azure Functions (Python v2 model) over Cosmos DB | `funcapp/function_app.py` | 7071 |
-| Infra | Terraform | `iac/` | n/a |
-| Deploy | GitHub Actions, then Azure App Service | `.github/workflows/` | n/a |
+`api/`, `funcapp/` and `src/` each have their own `CLAUDE.md` with the rules for that layer.
 
-**Request flow:** browser, then Flask `/api/*` (the React dev server proxies `/api` and `/ws` to port 8000 through
-[src/setupProxy.js](src/setupProxy.js)), then the function app at `AZURE_FUNCTION_ENDPOINT` using
-`requests` (`REQUESTS_SESSION`), then Cosmos DB.
+## The architecture in brief
 
-- **Flask owns identity and rules.** `User` rows (login, roles, `kd_id`, `kd_death_date`) and a `Locks` table live in
-  SQLite (`SQLALCHEMY_DATABASE_URI`). Game logic is in blueprints: `account`, `admin`, `build`, `conquer`, `getters`,
-  `misc`, `politics`, `refresh` (about 109 routes). `refresh.py` is the real-time tick and scheduled-action logic.
-  `shared.py` holds helpers shared by the blueprints. Decorators `alive_required`, `start_required` and
-  `before_start_required` gate routes on kingdom and game state.
-- **The function app owns game state.** It is a thin HTTP layer (69 routes) over a single Cosmos container, one
-  document per item (`state`, `scores`, `galaxies`, `empires`, `kingdom_<id>`, `news_<id>`, `revealed_<id>`,
-  `attack_history_<n>`, and so on). Partition key is `/id`. Database and container come from `COSMOS_DATABASE_NAME` and
-  `COSMOS_CONTAINER_NAME`.
-- **Startup coupling:** with the real config, `create_app` calls the function app's `/accounts` to sync users into
-  SQLite, so **the function app must be running before Flask starts**.
-- **Email:** `untitledapp/mailer.py` (smtp, console or memory backend) and the account recovery routes in `account.py`. See [docs/email.md](docs/email.md).
-- **Real-time push:** clients open a websocket at `/ws/listen` and register their JWT. `SOCK_HANDLERS` maps `kd_id` to
-  the open socket.
-- **Frontend:** pages in `src/pages/*`, auth in `src/auth`, shared components in `src/components`. In production, Flask
-  serves the built frontend from `build/`. See "Frontend conventions" below.
-- **Config:** [api/config.py](api/config.py) has `Config` (environment variables) and `TestingConfig` (SQLite
-  `pytest.db`, function app at `http://localhost:7071/api`, SQLite users `admin`/`user1`/`user2`).
+Browser → Flask `/api/*` (rules, identity, `api/untitledapp/`) → function app over HTTP (storage only, `funcapp/`) →
+Cosmos DB (one container, one document per item). A scheduled call to `/api/refreshdata` is the game tick. The React
+frontend (`src/`) gets each data key from its own route and reads game constants from `/api/state`.
 
-## Frontend conventions
+## Hard rules
 
-- **Adding a page:** one entry in [src/routes.js](src/routes.js). The router and the sidebar both read it, so there is
-  nothing else to wire. Game pages get `{data, loading, updateData}`; add `props: (context) => ({...})` for anything else.
-- **Tables:** `GameTable` ([src/components/gametable.js](src/components/gametable.js)) from column definitions, not
-  hand-written `<tr>`s. **Forms:** `useFormValues`, `NumberField`, `SubmitButton`
-  ([src/components/forms.js](src/components/forms.js)). **Results of an action:** `ResultToasts`
-  ([src/components/results.js](src/components/results.js)). **Numbers:** [src/format.js](src/format.js).
-- **Check before sending:** [src/validation.js](src/validation.js) mirrors what the server enforces so the player sees why
-  a request would fail, as a red message under the field and the button's tooltip, before it is sent. The server still
-  decides. [src/pages/build/structures.js](src/pages/build/structures.js) is the model; military, projects, attack, spy,
-  launch missiles, schedule and politics forms are not converted yet.
-- **CSS:** shared layout classes and tokens are in [src/styles/shared.css](src/styles/shared.css) (`col-center`,
-  `box-tight`, `game-table`, ...). Put a rule in a page stylesheet only if it is particular to that page. Before adding a
-  rule, check it is not already a shared class.
-- **Number inputs for amounts:** `AmountInput` (forms.js) is a slider with the number chosen on its left and the most on its right (press it to fill it in); give it the most that can be done. `box` adds a number box and a Max button, used on the planner pages where the exact number matters. **Planning pages** (Attack, Spy, Primitives, Share Intel, Schedule) are built from `Panel`, `FieldRow`, `Stats`, `VersusBar` and `Picker` in [src/components/planner.js](src/components/planner.js), with a forecast that follows the inputs and a confirm step before anything is sent.
-- **Making a kingdom:** `/createkingdom` is a three-step wizard (name, how you play, create) in
-  [src/pages/createkingdom.js](src/pages/createkingdom.js), only reachable by a signed-in player with no kingdom
-  (`NewKingdomRoute` in `App.js`; the menu shows only that and Help until they have one). One request,
-  `POST /api/createkingdom`, validates everything, makes the kingdom and sets it up; it also finishes a kingdom that was made
-  but never set up (Reset Kingdom). The quick starts are the bot archetypes ([docs/bots.md](docs/bots.md)). When
-  `kingdomid.created` turns true, `useGameData` refetches every key.
-- **Icons:** `react-icons`, shown through `IconButton` (name in the tooltip and the accessible label).
-- **Tests:** Jest, next to the code (`npm test`). `src/setupTests.js` stubs `matchMedia`. Mock `components/header` and
-  `components/helpbutton` when testing a page, and set mock implementations in `beforeEach` (Create React App resets mocks).
-- [docs/ux-review.md](docs/ux-review.md) has the page-by-page UX review and proposals.
+1. **Never commit secrets.** `api/.flaskenv` and `funcapp/local.settings.json` hold real keys and are git-ignored. Never
+   print their values.
+2. **Never point local work or tests at the Azure Cosmos account.** It shares request units with production. Use the
+   emulator or the in-memory test backend.
+3. **Branch, pull request, squash-merge.** Never commit to `main`: every push to `main` deploys to production.
+4. **Design for many processes on many machines.** No game state in process memory or on local disk, and no new
+   `acquire_lock` calls. SQLite is legacy and being phased out: add nothing to it (no tables, no columns, no new
+   queries of `User` in game logic).
+5. **Decide against the current document.** An action that spends or changes state uses `occ.update(path, decide)`,
+   never read-then-write.
+6. **The server decides what a player sees.** Never return another kingdom's data without filtering it by what the
+   caller has revealed.
+7. **One home per rule.** Game numbers live in `shared.py`; forecasts come from the API. Do not copy them elsewhere.
+8. **Ask before** changing balance numbers or the tenets, adding a paid service or tier, changing a document's shape in
+   a way existing data must migrate to, removing legacy locks, or touching anything in Azure.
 
-## Running locally
+## Top 10 pitfalls
 
-Start the pieces in this order. Each needs its own long-running process.
+1. **Read, decide, write without a condition.** Two overlapping requests both pass the check: one payment, two builds.
+   Use `occ.update`. Validation goes inside `decide`, and `decide` has no side effects because it can run several times.
+2. **Partial nested objects.** The kingdom PATCH is a shallow merge: sending `{"next_resolve": {"structures": t}}`
+   replaces all of `next_resolve`. Write the whole nested object.
+3. **State in one process.** A dict or cache only exists in the process that wrote it, and a SQLite row only on the
+   machine that wrote it. Shared state goes in a Cosmos document.
+4. **Leaking hidden information.** A field in an API response is visible to scripts even if the UI hides it. Filter with
+   `_get_max_kd_info` in `getters.py`. Its `max=True` skips the filter: use that only for server-side calculations,
+   never for data that goes into a response.
+5. **Game math in two places.** The frontend reads `data.state.game_config` and asks the API for forecasts.
+   `src/validation.js` mirrors only simple limits, and must change when the server's limits change.
+6. **Function app calls in loops.** Each call is a function execution and Cosmos request units on a free tier shared
+   with production. Count the round trips a change adds.
+7. **New fields on old kingdoms.** Kingdoms created before a change do not have the new field. Read it with
+   `.get(field, default)`; a `KeyError` in the refresh skips that kingdom on every tick.
+8. **Extra keys on queue entries.** The refresh credits every key except `time`. Entries carry only `time` and counts.
+9. **Counting ticks.** The refresh can run late, or twice. Compute from elapsed time and use cursors
+   (`queues_resolved_until`) so nothing is credited twice.
+10. **`USE_EMULATOR=1` wipes data.** The test setup calls `/deleteall` on whatever container the function app points at.
+    Only with `COSMOS_ENDPOINT` set to `https://localhost:8081`.
 
-1. **Cosmos emulator:** `Microsoft.Azure.Cosmos.Emulator.exe /NoUI /NoExplorer` (installed under
-   `C:\Program Files\Azure Cosmos DB Emulator`). Poll `/GetStatus` until it exits with code 2 (running).
-2. **Azurite:** `azurite --silent --location C:\dev\azurite --skipApiVersionCheck`.
-3. **Seed the emulator:** `python scripts/seed_cosmos_emulator.py` (report only), then `--apply` or
-   `--apply --replace`. It reads the Azure container (read-only) and writes only to the emulator.
-4. **Function app:** `func host start` from `funcapp/` (Azure Functions Core Tools 4).
-5. **API:** `flask run -p 8000` from `api/` (needs `FLASK_APP=run` and the rest of `api/.flaskenv`).
-6. **Frontend:** `npm start` from the repo root.
+## Workflow
 
-Conda environments under `C:\Users\bcope\miniconda3\envs\`:
-- `funcapp`: Python 3.10 with `requirements.txt`, for Flask and pytest.
-- `funcapp-worker`: Python 3.10 with `funcapp/requirements.txt`, for the function app worker and the seed script. It is
-  kept separate from the Flask environment's pinned packages.
+- Before a pull request, run the three test suites (backend, function app, frontend; no stack needed):
+  `.\scripts\check.ps1` on Windows, or the plain commands in [docs/testing.md](docs/testing.md#the-suites) anywhere.
+  CI runs the same suites only after merge, on `main`, and a failure stops the deploy.
+- A change is done when the definition of done in [docs/testing.md](docs/testing.md#definition-of-done) is met: tests
+  added, help page and docs updated, UI checked in a browser (or the pull request says it was not).
+- After merging, check the GitHub Actions run and fix a failed deploy.
+- The function app is published separately from the web app (see [docs/deployment.md](docs/deployment.md)). Say in
+  the pull request when a `funcapp/` change must go out first.
+- Pull request descriptions say what was tested, what was not, the cost impact (one line), and anything the maintainer
+  must do.
 
-The admin login password is `ADMIN_PASSWORD` in `api/.flaskenv`. It is only applied when no `admin` row exists, so
-after copying an old `database.db` it may not match, and the hash in SQLite must be updated.
+## Environment
 
-## Tests
+- Python 3.10 everywhere, in two separate environments because their pins conflict: one for Flask and pytest
+  (`requirements.txt` plus `requirements-dev.txt`), one for the function app (`funcapp/requirements.txt`). Node is only
+  for the React build and its tests.
+- The docs write commands for the maintainer's setup: Windows, PowerShell, and conda environments named `funcapp` and
+  `funcapp-worker`. CI is Ubuntu with pip and virtual environments. On another setup, run the same `pytest` and `npm`
+  commands in your own two environments. Anything particular to one machine (paths, where tools are installed) does not
+  belong in this file or in `docs/`.
+- Running locally needs, in order: Cosmos emulator, Azurite, the function app (`func host start` in `funcapp/`), Flask
+  (`flask run -p 8000` in `api/`), `npm start`. Nothing advances game time locally unless something calls `/api/refreshdata`: run
+  `python scripts/refresh_loop.py` in its own terminal.
+  Full steps and troubleshooting: [docs/development.md](docs/development.md).
+- `adhoc/` is for one-off scripts; reusable tooling goes in `scripts/`. `iac/terraform.tfstate` and
+  `funcapp/__azurite_*` are local state, not source.
 
-`python -m pytest tests -n 4` from the repo root, in the `funcapp` environment after `pip install -r requirements-dev.txt`.
-The backend tests run the function app's real handlers in-process on an in-memory Cosmos stand-in
-([tests/fake_backend.py](tests/fake_backend.py)), so no emulator, function host or Azurite is needed (about 30 seconds).
-`USE_EMULATOR=1` runs them against the real stack instead (slow, and it wipes the emulator; see "Tests are destructive").
+## Keeping the docs true
 
-- **Function app tests:** `python -m pytest funcapp/tests` in the `funcapp-worker` environment (no stack needed).
-- **Frontend tests:** `CI=true npm test -- --watchAll=false`. CI runs these before every build, so a failure blocks the
-  deploy. CI does not run the Python tests.
-- **Concurrency check:** `python scripts/check_concurrency.py` against the running function app (writes to the emulator).
-- Race tests (`test_concurrency`, `test_attack`, ...) rely on the fake container's small random latency to make requests overlap. Do not set `FAKE_LATENCY=0`.
+The docs are how the next person, or model, learns the rules, so a wrong doc is a bug.
 
-## Design philosophy
-
-From [untitled_project.txt](untitled_project.txt). Use these to judge whether a feature belongs.
-
-- Games are long term (rounds can run a day, a week, or a month). Strategy beats activity: one login every 12 hours
-  with a good plan should stay competitive.
-- Real time, with ticks of at most one second or continuous formulas.
-- Several playstyles (attacker, defender/expander, thief, support, leader). Teams outperform individuals.
-- Three tiers of politics: local (galaxy), regional (empire) and universal (all players, with votes that can be
-  bought).
-- Clear, relevant information at every decision point, but moderate obscurity (fog of war, reveal timers) so outside
-  tools cannot beat human judgment. If information is only reachable through an external program, make it available to
-  everyone or no one.
-- Minor comeback mechanics, plus early game-end if someone runs away with it. Leaderboards reward mid-round
-  contribution over end-of-round snapshots.
-- Simplicity over complexity: only add a feature if it is a net positive for the other tenets.
-- Not for v1.0: a graphical UI and built-in chat.
-
-## Code conventions and gotchas
-
-- Mirror the existing style: blueprint routes use `@bp.route`, `@flask_praetorian.auth_required`, and usually
-  `@alive_required`/`@start_required`. State reads and writes go through `REQUESTS_SESSION` calls to the function
-  app, with the `x-functions-key` header taken from `AZURE_FUNCTION_KEY`.
-- `getters.py` and `conquer.py` are large (1300 and 3000 lines). Search before adding a helper, since `shared.py` and
-  `getters.py` already hold many.
-- Most routes make several round trips to the function app, so avoid adding more inside loops.
-- **Actions that spend or change state must not use read-then-write.** Use `occ.update(path, decide)` from
-  `api/untitledapp/occ.py`: validate inside `decide` (which can run more than once, so no side effects), and the write
-  only lands if the document is unchanged since it was read. The old SQLite locks (`acquire_lock`) are per server and
-  being phased out; migrated routes keep them for now. Read [docs/concurrency.md](docs/concurrency.md) first.
-- Function app `update_*` handlers must stay single-write (one `replace_item`) so `@retry_on_conflict` can re-run them.
-  `funcapp/` is published by hand, not by CI.
-- Build queues are folded on every append (`funcapp/queues.py`): finish times are rounded up to a grid of 0.1% of the epoch
-  (`QUEUE_MERGE_FRACTION` of `EPOCH_SECONDS`, 1.8 s) and entries sharing a time are summed. Nothing finishes early, nothing is
-  more than one window late, and re-folding never moves anything. Queue entries have no identity beyond their time, and
-  must not carry extra keys (the refresh treats every key but `time` as a unit or structure name).
-- `adhoc/` is for one-off scripts. Reusable tooling goes in `scripts/`.
-- `iac/terraform.tfstate` and `funcapp/__azurite_*` are local state, not source.
-- Known tech debt: Python 3.10 is end-of-life, the CRA toolchain is old, and GitHub reports many Dependabot alerts on `main`.
+- When you change behaviour a doc describes, update the doc in the same pull request.
+- Rules go in the topic docs; anything unfinished or temporary goes in [docs/status.md](docs/status.md), dated. No
+  counts or dates in rule docs: they go stale.
+- A significant decision with rejected alternatives gets a record in `docs/decisions/`.
+- `tests/test_docs.py` fails when a doc links to or names a file that does not exist, or when the data model misses a
+  kingdom field.
