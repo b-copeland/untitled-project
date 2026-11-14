@@ -194,9 +194,17 @@ This needs no backend. CI runs it on every push to `main`.
 
 ## Periodic refresh
 
-Kingdoms advance (income, finished builds, scheduled actions, scores) when something calls `GET /api/refreshdata` with a
-`Refresh-Secret` header equal to `REFRESH_SECRET`. Locally nothing calls it, so state only changes on user actions
-unless you do it yourself:
+Kingdoms advance (income, finished builds, scheduled actions, reveal expiry, scores, bots) when something calls
+`GET /api/refreshdata` with a `Refresh-Secret` header equal to `REFRESH_SECRET`. Locally nothing does by default. Run the
+loop in its own terminal after the API is up (it reads the secret from `api/.flaskenv` and never prints it):
+
+```powershell
+python scripts/refresh_loop.py                  # every 30 seconds
+python scripts/refresh_loop.py --interval 10    # faster game time
+python scripts/refresh_loop.py --once           # one refresh and exit
+```
+
+Or call it by hand:
 
 ```powershell
 Invoke-WebRequest http://localhost:8000/api/refreshdata -Headers @{ 'Refresh-Secret' = '<REFRESH_SECRET>' }
