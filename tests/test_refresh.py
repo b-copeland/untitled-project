@@ -76,11 +76,6 @@ def session(monkeypatch):
     monkeypatch.setattr(refresh, "REQUESTS_SESSION", fake)
     monkeypatch.setattr(refresh.occ, "REQUESTS_SESSION", fake)
     monkeypatch.setattr(getters, "REQUESTS_SESSION", fake)
-    # Locks live in SQLite and are not what is being tested here.
-    monkeypatch.setattr(refresh.uam, "acquire_lock", lambda *a, **k: True)
-    monkeypatch.setattr(refresh.uam, "release_lock", lambda *a, **k: None)
-    monkeypatch.setattr(refresh.uam, "acquire_locks", lambda *a, **k: True)
-    monkeypatch.setattr(refresh.uam, "release_locks_by_id", lambda *a, **k: None)
     return fake
 
 
@@ -132,6 +127,8 @@ def test_no_schedules_at_all_cost_nothing(app, session):
 def test_due_schedule_runs_and_is_removed(app, session, monkeypatch):
     kingdom = {
         "kdId": 1,
+        "_etag": '"1"',
+        "money": 5,
         "schedule": [
             {"time": PAST, "type": "attack"},
             {"time": FUTURE, "type": "attack"},
@@ -142,7 +139,7 @@ def test_due_schedule_runs_and_is_removed(app, session, monkeypatch):
     monkeypatch.setattr(refresh, "_resolve_schedule_attack", lambda kd, sched: (ran_actions.append, (sched["time"],)))
 
     with app.app_context():
-        # The caller's copy says one is due, so the kingdom is read again under the lock before acting.
+        # The caller's copy says one is due, so the kingdom is read again and the due one taken off it before acting.
         ran = refresh._resolve_schedules(1, NOW, kingdom)
 
     assert ran is True
@@ -150,7 +147,8 @@ def test_due_schedule_runs_and_is_removed(app, session, monkeypatch):
     assert session.paths("GET") == ["/kingdom/1"]
     (patch_call,) = [c for c in session.calls if c[0] == "PATCH"]
     assert patch_call[1] == "/kingdom/1"
-    assert patch_call[2]["schedule"] == [{"time": FUTURE, "type": "attack"}]
+    # Only the schedule is written: the rest of the kingdom is never sent back from a copy that may be old.
+    assert patch_call[2] == {"schedule": [{"time": FUTURE, "type": "attack"}]}
 
 
 def test_schedules_without_a_snapshot_always_read(app, session):
@@ -240,6 +238,7 @@ def _kingdom_doc(**overrides):
     doc = {
         "kdId": 1,
         "race": "Xo",  # set up: the refresh skips a kingdom with no race
+        "_etag": "\"1\"",
         "status": "Active",
         "projects_points": {project: 0 for project in shared.PROJECTS},
         "projects_max_points": {project: 1 for project in shared.PROJECTS},

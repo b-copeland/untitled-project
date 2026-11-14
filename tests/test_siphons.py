@@ -2,7 +2,7 @@
 import datetime
 
 import untitledapp.refresh as refresh
-from tests.test_concurrency import KD_ID, no_shared_lock, _create_item, _get, _set_up_kingdom  # noqa: F401
+from tests.test_concurrency import KD_ID, _create_item, _get, _set_up_kingdom  # noqa: F401
 
 THIEF = "2"
 

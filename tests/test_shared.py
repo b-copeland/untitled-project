@@ -2,7 +2,7 @@
 import pytest
 
 from tests.test_attack import _in_threads
-from tests.test_concurrency import KD_ID, no_shared_lock, _create_item, _get, _run_together, _set_up_kingdom  # noqa: F401
+from tests.test_concurrency import KD_ID, _create_item, _get, _run_together, _set_up_kingdom  # noqa: F401
 
 FUTURE = "2030-06-01T00:00:00+00:00"
 

@@ -8,7 +8,7 @@ right now, see [status.md](status.md).
 | Layer | Stack | Location | Local port |
 |---|---|---|---|
 | Frontend | React (Create React App), TanStack Query, react-bootstrap | `src/` | 3000 |
-| API and game rules | Flask, flask-praetorian (JWT), Flask-Sock, Flask-Limiter; SQLAlchemy for the legacy locks only | `api/untitledapp/` | 8000 |
+| API and game rules | Flask, flask-praetorian (JWT), Flask-Sock, Flask-Limiter | `api/untitledapp/` | 8000 |
 | Game state store | Azure Functions (Python v2 model), a thin HTTP layer over Cosmos DB | `funcapp/` | 7071 |
 | Database | Cosmos DB (NoSQL API), one container, partition key `/id` | Azure, or the local emulator | 8081 |
 | Deploy | GitHub Actions to Azure App Service | `.github/workflows/` | |
@@ -54,11 +54,11 @@ requests can overlap. Concretely:
   no condition loses updates.
 - **Background work is safe to run twice at once.** The refresh can overlap itself, and a retried request can run again.
   Use cursors and ids so nothing is credited twice (see `queues_resolved_until` in `refresh.py`).
-- **Do not add new `acquire_lock` calls.** The SQLite locks only work inside one process. They remain on older routes until
-  every writer of a document is migrated ([status.md](status.md)).
+- **No locks.** The old SQLite locks only worked inside one process and are gone; nothing replaces them but the two
+  rules above.
 
-Pieces that still assume one process or one machine, and so are known gaps: SQLite (the legacy locks), `SOCK_HANDLERS`,
-and the rate limiter's `memory://` storage. Do not build on them, and do not copy their pattern.
+Pieces that still assume one process or one machine, and so are known gaps: `SOCK_HANDLERS` and the rate limiter's
+`memory://` storage. Do not build on them, and do not copy their pattern.
 
 ### 2. The server decides what a player can see
 
@@ -136,17 +136,17 @@ Whether the backend behind `store.py` stays the function app is the maintainer's
 
 ### Target: no SQLite
 
-SQLite now holds only the legacy `Locks` table, in a file on one machine. That contradicts rule 1, so it is being phased
-out. Progress is in [status.md](status.md#parallelism-gaps).
+SQLite held the users and the legacy locks, in a file on one machine, which contradicts rule 1. Nothing is stored in it
+any more; the SQLAlchemy dependency itself is still to go ([status.md](status.md#parallelism-gaps)).
 
-- **Users** have moved to Cosmos ([decisions/0004](decisions/0004-users-in-cosmos.md)): `user_<id>`, `username_<key>`
+- **Users** moved to Cosmos ([decisions/0004](decisions/0004-users-in-cosmos.md)): `user_<id>`, `username_<key>`
   and `user_counter` documents behind function app routes ([data-model.md](data-model.md#users)), with a plain user
   class (`users.py`) that flask-praetorian can use. It only calls `lookup`, `identify`, `identity`, `rolenames`,
   `password` and `is_valid`.
-- **Locks** go document by document as the concurrency migration finishes, then SQLAlchemy goes.
+- **Locks** were removed once every writer of each document was conditional or commutative
+  ([concurrency.md](concurrency.md)).
 
-Until then: add nothing to SQLite, and in game code take `kd_id` from `flask_praetorian.current_user()` and nothing else
-new from `User`.
+In game code take `kd_id` from `flask_praetorian.current_user()` and nothing else new from `User`.
 
 ## Where things are
 

@@ -96,6 +96,41 @@ class _RequestView:
         return body
 
 
+class Refused(Exception):
+    """A ``change_document`` change that must not be made, with the status to answer."""
+
+    def __init__(self, message, status_code=400):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
+class TooBusy(Exception):
+    """``change_document`` kept finding the document changed, ``MAX_ATTEMPTS`` times."""
+
+
+def change_document(container, item_id, change):
+    """
+    Read a document, let ``change(document)`` modify it in place, and write it back only if it is still the version
+    read; on a conflict, start again from the newer version. Returns what ``change`` returns. ``change`` may raise
+    ``Refused`` (nothing is written) and must have no other effects, since it can run several times.
+
+    For the multi-document handlers (``create_kingdom``, ``create_empire``), which can not be wrapped in
+    ``retry_on_conflict`` as a whole: each of their shared documents gets its own conditional change.
+    """
+    for attempt in range(MAX_ATTEMPTS):
+        document = container.read_item(item=item_id, partition_key=item_id)
+        result = change(document)
+        try:
+            container.replace_item(
+                item_id, document, etag=document["_etag"], match_condition=MatchConditions.IfNotModified,
+            )
+            return result
+        except CosmosAccessConditionFailedError:
+            time.sleep(random.uniform(0, min(0.02 * 2**attempt, 0.25)))
+    raise TooBusy(item_id)
+
+
 def retry_on_conflict(handler):
     """
     Run a single-write read-modify-write handler so that it can not lose updates.

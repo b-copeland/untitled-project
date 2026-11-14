@@ -2,7 +2,7 @@
 import pytest
 
 from tests.test_attack import _in_threads
-from tests.test_concurrency import KD_ID, no_shared_lock, _create_item, _get, _run_together, _set_up_kingdom  # noqa: F401
+from tests.test_concurrency import KD_ID, _create_item, _get, _run_together, _set_up_kingdom  # noqa: F401
 
 
 def _galaxy_politics(**fields):
@@ -215,3 +215,17 @@ def test_racing_acceptances_of_one_surrender_offer_transfer_the_stars_once(app, 
     assert "e2" in empires["e1"]["peace"] and "e1" in empires["e2"]["peace"]
     assert empires["e1"]["aggression"]["e2"] == 0
     assert _get("/empire/e1/politics")["surrender_offers_received"] == []
+
+
+def test_a_double_click_on_create_empire_makes_one_empire(app, client, jwt1):
+    """No lock: the function app takes the id with a conditional write and refuses a galaxy already in an empire."""
+    _two_player_galaxy()
+    _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID))
+
+    responses = _run_together(app, 5, lambda c, i: c.post(
+        "/api/empire", json={"empireName": "Once"}, headers=_auth(jwt1)))
+
+    assert sorted(r.status_code for r in responses) == [201] + [400] * 4, [r.get_json() for r in responses]
+    assert {r.get_json()["message"] for r in responses if r.status_code == 400} == {"You are already part of an Empire"}
+    empires = _get("/empires")["empires"]
+    assert len(empires) == 1 and next(iter(empires.values()))["galaxies"] == ["1:1"]

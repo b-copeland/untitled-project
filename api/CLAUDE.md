@@ -5,7 +5,7 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
 
 ## Layout
 
-- `untitledapp/__init__.py`: app factory (`create_app`), the legacy `Locks` model, the route decorators
+- `untitledapp/__init__.py`: app factory (`create_app`), the route decorators
   (`alive_required`, `start_required`, `before_start_required`), the websocket, `REQUESTS_SESSION`.
 - `users.py`: `User`, the user store over the `user_<id>` documents that flask-praetorian logs in with
   ([docs/data-model.md](../docs/data-model.md#users)).
@@ -36,11 +36,11 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
 - Users: game code takes only `flask_praetorian.current_user().kd_id` (read once per request) from the user. Change a
   user with `user.save(**fields)` or `user.update(decide)`, never by setting attributes. `User.by_kd_id`,
   `by_email`, `with_prefix` and `all` are one cross-partition query each: never per kingdom or per tick.
-- SQLite now holds only the legacy `Locks`; add nothing to it.
+- Nothing is stored in SQLite any more; do not bring it back.
 - Function app calls: `REQUESTS_SESSION` with the `x-functions-key` header from `AZURE_FUNCTION_KEY` and the base URL from
   `AZURE_FUNCTION_ENDPOINT`. Never inside a loop over kingdoms if a list can be read once.
-- No new `acquire_lock` calls. Existing ones stay until [docs/status.md](../docs/status.md) says the document is fully
-  migrated.
+- No locks. Every change to a document is conditional (`occ.update`) or commutative (an append or merge the function
+  app applies to the newest version).
 - Times: `datetime.datetime.now(datetime.timezone.utc)`, stored with `.isoformat()`.
 
 ## The refresh

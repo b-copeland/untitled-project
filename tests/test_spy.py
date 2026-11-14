@@ -2,7 +2,7 @@
 import pytest
 
 from tests.test_attack import TARGET_ID, _set_up_two_kingdoms
-from tests.test_concurrency import KD_ID, no_shared_lock, _create_item, _get, _run_together  # noqa: F401
+from tests.test_concurrency import KD_ID, _create_item, _get, _run_together  # noqa: F401
 
 
 def _spy(client, jwt, operation="suicidedrones", drones=100):

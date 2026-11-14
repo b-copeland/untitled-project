@@ -37,7 +37,11 @@ Read the handler in `funcapp/function_app.py` before relying on one, but these a
 
 Not retried, because they write several documents or create one: `/init`, `/deleteall`, `/resetstate`, `POST /kingdom`,
 `POST /galaxy/<id>`, `POST /empire`, `/createitem` (creates the document, or shallow-merges into an existing one),
-`POST /user` and `POST /username/<key>` (create only, `409` if the document exists).
+`POST /user` and `POST /username/<key>` (create only, `409` if the document exists). `POST /kingdom` and
+`POST /empire` take the new id with a conditional write on `kingdoms` / `empires` (and `POST /kingdom` joins the
+galaxy with one on `galaxies`), so creations at the same moment get different ids. `POST /kingdom` answers `400` for a
+name already taken (exactly the same name); `POST /empire` answers `409` if the galaxy is already in an empire, and
+both answer `503` if the document stayed too busy to write.
 
 Routes that exist but do not work with the current documents, so do not call them: `PATCH /empire/<id>/news`,
 `PATCH /kingdom/<id>/shared`, `/sharedrequests` ([status.md](status.md#code-health)).

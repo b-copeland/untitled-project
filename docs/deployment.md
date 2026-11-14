@@ -10,7 +10,6 @@ What runs in production, how code gets there, and what is **not** automated yet.
 | Function app (`funcapp/`) | Azure Functions, app `usg-funcapp-1345kh132`, Linux Consumption (Y1) plan | **Manually** (see below). CI does not deploy it. |
 | Game state | Azure Cosmos DB, one database `dev` with containers `data`, `dev`, `test`, `prod` | Created by hand in the Azure portal |
 | Users | Cosmos documents (`user_<id>`, `username_<key>`, `user_counter`) | Created at sign-up; the `admin` user by the app on first start if missing |
-| Legacy locks | SQLite file on the App Service | Created by the app on first start |
 | Periodic refresh | WebJob `refreshapp` on the web app, every minute | Created by hand in the portal. Not in this repository. |
 
 ## What Azure actually runs
@@ -65,7 +64,7 @@ Set these under the web app's Environment variables in the Azure portal. They ar
 | `ADMIN_PASSWORD` | Initial `admin` password (only applied when no `admin` user exists). |
 | `AZURE_FUNCTION_ENDPOINT` | Base URL of the function app's `/api`. |
 | `AZURE_FUNCTIONS_HOST_KEY` | Function host key, sent as `x-functions-key`. |
-| `SQLALCHEMY_DATABASE_URI` | SQLite location for the legacy locks (users are in Cosmos). |
+| `SQLALCHEMY_DATABASE_URI` | Unused: nothing is stored in SQLite any more. Still read by Flask-SQLAlchemy until that dependency goes. |
 | `REFRESH_SECRET` | Shared secret for `/api/refreshdata`. |
 | `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER`, `FRONTEND_URL` | Outgoing email and the base of the links in it. Without a key, mail is only logged. See [email.md](email.md). |
 

@@ -23,7 +23,8 @@ The SQLite lock commits are also most of the refresh's CPU time, and the locks o
   `current_user()` is called; that becomes a function-app call, read once per request and kept on `flask.g`. This
   adds about one call per authenticated request, which roughly doubles the cost of the 10-second kingdom and
   notification polls. Removing it (the kingdom id as a JWT claim) is a separate, optional step.
-- **D4. Locks are removed document by document,** once every writer of that document checks its version.
+- **D4. Locks are removed document by document,** once every writer of that document checks its version. (Done
+  2026-11-14.)
 
 ## Rejected
 

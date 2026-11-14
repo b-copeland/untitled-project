@@ -156,14 +156,8 @@ def test_a_kingdom_left_half_made_by_the_old_flow_is_finished_without_a_name(cli
     assert _get("/kingdom/1")["race"] == "Lumina" and _user(app, name) == ("1", True)
 
 
-@pytest.mark.parametrize("shared_lock", [True, False])
-def test_a_double_click_makes_one_kingdom(app, client, player, monkeypatch, shared_lock):
-    """With the lock off, as on several web app instances, the claim on the user document is what stops it."""
-    if not shared_lock:
-        import untitledapp.misc as uam
-        for name, stand_in in (("acquire_locks", lambda *a, **k: True), ("release_locks_by_id", lambda *a, **k: None),
-                               ("acquire_lock", lambda *a, **k: True), ("release_lock", lambda *a, **k: None)):
-            monkeypatch.setattr(uam, name, stand_in)
+def test_a_double_click_makes_one_kingdom(app, client, player):
+    """The claim on the user document is what stops it (there is no lock)."""
     name, headers = player
     body = {"kdName": "Eager", "preset": "thief"}
 

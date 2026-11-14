@@ -2,9 +2,8 @@
 End-to-end checks that overlapping requests can not duplicate an action, through the real routes, the function app and
 Cosmos (the emulator).
 
-The legacy lock is switched off in every test here. It lives in this process's SQLite file, so a second web app
-instance would not share it, and these tests are about what protects the data when it does not: the version check in
-the function app (funcapp/concurrency.py) together with api/untitledapp/occ.py.
+What protects the data is the version check in the function app (funcapp/concurrency.py) together with
+api/untitledapp/occ.py; there are no locks, so these hold on any number of web app instances.
 """
 import datetime
 import json
@@ -12,21 +11,11 @@ import threading
 
 import pytest
 
-import untitledapp.misc as uam
 import untitledapp.shared as uas
 from untitledapp import REQUESTS_SESSION, User
 
 KD_ID = "1"  # user1 in the testing config owns kingdom 1
 FUNCTION_URL = "http://localhost:7071/api"
-
-
-@pytest.fixture(autouse=True)
-def no_shared_lock(monkeypatch):
-    """Behave like one of several web app instances: no lock state shared with the others."""
-    monkeypatch.setattr(uam, "acquire_locks", lambda *args, **kwargs: True)
-    monkeypatch.setattr(uam, "release_locks_by_id", lambda *args, **kwargs: None)
-    monkeypatch.setattr(uam, "acquire_lock", lambda *args, **kwargs: True)
-    monkeypatch.setattr(uam, "release_lock", lambda *args, **kwargs: None)
 
 
 def _create_item(item, state):

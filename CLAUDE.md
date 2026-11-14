@@ -38,17 +38,16 @@ frontend (`src/`) gets each data key from its own route and reads game constants
 2. **Never point local work or tests at the Azure Cosmos account.** It shares request units with production. Use the
    emulator or the in-memory test backend.
 3. **Branch, pull request, squash-merge.** Never commit to `main`: every push to `main` deploys to production.
-4. **Design for many processes on many machines.** No game state in process memory or on local disk, and no new
-   `acquire_lock` calls. SQLite now holds only the legacy locks and is being phased out: add nothing to it. Users are
-   Cosmos documents (`users.py`); game code takes `kd_id` from `current_user()` and never queries users per kingdom
-   or per tick.
+4. **Design for many processes on many machines.** No game state in process memory or on local disk, and no locks:
+   there are none, and none come back. Users are Cosmos documents (`users.py`); game code takes `kd_id` from
+   `current_user()` and never queries users per kingdom or per tick.
 5. **Decide against the current document.** An action that spends or changes state uses `occ.update(path, decide)`,
    never read-then-write.
 6. **The server decides what a player sees.** Never return another kingdom's data without filtering it by what the
    caller has revealed.
 7. **One home per rule.** Game numbers live in `shared.py`; forecasts come from the API. Do not copy them elsewhere.
 8. **Ask before** changing balance numbers or the tenets, adding a paid service or tier, changing a document's shape in
-   a way existing data must migrate to, removing legacy locks, or touching anything in Azure.
+   a way existing data must migrate to, or touching anything in Azure.
 
 ## Top 10 pitfalls
 
