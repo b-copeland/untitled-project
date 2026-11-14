@@ -17,7 +17,7 @@ def test_a_new_account_can_log_in_and_the_password_is_not_stored_as_given(app, c
     with app.app_context():
         import untitledapp
 
-        stored = app.extensions["sqlalchemy"].session.query(untitledapp.User).filter_by(username="acct_a").one()
+        stored = untitledapp.User.lookup("acct_a")
         assert stored.password != "secret" and stored.roles == "verified" and stored.is_active
 
 

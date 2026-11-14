@@ -215,7 +215,7 @@ def _make_kingdom_one_a_bot(kind="attacker", **fields):
         "policy_1_winner": "", "policy_2_winner": "", "empire_invitations": [], "empire_join_requests": [],
     })
     long_ago = (datetime.datetime.now(datetime.timezone.utc) - 2 * HOUR).isoformat()
-    with_bot = {"bot": {"type": kind, "next_think": (NOW - HOUR).isoformat(), "log": []}, "last_income": long_ago, **fields}
+    with_bot = {"bot": {"type": kind, "next_think": (NOW - HOUR).isoformat(), "log": []}, "last_income": long_ago, "race": "Xo", **fields}
     kd = _get(f"/kingdom/{KD_ID}")
     if "next_resolve" in fields:  # only the named categories change
         with_bot["next_resolve"] = {**kd["next_resolve"], **fields["next_resolve"]}

@@ -1,13 +1,12 @@
 import hashlib
-import json
-import os
 import re
 
 import flask
 import flask_praetorian
 
-from untitledapp import User, REQUESTS_SESSION
+from untitledapp import User, UserExists
 import untitledapp.mailer as mailer
+import untitledapp.occ as occ
 
 bp = flask.Blueprint("account", __name__)
 
@@ -24,24 +23,15 @@ def login():
 @bp.route('/api/refresh', methods=['POST'])
 def refresh():
     guard = flask.current_app.extensions['praetorian']
-    
+
     old_token = guard.read_token_from_header()
     new_token = guard.refresh_jwt_token(old_token)
     ret = {'accessToken': new_token}
     return ret, 200
 
-def _update_accounts():
-    app = flask.current_app
-    db = flask.current_app.extensions["sqlalchemy"]
-    query = db.session.query(User).all()
-    users = [{k: v for k, v in user.__dict__.items() if k != "_sa_instance_state"} for user in query]
-    update_accounts = REQUESTS_SESSION.patch(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/accounts',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps({"accounts": users}),
-    )
-    return update_accounts.text
 
+def _rejected(rejection):
+    return flask.jsonify({"message": rejection.message}), rejection.status
 
 
 @bp.route('/api/disable_user', methods=['POST'])
@@ -55,31 +45,30 @@ def disable_user():
           -H "Authorization: Bearer <your_token>" \
           -d '{"username":"Walter"}'
     """
-    db = flask.current_app.extensions["sqlalchemy"]
     req = flask.request.get_json(force=True)
-    usr = User.query.filter_by(username=req.get('username', None)).one()
-    usr.is_active = False
-    db.session.commit()
-    _update_accounts()
+    usr = User.lookup(req.get('username', None))
+    if usr is None:
+        return flask.jsonify({"message": "No such user"}), 400
+    usr.save(is_active=False)
     return flask.jsonify(message='disabled user {}'.format(usr.username))
 
 def _validate_signup(
     username,
     password,
 ):
-    db = flask.current_app.extensions["sqlalchemy"]
-    if db.session.query(User).filter_by(username=username).count() >= 1:
+    if not isinstance(username, str) or not isinstance(password, str):
+        return False, "Username and password are required"
+    if User.lookup(username) is not None:
         return False, "Account already exists"
     if len(username) == 0:
         return False, "Username must be at least 1 character"
     if len(password) == 0:
         return False, "Password must be at least 1 character"
-    
+
     return True, ""
 
 @bp.route('/api/signup', methods=['POST'])
 def signup():
-    db = flask.current_app.extensions["sqlalchemy"]
     guard = flask.current_app.extensions['praetorian']
     req = flask.request.get_json(force=True)
     username = req.get('username', None)
@@ -93,63 +82,23 @@ def signup():
     if not valid_signup:
         ret = {'message': message}
         return (flask.jsonify(ret), 400)
-    new_user = User(
-        username=username,
-        password=guard.hash_password(password),
-        roles='verified',
-        is_active=True,
-        email=email or None,
-        email_verified=False,
-    )
-    db.session.add(new_user)
-    db.session.commit()
-    _update_accounts()
+    try:
+        # The check above is only a quick answer: creating the username claim is what makes the name unique, so of
+        # two sign-ups for one name at the same moment exactly one gets here.
+        new_user = User.create(
+            username,
+            guard.hash_password(password),
+            roles='verified',
+            is_active=True,
+            email=email or None,
+            email_verified=False,
+        )
+    except UserExists:
+        return (flask.jsonify({'message': "Account already exists"}), 400)
     if email:
         _send_verification(new_user)
     ret = {'message': 'Successfully created!', "status": "success"}
     return (flask.jsonify(ret), 201)
-
-@bp.route('/api/register', methods=['POST'])
-def register():
-    db = flask.current_app.extensions["sqlalchemy"]
-    guard = flask.current_app.extensions['praetorian']
-    req = flask.request.get_json(force=True)
-    username = req.get('username', None)
-    email = req.get('email', None)
-    password = req.get('password', None)
-    new_user = User(
-        username=username,
-        password=guard.hash_password(password),
-        roles='operator',
-        is_active=False,
-    )
-    db.session.add(new_user)
-    db.session.commit()
-    _update_accounts()
-    guard.send_registration_email(
-        email,
-        user=new_user,
-        confirmation_sender="domnusgame@gmail.com",
-        confirmation_uri="http://localhost:3000/finalize",
-        subject="Confirm your registration"
-    )
-    ret = {'message': 'successfully sent registration email to user {}'.format(
-        new_user.username
-    )}
-    return (flask.jsonify(ret), 201)
-
-
-@bp.route('/api/finalize')
-def finalize():
-    db = flask.current_app.extensions["sqlalchemy"]
-    guard = flask.current_app.extensions['praetorian']
-    registration_token = guard.read_token_from_header()
-    user = guard.get_user_from_registration_token(registration_token)
-    user.roles = 'operator,verified'
-    db.session.commit()
-    _update_accounts()
-    ret = {'access_token': guard.encode_jwt_token(user)}
-    return (flask.jsonify(ret), 200)
 
 
 # --- Email: attach an address, verify it, and use it to recover an account -----------------------------------------
@@ -160,6 +109,7 @@ def finalize():
 
 _EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 RECOVERY_REPLY = {"message": "If that address belongs to an account, we have sent an email to it.", "status": "success"}
+INVALID_LINK = "This link is invalid or has expired"
 
 
 def _valid_email(email):
@@ -193,15 +143,14 @@ def get_account():
 @flask_praetorian.auth_required
 def set_email():
     """Set or change the address on your account. It has to be verified again before it can be used for recovery."""
-    db = flask.current_app.extensions["sqlalchemy"]
     email = (flask.request.get_json(force=True).get('email') or '').strip()
     if not _valid_email(email):
         return flask.jsonify({"message": "That does not look like an email address"}), 400
     user = flask_praetorian.current_user()
-    user.email = email
-    user.email_verified = False
-    db.session.commit()
-    _update_accounts()
+    try:
+        user.save(email=email, email_verified=False)
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     _send_verification(user)
     return flask.jsonify({"message": "We have sent you an email to confirm the address.", "status": "success"}), 200
 
@@ -220,27 +169,31 @@ def resend_verification():
 
 @bp.route('/api/account/email/verify', methods=['POST'])
 def verify_email():
-    db = flask.current_app.extensions["sqlalchemy"]
     payload = mailer.read_token(mailer.VERIFY_EMAIL, flask.request.get_json(force=True).get('token') or '')
-    user = db.session.get(User, payload["id"]) if payload else None
-    # The token is for the address it was sent to; if the address was changed since, it no longer counts.
-    if user is None or user.email != payload["email"]:
-        return flask.jsonify({"message": "This link is invalid or has expired"}), 400
-    user.email_verified = True
-    db.session.commit()
-    _update_accounts()
+    user = User.get(payload["id"]) if payload else None
+    if user is None:
+        return flask.jsonify({"message": INVALID_LINK}), 400
+
+    def decide(stored):
+        # The token is for the address it was sent to; if the address was changed since, it no longer counts.
+        if stored.email != payload["email"]:
+            raise occ.Rejected(INVALID_LINK)
+        return {"email_verified": True}, None
+
+    try:
+        user.update(decide)
+    except occ.Rejected as rejection:
+        return _rejected(rejection)
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     return flask.jsonify({"message": "Your email address is confirmed", "status": "success"}), 200
 
 
 def _accounts_for(email):
-    db = flask.current_app.extensions["sqlalchemy"]
     email = (email or '').strip()
     if not _valid_email(email):
         return []
-    return [
-        user for user in db.session.query(User).filter(User.email == email, User.email_verified.is_(True)).all()
-        if user.is_active
-    ]
+    return [user for user in User.by_email(email) if user.email_verified and user.is_active]
 
 
 @bp.route('/api/account/forgot-password', methods=['POST'])
@@ -260,19 +213,30 @@ def forgot_password():
 
 @bp.route('/api/account/reset-password', methods=['POST'])
 def reset_password():
-    db = flask.current_app.extensions["sqlalchemy"]
     guard = flask.current_app.extensions['praetorian']
     req = flask.request.get_json(force=True)
     payload = mailer.read_token(mailer.RESET_PASSWORD, req.get('token') or '')
-    user = db.session.get(User, payload["id"]) if payload else None
+    user = User.get(payload["id"]) if payload else None
     if user is None or not user.is_active or payload["fp"] != _password_fingerprint(user):
-        return flask.jsonify({"message": "This link is invalid or has expired"}), 400
+        return flask.jsonify({"message": INVALID_LINK}), 400
     password = req.get('password') or ''
     if len(password) == 0:
         return flask.jsonify({"message": "Password must be at least 1 character"}), 400
-    user.password = guard.hash_password(password)
-    db.session.commit()
-    _update_accounts()
+    hashed = guard.hash_password(password)
+
+    def decide(stored):
+        # Checked against the password as stored when the change lands, so a link works once even if it is used twice
+        # at the same moment.
+        if not stored.is_active or payload["fp"] != _password_fingerprint(stored):
+            raise occ.Rejected(INVALID_LINK)
+        return {"password": hashed}, None
+
+    try:
+        user.update(decide)
+    except occ.Rejected as rejection:
+        return _rejected(rejection)
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
     return flask.jsonify({"message": "Your password has been changed", "status": "success"}), 200
 
 

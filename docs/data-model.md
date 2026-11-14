@@ -33,7 +33,7 @@ Read the handler in `funcapp/function_app.py` before relying on one, but these a
 | **Special** | `/notifs` | `add_categories` adds one to each counter named; `clear_categories` zeroes them. |
 | | `/pinned` | `pinned` adds kingdom ids, `unpinned` removes them. |
 | | `/history` | `{"history": {series: value}}` appends one value to each series. |
-| | `/accounts` | Replaces the whole list. |
+| | `/accounts` | Replaces the whole list. Nothing calls it any more (see `accounts` below). |
 
 Not retried, because they write several documents or create one: `/init`, `/deleteall`, `/resetstate`, `POST /kingdom`,
 `POST /galaxy/<id>`, `POST /empire`, `/createitem` (creates the document, or shallow-merges into an existing one),
@@ -61,7 +61,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `scores` | `points`, `stars`, `networth`, `galaxy_networth` (each keyed by id), `last_update` | the refresh only | derived |
 | `universe_votes` | `votes`: policy, option, kd id to votes | `/api/votes`, `/api/universepolitics/policies`, elections | strict |
 | `universe_news` | `news`: list | elections, politics | eventual |
-| `accounts` | `accounts`: a backup copy of the SQLite users | account routes | backup only; SQLite is the source |
+| `accounts` | `accounts`: the last copy of the SQLite users, from before they moved to `user_` documents; the migration reads it | nothing any more | a frozen backup, to be removed ([status.md](status.md#parallelism-gaps)) |
 | `galaxy_news_<galaxy>` | `news`: list | actions affecting the galaxy | eventual |
 | `galaxy_votes_<galaxy>` | `votes` (`policy_1`, `policy_2`, `leader`), `active_policies`, `leader`, `policy_1_winner`, `policy_2_winner`, `empire_invitations`, `empire_join_requests` | galaxy politics routes, empire routes | strict |
 | `empire_politics_<empire>` | `empire_invitations`, `empire_join_requests`, `surrender_offers_sent`, `surrender_offers_received`, `surrender_requests_sent`, `surrender_requests_received`, `leader` | empire politics routes | strict |
@@ -122,26 +122,28 @@ Fields added after creation:
 | `queues_resolved_until` | Per queue, the time up to which finished entries have been credited, so a repeated refresh never credits twice |
 | `bot` | Only on bots run by the bot brain: `type`, `next_think`, `log` (see [bots.md](bots.md)) |
 
-## Users (SQLite)
+## Users
 
-`User` in `api/untitledapp/__init__.py`: `username`, hashed `password`, `roles` (`operator`, `admin`), `kd_id`,
-`kd_created`, `kd_death_date`, `email`, `email_verified`, `is_active`, `is_verified`. The `Locks` table holds the legacy locks.
-Both live in a file on one machine and are being phased out
-([architecture.md](architecture.md#target-no-sqlite)): add nothing to them.
-
-## Users (Cosmos, being introduced)
-
-Where users are moving ([decisions/0004](decisions/0004-users-in-cosmos.md)). The function app routes exist; until the
-Flask user store and the migration land, SQLite is still the source and nothing writes these documents.
+Users are Cosmos documents too ([decisions/0004](decisions/0004-users-in-cosmos.md)), read and written through
+`api/untitledapp/users.py` (`User`). The `Locks` table, the last thing in SQLite, holds the legacy locks
+([architecture.md](architecture.md#target-no-sqlite)): add nothing to it.
 
 | id | Holds | Written by |
 |---|---|---|
-| `user_<id>` | Every `User` field except `id`, plus `id_number` (the numeric user id, an int) | `POST /user` (create only, `409` if it exists); `PATCH /user/<id>` (shallow merge, honours `If-Match`; never changes `id_number`) |
-| `username_<key>` | `user_id`: the int id of the user with that name. `key` is the lowercase hex of the UTF-8 username, so any name is a valid id and lookups stay case-sensitive | `POST /username/<key>`: creating it is the uniqueness check, `409` if the name is taken |
-| `user_counter` | `next_id`: the next free user id | `PATCH /usercounter` with `If-Match` (`occ.update`). `GET /usercounter` creates it with `next_id: 1` if it is missing |
+| `user_<id>` | `id_number` (the numeric user id, an int: it is the `id` claim in JWTs and in email tokens), `username`, hashed `password`, `roles` (comma-separated: `operator`, `admin`, `verified`), `kd_id` (a string, or null), `kd_created`, `kd_death_date`, `email`, `email_verified`, `is_active`, `is_verified`; `kd_pending` while a kingdom is being made for it | `POST /user` (create only, `409` if it exists); `PATCH /user/<id>` (shallow merge, honours `If-Match`; never changes `id_number`). Flask writes through `user.save` / `user.update`, which are `occ.update` |
+| `username_<key>` | `user_id`: the int id of the user with that name. `key` is the lowercase hex of the UTF-8 username, so any name is a valid id and lookups stay case-sensitive | `POST /username/<key>` at sign-up: creating it is the uniqueness check, `409` if the name is taken |
+| `user_counter` | `next_id`: the next free user id | `PATCH /usercounter` with `If-Match` (`occ.update`), at sign-up. `GET /usercounter` creates it with `next_id: 1` if it is missing |
 
-`GET /users` is one cross-partition query over the user documents, in id order, filtered by any of `email`, `kd_id`
-and `prefix` (of the username). It is for admin and rare lookups only, never per request or per tick.
-
-Users outlive a round: `/resetstate` keeps every `user_` and `username_` document. `/deleteall` (tests) removes them
-rather than blanking them, so names become free again.
+- **Sign-up** takes an id from the counter, claims the name for it, then writes the user. A crash after the claim leaves
+  the name taken by nobody; `User.lookup` also checks that the user it finds has the name, so a stale claim finds
+  nobody.
+- **Kingdom creation** claims the user first: `kd_pending` (`{request, time}`) is set with `occ.update` only while the
+  user has no `kd_id` and no other request's claim younger than `KINGDOM_CLAIM_SECONDS` (`misc.py`). It is cleared when
+  the kingdom is recorded, or when making it fails.
+- **Read per request:** `current_user()` reads `user_<id>` once per request (`request_cache.py`).
+- **Queries:** `GET /users` is one cross-partition query over the user documents, in id order, filtered by any of
+  `email`, `kd_id` and `prefix` (of the username). For admin and rare lookups only (round reset, kingdom death, email
+  recovery, bot names), never per request or per tick.
+- **Users outlive a round:** `/resetstate` keeps every `user_` and `username_` document (the admin reset then clears
+  their kingdom fields). `/deleteall` (tests) removes them rather than blanking them, so names become free again.
+- **Old documents:** a user document written before a field existed lacks it; `users.FIELDS` holds the defaults.

@@ -5,9 +5,9 @@ import pytest
 
 import untitledapp.bots as bots
 import untitledapp.shared as uas
-from untitledapp import User
 from tests.test_bots import _kingdoms_starting_past_any_used_id
 from tests.test_concurrency import _create_item, _get, _run_together, _set_up_kingdom
+from tests.test_users import _add_user, _stored_user
 
 _numbers = itertools.count(1)
 
@@ -24,11 +24,7 @@ def world(app, client):
 def player(app, client, world):
     """A signed-up account with no kingdom yet, signed in. Returns (username, auth headers)."""
     name = f"newplayer{next(_numbers)}"
-    with app.app_context():
-        db = app.extensions["sqlalchemy"]
-        guard = app.extensions["praetorian"]
-        db.session.add(User(username=name, password=guard.hash_password("pw"), roles="operator", kd_created=False, is_active=True))
-        db.session.commit()
+    _add_user(app, name)
     token = client.post("/api/login", json={"username": name, "password": "pw"}).get_json()["accessToken"]
     return name, {"Authorization": f"Bearer {token}"}
 
@@ -38,9 +34,8 @@ def _kingdom_named(name):
 
 
 def _user(app, name):
-    with app.app_context():
-        user = app.extensions["sqlalchemy"].session.query(User).filter_by(username=name).populate_existing().one()
-        return user.kd_id, user.kd_created
+    user = _stored_user(app, name)
+    return user.kd_id, user.kd_created
 
 
 def test_the_creator_offers_every_bot_archetype_with_what_it_starts_with(client, player):
@@ -135,11 +130,7 @@ def test_a_taken_or_bad_name_is_refused_and_points_at_the_name(client, player):
     for name in ("taken", "", "   ", "x" * 25):
         # a second player trying the same name
         other = f"other{next(_numbers)}"
-        with client.application.app_context():
-            db = client.application.extensions["sqlalchemy"]
-            db.session.add(User(username=other, password=client.application.extensions["praetorian"].hash_password("pw"),
-                                roles="operator", kd_created=False, is_active=True))
-            db.session.commit()
+        _add_user(client.application, other)
         token = client.post("/api/login", json={"username": other, "password": "pw"}).get_json()["accessToken"]
         response = client.post("/api/createkingdom", json={"kdName": name, "preset": "explorer"},
                                headers={"Authorization": f"Bearer {token}"})
@@ -157,9 +148,7 @@ def test_a_kingdom_left_half_made_by_the_old_flow_is_finished_without_a_name(cli
     name, headers = player
     # What the old name-only step left behind: a kingdom with an id, never set up.
     with app.app_context():
-        db = app.extensions["sqlalchemy"]
-        db.session.query(User).filter_by(username=name).one().kd_id = "1"
-        db.session.commit()
+        _stored_user(app, name).save(kd_id="1")
 
     response = client.post("/api/createkingdom", json={"preset": "intel"}, headers=headers)
 
@@ -167,7 +156,14 @@ def test_a_kingdom_left_half_made_by_the_old_flow_is_finished_without_a_name(cli
     assert _get("/kingdom/1")["race"] == "Lumina" and _user(app, name) == ("1", True)
 
 
-def test_a_double_click_makes_one_kingdom(app, client, player):
+@pytest.mark.parametrize("shared_lock", [True, False])
+def test_a_double_click_makes_one_kingdom(app, client, player, monkeypatch, shared_lock):
+    """With the lock off, as on several web app instances, the claim on the user document is what stops it."""
+    if not shared_lock:
+        import untitledapp.misc as uam
+        for name, stand_in in (("acquire_locks", lambda *a, **k: True), ("release_locks_by_id", lambda *a, **k: None),
+                               ("acquire_lock", lambda *a, **k: True), ("release_lock", lambda *a, **k: None)):
+            monkeypatch.setattr(uam, name, stand_in)
     name, headers = player
     body = {"kdName": "Eager", "preset": "thief"}
 

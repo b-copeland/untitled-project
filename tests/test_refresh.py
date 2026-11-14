@@ -239,6 +239,7 @@ def test_siphon_payments_wait_for_the_kingdom_to_be_written_and_are_not_repeated
 def _kingdom_doc(**overrides):
     doc = {
         "kdId": 1,
+        "race": "Xo",  # set up: the refresh skips a kingdom with no race
         "status": "Active",
         "projects_points": {project: 0 for project in shared.PROJECTS},
         "projects_max_points": {project: 1 for project in shared.PROJECTS},

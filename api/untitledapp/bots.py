@@ -34,7 +34,7 @@ import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.shared as uas
 import untitledapp.getters as uag
-from untitledapp import User, REQUESTS_SESSION
+from untitledapp import User, UserExists, REQUESTS_SESSION
 
 BOT_PREFIX = "bot_"
 
@@ -270,9 +270,18 @@ def create_bot(name, archetype_key, rng=None):
         raise ValueError(f"The {archetype_key} bot is not legal: {problems(archetype)}")
 
     app = flask.current_app
-    db = app.extensions["sqlalchemy"]
     guard = app.extensions["praetorian"]
-    if db.session.query(User).filter_by(username=name).count():
+    try:
+        # The account first: claiming the name is the uniqueness check, so a taken name makes no kingdom.
+        user = User.create(
+            name,
+            # Nobody knows this password, so nobody can log in as a bot.
+            guard.hash_password(secrets.token_urlsafe(32)),
+            roles='operator',
+            kd_created=False,
+            is_active=True,
+        )
+    except UserExists:
         raise ValueError(f"The name {name!r} is taken")
 
     created = REQUESTS_SESSION.post(
@@ -310,29 +319,17 @@ def create_bot(name, archetype_key, rng=None):
 
     occ.update(f'/kingdom/{kd_id}', set_up)
 
-    db.session.add(User(
-        username=name,
-        # Nobody knows this password, so nobody can log in as a bot.
-        password=guard.hash_password(secrets.token_urlsafe(32)),
-        roles='operator',
-        kd_id=kd_id,
-        kd_created=True,
-        is_active=True,
-    ))
-    db.session.commit()
+    user.save(kd_id=kd_id, kd_created=True)
     return kd_id
 
 
 def create_bots(counts, rng=None, first_number=None):
     """
     Create several bots. ``counts`` maps archetype key to how many, e.g. ``{"explorer": 25, "attacker": 25}``. Returns
-    the names created. The account list is synced to the function app once at the end, like any other sign-up.
+    the names created.
     """
-    import untitledapp.account as uaa
-
     rng = rng or random.Random()
-    db = flask.current_app.extensions["sqlalchemy"]
-    existing = db.session.query(User).filter(User.username.like(f"{BOT_PREFIX}%")).count()
+    existing = len(User.with_prefix(BOT_PREFIX))
     number = existing + 1 if first_number is None else first_number
     created = []
     for key, how_many in counts.items():
@@ -341,5 +338,4 @@ def create_bots(counts, rng=None, first_number=None):
             create_bot(name, key, rng)
             created.append(name)
             number += 1
-    uaa._update_accounts()
     return created

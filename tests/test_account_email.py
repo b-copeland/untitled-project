@@ -141,25 +141,3 @@ def test_a_mail_failure_does_not_break_the_request(app, client, outbox, monkeypa
     reply = client.post("/api/account/forgot-password", json={"email": "i@example.com"})
 
     assert reply.status_code == 200
-
-
-def test_the_existing_user_table_gets_the_email_columns_without_losing_rows(tmp_path):
-    """Production has a SQLite file from before email existed; create_all() would never add the columns."""
-    import flask
-    import sqlalchemy
-    import untitledapp
-
-    old_app = flask.Flask("old_schema")
-    old_app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{tmp_path / 'old.db'}"
-    untitledapp.db.init_app(old_app)
-    with old_app.app_context():
-        with untitledapp.db.engine.begin() as connection:
-            connection.execute(sqlalchemy.text('CREATE TABLE user (id INTEGER PRIMARY KEY, username TEXT, password TEXT)'))
-            connection.execute(sqlalchemy.text("INSERT INTO user (username, password) VALUES ('old', 'hash')"))
-
-        untitledapp._add_missing_columns()
-        untitledapp._add_missing_columns()  # running it again is harmless
-
-        with untitledapp.db.engine.connect() as connection:
-            row = connection.execute(sqlalchemy.text('SELECT username, email, email_verified FROM user')).one()
-    assert tuple(row) == ("old", None, 0)

@@ -5,8 +5,10 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
 
 ## Layout
 
-- `untitledapp/__init__.py`: app factory (`create_app`), `User` and `Locks` models, the route decorators
+- `untitledapp/__init__.py`: app factory (`create_app`), the legacy `Locks` model, the route decorators
   (`alive_required`, `start_required`, `before_start_required`), the websocket, `REQUESTS_SESSION`.
+- `users.py`: `User`, the user store over the `user_<id>` documents that flask-praetorian logs in with
+  ([docs/data-model.md](../docs/data-model.md#users)).
 - One blueprint per area: `account`, `admin`, `build`, `conquer`, `getters`, `misc`, `politics`, `refresh`. Which area
   holds what is in [docs/architecture.md](../docs/architecture.md#where-things-are).
 - `shared.py`: every game constant and formula (`GAME_CONFIG`, `GAME_FUNCS`, `UNITS`, `PROJECTS`, policies,
@@ -31,8 +33,10 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
   forecasts and the bots.
 - Other kingdoms' data: through `_get_max_kd_info`, which keeps only the fields the caller has revealed. `max=True`
   skips the filter; never put that result in a response.
-- SQLite (`User`, `Locks`, `db.session`) is being phased out. Add nothing to it; game code takes only
-  `flask_praetorian.current_user().kd_id` from the user.
+- Users: game code takes only `flask_praetorian.current_user().kd_id` (read once per request) from the user. Change a
+  user with `user.save(**fields)` or `user.update(decide)`, never by setting attributes. `User.by_kd_id`,
+  `by_email`, `with_prefix` and `all` are one cross-partition query each: never per kingdom or per tick.
+- SQLite now holds only the legacy `Locks`; add nothing to it.
 - Function app calls: `REQUESTS_SESSION` with the `x-functions-key` header from `AZURE_FUNCTION_KEY` and the base URL from
   `AZURE_FUNCTION_ENDPOINT`. Never inside a loop over kingdoms if a list can be read once.
 - No new `acquire_lock` calls. Existing ones stay until [docs/status.md](../docs/status.md) says the document is fully

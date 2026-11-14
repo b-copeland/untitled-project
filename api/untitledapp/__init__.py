@@ -51,42 +51,9 @@ REQUESTS_SESSION = _FunctionAppSession()
 
 SOCK_HANDLERS = {}
 
-# A generic user model that might be used by an app powered by flask-praetorian
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.Text, unique=True)
-    password = db.Column(db.Text)
-    roles = db.Column(db.Text)
-    kd_id = db.Column(db.Text)
-    kd_created = db.Column(db.Boolean, default=False, server_default='false')
-    is_active = db.Column(db.Boolean, default=True, server_default='true')
-    is_verified = db.Column(db.Boolean, default=True, server_default='false')
-    kd_death_date = db.Column(db.Text)
-    email = db.Column(db.Text)
-    email_verified = db.Column(db.Boolean, default=False, server_default='false')
+# Users live in Cosmos, behind the function app (users.py, docs/decisions/0004-users-in-cosmos.md).
+from untitledapp.users import User, UserExists  # noqa: E402
 
-    @property
-    def rolenames(self):
-        try:
-            return self.roles.split(',')
-        except Exception:
-            return []
-
-    @classmethod
-    def lookup(cls, username):
-        return cls.query.filter_by(username=username).one_or_none()
-
-    @classmethod
-    def identify(cls, id):
-        return cls.query.get(id)
-
-    @property
-    def identity(self):
-        return self.id
-
-    def is_valid(self):
-        return self.is_active
-    
 class Locks(db.Model):
     lock_name = db.Column(db.Text, primary_key=True)
     request_id = db.Column(db.Text)
@@ -130,17 +97,35 @@ def _custom_limit_key_func():
         token = get_remote_address()
     return token
 
-def _add_missing_columns():
-    """create_all() makes new tables but never adds a column to an existing one, so do that for the SQLite file that
-    already exists in production. Only columns added after the first release belong here."""
-    import sqlalchemy
-    inspector = sqlalchemy.inspect(db.engine)
-    existing = {column["name"] for column in inspector.get_columns("user")}
-    with db.engine.begin() as connection:
-        if "email" not in existing:
-            connection.execute(sqlalchemy.text('ALTER TABLE user ADD COLUMN email TEXT'))
-        if "email_verified" not in existing:
-            connection.execute(sqlalchemy.text("ALTER TABLE user ADD COLUMN email_verified BOOLEAN DEFAULT 0"))
+def _ensure_user(username, password, **fields):
+    """Create the user unless the name is taken. Safe when several processes start at once: one claim wins."""
+    if User.lookup(username) is not None:
+        return
+    try:
+        User.create(username, guard.hash_password(password), **fields)
+    except UserExists:
+        pass
+
+
+# The test users, created afresh for every test (tests/conftest.py). Their hashes are computed once per process:
+# hashing is slow on purpose, and the passwords are the well-known test ones.
+TESTING_USERS = (
+    ("admin", {"roles": "operator,admin", "kd_created": False}),
+    ("user1", {"roles": "operator", "kd_created": True, "kd_id": "1", "is_active": True}),
+    ("user2", {"roles": "operator", "kd_created": True, "kd_id": "2", "is_active": True}),
+)
+_testing_hashes = {}
+
+
+def seed_testing_users():
+    """Create the test users in an empty container, in order, so they get ids 1, 2 and 3. Needs an app context."""
+    for username, fields in TESTING_USERS:
+        if username not in _testing_hashes:
+            _testing_hashes[username] = guard.hash_password(username)
+        try:
+            User.create(username, _testing_hashes[username], **fields)
+        except UserExists:
+            pass
 
 
 def create_app(config_class='config.Config'):
@@ -163,58 +148,16 @@ def create_app(config_class='config.Config'):
     mail.init_app(app)
 
     sock = Sock(app)
-    # Add users for the example
     if config_class.lower() == "config.config":
         with app.app_context():
-            db.create_all()
-            _add_missing_columns()
-            accounts_response = REQUESTS_SESSION.get(
-                app.config.get("AZURE_FUNCTION_ENDPOINT") + f'/accounts',
-                headers={'x-functions-key': app.config.get('AZURE_FUNCTION_KEY')},
-            )
-            accounts_json = json.loads(accounts_response.text)
-            accounts = accounts_json["accounts"]
-            for user in accounts:
-                if db.session.query(User).filter_by(username=user["username"]).count() < 1:
-                    db.session.add(
-                        User(**user)
-                    )
-            if db.session.query(User).filter_by(username='admin').count() < 1:
-                db.session.add(User(
-                username='admin',
-                password=guard.hash_password(os.environ["ADMIN_PASSWORD"]),
-                roles='operator,admin',
-                kd_created=True,
-                ))
-            db.session.commit()
+            db.create_all()  # the legacy Locks table only
+            _ensure_user("admin", os.environ["ADMIN_PASSWORD"], roles="operator,admin", kd_created=True)
     elif config_class.lower() == "config.testingconfig":
         with app.app_context():
             db.drop_all()
             db.create_all()
-            db.session.add(User(
-                username='admin',
-                password=guard.hash_password("admin"),
-                roles='operator,admin',
-                kd_created=False,
-            ))
-            db.session.add(User(
-                username='user1',
-                password=guard.hash_password("user1"),
-                roles='operator',
-                kd_created=True,
-                kd_id=1,
-                is_active=True,
-            ))
-            db.session.add(User(
-                username='user2',
-                password=guard.hash_password("user2"),
-                roles='operator',
-                kd_created=True,
-                kd_id=2,
-                is_active=True,
-            ))
-            db.session.commit()
-        
+            seed_testing_users()
+
     # Shared documents are read at most once per request (request_cache.py).
     from untitledapp import request_cache
     app.before_request(request_cache.start)
@@ -265,8 +208,7 @@ def create_app(config_class='config.Config'):
                 jwt = json_data.get('jwt', None)
                 if jwt:
                     id = guard.extract_jwt_token(jwt)["id"]
-                    query = db.session.query(User).filter_by(id=id).all()
-                    user = query[0]
+                    user = User.get(id)  # not identify: this request lasts as long as the socket
                     sock.app.logger.info('Added %s to listeners', user.kd_id)
                     SOCK_HANDLERS[user.kd_id] = ws
 

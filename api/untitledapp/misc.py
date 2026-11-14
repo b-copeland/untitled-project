@@ -10,7 +10,6 @@ import flask
 import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
-import untitledapp.account as uaa
 import untitledapp.shared as uas
 import untitledapp.getters as uag
 import untitledapp.occ as occ
@@ -41,26 +40,55 @@ def _validate_kingdom_name(
     
     return True, ""
 
+# How long a request's claim to make a user's kingdom holds off another request for the same user (see below).
+KINGDOM_CLAIM_SECONDS = 120
+
+
 def _create_kingdom_documents(user_id, name):
     """
     Make a kingdom's documents in the function app, in the galaxy with the fewest kingdoms, and record its id on the
     user. Returns ``(kd_id, message)``: the message is empty when it worked. If the user turns out to have a kingdom
     already (a double click got here first), that kingdom's id is returned and nothing is made.
+
+    Two requests for one user (a double click, two tabs, two machines) are kept from both making a kingdom by a claim
+    on the user document, decided with ``occ.update``: only one request can set ``kd_pending`` while the user has no
+    kingdom. The claim expires after ``KINGDOM_CLAIM_SECONDS`` in case its request died half way.
     """
     app = flask.current_app
-    db = flask.current_app.extensions["sqlalchemy"]
+    user = User.get(user_id)
+    if user is None:
+        return None, "Could not find your account"
 
     request_id = str(uuid.uuid4())
-    if not acquire_locks(["/kingdoms", "/galaxies"], request_id=request_id):
-        return None, "Server is busy"
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    def claim(document):
+        if document.get("kd_id") not in ("", None):
+            return None, document["kd_id"]
+        pending = document.get("kd_pending")
+        if pending and pending.get("request") != request_id:
+            started = datetime.datetime.fromisoformat(pending["time"])
+            if (now - started).total_seconds() < KINGDOM_CLAIM_SECONDS:
+                raise occ.Rejected("Your kingdom is already being created")
+        return {"kd_pending": {"request": request_id, "time": now.isoformat()}}, None
 
     try:
-        # The checks at the top of the route happened before the lock, so a double click could pass them twice. Look
-        # again, at the user as stored now.
-        stored_user = db.session.query(User).filter_by(id=user_id).populate_existing().one()
-        if stored_user.kd_id != "" and stored_user.kd_id is not None:
-            return stored_user.kd_id, ""
+        existing = occ.update(f"/user/{user.id}", claim)
+    except occ.Rejected as rejection:
+        return None, rejection.message
+    except occ.Busy:
+        return None, "Server is busy"
+    if existing:
+        return existing, ""
 
+    # The lock is still what keeps two different players' kingdoms from getting the same id (the function app picks
+    # len(existing)); see docs/status.md.
+    if not acquire_locks(["/kingdoms", "/galaxies"], request_id=request_id):
+        user.save(kd_pending=None)
+        return None, "Server is busy"
+
+    kd_id = None
+    try:
         valid_name, message = _validate_kingdom_name(name)
         if not valid_name:
             return None, message
@@ -100,13 +128,11 @@ def _create_kingdom_documents(user_id, name):
                 }),
             )
 
-        db.session.expunge_all()
-        user = flask_praetorian.current_user()
-        user.kd_id = kd_id
-        db.session.commit()
-        uaa._update_accounts()
+        user.save(kd_id=kd_id, kd_pending=None)
     finally:
         release_locks_by_id(request_id)
+        if kd_id is None:
+            user.save(kd_pending=None)  # nothing was made, so let the player try again straight away
     return kd_id, ""
 
 
@@ -146,8 +172,6 @@ def _plan_from_request(req):
 
 def _finish_kingdom(kd_id, plan):
     """Set a freshly made kingdom up as the plan says, once. Returns the response."""
-    db = flask.current_app.extensions["sqlalchemy"]
-
     if not acquire_lock(f"/kingdom/{kd_id}"):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
@@ -168,11 +192,7 @@ def _finish_kingdom(kd_id, plan):
         # The kingdom is only ever set up once: the second of two racing requests finds the race already chosen.
         occ.update(f"/kingdom/{kd_id}", decide)
 
-        db.session.expunge_all()
-        user = flask_praetorian.current_user()
-        user.kd_created = True
-        db.session.commit()
-        uaa._update_accounts()
+        flask_praetorian.current_user().save(kd_created=True)
     except occ.Rejected as rejection:
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
@@ -224,7 +244,6 @@ def create_kingdom():
 # @flask_praetorian.roles_required('verified')
 def reset_initial_kingdom():    
     app = flask.current_app
-    db = flask.current_app.extensions["sqlalchemy"]
     user = flask_praetorian.current_user()
     kd_id = user.kd_id
     kd_info = uag._get_kd_info(kd_id)
@@ -251,12 +270,8 @@ def reset_initial_kingdom():
                     "state": state,
                 }),
             )
-            
-        db.session.expunge_all()
-        user = flask_praetorian.current_user()
-        user.kd_created = False
-        db.session.commit()
-        uaa._update_accounts()
+
+        user.save(kd_created=False)
     finally:
         release_locks_by_id(request_id)
     return (flask.jsonify("Reset kingdom"), 200)
@@ -652,12 +667,10 @@ def clear_notifs():
     return "Cleared", 200
 
 def _mark_kingdom_death(kd_id):
-    db = flask.current_app.extensions["sqlalchemy"]
-    query = db.session.query(User).filter_by(kd_id=kd_id).all()
-    user = query[0]
-    user.kd_death_date = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    db.session.commit()
-    uaa._update_accounts()
+    """Record the death on the kingdom's user (one query: deaths are rare) and tell their open socket, if any."""
+    death_date = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    for user in User.by_kd_id(kd_id):
+        user.save(kd_death_date=death_date)
     try:
         ws = SOCK_HANDLERS[kd_id]
         ws.send(json.dumps({
@@ -669,7 +682,6 @@ def _mark_kingdom_death(kd_id):
         }))
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
-    return flask.jsonify(str(user.__dict__))
 
 def acquire_lock(lock_name, timeout=10):
     """

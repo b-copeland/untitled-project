@@ -5,8 +5,6 @@ Cosmos (the emulator).
 The legacy lock is switched off in every test here. It lives in this process's SQLite file, so a second web app
 instance would not share it, and these tests are about what protects the data when it does not: the version check in
 the function app (funcapp/concurrency.py) together with api/untitledapp/occ.py.
-
-Needs the function app and Azurite running, like the rest of this directory.
 """
 import datetime
 import json
@@ -207,10 +205,7 @@ def test_racing_requests_to_disable_auto_spending_release_the_funding_once(app, 
 def test_racing_kingdom_setups_apply_the_choices_once(app, client, jwt1):
     _set_up_kingdom(money=0)
     with app.app_context():
-        db = app.extensions["sqlalchemy"]
-        user = db.session.query(User).filter_by(username="user1").one()
-        user.kd_created = False
-        db.session.commit()
+        User.lookup("user1").save(kd_created=False)
 
     body = {
         "race": "Gaian",

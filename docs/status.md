@@ -28,7 +28,9 @@ These pieces do not yet:
 
 | Piece | Problem | Direction |
 |---|---|---|
-| Users and locks in SQLite (2026-11-14: users move to Cosmos, [decisions/0004](decisions/0004-users-in-cosmos.md); function app routes added, Flask store and migration not started) | Each instance has its own file. Besides login, SQLite is read by `alive_required` (`kd_death_date`), `/api/kingdomid` (`kd_created`), `_refresh_kd` (`kd_created`), kingdom creation, reset and death (`misc.py`), `account.py`, `admin.py`, `bots.py`, and the lock functions. The `accounts` backup document is one list replaced whole, so two sign-ups at once can lose one. | Users: a Flask user store over the `user_` documents, then a migration the maintainer runs. Locks go with the concurrency migration ([architecture.md](architecture.md#target-no-sqlite)) |
+| Locks in SQLite (2026-11-14: users have moved to Cosmos, [decisions/0004](decisions/0004-users-in-cosmos.md)) | Each instance has its own file, so the locks only work within one process. SQLAlchemy is still a dependency for them. | Locks go document by document with the concurrency migration, then SQLAlchemy ([architecture.md](architecture.md#target-no-sqlite)) |
+| The `accounts` document (2026-11-14) | The last copy of the SQLite users. Nothing writes it since users moved to `user_` documents; `adhoc/migrate_users_to_cosmos.py` reads it. `/resetstate` still clears kingdom fields in it, and `GET`/`PATCH /accounts` still exist. | Kept as a backup until the migration has run in production and been checked, then remove the document, the routes, and its place in `/init` and `/resetstate` |
+| Kingdom creation's legacy lock (2026-11-14) | `_create_kingdom_documents` still takes the `/kingdoms` and `/galaxies` lock, now only so two players creating kingdoms at once in one process do not get the same id (see the next row). A double click is stopped by the `kd_pending` claim on the user document. | Goes with the id fix below |
 | `SOCK_HANDLERS` (websocket registry) | A push only reaches sockets on the process that raised it. Each open socket also holds a server thread for its lifetime. | A pub/sub service, or polling notifications |
 | Rate limiter (`memory://`) | Limits are per process | Shared storage for the limiter |
 | The refresh | One request loops over every kingdom in turn; two overlapping refreshes are only safe where steps are version-checked | Finish the migration; split the tick per kingdom |
@@ -59,7 +61,7 @@ These pieces do not yet:
 - Some pages keep their own copies of lists the server has (`STRUCTURES` in `src/pages/build/structures.js`).
 - Python 3.10 reached end of life in October 2026. The Create React App toolchain is old. GitHub reports many
   Dependabot alerts on `main`.
-- Unused leftovers: `/api/register` and `/api/finalize` in `account.py`; `adhoc/service_bus_testing.py`.
+- Unused leftovers: `adhoc/service_bus_testing.py`.
 
 ## Cost and efficiency
 
@@ -69,6 +71,11 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   `release_lock` is a SQLite commit, several per kingdom per tick). The web app's Free plan has a daily CPU quota.
   Removing a lock needs the maintainer's agreement and every writer of that document to be version-checked (see
   [Concurrency migration](#concurrency-migration)).
+- **One user read per authenticated request** (2026-11-14, [decisions/0004](decisions/0004-users-in-cosmos.md) D3):
+  `current_user()` reads `user_<id>`, once per request. That doubles the function app calls of the 10-second kingdom
+  and notification polls (one call each to two). Removing it means putting the kingdom id in the JWT as a claim, with
+  new tokens when it changes and old ones invalid after a round reset; optional, and only with the maintainer's
+  agreement.
 - **Lists that grow all round:** kingdom, galaxy and universe news, attack, spy and missile history, and the kingdom
   `history` are appended to and never trimmed (messages are capped at 100). Every append rewrites the whole document,
   so writes cost more as a round goes on. Capping them changes what players can see, so it needs a decision.

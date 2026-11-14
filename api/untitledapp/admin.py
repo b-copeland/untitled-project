@@ -4,9 +4,8 @@ import os
 import flask
 import flask_praetorian
 
-import untitledapp.account as uaa
 import untitledapp.misc as uam
-from untitledapp import guard, db, User, REQUESTS_SESSION
+from untitledapp import guard, User, REQUESTS_SESSION
 
 bp = flask.Blueprint("admin", __name__)
 
@@ -109,13 +108,10 @@ def reset_state():
         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/resetstate',
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
     )
-    query = db.session.query(User).all()
-    for user in query:
-        user.kd_id = None
-        user.kd_created = False
-        user.kd_death_date = None
-    db.session.commit()
-    uaa._update_accounts()
+    # Users outlive the round (the function app's reset keeps their documents); only their kingdoms go.
+    for user in User.all():
+        if user.kd_id not in (None, "") or user.kd_created or user.kd_death_date not in (None, ""):
+            user.save(kd_id=None, kd_created=False, kd_death_date=None)
     return flask.jsonify(create_response.text), 200
 
 @bp.route('/api/admin/bots', methods=["POST"])
