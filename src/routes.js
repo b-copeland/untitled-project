@@ -11,6 +11,7 @@ import NewsContent from "./pages/home/news.js";
 import Galaxy from "./pages/galaxy.js";
 import Message from "./pages/message.js";
 import Scores from "./pages/home/scores.js";
+import Automation from "./pages/automation.js";
 import History from "./pages/home/history.js";
 import Build from "./pages/build/build.js";
 import Settle from "./pages/build/settle.js";
@@ -57,6 +58,7 @@ export const sections = [
       { path: "/message", label: "Message", component: Message, notifs: ["messages"] },
       { path: "/history", label: "History", component: History },
       { path: "/scores", label: "Scores", component: Scores },
+      { path: "/automation", label: "Automation", component: Automation },
     ],
   },
   {
