@@ -95,7 +95,8 @@ frontend (`src/`) gets each data key from its own route and reads game constants
   commands in your own two environments. Anything particular to one machine (paths, where tools are installed) does not
   belong in this file or in `docs/`.
 - Running locally needs, in order: Cosmos emulator, Azurite, the function app (`func host start` in `funcapp/`), Flask
-  (`flask run -p 8000` in `api/`), `npm start`. Nothing advances game time locally unless you call `/api/refreshdata`.
+  (`flask run -p 8000` in `api/`), `npm start`. Nothing advances game time locally unless something calls `/api/refreshdata`: run
+  `python scripts/refresh_loop.py` in its own terminal.
   Full steps and troubleshooting: [docs/development.md](docs/development.md).
 - `adhoc/` is for one-off scripts; reusable tooling goes in `scripts/`. `iac/terraform.tfstate` and
   `funcapp/__azurite_*` are local state, not source.
