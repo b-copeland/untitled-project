@@ -12,6 +12,8 @@ called by the session for every write), so a request never reads back an older v
 Decisions are not affected: ``occ.update`` always reads the document it decides on directly.
 
 Only the paths in ``CACHEABLE`` are cached. Per-kingdom documents are not, because they are what actions change.
+The caller's own user (``/user/<id>``, read by ``flask_praetorian.current_user()`` through ``users.User.identify``) is,
+because praetorian reads it every time it is asked and a request rarely changes it.
 
 The cache exists only between ``start`` and ``end``, which the app runs before and after every request
 (``create_app``). Code run outside a request (tests that call helpers directly, scripts) reads afresh every time,
@@ -24,7 +26,7 @@ import re
 import flask
 
 # The documents worth caching: read by many helpers, written rarely.
-CACHEABLE = re.compile(r"^/(state|galaxies|empires|kingdoms|galaxy/[^/]+/politics)$")
+CACHEABLE = re.compile(r"^/(state|galaxies|empires|kingdoms|galaxy/[^/]+/politics|user/\d+)$")
 
 # Writes that change a cached document, and which one. A write to a per-kingdom document, or to a document that is
 # never cached, changes nothing cached. Any other write (creating kingdoms or galaxies, resets, ``/createitem``)
@@ -34,9 +36,11 @@ _WRITE_DROPS = (
     (re.compile(r"^/empires$"), lambda m: "/empires"),
     (re.compile(r"^/kingdoms$"), lambda m: "/kingdoms"),
     (re.compile(r"^/galaxy/([^/]+)/politics$"), lambda m: f"/galaxy/{m.group(1)}/politics"),
+    (re.compile(r"^/user/(\d+)$"), lambda m: f"/user/{m.group(1)}"),
 )
 _WRITES_THAT_CHANGE_NOTHING_CACHED = re.compile(
-    r"^/(kingdom/\d+/.+|kingdom/\d+|galaxy/[^/]+/news|empire/[^/]+/(news|politics)|universenews|universepolitics|scores|accounts)$"
+    r"^/(kingdom/\d+/.+|kingdom/\d+|galaxy/[^/]+/news|empire/[^/]+/(news|politics)|universenews|universepolitics|scores"
+    r"|accounts|username/[0-9a-f]+|usercounter)$"
 )
 
 

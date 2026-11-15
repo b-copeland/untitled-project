@@ -20,7 +20,7 @@ import untitledapp.conquer as uac
 import untitledapp.getters as uag
 import untitledapp.shared as uas
 import untitledapp.botbrain as botbrain
-from untitledapp import db, User, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import REQUESTS_SESSION, SOCK_HANDLERS
 
 bp = flask.Blueprint("refresh", __name__)
 
@@ -1486,14 +1486,6 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
     app = flask.current_app
     if context is None:
         context = _RefreshContext(state)
-    try:
-        query = db.session.query(User).filter_by(kd_id=kd_id).all()
-        user = query[0]
-        if not user.kd_created:
-            return (0, 0)
-    except:
-        print(f"Could not query kd_id {kd_id}")
-        pass
 
     while not uam.acquire_lock(f'/kingdom/{kd_id}', timeout=999):
         _time.sleep(0.01)
@@ -1513,6 +1505,10 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
             kd_info_parse = json.loads(kd_info.text)
             etag = kd_info_parse.get("_etag")
             if kd_info_parse["status"].lower() == "dead":
+                return (0, 0)
+            if not kd_info_parse.get("race"):
+                # Never set up: the player made the kingdom but has not chosen its race, units and structures yet
+                # (INITIAL_KINGDOM_STATE has no race; _finish_kingdom sets one). Nothing to credit until they do.
                 return (0, 0)
             current_bonuses = {
                 project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)

@@ -125,7 +125,7 @@ Nothing is blocked on these; I picked a default and moved on.
 
 ## Known gaps
 
-- Bots use the same `Locks`/SQLite accounts as players; 100 more users is nothing for SQLite, but they all appear in the
-  accounts document that the function app keeps as a backup.
+- Bots are ordinary users (`user_<id>` documents) with a password nobody knows. Creating one makes its account first, so
+  a taken name makes no kingdom. Numbering counts the `bot_` users with one query (`User.with_prefix`).
 - The `TUNE` numbers have not been play-tested. Some, like `max_recruits` and the shield levels (which cost fuel), may
   starve a bot of fuel or money; watch the first few ticks of a real round.

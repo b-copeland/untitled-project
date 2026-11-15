@@ -42,14 +42,13 @@ the host of the request that triggered the email.
 
 ## Data
 
-`User` gained `email` and `email_verified`. `create_all()` does not add columns to an existing SQLite table, so
-`_add_missing_columns()` in `api/untitledapp/__init__.py` adds them at startup (tested against an old-schema file).
-Both fields are included in the accounts document the function app keeps as a backup of the users table, like the rest
-of the row.
+`email` and `email_verified` are fields of the `user_<id>` document ([data-model.md](data-model.md#users)); a user
+document without them reads as no address, unverified. Recovery finds the accounts for an address with one query
+(`User.by_email`) and keeps only verified, active ones. Verifying an address and resetting a password are decided
+against the user as stored when the change lands (`user.update`), so a reset link works once even if it is used twice
+at the same moment.
 
 ## Not done
 
-- No email on the old `/api/register` and `/api/finalize` routes. They are unused leftovers with a hard-coded sender and
-  `localhost` link; they could be deleted.
 - No "change password while logged in" page, and no notification email when a password changes.
 - Mail is plain text. A template system is not worth it for four messages.

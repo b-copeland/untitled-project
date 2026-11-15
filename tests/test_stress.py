@@ -95,7 +95,7 @@ def test_refresh_ticks_racing_player_actions_lose_and_duplicate_nothing(app, cli
         units={"attack": 30, "defense": 0, "flex": 0, "recruits": 400, "engineers": 0, "big_flex": 0},
     )
     kingdom = _get(f"/kingdom/{KD_ID}")
-    _create_item(f"kingdom_{KD_ID}", {**kingdom, "last_income": past, "next_resolve": {**kingdom["next_resolve"], "mobis": past}})
+    _create_item(f"kingdom_{KD_ID}", {**kingdom, "race": "Xo", "last_income": past, "next_resolve": {**kingdom["next_resolve"], "mobis": past}})
     _create_item(f"mobis_{KD_ID}", {"mobis": [
         {"time": past, "attack": 10, "defense": 0, "flex": 0, "big_flex": 0, "recruits": 0} for _ in range(5)
     ]})

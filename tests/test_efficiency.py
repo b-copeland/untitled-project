@@ -167,6 +167,7 @@ def _auto_spending_kingdom():
         "units_target": {"attack": 0.5, "defense": 0.5},
         "units": {**kd["units"], "recruits": 100},
         "last_income": long_ago,
+        "race": "Xo",  # a kingdom that was set up; the refresh skips one with no race
         "next_resolve": {**kd["next_resolve"], "auto_spending": long_ago},
     })
 
@@ -206,7 +207,7 @@ def test_a_finished_queue_is_read_once_and_trimmed_without_reading_it_again(app,
     now = datetime.datetime.now(datetime.timezone.utc)
     past, future = (now - datetime.timedelta(minutes=5)).isoformat(), (now + datetime.timedelta(hours=1)).isoformat()
     _create_item(f"settles_{KD_ID}", {"settles": [{"time": past, "amount": 3}, {"time": future, "amount": 2}]})
-    _create_item(f"kingdom_{KD_ID}", {**kd, "last_income": past, "next_resolve": {**kd["next_resolve"], "settles": past}})
+    _create_item(f"kingdom_{KD_ID}", {**kd, "race": "Xo", "last_income": past, "next_resolve": {**kd["next_resolve"], "settles": past}})
     with app.app_context(), request_cache.scope():
         state = uag._get_state()
         calls.clear()

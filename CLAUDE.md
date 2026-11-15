@@ -39,8 +39,9 @@ frontend (`src/`) gets each data key from its own route and reads game constants
    emulator or the in-memory test backend.
 3. **Branch, pull request, squash-merge.** Never commit to `main`: every push to `main` deploys to production.
 4. **Design for many processes on many machines.** No game state in process memory or on local disk, and no new
-   `acquire_lock` calls. SQLite is legacy and being phased out: add nothing to it (no tables, no columns, no new
-   queries of `User` in game logic).
+   `acquire_lock` calls. SQLite now holds only the legacy locks and is being phased out: add nothing to it. Users are
+   Cosmos documents (`users.py`); game code takes `kd_id` from `current_user()` and never queries users per kingdom
+   or per tick.
 5. **Decide against the current document.** An action that spends or changes state uses `occ.update(path, decide)`,
    never read-then-write.
 6. **The server decides what a player sees.** Never return another kingdom's data without filtering it by what the

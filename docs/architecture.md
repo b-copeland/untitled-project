@@ -8,7 +8,7 @@ right now, see [status.md](status.md).
 | Layer | Stack | Location | Local port |
 |---|---|---|---|
 | Frontend | React (Create React App), TanStack Query, react-bootstrap | `src/` | 3000 |
-| API and game rules | Flask, SQLAlchemy, flask-praetorian (JWT), Flask-Sock, Flask-Limiter | `api/untitledapp/` | 8000 |
+| API and game rules | Flask, flask-praetorian (JWT), Flask-Sock, Flask-Limiter; SQLAlchemy for the legacy locks only | `api/untitledapp/` | 8000 |
 | Game state store | Azure Functions (Python v2 model), a thin HTTP layer over Cosmos DB | `funcapp/` | 7071 |
 | Database | Cosmos DB (NoSQL API), one container, partition key `/id` | Azure, or the local emulator | 8081 |
 | Deploy | GitHub Actions to Azure App Service | `.github/workflows/` | |
@@ -23,10 +23,11 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
   `api/untitledapp/`. Blueprints: `account`, `admin`, `build`, `conquer`, `getters`, `misc`, `politics`, `refresh`.
 - **The function app owns storage, nothing else.** Each route reads or writes one Cosmos document. It does no game
   logic. Its `update_*` handlers merge or append into the newest version of the document (see [data-model.md](data-model.md)).
-- **Identity is in SQLite, for now.** `User` rows (login, roles, `kd_id`) live in a SQLite file on the web server, and are
-  copied to the `accounts` document as a backup. At startup Flask calls the function app's `/accounts` to fill SQLite, so
-  the function app must be up before Flask starts. This is legacy and breaks rule 1 below; see
-  [Target: no SQLite](#target-no-sqlite).
+- **Identity is in Cosmos, through the function app.** Each user is a `user_<id>` document (login, roles, `kd_id`), read
+  by `users.User`, which flask-praetorian logs in with. `current_user()` reads the caller's user once per request: one
+  function app call on every authenticated request. At startup Flask makes sure an `admin` user exists, so the function
+  app must be up before Flask starts. See [data-model.md](data-model.md#users) and
+  [decisions/0004](decisions/0004-users-in-cosmos.md).
 - **The game tick.** Nothing advances on its own. Something must call `GET /api/refreshdata` with the `Refresh-Secret`
   header (in production a scheduled job every minute). The refresh credits income and finished queues, runs scheduled
   actions and auto actions, updates scores, history and elections. See `refresh.py`.
@@ -56,7 +57,7 @@ requests can overlap. Concretely:
 - **Do not add new `acquire_lock` calls.** The SQLite locks only work inside one process. They remain on older routes until
   every writer of a document is migrated ([status.md](status.md)).
 
-Pieces that still assume one process or one machine, and so are known gaps: SQLite (users and locks), `SOCK_HANDLERS`,
+Pieces that still assume one process or one machine, and so are known gaps: SQLite (the legacy locks), `SOCK_HANDLERS`,
 and the rate limiter's `memory://` storage. Do not build on them, and do not copy their pattern.
 
 ### 2. The server decides what a player can see
@@ -93,7 +94,7 @@ The project should be able to move to another cloud, database or web framework w
 | Optimistic concurrency | Cosmos `_etag` with `If-Match` | Every serious store has the same thing: Postgres row versions, DynamoDB conditional writes, Firestore preconditions. Keep the `decide` pattern, never the Cosmos details, in game code. |
 | Game rules | `shared.py` constants and formulas spread through the blueprints | Pure functions with no framework imports. |
 | Azure SDKs | Only in `funcapp/` | Keep it that way. Nothing in `api/` imports `azure.*`. |
-| Identity | flask-praetorian over a SQLAlchemy `User` in SQLite | Game code needs only `current_user().kd_id`. Keep it to that, so the user store can move. |
+| Identity | flask-praetorian over `users.User`, documents behind the function app | Game code needs only `current_user().kd_id`. Keep it to that, so the user store can move again (and so the user read can later come out of hot routes, with the kingdom id as a JWT claim). |
 | Scheduling | An App Service WebJob calls `/api/refreshdata` (configured in the portal) | The tick is a plain authenticated HTTP call, so any scheduler works. |
 | Configuration | Environment variables (`api/config.py`, function app settings) | Keep it that way. No settings in code, no cloud-specific config files read by game code. |
 | Secrets | `api/.flaskenv`, `funcapp/local.settings.json`, App Service settings | Environment only. |
@@ -135,14 +136,14 @@ Whether the backend behind `store.py` stays the function app is the maintainer's
 
 ### Target: no SQLite
 
-SQLite holds the `User` rows and the legacy `Locks` table, in a file on one machine. That contradicts rule 1, so it is
-being phased out. Progress is in [status.md](status.md#parallelism-gaps).
+SQLite now holds only the legacy `Locks` table, in a file on one machine. That contradicts rule 1, so it is being phased
+out. Progress is in [status.md](status.md#parallelism-gaps).
 
-- **Locks** go when the concurrency migration finishes.
-- **Users move to Cosmos** ([decisions/0004](decisions/0004-users-in-cosmos.md)): `user_<id>`, `username_<key>` and
-  `user_counter` documents behind function app routes ([data-model.md](data-model.md#users-cosmos-being-introduced)),
-  with a plain user class that flask-praetorian can use (it only calls `lookup`, `identify`, `identity`, `rolenames`,
-  `password` and `is_valid`). The routes exist; the Flask store and the migration do not yet.
+- **Users** have moved to Cosmos ([decisions/0004](decisions/0004-users-in-cosmos.md)): `user_<id>`, `username_<key>`
+  and `user_counter` documents behind function app routes ([data-model.md](data-model.md#users)), with a plain user
+  class (`users.py`) that flask-praetorian can use. It only calls `lookup`, `identify`, `identity`, `rolenames`,
+  `password` and `is_valid`.
+- **Locks** go document by document as the concurrency migration finishes, then SQLAlchemy goes.
 
 Until then: add nothing to SQLite, and in game code take `kd_id` from `flask_praetorian.current_user()` and nothing else
 new from `User`.

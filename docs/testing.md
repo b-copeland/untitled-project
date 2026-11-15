@@ -45,7 +45,11 @@ Slower checks, when the change calls for them:
 ## Writing backend tests
 
 - Fixtures in `tests/conftest.py`: `app`, `client`, `jwt1` and `jwt2` (tokens for `user1`, who owns kingdom `"1"`, and
-  `user2`, who owns `"2"`). Every test starts with an empty container.
+  `user2`, who owns `"2"`). Every test starts with an empty container and those three users (`admin`, `user1`, `user2`,
+  ids 1 to 3), created again through the user store. `tests/test_users.py` has `_add_user(app, name, password="pw",
+  **fields)` and `_stored_user(app, name)` for any other user.
+- `_set_up_kingdom` makes a kingdom with no race, which the refresh treats as never set up and skips. A test that
+  refreshes it passes `race=` and `last_income=` (what `_finish_kingdom` sets).
 - Helpers in `tests/test_concurrency.py`: `_set_up_kingdom(money, kd_id="1", **overrides)` creates a started game and a
   kingdom; `_create_item(id, state)` writes any document; `_get(path)` reads one through the function app;
   `_run_together(app, count, request)` starts several requests at the same instant. `tests/test_attack.py` has
