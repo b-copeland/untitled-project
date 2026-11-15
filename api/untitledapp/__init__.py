@@ -54,10 +54,6 @@ SOCK_HANDLERS = {}
 # Users live in Cosmos, behind the function app (users.py, docs/decisions/0004-users-in-cosmos.md).
 from untitledapp.users import User, UserExists  # noqa: E402
 
-class Locks(db.Model):
-    lock_name = db.Column(db.Text, primary_key=True)
-    request_id = db.Column(db.Text)
-    expires_at = db.Column(db.Text)
 
 def alive_required(f):
     @wraps(f)
@@ -150,12 +146,9 @@ def create_app(config_class='config.Config'):
     sock = Sock(app)
     if config_class.lower() == "config.config":
         with app.app_context():
-            db.create_all()  # the legacy Locks table only
             _ensure_user("admin", os.environ["ADMIN_PASSWORD"], roles="operator,admin", kd_created=True)
     elif config_class.lower() == "config.testingconfig":
         with app.app_context():
-            db.drop_all()
-            db.create_all()
             seed_testing_users()
 
     # Shared documents are read at most once per request (request_cache.py).

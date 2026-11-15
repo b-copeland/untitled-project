@@ -20,7 +20,10 @@ formulas. Those live in Flask. If a handler needs to know game rules to work, th
 - Build queues are folded with `coalesce` from `queues.py` on every append. Queue entries carry only `time` and counts.
 - `auth_level=func.AuthLevel.ADMIN` on every route: only Flask, with the host key, calls this app.
 - Multi-document handlers (`create_kingdom`, `create_galaxy`, `create_empire`, `reset_state`, `init_state`,
-  `delete_all`) and `create_item` are not retried and are admin or setup operations. Do not add new ones on a hot path.
+  `delete_all`) and `create_item` are not retried as a whole. Do not add new ones on a hot path. Where one changes a
+  shared document that other requests also change (`kingdoms`, `galaxies`, `empires`), it does so with
+  `change_document` from `concurrency.py`: a conditional write retried on conflict, which can refuse with `Refused`.
+  `create_kingdom` and `create_empire` choose their new id that way.
 - Create-only routes (`create_user`, `create_username`) do one `create_item` and answer `409` when the id exists: that
   is how uniqueness is enforced, so do not turn them into create-or-merge.
 - Users outlive a round: `reset_state` keeps `user_` and `username_` documents (`is_user_document`), and `delete_all`

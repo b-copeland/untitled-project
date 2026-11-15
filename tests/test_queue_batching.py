@@ -7,7 +7,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "funcapp
 from queues import window_seconds, DEFAULT_EPOCH_SECONDS  # noqa: E402
 from untitledapp import REQUESTS_SESSION
 from untitledapp.shared import GAME_CONFIG
-from tests.test_concurrency import KD_ID, FUNCTION_URL, _get, _set_up_kingdom, _run_together, no_shared_lock  # noqa: F401
+from tests.test_concurrency import KD_ID, FUNCTION_URL, _get, _set_up_kingdom, _run_together  # noqa: F401
 
 
 def _now(seconds=0):

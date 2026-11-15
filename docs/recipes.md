@@ -9,8 +9,7 @@ say what you tested and what you could not.
 
 ## 1. An action: a route that spends or changes something
 
-Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/structures`). It still takes the legacy
-lock (`acquire_locks`, `release_locks_by_id`); a new route leaves those lines out and follows the template below.
+Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/structures`).
 
 1. **Design.** Name the decision document (usually `kingdom_<id>`) and every other document the action writes, with
    its tier (strict, eventual, derived). See [concurrency.md](concurrency.md#which-documents-need-strict-handling).
@@ -47,7 +46,7 @@ lock (`acquire_locks`, `release_locks_by_id`); a new route leaves those lines ou
        return flask.jsonify({"message": "Done", "status": "success"}), 200
    ```
    Body shapes for each function app route are in [data-model.md](data-model.md#how-the-function-app-writes).
-   No `acquire_lock` in new routes. Messages are short, plain sentences the player will read.
+   Messages are short, plain sentences the player will read.
 4. **If it is something a player might want while offline,** add it to the Schedule (recipe 6) or the auto builder.
 5. **Tests** in `tests/test_<blueprint>.py`:
    - the pure helpers, with plain asserts;

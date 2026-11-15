@@ -10,14 +10,13 @@ From [concurrency.md](concurrency.md). Updated 2026-11-14.
 | Area | Status |
 |---|---|
 | Function app: the single-document `update_*` handlers | Conditional and retried |
-| Function app: multi-document admin handlers (`create_*`, `reset_state`, `delete_all`, `init`) | Not changed. They write several documents and cannot be re-run from the top. Admin and setup only. |
-| Own-kingdom routes in `build.py` (structures, recruits, mobis and disband, settle, missiles, engineers, projects, targets, raze), shields, `/api/spending`, `/api/createkingdomchoices`, `/api/votes`, `/api/universepolitics/policies` | On `occ.update`. Still take the legacy lock too. |
-| Attacks, primitives, spying, robbing, missiles, schedule add and cancel | Version-checked in steps ([decisions/0002](decisions/0002-attack-sequencing.md)). News, history, reveals and notifications are written the old way. |
-| Shared intel, random reveal, galaxy votes, empire requests, invitations, joining and leaving, denounce, declare war | Version-checked |
-| The refresh's kingdom write (`_refresh_kd`) | Version-checked, with `queues_resolved_until` cursors |
-| **`_resolve_schedules` in `refresh.py`** | **Not migrated.** It reads the kingdom, runs due schedules, and writes the whole kingdom back with no version check, so a change that lands in between (a player action, an attack) can be overwritten. |
-| Refresh sub-steps that write other documents (siphons, revealed and shared expiry, scores, empires, history, elections), surrender requests and offers, `create_empire`, kingdom reset, `pinned` | Not migrated. Each takes a legacy lock. |
-| Legacy lock framework (`acquire_lock` in `misc.py`, the `Locks` table) | Still in place everywhere. Removable for a document once every writer of it checks its version. |
+| Function app: `create_kingdom`, `create_empire` | The new id, and joining the galaxy, are conditional writes on `kingdoms`, `empires` and `galaxies` (`change_document`); the documents they then create are new. |
+| Function app: other multi-document admin handlers (`create_galaxy`, `reset_state`, `delete_all`, `init`) | Not changed. Admin and setup only. |
+| Every action route (build, shields, spending, kingdom setup, votes, attacks, primitives, spying, robbing, missiles, schedules, shared intel, politics, empires, surrender, auto attack and rob settings) | Conditional (`occ.update`) or commutative (appends and merges). |
+| The refresh: the kingdom write, schedules, siphons, revealed and shared expiry, scores, empires, queue trims | Conditional, with `queues_resolved_until` cursors. Schedules are taken off the kingdom with a version-checked write before they run. |
+| The refresh: elections and the history mark | Decided on `/state` (`_claim_state`), so an overlapping tick does not open, close or record twice. |
+| Kingdom reset (`/api/resetkingdom`) | Overwrites the kingdom's documents with the initial state on purpose (before the game starts). |
+| Legacy locks | **Removed** (2026-11-14). `acquire_lock` and the `Locks` model are gone. |
 | Outbox and sweep (exactly-once effects, recovery after a crash between the steps of an action) | Not built |
 | A write applied but its response lost, then retried | Can duplicate an append. Not seen; the outbox ids would fix it. |
 
@@ -28,13 +27,11 @@ These pieces do not yet:
 
 | Piece | Problem | Direction |
 |---|---|---|
-| Locks in SQLite (2026-11-14: users have moved to Cosmos, [decisions/0004](decisions/0004-users-in-cosmos.md)) | Each instance has its own file, so the locks only work within one process. SQLAlchemy is still a dependency for them. | Locks go document by document with the concurrency migration, then SQLAlchemy ([architecture.md](architecture.md#target-no-sqlite)) |
+| SQLAlchemy (2026-11-14) | Nothing is stored in SQLite any more (users moved to Cosmos, locks removed), but Flask-SQLAlchemy, `db.init_app` and `SQLALCHEMY_DATABASE_URI` remain. | Remove the dependency and the setting ([architecture.md](architecture.md#target-no-sqlite)) |
 | The `accounts` document (2026-11-14) | The last copy of the SQLite users. Nothing writes it since users moved to `user_` documents; `adhoc/migrate_users_to_cosmos.py` reads it. `/resetstate` still clears kingdom fields in it, and `GET`/`PATCH /accounts` still exist. | Kept as a backup until the migration has run in production and been checked, then remove the document, the routes, and its place in `/init` and `/resetstate` |
-| Kingdom creation's legacy lock (2026-11-14) | `_create_kingdom_documents` still takes the `/kingdoms` and `/galaxies` lock, now only so two players creating kingdoms at once in one process do not get the same id (see the next row). A double click is stopped by the `kd_pending` claim on the user document. | Goes with the id fix below |
 | `SOCK_HANDLERS` (websocket registry) | A push only reaches sockets on the process that raised it. Each open socket also holds a server thread for its lifetime. | A pub/sub service, or polling notifications |
 | Rate limiter (`memory://`) | Limits are per process | Shared storage for the limiter |
-| The refresh | One request loops over every kingdom in turn; two overlapping refreshes are only safe where steps are version-checked | Finish the migration; split the tick per kingdom |
-| Kingdom and empire ids | `create_kingdom` and `create_empire` in the function app pick `len(existing)` as the new id, so two creations at once can pick the same id | Conditional write on `kingdoms` / `empires` |
+| The refresh | One request loops over every kingdom in turn. Two overlapping refreshes are safe (every step is version-checked), but one long tick is still one request | Split the tick per kingdom |
 
 ## Deployment and operations
 
@@ -55,6 +52,10 @@ These pieces do not yet:
 - Function app write routes that cannot work (2026-11-14), all uncalled: `PATCH /empire/<id>/news` reads `empire_<id>`
   where the document is `empire_news_<id>`, so empire news is never written; `PATCH /kingdom/<id>/shared` adds a list to
   what is now an object; `/sharedrequests` reads a `shared_requests_<id>` document that is never created.
+- **Shared intel's cut of attack spoils is never paid** (2026-11-14). When the legacy lock was added to the attack
+  route (commit 5f937a9), the lock check was put between `if target_kd in shared:` and its `else:`, so the `else`
+  (`cut = 0; sharer = None`) ran on every attack. Removing the lock kept that behaviour, now explicit at the top of
+  `_attack` in `conquer.py`. Paying the cut changes attack outcomes, so it needs the maintainer's decision.
 - `getters.py` and `conquer.py` are large and mix routes, formulas and storage calls.
 - Over a hundred raw `REQUESTS_SESSION` calls across the blueprints; the target is one storage module
   ([architecture.md](architecture.md#target-one-storage-module)).
@@ -67,10 +68,6 @@ These pieces do not yet:
 
 Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process backend). Not done, each for the reason given.
 
-- **The legacy SQLite locks are most of the refresh's CPU** (about 70% of its Python time: each `acquire_lock` and
-  `release_lock` is a SQLite commit, several per kingdom per tick). The web app's Free plan has a daily CPU quota.
-  Removing a lock needs the maintainer's agreement and every writer of that document to be version-checked (see
-  [Concurrency migration](#concurrency-migration)).
 - **One user read per authenticated request** (2026-11-14, [decisions/0004](decisions/0004-users-in-cosmos.md) D3):
   `current_user()` reads `user_<id>`, once per request. That doubles the function app calls of the 10-second kingdom
   and notification polls (one call each to two). Removing it means putting the kingdom id in the JWT as a claim, with

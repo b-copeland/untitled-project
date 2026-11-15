@@ -17,8 +17,8 @@ import pytest
 import untitledapp.getters as uag
 import untitledapp.shared as uas
 
-from tests.test_concurrency import (  # noqa: F401  (the autouse lock-off fixture must be active here too)
-    KD_ID, no_shared_lock, _get, _post, _run_together, _set_up_kingdom,
+from tests.test_concurrency import (  # noqa: F401
+    KD_ID, _get, _post, _run_together, _set_up_kingdom,
 )
 
 ROUNDS = int(os.environ.get("STRESS_ROUNDS", "3"))

@@ -2,7 +2,6 @@ import collections
 import datetime
 import json
 import os
-import time
 import random
 import uuid
 
@@ -13,7 +12,7 @@ from flask_sock import Sock, ConnectionClosed
 import untitledapp.shared as uas
 import untitledapp.getters as uag
 import untitledapp.occ as occ
-from untitledapp import User, Locks, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
+from untitledapp import User, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
 
 bp = flask.Blueprint("misc", __name__)
 
@@ -81,12 +80,8 @@ def _create_kingdom_documents(user_id, name):
     if existing:
         return existing, ""
 
-    # The lock is still what keeps two different players' kingdoms from getting the same id (the function app picks
-    # len(existing)); see docs/status.md.
-    if not acquire_locks(["/kingdoms", "/galaxies"], request_id=request_id):
-        user.save(kd_pending=None)
-        return None, "Server is busy"
-
+    # Two different players creating kingdoms at once get different ids: the function app takes the id with a
+    # conditional write on `kingdoms`.
     kd_id = None
     try:
         valid_name, message = _validate_kingdom_name(name)
@@ -107,6 +102,8 @@ def _create_kingdom_documents(user_id, name):
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps({"kingdom_name": name, "galaxy": chosen_galaxy}),
         )
+        if create_kd_response.status_code == 400:  # the name was taken at the same moment
+            return None, "Kingdom name already exists"
         if create_kd_response.status_code != 201:
             return None, "Error creating kingdom"
 
@@ -130,7 +127,6 @@ def _create_kingdom_documents(user_id, name):
 
         user.save(kd_id=kd_id, kd_pending=None)
     finally:
-        release_locks_by_id(request_id)
         if kd_id is None:
             user.save(kd_pending=None)  # nothing was made, so let the player try again straight away
     return kd_id, ""
@@ -172,8 +168,6 @@ def _plan_from_request(req):
 
 def _finish_kingdom(kd_id, plan):
     """Set a freshly made kingdom up as the plan says, once. Returns the response."""
-    if not acquire_lock(f"/kingdom/{kd_id}"):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     def decide(kd_info):
         if kd_info.get("race"):
@@ -197,8 +191,6 @@ def _finish_kingdom(kd_id, plan):
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        release_lock(f"/kingdom/{kd_id}")
 
     return (flask.jsonify({"message": ""}), 200)
 
@@ -247,33 +239,27 @@ def reset_initial_kingdom():
     user = flask_praetorian.current_user()
     kd_id = user.kd_id
     kd_info = uag._get_kd_info(kd_id)
-    request_id = str(uuid.uuid4())
     table_states = {
         f"{table}_{kd_id}": initial_state
         for table, initial_state in uas.INITIAL_KINGDOM_STATE.items()
     }
-    if not acquire_locks(table_states, request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        for item_id, initial_state in table_states.items():
-            state = initial_state.copy()
-            if item_id.split("_")[0] == "kingdom":
-                state["kdId"] = kd_id
-                state["name"] = kd_info["name"]
+    for item_id, initial_state in table_states.items():
+        state = initial_state.copy()
+        if item_id.split("_")[0] == "kingdom":
+            state["kdId"] = kd_id
+            state["name"] = kd_info["name"]
 
-            create_response = REQUESTS_SESSION.post(
-                app.config['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
-                headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-                data=json.dumps({
-                    "item": item_id,
-                    "state": state,
-                }),
-            )
+        create_response = REQUESTS_SESSION.post(
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/createitem',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+            data=json.dumps({
+                "item": item_id,
+                "state": state,
+            }),
+        )
 
-        user.save(kd_created=False)
-    finally:
-        release_locks_by_id(request_id)
+    user.save(kd_created=False)
     return (flask.jsonify("Reset kingdom"), 200)
 
 @bp.route('/api/createkingdomdata')
@@ -397,8 +383,6 @@ def set_shields():
         return {"shields": {**kd_info["shields"], **req_values}}, None
 
     # The legacy lock stays while other routes still write the kingdom without checking its version.
-    if not acquire_lock(f"/kingdom/{kd_id}"):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
         occ.update(f"/kingdom/{kd_id}", decide)
@@ -406,8 +390,6 @@ def set_shields():
         return flask.jsonify({"message": rejection.message}), rejection.status
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        release_lock(f"/kingdom/{kd_id}")
     return flask.jsonify({"message": "Successfully updated shields", "status": "success"}), 200
 
 
@@ -425,49 +407,43 @@ def send_message(target_kd):
     if len(req.get("message", "")) > 1024:
         return flask.jsonify({"message": "Messages must be less than 1024 characters"}), 400
 
-    request_id = str(uuid.uuid4())
-    if not acquire_locks([f"/kingdom/{kd_id}/messages", f"/kingdom/{target_kd}/messages", f"/kingdom/{target_kd}/notifs"], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
     
-    try:
-        payload_from = {
-            "time": req.get("time", ""),
-            "with": target_kd,
-            "from": True,
-            "message": req.get("message", " "),
-        }
+    payload_from = {
+        "time": req.get("time", ""),
+        "with": target_kd,
+        "from": True,
+        "message": req.get("message", " "),
+    }
 
-        payload_to = {
-            "time": req.get("time", ""),
-            "with": kd_id,
-            "from": False,
-            "message": req.get("message", " "),
-        }
+    payload_to = {
+        "time": req.get("time", ""),
+        "with": kd_id,
+        "from": False,
+        "message": req.get("message", " "),
+    }
         
-        message_response_from = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/messages',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(payload_from)
-        )
-        message_response_to = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/messages',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(payload_to)
-        )
-        _add_notifs(target_kd, ["messages"])
-        try:
-            ws = SOCK_HANDLERS[target_kd]
-            ws.send(json.dumps({
-                "message": f"New message from {kingdoms[kd_id]}!",
-                "status": "info",
-                "category": "Message",
-                "delay": 30000,
-                "update": ["messages"],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
-    finally:
-        release_locks_by_id(request_id)
+    message_response_from = REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/messages',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps(payload_from)
+    )
+    message_response_to = REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/messages',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps(payload_to)
+    )
+    _add_notifs(target_kd, ["messages"])
+    try:
+        ws = SOCK_HANDLERS[target_kd]
+        ws.send(json.dumps({
+            "message": f"New message from {kingdoms[kd_id]}!",
+            "status": "info",
+            "category": "Message",
+            "delay": 30000,
+            "update": ["messages"],
+        }))
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+        pass
     return (flask.jsonify({"message": "Message sent!", "status": "success"}), 200)
 
 
@@ -496,8 +472,6 @@ def spending():
     
     kd_id = flask_praetorian.current_user().kd_id
 
-    if not acquire_lock(f"/kingdom/{kd_id}"):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
     
     def decide(kd_info_parse):
         if req.get("enabled", None) != None:
@@ -546,8 +520,6 @@ def spending():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        release_lock(f"/kingdom/{kd_id}")
     return (flask.jsonify({"message": message, "status": "success"}), 200)
 
 @bp.route('/api/share/<share_to>', methods=['POST'])
@@ -559,33 +531,27 @@ def share_kd(share_to):
     kd_id = flask_praetorian.current_user().kd_id
 
 
-    request_id = str(uuid.uuid4())
-    if not acquire_locks([f"/kingdom/{kd_id}/revealed", f"/kingdom/{share_to}/revealed"], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    try:
-        galaxies_inverted, _ = uag._get_galaxies_inverted()
-        if galaxies_inverted[kd_id] != galaxies_inverted[share_to]:
-            return flask.jsonify("You can only share your kingdom to galaxymates"), 400
+    galaxies_inverted, _ = uag._get_galaxies_inverted()
+    if galaxies_inverted[kd_id] != galaxies_inverted[share_to]:
+        return flask.jsonify("You can only share your kingdom to galaxymates"), 400
 
-        kd_payload = {
-            "new_revealed_to_galaxymates": [share_to]
-        }
-        share_to_payload = {
-            "new_revealed_galaxymates": [kd_id]
-        }
-        kd_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(kd_payload),
-        )
-        share_to_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(share_to_payload),
-        )
-    finally:
-        release_locks_by_id(request_id)
+    kd_payload = {
+        "new_revealed_to_galaxymates": [share_to]
+    }
+    share_to_payload = {
+        "new_revealed_galaxymates": [kd_id]
+    }
+    kd_response = REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps(kd_payload),
+    )
+    share_to_response = REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{share_to}/revealed',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps(share_to_payload),
+    )
     return (flask.jsonify(kd_response.text)), 200
 
 @bp.route('/api/unshare/<share_to>', methods=['POST'])
@@ -595,9 +561,6 @@ def share_kd(share_to):
 def unshare_kd(share_to):
     app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
-    request_id = str(uuid.uuid4())
-    if not acquire_locks([f"/kingdom/{kd_id}/revealed", f"/kingdom/{share_to}/revealed"], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
         galaxies_inverted, _ = uag._get_galaxies_inverted()
@@ -616,8 +579,6 @@ def unshare_kd(share_to):
         occ.update(f'/kingdom/{share_to}/revealed', stop_receiving)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        release_locks_by_id(request_id)
     return (flask.jsonify("Updated"), 200)
 
 def _add_notifs(kd_id, categories):
@@ -682,159 +643,3 @@ def _mark_kingdom_death(kd_id):
         }))
     except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
         pass
-
-def acquire_lock(lock_name, timeout=10):
-    """
-    Try to acquire a lock with a given name.
-    
-    :param lock_name: Name of the lock
-    :param timeout: Expiry time for the lock in seconds
-    :return: True if the lock was acquired, False otherwise
-    """
-    db = flask.current_app.extensions["sqlalchemy"]
-    try:
-        now = datetime.datetime.now(datetime.timezone.utc)
-        expiration_time = (now + datetime.timedelta(seconds=timeout)).isoformat()
-
-        # Check if the lock is available or expired
-        lock = db.session.query(Locks).filter(Locks.lock_name == lock_name).one_or_none()
-
-        if lock is None or lock.expires_at <= now.isoformat():
-            # Acquire or update the lock
-            db.session.merge(Locks(lock_name=lock_name, request_id=str(uuid.uuid4()), expires_at=expiration_time))
-            db.session.commit()
-            return True
-
-        # Lock is already held and not expired
-        return False
-    except Exception as e:
-        print(f"Failed to acquire lock: {e}")
-        db.session.rollback()
-        return False
-
-def release_lock(lock_name):
-    """
-    Release a lock with a given name.
-    
-    :param lock_name: Name of the lock
-    """
-    db = flask.current_app.extensions["sqlalchemy"]
-    try:
-        # Delete the lock
-        db.session.query(Locks).filter(Locks.lock_name == lock_name).delete()
-        db.session.commit()
-    except Exception as e:
-        print(f"Failed to release lock: {e}")
-        db.session.rollback()
-
-def acquire_locks(lock_names, timeout=10, lock_timeout=20, request_id=None) -> bool:
-    """
-    Try to acquire multiple locks.
-    
-    :param lock_names: List of lock names to acquire.
-    :param timeout: Expiry time for each lock in seconds.
-    :return: True if all locks were acquired, False otherwise.
-    """
-    db = flask.current_app.extensions["sqlalchemy"]
-    if request_id is None:
-        request_id = str(uuid.uuid4())
-    try:
-        now = datetime.datetime.now(datetime.timezone.utc)
-        lock_expiration_time = (now + datetime.timedelta(seconds=lock_timeout)).isoformat()
-        timeout_time = (now + datetime.timedelta(seconds=timeout)).isoformat()
-
-        # Check existing locks
-        existing_locks = db.session.query(Locks).filter(Locks.lock_name.in_(lock_names)).all()
-        print("existing_locks:", existing_locks)
-        new_locks = set(lock_names) - set([lock.lock_name for lock in existing_locks])
-        print("new_locks:", new_locks)
-                
-        # Reserve locks while trying to acquire active locks
-        for lock_name in new_locks:
-            db.session.add(Locks(lock_name=lock_name, request_id=request_id, expires_at=lock_expiration_time))
-        if new_locks:
-            db.session.commit()
-
-        # Determine if any lock is already held and not expired
-        expired_locks = []
-        active_locks = []
-        for lock in existing_locks:
-            if lock.expires_at > str(now):
-                active_locks.append(lock.lock_name)
-            else:
-                expired_locks.append(lock.lock_name)
-        print("active_locks:", active_locks)
-        print("expired_locks:", expired_locks)
-        
-        for lock_name in expired_locks:
-            db.session.merge(Locks(lock_name=lock_name, request_id=request_id, expires_at=lock_expiration_time))
-        if expired_locks:
-            db.session.commit()
-
-        db.session.expunge_all()
-        before_timeout = True
-        while active_locks and before_timeout:
-            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            existing_locks = db.session.query(Locks).filter(Locks.lock_name.in_(active_locks)).all()
-
-            new_locks = set(active_locks) - set([lock.lock_name for lock in existing_locks])
-            for lock_name in new_locks:
-                db.session.add(Locks(lock_name=lock_name, request_id=request_id, expires_at=lock_expiration_time))
-            if new_locks:
-                print("new_locks (loop):", new_locks)
-                db.session.commit()
-            
-            expired_locks = [
-                lock.lock_name
-                for lock in existing_locks
-                if lock.expires_at < now
-            ]
-            for lock_name in expired_locks:
-                db.session.merge(Locks(lock_name=lock_name, request_id=request_id, expires_at=lock_expiration_time))
-            if expired_locks:
-                print("expired_locks (loop):", expired_locks)
-                db.session.commit()
-
-            active_locks = set(active_locks) - set(new_locks) - set(expired_locks)
-            if new_locks or expired_locks:
-                print("active_locks (loop):", active_locks)
-
-            if now > timeout_time:
-                before_timeout = False
-                release_locks_by_id(request_id)
-                return False
-            time.sleep(0.01)
-        
-        return True
-    except Exception as e:
-        print(f"Failed to acquire locks: {e}")
-        db.session.rollback()
-        return False
-
-def release_locks_by_name(lock_names):
-    """
-    Release multiple locks at the same time.
-
-    :param lock_names: List of lock names to release.
-    """
-    db = flask.current_app.extensions["sqlalchemy"]
-    try:
-        # Delete all specified locks in a single query
-        db.session.query(Locks).filter(Locks.lock_name.in_(lock_names)).delete(
-            synchronize_session=False
-        )
-        db.session.commit()
-    except Exception as e:
-        print(f"Failed to release locks: {e}")
-        db.session.rollback()
-
-def release_locks_by_id(request_id):
-    db = flask.current_app.extensions["sqlalchemy"]
-    try:
-        db.session.query(Locks).filter(Locks.request_id == request_id).delete(
-            synchronize_session=False
-        )
-        db.session.commit()
-    except Exception as e:
-        print(f"Failed to release locks: {e}")
-        db.session.rollback()

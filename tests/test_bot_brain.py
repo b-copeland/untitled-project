@@ -10,7 +10,7 @@ import untitledapp.refresh as refresh
 import untitledapp.occ as occ
 import untitledapp.shared as uas
 from tests.test_attack import TARGET_ID, _set_up_two_kingdoms
-from tests.test_concurrency import KD_ID, no_shared_lock, _create_item, _get  # noqa: F401
+from tests.test_concurrency import KD_ID, _create_item, _get  # noqa: F401
 
 NOW = datetime.datetime(2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc)
 HOUR = datetime.timedelta(hours=1)

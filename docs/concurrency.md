@@ -52,8 +52,13 @@ Rules:
    the request or show a preview) and saves the second read.
 6. **Return the full nested object** for any nested field you change (`next_resolve`, `units`, ...). The kingdom PATCH is a
    shallow merge, so a partial nested object replaces the whole one ([data-model.md](data-model.md#how-the-function-app-writes)).
-7. **Do not add `acquire_lock` to new code.** Routes that already take a legacy lock keep it until every writer of that
-   document is migrated, because an unconditional writer could otherwise overwrite a conditional one.
+7. **No locks, and no unconditional read-change-write.** There are no locks (they were removed once every writer was
+   version-checked), so a single writer that reads a document, changes it and writes the whole thing back without
+   `If-Match` can silently undo everyone else's changes. Write only the fields you decided, through `occ.update`, or
+   append.
+8. **A step that must happen once** (opening or closing an election, the epoch's history mark) is decided the same
+   way, on the document that records it: `refresh._claim_state` on `/state`. The tick that wins does the step; an
+   overlapping tick finds it done.
 
 `occ.update` also takes `write_path` (for documents read and written at different routes, such as `GET /universevotes`
 and `PATCH /universepolitics`), `method="post"` (for `/kingdom/<id>/shared`) and `document` (see rule 5). With a

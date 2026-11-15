@@ -3,7 +3,6 @@ import datetime
 import json
 import math
 import os
-import uuid
 
 import flask
 import flask_praetorian
@@ -108,9 +107,6 @@ def recruits():
     
     recruits_input = int(req["recruitsInput"])
     kd_id = flask_praetorian.current_user().kd_id
-    request_id = str(uuid.uuid4())
-    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/mobis'], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     def decide(kd_info_parse):
         # Runs against the kingdom as it is right now and again from the top if it changed before the write lands, so
@@ -157,8 +153,6 @@ def recruits():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began recruiting", "status": "success"}), 200)
 
 def _get_mobis_cost(mobis_request):
@@ -236,9 +230,6 @@ def train_mobis():
         if int(v or 0) != 0
     }
 
-    request_id = str(uuid.uuid4())
-    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/mobis'], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     def decide(kd_info_parse):
         current_units = kd_info_parse["units"]
@@ -284,8 +275,6 @@ def train_mobis():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began training specialists", "status": "success"}), 200)
 
 def _validate_mobis_target(req_targets, kd_info_parse):
@@ -313,8 +302,6 @@ def allocate_mobis():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     def decide(kd_info_parse):
         if req.get("recruits_before_units", None) is not None:
@@ -351,8 +338,6 @@ def allocate_mobis():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": message, "status": "success"}), 200)
 
 def _validate_disband(kd_info, input):
@@ -381,8 +366,6 @@ def disband_mobis():
 
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     def decide(kd_info):
         valid_disband, message = _validate_disband(kd_info, req_input)
@@ -411,8 +394,6 @@ def disband_mobis():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}')
 
     return (flask.jsonify({"message": "Disbanded units", "status": "success"}), 200)
 
@@ -480,9 +461,6 @@ def build_structures():
         if int(v or 0) != 0
     }
 
-    request_id = str(uuid.uuid4())
-    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/structures'], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     def decide(kd_info_parse):
         # The money is taken from the kingdom document, so that is where the check happens: this runs against the
@@ -531,8 +509,6 @@ def build_structures():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began building structures", "status": "success"}), 200)
 
 def _validate_structures_target(req_targets):
@@ -558,8 +534,6 @@ def allocate_structures():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
     def decide(kd_info_parse):
         req_targets = {
             key: float(value or 0) / 100
@@ -584,8 +558,6 @@ def allocate_structures():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Updated spending", "status": "success"}), 200)
 
 def _validate_raze(kd_info, input):
@@ -610,8 +582,6 @@ def raze_structures():
     } 
 
     kd_id = flask_praetorian.current_user().kd_id
-    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     def decide(kd_info):
         valid_raze, message = _validate_raze(kd_info, req_input)
@@ -640,8 +610,6 @@ def raze_structures():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}')
     
     return (flask.jsonify({"message": "Razed structures", "status": "success"}), 200)
 
@@ -700,9 +668,6 @@ def settle():
     settle_input = int(req["settleInput"])
     kd_id = flask_praetorian.current_user().kd_id
     
-    request_id = str(uuid.uuid4())
-    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/settles'], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
     
     def decide(kd_info_parse):
         settle_info = uag._get_settle_queue(kd_id)
@@ -741,8 +706,6 @@ def settle():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began settling", "status": "success"}), 200)
 
 
@@ -787,9 +750,6 @@ def build_missiles():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    request_id = str(uuid.uuid4())
-    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/missiles'], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
     missiles_request = {
         k: int(v or 0)
         for k, v in req.items()
@@ -857,8 +817,6 @@ def build_missiles():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began building missiles", "status": "success"}), 200)
 
 
@@ -908,9 +866,6 @@ def train_engineers():
     engineers_input = int(req["engineersInput"])
     kd_id = flask_praetorian.current_user().kd_id
     
-    request_id = str(uuid.uuid4())
-    if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/kingdom/{kd_id}/engineers'], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     def decide(kd_info_parse):
         engineers_info = uag._get_engineers_queue(kd_id)
@@ -948,8 +903,6 @@ def train_engineers():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_locks_by_id(request_id)
     return (flask.jsonify({"message": "Successfully began training engineers", "status": "success"}), 200)
 
 
@@ -986,8 +939,6 @@ def allocate_projects():
     
     kd_id = flask_praetorian.current_user().kd_id
     
-    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
     
     def decide(kd_info_parse):
         if req.get("enabled", None) is not None:
@@ -1020,8 +971,6 @@ def allocate_projects():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": message, "status": "success"}), 200)
 
 def _validate_assign_projects(req, kd_info_parse):
@@ -1054,8 +1003,6 @@ def manage_projects():
     kd_id = flask_praetorian.current_user().kd_id
     
     
-    if not uam.acquire_lock(f'/kingdom/{kd_id}'):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
 
     def decide(kd_info_parse):
         new_projects_assigned = kd_info_parse["projects_assigned"].copy()
@@ -1095,6 +1042,4 @@ def manage_projects():
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
-    finally:
-        uam.release_lock(f'/kingdom/{kd_id}')
     return (flask.jsonify({"message": "Successfully updated project assignment", "status": "success"}), 200)

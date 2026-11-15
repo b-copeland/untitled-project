@@ -11,7 +11,7 @@ import pytest
 import untitledapp.shared as uas
 
 from tests.test_concurrency import (  # noqa: F401
-    KD_ID, no_shared_lock, _create_item, _get, _post, _run_together, _set_up_kingdom,
+    KD_ID, _create_item, _get, _post, _run_together, _set_up_kingdom,
 )
 
 TARGET_ID = "2"

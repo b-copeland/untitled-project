@@ -13,7 +13,7 @@ from azure.cosmos.exceptions import (
     CosmosResourceNotFoundError,
 )
 
-from concurrency import ConditionalContainer, retry_on_conflict
+from concurrency import ConditionalContainer, Refused, TooBusy, change_document, retry_on_conflict
 from queues import coalesce
 
 ENDPOINT = os.environ["COSMOS_ENDPOINT"]
@@ -438,32 +438,30 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
     kd_name = req_body.get('kingdom_name')
     galaxy = req_body.get('galaxy')
 
-    existing_kds = CONTAINER.read_item(
-        item="kingdoms",
-        partition_key="kingdoms",
-    )
-    if kd_name in existing_kds["kingdoms"]:
-        return func.HttpResponse(
-            "This kingdom already exists",
-            status_code=400,
-        )
-    try:
-        kd_id = str(len(existing_kds["kingdoms"]))
-        existing_kds["kingdoms"][kd_id] = kd_name
-        CONTAINER.replace_item(
-            "kingdoms",
-            existing_kds,
-        )
+    # The id is taken with a conditional write on `kingdoms`, and the kingdom added to its galaxy with one on
+    # `galaxies`, so two kingdoms created at the same moment get different ids and both stay in their galaxies.
+    def take_id(existing_kds):
+        kingdoms = existing_kds["kingdoms"]
+        if kd_name in kingdoms.values():
+            raise Refused("This kingdom already exists")
+        kd_id = str(len(kingdoms))
+        while kd_id in kingdoms:  # ids are never reused, even if one was ever removed
+            kd_id = str(int(kd_id) + 1)
+        kingdoms[kd_id] = kd_name
+        return kd_id
 
-        galaxies = CONTAINER.read_item(
-            item="galaxies",
-            partition_key="galaxies",
-        )
-        galaxies["galaxies"][galaxy].append(kd_id)
-        CONTAINER.replace_item(
-            "galaxies",
-            galaxies,
-        )
+    def join_galaxy(galaxies):
+        if kd_id not in galaxies["galaxies"][galaxy]:
+            galaxies["galaxies"][galaxy].append(kd_id)
+
+    try:
+        kd_id = change_document(CONTAINER, "kingdoms", take_id)
+    except Refused as refused:
+        return func.HttpResponse(refused.message, status_code=refused.status_code)
+    except TooBusy:
+        return func.HttpResponse("Too many kingdoms are being created at once. Try again.", status_code=503)
+    try:
+        change_document(CONTAINER, "galaxies", join_galaxy)
 
         for resource_name in [
             "kingdom",
@@ -815,12 +813,14 @@ def create_empire(req: func.HttpRequest) -> func.HttpResponse:
     galaxy_id = req_body.get("galaxy_id")
     leader = req_body.get("leader")
 
-    empires = CONTAINER.read_item(
-        item="empires",
-        partition_key="empires",
-    )
-    try:
+    # Decided with a conditional write on `empires`: two empires created at once get different ids, and a galaxy that
+    # is already in an empire (a double click, or a join that landed first) can not found another.
+    def take_id(empires):
+        if any(galaxy_id in empire.get("galaxies", []) for empire in empires["empires"].values()):
+            raise Refused("This galaxy is already in an Empire", status_code=409)
         empire_id = str(len(empires["empires"]))
+        while empire_id in empires["empires"]:
+            empire_id = str(int(empire_id) + 1)
         empires["empires"][empire_id] = {
             "name": empire_name,
             "galaxies": [galaxy_id],
@@ -834,10 +834,15 @@ def create_empire(req: func.HttpRequest) -> func.HttpResponse:
             "surprise_war_penalty": False,
             "surprise_war_penalty_expires": "",
         }
-        CONTAINER.replace_item(
-            "empires",
-            empires,
-        )
+        return empire_id
+
+    try:
+        empire_id = change_document(CONTAINER, "empires", take_id)
+    except Refused as refused:
+        return func.HttpResponse(refused.message, status_code=refused.status_code)
+    except TooBusy:
+        return func.HttpResponse("Too many empires are being created at once. Try again.", status_code=503)
+    try:
         CONTAINER.create_item(
             {
                 "id": f"empire_politics_{empire_id}",

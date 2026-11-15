@@ -1,6 +1,6 @@
 # 0001: Document versions instead of locks
 
-Date: 2026-11-09 (PR #86, issue #64). Status: accepted; migration in progress ([status.md](../status.md#concurrency-migration)).
+Date: 2026-11-09 (PR #86, issue #64). Status: accepted; migration finished and the locks removed on 2026-11-14 ([status.md](../status.md#concurrency-migration)).
 
 ## Context
 
@@ -54,4 +54,5 @@ does not check can overwrite one that does.
 - Costs one extra read and write only when two writers actually collide.
 - Nothing is atomic across documents. Multi-document actions need the outbox pattern ([concurrency.md](../concurrency.md)),
   which is not built.
-- Every writer must send the condition; the migration is not finished.
+- Every writer must send the condition, or append. Since 2026-11-14 every writer does and the legacy locks are gone,
+  so one writer that reads, changes and writes a whole document back unconditionally would now undo others silently.

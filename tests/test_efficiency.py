@@ -14,7 +14,7 @@ import untitledapp.occ as occ
 import untitledapp.refresh as refresh
 from untitledapp import REQUESTS_SESSION, request_cache
 from tests.test_attack import _set_up_two_kingdoms
-from tests.test_concurrency import FUNCTION_URL, KD_ID, no_shared_lock, _create_item, _get, _set_up_kingdom  # noqa: F401
+from tests.test_concurrency import FUNCTION_URL, KD_ID, _create_item, _get, _set_up_kingdom  # noqa: F401
 
 
 @pytest.fixture

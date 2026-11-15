@@ -67,7 +67,7 @@ paste their values anywhere.
 | `ADMIN_PASSWORD` | Password for the `admin` user. **Only used when no `admin` user exists yet** (in the emulator), so changing it later has no effect on an existing one. |
 | `AZURE_FUNCTION_ENDPOINT` | `http://localhost:7071/api` |
 | `AZURE_FUNCTIONS_HOST_KEY` | Function host key. Not needed locally (can be empty). |
-| `SQLALCHEMY_DATABASE_URI` | SQLite file for the legacy locks (users are in Cosmos): `sqlite:///<absolute path to the repo>/api/database.db`, with forward slashes. **Use an absolute path and update it if you move the repo.** |
+| `SQLALCHEMY_DATABASE_URI` | Unused (nothing is stored in SQLite any more), but Flask-SQLAlchemy still opens it: `sqlite:///<absolute path to the repo>/api/database.db`, with forward slashes. **Use an absolute path and update it if you move the repo.** |
 | `REFRESH_SECRET` | Shared secret for `/api/refreshdata` (see below). |
 | `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER` | Outgoing email. `api/config.py` reads `SENDGRID_API_KEY`, so a `MAIL_PASSWORD` entry in this file has no effect. Email only matters for sign-up flows. |
 
