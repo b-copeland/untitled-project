@@ -32,7 +32,8 @@ def reveal_random_galaxy():
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
     try:
-        if occ.read(f'/kingdom/{kd_id}')["spy_attempts"] <= 0:
+        kd_info = occ.read(f'/kingdom/{kd_id}')
+        if kd_info["spy_attempts"] <= 0:
             return (flask.jsonify({"message": 'You do not have any spy attempts remaining'}), 400)
 
         revealed_info = uag._get_revealed(kd_id)
@@ -81,7 +82,7 @@ def reveal_random_galaxy():
             next_resolve["revealed"] = min(next_resolve["revealed"], time)
             return {"spy_attempts": kd["spy_attempts"] - 1, "next_resolve": next_resolve}, None
 
-        occ.update(f'/kingdom/{kd_id}', spend_attempt)
+        occ.update(f'/kingdom/{kd_id}', spend_attempt, document=kd_info)
         REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
@@ -1075,10 +1076,12 @@ def _attack(req, kd_id, target_kd):
                 "generals_available": kd["generals_available"] + n_generals,
             }, None
 
-        departure = occ.update(f'/kingdom/{kd_id}', depart)
+        # Both start from the documents read above; each write is conditional on them, so if either kingdom has
+        # changed since, it is read again and decided again.
+        departure = occ.update(f'/kingdom/{kd_id}', depart, document=kd_info_parse)
         time_now = departure["time_now"]
         try:
-            outcome = occ.update(f'/kingdom/{target_kd}', resolve)
+            outcome = occ.update(f'/kingdom/{target_kd}', resolve, document=target_kd_info)
         except BaseException:
             occ.update(f'/kingdom/{kd_id}', give_back_units)
             raise
@@ -1857,7 +1860,6 @@ def _spy(req, kd_id, target_kd):
         if not valid_request:
             return kd_info_parse, {"message": message}, 400, False
         
-        revealed = uag._get_revealed(kd_id)["revealed"]
         max_target_kd_info = uag._get_kd_info(target_kd)
         if max_target_kd_info["status"].lower() == "dead":
             return kd_info_parse, {"message": "You can't spy this kingdom because they are dead!"}, 400, False
@@ -1873,7 +1875,7 @@ def _spy(req, kd_id, target_kd):
                 charged["fuel"] = kd["fuel"] - drones
             return charged, None
 
-        occ.update(f'/kingdom/{kd_id}', charge)
+        occ.update(f'/kingdom/{kd_id}', charge, document=kd_info_parse)
         
         defender_drones = max_target_kd_info["drones"]
         defender_stars = max_target_kd_info["stars"]
@@ -2828,9 +2830,9 @@ def _launch_missiles(req, kd_id, target_kd):
         def give_back_missiles(kd):
             return {"missiles": {k: v + attacker_missiles.get(k, 0) for k, v in kd["missiles"].items()}}, None
 
-        occ.update(f'/kingdom/{kd_id}', launch)
+        occ.update(f'/kingdom/{kd_id}', launch, document=kd_info_parse)
         try:
-            missile_damage, defender_patch_payload = occ.update(f'/kingdom/{target_kd}', strike)
+            missile_damage, defender_patch_payload = occ.update(f'/kingdom/{target_kd}', strike, document=max_target_kd_info)
         except BaseException:
             occ.update(f'/kingdom/{kd_id}', give_back_missiles)
             raise

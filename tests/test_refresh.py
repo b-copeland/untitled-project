@@ -182,7 +182,7 @@ def test_empty_siphons_are_not_rewritten(app, session, monkeypatch):
 def test_siphons_in_are_cleared_after_being_collected(app, session, monkeypatch):
     siphons_in = [{"siphon": 5}, {"siphon": 7}]
     _siphons(monkeypatch, siphons_out=[], siphons_in=siphons_in)
-    session.docs["/kingdom/1/siphonsin"] = {"siphons": list(siphons_in), "_etag": '"s0"'}
+    session.docs["/kingdom/1/siphonsin"] = {"siphons_in": list(siphons_in), "_etag": '"s0"'}
 
     with app.app_context():
         _, income_in, _ = refresh._resolve_siphons(100, 1, NOW, 2.0)
@@ -194,7 +194,7 @@ def test_siphons_in_are_cleared_after_being_collected(app, session, monkeypatch)
 def test_siphons_added_while_collecting_are_not_cleared(app, session, monkeypatch):
     collected = [{"siphon": 5}]
     _siphons(monkeypatch, siphons_out=[], siphons_in=collected)
-    session.docs["/kingdom/1/siphonsin"] = {"siphons": collected + [{"siphon": 9}], "_etag": '"s0"'}
+    session.docs["/kingdom/1/siphonsin"] = {"siphons_in": collected + [{"siphon": 9}], "_etag": '"s0"'}
 
     with app.app_context():
         refresh._resolve_siphons(100, 1, NOW, 2.0)
@@ -205,7 +205,7 @@ def test_siphons_added_while_collecting_are_not_cleared(app, session, monkeypatc
 def test_siphons_out_are_paid_to_the_receiver_and_the_remainder_kept(app, session, monkeypatch):
     out = [{"from": 2, "time": FUTURE, "siphon": 10.0}]
     _siphons(monkeypatch, siphons_out=out, siphons_in=[])
-    session.docs["/kingdom/1/siphonsout"] = {"siphons": list(out), "_etag": '"s0"'}
+    session.docs["/kingdom/1/siphonsout"] = {"siphons_out": list(out), "_etag": '"s0"'}
 
     with app.app_context():
         refresh._resolve_siphons(100, 1, NOW, 1.0)
@@ -218,7 +218,7 @@ def test_siphons_out_are_paid_to_the_receiver_and_the_remainder_kept(app, sessio
 def test_siphon_payments_wait_for_the_kingdom_to_be_written_and_are_not_repeated_when_the_tick_restarts(app, session, monkeypatch):
     out = [{"from": 2, "time": FUTURE, "siphon": 10.0}]
     _siphons(monkeypatch, siphons_out=out, siphons_in=[])
-    session.docs["/kingdom/1/siphonsout"] = {"siphons": list(out), "_etag": '"s0"'}
+    session.docs["/kingdom/1/siphonsout"] = {"siphons_out": list(out), "_etag": '"s0"'}
     effects = []
 
     with app.app_context():

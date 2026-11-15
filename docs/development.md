@@ -214,6 +214,26 @@ Or call it by hand:
 Invoke-WebRequest http://localhost:8000/api/refreshdata -Headers @{ 'Refresh-Secret' = '<REFRESH_SECRET>' }
 ```
 
+## Simulating a round with bots
+
+`scripts/simulate_bots.py` plays a whole round on your local stack, so you can watch the bots work without waiting hours.
+It needs no Azure resources: everything runs on the Cosmos emulator. A short epoch makes the game run fast, so start the
+**function app and Flask with `EPOCH_SECONDS`** set (30 makes an epoch half a minute instead of half an hour, so 10 minutes
+is 20 epochs):
+
+```powershell
+$env:EPOCH_SECONDS = 30
+cd funcapp; func host start          # one terminal
+cd api; flask run -p 8000            # another, same EPOCH_SECONDS
+conda run -n funcapp python scripts/simulate_bots.py --epoch 30 --minutes 10 --bots 24 --galaxies 3
+```
+
+The script **wipes the local game** (`/api/resetstate`), sets the round's start and end, creates the bots, calls
+`/api/refreshdata` every few seconds and prints a summary every 30 seconds (top kingdoms, what the bots have decided).
+It refuses to run unless `COSMOS_ENDPOINT` is the local emulator. `--no-reset` keeps the current game and just ticks.
+Afterwards reseed the emulator if you want the copy of the real data back (`seed_cosmos_emulator.py --apply --replace`).
+Leave `EPOCH_SECONDS` unset for a normal game.
+
 ## Troubleshooting
 
 | Symptom | Cause and fix |

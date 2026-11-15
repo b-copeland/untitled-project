@@ -3,7 +3,9 @@ from untitledapp import create_app
 
 app = create_app()
 
-if __name__ != '__main__':
+gunicorn_active = bool(logging.getLogger('gunicorn.error').handlers)
+
+if __name__ != '__main__' and gunicorn_active:
     gunicorn_logger = logging.getLogger('gunicorn.glogging.Logger')
     gunicorn_error_handlers = logging.getLogger('gunicorn.error').handlers
     gunicorn_access_handlers = logging.getLogger('gunicorn.access').handlers

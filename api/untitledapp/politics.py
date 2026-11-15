@@ -126,6 +126,42 @@ def galaxy_leader():
 
     return (flask.jsonify(galaxy_votes), 200)
 
+def cast_galaxy_vote(kd_id, galaxy_id, policy, option):
+    """
+    Record ``kd_id``'s vote for ``option`` of ``policy`` in its galaxy, switching the galaxy's active policy if that
+    makes one option the clear leader. Returns the galaxy politics document. Raises ``occ.Busy``. The route and the bots
+    both come through here.
+    """
+    def vote(galaxy_votes):
+        galaxy_votes["votes"][policy][kd_id] = option.split('_')[-1]
+        patch_payload = {
+            "votes": galaxy_votes["votes"],
+        }
+        policy_votes = collections.defaultdict(int)
+        for chosen in galaxy_votes["votes"][policy].values():
+            policy_votes[chosen] += 1
+
+        current_option_winner = galaxy_votes[f"{policy}_winner"]
+        most_votes = max(policy_votes.values())
+        policies_with_most_votes = [
+            k
+            for k, v in policy_votes.items()
+            if v == most_votes
+        ]
+        if len(policies_with_most_votes) == 1 and (policies_with_most_votes[0] != current_option_winner):
+            patch_payload[f"{policy}_winner"] = policies_with_most_votes[0]
+            option_names = [option["name"] for option in uas.GALAXY_POLICIES[policy]["options"].values()]
+            new_option_name = uas.GALAXY_POLICIES[policy]["options"][policies_with_most_votes[0]]["name"]
+            new_active_policies = [active for active in galaxy_votes["active_policies"] if active not in option_names] + [new_option_name]
+            patch_payload["active_policies"] = new_active_policies
+            galaxy_votes[f"{policy}_winner"] = policies_with_most_votes[0]
+            galaxy_votes["active_policies"] = new_active_policies
+
+        return patch_payload, galaxy_votes
+
+    return occ.update(f'/galaxy/{galaxy_id}/politics', vote)
+
+
 @bp.route('/api/galaxypolitics/policies', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -140,35 +176,8 @@ def galaxy_policies():
     if not uam.acquire_lock(f'/galaxy/{galaxy_id}/politics'):
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    def vote(galaxy_votes):
-        galaxy_votes["votes"][req["policy"]][kd_id] = req["option"].split('_')[-1]
-        patch_payload = {
-            "votes": galaxy_votes["votes"],
-        }
-        policy_votes = collections.defaultdict(int)
-        for policy in galaxy_votes["votes"][req["policy"]].values():
-            policy_votes[policy] += 1
-
-        current_option_winner = galaxy_votes[f"{req['policy']}_winner"]
-        most_votes = max(policy_votes.values())
-        policies_with_most_votes = [
-            k
-            for k, v in policy_votes.items()
-            if v == most_votes
-        ]
-        if len(policies_with_most_votes) == 1 and (policies_with_most_votes[0] != current_option_winner):
-            patch_payload[f"{req['policy']}_winner"] = policies_with_most_votes[0]
-            option_names = [option["name"] for option in uas.GALAXY_POLICIES[req["policy"]]["options"].values()]
-            new_option_name = uas.GALAXY_POLICIES[req["policy"]]["options"][policies_with_most_votes[0]]["name"]
-            new_active_policies = [policy for policy in galaxy_votes["active_policies"] if policy not in option_names] + [new_option_name]
-            patch_payload["active_policies"] = new_active_policies
-            galaxy_votes[f"{req['policy']}_winner"] = policies_with_most_votes[0]
-            galaxy_votes["active_policies"] = new_active_policies
-
-        return patch_payload, galaxy_votes
-
     try:
-        galaxy_votes = occ.update(f'/galaxy/{galaxy_id}/politics', vote)
+        galaxy_votes = cast_galaxy_vote(kd_id, galaxy_id, req["policy"], req["option"])
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
     finally:
@@ -1199,23 +1208,14 @@ def _validate_cast_votes(
     
     return True, ""
 
-@bp.route('/api/universepolitics/policies', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-@start_required
-# @flask_praetorian.roles_required('verified')
-def universe_policies():
-    app = flask.current_app
-    req = flask.request.get_json(force=True)
-    kd_id = flask_praetorian.current_user().kd_id
-    
+def cast_universe_votes(kd_id, policy, option, votes):
+    """
+    Spend ``votes`` of ``kd_id``'s votes on ``option`` of the universe ``policy``. Returns ``(payload, status_code)``.
+    The route and the bots both come through here.
+    """
     request_id = str(uuid.uuid4())
     if not uam.acquire_locks([f'/kingdom/{kd_id}', f'/universepolitics'], request_id=request_id):
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    
-    votes = int(req["votes"])
-    policy = req["policy"]
-    option = req["option"]
+        return {"message": "Server is busy"}, 400
 
     def take_votes(kd_info):
         valid_votes, message = _validate_cast_votes(kd_info, votes)
@@ -1244,10 +1244,23 @@ def universe_policies():
             occ.update(f'/kingdom/{kd_id}', give_back)
             raise
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
+        return {"message": "Server is busy"}, 400
     finally:
         uam.release_locks_by_id(request_id)
 
-    return (flask.jsonify({"message": "Cast votes", "status": "success"}), 200)
+    return {"message": "Cast votes", "status": "success"}, 200
+
+
+@bp.route('/api/universepolitics/policies', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def universe_policies():
+    req = flask.request.get_json(force=True)
+    kd_id = flask_praetorian.current_user().kd_id
+
+    payload, status = cast_universe_votes(kd_id, req["policy"], req["option"], int(req["votes"]))
+    return (flask.jsonify(payload), status)
