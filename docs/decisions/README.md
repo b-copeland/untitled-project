@@ -9,6 +9,7 @@ the other docs; they are not instructions themselves. Read one before arguing to
 | [0002](0002-attack-sequencing.md) | Concurrent attacks on one target resolve one after another, sequenced by the target's version |
 | [0003](0003-ux-review.md) | Outcomes of the UX review: what the maintainer chose and why |
 | [0004](0004-users-in-cosmos.md) | Users move from SQLite to Cosmos documents behind the function app |
+| [0005](0005-kingdom-in-the-token.md) | The kingdom id travels in the login token, so game requests stop reading the user document |
 
 To add one: copy the shape below into the next number, and link it from this table.
 
