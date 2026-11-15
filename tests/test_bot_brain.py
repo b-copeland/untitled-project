@@ -206,6 +206,53 @@ def test_a_kingdom_that_stops_growing_notices_and_one_that_grows_again_recovers(
     assert memory["stalled"] is False and any("growing again" in note for note in notes)
 
 
+def test_spies_that_keep_failing_on_a_kingdom_leave_it_alone_for_a_while():
+    def spied(memory, revealed=None):
+        memory["spying"] = {"3": {"category": "military", "due": until(-0.5)}}
+        return brain.learn(StubWorld(revealed=revealed or {}), ATTACKER, style(), memory)
+
+    memory = {}
+    assert spied(memory) == [] and memory["spy_fails"] == {"3": 1} and memory["spying"] == {}
+    spied(memory)
+    notes = spied(memory)
+    assert memory["spy_fails"]["3"] == brain.SPY_FAILS and any("keep failing" in note for note in notes)
+    # An operation still to run says nothing yet; one that worked wipes the slate.
+    waiting = {"spying": {"3": {"category": "military", "due": until(1)}}}
+    brain.learn(StubWorld(), ATTACKER, style(), waiting)
+    assert waiting["spying"] and not waiting["spy_fails"]
+    spied(memory, revealed={"3": {"military": until(10)}})
+    assert "3" not in memory["spy_fails"]
+    # And after a couple of days it tries again.
+    old = {"spy_fails": {"3": 3}, "spy_fails_at": until(-30)}
+    brain.learn(StubWorld(), ATTACKER, style(), old)
+    assert old["spy_fails"] == {}
+
+
+def test_an_army_the_kingdom_can_no_longer_keep_is_disbanded_defenders_last():
+    # After losing stars: every star is built on, the hangars hold 1,500, and 7,100 units need a place.
+    shrunk = {"stars": 300, "structures": {"homes": 150, "mines": 80, "fuel_plants": 30, "hangars": 20,
+                                           "drone_factories": 10, "missile_silos": 0, "workshops": 10}}
+    (decision,) = brain.plan_survival(StubWorld(me=shrunk), {})
+    assert decision.kind == "disband"
+    assert decision.options == {"recruits": 100, "attack": 4000, "defense": 1500}
+    # With stars to build hangars on, or an army that fits, nothing is disbanded.
+    assert brain.plan_survival(StubWorld(me={**shrunk, "stars": 400}), {}) == []
+    assert brain.plan_survival(StubWorld(me={"stars": 1000}), {}) == []
+    # Out of fuel and still burning more than it makes: the same way out.
+    dry = {"stars": 1000, "fuel": -50, "income": {"money": {"net": 1}, "fuel": {"net": -2000}}}
+    (decision,) = brain.plan_survival(StubWorld(me=dry), {})
+    assert decision.options == {"recruits": 100, "attack": 2100}
+
+
+def test_with_money_to_spare_the_army_is_built_for_strength_per_recruit():
+    rich = {"surplus": 0.6}
+    settings, _ = brain.plan_economy(StubWorld(me={"units": {"defense": 200}}, day=4), THIEF, style(army="primitives"), rich)
+    assert settings["units_target"].get("flex", 0) > 0.1
+    assert settings["auto_attack_settings"]["flex"] == 0  # its flexers are its defense: they stay home
+    tight, _ = brain.plan_economy(StubWorld(me={"units": {"defense": 200}}, day=4), THIEF, style(army="primitives"), {"surplus": -0.3})
+    assert tight["units_target"].get("flex", 0) == 0
+
+
 # ------------------------------------------------------------------------------------------------------- the economy
 
 def test_the_economy_plan_is_legal_and_leaves_nothing_idle(app):

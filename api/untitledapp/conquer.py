@@ -889,7 +889,8 @@ def _attack(req, kd_id, target_kd):
                 gaian=departure["race"] == "Gaian",
                 peace=peace,
             )
-            attack_ratio = min(attack / defense, 1.0)
+            # A kingdom with nothing to defend with has a defense of zero: any attack is at full strength.
+            attack_ratio = min(attack / defense, 1.0) if defense > 0 else 1.0
             defender_losses = _calc_losses(
                 defender_units,
                 uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,

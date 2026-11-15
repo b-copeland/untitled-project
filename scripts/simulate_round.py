@@ -7,7 +7,11 @@ and the epoch keeps its real length (every duration in the game stays in proport
 
     python scripts/simulate_round.py                         # 40 bots, 4 galaxies, 7 days
     python scripts/simulate_round.py --days 2 --bots 24 --seed 3
-    python scripts/simulate_round.py --mix explorer=10,attacker=10,raider=5 --json out.json
+    python scripts/simulate_round.py --mix explorer=10,attacker=10 --json out.json
+    python scripts/simulate_round.py --set WAR_MARGIN=1.5 --set thief.defense_margin=1.3 --set "*.rob_share=1.0"
+
+``--set`` tries a number without editing the code: a constant of ``botbrain.py`` or ``botstrategy.py`` by name, or a
+``Personality`` field as ``<playstyle>.<field>`` (``*`` for every playstyle). Values are Python literals.
 
 Run it in the Flask environment, from the repository root. The numbers are only comparable between runs with the same
 arguments. ``scripts/simulate_bots.py`` is the other one: it drives the real local stack in real time.
@@ -55,8 +59,37 @@ class Clock:
                 module.datetime = proxy
 
 
+def apply_overrides(overrides):
+    """Apply ``--set`` values to the bot modules. Returns what was set, for the report."""
+    import ast
+    import dataclasses
+
+    import untitledapp.botbrain as botbrain
+    import untitledapp.botstrategy as botstrategy
+
+    applied = {}
+    for item in overrides or []:
+        name, _, text = item.partition("=")
+        value = ast.literal_eval(text)
+        if "." in name:
+            kind, field = name.split(".", 1)
+            kinds = list(botbrain.PERSONALITIES) if kind == "*" else [kind]
+            for key in kinds:
+                botbrain.PERSONALITIES[key] = dataclasses.replace(botbrain.PERSONALITIES[key], **{field: value})
+                wrong = botbrain.problems(botbrain.PERSONALITIES[key])
+                if wrong:
+                    raise SystemExit(f"--set {item}: {wrong}")
+        else:
+            module = next((m for m in (botbrain, botstrategy) if hasattr(m, name)), None)
+            if module is None:
+                raise SystemExit(f"--set {item}: neither botbrain nor botstrategy has {name}")
+            setattr(module, name, value)
+        applied[name] = value
+    return applied
+
+
 class Simulation:
-    def __init__(self, mix, galaxies=4, days=7.0, tick_epochs=0.5, seed=1, election_day=2.0, quiet=True):
+    def __init__(self, mix, galaxies=4, days=7.0, tick_epochs=0.5, seed=1, election_day=2.0, quiet=True, overrides=None):
         os.environ.pop("EPOCH_SECONDS", None)  # the real epoch: time is simulated instead of shortened
         os.environ.setdefault("REFRESH_SECRET", "simulate")
         for path in (str(ROOT / "api"), str(ROOT)):
@@ -76,7 +109,18 @@ class Simulation:
         self.days = days
         self.container = fake_backend.FakeContainer(latency=0)
         session = fake_backend.FakeSession(fake_backend.load_function_app(self.container))
-        REQUESTS_SESSION.request = session.request
+        # Every function app call is counted, and those made while a bot thinks are counted apart, for the cost of
+        # the bots (docs/cost.md).
+        self.calls = collections.Counter()
+        self.thinking = False
+
+        def request(method, url, *args, **kwargs):
+            self.calls["all"] += 1
+            if self.thinking:
+                self.calls["thinking"] += 1
+            return session.request(method, url, *args, **kwargs)
+
+        REQUESTS_SESSION.request = request
         self.app = create_app(config_class="config.TestingConfig")
         self.app.testing = True
         self.app.config["PROPAGATE_EXCEPTIONS"] = False
@@ -105,6 +149,30 @@ class Simulation:
             logging.getLogger().setLevel(logging.CRITICAL)
         self.client = self.app.test_client()
         endpoint = self.app.config["AZURE_FUNCTION_ENDPOINT"]
+
+        import untitledapp.botbrain as botbrain
+        import untitledapp.bots as bots
+
+        self.overrides = apply_overrides(overrides)
+
+        # The bots draw their own random numbers (each think makes a fresh generator). Here they are all drawn from
+        # the seed, so the same arguments play the same round.
+        seeded = types.SimpleNamespace(**{name: getattr(random, name) for name in dir(random) if not name.startswith("_")})
+        seeded.Random = lambda *args: random.Random(args[0] if args else random.random())
+        botbrain.random = seeded
+        bots.random = seeded
+
+        real_think = botbrain.think
+
+        def counted_think(*args, **kwargs):
+            self.calls["thinks"] += 1
+            self.thinking = True
+            try:
+                return real_think(*args, **kwargs)
+            finally:
+                self.thinking = False
+
+        botbrain.think = counted_think
 
         self.clock = Clock(datetime.datetime.now(datetime.timezone.utc))
         self.clock.install()
@@ -140,6 +208,7 @@ class Simulation:
         return {kd_id: self.doc(f"kingdom_{kd_id}") for kd_id in self.doc("kingdoms").get("kingdoms", {})}
 
     def tick(self):
+        self.calls["ticks"] += 1
         self.clock.advance(self.tick_seconds)
         result = self.client.get("/api/refreshdata", headers=self.refresh_headers)
         text = result.get_data(as_text=True)
@@ -233,6 +302,9 @@ class Simulation:
                                 for g in self.doc("galaxies").get("galaxies", {})},
             "failed_ticks": self.failed_ticks,
             "errors": dict(self.errors),
+            "calls": dict(self.calls),
+            "overrides": self.overrides,
+            "epochs": self.days * 86400 / self.epoch,
             "samples": self.samples,
         }
 
@@ -289,6 +361,12 @@ def report(results, out=sys.stdout, detail=False):
         print(f"  news: {news}", file=out)
     for message, count in sorted(results.get("errors", {}).items(), key=lambda item: -item[1])[:15]:
         print(f"  error x{count}: {message}", file=out)
+    calls = results.get("calls") or {}
+    if calls.get("thinks"):
+        bots = max(len(results["rows"]), 1)
+        print(f"\nFunction app calls: {calls['all']:,} in {calls['ticks']:,} ticks. Bots thought {calls['thinks']:,} times "
+              f"({calls['thinks'] / bots / results['epochs']:.2f} per bot per epoch), {calls['thinking'] / calls['thinks']:.1f} calls a think: "
+              f"{calls['thinking'] / bots / results['epochs']:.1f} calls per bot per epoch.", file=out)
     if results["failed_ticks"]:
         print(f"\n{len(results['failed_ticks'])} ticks reported failures, e.g. {results['failed_ticks'][0]}", file=out)
     if detail:
@@ -324,6 +402,8 @@ def main():
     parser.add_argument("--detail", action="store_true", help="also list every kingdom")
     parser.add_argument("--json", help="write the results to this file")
     parser.add_argument("--errors", action="store_true", help="let the game log its errors")
+    parser.add_argument("--set", action="append", default=[], metavar="NAME=VALUE", dest="overrides",
+                        help="try a bot number without editing the code (see above); may be repeated")
     args = parser.parse_args()
 
     mix = parse_mix(args.mix, args.bots)
@@ -331,7 +411,7 @@ def main():
     real_stdout, sys.stdout = sys.stdout, open(os.devnull, "w")  # the game code prints as it goes
     try:
         sim = Simulation(mix, galaxies=args.galaxies, days=args.days, tick_epochs=args.tick, seed=args.seed,
-                         election_day=args.election_day, quiet=not args.errors)
+                         election_day=args.election_day, quiet=not args.errors, overrides=args.overrides)
 
         def progress(sim):
             stars = sorted((s for (_, s, _, _) in sim.samples[-1][1].values()), reverse=True)
@@ -342,7 +422,8 @@ def main():
     finally:
         sys.stdout = real_stdout
     report(results, detail=args.detail)
-    print(f"\n{sum(mix.values())} bots {mix}, {args.galaxies} galaxies, seed {args.seed}, {time.time() - started:.0f}s")
+    print(f"\n{sum(mix.values())} bots {mix}, {args.galaxies} galaxies, seed {args.seed}, {time.time() - started:.0f}s"
+          + (f", with {results['overrides']}" if results["overrides"] else ""))
     if args.json:
         pathlib.Path(args.json).write_text(json.dumps(results, default=str), encoding="utf-8")
 

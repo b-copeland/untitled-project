@@ -155,6 +155,19 @@ def test_big_flexers_are_only_planned_once_unlocked():
     assert buy["big_flex"] > 0 and target["big_flex"] > 0
 
 
+def test_with_money_to_spare_defense_is_bought_as_flexers_which_need_fewer_recruits():
+    kd = kingdom()
+    plain_target, plain = strategy.army_plan(kd, 10 ** 9, 1000, 0.0, {"attack": 1.0})
+    target, buy = strategy.army_plan(kd, 10 ** 9, 1000, 0.0, {"attack": 1.0}, defender="flex")
+    assert plain["defense"] > 1000 and plain["flex"] == 0
+    assert buy["defense"] == 0 and buy["flex"] > 1000 and target["flex"] > 0
+    # Big flexers only once unlocked: until then, flexers. One big flexer stands in for two defenders.
+    assert strategy.army_plan(kd, 10 ** 9, 1000, 0.0, {}, defender="big_flex")[1]["big_flex"] == 0
+    kd["completed_projects"] = ["big_flexers"]
+    exact = strategy.unit_cost("big_flex") * 500
+    assert strategy.army_plan(kd, exact, 1000, 0.0, {}, defender="big_flex")[1]["big_flex"] == pytest.approx(500)
+
+
 def test_a_kingdom_with_no_army_still_gets_a_target():
     kd = kingdom(units={"attack": 0, "defense": 0, "flex": 0, "big_flex": 0, "recruits": 0, "engineers": 0})
     target, _ = strategy.army_plan(kd, 0, 0, 0.0, {"attack": 1.0})

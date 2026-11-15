@@ -66,6 +66,10 @@ TARGET_STYLES = ("none", "primitives", "players", "both")
 # TUNE: a kingdom that has grown less than this share in this many epochs has stalled, and changes how it grows.
 MAX_EXTRA_WORKSHOPS = 0.06  # TUNE: the most extra land (share) a kingdom with money to spare turns into workshops
 MAX_HOMES_SHIFT = 0.3       # TUNE: how far the homes share of homes-and-mines moves with money to spare (or short)
+MIN_SPY_CHANCE = 0.15       # TUNE: the least chance worth a try for military intel (twice that for anything else)
+EFFICIENT_ARMY_SURPLUS = 0.2  # TUNE: how much money to spare (0 to 1) before defense is bought as flexers
+SPY_FAILS = 3               # TUNE: failed intel operations in a row before a target is left alone
+SPY_FORGET_EPOCHS = 48      # TUNE: and for how long
 WAR_MARGIN = 1.3            # TUNE: how much more defense a kingdom whose empire is at war keeps
 BOMBER_KEEP = 1.5           # TUNE: epochs of income a bomber keeps as money for missiles
 SUICIDE_TEAM = 8            # TUNE: how many kingdoms' worth of burning a bot counts on when it burns a leader's fuel
@@ -159,7 +163,7 @@ PERSONALITIES = {
         offense_share=(0.8, 0.5, 0.1), settle_first=True,
         workshops=(0.06, 0.06, 0.08), drone_factories=0.06, homes=0.55,
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.6, "military_bonus": 0.8, "general_bonus": 0.3, "spy_bonus": 0.4},
-        key_projects=("drone_gadgets",), key_share=(0.4, 0.25, 0.15),
+        key_projects=("drone_gadgets", "big_flexers"), key_share=(0.4, 0.25, 0.15),
         intel_chance=0.15, share_chance=0.5,
         galaxy_votes={"policy_1": "1", "policy_2": "2"},     # Expansionist, Conscription
         universe_votes={"policy_1": "2", "policy_2": "1"},    # Treatied (it defends), Free trade
@@ -186,7 +190,7 @@ PERSONALITIES = {
         offense_share=(0.8, 0.5, 0.1),
         workshops=(0.07, 0.07, 0.08), drone_factories=0.1, homes=0.6,
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.5, "military_bonus": 0.7, "spy_bonus": 1.0},
-        key_projects=("drone_gadgets",), key_share=(0.6, 0.3, 0.15),
+        key_projects=("drone_gadgets", "big_flexers"), key_share=(0.6, 0.3, 0.15),
         intel_chance=0.9, intel_ops=("spymilitary", "spymilitary", "spykingdom", "spydrones", "spyshields", "spyprojects",
                                      "spystructures"),
         intel_tries=(1, 3), share_chance=0.95, share_cut=10.0,
@@ -202,7 +206,7 @@ PERSONALITIES = {
         offense_share=(0.8, 0.5, 0.1),
         workshops=(0.06, 0.06, 0.08), drone_factories=0.12, homes=0.6,
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.5, "military_bonus": 0.7, "spy_bonus": 1.0},
-        key_projects=("drone_gadgets",), key_share=(0.6, 0.3, 0.15),
+        key_projects=("drone_gadgets", "big_flexers"), key_share=(0.6, 0.3, 0.15),
         intel_chance=0.5, intel_ops=("spykingdom", "spydrones", "spymilitary"), share_chance=0.3,
         aggressive_chance=0.9, sabotage_chance=(0.0, 0.15, 0.6),
         sabotage_ops=("kidnappopulation", "bombhomes", "sabotagefuelplants", "kidnappopulation"),
@@ -585,8 +589,11 @@ def plan_economy(world, personality, style, memory):
     wanted = strategy.defense_wanted(me, world.epochs, margin)
     units = strategy.all_units(me)
     multiplier = max(strategy.defense_multiplier(me), 0.5)
-    # Flex units count for half: they are away when the bot attacks.
-    counted = units["defense"] * 5 + units["recruits"] + (units["flex"] * 5 + units["big_flex"] * 10) * 0.5
+    # A bot that strikes kingdoms counts its flex units for half: they are away when it attacks. One that does not
+    # keeps them at home, where they are defense.
+    flex_at_home = army_style in ("none", "primitives")
+    counted = (units["defense"] * 5 + units["recruits"]
+               + (units["flex"] * 5 + units["big_flex"] * 10) * (1.0 if flex_at_home else 0.5))
     deficit = max(wanted / multiplier - counted, 0) / uas.UNITS["defense"]["defense"]
 
     # Money: what each category can use, most urgent first.
@@ -612,8 +619,13 @@ def plan_economy(world, personality, style, memory):
     if army_style == "players":
         offense_share = max(offense_share, 0.6)
     military_money = shares["military"] * income * strategy.HORIZON + me["funding"].get("military", 0)
+    # With money to spare and no more people to draft, strength per recruit is what counts: flexers, and big flexers
+    # once unlocked, for defense. Late in the round that is the army to have as soon as money is not short.
+    spare_money = memory.get("surplus", 0.0)
+    efficient = spare_money > (0.0 if phase_name == "late" else EFFICIENT_ARMY_SURPLUS)
     units_target, to_buy = strategy.army_plan(me, military_money, deficit, offense_share, personality.offense_mix,
-                                              cost_modifier=world.cost_modifier)
+                                              cost_modifier=world.cost_modifier,
+                                              defender="big_flex" if efficient else "defense")
     shields, shields_fuel = strategy.shields_plan(
         me, phase_name,
         wants_spy_shields=_recent(memory, "spied_at", world.now, 48) and phase_name != "early",
@@ -674,7 +686,7 @@ def plan_economy(world, personality, style, memory):
     has_offense = strategy.raw_offense(units) > 0
     spare = max(counted * multiplier - wanted, 0) / max(multiplier, 0.5)
     flex_defense = units["flex"] * 5 + units["big_flex"] * 10
-    flex_out = round(min(spare / flex_defense, 1.0), 3) if flex_defense > 0 else 0.0
+    flex_out = round(min(spare / flex_defense, 1.0), 3) if flex_defense > 0 and not flex_at_home else 0.0
     auto_attack = {"pure": 1.0, "flex": flex_out}
     primitives = army_style in ("primitives", "both") or (stalled and army_style != "players")
     settings["auto_attack_settings"] = auto_attack
@@ -932,7 +944,7 @@ def plan_intel(world, personality, style, memory, rng, want_military=False):
     operation = "spymilitary" if want_military else rng.choice(personality.intel_ops)
     category = operation.replace("spy", "")
     fails = memory.get("spy_fails", {})
-    lacking = [kd for kd in known if world.seconds_left(kd, category) <= window and fails.get(kd, 0) < 3]
+    lacking = [kd for kd in known if world.seconds_left(kd, category) <= window and fails.get(kd, 0) < SPY_FAILS]
     if not lacking:
         return []
     mine = max(world.me.get("drones") or 0, 1)
@@ -955,8 +967,8 @@ def plan_intel(world, personality, style, memory, rng, want_military=False):
     share = rng.random() < personality.share_chance
     decision, chance = _spy_decision(world, personality, target, operation, stars, _guess_drones(world, target, stars), rng,
                                      share, f"{operation} on {world.names[target]}")
-    if chance < 0.15 and not want_military:
-        return []
+    if chance < (MIN_SPY_CHANCE if want_military else 2 * MIN_SPY_CHANCE):
+        return []  # not worth the spy attempt and the drones
     return [decision]
 
 
@@ -967,8 +979,6 @@ def accept_intel(world, personality, style, memory):
         wanted.add("military")
     if style.get("drones") in ("players", "both"):
         wanted.update(("kingdom", "drones", "shields"))
-    if world.phase == "late":
-        wanted.update(("military", "kingdom"))
     if not wanted:
         return []
     outsiders = set(world.outsiders())
@@ -1149,7 +1159,7 @@ def plan_drones(world, personality, style, memory, rng):
             del running[kd]
         best = None
         for kd, (stars, _networth) in known.items():
-            if kd in running or memory.get("spy_fails", {}).get(kd, 0) >= 3:
+            if kd in running or memory.get("spy_fails", {}).get(kd, 0) >= SPY_FAILS:
                 continue
             income = strategy.guess_income(stars)
             # No more drones than the siphon can use.
@@ -1234,6 +1244,24 @@ def learn(world, personality, style, memory):
             if not won and not strike.get("chip"):
                 notes.append(f"the attack on {world.names.get(strike['target'], strike['target'])} failed: asking {memory['buffer_extra']:.0f}% more offense from now on")
         memory.pop("strike", None)
+    # Intel operations that have run: the intel is there, or it is not. A target that beats the spies several times
+    # in a row is left alone for a while.
+    fails = memory.setdefault("spy_fails", {})
+    spying = memory.setdefault("spying", {})
+    for target in list(spying):
+        if _utc(spying[target]["due"]) > world.now:
+            continue
+        if world.seconds_left(target, spying[target]["category"]) > 0:
+            fails.pop(target, None)
+        else:
+            fails[target] = fails.get(target, 0) + 1
+            if fails[target] == SPY_FAILS:
+                memory["spy_fails_at"] = world.now.isoformat()
+                notes.append(f"spies keep failing on {world.names.get(target, target)}: leaving it alone for a while")
+        del spying[target]
+    if fails and memory.get("spy_fails_at") and not _recent(memory, "spy_fails_at", world.now, SPY_FORGET_EPOCHS):
+        fails.clear()
+        memory.pop("spy_fails_at", None)
     stalled = note_growth(world, memory)
     if stalled != memory.get("stalled", False):
         memory["stalled"] = stalled
@@ -1426,6 +1454,10 @@ def _write(kd_id, settings, scheduled, personality, style, memory, rng, now, log
                 if decision.kind == "attack":
                     new_memory["strike"] = {"target": decision.options["target"], "time": when, "planned": now.isoformat(),
                                             "chip": not decision.options.get("prefer_autofill")}
+                if decision.kind == "intelspy":
+                    new_memory.setdefault("spying", {})[decision.options["target"]] = {
+                        "category": decision.options["operation"].replace("spy", ""),
+                        "due": (now + datetime.timedelta(seconds=decision.delay + 0.1 * EPOCH)).isoformat()}
                 if decision.kind == "aggressivespy" and decision.options.get("operation") == "siphonfunds":
                     until = now + datetime.timedelta(
                         seconds=decision.delay + EPOCH * uas.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"])

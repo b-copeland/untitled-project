@@ -74,6 +74,18 @@ def test_a_failed_attack_takes_nothing(app, client, jwt1):
     assert _get(f"/kingdom/{KD_ID}")["stars"] == attacker0["stars"]
 
 
+def test_a_kingdom_with_no_defense_at_all_can_be_attacked(app, client, jwt1):
+    """Used to divide by zero (found by two bots that had ground each other down to nothing)."""
+    _set_up_two_kingdoms(target_defense=0)
+    target0 = _get(f"/kingdom/{TARGET_ID}")
+
+    response = _attack(client, jwt1)
+
+    assert response.status_code == 200, response.get_json()
+    assert response.get_json()["status"] == "success"
+    assert _get(f"/kingdom/{TARGET_ID}")["stars"] < target0["stars"]
+
+
 def test_attacking_a_dead_kingdom_is_refused_and_keeps_the_units_home(app, client, jwt1):
     _set_up_two_kingdoms(target_overrides={"status": "Dead"})
 

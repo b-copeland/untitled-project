@@ -253,18 +253,26 @@ def spending_plan(kd, income, order, settle_drive, military_drive, defense_defic
     return shares, wants
 
 
-def army_plan(kd, military_money, defense_deficit_units, offense_share, offense_mix, cost_modifier=1.0):
+def army_plan(kd, military_money, defense_deficit_units, offense_share, offense_mix, cost_modifier=1.0,
+              defender="defense"):
     """
-    What ``military_money`` (over the horizon) should become: first the defenders still missing, then offense and more
+    What ``military_money`` (over the horizon) should become: first the defense still missing, then offense and more
     defense in the bot's proportions. Returns ``(units_target, units_to_buy)``: the auto builder's shares of the army,
     and the number of units the money buys (which is also how many recruits are worth having).
+
+    ``defender`` is the unit bought for defense. Defenders are the cheapest defense for the money; flexers and big
+    flexers give two and four times the strength for each recruit and hangar place, which is what counts for a kingdom
+    with money left over and no more people to draft. ``defense_deficit_units`` is in defenders either way.
     """
     units = all_units(kd)
     buy = {unit: 0.0 for unit in COMBAT_UNITS}
     money = max(military_money, 0.0)
-    defenders = min(defense_deficit_units, money / unit_cost("defense", cost_modifier))
-    buy["defense"] += defenders
-    money -= defenders * unit_cost("defense", cost_modifier)
+    if defender == "big_flex" and "big_flexers" not in kd.get("completed_projects", []):
+        defender = "flex"
+    per_defender = uas.UNITS["defense"]["defense"] / uas.UNITS[defender]["defense"]
+    defenders = min(defense_deficit_units * per_defender, money / unit_cost(defender, cost_modifier))
+    buy[defender] += defenders
+    money -= defenders * unit_cost(defender, cost_modifier)
     mix = {unit: weight for unit, weight in offense_mix.items()
            if weight > 0 and (unit != "big_flex" or "big_flexers" in kd.get("completed_projects", []))}
     total_weight = sum(mix.values())
@@ -272,7 +280,7 @@ def army_plan(kd, military_money, defense_deficit_units, offense_share, offense_
         for unit, weight in mix.items():
             buy[unit] += money * offense_share * weight / total_weight / unit_cost(unit, cost_modifier)
         money *= (1 - offense_share)
-    buy["defense"] += money / unit_cost("defense", cost_modifier)
+    buy[defender] += money / unit_cost(defender, cost_modifier)
 
     wanted = {unit: units.get(unit, 0) + buy[unit] for unit in COMBAT_UNITS}
     total = sum(wanted.values())
