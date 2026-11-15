@@ -1,40 +1,48 @@
 # Bots (issue #76)
 
 Bots are kingdoms run by the computer, so a round feels populated and the game's systems get exercised. Target: about
-100 of them.
+100 of them, each playing about as well as an average player, in different ways.
 
-## What exists: setup
+A bot is an ordinary kingdom in an ordinary account that nobody can log in to (random password). It plays by the same
+rules as a player, through the same code as the routes, and sees only what a player sees.
 
-`api/untitledapp/bots.py` defines four archetypes, one per playstyle in `untitled_project.txt` (the leader playstyle is
-not ready, so there is no leader bot):
+| File | Holds |
+|---|---|
+| `api/untitledapp/bots.py` | The four **archetypes**: race, starting units and structures, and the plan a new kingdom starts with. Also the players' quick starts. Creating bots. |
+| `api/untitledapp/botstrategy.py` | The **sums**: plain functions of what a bot can see. No Flask, no storage. |
+| `api/untitledapp/botbrain.py` | The **brain**: what a bot decides each time it thinks, the `Personality` of each playstyle (every `TUNE` number), and carrying the decisions out. |
+| `scripts/simulate_round.py` | A whole round of bots in one process on a simulated clock, in minutes. The tool for tuning. |
 
-| Type | Race | Plays by |
+## Archetypes and styles
+
+| Type | Race | Grows by |
 |---|---|---|
-| `explorer` | Gaian | cheap fast settling (50% of funding to settling), economy first, defends |
-| `attacker` | Xo | 60% of funding to military, pure offense plus flex, **auto attack on** |
-| `intel` | Lumina | drone-heavy support with spy shields; free reveal operations |
-| `thief` | Vult | drone-heavy, **auto rob on** for primitives |
+| `explorer` | Gaian | settling all round (it stays ahead of the army in the queue for money), primitives, the strongest defense |
+| `attacker` | Xo | primitives, then kingdoms when they pay better; most of its army is offense |
+| `intel` | Lumina | primitives and settling; spies widely and offers what it learns to its galaxy for a cut of the spoils |
+| `thief` | Vult | primitives and settling; robs primitives, siphons kingdoms when that pays more, sabotages leaders |
 
-A bot is an ordinary kingdom in an ordinary account that nobody can log in to (random password). It starts with the
-archetype's units and structures, and its auto builder is switched on: auto spending split, structure / unit / project
-targets, auto assign engineers, shields, and auto attack or auto rob where the playstyle has one. The periodic refresh
-then plays it like any other kingdom.
+(The leader playstyle is not ready, so there is no leader bot.)
 
-Each bot's numbers are the archetype's, varied by up to 20-25% (and re-normalised so shares still total what they did),
-so a hundred bots are not a hundred copies.
+Each bot also draws a **style** when it is created (`botbrain.roll_style`, stored in `bot.style`), so a hundred bots of a
+type are not a hundred copies, and between them they use every action:
 
-**Every number is a first guess and marked `TUNE` in the file.** `bots.problems(archetype)` checks an archetype against
-the same validators the routes use, and `tests/test_bots.py` fails if an edit makes one illegal, so a bad number can not
-reach a bot.
+| Style | Values | Meaning |
+|---|---|---|
+| `army` | `none`, `primitives`, `players`, `both` | What its army hits. Most attackers hit both; a quarter hit only kingdoms and a quarter only primitives. A tenth of the others hit nothing. |
+| `drones` | `primitives`, `players`, `both` | Whether its drones rob primitives, work on kingdoms (siphons), or whichever pays more. |
+| `bomber` | true or false | Builds missile silos from the mid game, researches Star Busters, and fires at whoever hit it, or at the leader. |
+| `temper` | 0.85 to 1.15 | Bold bots keep less defense and buy more offense; cautious ones the other way. |
 
 ### Also the players' quick starts
 
 The same four archetypes are offered to new players on the Create Kingdom page (`Archetype.label` is the name they
 see; `bots.preset_view` is what `/api/createkingdomdata` sends). Picking one starts the kingdom with the archetype's race,
-units and structures and stores its plan exactly (no variation: `bots.player_settings`), but **nothing runs unless the
-player says so**: the page asks whether to switch the auto builder on, and only then are auto spending, auto assigning
-engineers, shields and auto attack or rob enabled. So an edit to an archetype changes what new players are offered as
-well as what bots do; `problems()` still has to pass.
+units and structures and stores its plan exactly (`bots.player_settings`), but **nothing runs unless the player says
+so**: the page asks whether to switch the auto builder on, and only then are auto spending, auto assigning engineers,
+shields, auto attack and auto rob enabled. So an edit to an archetype changes what new players are offered as well as
+what bots start with; `bots.problems(archetype)` still has to pass (`tests/test_bots.py`). A player gets the starting
+plan only: the brain does not run for players.
 
 ### Creating them
 
@@ -47,85 +55,207 @@ POST /api/admin/bots     {"explorer": 25, "attacker": 25, "intel": 25, "thief": 
 At most 200 per call. Names are `bot_<type>_<n>`. Each goes into the galaxy with the fewest members, like a new player.
 Resetting the round (`/api/resetstate`) clears every account's kingdom, bots included; create them again afterwards.
 
-## Bots that act: the brain
+## How a bot plays
 
-`api/untitledapp/botbrain.py` is the part that *decides*. It is built from what the in-game guide and help pages say a
-good player does, as a few small rules per action (all numbers are `TUNE` guesses, in one `Personality` per archetype):
+`refresh._refresh_kd` calls `botbrain.maybe_think` for every kingdom with a `bot` field, after the kingdom's own tick. A
+bot thinks on its own timer (`bot.next_think`, a random 1 to 5 epochs apart depending on playstyle), so a hundred bots
+think a few at a time. Each think:
 
-| Action | Rule |
+| Step | Rule (function) |
 |---|---|
-| Attack | Never blind. Of the kingdoms it has fresh **military intel** on (the intel must outlast the wait), pick the one with the most stars that it can beat with a random 2-12% buffer (the same autofill the Attack page uses). Send 1-3 generals; the rest of the army stays home. No beatable target: send spies for military intel instead. Attackers only (to start with). |
-| Intel | Spy for a reveal operation on a kingdom it has none, or little, on. Intel bots share what they learn with the galaxy (90% of the time), others sometimes. Thieves leave their auto-rob's spy attempts alone; nobody spends its last. |
-| Aggressive spying | Thieves siphon funds from the richest kingdom they know the money of; if they know nobody's, they spy for it first. |
-| Missiles | If it holds any, fire 30-60% at the biggest kingdom it has seen. (No archetype builds silos yet, so this is dormant.) |
-| Politics | Votes for the galaxy policies that suit the playstyle (Expansionist for explorers, Warlike for attackers, Intelligence for the intel bot, ...). In an election, spends the votes it has on the universe policies. It never buys votes. |
+| Read the news | An attack makes its sender a grudge and raises the defense the bot wants (it wears off); missiles raise the missile shields, caught spies the spy shields (`react`). |
+| Learn | A strike that failed widens the buffer it asks for, one that worked narrows it. A kingdom whose spies it keeps failing against is left alone for two days. A kingdom that has stopped growing settles harder and sends its army at primitives whatever its style (`learn`). |
+| Plan the economy | The auto builder's settings for the coming hours (`plan_economy`, below). |
+| Survive | An army the hangars and fuel plants can no longer keep (after losing stars) is disbanded, defenders last, before it empties the homes (`plan_survival`). |
+| Spend loose money | Settle, build and train engineers with money that is not in a funding category, as on the Build pages (`spend_money`). |
+| Politics | Below (`plan_politics`). |
+| Intel | Reveal a galaxy when it knows nobody; spy where it pays; accept the intel galaxymates offer if it can use it (`plan_intel`, `accept_intel`). |
+| Strike | A kingdom, when one pays better than primitives (`plan_attack`). |
+| Drones | A siphon when it beats robbing; sabotage on a leader late in the round (`plan_drones`). |
+| Missiles | Fill the silos; fire at whoever hit it, or the leader (`plan_missiles`). |
 
-**How it acts.** The brain never calls an action. It adds entries to the bot's own **schedule** (the Schedule page's
-queue) at random times over the coming interval, and the refresh runs them when they fall due through the same code the
-routes use. So the check "is this attack still winnable" happens when it is sent, and one bot's actions land at different
-moments. **When it acts** is random too: every bot has its own `next_think` (in the kingdom document under `bot`), first
-set at random when it is created and moved on by a random 1-5 epochs (depending on playstyle) after every think. A hundred
-bots therefore think a few at a time, tick after tick. This is the answer to "bots should not all act in the same tick".
+**How it acts.** Attacks, spying and missiles go on the bot's own **schedule** (the Schedule page's queue), at times
+spread over the coming interval, and the refresh runs them through the code the routes use. So "is this attack still
+winnable" is checked when it is sent. Everything else (votes, purchases, empire actions, settings) is done on the spot
+through the same functions as the routes: the routes for these are thin wrappers around a function that takes the
+kingdom id (`build._settle`, `politics.found_empire`, `conquer._reveal_random_galaxy` and so on). The settings, the new
+schedule entries and the bot's memory are one conditional write.
 
-**What it can see.** Only what a player sees: names, galaxies and the intel revealed to the bot. Never hidden state.
+**What it can see.** Its own kingdom, names, galaxies, empires, the scores as the Scores page shows them
+(`_get_scores_redacted`), its news, and other kingdoms through `_get_max_kd_info` with what is revealed to it. Never
+hidden state.
 
-**The log.** Each decision, and what became of it, goes to the bot's `bot.log` (the last 40), e.g.
-`{"time": ..., "kind": "attack", "why": "attack Delta: 41,200 offense vs 38,900 defense with a 6% buffer", "outcome": "scheduled for ..."}`.
-Read it in the kingdom document (`GET /kingdom/<id>` on the function app).
+**The round in three phases** (`botstrategy.phase`: the first 30% is early, to 70% mid, then late):
 
-**Where it runs.** `refresh._refresh_kd` calls `botbrain.maybe_think` for every kingdom that has a `bot` field, after the
-kingdom's own tick. Kingdoms made before the brain existed have no `bot` field and stay passive; create new bots (or add
-`"bot": {"type": "attacker", "next_think": "<now>", "log": []}` to one by hand).
+| Phase | What changes |
+|---|---|
+| Early | Money goes to structures, settling, then the army; the army is nearly all attackers for primitives; engineers work on the key unlock; no shields (the fuel is for growth). |
+| Mid | The army moves ahead of settling for money (except for explorers); military shields go up; bombers start building silos; an empire leader denounces the strongest rival. |
+| Late | The army comes first; strikes may gather the whole army; leaders (the top three by networth it can name) are worth double as targets, get its intel first, are sabotaged, have their fuel burnt, and are worn down with losing attacks; war is declared if it has not come by itself. |
 
-**Tests.** `tests/test_bot_brain.py`: every rule on a made-up world, the spreading of times, and one bot driven through
-the real refresh until a spy it queued has run.
+### The economy (`plan_economy`, sums in `botstrategy.py`)
 
-### Seeing them work
+- **Nothing sits idle** (`spending_plan`). Income is split by what each category can use in the coming hours: settling is
+  capped at a tenth of the kingdom in the queue, structures at the empty stars, engineers by workshops and population,
+  the army by how fast recruits can be drafted. Funding already waiting in a category counts against what it asks for.
+  What nothing can use stays as money (and is spent by hand, or on votes and missiles).
+- **Enough defense to not be worth it** (`deterrence_per_star`). An attacker gains a tenth of your stars, or what the
+  same army takes from primitives. Primitives get harder all round, so the defense per star that makes a kingdom the
+  worse deal rises with the square root of time. Each playstyle keeps a margin on that line (`defense_margin`), more
+  when it has been hit, 30% more while its empire is at war.
+- **The rest of the army money is offense** (`army_plan`, `offense_share`), sent at primitives by the auto attack with
+  every pure attacker (`pure` is 100%: they are no use at home). Recruits are drafted only as fast as the money turns
+  them into units (`max_recruits`, units before recruits).
+- **Strength per recruit when people run short.** With money to spare, defense is bought as flexers, and big flexers
+  once unlocked: twice and four times the strength for each recruit and hangar place. Otherwise defenders, the cheapest
+  defense for the money.
+- **Land for the army on order** (`structures_plan`): hangars and fuel plants for the units the budget will buy, before
+  they arrive. The split of the rest between homes and mines follows what the kingdom is short of: more homes (people:
+  recruits and engineers) while money is left over, more mines while the army is short of money.
+- **Engineers where a bonus is slipping** (`projects_plan`): a continuous bonus gets what keeps it full as the kingdom
+  grows; a share works on the playstyle's unlock (Drone Gadgets, Big Flexers, Star Busters for bombers), which also
+  takes whoever the bonuses do not need.
+- **Settle while it pays** (`settle_worth`): the networth of a star and what its income buys before the round ends,
+  against simply buying units. Land gets dearer as a kingdom grows and the round runs out, so settling fades by itself.
+- **Shields** as the guide has it: military at maximum from the mid game whenever the fuel is there, the others with a
+  reason.
 
-`python scripts/simulate_bots.py` runs a round of bots on the local stack at 60 times the normal speed; see
-[development.md](development.md#simulating-a-round-with-bots). In a 14-minute run (24 bots, 28 epochs, 3 galaxies) no refresh failed, the bots cast 48 galaxy votes, ran 367 spy
-operations, scheduled 6 attacks on real kingdoms, and the whole universe recorded 23 attacks (the rest are auto attacks on
-primitives). Star totals moved both ways, as conquests landed.
+### Fighting
 
-**Generals.** An attacker's auto attack sends every free general at once (at primitives), which left the brain none for
-an attack on a real kingdom. A bot's auto attack now keeps `botbrain.RESERVED_GENERALS` (2) back.
+- **Never blind.** A strike needs military intel that outlasts the wait. Without it, the bot spies for it, on the kingdom
+  with the most stars for the army its networth could hide, or takes it from a galaxymate.
+- **Hit what pays** (`player_edge`). A target is worth its stars per point of offense, compared with primitives. A bot
+  that hits both strikes only when the kingdom is the better deal; one that hits only kingdoms takes the best there is.
+  Enemies at war, grudges and (late) leaders count for more.
+- **One strike at a time, with the army at home.** Auto attack is switched off from the think that plans a strike until
+  it has run; the strike is timed for when enough generals are back (`_army_timeline`).
+- **Thieves compare too**: a siphon is scheduled when its expected take beats what the same spy attempt robs from
+  primitives, which it does more and more as primitives are robbed bare.
+
+### Politics
+
+- **Galaxy policies** by playstyle (`Personality.galaxy_votes`), and a **leader**: whoever the others back, and with no
+  votes to go by, the strongest. (Everybody voting for today's strongest split the vote and elected nobody.)
+- **Empires.** A galaxy leader joins the strongest empire that has room, or founds one; an empire leader admits who asks
+  and invites galaxies without an empire. An empire takes at most a third of the universe (`empire_size_limit`, at least
+  two galaxies), so there is somebody left to fight. Bots never act against their own empire.
+- **War.** From the mid game the empire leader denounces the strongest other empire (the aggression that follows can
+  bring a war without the penalty for a surprise), and late in the round declares war if it has not come.
+- **Universe votes.** In an election a bot buys votes once, with a quarter of its loose money, and casts most on the arms
+  doctrine (where playstyles disagree) and the rest on trade.
+
+### The bot's own record
+
+In the kingdom document, under `bot` (read it with `GET /kingdom/<id>` on the function app):
+
+| Field | Holds |
+|---|---|
+| `type`, `style` | Archetype and style. |
+| `next_think`, `phase` | When it thinks next; the phase it last planned for. |
+| `log` | The last 40 decisions: `{time, kind, why, outcome}`. `plan` entries say what it is spending on and how its defense stands. |
+| `counts` | How many times it has done each kind of thing all round (`attack`, `intelspy`, `buy_settle`, `empire_found`, `... refused`). |
+| `memory` | What it has learned: `grudges`, `defense_boost`, `buffer_extra`, `spy_fails`, `strike` (the one pending), `siphons` running, `stars_log`, `stalled`, `surplus` (money to spare, -0.5 to 1). |
+| `reserved_generals` | Generals its auto attack leaves at home (0 once the brain has planned; bots from before keep 2). |
+
+Bots made before styles and memory existed get a default style and an empty memory on their next think.
+
+## Tuning: `scripts/simulate_round.py`
+
+```
+python scripts/simulate_round.py --days 7 --bots 40 --galaxies 4 --seed 1 --detail
+python scripts/simulate_round.py --days 5 --set WAR_MARGIN=1.5 --set thief.defense_margin=1.3 --set "*.rob_share=1.0"
+```
+
+It runs the real function app handlers on the in-memory backend the tests use and moves a simulated clock, so the epoch
+keeps its real length and a week takes about five minutes for 40 bots. It prints, per playstyle, stars and networth
+(median and best), points, growth by day, every action taken, the empires and wars, anything the game logged as an
+error, and the function app calls the bots cost. `--set` tries a number without editing the code. Runs with the same
+arguments are close but not identical, and one seed is noisy: compare the mean of several seeds before believing a
+change. `tests/test_bot_simulation.py` plays one day of it in the suite. (`scripts/simulate_bots.py` is the other one:
+it drives the real local stack in real time.)
+
+**All `Personality` and archetype numbers are `TUNE` values.** `botbrain.problems(personality)` and
+`bots.problems(archetype)` check them, with the validators the routes use.
+
+### Where it stands (2026-11-15)
+
+Seven days, 40 bots, 4 galaxies, mean of four seeds, against the bots as they were (auto builder only, plus a brain
+that spied, voted and attacked kingdoms):
+
+| | Stars (median) before | after | Networth (median) before | after |
+|---|---|---|---|---|
+| attacker | 3,100 | 11,000 to 12,000 | 420,000 | 1,800,000 |
+| explorer | 4,500 | 10,800 | 400,000 | 1,800,000 |
+| intel | 2,400 | 7,000 | 270,000 | 1,400,000 |
+| thief | 2,600 | 8,700 | 265,000 | 1,650,000 |
+
+What the old bots got wrong, in the order it mattered: recruits took all the army's money (millions of recruits, no
+units); funding piled up in capped categories (up to 18 million idle); half the attackers and all the flex units stayed
+home; defenders never grew (see the builder bug below), so explorers ended the week with their starting 1,400; nobody
+but attackers hit primitives; starting points went to recruits and drones instead of an army.
+
+In a typical run every playstyle uses its actions: primitives attacked and robbed, kingdoms attacked (won and lost),
+all six reveal operations, siphons, kidnaps, bombed homes, sabotaged fuel plants, suicide drones, missiles built and
+launched, intel offered, accepted and paid for, galaxy and universe votes, votes bought, leaders elected, empires
+founded and joined, denouncements, wars (by aggression and declared), units disbanded.
+
+A think costs about 10 function app calls, 4 per bot per epoch, next to the roughly 150 per kingdom per epoch the
+refresh itself makes at one tick a minute.
+
+**Not known:** how this compares with a real average player. There are no human rounds to measure against; "average
+skill" here means every rule is one the Help pages give a player, applied consistently, with no hidden information.
+
+### What the simulations say about the game (for the maintainer)
+
+Not changed: these are balance and rules, which are the maintainer's call.
+
+1. **Primitives are the dominant way to grow, all round, for everybody.** A unit sent at them pays for itself in a day
+   or two even on day 5. Every playstyle that farms them ends well ahead of one that does not.
+2. **People, not money, limit a kingdom after the first day.** Recruits and engineers are a share of the population, so
+   income beyond that has little to buy. This is why the thief's money (robbing, siphons) does not turn into growth,
+   and why thieves and intel bots trail (they take none of the points, which go to the top ten by networth).
+3. **Drone factories are poor land.** Every cut in them raised the result, for thieves too.
+4. **`pop_bonus` does nothing.** The project says it increases homes capacity; no formula reads it. The bots put no
+   engineers on it.
+5. **Engineers can be disbanded.** `_validate_disband` builds the message "You can't disband engineers" but does not
+   return it.
+6. **A small kingdom can be ground down to nothing.** An attack takes at least 25 stars however small the target, and
+   nothing protects a kingdom a tenth of the attacker's size. Bots that only hit kingdoms do this to each other.
+7. **Treatied won the election in the runs looked at**, because three of the four playstyles vote for it. It makes
+   every unit 20% dearer for all of them too.
 
 ### Bugs found on the way (fixed)
-- The refresh raised `KeyError` for any kingdom whose general carried a unit its unit targets do not list (attackers with
-  big flex), so those kingdoms were skipped every tick. Found by running the bots.
-- `api/run.py` replaced Flask's log handlers with gunicorn's even without gunicorn, so no refresh error ever reached the log.
-- Scheduled **Intel Spy** and **Aggressive Spy** called `uag._get_kd`, which does not exist, so they could never run for
-  anybody. Now `_get_kd_info`.
-- A scheduled **attack with autofill** that was not winnable returned the kingdom document where the caller expected an
-  action, which crashed the rest of that kingdom's due schedules. It now does nothing.
+
+- **The auto builder built no units once the army had the mix asked for**, which is always the case for a single-unit
+  target such as "all defense". It now keeps building in the target's proportions. This affects players too (the Help
+  page says so now).
+- The auto builder divided by zero for a kingdom with none of the units it aims for, which skipped that kingdom on
+  every tick.
+- An attack on a kingdom with no defense at all divided by zero.
+- A scheduled attack asking for more generals than were home raised `KeyError` in the refresh. It now does nothing.
+- Universe votes cast by bots never counted: the tally is kept under `option_1` and `option_2`, and the bots sent `1`
+  and `2`.
+- Earlier: `KeyError` in the refresh for a general carrying a unit the unit targets do not list; scheduled Intel Spy
+  and Aggressive Spy calling a function that does not exist; a scheduled attack with autofill that was not winnable
+  crashing the rest of that kingdom's due schedules; `api/run.py` hiding refresh errors.
 
 ### Not yet
-- Buying votes, joining or creating empires, declaring war, surrendering. The help says empire politics is not enabled, so
-  nothing to do there yet.
-- Sharing intel it already has (as opposed to intel it just spied for) with `_offer_shared`; and accepting intel offered to it.
-- Primitives: the auto builder already handles them (auto attack / auto rob).
-- Reacting to being attacked or spied on (revenge, more defense, shields up).
-- Choosing targets by distance (return time) and by who has attacked the bot or its galaxy.
+
+- Surrender, peace and leaving an empire.
+- Messages, pinning, razing structures (a shrunken kingdom would raze mines for hangars before disbanding).
+- A fifth archetype for the Fuzi (the missile race).
+- Reacting to what the galaxy's news says about galaxymates being attacked.
 
 ## Questions for Ben
+
 Nothing is blocked on these; I picked a default and moved on.
-1. **Should attackers ever hit their own empire or galaxy?** Currently never: a bot only acts against other galaxies.
-2. **Aggression toward real players.** Bots treat players and bots alike. Should bots go easier on players (smaller
-   `attack_chance`, or never attack a kingdom that has logged in recently)? With ~100 bots and a few humans, humans may get
-   farmed.
-3. **Vote preferences.** I chose galaxy and universe votes from the policy text (see `PERSONALITIES`). Check they are the
-   ones you would want, in particular the explorer voting for "Treatied" (military units cost 20% more) in the universe.
-4. **Existing bots** have no `bot` field. Want an admin route that adds it to the ones already created, or is
-   re-creating them fine?
-5. **Think rate.** One think costs ~6 function-app calls (more when it evaluates attacks: ~5 per candidate, up to 6
-   candidates). At 100 bots thinking every 1-5 half-hours that is fine, but it adds to the refresh. Is the refresh time
-   budget a concern?
-6. **The 0-40% flex idea in the issue** (send a random share of flex units each cycle) is not used: the attack uses the
-   autofill, which picks the units. If you want the random share, it would replace autofill for flex-heavy attackers.
 
-## Known gaps
-
-- Bots are ordinary users (`user_<id>` documents) with a password nobody knows. Creating one makes its account first, so
-  a taken name makes no kingdom. Numbering counts the `bot_` users with one query (`User.with_prefix`).
-- The `TUNE` numbers have not been play-tested. Some, like `max_recruits` and the shield levels (which cost fuel), may
-  starve a bot of fuel or money; watch the first few ticks of a real round.
+1. **Aggression toward real players.** Bots treat players and bots alike. With about 100 bots and a few humans, bots
+   that hit only kingdoms will farm a weak human as readily as a weak bot. Options: a smaller edge against kingdoms
+   that are not bots, or no `players` style when humans are few.
+2. **Quick starts.** The archetypes now start with far more attackers and fewer drones (it is worth about 20% in the
+   simulations). New players are offered the same starts. Is that what you want them offered?
+3. **Vote preferences** are from the policy text (`Personality.galaxy_votes`, `universe_votes`). Three playstyles
+   vote Treatied, which they also pay for.
+4. **Empire size.** A third of the universe at most, so the bots do not all make peace. Should it be smaller or larger?
+5. **Existing bots** (without `style`) keep working with a default style. Re-create them to get the mix.

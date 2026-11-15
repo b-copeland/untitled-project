@@ -144,7 +144,7 @@ Fields added after creation:
 | Field | Meaning |
 |---|---|
 | `queues_resolved_until` | Per queue, the time up to which finished entries have been credited, so a repeated refresh never credits twice |
-| `bot` | Only on bots run by the bot brain: `type`, `next_think`, `log` (see [bots.md](bots.md)) |
+| `bot` | Only on bots run by the bot brain: `type`, `style`, `next_think`, `phase`, `log`, `counts`, `memory`, `reserved_generals` (see [bots.md](bots.md#the-bots-own-record)). Read each with `.get`: bots made earlier have only the first, third and fifth. |
 
 ## Users
 

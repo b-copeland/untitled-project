@@ -732,6 +732,21 @@ def test_a_bot_that_knows_the_enemys_army_schedules_a_strike(app, client):
     assert any(entry["kind"] == "attack" and "scheduled" in entry["outcome"] for entry in kingdom_now["bot"]["log"])
 
 
+def test_a_scheduled_strike_asking_for_generals_that_are_not_home_does_nothing(app, client):
+    """The autofill refuses it; that used to be a KeyError in the refresh."""
+    now = _make_kingdom_one_a_bot("attacker", generals_available=1)
+    _create_item(f"revealed_{KD_ID}", {
+        "revealed": {TARGET_ID: {"military": (now + 12 * HOUR).isoformat()}},
+        "galaxies": {}, "revealed_galaxymates": [], "revealed_to_galaxymates": [],
+    })
+    schedule = {"type": "attack", "options": {"target": TARGET_ID, "generals": 4, "prefer_autofill": True, "autofill_buffer": 0.05}}
+    with app.app_context():
+        action, arguments = refresh._resolve_schedule_attack(_get(f"/kingdom/{KD_ID}"), schedule)
+        assert action(*arguments) is None
+    assert _get(f"/kingdom/{KD_ID}")["generals_available"] == 1
+    assert _get(f"/kingdom/{KD_ID}/attackhistory")["attack_history"] == []
+
+
 def test_a_bot_votes_only_once_for_the_same_thing(app, client):
     _make_kingdom_one_a_bot("explorer")
     with app.app_context():

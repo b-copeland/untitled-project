@@ -62,7 +62,7 @@ def test_a_created_bot_is_a_playable_kingdom_with_the_builder_on(app, client):
 
     attacker = _get(f"/kingdom/{ids[0]}")
     assert attacker["race"] == "Xo" and attacker["auto_spending_enabled"] is True
-    assert attacker["units"]["attack"] == 2000 and attacker["drones"] == 3000
+    assert attacker["units"]["attack"] == 2800 and attacker["drones"] == 1000
     assert attacker["auto_attack_enabled"] is True and attacker["auto_attack_settings"]["pure"] > 0
     assert sum(attacker["auto_spending"].values()) <= 1.0001
     assert attacker["next_resolve"]["auto_spending"] < uas.DATE_SENTINEL
@@ -73,7 +73,7 @@ def test_a_created_bot_is_a_playable_kingdom_with_the_builder_on(app, client):
     assert bot["memory"] == {} and bot["reserved_generals"] == 0 and bot["next_think"]
 
     thief = _get(f"/kingdom/{ids[2]}")
-    assert thief["race"] == "Vult" and thief["drones"] == 7000
+    assert thief["race"] == "Vult" and thief["drones"] == 3000
     assert thief["auto_rob_enabled"] is True and thief["auto_attack_enabled"] is True
 
 

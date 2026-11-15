@@ -1025,6 +1025,9 @@ def _resolve_schedule_attack(new_kd_info, schedule):
                 "generals": schedule["options"].get("generals", 0),
             }
             autofill_payload, _ = uac._autofill_attack(autofill_req, new_kd_info["kdId"], target_kd)
+            if "attacker_offense" not in autofill_payload:
+                # The autofill refused the request (fewer generals at home than the schedule asks for): do nothing.
+                return (lambda: None), ()
             if autofill_payload["attacker_offense"] > autofill_payload["defender_defense"]:
                 for key_unit, value_unit in autofill_payload["attacker_units"].items():
                     req["attackerValues"][key_unit] = value_unit

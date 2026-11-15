@@ -71,19 +71,20 @@ class Archetype:
 
 
 ARCHETYPES = {
-    # The starts share two ideas. An army can only grow as fast as recruits can be drafted (a share of the population),
-    # and early stars compound, so every playstyle starts with attackers to send at primitives from the first hour,
-    # while they are easy. And drones are the one thing money can not buy later (a factory makes one an epoch) and
-    # they rob primitives from the start, so the rest of the points goes there as far as the role leaves room.
-    # Recruits are cheap to draft later, so few are bought with points. Hangars and fuel plants fit the army.
+    # The starts share one idea, which the simulations bore out at every step: an army can only grow as fast as
+    # recruits can be drafted (a share of the population), and early stars compound, so every playstyle starts with a
+    # real force of attackers to send at primitives from the first hour, while they are easy. What is left goes to
+    # enough defenders not to be the easiest target, engineers for the first unlock, and drones (which rob primitives
+    # from the start, and which only factories make later) in the measure of the role: most for the thief, then the
+    # intel bot. Recruits are cheap to draft later, so few are bought with points. Hangars and fuel plants fit the army.
     "explorer": Archetype(
         key="explorer",
         label="Explorer",
         race="Gaian",
         description="Claims stars with cheap fast settling and builds the economy; defends rather than attacks.",
-        unit_choices={"drones": 4000, "recruits": 500, "attack": 1000, "defense": 1000, "flex": 0, "engineers": 550},
-        structures_choices={"homes": 112, "mines": 92, "fuel_plants": 32, "hangars": 38, "drone_factories": 12,
-                            "missile_silos": 0, "workshops": 14},
+        unit_choices={"drones": 1000, "recruits": 500, "attack": 1900, "defense": 900, "flex": 0, "engineers": 450},
+        structures_choices={"homes": 112, "mines": 92, "fuel_plants": 32, "hangars": 48, "drone_factories": 4,
+                            "missile_silos": 0, "workshops": 12},
         auto_spending={"settle": 0.35, "structures": 0.35, "military": 0.2, "engineers": 0.1},
         structures_target={"homes": 0.36, "mines": 0.3, "fuel_plants": 0.1, "hangars": 0.11, "drone_factories": 0.06,
                            "workshops": 0.06},
@@ -99,8 +100,8 @@ ARCHETYPES = {
         label="Attacker",
         race="Xo",
         description="Grows by attacking: primitives while they are easy, then other kingdoms, with an army that is mostly offense.",
-        unit_choices={"drones": 3000, "recruits": 500, "attack": 2000, "defense": 500, "flex": 0, "engineers": 400},
-        structures_choices={"homes": 105, "mines": 80, "fuel_plants": 32, "hangars": 45, "drone_factories": 22,
+        unit_choices={"drones": 1000, "recruits": 500, "attack": 2800, "defense": 400, "flex": 0, "engineers": 250},
+        structures_choices={"homes": 105, "mines": 80, "fuel_plants": 32, "hangars": 54, "drone_factories": 13,
                             "missile_silos": 0, "workshops": 16},
         auto_spending={"settle": 0.15, "structures": 0.3, "military": 0.45, "engineers": 0.1},
         structures_target={"homes": 0.34, "mines": 0.24, "fuel_plants": 0.11, "hangars": 0.16, "drone_factories": 0.08,
@@ -117,8 +118,8 @@ ARCHETYPES = {
         label="Intel",
         race="Lumina",
         description="Support: drone-heavy, reveals other kingdoms and shares what it learns with its galaxy for a cut of the spoils.",
-        unit_choices={"drones": 5000, "recruits": 500, "attack": 800, "defense": 900, "flex": 0, "engineers": 600},
-        structures_choices={"homes": 112, "mines": 88, "fuel_plants": 22, "hangars": 33, "drone_factories": 30,
+        unit_choices={"drones": 2000, "recruits": 500, "attack": 1600, "defense": 800, "flex": 0, "engineers": 550},
+        structures_choices={"homes": 112, "mines": 88, "fuel_plants": 22, "hangars": 42, "drone_factories": 21,
                             "missile_silos": 0, "workshops": 15},
         auto_spending={"settle": 0.3, "structures": 0.35, "military": 0.2, "engineers": 0.15},
         structures_target={"homes": 0.34, "mines": 0.27, "fuel_plants": 0.07, "hangars": 0.09, "drone_factories": 0.15,
@@ -135,8 +136,8 @@ ARCHETYPES = {
         label="Thief",
         race="Vult",
         description="Lives off drones: robs primitives, siphons richer kingdoms, and keeps enough defense to be left alone.",
-        unit_choices={"drones": 7000, "recruits": 500, "attack": 800, "defense": 900, "flex": 0, "engineers": 400},
-        structures_choices={"homes": 112, "mines": 85, "fuel_plants": 24, "hangars": 33, "drone_factories": 36,
+        unit_choices={"drones": 3000, "recruits": 500, "attack": 1700, "defense": 800, "flex": 0, "engineers": 400},
+        structures_choices={"homes": 112, "mines": 85, "fuel_plants": 24, "hangars": 43, "drone_factories": 26,
                             "missile_silos": 0, "workshops": 10},
         auto_spending={"settle": 0.3, "structures": 0.35, "military": 0.2, "engineers": 0.15},
         structures_target={"homes": 0.33, "mines": 0.25, "fuel_plants": 0.08, "hangars": 0.08, "drone_factories": 0.2,

@@ -94,7 +94,7 @@ building.
 | Politics | `politics.py`, `refresh._begin_election`, `_resolve_election` | `GALAXY_POLICIES`, `UNIVERSE_POLICIES`, `BASE_VOTES_COST`, `AGGRO_*`, `DENOUNCE_*`, `PEACE_*`, `WAR_*` | `src/pages/help/politics/*.js` |
 | Scores and history | `refresh._resolve_scores`, `_update_history` | `NETWORTH_VALUES`, `NETWORTH_POINTS` | `src/pages/help/home/scores.js` |
 | Races | spread through the formulas (search the race name) | `GAIAN_*`, `VULT_*`, `LUMINA_*`, `XO_*`, `FUZI_*` | `src/pages/help/other/createkingdom.js` |
-| Bots and quick starts | `bots.py` | `TUNE` values in `bots.py` | [bots.md](bots.md) |
+| Bots and quick starts | `bots.py` (archetypes), `botstrategy.py` (sums), `botbrain.py` (decisions) | `TUNE` values in `bots.py` and `botbrain.py` | [bots.md](bots.md) |
 
 The help pages are what players read, so they are the player-facing statement of the rules. **A change to a rule updates
 its help page in the same pull request.**

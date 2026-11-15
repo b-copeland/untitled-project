@@ -61,13 +61,15 @@ class Clock:
 
 def apply_overrides(overrides):
     """Apply ``--set`` values to the bot modules. Returns what was set, for the report."""
+    applied = {}
+    if not overrides:
+        return applied
     import ast
     import dataclasses
 
     import untitledapp.botbrain as botbrain
     import untitledapp.botstrategy as botstrategy
 
-    applied = {}
     for item in overrides or []:
         name, _, text = item.partition("=")
         value = ast.literal_eval(text)
