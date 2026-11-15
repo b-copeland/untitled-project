@@ -167,3 +167,80 @@ def test_a_double_click_makes_one_kingdom(app, client, player):
     kingdoms = _get("/kingdoms")["kingdoms"]
     assert list(kingdoms.values()).count("Eager") == 1
     assert _user(app, name)[1] is True
+
+
+# --- the login token follows the kingdom (docs/decisions/0005-kingdom-in-the-token.md) ---------------------------
+
+def _claims(app, token):
+    return app.extensions["praetorian"].extract_jwt_token(token)
+
+
+def test_creating_a_kingdom_returns_tokens_that_name_it(app, client, player):
+    name, headers = player
+    before = _claims(app, headers["Authorization"].split()[1])
+    assert (before["kd"], before["kc"]) == ("", False)
+
+    body = client.post("/api/createkingdom", json={"kdName": "Token Realm", "preset": "attacker"}, headers=headers).get_json()
+
+    kd_id, _ = _user(app, name)
+    claims = _claims(app, body["accessToken"])
+    assert (claims["kd"], claims["kc"]) == (kd_id, True)
+    assert _claims(app, body["refreshToken"])["kd"] == kd_id
+    new_headers = {"Authorization": f"Bearer {body['accessToken']}"}
+    assert client.get("/api/kingdomid", headers=new_headers).get_json() == {"kd_id": kd_id, "created": True}
+
+
+def test_resetting_a_kingdom_returns_tokens_that_say_it_is_not_created(app, client, player):
+    name, headers = player
+    body = client.post("/api/createkingdom", json={"kdName": "Resettable", "preset": "attacker"}, headers=headers).get_json()
+    headers = {"Authorization": f"Bearer {body['accessToken']}"}
+    _create_item("state", {"state": {"game_start": "2999-01-01T00:00:00+00:00"}})  # the game has not started
+
+    response = client.post("/api/resetkingdom", headers=headers)
+
+    assert response.status_code == 200, response.get_json()
+    assert _claims(app, response.get_json()["accessToken"])["kc"] is False
+
+
+def test_a_refresh_rebuilds_the_kingdom_claims_from_the_user(app, client, player, monkeypatch):
+    import pendulum
+    name, _ = player
+    guard = app.extensions["praetorian"]
+    monkeypatch.setattr(guard, "access_lifespan", pendulum.duration(seconds=-5))  # born expired, so it can refresh
+    old = client.post("/api/login", json={"username": name, "password": "pw"}).get_json()["refreshToken"]
+    monkeypatch.undo()
+    with app.app_context():
+        _stored_user(app, name).save(kd_id="77", kd_created=True)  # changed behind the token's back
+
+    refreshed = client.post("/api/refresh", headers={"Authorization": f"Bearer {old}"}).get_json()["accessToken"]
+
+    claims = _claims(app, refreshed)
+    assert (claims["kd"], claims["kc"]) == ("77", True)
+
+
+def test_a_token_from_before_a_round_reset_stops_working(app, client, player, monkeypatch):
+    import pendulum
+    name, headers = player
+    _create_item("state", {"state": {"game_start": "2000-01-01T00:00:00+00:00"}, "round": "round-1"})
+    token = client.post("/api/login", json={"username": name, "password": "pw"}).get_json()["accessToken"]
+    headers = {"Authorization": f"Bearer {token}"}
+    assert client.get("/api/kingdomid", headers=headers).status_code == 200
+    monkeypatch.setattr(app.extensions["praetorian"], "access_lifespan", pendulum.duration(seconds=-5))  # can refresh
+    expired = client.post("/api/login", json={"username": name, "password": "pw"}).get_json()["refreshToken"]
+    monkeypatch.undo()
+
+    _create_item("state", {"state": {"game_start": "2000-01-01T00:00:00+00:00"}, "round": "round-2"})  # a reset
+
+    assert client.get("/api/kingdomid", headers=headers).status_code == 401
+    assert client.post("/api/shields", json={"military": 0}, headers=headers).status_code == 401
+    assert client.post("/api/refresh", headers={"Authorization": f"Bearer {expired}"}).status_code == 401
+    fresh = client.post("/api/login", json={"username": name, "password": "pw"}).get_json()["accessToken"]
+    assert client.get("/api/kingdomid", headers={"Authorization": f"Bearer {fresh}"}).status_code == 200
+
+
+def test_a_disabled_player_keeps_a_token_already_issued(app, client, player):
+    """The accepted trade-off of decision 0005: disabling takes effect when the token is renewed."""
+    name, headers = player
+    with app.app_context():
+        _stored_user(app, name).save(is_active=False)
+    assert client.get("/api/kingdomid", headers=headers).status_code == 200

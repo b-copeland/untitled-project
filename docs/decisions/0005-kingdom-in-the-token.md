@@ -1,6 +1,6 @@
 # 0005: The kingdom id travels in the login token
 
-Date: 2026-11-14. Status: proposed, to be accepted by the maintainer before the code is written.
+Date: 2026-11-14. Status: accepted.
 
 ## Context
 
@@ -32,9 +32,10 @@ Two facts make this less simple than adding a claim:
   refresh already reads the user, so this adds no call.
 - **D3. Tokens from before a round reset stop working.** The state document gets a `round` id, a new random value
   whenever the round is reset (`/resetstate`, `/init`), and a missing one counts as the empty id. Tokens carry it as
-  `rnd`. A mismatch is a 401 with a message that the round has ended, which the front end already treats as "log in
-  again". It is checked where a state read is already paid for or is rare, not on polls:
-  every action (`start_required` reads the state), `kingdomid` (called when the app loads), and `refresh`.
+  `rnd`. A mismatch is a 401 with a message that the round has ended, and the front end signs the player out on any
+  401 from an authenticated call. It is checked where a state read is already paid for or is rare, not on polls:
+  every action (`start_required`, `before_start_required` and `alive_required`), `kingdomid` (called when the app
+  loads), and `refresh`. A token without `rnd` (issued before this change) is not refused, and is upgraded at refresh.
   A poll with a stale token does not leak anything, because the kingdom ids of a new round are never reused: the
   function app keeps a `next_id` in the `kingdoms` document, which `/resetstate` keeps, and takes
   `max(len(kingdoms), next_id)`. A stale token then names a kingdom that does not exist and its polls return nothing
@@ -42,8 +43,8 @@ Two facts make this less simple than adding a claim:
 - **D4. Disabling a player takes effect when their token is renewed.** `disable_user` sets `is_active` false;
   praetorian refuses to refresh or log in a disabled user, but a token already issued keeps working until it expires,
   at most 24 hours. Accepted: disabling is rare and an admin action, and the game has no money or private data at
-  stake beyond the kingdom. Not accepted for roles: an `admin` removed from `rls` keeps admin routes for the same
-  window, so admin routes (rare) keep reading the user document.
+  stake beyond the kingdom. The same goes for roles: an `admin` removed from `rls` keeps admin routes for the same
+  window: praetorian reads roles from the token, as it always did, and that is kept.
 
 ## Rejected
 

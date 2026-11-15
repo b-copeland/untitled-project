@@ -3,7 +3,7 @@ import Alert from "react-bootstrap/Alert";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import Modal from "react-bootstrap/Modal";
-import { authFetch } from "../auth";
+import { authFetch, storeNewTokens } from "../auth";
 import { AmountInput, SubmitButton, useFormValues } from "../components/forms";
 import HelpButton from "../components/helpbutton";
 import { FieldRow, Panel, Stats } from "../components/planner";
@@ -190,6 +190,7 @@ function CreateKingdom(props) {
         if (!hasKingdom) body.kdName = name.trim();
         try {
             const response = await authFetch("api/createkingdom", { method: "post", body: JSON.stringify(body) });
+            await storeNewTokens(response);
             const result = await safeJson(response);
             if (response.ok) {
                 // The page is replaced once the kingdom shows as created; the rest of the game's data follows (gameData.js).

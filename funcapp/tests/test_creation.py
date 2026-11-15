@@ -108,3 +108,24 @@ def test_a_galaxy_already_in_an_empire_can_not_found_another(backend):
     assert _create_empire(session, "1:1").status_code == 201
     container.docs["empires"]["empires"]["0"]["galaxies"].append("1:2")  # 1:2 joined it
     assert _create_empire(session, "1:2").status_code == 409
+
+
+def test_kingdom_ids_are_not_reused_after_a_round_reset_and_the_round_changes(backend):
+    """A login token from the earlier round must not name a new player's kingdom (decision 0005)."""
+    container, session = backend
+    first = [_create_kingdom(session, f"old{i}").text for i in range(3)]
+    round_before = container.docs["state"]["round"]
+    for name in ("accounts",):
+        container.docs.setdefault(name, {"id": name, "accounts": []})
+    for name, body in {
+        "universe_news": {"news": []}, "universe_votes": {"votes": {}},
+        "scores": {"points": {}, "stars": {}, "networth": {}, "galaxy_networth": {}},
+    }.items():
+        container.docs.setdefault(name, {"id": name, **body})
+
+    assert session.request("POST", ENDPOINT + "/resetstate").status_code == 200
+    container.docs["galaxies"]["galaxies"] = {"1:1": [], "1:2": []}
+    second = [_create_kingdom(session, f"new{i}").text for i in range(3)]
+
+    assert set(first).isdisjoint(second)
+    assert container.docs["state"]["round"] != round_before

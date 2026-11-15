@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import CreateKingdom from "./createkingdom";
 import { authFetch } from "../auth";
 
-jest.mock("../auth", () => ({ authFetch: jest.fn() }));
+jest.mock("../auth", () => ({ authFetch: jest.fn(), storeNewTokens: jest.fn((response) => Promise.resolve(response)) }));
 jest.mock("../components/helpbutton", () => () => null);
 
 const CREATOR = {

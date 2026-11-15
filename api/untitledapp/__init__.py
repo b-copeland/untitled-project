@@ -55,9 +55,19 @@ SOCK_HANDLERS = {}
 from untitledapp.users import User, UserExists  # noqa: E402
 
 
+def _stale_round_response():
+    """A 401 if this request's token is from an earlier round (decision 0005), else None. One cached read of the state per request."""
+    from untitledapp import users
+    if users.token_is_stale():
+        return flask.jsonify({"message": users.STALE_MESSAGE}), 401
+    return None
+
 def alive_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        stale = _stale_round_response()
+        if stale:
+            return stale
         kd_death_date = flask_praetorian.current_user().kd_death_date
         if kd_death_date not in (None, ""):
             return flask.jsonify({"message": "You can not do that because your kingdom is dead!"}), 400
@@ -67,6 +77,9 @@ def alive_required(f):
 def start_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        stale = _stale_round_response()
+        if stale:
+            return stale
         state = uag._get_state()
         time_now = datetime.datetime.now(datetime.timezone.utc)
         if time_now.isoformat() < state["state"]["game_start"]:
@@ -77,6 +90,9 @@ def start_required(f):
 def before_start_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        stale = _stale_round_response()
+        if stale:
+            return stale
         state = uag._get_state()
         time_now = datetime.datetime.now(datetime.timezone.utc)
         if time_now.isoformat() > state["state"]["game_start"]:

@@ -156,11 +156,12 @@ def test_an_unknown_or_malformed_id_identifies_nobody(app):
 
 
 @pytest.mark.parametrize("path", ["/api/notifs", "/api/kingdom", "/api/kingdomid"])
-def test_a_polled_route_reads_the_user_once(app, client, jwt1, monkeypatch, path):
+def test_a_polled_route_does_not_read_the_user(app, client, jwt1, monkeypatch, path):
+    """The kingdom id is in the login token (docs/decisions/0005-kingdom-in-the-token.md)."""
     _set_up_kingdom(money=100)
     reads = _counting_user_reads(monkeypatch)
     assert client.get(path, headers=_auth(jwt1)).status_code == 200
-    assert len(reads) == 1
+    assert len(reads) == 0
 
 
 def test_an_action_behind_alive_required_reads_the_user_once(app, client, jwt1, monkeypatch):

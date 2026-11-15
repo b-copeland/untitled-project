@@ -13,6 +13,7 @@ import untitledapp.shared as uas
 import untitledapp.getters as uag
 import untitledapp.occ as occ
 from untitledapp import User, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
+from untitledapp.users import issue_tokens
 
 bp = flask.Blueprint("misc", __name__)
 
@@ -166,7 +167,12 @@ def _plan_from_request(req):
     return {"units": unit_choices, "structures": structures_choices, "race": race, "settings": settings}, ""
 
 
-def _finish_kingdom(kd_id, plan):
+def _new_tokens(user_id):
+    """Fresh login tokens for a player whose kingdom just changed (decision 0005); the front end swaps them in."""
+    return issue_tokens(User.get(user_id))
+
+
+def _finish_kingdom(kd_id, plan, user_id):
     """Set a freshly made kingdom up as the plan says, once. Returns the response."""
 
     def decide(kd_info):
@@ -186,13 +192,14 @@ def _finish_kingdom(kd_id, plan):
         # The kingdom is only ever set up once: the second of two racing requests finds the race already chosen.
         occ.update(f"/kingdom/{kd_id}", decide)
 
-        flask_praetorian.current_user().save(kd_created=True)
+        User.get(user_id).save(kd_created=True)
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        # The player's token may be out of date (the kingdom exists but their token says otherwise): renew it.
+        return (flask.jsonify({"message": rejection.message, **_new_tokens(user_id)}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    return (flask.jsonify({"message": ""}), 200)
+    return (flask.jsonify({"message": "", **_new_tokens(user_id)}), 200)
 
 
 @bp.route('/api/createkingdom', methods=["POST"])
@@ -207,7 +214,8 @@ def create_kingdom():
     ``kdName`` out and only sets it up.
     """
     req = flask.request.get_json(force=True)
-    user = flask_praetorian.current_user()
+    # Rare, and it decides what the player has: use the document, not the token's copy of it.
+    user = User.get(flask_praetorian.current_user().id)
     user_id = user.id
 
     if user.kd_created:
@@ -227,7 +235,7 @@ def create_kingdom():
         if kd_id is None:
             return (flask.jsonify({"message": message}), 400)
 
-    return _finish_kingdom(kd_id, plan)
+    return _finish_kingdom(kd_id, plan, user_id)
 
 
 @bp.route('/api/resetkingdom', methods=["POST"])
@@ -236,7 +244,7 @@ def create_kingdom():
 # @flask_praetorian.roles_required('verified')
 def reset_initial_kingdom():    
     app = flask.current_app
-    user = flask_praetorian.current_user()
+    user = User.get(flask_praetorian.current_user().id)
     kd_id = user.kd_id
     kd_info = uag._get_kd_info(kd_id)
     table_states = {
@@ -260,7 +268,7 @@ def reset_initial_kingdom():
         )
 
     user.save(kd_created=False)
-    return (flask.jsonify("Reset kingdom"), 200)
+    return (flask.jsonify({"message": "Reset kingdom", **_new_tokens(user.id)}), 200)
 
 @bp.route('/api/createkingdomdata')
 @flask_praetorian.auth_required

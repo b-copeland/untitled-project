@@ -64,11 +64,6 @@ These pieces do not yet:
 
 Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process backend). Not done, each for the reason given.
 
-- **One user read per authenticated request** (2026-11-14, [decisions/0004](decisions/0004-users-in-cosmos.md) D3):
-  `current_user()` reads `user_<id>`, once per request. That doubles the function app calls of the 10-second kingdom
-  and notification polls (one call each to two). Removing it means putting the kingdom id in the JWT as a claim, with
-  new tokens when it changes and old ones invalid after a round reset; optional, and only with the maintainer's
-  agreement.
 - **Lists that grow all round:** kingdom, galaxy and universe news, attack, spy and missile history, and the kingdom
   `history` are appended to and never trimmed (messages are capped at 100). Every append rewrites the whole document,
   so writes cost more as a round goes on. Capping them changes what players can see, so it needs a decision.

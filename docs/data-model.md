@@ -58,8 +58,8 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 
 | id | Holds | Written by | Tier |
 |---|---|---|---|
-| `state` | `state`: `game_start`, `game_end`, `election_start`, `election_end`, `next_history`, `active_policies`, galaxy sizing, and whatever the admin page sets | admin routes, the refresh (elections, history time) | strict |
-| `kingdoms` | `kingdoms`: kd id to name | kingdom creation | strict |
+| `state` | `round` (an id that changes at every round reset; login tokens carry it, and tokens from another round are refused); `state`: `game_start`, `game_end`, `election_start`, `election_end`, `next_history`, `active_policies`, galaxy sizing, and whatever the admin page sets | admin routes, the refresh (elections, history time) | strict |
+| `kingdoms` | `kingdoms`: kd id to name; `next_id`, the next id to hand out, which survives a round reset so ids are never reused (read with a default of 0) | kingdom creation, `/resetstate` | strict |
 | `galaxies` | `galaxies`: galaxy id to a list of kd ids | the function app only: `POST /galaxy/<id>` (admin) and `POST /kingdom` (kingdom creation) | strict |
 | `empires` | `empires`: empire id to `{name, galaxies, aggression, num_kingdoms, aggression_max, war, peace, denounced, denounced_expires, surprise_war_penalty, surprise_war_penalty_expires}`; `last_update` | politics routes, the refresh (`_resolve_empires`), attacks (aggression) | strict for membership and war, derived for aggregates |
 | `scores` | `points`, `stars`, `networth`, `galaxy_networth` (each keyed by id), `last_update` | the refresh only | derived |
@@ -144,7 +144,10 @@ Users are Cosmos documents too ([decisions/0004](decisions/0004-users-in-cosmos.
 - **Kingdom creation** claims the user first: `kd_pending` (`{request, time}`) is set with `occ.update` only while the
   user has no `kd_id` and no other request's claim younger than `KINGDOM_CLAIM_SECONDS` (`misc.py`). It is cleared when
   the kingdom is recorded, or when making it fails.
-- **Read per request:** `current_user()` reads `user_<id>` once per request (`request_cache.py`).
+- **Read per request:** `current_user()` answers `id`, roles, `kd_id` and `kd_created` from the login token (claims `id`,
+  `rls`, `kd`, `kc`, `rnd`) and reads `user_<id>` once per request (`request_cache.py`) only for any other field. The
+  token is up to a day old: a disabled player or a changed role takes effect when the token is renewed
+  ([decisions/0005](decisions/0005-kingdom-in-the-token.md)).
 - **Queries:** `GET /users` is one cross-partition query over the user documents, in id order, filtered by any of
   `email`, `kd_id` and `prefix` (of the username). For admin and rare lookups only (round reset, kingdom death, email
   recovery, bot names), never per request or per tick.
