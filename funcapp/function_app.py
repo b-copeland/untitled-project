@@ -3,9 +3,15 @@ import logging
 import os
 import json
 import datetime
+import re
 from collections import defaultdict
 
 from azure.cosmos import CosmosClient, PartitionKey
+from azure.cosmos.exceptions import (
+    CosmosAccessConditionFailedError,
+    CosmosResourceExistsError,
+    CosmosResourceNotFoundError,
+)
 
 from concurrency import ConditionalContainer, retry_on_conflict
 from queues import coalesce
@@ -38,7 +44,11 @@ RESET_KEEP_IDS = [
 def delete_all(req: func.HttpRequest) -> func.HttpResponse:
     items = CONTAINER.read_all_items()
     for item in items:
-        CONTAINER.replace_item(item["id"], {"id": item["id"]})
+        if is_user_document(item["id"]):
+            # Blanked, a username claim would still block its name and a user would lose its id_number.
+            CONTAINER.delete_item(item=item["id"], partition_key=item["id"])
+        else:
+            CONTAINER.replace_item(item["id"], {"id": item["id"]})
     try:
         return func.HttpResponse(
             "Deleted",
@@ -174,7 +184,7 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
     try:
         items = CONTAINER.read_all_items()
         for item in items:
-            if item["id"] not in RESET_KEEP_IDS:
+            if item["id"] not in RESET_KEEP_IDS and not is_user_document(item["id"]):
                 CONTAINER.delete_item(
                     item=item["id"],
                     partition_key=item["id"],
@@ -2078,3 +2088,179 @@ def update_history(req: func.HttpRequest) -> func.HttpResponse:
             "The kingdom history were not updated",
             status_code=500,
         )
+
+
+# --- Users -------------------------------------------------------------------------------------------------------
+#
+# One document per user (``user_<id>``), one per username (``username_<hex of the UTF-8 username>``, holding the
+# user id: creating it is the uniqueness check) and a counter for the next numeric id (``user_counter``). See
+# docs/data-model.md. Unlike the older handlers above, these let unexpected errors surface with their real status.
+
+USER_PREFIX = "user_"
+USERNAME_PREFIX = "username_"
+USER_COUNTER_ID = "user_counter"
+
+
+def is_user_document(item_id):
+    """Users outlive a round: /resetstate keeps these and /deleteall removes them rather than blanking them."""
+    return item_id.startswith(USER_PREFIX) or item_id.startswith(USERNAME_PREFIX)
+
+
+def _json_response(document, status_code=200):
+    return func.HttpResponse(json.dumps(document), status_code=status_code, mimetype="application/json")
+
+
+def _read_or_none(item_id):
+    try:
+        return CONTAINER.read_item(item=item_id, partition_key=item_id)
+    except CosmosResourceNotFoundError:
+        return None
+
+
+def _create_or_conflict(document, what):
+    try:
+        created = CONTAINER.create_item(document)
+    except CosmosResourceExistsError:
+        return func.HttpResponse(f"{what} already exists", status_code=409)
+    return _json_response(created, status_code=201)
+
+
+def _non_negative_int(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _username_key(req):
+    """The route's key, if it is lowercase hex of whole bytes (the only form Flask sends), else None."""
+    key = req.route_params.get("key", "")
+    if not re.fullmatch(r"[0-9a-f]+", key) or len(key) % 2:
+        return None
+    return key
+
+
+@APP.function_name(name="GetUser")
+@APP.route(route="user/{userId:int}", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_user(req: func.HttpRequest) -> func.HttpResponse:
+    user = _read_or_none(f"{USER_PREFIX}{req.route_params.get('userId')}")
+    if user is None:
+        return func.HttpResponse("No such user", status_code=404)
+    return _json_response(user)
+
+
+@APP.function_name(name="CreateUser")
+@APP.route(route="user", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+def create_user(req: func.HttpRequest) -> func.HttpResponse:
+    """Body: the user's fields plus ``id_number`` (int). Creates ``user_<id_number>``; 409 if it exists."""
+    body = req.get_json()
+    if not isinstance(body, dict) or not _non_negative_int(body.get("id_number")):
+        return func.HttpResponse("id_number must be a non-negative integer", status_code=400)
+    return _create_or_conflict({**body, "id": f"{USER_PREFIX}{body['id_number']}"}, "User")
+
+
+@APP.function_name(name="UpdateUser")
+@APP.route(route="user/{userId:int}", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
+def update_user(req: func.HttpRequest) -> func.HttpResponse:
+    """Shallow merge into ``user_<id>``. Honours If-Match (412). ``id`` and ``id_number`` are never changed."""
+    item_id = f"{USER_PREFIX}{req.route_params.get('userId')}"
+    body = req.get_json()
+    if not isinstance(body, dict):
+        return func.HttpResponse("The body must be an object", status_code=400)
+    user = _read_or_none(item_id)
+    if user is None:
+        return func.HttpResponse("No such user", status_code=404)
+    changes = {key: value for key, value in body.items() if key not in ("id", "id_number")}
+    try:
+        CONTAINER.replace_item(item_id, {**user, **changes})
+    except CosmosAccessConditionFailedError:
+        # retry_on_conflict has noted the conflict: it runs this again, or answers 412 to an If-Match caller
+        return func.HttpResponse("Conflict", status_code=412)
+    return func.HttpResponse("User updated", status_code=200)
+
+
+@APP.function_name(name="GetUserCounter")
+@APP.route(route="usercounter", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_user_counter(req: func.HttpRequest) -> func.HttpResponse:
+    """The next free user id. Created with ``next_id: 1`` the first time it is read, so it always exists."""
+    counter = _read_or_none(USER_COUNTER_ID)
+    if counter is None:
+        try:
+            counter = CONTAINER.create_item({"id": USER_COUNTER_ID, "next_id": 1})
+        except CosmosResourceExistsError:  # another request created it first
+            counter = CONTAINER.read_item(item=USER_COUNTER_ID, partition_key=USER_COUNTER_ID)
+    return _json_response(counter)
+
+
+@APP.function_name(name="UpdateUserCounter")
+@APP.route(route="usercounter", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
+def update_user_counter(req: func.HttpRequest) -> func.HttpResponse:
+    """Body ``{"next_id": <int>}``. Callers send If-Match (``occ.update``), so two sign-ups never take the same id."""
+    body = req.get_json()
+    if not isinstance(body, dict) or not _non_negative_int(body.get("next_id")):
+        return func.HttpResponse("next_id must be a non-negative integer", status_code=400)
+    counter = _read_or_none(USER_COUNTER_ID)
+    if counter is None:
+        return func.HttpResponse("No user counter", status_code=404)
+    try:
+        CONTAINER.replace_item(USER_COUNTER_ID, {**counter, "next_id": body["next_id"]})
+    except CosmosAccessConditionFailedError:
+        return func.HttpResponse("Conflict", status_code=412)
+    return func.HttpResponse("User counter updated", status_code=200)
+
+
+@APP.function_name(name="GetUsername")
+@APP.route(route="username/{key}", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_username(req: func.HttpRequest) -> func.HttpResponse:
+    key = _username_key(req)
+    if key is None:
+        return func.HttpResponse("The key must be lowercase hex", status_code=400)
+    claim = _read_or_none(f"{USERNAME_PREFIX}{key}")
+    if claim is None:
+        return func.HttpResponse("No such username", status_code=404)
+    return _json_response(claim)
+
+
+@APP.function_name(name="CreateUsername")
+@APP.route(route="username/{key}", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+def create_username(req: func.HttpRequest) -> func.HttpResponse:
+    """Body ``{"user_id": <int>}``. Claims the username; 409 if it is taken. Creating the document is the check."""
+    key = _username_key(req)
+    if key is None:
+        return func.HttpResponse("The key must be lowercase hex", status_code=400)
+    body = req.get_json()
+    if not isinstance(body, dict) or not _non_negative_int(body.get("user_id")):
+        return func.HttpResponse("user_id must be a non-negative integer", status_code=400)
+    return _create_or_conflict({"id": f"{USERNAME_PREFIX}{key}", "user_id": body["user_id"]}, "Username")
+
+
+# query parameter -> the clause it adds. Every value is compared as a string (kd_id is a string, like kingdom ids).
+USER_QUERY_FILTERS = {
+    "email": "c.email = @email",
+    "kd_id": "c.kd_id = @kd_id",
+    "prefix": "STARTSWITH(c.username, @prefix)",
+}
+
+
+@APP.function_name(name="GetUsers")
+@APP.route(route="users", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_users(req: func.HttpRequest) -> func.HttpResponse:
+    """
+    Every user, or those matching all the filters given (``email``, ``kd_id``, ``prefix`` of the username), in id
+    order, as ``{"users": [...]}``.
+
+    One cross-partition query: for admin and rare lookups (email recovery, bot names), never a hot path.
+    """
+    clauses = ["IS_DEFINED(c.id_number)"]
+    parameters = []
+    for name, clause in USER_QUERY_FILTERS.items():
+        value = req.params.get(name)
+        if value is not None:
+            clauses.append(clause)
+            parameters.append({"name": f"@{name}", "value": str(value)})
+    users = list(CONTAINER.query_items(
+        query="SELECT * FROM c WHERE " + " AND ".join(clauses),
+        parameters=parameters,
+        enable_cross_partition_query=True,
+    ))
+    users.sort(key=lambda user: user["id_number"])
+    return _json_response({"users": users})

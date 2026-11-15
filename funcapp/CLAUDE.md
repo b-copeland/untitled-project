@@ -21,6 +21,13 @@ formulas. Those live in Flask. If a handler needs to know game rules to work, th
 - `auth_level=func.AuthLevel.ADMIN` on every route: only Flask, with the host key, calls this app.
 - Multi-document handlers (`create_kingdom`, `create_galaxy`, `create_empire`, `reset_state`, `init_state`,
   `delete_all`) and `create_item` are not retried and are admin or setup operations. Do not add new ones on a hot path.
+- Create-only routes (`create_user`, `create_username`) do one `create_item` and answer `409` when the id exists: that
+  is how uniqueness is enforced, so do not turn them into create-or-merge.
+- Users outlive a round: `reset_state` keeps `user_` and `username_` documents (`is_user_document`), and `delete_all`
+  removes them instead of blanking them.
+- The user handlers (end of `function_app.py`) are the model for new ones: no bare `except`, real status codes
+  (`404` missing, `400` bad body), and a `CosmosAccessConditionFailedError` caught inside a retried handler so
+  `retry_on_conflict` can see it.
 - Kingdom routes are `kingdom/{kdId:int}/...`: kingdom ids are strings of integers.
 - Do not import anything from `api/`; this app is deployed on its own.
 

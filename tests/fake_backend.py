@@ -106,13 +106,47 @@ class FakeContainer:
         with self.lock:
             return [copy.deepcopy(doc) for doc in self.docs.values()]
 
+    def query_items(self, query, parameters=None, **kwargs):
+        """
+        Only the queries the function app sends: ``SELECT * FROM c WHERE`` followed by clauses joined with ``AND``,
+        each one of ``IS_DEFINED(c.<field>)``, ``c.<field> = @<param>`` or ``STARTSWITH(c.<field>, @<param>)``.
+        Anything else raises, so a new query shape needs adding here rather than silently matching everything.
+        """
+        self._pause()
+        prefix = "SELECT * FROM c WHERE "
+        if not query.startswith(prefix):
+            raise NotImplementedError(f"FakeContainer can not run {query!r}")
+        values = {parameter["name"]: parameter["value"] for parameter in parameters or []}
+        tests = []
+        for clause in query[len(prefix):].split(" AND "):
+            clause = clause.strip()
+            if match := re.fullmatch(r"IS_DEFINED\(c\.(\w+)\)", clause):
+                tests.append(lambda doc, field=match[1]: field in doc)
+            elif match := re.fullmatch(r"c\.(\w+) = (@\w+)", clause):
+                tests.append(lambda doc, field=match[1], value=values[match[2]]: doc.get(field) == value)
+            elif match := re.fullmatch(r"STARTSWITH\(c\.(\w+), (@\w+)\)", clause):
+                tests.append(
+                    lambda doc, field=match[1], value=values[match[2]]:
+                        isinstance(doc.get(field), str) and doc[field].startswith(value)
+                )
+            else:
+                raise NotImplementedError(f"FakeContainer can not run the clause {clause!r}")
+        with self.lock:
+            return [copy.deepcopy(doc) for doc in self.docs.values() if all(test(doc) for test in tests)]
+
     # --- for tests -------------------------------------------------------------------------------------------------
 
     def blank(self):
-        """What the function app's /deleteall does: every document stays, with nothing in it but its id."""
+        """
+        What the function app's /deleteall does: every document stays, with nothing in it but its id, except users
+        and username claims, which are removed.
+        """
         with self.lock:
             for doc_id in list(self.docs):
-                self.docs[doc_id] = self._stamp({"id": doc_id})
+                if doc_id.startswith(("user_", "username_")):
+                    del self.docs[doc_id]
+                else:
+                    self.docs[doc_id] = self._stamp({"id": doc_id})
 
     def reset(self):
         with self.lock:
