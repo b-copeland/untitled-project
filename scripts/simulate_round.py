@@ -1,0 +1,318 @@
+"""Play a whole round of bots in this process, on a simulated clock, and report how each playstyle did.
+
+Nothing needs to be running: the function app's real handlers run on the in-memory backend the tests use
+(``tests/fake_backend.py``), and game time is a clock this script moves forward, so a week of game time takes minutes
+and the epoch keeps its real length (every duration in the game stays in proportion). It is the tool for tuning the bots
+(docs/bots.md): change a rule, run it again, compare the tables.
+
+    python scripts/simulate_round.py                         # 40 bots, 4 galaxies, 7 days
+    python scripts/simulate_round.py --days 2 --bots 24 --seed 3
+    python scripts/simulate_round.py --mix explorer=10,attacker=10,raider=5 --json out.json
+
+Run it in the Flask environment, from the repository root. The numbers are only comparable between runs with the same
+arguments. ``scripts/simulate_bots.py`` is the other one: it drives the real local stack in real time.
+"""
+import argparse
+import collections
+import datetime
+import json
+import logging
+import os
+import pathlib
+import random
+import statistics
+import sys
+import time
+import types
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+class Clock:
+    """Game time. ``install`` makes every game module's ``datetime.datetime.now`` return it."""
+
+    def __init__(self, start):
+        self.now = start
+
+    def advance(self, seconds):
+        self.now += datetime.timedelta(seconds=seconds)
+
+    def install(self):
+        clock = self
+
+        class SimulatedDateTime(datetime.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return clock.now.astimezone(tz) if tz else clock.now.replace(tzinfo=None)
+
+        proxy = types.ModuleType("datetime")
+        proxy.__dict__.update({k: v for k, v in datetime.__dict__.items() if not k.startswith("__")})
+        proxy.datetime = SimulatedDateTime
+        for name, module in list(sys.modules.items()):
+            path = str(getattr(module, "__file__", "") or "")
+            game = name.startswith("untitledapp") or pathlib.Path(path).parent.name == "funcapp"
+            if game and getattr(module, "datetime", None) is datetime:
+                module.datetime = proxy
+
+
+class Simulation:
+    def __init__(self, mix, galaxies=4, days=7.0, tick_epochs=0.5, seed=1, election_day=2.0, quiet=True):
+        os.environ.pop("EPOCH_SECONDS", None)  # the real epoch: time is simulated instead of shortened
+        os.environ.setdefault("REFRESH_SECRET", "simulate")
+        for path in (str(ROOT / "api"), str(ROOT)):
+            if path not in sys.path:
+                sys.path.insert(0, path)
+        os.chdir(ROOT / "api")
+        random.seed(seed)
+
+        from tests import fake_backend
+        import untitledapp
+        from untitledapp import create_app, REQUESTS_SESSION
+        import untitledapp.shared as uas
+
+        self.uas = uas
+        self.epoch = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+        self.tick_seconds = tick_epochs * self.epoch
+        self.days = days
+        self.container = fake_backend.FakeContainer(latency=0)
+        session = fake_backend.FakeSession(fake_backend.load_function_app(self.container))
+        REQUESTS_SESSION.request = session.request
+        self.app = create_app(config_class="config.TestingConfig")
+        self.app.testing = True
+        self.app.config["PROPAGATE_EXCEPTIONS"] = False
+        if quiet:
+            logging.disable(logging.ERROR)
+        self.client = self.app.test_client()
+        endpoint = self.app.config["AZURE_FUNCTION_ENDPOINT"]
+
+        self.clock = Clock(datetime.datetime.now(datetime.timezone.utc))
+        self.clock.install()
+        self.start = self.clock.now
+
+        REQUESTS_SESSION.post(f"{endpoint}/init")
+        with self.app.app_context():
+            untitledapp.seed_testing_users()
+        login = self.client.post("/api/adminlogin", json={"username": "admin", "password": "admin"})
+        admin = {"Authorization": "Bearer " + login.json["accessToken"]}
+        self.client.post("/api/createstate", headers=admin, json={
+            "num_galaxies": galaxies, "max_galaxy_size": 50, "avg_size_new_galaxy": 10})
+        self.end = self.start + datetime.timedelta(days=days)
+        self.client.post("/api/updatestate", headers=admin, json={
+            "game_start": (self.start - datetime.timedelta(seconds=1)).isoformat(),
+            "game_end": self.end.isoformat(),
+            "election_start": (self.start + datetime.timedelta(days=election_day)).isoformat(),
+            "election_end": "",
+            "next_history": self.start.isoformat(),
+        })
+        created = self.client.post("/api/admin/bots", json=mix, headers=admin)
+        assert created.status_code == 201, created.get_data(as_text=True)
+        self.refresh_headers = {"Refresh-Secret": os.environ["REFRESH_SECRET"]}
+        self.failed_ticks = []
+        self.samples = []  # (day, {kd_id: (type, stars, networth)})
+
+    # ------------------------------------------------------------------------------------------------------ running
+
+    def doc(self, item):
+        return self.container.docs.get(item, {})
+
+    def kingdoms(self):
+        return {kd_id: self.doc(f"kingdom_{kd_id}") for kd_id in self.doc("kingdoms").get("kingdoms", {})}
+
+    def tick(self):
+        self.clock.advance(self.tick_seconds)
+        result = self.client.get("/api/refreshdata", headers=self.refresh_headers)
+        text = result.get_data(as_text=True)
+        if result.status_code != 200 or "failed" in text:
+            self.failed_ticks.append((self.day(), text[:200]))
+
+    def day(self):
+        return (self.clock.now - self.start).total_seconds() / 86400
+
+    def sample(self):
+        self.samples.append((self.day(), {
+            kd_id: ((kd.get("bot") or {}).get("type", "player"), kd.get("stars", 0), kd.get("networth", 0),
+                    kd.get("status"))
+            for kd_id, kd in self.kingdoms().items() if kd.get("race")
+        }))
+
+    def run(self, progress=None, sample_days=0.5):
+        next_sample = 0.0
+        while self.clock.now < self.end - datetime.timedelta(seconds=self.tick_seconds):
+            self.tick()
+            if self.day() >= next_sample:
+                self.sample()
+                next_sample += sample_days
+                if progress:
+                    progress(self)
+        self.sample()
+
+    # ---------------------------------------------------------------------------------------------------- reporting
+
+    def results(self):
+        """Everything the report prints, as plain data."""
+        kingdoms = {kd_id: kd for kd_id, kd in self.kingdoms().items() if kd.get("race")}
+        scores = self.doc("scores")
+        points = scores.get("points", {})
+        galaxy_of = {kd: galaxy for galaxy, members in self.doc("galaxies").get("galaxies", {}).items() for kd in members}
+        rows = []
+        actions = collections.defaultdict(collections.Counter)
+        for kd_id, kd in kingdoms.items():
+            kind = (kd.get("bot") or {}).get("type", "player")
+            units = dict(kd["units"])
+            for general in kd.get("generals_out", []):
+                for unit, count in general.items():
+                    if unit != "return_time":
+                        units[unit] = units.get(unit, 0) + count
+            rows.append({
+                "kd": kd_id, "name": kd["name"], "type": kind, "galaxy": galaxy_of.get(kd_id), "status": kd["status"],
+                "stars": kd["stars"], "networth": kd["networth"], "points": round(points.get(kd_id, 0), 1),
+                "money": round(kd["money"]), "funding": round(sum(kd["funding"].values())),
+                "fuel": round(kd["fuel"]), "population": round(kd["population"]), "drones": round(kd["drones"]),
+                "units": {k: round(v) for k, v in units.items()},
+                "structures": {k: round(v) for k, v in kd["structures"].items()},
+                "phase": (kd.get("bot") or {}).get("phase"),
+                "completed": kd.get("completed_projects", []),
+            })
+            counter = actions[kind]
+            for entry in self.doc(f"attack_history_{kd_id}").get("attack_history", []):
+                if entry.get("to") in ("", None):
+                    counter["attack primitives"] += 1
+                elif str(entry.get("news", "")).startswith("Success"):
+                    counter["attack won"] += 1
+                else:
+                    counter["attack lost"] += 1
+            for entry in self.doc(f"spy_history_{kd_id}").get("spy_history", []):
+                won = "" if entry.get("to") in ("", None) else (
+                    " ok" if not str(entry.get("news", "")).startswith("Failure") else " failed")
+                counter[f"{entry.get('operation')}{won}"] += 1
+            counter["missile launches"] += len(self.doc(f"missile_history_{kd_id}").get("missile_history", []))
+            shared = self.doc(f"shared_{kd_id}")
+            counter["intel offers open"] += len(shared.get("shared_offers", {}))
+            counter["intel accepted (live)"] += len(shared.get("shared", {}))
+            for entry in (kd.get("bot") or {}).get("log", []):
+                counter[f"log:{entry.get('kind')}"] += 1
+            for key, count in ((kd.get("bot") or {}).get("counts") or {}).items():
+                counter[f"did:{key}"] += count
+        empires = self.doc("empires").get("empires", {})
+        universe_news = [item.get("news", item) for item in self.doc("universe_news").get("news", [])]
+        return {
+            "days": self.days, "rows": rows, "actions": {k: dict(v) for k, v in actions.items()},
+            "empires": {eid: {"name": e.get("name"), "galaxies": e.get("galaxies"), "war": e.get("war"),
+                              "denounced": e.get("denounced")} for eid, e in empires.items()},
+            "universe_news": universe_news,
+            "active_policies": self.doc("state").get("state", {}).get("active_policies"),
+            "galaxy_policies": {g: self.doc(f"galaxy_votes_{g}").get("active_policies")
+                                for g in self.doc("galaxies").get("galaxies", {})},
+            "failed_ticks": self.failed_ticks,
+            "samples": self.samples,
+        }
+
+
+def summarise(results):
+    """Per playstyle: how many, alive, median and best stars and networth, and total points."""
+    by_type = collections.defaultdict(list)
+    for row in results["rows"]:
+        by_type[row["type"]].append(row)
+    table = {}
+    for kind, rows in sorted(by_type.items()):
+        alive = [row for row in rows if str(row["status"]).lower() != "dead"]
+        table[kind] = {
+            "n": len(rows), "alive": len(alive),
+            "stars_median": statistics.median(row["stars"] for row in rows),
+            "stars_max": max(row["stars"] for row in rows),
+            "networth_median": statistics.median(row["networth"] for row in rows),
+            "networth_max": max(row["networth"] for row in rows),
+            "points": round(sum(row["points"] for row in rows), 1),
+        }
+    return table
+
+
+def report(results, out=sys.stdout, detail=False):
+    table = summarise(results)
+    print(f"\nAfter {results['days']:g} days", file=out)
+    print(f"{'type':<10}{'n':>3}{'alive':>6}{'stars med':>11}{'stars max':>11}{'nw med':>10}{'nw max':>10}{'points':>9}", file=out)
+    for kind, row in table.items():
+        print(f"{kind:<10}{row['n']:>3}{row['alive']:>6}{row['stars_median']:>11,.0f}{row['stars_max']:>11,.0f}"
+              f"{row['networth_median']:>10,.0f}{row['networth_max']:>10,.0f}{row['points']:>9,.0f}", file=out)
+    all_stars = [row["stars"] for row in results["rows"]]
+    print(f"{'all':<10}{len(all_stars):>3}{'':>6}{statistics.median(all_stars):>11,.0f}{max(all_stars):>11,.0f}", file=out)
+
+    print("\nGrowth (median stars by day):", file=out)
+    kinds = sorted(table)
+    print("  day   " + "".join(f"{kind:>10}" for kind in kinds), file=out)
+    for day, sample in results["samples"]:
+        if abs(day - round(day)) > 0.05 and day < results["days"] - 0.3:
+            continue
+        medians = []
+        for kind in kinds:
+            values = [stars for (k, stars, _, _) in sample.values() if k == kind]
+            medians.append(statistics.median(values) if values else 0)
+        print(f"  {day:5.1f} " + "".join(f"{value:>10,.0f}" for value in medians), file=out)
+
+    print("\nActions by playstyle:", file=out)
+    for kind, counter in sorted(results["actions"].items()):
+        shown = ", ".join(f"{name} {count}" for name, count in sorted(counter.items()) if count)
+        print(f"  {kind}: {shown}", file=out)
+    print(f"\nUniverse policies: {results['active_policies']}", file=out)
+    print(f"Galaxy policies: {results['galaxy_policies']}", file=out)
+    print(f"Empires: {results['empires']}", file=out)
+    for news in results["universe_news"][-12:]:
+        print(f"  news: {news}", file=out)
+    if results["failed_ticks"]:
+        print(f"\n{len(results['failed_ticks'])} ticks reported failures, e.g. {results['failed_ticks'][0]}", file=out)
+    if detail:
+        print("\nKingdoms:", file=out)
+        for row in sorted(results["rows"], key=lambda r: -r["networth"]):
+            print(f"  {row['name']:<18}{row['galaxy']:<5}{row['status']:<7}{str(row['phase']):<6} stars {row['stars']:>6,}"
+                  f" nw {row['networth']:>8,} pts {row['points']:>6,.0f} money {row['money']:>9,} idle funding {row['funding']:>9,}"
+                  f" fuel {row['fuel']:>8,} pop {row['population']:>7,} drones {row['drones']:>7,} units {row['units']}"
+                  f" {row['completed']}", file=out)
+
+
+def parse_mix(text, bots):
+    if text:
+        return {key: int(value) for key, value in (part.split("=") for part in text.split(","))}
+    sys.path.insert(0, str(ROOT / "api"))
+    import untitledapp.bots as bots_module
+
+    kinds = list(bots_module.ARCHETYPES)
+    return {kind: bots // len(kinds) + (1 if index < bots % len(kinds) else 0) for index, kind in enumerate(kinds)}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--bots", type=int, default=40, help="total, split evenly over the archetypes")
+    parser.add_argument("--mix", help="instead of --bots: e.g. explorer=10,attacker=10")
+    parser.add_argument("--galaxies", type=int, default=4)
+    parser.add_argument("--days", type=float, default=7.0, help="length of the round in game days")
+    parser.add_argument("--tick", type=float, default=0.5, help="epochs of game time between refreshes")
+    parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--election-day", type=float, default=2.0)
+    parser.add_argument("--detail", action="store_true", help="also list every kingdom")
+    parser.add_argument("--json", help="write the results to this file")
+    parser.add_argument("--errors", action="store_true", help="let the game log its errors")
+    args = parser.parse_args()
+
+    mix = parse_mix(args.mix, args.bots)
+    started = time.time()
+    real_stdout, sys.stdout = sys.stdout, open(os.devnull, "w")  # the game code prints as it goes
+    try:
+        sim = Simulation(mix, galaxies=args.galaxies, days=args.days, tick_epochs=args.tick, seed=args.seed,
+                         election_day=args.election_day, quiet=not args.errors)
+
+        def progress(sim):
+            stars = sorted((s for (_, s, _, _) in sim.samples[-1][1].values()), reverse=True)
+            print(f"  day {sim.day():4.1f}  {time.time() - started:5.0f}s  top stars {stars[:3]}", file=real_stdout, flush=True)
+
+        sim.run(progress=progress)
+        results = sim.results()
+    finally:
+        sys.stdout = real_stdout
+    report(results, detail=args.detail)
+    print(f"\n{sum(mix.values())} bots {mix}, {args.galaxies} galaxies, seed {args.seed}, {time.time() - started:.0f}s")
+    if args.json:
+        pathlib.Path(args.json).write_text(json.dumps(results, default=str), encoding="utf-8")
+
+
+if __name__ == "__main__":
+    main()

@@ -97,16 +97,10 @@ def _get_new_recruits(recruits_input, is_conscription, start_time):
     ]
     return new_recruits, min_time
 
-@bp.route('/api/recruits', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def recruits():
+def _recruit(kd_id, recruits_input):
+    """Start training ``recruits_input`` recruits for ``kd_id`` with its money. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    req = flask.request.get_json(force=True)
     
-    recruits_input = int(req["recruitsInput"])
-    kd_id = flask_praetorian.current_user().kd_id
 
     def decide(kd_info_parse):
         # Runs against the kingdom as it is right now and again from the top if it changed before the write lands, so
@@ -150,10 +144,20 @@ def recruits():
             data=json.dumps(recruits_payload),
         )
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    return (flask.jsonify({"message": "Successfully began recruiting", "status": "success"}), 200)
+        return {"message": "Server is busy"}, 400
+    return {"message": "Successfully began recruiting", "status": "success"}, 200
+
+
+@bp.route('/api/recruits', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def recruits():
+    req = flask.request.get_json(force=True)
+    payload, status = _recruit(flask_praetorian.current_user().kd_id, int(req["recruitsInput"]))
+    return flask.jsonify(payload), status
 
 def _get_mobis_cost(mobis_request):
     state = uag._get_state()
@@ -212,23 +216,13 @@ def _get_new_mobis(mobis_request, start_time):
     ]
     return new_mobis, min_mobi_time
 
-@bp.route('/api/mobis', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def train_mobis():
+def _train_mobis(kd_id, mobis_request):
+    """Start training units (kind to count) from ``kd_id``'s recruits with its money. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    req = flask.request.get_json(force=True)
     
     
-    kd_id = flask_praetorian.current_user().kd_id
 
     # Parsed before taking the lock, so bad input can not leave it held.
-    mobis_request = {
-        k: int(v or 0)
-        for k, v in req.items()
-        if int(v or 0) != 0
-    }
 
 
     def decide(kd_info_parse):
@@ -272,10 +266,25 @@ def train_mobis():
             data=json.dumps(mobis_payload),
         )
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    return (flask.jsonify({"message": "Successfully began training specialists", "status": "success"}), 200)
+        return {"message": "Server is busy"}, 400
+    return {"message": "Successfully began training specialists", "status": "success"}, 200
+
+
+@bp.route('/api/mobis', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def train_mobis():
+    req = flask.request.get_json(force=True)
+    mobis_request = {
+        k: int(v or 0)
+        for k, v in req.items()
+        if int(v or 0) != 0
+    }
+    payload, status = _train_mobis(flask_praetorian.current_user().kd_id, mobis_request)
+    return flask.jsonify(payload), status
 
 def _validate_mobis_target(req_targets, kd_info_parse):
     """Confirm that spending request is valid"""
@@ -443,23 +452,13 @@ def _get_new_structures(structures_request, start_time):
     ]
     return new_structures, min_structure_time
 
-@bp.route('/api/structures', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def build_structures():
+def _build_structures(kd_id, structures_request):
+    """Start building structures (kind to count) for ``kd_id`` with its money. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    req = flask.request.get_json(force=True)
     
     
-    kd_id = flask_praetorian.current_user().kd_id
     
     # Parsed before taking the lock, so bad input can not leave it held.
-    structures_request = {
-        k: int(v or 0)
-        for k, v in req.items()
-        if int(v or 0) != 0
-    }
 
 
     def decide(kd_info_parse):
@@ -506,10 +505,25 @@ def build_structures():
             data=json.dumps(structures_payload),
         )
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    return (flask.jsonify({"message": "Successfully began building structures", "status": "success"}), 200)
+        return {"message": "Server is busy"}, 400
+    return {"message": "Successfully began building structures", "status": "success"}, 200
+
+
+@bp.route('/api/structures', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def build_structures():
+    req = flask.request.get_json(force=True)
+    structures_request = {
+        k: int(v or 0)
+        for k, v in req.items()
+        if int(v or 0) != 0
+    }
+    payload, status = _build_structures(flask_praetorian.current_user().kd_id, structures_request)
+    return flask.jsonify(payload), status
 
 def _validate_structures_target(req_targets):
     """Confirm that spending request is valid"""
@@ -657,16 +671,10 @@ def _get_new_settles(kd_info_parse, settle_input, start_time):
     ]
     return new_settles, min_settle_time
 
-@bp.route('/api/settle', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def settle():
+def _settle(kd_id, settle_input):
+    """Start settling ``settle_input`` stars for ``kd_id`` with its money. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    req = flask.request.get_json(force=True)
     
-    settle_input = int(req["settleInput"])
-    kd_id = flask_praetorian.current_user().kd_id
     
     
     def decide(kd_info_parse):
@@ -703,11 +711,20 @@ def settle():
             data=json.dumps(settle_payload),
         )
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    return (flask.jsonify({"message": "Successfully began settling", "status": "success"}), 200)
+        return {"message": "Server is busy"}, 400
+    return {"message": "Successfully began settling", "status": "success"}, 200
 
+
+@bp.route('/api/settle', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def settle():
+    req = flask.request.get_json(force=True)
+    payload, status = _settle(flask_praetorian.current_user().kd_id, int(req["settleInput"]))
+    return flask.jsonify(payload), status
 
 def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles):
     current_missiles = kd_info_parse["missiles"]
@@ -739,22 +756,12 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
     return True
 
 
-@bp.route('/api/missiles', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def build_missiles():
+def _build_missiles(kd_id, missiles_request):
+    """Start building missiles (kind to count) for ``kd_id``. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    req = flask.request.get_json(force=True)
     
     
-    kd_id = flask_praetorian.current_user().kd_id
     
-    missiles_request = {
-        k: int(v or 0)
-        for k, v in req.items()
-        if v not in ("", 0)
-    }
 
     def decide(kd_info_parse):
         missiles_info = uag._get_missiles_info(kd_id)
@@ -814,11 +821,25 @@ def build_missiles():
             data=json.dumps(missiles_payload),
         )
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    return (flask.jsonify({"message": "Successfully began building missiles", "status": "success"}), 200)
+        return {"message": "Server is busy"}, 400
+    return {"message": "Successfully began building missiles", "status": "success"}, 200
 
+
+@bp.route('/api/missiles', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def build_missiles():
+    req = flask.request.get_json(force=True)
+    missiles_request = {
+        k: int(v or 0)
+        for k, v in req.items()
+        if v not in ("", 0)
+    }
+    payload, status = _build_missiles(flask_praetorian.current_user().kd_id, missiles_request)
+    return flask.jsonify(payload), status
 
 def _validate_engineers(engineers_input, current_available_engineers):
     if engineers_input > current_available_engineers:
@@ -855,16 +876,10 @@ def _get_new_engineers(engineers_input, start_time):
     ]
     return new_engineers, min_time
 
-@bp.route('/api/engineers', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def train_engineers():
+def _train_engineers(kd_id, engineers_input):
+    """Start training ``engineers_input`` engineers for ``kd_id`` with its money. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    req = flask.request.get_json(force=True)
     
-    engineers_input = int(req["engineersInput"])
-    kd_id = flask_praetorian.current_user().kd_id
     
 
     def decide(kd_info_parse):
@@ -900,11 +915,20 @@ def train_engineers():
             data=json.dumps(engineers_payload),
         )
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    return (flask.jsonify({"message": "Successfully began training engineers", "status": "success"}), 200)
+        return {"message": "Server is busy"}, 400
+    return {"message": "Successfully began training engineers", "status": "success"}, 200
 
+
+@bp.route('/api/engineers', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def train_engineers():
+    req = flask.request.get_json(force=True)
+    payload, status = _train_engineers(flask_praetorian.current_user().kd_id, int(req["engineersInput"]))
+    return flask.jsonify(payload), status
 
 def _validate_projects_target(req_targets, kd_info_parse):
     """Confirm that spending request is valid"""
