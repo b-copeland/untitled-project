@@ -305,3 +305,38 @@ def test_attack_news_is_tagged_with_its_kind(app, client, jwt1):
     assert _get(f"/kingdom/{TARGET_ID}/news")["news"][0]["kind"] == "attack"
     assert _get("/galaxy/1/news")["news"][0]["kind"] == "attack"
     assert _get("/galaxy/2/news")["news"][0]["kind"] == "attack"
+
+
+SHARER_ID = "3"
+
+
+def _shared_intel(cut):
+    """Kingdom 3, the attacker's galaxymate, has shared its intel on the target with the attacker for ``cut``."""
+    _set_up_kingdom(money=0, kd_id=SHARER_ID)
+    _set_up_two_kingdoms()
+    _create_item("galaxies", {"galaxies": {"1": [KD_ID, SHARER_ID], "2": [TARGET_ID]}})
+    _create_item(f"shared_{KD_ID}", {
+        "shared": {TARGET_ID: {"shared_by": SHARER_ID, "shared_stat": "military", "cut": cut,
+                               "time": "2099-01-01T00:00:00+00:00"}},
+        "shared_requests": {}, "shared_offers": {},
+    })
+
+
+def test_shared_intel_pays_its_sharer_the_agreed_cut(app, client, jwt1):
+    _shared_intel(cut=0.2)
+    attacker0, target0, sharer0 = (_get(f"/kingdom/{kd}") for kd in (KD_ID, TARGET_ID, SHARER_ID))
+
+    response = _attack(client, jwt1)
+
+    assert response.status_code == 200 and response.get_json()["status"] == "success", response.get_json()
+    attacker, target, sharer = (_get(f"/kingdom/{kd}") for kd in (KD_ID, TARGET_ID, SHARER_ID))
+    stars_taken = target0["stars"] - target["stars"]
+    attacker_stars = attacker["stars"] - attacker0["stars"]
+    sharer_stars = sharer["stars"] - sharer0["stars"]
+    assert sharer_stars > 0, "the sharer was not paid"
+    assert attacker_stars + sharer_stars == stars_taken  # everything the target lost went to one of them
+    assert sharer_stars <= stars_taken * 0.2 < sharer_stars + 1  # the cut, rounded down
+    assert sharer["money"] > sharer0["money"]
+    news = _get(f"/kingdom/{SHARER_ID}/news")["news"]
+    assert len(news) == 1 and news[0]["kind"] == "intel"
+    assert "provided intel" in _get("/galaxy/1/news")["news"][0]["news"]

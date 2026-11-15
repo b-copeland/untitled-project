@@ -52,10 +52,6 @@ These pieces do not yet:
 - Function app write routes that cannot work (2026-11-14), all uncalled: `PATCH /empire/<id>/news` reads `empire_<id>`
   where the document is `empire_news_<id>`, so empire news is never written; `PATCH /kingdom/<id>/shared` adds a list to
   what is now an object; `/sharedrequests` reads a `shared_requests_<id>` document that is never created.
-- **Shared intel's cut of attack spoils is never paid** (2026-11-14). When the legacy lock was added to the attack
-  route (commit 5f937a9), the lock check was put between `if target_kd in shared:` and its `else:`, so the `else`
-  (`cut = 0; sharer = None`) ran on every attack. Removing the lock kept that behaviour, now explicit at the top of
-  `_attack` in `conquer.py`. Paying the cut changes attack outcomes, so it needs the maintainer's decision.
 - `getters.py` and `conquer.py` are large and mix routes, formulas and storage calls.
 - Over a hundred raw `REQUESTS_SESSION` calls across the blueprints; the target is one storage module
   ([architecture.md](architecture.md#target-one-storage-module)).

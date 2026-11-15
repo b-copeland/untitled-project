@@ -750,11 +750,15 @@ def _attack(req, kd_id, target_kd):
     attacker_galaxy = galaxies_inverted[kd_id]
     defender_galaxy = galaxies_inverted[target_kd]
 
-    # Shared intel's cut of the spoils is not paid, and has not been since the legacy lock was added (commit 5f937a9):
-    # the `else` that set these belonged to the lock check, so it ran on every attack that got its lock. Kept exactly
-    # as the game behaves today; paying the cut changes attack outcomes and is open in docs/status.md.
-    cut = 0
-    sharer = None
+    # Intel shared with the attacker about this target earns its sharer the agreed cut of the spoils; the attacker gets
+    # the rest. The same rule as the forecast in calculate_attack.
+    shared = uag._get_shared(kd_id)["shared"]
+    if target_kd in shared:
+        cut = shared[target_kd]["cut"]
+        sharer = shared[target_kd]["shared_by"]
+    else:
+        cut = 0
+        sharer = None
     try:
         # What follows is the attack in three committed steps, so that two attacks (or an attack and the defender's own
         # actions) can overlap without losing each other's changes. See docs/concurrency.md.
