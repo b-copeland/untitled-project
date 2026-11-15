@@ -8,7 +8,6 @@ import logging
 from functools import wraps
 
 import flask
-import flask_sqlalchemy
 import flask_praetorian
 import flask_cors
 from flask_mail import Mail
@@ -16,7 +15,6 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_sock import Sock, ConnectionClosed
 
-db = flask_sqlalchemy.SQLAlchemy()
 guard = flask_praetorian.Praetorian()
 cors = flask_cors.CORS()
 mail = Mail()
@@ -135,8 +133,6 @@ def create_app(config_class='config.Config'):
     # Initialize the flask-praetorian instance for the app
     guard.init_app(app, User)
     app.extensions["praetorian"] = guard
-
-    db.init_app(app)
 
     # Initializes CORS so that the api_tool can talk to the example app
     cors.init_app(app)

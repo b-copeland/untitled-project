@@ -67,11 +67,10 @@ paste their values anywhere.
 | `ADMIN_PASSWORD` | Password for the `admin` user. **Only used when no `admin` user exists yet** (in the emulator), so changing it later has no effect on an existing one. |
 | `AZURE_FUNCTION_ENDPOINT` | `http://localhost:7071/api` |
 | `AZURE_FUNCTIONS_HOST_KEY` | Function host key. Not needed locally (can be empty). |
-| `SQLALCHEMY_DATABASE_URI` | Unused (nothing is stored in SQLite any more), but Flask-SQLAlchemy still opens it: `sqlite:///<absolute path to the repo>/api/database.db`, with forward slashes. **Use an absolute path and update it if you move the repo.** |
 | `REFRESH_SECRET` | Shared secret for `/api/refreshdata` (see below). |
 | `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER` | Outgoing email. `api/config.py` reads `SENDGRID_API_KEY`, so a `MAIL_PASSWORD` entry in this file has no effect. Email only matters for sign-up flows. |
 
-`SQLALCHEMY_DATABASE_URI_BAK` and `REDIS_URL` may also appear in older copies of this file. Nothing in the code reads
+`SQLALCHEMY_DATABASE_URI`, `SQLALCHEMY_DATABASE_URI_BAK` and `REDIS_URL` may also appear in older copies of this file. Nothing in the code reads
 them.
 
 ### `funcapp/local.settings.json` (function app)
@@ -239,7 +238,6 @@ Leave `EPOCH_SECONDS` unset for a normal game.
 | Symptom | Cause and fix |
 |---|---|
 | `KeyError: 'adapter'` from `wrapt`, or other import errors when Flask starts | The Conda environment predates the 2026-11-10 dependency upgrade (the old pins had `limits==3.5.0` with `wrapt==1.12.1`). Recreate it from `requirements.txt`. |
-| Flask exits with a SQLAlchemy "unable to open database file" | `SQLALCHEMY_DATABASE_URI` in `api/.flaskenv` still points at an old absolute path. |
 | `admin` login returns 401 | The `admin` user already exists with a different password. `ADMIN_PASSWORD` only applies when it is created. Delete its `user_<id>` and `username_61646d696e` documents in the emulator and restart Flask to create it again. |
 | Flask fails at startup with a connection error | The function app is not running yet (or is not on port 7071). |
 | Function app: SSL certificate verify failed | `REQUESTS_CA_BUNDLE` is missing or points at an old certificate. Re-export it. |

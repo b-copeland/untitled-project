@@ -64,7 +64,6 @@ Set these under the web app's Environment variables in the Azure portal. They ar
 | `ADMIN_PASSWORD` | Initial `admin` password (only applied when no `admin` user exists). |
 | `AZURE_FUNCTION_ENDPOINT` | Base URL of the function app's `/api`. |
 | `AZURE_FUNCTIONS_HOST_KEY` | Function host key, sent as `x-functions-key`. |
-| `SQLALCHEMY_DATABASE_URI` | Unused: nothing is stored in SQLite any more. Still read by Flask-SQLAlchemy until that dependency goes. |
 | `REFRESH_SECRET` | Shared secret for `/api/refreshdata`. |
 | `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER`, `FRONTEND_URL` | Outgoing email and the base of the links in it. Without a key, mail is only logged. See [email.md](email.md). |
 

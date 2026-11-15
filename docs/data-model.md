@@ -129,8 +129,8 @@ Fields added after creation:
 ## Users
 
 Users are Cosmos documents too ([decisions/0004](decisions/0004-users-in-cosmos.md)), read and written through
-`api/untitledapp/users.py` (`User`). The `Locks` table, the last thing in SQLite, holds the legacy locks
-([architecture.md](architecture.md#target-no-sqlite)): add nothing to it.
+`api/untitledapp/users.py` (`User`). Nothing is stored in SQL any more
+([architecture.md](architecture.md#target-no-sqlite)).
 
 | id | Holds | Written by |
 |---|---|---|
