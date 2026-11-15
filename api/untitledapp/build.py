@@ -360,22 +360,8 @@ def _validate_disband(kd_info, input):
         
     return True, ""
 
-@bp.route('/api/mobis/disband', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def disband_mobis():
-    app = flask.current_app
-    req = flask.request.get_json(force=True)
-    req_input = {
-        k: int(v)
-        for k, v in req["input"].items()
-        if v not in ("", "0")
-    } 
-
-    kd_id = flask_praetorian.current_user().kd_id
-    
-
+def _disband(kd_id, req_input):
+    """Disband units (kind to count) of ``kd_id``: they return to the population and a share of their cost comes back. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     def decide(kd_info):
         valid_disband, message = _validate_disband(kd_info, req_input)
         if not valid_disband:
@@ -400,11 +386,26 @@ def disband_mobis():
     try:
         occ.update(f'/kingdom/{kd_id}', decide)
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
+        return {"message": "Server is busy"}, 400
 
-    return (flask.jsonify({"message": "Disbanded units", "status": "success"}), 200)
+    return {"message": "Disbanded units", "status": "success"}, 200
+
+
+@bp.route('/api/mobis/disband', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def disband_mobis():
+    req = flask.request.get_json(force=True)
+    req_input = {
+        k: int(v)
+        for k, v in req["input"].items()
+        if v not in ("", "0")
+    }
+    payload, status = _disband(flask_praetorian.current_user().kd_id, req_input)
+    return flask.jsonify(payload), status
 
 
 def _validate_structures(structures_input, current_available_structures):

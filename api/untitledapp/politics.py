@@ -278,26 +278,26 @@ def request_join_empire(target_empire):
     payload, status = ask_to_join_empire(flask_praetorian.current_user().kd_id, target_empire)
     return flask.jsonify(payload), status
 
+def withdraw_join_request(kd_id, target_empire):
+    """Take back ``kd_id``'s galaxy's request to join an empire. Returns ``(payload, status_code)``. The route and the bots both come through here."""
+    galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
+
+    if galaxy_politics["leader"] != kd_id:
+        return {"message": "You must be galaxy leader to manage Empire requests"}, 400
+
+    _change_list(f'/empire/{target_empire}/politics', "empire_join_requests", remove=kd_galaxy)
+    _change_list(f'/galaxy/{kd_galaxy}/politics', "empire_join_requests", remove=target_empire)
+    return {"message": "Join request cancelled", "status": "success"}, 200
+
+
 @bp.route('/api/empire/<target_empire>/canceljoin', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 @start_required
 # @flask_praetorian.roles_required('verified')
 def cancel_join_empire(target_empire):
-    app = flask.current_app
-    kd_id = flask_praetorian.current_user().kd_id
-
-    galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
-
-    if galaxy_politics["leader"] != kd_id:
-        return flask.jsonify({"message": "You must be galaxy leader to manage Empire requests"}), 400    
-    
-
-    target_empire_politics = uag._get_empire_politics(target_empire)
-
-    _change_list(f'/empire/{target_empire}/politics', "empire_join_requests", remove=kd_galaxy)
-    _change_list(f'/galaxy/{kd_galaxy}/politics', "empire_join_requests", remove=target_empire)
-    return flask.jsonify({"message": "Join request cancelled", "status": "success"}), 200
+    payload, status = withdraw_join_request(flask_praetorian.current_user().kd_id, target_empire)
+    return flask.jsonify(payload), status
 
 def _validate_empire_invite(galaxy_politics, kd_id, empires_inverted):    
     if galaxy_politics["leader"] != kd_id:

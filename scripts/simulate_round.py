@@ -80,8 +80,29 @@ class Simulation:
         self.app = create_app(config_class="config.TestingConfig")
         self.app.testing = True
         self.app.config["PROPAGATE_EXCEPTIONS"] = False
+        # What the game logs as an error (a bot that failed to think, a kingdom the refresh skipped) is collected
+        # and reported at the end, instead of scrolling past.
+        self.errors = collections.Counter()
+        simulation = self
+
+        class Collect(logging.Handler):
+            def emit(self, record):
+                message = record.getMessage()
+                if record.exc_info and record.exc_info[1] is not None:
+                    import traceback
+                    frames = traceback.extract_tb(record.exc_info[2])
+                    where = f"{pathlib.Path(frames[-1].filename).name}:{frames[-1].lineno}" if frames else ""
+                    message = f"{message.split(' ')[0]}... {record.exc_info[1]!r} at {where}"
+                simulation.errors[message[:300]] += 1
+
+        collect = Collect(level=logging.ERROR)
+        self.app.logger.addHandler(collect)
         if quiet:
-            logging.disable(logging.ERROR)
+            self.app.logger.propagate = False
+            for handler in list(self.app.logger.handlers):
+                if handler is not collect:
+                    self.app.logger.removeHandler(handler)
+            logging.getLogger().setLevel(logging.CRITICAL)
         self.client = self.app.test_client()
         endpoint = self.app.config["AZURE_FUNCTION_ENDPOINT"]
 
@@ -167,10 +188,14 @@ class Simulation:
                 "kd": kd_id, "name": kd["name"], "type": kind, "galaxy": galaxy_of.get(kd_id), "status": kd["status"],
                 "stars": kd["stars"], "networth": kd["networth"], "points": round(points.get(kd_id, 0), 1),
                 "money": round(kd["money"]), "funding": round(sum(kd["funding"].values())),
+                "funding_by": {k[:3]: round(v / 1000) for k, v in kd["funding"].items()},
                 "fuel": round(kd["fuel"]), "population": round(kd["population"]), "drones": round(kd["drones"]),
                 "units": {k: round(v) for k, v in units.items()},
                 "structures": {k: round(v) for k, v in kd["structures"].items()},
                 "phase": (kd.get("bot") or {}).get("phase"),
+                "style": (kd.get("bot") or {}).get("style") or {},
+                "spending": kd.get("auto_spending"),
+                "log": (kd.get("bot") or {}).get("log", [])[-12:],
                 "completed": kd.get("completed_projects", []),
             })
             counter = actions[kind]
@@ -186,6 +211,9 @@ class Simulation:
                     " ok" if not str(entry.get("news", "")).startswith("Failure") else " failed")
                 counter[f"{entry.get('operation')}{won}"] += 1
             counter["missile launches"] += len(self.doc(f"missile_history_{kd_id}").get("missile_history", []))
+            news = self.doc(f"news_{kd_id}").get("news", [])
+            counter["cuts earned for intel"] += sum(1 for item in news if item.get("kind") == "intel")
+            counter["times defeated"] += sum(1 for item in news if "was defeated" in str(item.get("news", "")))
             shared = self.doc(f"shared_{kd_id}")
             counter["intel offers open"] += len(shared.get("shared_offers", {}))
             counter["intel accepted (live)"] += len(shared.get("shared", {}))
@@ -204,6 +232,7 @@ class Simulation:
             "galaxy_policies": {g: self.doc(f"galaxy_votes_{g}").get("active_policies")
                                 for g in self.doc("galaxies").get("galaxies", {})},
             "failed_ticks": self.failed_ticks,
+            "errors": dict(self.errors),
             "samples": self.samples,
         }
 
@@ -258,13 +287,17 @@ def report(results, out=sys.stdout, detail=False):
     print(f"Empires: {results['empires']}", file=out)
     for news in results["universe_news"][-12:]:
         print(f"  news: {news}", file=out)
+    for message, count in sorted(results.get("errors", {}).items(), key=lambda item: -item[1])[:15]:
+        print(f"  error x{count}: {message}", file=out)
     if results["failed_ticks"]:
         print(f"\n{len(results['failed_ticks'])} ticks reported failures, e.g. {results['failed_ticks'][0]}", file=out)
     if detail:
         print("\nKingdoms:", file=out)
         for row in sorted(results["rows"], key=lambda r: -r["networth"]):
-            print(f"  {row['name']:<18}{row['galaxy']:<5}{row['status']:<7}{str(row['phase']):<6} stars {row['stars']:>6,}"
-                  f" nw {row['networth']:>8,} pts {row['points']:>6,.0f} money {row['money']:>9,} idle funding {row['funding']:>9,}"
+            style = row.get("style") or {}
+            tag = f"{style.get('army', '-')}/{style.get('drones', '-')}{'/bomber' if style.get('bomber') else ''}"
+            print(f"  {row['name']:<18}{row['galaxy']:<5}{row['status']:<7}{str(row['phase']):<6}{tag:<26} stars {row['stars']:>6,}"
+                  f" nw {row['networth']:>8,} pts {row['points']:>6,.0f} money {row['money']:>9,} idle funding(k) {row['funding_by']}"
                   f" fuel {row['fuel']:>8,} pop {row['population']:>7,} drones {row['drones']:>7,} units {row['units']}"
                   f" {row['completed']}", file=out)
 
