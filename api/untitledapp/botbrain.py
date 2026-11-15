@@ -65,7 +65,7 @@ RESERVED_GENERALS = 2
 TARGET_STYLES = ("none", "primitives", "players", "both")
 # TUNE: a kingdom that has grown less than this share in this many epochs has stalled, and changes how it grows.
 MAX_EXTRA_WORKSHOPS = 0.06  # TUNE: the most extra land (share) a kingdom with money to spare turns into workshops
-MAX_HOMES_SHIFT = 0.3       # TUNE: how far the homes share of homes-and-mines moves with money to spare (or short)
+MAX_HOMES_SHIFT = 0.5       # TUNE: how far the homes share of homes-and-mines moves with money to spare (or short)
 MIN_SPY_CHANCE = 0.15       # TUNE: the least chance worth a try for military intel (twice that for anything else)
 EFFICIENT_ARMY_SURPLUS = 0.2  # TUNE: how much money to spare (0 to 1) before defense is bought as flexers
 SPY_FAILS = 3               # TUNE: failed intel operations in a row before a target is left alone
@@ -97,7 +97,7 @@ class Personality:
     # TUNE: the economy. How hard it settles when settling still pays, the share of income the army may take beyond
     # the defense it needs, how far above the deterrence line it keeps its defense, and the share of that army money
     # that becomes offense (in ``offense_mix`` proportions) rather than more defense.
-    settle_drive: tuple = (1.0, 0.8, 0.6)
+    settle_drive: tuple = (1.0, 1.0, 0.8)
     military_drive: tuple = (0.1, 0.2, 0.35)
     defense_margin: float = 1.1
     offense_share: tuple = (0.5, 0.2, 0.2)
@@ -159,9 +159,9 @@ PERSONALITIES = {
     "explorer": Personality(
         think_epochs=(2.0, 5.0),
         army_targets={"none": 0.1, "primitives": 0.9}, drone_targets={"primitives": 1.0}, bomber_chance=0.15,
-        settle_drive=(1.0, 1.0, 1.0), military_drive=(0.2, 0.25, 0.35), defense_margin=1.2,
-        offense_share=(0.8, 0.5, 0.1), settle_first=True,
-        workshops=(0.06, 0.06, 0.08), drone_factories=0.06, homes=0.55,
+        settle_drive=(1.0, 1.0, 1.0), military_drive=(0.4, 0.45, 0.6), defense_margin=1.2,
+        offense_share=(1.0, 0.9, 0.4), settle_first=True,
+        workshops=(0.06, 0.06, 0.08), drone_factories=0.04, homes=0.5,
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.6, "military_bonus": 0.8, "general_bonus": 0.3, "spy_bonus": 0.4},
         key_projects=("drone_gadgets", "big_flexers"), key_share=(0.4, 0.25, 0.15),
         intel_chance=0.15, share_chance=0.5,
@@ -172,9 +172,9 @@ PERSONALITIES = {
         think_epochs=(1.0, 3.0),
         army_targets={"primitives": 0.25, "players": 0.25, "both": 0.5}, drone_targets={"primitives": 1.0},
         bomber_chance=0.3,
-        settle_drive=(1.0, 0.7, 0.4), military_drive=(0.4, 0.45, 0.6), defense_margin=0.7,
+        settle_drive=(1.0, 1.0, 0.8), military_drive=(0.4, 0.45, 0.6), defense_margin=0.7,
         offense_share=(1.0, 0.9, 0.7), offense_mix={"attack": 0.8, "flex": 0.2, "big_flex": 0.4},
-        workshops=(0.08, 0.07, 0.07), drone_factories=0.08, homes=0.6,
+        workshops=(0.08, 0.07, 0.07), drone_factories=0.05, homes=0.5,
         project_weights={"military_bonus": 1.0, "general_bonus": 1.0, "money_bonus": 0.8, "fuel_bonus": 0.5},
         key_projects=("big_flexers",), key_share=(0.5, 0.3, 0.15),
         attack_buffer=(3.0, 9.0), player_edge=1.0, chip_chance=0.5,
@@ -186,9 +186,9 @@ PERSONALITIES = {
         think_epochs=(1.0, 2.5), max_new=4, max_pending=7,
         army_targets={"none": 0.1, "primitives": 0.9}, drone_targets={"primitives": 0.6, "both": 0.4},
         bomber_chance=0.2,
-        settle_drive=(1.0, 0.8, 0.6), military_drive=(0.2, 0.25, 0.35), defense_margin=1.15,
-        offense_share=(0.8, 0.5, 0.1),
-        workshops=(0.07, 0.07, 0.08), drone_factories=0.1, homes=0.6,
+        settle_drive=(1.0, 1.0, 0.8), military_drive=(0.4, 0.45, 0.6), defense_margin=1.15,
+        offense_share=(1.0, 0.9, 0.4),
+        workshops=(0.07, 0.07, 0.08), drone_factories=0.06, homes=0.6,
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.5, "military_bonus": 0.7, "spy_bonus": 1.0},
         key_projects=("drone_gadgets", "big_flexers"), key_share=(0.6, 0.3, 0.15),
         intel_chance=0.9, intel_ops=("spymilitary", "spymilitary", "spykingdom", "spydrones", "spyshields", "spyprojects",
@@ -202,9 +202,9 @@ PERSONALITIES = {
         think_epochs=(1.5, 4.0), max_new=3, max_pending=6,
         army_targets={"none": 0.1, "primitives": 0.9},
         drone_targets={"primitives": 0.3, "players": 0.2, "both": 0.5}, bomber_chance=0.2,
-        settle_drive=(1.0, 0.8, 0.6), military_drive=(0.2, 0.25, 0.35), defense_margin=1.0,
-        offense_share=(0.8, 0.5, 0.1),
-        workshops=(0.06, 0.06, 0.08), drone_factories=0.12, homes=0.6,
+        settle_drive=(1.0, 1.0, 0.8), military_drive=(0.4, 0.45, 0.6), defense_margin=1.0,
+        offense_share=(1.0, 0.9, 0.4),
+        workshops=(0.06, 0.06, 0.08), drone_factories=0.07, homes=0.6,
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.5, "military_bonus": 0.7, "spy_bonus": 1.0},
         key_projects=("drone_gadgets", "big_flexers"), key_share=(0.6, 0.3, 0.15),
         intel_chance=0.5, intel_ops=("spykingdom", "spydrones", "spymilitary"), share_chance=0.3,
