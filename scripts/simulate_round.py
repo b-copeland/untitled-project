@@ -21,6 +21,8 @@ import collections
 import datetime
 import json
 import logging
+import math
+import re
 import os
 import pathlib
 import random
@@ -30,6 +32,45 @@ import time
 import types
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+INCOME_LAND = ("homes", "mines", "drone_factories")
+STORAGE_LAND = ("hangars", "workshops", "fuel_plants", "missile_silos")
+COMBAT = ("attack", "defense", "flex", "big_flex")
+NUMBER = re.compile(r"(-?[\d,.]+) (stars|money)")
+
+
+def kingdom_metrics(kd, epochs, uas, strategy):
+    """What one kingdom looks like, for judging how well it plays: plain numbers, comparable between kingdoms."""
+    stars = max(kd["stars"], 1)
+    structures = kd["structures"]
+    built = max(sum(structures.values()), 1)
+    units = strategy.all_units(kd)
+    home = {unit: kd["units"].get(unit, 0) for unit in uas.UNITS}
+    combat = sum(units.get(unit, 0) for unit in COMBAT)
+    housed = sum(count * uas.UNITS[unit]["hangar_capacity"] for unit, count in units.items())
+    hangars = math.floor(structures.get("hangars", 0)) * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]
+    defense = strategy.raw_defense(home) * strategy.defense_multiplier(kd)
+    income = (kd.get("income") or {}).get("money", {})
+    return {
+        "defense_per_star": defense / stars,
+        "primitives_defense_per_star": strategy.primitives_defense_per_star(epochs),
+        "deterrence_per_star": strategy.deterrence_per_star(epochs),
+        "income_land": sum(structures.get(key, 0) for key in INCOME_LAND) / built,
+        "storage_land": sum(structures.get(key, 0) for key in STORAGE_LAND) / built,
+        "empty_land": max(stars - built, 0) / stars,
+        "hangar_fill": housed / max(hangars, 1),
+        "offense_per_unit": strategy.raw_offense(units) / max(combat, 1),
+        "defense_per_unit": strategy.raw_defense({u: units.get(u, 0) for u in COMBAT}) / max(combat, 1),
+        "army_per_star": combat / stars,
+        "recruits_share": units.get("recruits", 0) / max(combat + units.get("recruits", 0), 1),
+        "engineers_per_star": units.get("engineers", 0) / stars,
+        "drones_per_star": kd.get("drones", 0) / stars,
+        "population_per_star": kd.get("population", 0) / stars,
+        "income_per_star": income.get("net", 0) / stars,
+        "idle_money_epochs": (kd.get("money", 0) + sum(kd.get("funding", {}).values())) / max(income.get("net", 1), 1),
+        "fuel_ok": 1.0 if kd.get("fuel", 0) > 0 else 0.0,
+    }
 
 
 class Clock:
@@ -199,6 +240,9 @@ class Simulation:
         assert created.status_code == 201, created.get_data(as_text=True)
         self.refresh_headers = {"Refresh-Secret": os.environ["REFRESH_SECRET"]}
         self.failed_ticks = []
+        # Per kingdom, summed over the round: money by where it came from and where the auto builder sent it.
+        self.flows = collections.defaultdict(collections.Counter)
+        self.metric_samples = []  # (day, {kd_id: (type, metrics)})
         self.samples = []  # (day, {kd_id: (type, stars, networth)})
 
     # ------------------------------------------------------------------------------------------------------ running
@@ -216,11 +260,32 @@ class Simulation:
         text = result.get_data(as_text=True)
         if result.status_code != 200 or "failed" in text:
             self.failed_ticks.append((self.day(), text[:200]))
+        epochs = self.tick_seconds / self.epoch
+        for kd_id, kd in self.kingdoms().items():
+            money = (kd.get("income") or {}).get("money") or {}
+            if not money:
+                continue
+            flow = self.flows[kd_id]
+            flow["income from mines and people"] += money.get("gross", 0) * epochs
+            flow["income from siphons"] += money.get("siphons_in", 0) * epochs
+            flow["income lost to siphons"] += money.get("siphons_out", 0) * epochs
+            net = money.get("net", 0) * epochs
+            spending = kd.get("auto_spending") or {}
+            for key in ("settle", "structures", "military", "engineers"):
+                flow[f"to {key}"] += net * spending.get(key, 0) if kd.get("auto_spending_enabled") else 0
+            flow["to money"] += net * (1 - sum(spending.values()) if kd.get("auto_spending_enabled") else 1)
 
     def day(self):
         return (self.clock.now - self.start).total_seconds() / 86400
 
     def sample(self):
+        import untitledapp.botstrategy as strategy
+
+        epochs = (self.clock.now - self.start).total_seconds() / self.epoch
+        self.metric_samples.append((self.day(), {
+            kd_id: ((kd.get("bot") or {}).get("type", "player"), kingdom_metrics(kd, epochs, self.uas, strategy))
+            for kd_id, kd in self.kingdoms().items() if kd.get("race") and str(kd.get("status")).lower() != "dead"
+        }))
         self.samples.append((self.day(), {
             kd_id: ((kd.get("bot") or {}).get("type", "player"), kd.get("stars", 0), kd.get("networth", 0),
                     kd.get("status"))
@@ -270,21 +335,47 @@ class Simulation:
                 "completed": kd.get("completed_projects", []),
             })
             counter = actions[kind]
+            flow = self.flows[kd_id]
+
+            def amounts(text):
+                found = {}
+                for number, what in NUMBER.findall(str(text)):
+                    found.setdefault(what, float(number.replace(",", "")))
+                return found
+
             for entry in self.doc(f"attack_history_{kd_id}").get("attack_history", []):
+                gained = amounts(entry.get("news", ""))
                 if entry.get("to") in ("", None):
                     counter["attack primitives"] += 1
+                    flow["stars from primitives"] += gained.get("stars", 0)
+                    flow["money from primitives"] += gained.get("money", 0)
                 elif str(entry.get("news", "")).startswith("Success"):
                     counter["attack won"] += 1
+                    flow["stars from kingdoms"] += gained.get("stars", 0)
+                    flow["money from kingdoms"] += gained.get("money", 0)
                 else:
                     counter["attack lost"] += 1
             for entry in self.doc(f"spy_history_{kd_id}").get("spy_history", []):
                 won = "" if entry.get("to") in ("", None) else (
                     " ok" if not str(entry.get("news", "")).startswith("Failure") else " failed")
                 counter[f"{entry.get('operation')}{won}"] += 1
+                if entry.get("operation") == "Rob Primitives":
+                    match = re.search(r"robbed ([\d,.]+) money", str(entry.get("news", "")))
+                    flow["money from robbing"] += float(match.group(1).replace(",", "")) if match else 0
             counter["missile launches"] += len(self.doc(f"missile_history_{kd_id}").get("missile_history", []))
             news = self.doc(f"news_{kd_id}").get("news", [])
             counter["cuts earned for intel"] += sum(1 for item in news if item.get("kind") == "intel")
             counter["times defeated"] += sum(1 for item in news if "was defeated" in str(item.get("news", "")))
+            for item in news:
+                if "was defeated" in str(item.get("news", "")):
+                    flow["stars lost to kingdoms"] += amounts(item["news"]).get("stars", 0)
+                elif item.get("kind") == "missiles":
+                    match = re.search(r"([\d,.]+) stars", str(item.get("news", "")))
+                    flow["stars lost to missiles"] += float(match.group(1).replace(",", "")) if match else 0
+            flow["stars settled (the rest)"] = max(
+                kd["stars"] - 300 - flow["stars from primitives"] - flow["stars from kingdoms"]
+                + flow["stars lost to kingdoms"] + flow["stars lost to missiles"], 0)
+            rows[-1]["flows"] = dict(flow)
             shared = self.doc(f"shared_{kd_id}")
             counter["intel offers open"] += len(shared.get("shared_offers", {}))
             counter["intel accepted (live)"] += len(shared.get("shared", {}))
@@ -308,6 +399,7 @@ class Simulation:
             "overrides": self.overrides,
             "epochs": self.days * 86400 / self.epoch,
             "samples": self.samples,
+            "metrics": self.metric_samples,
         }
 
 
@@ -351,6 +443,46 @@ def report(results, out=sys.stdout, detail=False):
             values = [stars for (k, stars, _, _) in sample.values() if k == kind]
             medians.append(statistics.median(values) if values else 0)
         print(f"  {day:5.1f} " + "".join(f"{value:>10,.0f}" for value in medians), file=out)
+
+    print("\nMetrics (median by playstyle; dps = defense per star, against primitives and the deterrence line):", file=out)
+    metric_names = list(next(iter(results["metrics"][-1][1].values()))[1]) if results.get("metrics") and results["metrics"][-1][1] else []
+    shown_days = sorted({round(day) for day, _ in results.get("metrics", [])} | {results["days"]})
+    for day_wanted in shown_days:
+        day, sample = min(results["metrics"], key=lambda item: abs(item[0] - day_wanted))
+        if not sample:
+            continue
+        print(f"  day {day:4.1f}" + "".join(f"{kind:>11}" for kind in kinds), file=out)
+        for name in metric_names:
+            if name in ("primitives_defense_per_star", "deterrence_per_star"):
+                continue
+            cells = []
+            for kind in kinds:
+                values = [m[name] for k, m in sample.values() if k == kind]
+                cells.append(statistics.median(values) if values else 0)
+            extra = ""
+            if name == "defense_per_star":
+                any_metrics = next(iter(sample.values()))[1]
+                extra = f"   primitives {any_metrics['primitives_defense_per_star']:.0f}, deterrence {any_metrics['deterrence_per_star']:.0f}"
+            print(f"    {name:<26}" + "".join(f"{value:>11,.2f}" for value in cells) + extra, file=out)
+
+    print("\nWhere stars and money came from, and where the money went (median per kingdom, whole round):", file=out)
+    flow_names = sorted({name for row in results["rows"] for name in row.get("flows", {})})
+    print(f"    {'':<32}" + "".join(f"{kind:>11}" for kind in kinds), file=out)
+    for name in flow_names:
+        cells = []
+        for kind in kinds:
+            values = [row.get("flows", {}).get(name, 0) for row in results["rows"] if row["type"] == kind]
+            cells.append(statistics.median(values) if values else 0)
+        print(f"    {name:<32}" + "".join(f"{value:>11,.0f}" for value in cells), file=out)
+
+    print("\nSpy success rates (ok / tried):", file=out)
+    for kind, counter in sorted(results["actions"].items()):
+        rates = []
+        for group, operations in (("intel", ("Spy on",)), ("hostile", ("Siphon", "Bomb", "Sabotage", "Kidnap"))):
+            ok = sum(v for k, v in counter.items() if k.startswith(operations) and k.endswith(" ok"))
+            failed = sum(v for k, v in counter.items() if k.startswith(operations) and k.endswith(" failed"))
+            rates.append(f"{group} {ok / max(ok + failed, 1):.0%} of {ok + failed}")
+        print(f"  {kind}: " + ", ".join(rates), file=out)
 
     print("\nActions by playstyle:", file=out)
     for kind, counter in sorted(results["actions"].items()):
