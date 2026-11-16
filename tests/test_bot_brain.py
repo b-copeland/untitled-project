@@ -383,8 +383,15 @@ def test_a_leader_founds_an_empire_or_joins_one_with_room():
     assert empire_decisions(StubWorld(politics=LEADER, empires=full)) == [("empire_found", {"name": "League g1"})]
 
 
-def test_an_empire_takes_in_a_third_of_the_universe_and_at_least_two():
-    assert [brain.empire_size_limit(n) for n in (1, 2, 4, 6, 7, 12)] == [2, 2, 2, 2, 3, 4]
+def test_an_empire_holds_at_most_30_percent_of_the_kingdoms_and_35_percent_of_the_networth():
+    galaxies = {f"g{i}": [f"{i}{j}" for j in range(3)] for i in range(10)}  # ten galaxies of three
+    world = StubWorld(galaxies={**galaxies, "g0": ["1", "2", "3"]})
+    world._cache["scores"]["galaxy_networth"] = [(g, 100) for g in galaxies]
+    assert brain.fits_in_empire(world, ["g1"], "g2")              # two may always ally
+    assert brain.fits_in_empire(world, ["g1", "g2"], "g3")        # 30% of the kingdoms
+    assert not brain.fits_in_empire(world, ["g1", "g2", "g3"], "g4")
+    world._cache["scores"]["galaxy_networth"] = [("g1", 900)] + [(g, 100) for g in galaxies if g != "g1"]
+    assert not brain.fits_in_empire(world, ["g1", "g2"], "g3")    # 1,100 of 1,800 networth
 
 
 def test_an_empire_leader_admits_denounces_and_goes_to_war_as_the_round_goes_on(monkeypatch):
@@ -569,7 +576,8 @@ def test_a_thief_siphons_when_that_beats_robbing_primitives():
     stats = {"3": (3000, 400_000), "4": (500, 40_000)}
     world = StubWorld(day=5, stats=stats)  # primitives are robbed half bare by now
     THIEF = dataclasses.replace(brain.PERSONALITIES["thief"], sabotage_chance=(0.0, 0.0, 0.0))  # siphons only, here
-    (decision,) = brain.plan_drones(world, THIEF, style(drones="both"), {}, ChanceOf(0.0))
+    decision, second = brain.plan_drones(world, THIEF, style(drones="both"), {}, ChanceOf(0.0))
+    assert second.options["target"] == "4"  # every spare attempt to a siphon, one per kingdom, the best first
     assert decision.kind == "aggressivespy" and decision.options["operation"] == "siphonfunds"
     assert decision.options["target"] == "3" and "robbing primitives" in decision.why
     # At the very start robbing is better, unless kingdoms are all it works on.

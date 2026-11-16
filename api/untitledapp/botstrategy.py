@@ -199,7 +199,7 @@ def unit_cost(unit, cost_modifier=1.0):
 
 
 def spending_plan(kd, income, order, settle_drive, military_drive, defense_deficit_units, expansionist=False,
-                  growth_per_epoch=0.012, reserve=0.0, cost_modifier=1.0):
+                  growth_per_epoch=0.012, reserve=0.0, cost_modifier=1.0, engineers_per_star=None):
     """
     Split ``income`` (money per epoch) over the four auto spending categories by what each can use.
 
@@ -221,6 +221,8 @@ def spending_plan(kd, income, order, settle_drive, military_drive, defense_defic
 
     settle_rate = CONFIG["BASE_MAX_SETTLE_CAP"] * stars / settle_time  # stars per epoch with the queue kept full
     engineer_room = max(workshop_capacity(kd) - kd["units"].get("engineers", 0), 0)
+    if engineers_per_star is not None:
+        engineer_room = min(engineer_room, max(engineers_per_star * stars - kd["units"].get("engineers", 0), 0))
     engineer_rate = min(engineer_room / HORIZON, CONFIG["BASE_MAX_ENGINEERS_POP_CAP"] * population / engineer_time)
     recruit_rate = CONFIG["BASE_MAX_RECRUITS_CAP"] * population / recruit_time
     average_unit = (unit_cost("attack", cost_modifier) + unit_cost("defense", cost_modifier)) / 2

@@ -70,6 +70,10 @@ MIN_SPY_CHANCE = 0.15       # TUNE: the least chance worth a try for military in
 EFFICIENT_ARMY_SURPLUS = 0.2  # TUNE: how much money to spare (0 to 1) before defense is bought as flexers
 SPY_FAILS = 3               # TUNE: failed intel operations in a row before a target is left alone
 SPY_FORGET_EPOCHS = 48      # TUNE: and for how long
+EMPIRE_MAX_KINGDOMS = 0.30  # TUNE: the largest share of the universe's kingdoms a bot lets its empire hold
+EMPIRE_MAX_NETWORTH = 0.35  # TUNE: and of its networth
+MAX_SIPHONS_PER_THINK = 3   # TUNE: siphons scheduled in one think, on different kingdoms
+ENGINEERS_PER_STAR = None   # TUNE: the most engineers a kingdom keeps per star (None: as many as the workshops hold)
 WAR_MARGIN = 1.3            # TUNE: how much more defense a kingdom whose empire is at war keeps
 BOMBER_KEEP = 1.5           # TUNE: epochs of income a bomber keeps as money for missiles
 SUICIDE_TEAM = 8            # TUNE: how many kingdoms' worth of burning a bot counts on when it burns a leader's fuel
@@ -612,7 +616,7 @@ def plan_economy(world, personality, style, memory):
     reserve = _by_phase(personality.missile_reserve, phase_name) if style.get("bomber") else 0.0
     shares, wants = strategy.spending_plan(
         me, income, order, settle_drive, military_drive, deficit, expansionist=expansionist, growth_per_epoch=growth,
-        reserve=reserve, cost_modifier=world.cost_modifier)
+        reserve=reserve, cost_modifier=world.cost_modifier, engineers_per_star=ENGINEERS_PER_STAR)
 
     # The army the money buys, and the land to keep it on.
     offense_share = 0.0 if army_style == "none" else min(_by_phase(personality.offense_share, phase_name) * temper, 1.0)
@@ -641,7 +645,9 @@ def plan_economy(world, personality, style, memory):
     memory["surplus"] = round(min(max(memory.get("surplus", 0.0) + (0.05 if loose else -0.05 if short else -0.01), -0.5), 1.0), 3)
     surplus = memory["surplus"]
     land = {
-        "workshops": _by_phase(personality.workshops, phase_name) + min(max(surplus, 0.0), 1.0) * MAX_EXTRA_WORKSHOPS,
+        "workshops": min(_by_phase(personality.workshops, phase_name) + min(max(surplus, 0.0), 1.0) * MAX_EXTRA_WORKSHOPS,
+                         # No workshops beyond what the engineers it keeps need.
+                         (ENGINEERS_PER_STAR or 99) / max(strategy.workshop_capacity({**me, "structures": {"workshops": 1}}), 1)),
         "drone_factories": personality.drone_factories,
         "missile_silos": personality.missile_silos if style.get("bomber") and phase_name != "early" else 0.0,
         "homes": min(max(personality.homes + surplus * MAX_HOMES_SHIFT, 0.35), 0.9),
@@ -827,9 +833,22 @@ def plan_politics(world, personality, style, memory, rng):
     return decisions
 
 
-def empire_size_limit(galaxy_count):
-    """The most galaxies a bot-led empire takes in: a third of the universe, and at least two (an alliance of one is none)."""
-    return max(2, math.ceil(galaxy_count / 3))
+def fits_in_empire(world, empire_galaxies, galaxy):
+    """
+    Whether ``galaxy`` may join an empire of ``empire_galaxies``: the empire would then hold at most
+    ``EMPIRE_MAX_KINGDOMS`` of the universe's kingdoms and ``EMPIRE_MAX_NETWORTH`` of its networth (so there is somebody
+    left to fight). Two galaxies may always ally: an alliance of one is none. Both shares are public (the Galaxy and
+    Scores pages).
+    """
+    together = set(empire_galaxies) | {galaxy}
+    if len(together) <= 2:
+        return True
+    kingdoms = sum(len(world.galaxies.get(g, [])) for g in together)
+    all_kingdoms = max(sum(len(members) for members in world.galaxies.values()), 1)
+    galaxy_networth = dict(world.scores["galaxy_networth"])
+    networth = sum(galaxy_networth.get(g, 0) for g in together)
+    all_networth = max(sum(galaxy_networth.values()), 1)
+    return kingdoms / all_kingdoms <= EMPIRE_MAX_KINGDOMS and networth / all_networth <= EMPIRE_MAX_NETWORTH
 
 
 def _empire_networth(world, empire):
@@ -842,11 +861,13 @@ def _plan_empire(world, memory, rng):
     decisions = []
     kd_empire, empires, galaxy_empire = world.empires
     politics = world.galaxy_politics
-    limit = empire_size_limit(len(world.galaxies))
     mine = world.my_empire
     if mine is None:
-        invitations = [eid for eid in politics.get("empire_invitations", []) if eid in empires]
-        with_room = [eid for eid, empire in empires.items() if 0 < len(empire.get("galaxies", [])) < limit]
+        here = world.my_galaxy
+        invitations = [eid for eid in politics.get("empire_invitations", [])
+                       if eid in empires and fits_in_empire(world, empires[eid].get("galaxies", []), here)]
+        with_room = [eid for eid, empire in empires.items()
+                     if empire.get("galaxies") and fits_in_empire(world, empire["galaxies"], here)]
         requested = [eid for eid in politics.get("empire_join_requests", []) if eid in empires]
         if invitations:
             decisions.append(Decision("empire_accept_invite", {"empire": invitations[0]},
@@ -869,14 +890,15 @@ def _plan_empire(world, memory, rng):
     empire_politics = uag._get_empire_politics(mine)
     if empire_politics.get("leader") != world.my_galaxy:
         return decisions
-    if len(empire.get("galaxies", [])) < limit:
-        for galaxy in empire_politics.get("empire_join_requests", [])[:1]:
-            if galaxy not in galaxy_empire:
-                decisions.append(Decision("empire_admit", {"galaxy": galaxy}, f"admit galaxy {galaxy} to the empire"))
-        if not empire_politics.get("empire_join_requests") and not empire_politics.get("empire_invitations"):
-            free = [galaxy for galaxy in world.galaxies if galaxy not in galaxy_empire and world.galaxies[galaxy]]
-            if free:
-                decisions.append(Decision("empire_invite", {"galaxy": rng.choice(free)}, "invite a galaxy without an empire"))
+    members = empire.get("galaxies", [])
+    for galaxy in empire_politics.get("empire_join_requests", [])[:1]:
+        if galaxy not in galaxy_empire and fits_in_empire(world, members, galaxy):
+            decisions.append(Decision("empire_admit", {"galaxy": galaxy}, f"admit galaxy {galaxy} to the empire"))
+    if not empire_politics.get("empire_join_requests") and not empire_politics.get("empire_invitations"):
+        free = [galaxy for galaxy in world.galaxies
+                if galaxy not in galaxy_empire and world.galaxies[galaxy] and fits_in_empire(world, members, galaxy)]
+        if free:
+            decisions.append(Decision("empire_invite", {"galaxy": rng.choice(free)}, "invite a galaxy without an empire"))
 
     # The rival: the strongest other empire. Denounce it from the mid game (the aggression that follows can bring a
     # war without the penalty for a surprise), and declare war late if it has not come by itself.
@@ -1151,13 +1173,15 @@ def plan_drones(world, personality, style, memory, rng):
                         "shielded": False,
                     }, f"{operation} against the leader {world.names[target]} ({chance:.0%} a try)"))
 
-    # A siphon instead of a rob.
-    if drone_style in ("players", "both") and rng.random() < personality.aggressive_chance and len(decisions) < 1:
+    # Siphons instead of robs. A siphon is worth 8 money for every drone sent, a rob a few (fewer as primitives are
+    # robbed bare), and the drones come home either way, so every spy attempt a siphon beats a rob for goes to a
+    # siphon: one per kingdom, the best first, as many as there are attempts to spare.
+    if drone_style in ("players", "both") and rng.random() < personality.aggressive_chance:
         rob = drones * personality.rob_share * strategy.rob_per_drone(world.epochs)
         running = memory.setdefault("siphons", {})
         for kd in [kd for kd, until in running.items() if _utc(until) <= world.now]:
             del running[kd]
-        best = None
+        options = []
         for kd, (stars, _networth) in known.items():
             if kd in running or memory.get("spy_fails", {}).get(kd, 0) >= SPY_FAILS:
                 continue
@@ -1166,18 +1190,18 @@ def plan_drones(world, personality, style, memory, rng):
             useful = strategy.siphon_take(10 ** 12, income) / uas.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"]
             sent = min(drones, useful)
             chance = chance_against(kd, sent)
-            value = chance * strategy.siphon_take(sent, income)
-            if best is None or value > best[0]:
-                best = (value, kd, sent, chance)
+            options.append((chance * strategy.siphon_take(sent, income), kd, sent, chance))
         threshold = rob * personality.siphon_edge if drone_style == "both" else 0.0
-        if best and best[0] > threshold and best[3] >= 0.2:
-            value, target, sent, chance = best
+        spare = max(attempts - len(decisions) - 1, 1)
+        for value, target, sent, chance in sorted(options, reverse=True)[:min(spare, MAX_SIPHONS_PER_THINK)]:
+            if value <= threshold or chance < 0.2:
+                break
             decisions.append(Decision("aggressivespy", {
                 "target": target, "operation": "siphonfunds", "attempts": 1,
                 "drones_pct": round(min(max(sent / drones * 100, 1.0), 100.0), 1), "shielded": False,
             }, f"siphon {world.names[target]}: worth about {value:,.0f} against {rob:,.0f} from robbing primitives "
                f"({chance:.0%} to work)"))
-        elif not known:
+        if not known:
             decisions.extend(plan_intel(world, personality, style, memory, rng, want_military=False))
     return decisions
 
