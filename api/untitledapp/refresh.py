@@ -133,6 +133,63 @@ def _calc_structures_losses(
     }
     return structures_to_reduce
     
+_SIPHON_ROUNDING = 1e-6  # money per epoch below which a cut siphon counts as cut to nothing
+
+def _siphon_expiry(siphon):
+    return datetime.datetime.fromisoformat(siphon["time"]).astimezone(datetime.timezone.utc)
+
+def _siphon_rate(siphon, window_start):
+    """
+    Money per epoch the siphon pays. Entries made before the rate was stored have only what they still have and their
+    expiry, so they pay that evenly until they end.
+    """
+    rate = siphon.get("rate")
+    if rate is not None:
+        return rate
+    epochs_left = (_siphon_expiry(siphon) - window_start).total_seconds() / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+    return siphon["siphon"] / epochs_left if epochs_left > 0 else 0
+
+def _settle_siphons(siphons_out, gross_income, time_update, epoch_elapsed):
+    """
+    What each siphon on this kingdom pays for the ``epoch_elapsed`` epochs up to ``time_update``, and what is left of it.
+
+    Each siphon pays its rate per epoch, for the time it was running in this window, and never more than it has left.
+    All of them together take at most ``BASE_MAX_SIPHON`` of the gross income per epoch: over that, the oldest (the
+    soonest to expire) is cut first, then the next oldest, and newer ones pay in full. A cut is permanent: the lowered
+    rate is stored, and what the siphon has left is lowered to what that rate can still pay before it ends.
+
+    Returns ``(paid, kept)``: ``paid`` is ``(entry, money, remaining)`` for each entry that paid something, and ``kept``
+    is the list as it should be afterwards, in the same order, without entries that ended or have nothing left.
+    """
+    epoch_seconds = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+    window_start = time_update - datetime.timedelta(seconds=epoch_elapsed * epoch_seconds)
+    # A siphon that ended before this window has nothing to pay, and does not count towards the cap.
+    running = [siphon for siphon in siphons_out if _siphon_expiry(siphon) > window_start]
+    rates = {id(siphon): _siphon_rate(siphon, window_start) for siphon in running}
+
+    over_cap = sum(rates.values()) - max(gross_income, 0) * uas.GAME_CONFIG["BASE_MAX_SIPHON"]
+    for siphon in sorted(running, key=_siphon_expiry):
+        if over_cap <= 0:
+            break
+        cut = min(rates[id(siphon)], over_cap)
+        # Rounding can leave a sliver of a siphon cut to nothing; it would keep the entry alive paying fractions of a cent.
+        rates[id(siphon)] = rates[id(siphon)] - cut if rates[id(siphon)] - cut > _SIPHON_ROUNDING else 0
+        over_cap -= cut
+
+    paid, kept = [], []
+    for siphon in running:
+        rate = rates[id(siphon)]
+        expiry = _siphon_expiry(siphon)
+        epochs_running = min((expiry - window_start).total_seconds() / epoch_seconds, epoch_elapsed)
+        money = max(min(rate * epochs_running, siphon["siphon"]), 0)
+        epochs_left = max((expiry - time_update).total_seconds() / epoch_seconds, 0)
+        remaining = max(min(siphon["siphon"] - money, rate * epochs_left), 0)
+        if money > 0:
+            paid.append((siphon, money, remaining))
+        if expiry > time_update and remaining > 0:
+            kept.append({**siphon, "siphon": remaining, "rate": rate})
+    return paid, kept
+
 def _resolve_siphons(
     gross_income,
     kd_id,
@@ -141,40 +198,29 @@ def _resolve_siphons(
     effects=None,
 ):
     """
-    Work out what is siphoned from and to this kingdom this tick. Paying the siphoners and updating the two lists are
-    effects, run after the kingdom has been written (see ``_defer``), because the tick is worked out again if that
-    write conflicts and they must not be done twice. They are applied to the lists as they are then, so siphons
-    added meanwhile are kept.
+    Work out what is siphoned from and to this kingdom this tick (the amounts are ``_settle_siphons``). Paying the
+    siphoners and updating the two lists are effects, run after the kingdom has been written (see ``_defer``), because
+    the tick is worked out again if that write conflicts and they must not be done twice. They are applied to the lists
+    as they are then, so siphons added meanwhile are kept.
+
+    Returns the money siphoned out and in per epoch over this tick, and the siphons in (shown on the kingdom).
     """
     app = flask.current_app
     siphons_out = uag._get_siphons_out(kd_id)
     siphons_in = uag._get_siphons_in(kd_id)
 
-    total_siphons = sum([siphon["siphon"] for siphon in siphons_out])
-    siphon_pool = min(gross_income * uas.GAME_CONFIG["BASE_MAX_SIPHON"], total_siphons)
-    keep_siphons = []
-    payments = []
-    for siphon_out in siphons_out:
-        from_kd = siphon_out["from"]
-        time_expiry = datetime.datetime.fromisoformat(siphon_out["time"]).astimezone(datetime.timezone.utc)
-        pct_siphon = siphon_out["siphon"] / total_siphons
-        siphon_money = pct_siphon * siphon_pool * epoch_elapsed
-        payments.append((from_kd, {
+    paid, keep_siphons = _settle_siphons(siphons_out, gross_income, time_update, epoch_elapsed)
+    payments = [
+        (siphon["from"], {
             "new_siphons": {
                 "from": kd_id,
-                "siphon": siphon_money,
-                "time": time_expiry.isoformat(),
-                "remaining_siphon": siphon_out["siphon"] - siphon_money,
+                "siphon": money,
+                "time": _siphon_expiry(siphon).isoformat(),
+                "remaining_siphon": remaining,
             }
-        }))
-        if time_expiry > time_update:
-            keep_siphons.append(
-                {
-                    "from": siphon_out["from"],
-                    "time": siphon_out["time"],
-                    "siphon": siphon_out["siphon"] - siphon_money
-                }
-            )
+        })
+        for siphon, money, remaining in paid
+    ]
 
     def pay():
         for from_kd, payload_siphons_in in payments:
@@ -194,16 +240,18 @@ def _resolve_siphons(
         occ.update(f'/kingdom/{kd_id}/siphonsin', lambda doc: (
             {"siphons": [entry for entry in doc["siphons_in"] if entry not in siphons_in]}, None))
 
-    # Writing an empty list over an empty list changes nothing, so only write when there was something to change.
-    if siphons_out:
+    # Only write what changed: nothing paid means no payment, and an unchanged list is not written back.
+    if payments:
         _defer(effects, pay)
+    if keep_siphons != siphons_out:
         _defer(effects, settle_out)
 
     # Two ticks at the same instant have no time between them: take nothing now and keep the siphons for the next.
+    siphon_out_income = sum(money for _, money, _ in paid) / epoch_elapsed if epoch_elapsed > 0 else 0
     siphon_in_income = sum(siphon["siphon"] for siphon in siphons_in) / epoch_elapsed if epoch_elapsed > 0 else 0
     if siphons_in and epoch_elapsed > 0:
         _defer(effects, collect_in)
-    return siphon_pool, siphon_in_income, siphons_in
+    return siphon_out_income, siphon_in_income, siphons_in
 
 def _calc_networth(
     kd_info_parse,

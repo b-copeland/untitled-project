@@ -20,7 +20,7 @@ function Spy(props) {
         "spystructures": `Reveals structures`,
         "spyprojects": `Reveals projects information`,
         "spydrones": `Reveals drones and spy attempts`,
-        "siphonfunds": `Steals up to ${props.state.game_config?.BASE_DRONES_SIPHON_PER_DRONE} money per drone over the next ${siphonDurationHours} hours, up to ${siphonMax} of the target's income. Siphons will be split across all siphoning kingdoms, proportional to drones sent.`,
+        "siphonfunds": `Steals up to ${props.state.game_config?.BASE_DRONES_SIPHON_PER_DRONE} money per drone, paid evenly over the next ${siphonDurationHours} hours. A kingdom loses at most ${siphonMax} of its income to all siphons together. When the siphons on it would take more, the oldest siphon is reduced first, then the next oldest, until they fit, and the newer ones pay in full. A reduced siphon stays reduced for the rest of its time, and what it could not take is lost.`,
         "bombhomes": `Destroys 1 home per ${props.state.game_config?.BASE_DRONES_PER_HOME_DAMAGE} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_HOME_DAMAGE)} of the target's homes.`,
         "sabotagefuelplants": `Destroys 1 fuel plant per ${props.state.game_config?.BASE_DRONES_PER_FUEL_PLANT_DAMAGE} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_FUEL_PLANT_DAMAGE)} of the target's fuel plants.`,
         "kidnappopulation": `Kidnaps 1 population per ${props.state.game_config?.BASE_DRONES_PER_KIDNAP} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_KIDNAP_DAMAGE)} of the target's population. ${displayPercent(props.state.game_config?.BASE_KIDNAP_RETURN_RATE)} of the kidnapped populaton returns to your kingdom.`,

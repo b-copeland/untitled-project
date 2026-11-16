@@ -231,6 +231,196 @@ def test_siphon_payments_wait_for_the_kingdom_to_be_written_and_are_not_repeated
     assert session.paths("PATCH").count("/kingdom/2/siphonsin") == 1
 
 
+# --- _settle_siphons: how much each siphon pays ----------------------------------------------------------------------
+
+EPOCH = shared.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+PER_DRONE = shared.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"]
+SIPHON_EPOCHS = shared.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"]
+MAX_SIPHON = shared.GAME_CONFIG["BASE_MAX_SIPHON"]
+RICH = 10**9  # an income whose cap no test reaches
+
+
+def _at(epochs):
+    """The time ``epochs`` epochs after NOW."""
+    return NOW + datetime.timedelta(seconds=epochs * EPOCH)
+
+
+def _new_siphon(drones, from_kd=2, started=0.0):
+    """An entry as a successful Siphon Funds stores it, ``started`` epochs after NOW."""
+    total = drones * PER_DRONE
+    return {"from": from_kd, "time": _at(started + SIPHON_EPOCHS).isoformat(), "siphon": total, "rate": total / SIPHON_EPOCHS}
+
+
+def _run_siphon(siphons, income, ticks, start=0.0):
+    """Settle the siphons tick by tick from ``start`` epochs after NOW, each tick ``elapsed`` epochs long. Returns the
+    money paid per sender and what is left."""
+    paid_to = {}
+    clock = start
+    for elapsed in ticks:
+        clock += elapsed
+        paid, siphons = refresh._settle_siphons(siphons, income, _at(clock), elapsed)
+        for entry, money, _ in paid:
+            paid_to[entry["from"]] = paid_to.get(entry["from"], 0) + money
+    return paid_to, siphons
+
+
+def test_one_siphon_pays_its_share_each_epoch_and_stops_at_its_total():
+    siphon = _new_siphon(drones=300)
+
+    paid, kept = refresh._settle_siphons([siphon], RICH, _at(1), 1.0)
+
+    rate = 300 * PER_DRONE / SIPHON_EPOCHS
+    assert [(entry["from"], money) for entry, money, _ in paid] == [(2, pytest.approx(rate))]
+    assert kept == [{**siphon, "siphon": pytest.approx(300 * PER_DRONE - rate)}]
+
+    paid_to, kept = _run_siphon([siphon], RICH, [1.0] * (SIPHON_EPOCHS + 3))
+    assert paid_to[2] == pytest.approx(300 * PER_DRONE)
+    assert kept == []
+
+
+def test_a_late_tick_pays_for_the_time_elapsed_but_never_more_than_the_siphon_has_left():
+    siphon = _new_siphon(drones=300)
+
+    paid, kept = refresh._settle_siphons([siphon], RICH, _at(2.5), 2.5)
+    assert paid[0][1] == pytest.approx(2.5 * siphon["rate"])
+
+    # A tick long after the end pays what was left, for the time it was still running, and drops it.
+    paid, kept = refresh._settle_siphons(kept, RICH, _at(SIPHON_EPOCHS + 10), SIPHON_EPOCHS + 10 - 2.5)
+    assert paid[0][1] == pytest.approx(siphon["siphon"] - 2.5 * siphon["rate"])
+    assert kept == []
+
+
+def test_no_time_elapsed_pays_nothing_and_changes_nothing():
+    siphon = _new_siphon(drones=300)
+
+    paid, kept = refresh._settle_siphons([siphon], RICH, NOW, 0.0)
+
+    assert paid == []
+    assert kept == [siphon]
+
+
+def test_siphons_under_the_cap_all_pay_in_full():
+    siphons = [_new_siphon(drones=100, from_kd=2), _new_siphon(drones=200, from_kd=3, started=-1)]
+    income = sum(s["rate"] for s in siphons) / MAX_SIPHON + 1
+
+    paid_to, _ = _run_siphon(siphons, income, [1.0, 1.0])
+
+    assert paid_to == {2: pytest.approx(2 * siphons[0]["rate"]), 3: pytest.approx(2 * siphons[1]["rate"])}
+
+
+def test_over_the_cap_the_oldest_siphon_is_cut_first_and_newer_ones_pay_in_full():
+    oldest = _new_siphon(drones=600, from_kd=2, started=-3)
+    middle = _new_siphon(drones=600, from_kd=3, started=-2)
+    newest = _new_siphon(drones=600, from_kd=4, started=-1)
+    rate = oldest["rate"]
+    # The cap leaves room for the two newer siphons and a quarter of the oldest.
+    income = 2.25 * rate / MAX_SIPHON
+
+    paid, kept = refresh._settle_siphons([newest, oldest, middle], income, _at(1), 1.0)
+
+    by_sender = {entry["from"]: money for entry, money, _ in paid}
+    assert by_sender == {2: pytest.approx(0.25 * rate), 3: pytest.approx(rate), 4: pytest.approx(rate)}
+    assert sum(by_sender.values()) == pytest.approx(income * MAX_SIPHON)
+    # The list keeps its order; the cut is stored on the oldest, and what it has left is what that rate can still pay.
+    assert [entry["from"] for entry in kept] == [4, 2, 3]
+    cut = kept[1]
+    assert cut["rate"] == pytest.approx(0.25 * rate)
+    epochs_left = SIPHON_EPOCHS - 3 - 1
+    assert cut["siphon"] == pytest.approx(0.25 * rate * epochs_left)
+
+
+def test_when_the_cut_is_bigger_than_the_oldest_siphon_the_next_oldest_is_cut_too():
+    oldest = _new_siphon(drones=600, from_kd=2, started=-2)
+    middle = _new_siphon(drones=600, from_kd=3, started=-1)
+    newest = _new_siphon(drones=600, from_kd=4)
+    rate = oldest["rate"]
+    income = 1.5 * rate / MAX_SIPHON
+
+    paid, kept = refresh._settle_siphons([oldest, middle, newest], income, _at(1), 1.0)
+
+    by_sender = {entry["from"]: money for entry, money, _ in paid}
+    assert by_sender == {3: pytest.approx(0.5 * rate), 4: pytest.approx(rate)}
+    assert sum(by_sender.values()) == pytest.approx(income * MAX_SIPHON)
+    # Cut to nothing, the oldest has nothing left to pay and is dropped.
+    assert [entry["from"] for entry in kept] == [3, 4]
+
+
+def test_a_cut_is_permanent_when_the_income_recovers():
+    oldest = _new_siphon(drones=600, from_kd=2, started=-1)
+    newest = _new_siphon(drones=600, from_kd=3)
+    rate = oldest["rate"]
+
+    _, kept = refresh._settle_siphons([oldest, newest], 1.5 * rate / MAX_SIPHON, _at(1), 1.0)
+    paid, kept = refresh._settle_siphons(kept, RICH, _at(2), 1.0)
+
+    by_sender = {entry["from"]: money for entry, money, _ in paid}
+    assert by_sender == {2: pytest.approx(0.5 * rate), 3: pytest.approx(rate)}
+    assert kept[0]["rate"] == pytest.approx(0.5 * rate)
+
+
+def test_a_cut_does_not_compound_when_the_income_stays_low():
+    oldest = _new_siphon(drones=600, from_kd=2, started=-1)
+    newest = _new_siphon(drones=600, from_kd=3)
+    income = 1.5 * oldest["rate"] / MAX_SIPHON
+
+    paid_to, _ = _run_siphon([oldest, newest], income, [1.0, 1.0, 1.0])
+
+    assert sum(paid_to.values()) == pytest.approx(3 * income * MAX_SIPHON)
+
+
+def test_no_income_means_nothing_is_siphoned():
+    paid, kept = refresh._settle_siphons([_new_siphon(drones=300)], -50, _at(1), 1.0)
+
+    assert paid == [] and kept == []
+
+
+def test_an_entry_made_before_the_rate_was_stored_pays_what_it_has_left_evenly_until_it_ends():
+    old = {"from": 2, "time": _at(4).isoformat(), "siphon": 400.0}
+
+    paid, kept = refresh._settle_siphons([old], RICH, _at(1), 1.0)
+
+    # Four epochs from the start of the tick to its end: a quarter of it each epoch, and the rate is stored from now on.
+    assert paid[0][1] == pytest.approx(100.0)
+    assert kept == [{**old, "siphon": pytest.approx(300.0), "rate": pytest.approx(100.0)}]
+    paid_to, kept = _run_siphon(kept, RICH, [1.0] * 5, start=1.0)
+    assert paid_to[2] == pytest.approx(300.0) and kept == []
+
+
+def test_an_old_entry_is_cut_like_any_other():
+    old = {"from": 2, "time": _at(4).isoformat(), "siphon": 400.0}
+    newest = _new_siphon(drones=600, from_kd=3)
+    income = newest["rate"] / MAX_SIPHON
+
+    paid, kept = refresh._settle_siphons([newest, old], income, _at(1), 1.0)
+
+    assert {entry["from"]: money for entry, money, _ in paid} == {3: pytest.approx(newest["rate"])}
+    assert [entry["from"] for entry in kept] == [3]
+
+
+def test_resolve_siphons_reports_the_money_siphoned_per_epoch(app, session, monkeypatch):
+    siphon = _new_siphon(drones=300)
+    _siphons(monkeypatch, siphons_out=[siphon], siphons_in=[])
+    session.docs["/kingdom/1/siphonsout"] = {"siphons_out": [siphon], "_etag": '"s0"'}
+
+    with app.app_context():
+        out_per_epoch, _, _ = refresh._resolve_siphons(RICH, 1, _at(2), 2.0)
+
+    assert out_per_epoch == pytest.approx(siphon["rate"])
+    (payment,) = [data for method, path, data in session.calls if path == "/kingdom/2/siphonsin"]
+    assert payment["new_siphons"]["siphon"] == pytest.approx(2 * siphon["rate"])
+    assert payment["new_siphons"]["remaining_siphon"] == pytest.approx(siphon["siphon"] - 2 * siphon["rate"])
+
+
+def test_a_tick_with_no_time_elapsed_writes_nothing(app, session, monkeypatch):
+    _siphons(monkeypatch, siphons_out=[_new_siphon(drones=300)], siphons_in=[{"siphon": 5}])
+
+    with app.app_context():
+        out_per_epoch, in_per_epoch, _ = refresh._resolve_siphons(RICH, 1, NOW, 0.0)
+
+    assert (out_per_epoch, in_per_epoch) == (0, 0)
+    assert session.paths("PATCH") == []
+
+
 # --- _refresh_kd: when the kingdom is read again --------------------------------------------------------------------
 
 
