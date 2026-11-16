@@ -57,7 +57,7 @@ building.
 | Spy attempts | A limited, regenerating allowance of spy operations. |
 | Reveal | Spying that shows part of another kingdom for a time (`REVEAL_OPERATIONS`). What is revealed decides what the API shows you. |
 | Aggressive spying | Siphon funds, bomb homes, sabotage fuel plants, kidnap population, suicide drones (`AGGRO_OPERATIONS`). |
-| Siphon | Taking a share of another kingdom's income for a time. |
+| Siphon | Taking money from another kingdom's income at a steady rate for a time: the drones sent times `BASE_DRONES_SIPHON_PER_DRONE`, paid evenly over `BASE_DRONES_SIPHON_TIME_MULTIPLIER` epochs. A kingdom loses at most `BASE_MAX_SIPHON` of its gross income per epoch to all siphons together. Over that cap the oldest siphons are cut first and newer ones pay in full, and a cut is permanent. |
 | Shared intel | Passing a reveal to a galaxymate, optionally for a cut of the gains. |
 | Primitives | Unclaimed land held by nobody. Attacking them gains stars; robbing them gains money. Both have automatic versions. |
 | Shields | Paid, per-epoch protection: military, spy, spy radar, missiles. |

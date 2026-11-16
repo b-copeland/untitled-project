@@ -1939,7 +1939,9 @@ def _spy(req, kd_id, target_kd):
                 "new_siphons": {
                     "from": kd_id,
                     "time": siphon_until,
-                    "siphon": siphon_damage
+                    "siphon": siphon_damage,
+                    # Money per epoch, paid evenly over the siphon's epochs. The refresh may lower it, never raise it.
+                    "rate": siphon_damage / uas.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"],
                 }
             }
             siphons_out_patch_response = REQUESTS_SESSION.patch(

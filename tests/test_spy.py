@@ -135,3 +135,20 @@ def test_the_missile_forecast_gives_damage_as_numbers_as_well_as_a_sentence(app,
     assert response.status_code == 200 and body["message"].startswith("The missiles will destroy")
     assert set(body["damage"]) == {"stars", "fuel", "pop"} and body["damage"]["stars"] > 0
     assert body["shields_assumed"] == 0.5
+
+
+def test_a_successful_siphon_stores_what_it_will_pay_each_epoch(app, client, jwt1, monkeypatch):
+    import untitledapp.conquer as conquer
+    import untitledapp.shared as shared
+
+    _set_up_two_kingdoms()
+    _create_item(f"siphons_out_{TARGET_ID}", {"siphons_out": []})
+    monkeypatch.setattr(conquer.random, "uniform", lambda low, high: low)  # the operation succeeds
+
+    response = _spy(client, jwt1, operation="siphonfunds", drones=120)
+
+    assert response.status_code == 200, response.get_json()
+    (siphon,) = _get(f"/kingdom/{TARGET_ID}/siphonsout")["siphons_out"]
+    total = 120 * shared.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"]
+    assert siphon["from"] == KD_ID and siphon["siphon"] == total
+    assert siphon["rate"] == total / shared.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"]

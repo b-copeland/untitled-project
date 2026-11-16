@@ -78,7 +78,8 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 |---|---|---|
 | `kingdom_<id>` | The kingdom itself; fields below | strict: the decision point for almost every action |
 | `settles_<id>`, `mobis_<id>`, `structures_<id>`, `missiles_<id>`, `engineers_<id>` | Build queues: a list of queue entries under the same name | strict-ish: appended by actions, trimmed by the refresh |
-| `siphons_in_<id>`, `siphons_out_<id>` | Active siphons on and by this kingdom | eventual |
+| `siphons_out_<id>` | `siphons_out`: the siphons running on this kingdom, see [below](#siphons) | eventual: appended by Siphon Funds, settled by the refresh |
+| `siphons_in_<id>` | `siphons_in`: payments to this kingdom from its siphons, waiting for its next refresh | eventual: appended by the target's refresh, cleared by this kingdom's |
 | `news_<id>` | `news`: list of `{time, from, to, news, kind}` (`kind` is `attack`, `spy`, `missiles`, `intel` or missing on old items) | eventual |
 | `revealed_<id>` | `revealed`: kd id to stat to expiry time; `galaxies`: galaxy id to expiry; `revealed_galaxymates`, `revealed_to_galaxymates` | eventual. The kingdom's `next_resolve.revealed` timer is lowered to the soonest expiry (`_lower_timer` in `conquer.py`) so the refresh expires them on time. |
 | `shared_<id>` | `shared`, `shared_requests`, `shared_offers`: intel shared with, requested from and offered by this kingdom | strict for accepting offers |
@@ -91,6 +92,24 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 The tiers are explained in [concurrency.md](concurrency.md#which-documents-need-strict-handling). In short: **strict**
 documents are read to decide whether something is allowed, so writes to them are conditional; **eventual** ones are only
 displayed, so appends are enough; **derived** ones are recomputed by the refresh and never written by actions.
+
+### Siphons
+
+A successful Siphon Funds appends one entry to the target's `siphons_out`:
+
+| Key | Meaning |
+|---|---|
+| `from` | The siphoning kingdom. Stripped from `/api/siphonsout`, so the target does not learn who it is. |
+| `time` | When the siphon ends |
+| `siphon` | Money it still has to take |
+| `rate` | Money it takes per epoch. Set to `siphon / BASE_DRONES_SIPHON_TIME_MULTIPLIER` when it is made. The refresh can lower it when the cap cuts this siphon, and never raises it. Entries made before this key existed do not have it: read it with `.get`. The refresh then uses what is left divided by the epochs left, and stores that rate. |
+
+Each tick, `_settle_siphons` in `refresh.py` pays each siphon its `rate` for the part of the tick it was running, never
+more than its `siphon`. If the rates together exceed `BASE_MAX_SIPHON` of the target's gross income, it cuts the
+soonest to end first. It then writes each siphon's lowered `siphon` and `rate` back, and drops siphons that have ended
+or have nothing left. Each payment is appended to the siphoner's `siphons_in` as `{from, siphon, time,
+remaining_siphon}`: `from` is the target, `siphon` the money paid, and `time` and `remaining_siphon` say when the
+siphon ends and what it still has to take. The siphoner's next refresh credits the payments and clears them.
 
 ## The kingdom document
 
