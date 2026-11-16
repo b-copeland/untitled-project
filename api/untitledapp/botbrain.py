@@ -88,6 +88,11 @@ MIN_DEFENSE = 0.0           # TUNE: the least defense any bot keeps home, in tim
 TRAINING_FULL = 0.9         # TUNE: "training": recruits in training at this share of the cap or more is training flat out
 TRAINING_LOW = 0.7          # TUNE: and below this share there are more homes than the army can use
 HOMES_STEP = 0.03           # TUNE: how far the homes share moves in one think under "training"
+DRONES_GUESS = "fixed"      # TUNE: a kingdom's drones without intel: "fixed" 4 a star; "learned" the median drones per
+                            #       star of the kingdoms whose drones the bot has seen
+SIPHON_SCOUT = False        # TUNE: spy on the drones of the best siphon targets it has no drones intel on, first
+DEFENSE_RISK_MODE = "floor"  # TUNE: with DEFENSE_RISK, "floor" raises the defense to it; "margin" makes it the bot's aim
+                            #       (above or below what its playstyle would keep)
 DEFENSE_RISK = None         # TUNE: (low, high): each bot keeps at least this range of the break-even with primitives,
                             #       where in it fixed per kingdom (its riskiness); None: off
 HOMES_SPARE = 1.15          # TUNE: homes kept over what the recruits and engineers need
@@ -181,7 +186,9 @@ PERSONALITIES = {
     "explorer": Personality(
         think_epochs=(2.0, 5.0),
         army_targets={"none": 0.1, "primitives": 0.9}, drone_targets={"primitives": 1.0}, bomber_chance=0.15,
-        settle_drive=(1.0, 1.0, 1.0), military_drive=(0.4, 0.45, 0.6), defense_margin=1.2,
+        # Defense near the break-even (0.85 of a line that counts war gains: about 1.0 in peace). At 1.2 explorers sat
+        # at 1.5 times it, were never hit, and ended a quarter smaller; nobody hunts them at 0.85 either.
+        settle_drive=(1.0, 1.0, 1.0), military_drive=(0.4, 0.45, 0.6), defense_margin=0.85,
         offense_share=(1.0, 0.9, 0.4), settle_first=True,
         workshops=(0.06, 0.06, 0.08), drone_factories=0.04, homes=0.5,
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.6, "military_bonus": 0.8, "general_bonus": 0.3, "spy_bonus": 0.4},
@@ -615,7 +622,11 @@ def plan_economy(world, personality, style, memory):
     line = strategy.defense_wanted(me, world.epochs, margin)
     # Whatever the playstyle, never so little that hitting it pays better than primitives.
     floor = MIN_DEFENSE
-    if DEFENSE_RISK:
+    if DEFENSE_RISK and DEFENSE_RISK_MODE == "margin":
+        # Its own riskiness instead of the playstyle's margin, still raised when hit and at war.
+        line = me["stars"] * strategy.break_even_per_star(world.epochs) * risk_floor(world.kd_id) * (
+            margin / (personality.defense_margin / temper))
+    elif DEFENSE_RISK:
         floor = max(floor, risk_floor(world.kd_id))
     line = max(line, me["stars"] * strategy.break_even_per_star(world.epochs) * floor)
     # And at least what keeps out the strongest army it knows of (its own intel and what galaxymates shared), up to a
@@ -992,14 +1003,30 @@ def _spy_decision(world, personality, target, operation, stars, drones_known, rn
     }, f"{why} ({chance:.0%} a try with {percent:.0f}% of the drones)"), chance
 
 
-def _guess_drones(world, target, stars):
-    """The target's drones if revealed, else a guess from its size (which only costs sending too many or too few)."""
+def _guess_drones(world, target, stars, memory=None):
+    """
+    The target's drones if revealed, else a guess from its size (which only costs sending too many or too few): 4 a
+    star, or with ``DRONES_GUESS = "learned"`` the median drones per star of the kingdoms the bot has seen the drones
+    of (kept in ``memory["drones_seen"]``).
+    """
     info = world._seen.get(target) or {}
-    if "drones" in info:
-        return info["drones"]
-    if world.seconds_left(target, "drones") > 0:
-        return world.target_info(target).get("drones", stars * 4)
-    return stars * 4
+    drones = info.get("drones")
+    if drones is None and world.seconds_left(target, "drones") > 0:
+        drones = world.target_info(target).get("drones")
+    learned = DRONES_GUESS == "learned" and memory is not None
+    if drones is not None:
+        if learned:
+            seen = memory.setdefault("drones_seen", {})
+            seen.pop(target, None)
+            seen[target] = round(drones / max(stars, 1), 2)
+            while len(seen) > 20:
+                seen.pop(next(iter(seen)))
+        return drones
+    per_star = 4.0
+    if learned and memory.get("drones_seen"):
+        values = sorted(memory["drones_seen"].values())
+        per_star = values[len(values) // 2]
+    return stars * per_star
 
 
 def plan_intel(world, personality, style, memory, rng, want_military=False):
@@ -1035,7 +1062,7 @@ def plan_intel(world, personality, style, memory, rng, want_military=False):
 
     def promise(kd):
         stars, networth = known[kd]
-        chance = strategy.spy_chance(mine, _guess_drones(world, kd, stars), stars)
+        chance = strategy.spy_chance(mine, _guess_drones(world, kd, stars, memory), stars)
         if category == "military":
             # Stars to take for the least army: networth beyond land is mostly army.
             value = stars / (1 + strategy.military_networth(networth, stars) / 1000)
@@ -1048,7 +1075,7 @@ def plan_intel(world, personality, style, memory, rng, want_military=False):
     target = max(lacking, key=promise)
     stars, _ = known[target]
     share = rng.random() < personality.share_chance
-    decision, chance = _spy_decision(world, personality, target, operation, stars, _guess_drones(world, target, stars), rng,
+    decision, chance = _spy_decision(world, personality, target, operation, stars, _guess_drones(world, target, stars, memory), rng,
                                      share, f"{operation} on {world.names[target]}")
     if chance < (MIN_SPY_CHANCE if want_military else 2 * MIN_SPY_CHANCE):
         return []  # not worth the spy attempt and the drones
@@ -1207,7 +1234,7 @@ def plan_drones(world, personality, style, memory, rng):
         shields = 0.0
         if not vult and world.seconds_left(kd, "shields") > 0:
             shields = world.target_info(kd).get("shields", {}).get("spy", 0.0)
-        return strategy.spy_chance(sent, _guess_drones(world, kd, stars), stars, shields)
+        return strategy.spy_chance(sent, _guess_drones(world, kd, stars, memory), stars, shields)
 
     def learned_chance(kd, forecast):
         # What the spies have seen of a target counts with what the forecast says: one that keeps catching them (a
@@ -1266,6 +1293,21 @@ def plan_drones(world, personality, style, memory, rng):
         # the best target take from each other. Spread them: each pick is drawn in proportion to what it is worth,
         # among those worth more than robbing.
         worth = sorted((option for option in options if option[0] > threshold and option[3] >= 0.2), reverse=True)
+        if SIPHON_SCOUT and spare >= 2:
+            # Siphoning blind is a guess at the target's drones: first see the drones of the best target it has none
+            # on (and offer it to the galaxy, whose thieves want the same).
+            blind = [option for option in worth[:3] if world.seconds_left(option[1], "drones") <= 0]
+            if blind:
+                target = blind[0][1]
+                stars = known[target][0]
+                scout, chance = _spy_decision(world, personality, target, "spydrones", stars,
+                                              _guess_drones(world, target, stars, memory), rng,
+                                              rng.random() < personality.share_chance,
+                                              f"spy on the drones of {world.names[target]} before siphoning it")
+                if chance >= 2 * MIN_SPY_CHANCE:
+                    decisions.append(scout)
+                    worth = [option for option in worth if option[1] != target]
+                    spare -= 1
         picked = []
         while worth and len(picked) < min(spare, MAX_SIPHONS_PER_THINK):
             weights = [option[0] ** SIPHON_SHARPNESS for option in worth]

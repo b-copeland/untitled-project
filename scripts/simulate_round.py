@@ -9,6 +9,7 @@ and the epoch keeps its real length (every duration in the game stays in proport
     python scripts/simulate_round.py --days 2 --bots 24 --seed 3
     python scripts/simulate_round.py --mix explorer=10,attacker=10 --json out.json
     python scripts/simulate_round.py --set WAR_MARGIN=1.5 --set thief.defense_margin=1.3 --set "*.rob_share=1.0"
+    python scripts/simulate_round.py --days 3 --bots 40 --replay round.html     # a page to watch the round back
 
 ``--set`` tries a number without editing the code: a constant of ``botbrain.py`` or ``botstrategy.py`` by name, or a
 ``Personality`` field as ``<playstyle>.<field>`` (``*`` for every playstyle). Values are Python literals.
@@ -42,6 +43,92 @@ COMBAT = ("attack", "defense", "flex", "big_flex")
 NUMBER = re.compile(r"(-?[\d,.]+) (stars|money)")
 
 
+class Recorder:
+    """
+    What a replay page needs: a frame every few epochs (each kingdom's stars, networth and whether it is dead, the
+    empires), every bot decision as it is made, and afterwards every attack, spy operation, missile and news item.
+    ``write(path)`` puts it in one HTML page (``replay_template.html``) that opens from disk.
+    """
+
+    def __init__(self, sim, every_epochs=2.0):
+        self.sim = sim
+        self.every = every_epochs * sim.epoch
+        self.next = 0.0
+        self.frames = []
+        self.decisions = collections.defaultdict(list)
+        self.seen = {}
+        self.empires = []
+
+    def day(self, text):
+        try:
+            when = datetime.datetime.fromisoformat(str(text))
+        except ValueError:
+            return None
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=datetime.timezone.utc)
+        return round((when - self.sim.start).total_seconds() / 86400, 4)
+
+    def tick(self):
+        elapsed = (self.sim.clock.now - self.sim.start).total_seconds()
+        if elapsed < self.next:
+            return
+        self.next = elapsed + self.every
+        kingdoms = self.sim.kingdoms()
+        self.frames.append([round(self.sim.day(), 4), {
+            kd_id: [kd.get("stars", 0), kd.get("networth", 0), int(str(kd.get("status")).lower() == "dead")]
+            for kd_id, kd in kingdoms.items() if kd.get("race")}])
+        for kd_id, kd in kingdoms.items():
+            for entry in (kd.get("bot") or {}).get("log", []):
+                if entry.get("time", "") > self.seen.get(kd_id, ""):
+                    self.decisions[kd_id].append([self.day(entry.get("time")), entry.get("kind"), entry.get("why"),
+                                                  entry.get("outcome")])
+            log = (kd.get("bot") or {}).get("log", [])
+            if log:
+                self.seen[kd_id] = max(self.seen.get(kd_id, ""), max(entry.get("time", "") for entry in log))
+        empires = {eid: {"name": e.get("name"), "galaxies": e.get("galaxies", []), "war": e.get("war", [])}
+                   for eid, e in self.sim.doc("empires").get("empires", {}).items()}
+        if not self.empires or self.empires[-1][1] != empires:
+            self.empires.append([round(self.sim.day(), 4), empires])
+
+    def data(self):
+        kingdoms = {kd_id: kd for kd_id, kd in self.sim.kingdoms().items() if kd.get("race")}
+        galaxy_of = {kd: g for g, members in self.sim.doc("galaxies").get("galaxies", {}).items() for kd in members}
+        events = []
+        for kd_id in kingdoms:
+            for entry in self.sim.doc(f"attack_history_{kd_id}").get("attack_history", []):
+                to = entry.get("to") or ""
+                ok = str(entry.get("news", "")).startswith("Success") if to else True  # primitives always give way
+                events.append([self.day(entry.get("time")), "attack" if to else "primitives", kd_id, to, ok, entry.get("news", "")])
+            for entry in self.sim.doc(f"spy_history_{kd_id}").get("spy_history", []):
+                if not entry.get("to"):
+                    continue  # robbing primitives: too many to show
+                ok = not str(entry.get("news", "")).startswith("Failure")
+                events.append([self.day(entry.get("time")), "spy", kd_id, entry["to"], ok,
+                               f"{entry.get('operation')}: {entry.get('news', '')}"])
+            for entry in self.sim.doc(f"missile_history_{kd_id}").get("missile_history", []):
+                events.append([self.day(entry.get("time")), "missiles", kd_id, entry.get("to", ""), True, entry.get("news", "")])
+        for item in self.sim.doc("universe_news").get("news", []):
+            if isinstance(item, dict):
+                events.append([self.day(item.get("time")), "universe", "", "", True, item.get("news", "")])
+        events = sorted((e for e in events if e[0] is not None), key=lambda e: e[0])
+        return {
+            "days": self.sim.days,
+            "kingdoms": {kd_id: {"name": kd["name"], "type": (kd.get("bot") or {}).get("type", "player"),
+                                 "galaxy": galaxy_of.get(kd_id), "race": kd.get("race"),
+                                 "style": (kd.get("bot") or {}).get("style") or {}}
+                         for kd_id, kd in kingdoms.items()},
+            "frames": self.frames,
+            "decisions": self.decisions,
+            "events": events,
+            "empires": self.empires,
+        }
+
+    def write(self, path):
+        template = (ROOT / "scripts" / "replay_template.html").read_text(encoding="utf-8")
+        payload = json.dumps(self.data(), separators=(",", ":")).replace("</", "<\\/")
+        pathlib.Path(path).write_text(template.replace("/*REPLAY_DATA*/null", payload), encoding="utf-8")
+
+
 def kingdom_metrics(kd, epochs, uas, strategy):
     """What one kingdom looks like, for judging how well it plays: plain numbers, comparable between kingdoms."""
     stars = max(kd["stars"], 1)
@@ -59,6 +146,8 @@ def kingdom_metrics(kd, epochs, uas, strategy):
         "primitives_defense_per_star": strategy.primitives_defense_per_star(epochs),
         "deterrence_per_star": strategy.deterrence_per_star(epochs),
         "income_land": sum(structures.get(key, 0) for key in INCOME_LAND) / built,
+        "homes_land": structures.get("homes", 0) / built,
+        "mines_land": structures.get("mines", 0) / built,
         "storage_land": sum(structures.get(key, 0) for key in STORAGE_LAND) / built,
         "empty_land": max(stars - built, 0) / stars,
         "hangar_fill": housed / max(hangars, 1),
@@ -296,10 +385,12 @@ class Simulation:
             for kd_id, kd in self.kingdoms().items() if kd.get("race")
         }))
 
-    def run(self, progress=None, sample_days=0.5):
+    def run(self, progress=None, sample_days=0.5, recorder=None):
         next_sample = 0.0
         while self.clock.now < self.end - datetime.timedelta(seconds=self.tick_seconds):
             self.tick()
+            if recorder:
+                recorder.tick()
             if self.day() >= next_sample:
                 self.sample()
                 next_sample += sample_days
@@ -486,6 +577,14 @@ def report(results, out=sys.stdout, detail=False):
             values = [row.get("flows", {}).get(name, 0) for row in results["rows"] if row["type"] == kind]
             cells.append(statistics.median(values) if values else 0)
         print(f"    {name:<32}" + "".join(f"{value:>11,.0f}" for value in cells), file=out)
+    # Money flows are easier to judge against what a kingdom earns itself.
+    for name in ("income from siphons", "income lost to siphons", "money from robbing", "money from intel shared"):
+        cells = []
+        for kind in kinds:
+            values = [row.get("flows", {}).get(name, 0) / max(row.get("flows", {}).get("income from mines and people", 0), 1)
+                      for row in results["rows"] if row["type"] == kind]
+            cells.append(statistics.median(values) if values else 0)
+        print(f"    {(name + ', % of own'):<32}" + "".join(f"{value:>11.1%}" for value in cells), file=out)
 
     print("\nSpy success rates (ok / tried):", file=out)
     for kind, counter in sorted(results["actions"].items()):
@@ -550,6 +649,7 @@ def main():
     parser.add_argument("--election-day", type=float, default=2.0)
     parser.add_argument("--detail", action="store_true", help="also list every kingdom")
     parser.add_argument("--json", help="write the results to this file")
+    parser.add_argument("--replay", help="write a page to watch the round back (HTML, opens from disk)")
     parser.add_argument("--errors", action="store_true", help="let the game log its errors")
     parser.add_argument("--set", action="append", default=[], metavar="NAME=VALUE", dest="overrides",
                         help="try a bot number without editing the code (see above); may be repeated")
@@ -566,8 +666,11 @@ def main():
             stars = sorted((s for (_, s, _, _) in sim.samples[-1][1].values()), reverse=True)
             print(f"  day {sim.day():4.1f}  {time.time() - started:5.0f}s  top stars {stars[:3]}", file=real_stdout, flush=True)
 
-        sim.run(progress=progress)
+        recorder = Recorder(sim) if args.replay else None
+        sim.run(progress=progress, recorder=recorder)
         results = sim.results()
+        if recorder:
+            recorder.write(args.replay)
     finally:
         sys.stdout = real_stdout
     report(results, detail=args.detail)

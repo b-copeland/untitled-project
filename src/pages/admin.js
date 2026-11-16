@@ -14,6 +14,7 @@ import {adminAuth} from "../auth";
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
+import AdminUniverse from "./adminuniverse";
 
 function Admin(props) {
   const [username, setUsername] = useState('');
@@ -262,6 +263,8 @@ function Admin(props) {
             <h2>{resetMessage}</h2>
             <br />
             <Button onClick={() => adminAuth.logout()}>Logout</Button>
+            <hr />
+            <AdminUniverse />
         </div>
     }
     </div>

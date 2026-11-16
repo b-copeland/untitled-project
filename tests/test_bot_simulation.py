@@ -14,11 +14,16 @@ def test_a_day_of_bots_runs_clean_and_every_playstyle_grows(tmp_path):
         # Three of each playstyle, not the default mix: with one intel bot among five attackers, "the median intel bot"
         # is one kingdom, and whether it is farmed on the first day is chance.
         [sys.executable, str(ROOT / "scripts" / "simulate_round.py"), "--days", "1",
-         "--mix", "explorer=3,attacker=3,intel=3,thief=3", "--galaxies", "3", "--seed", "5", "--json", str(out)],
+         "--mix", "explorer=3,attacker=3,intel=3,thief=3", "--galaxies", "3", "--seed", "5", "--json", str(out),
+         "--replay", str(tmp_path / "replay.html")],
         cwd=ROOT, capture_output=True, text=True, timeout=300,
     )
     assert done.returncode == 0, done.stderr[-2000:]
     results = json.loads(out.read_text(encoding="utf-8"))
+    # The replay page carries the round: frames, every kingdom, and the bots' decisions.
+    page = (tmp_path / "replay.html").read_text(encoding="utf-8")
+    data = json.loads(page.split("const REPLAY = ", 1)[1].split(";\nconst TYPES", 1)[0].replace("<\\/", "</"))
+    assert len(data["kingdoms"]) == 12 and len(data["frames"]) > 20 and sum(map(len, data["decisions"].values())) > 100
 
     # Nothing the game logs as an error: no bot failed to think, no kingdom was skipped by the refresh.
     assert results["errors"] == {} and results["failed_ticks"] == []

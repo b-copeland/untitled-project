@@ -217,9 +217,15 @@ def test_racing_acceptances_of_one_surrender_offer_transfer_the_stars_once(app, 
     assert _get("/empire/e1/politics")["surrender_offers_received"] == []
 
 
-def test_a_double_click_on_create_empire_makes_one_empire(app, client, jwt1):
+def test_a_double_click_on_create_empire_makes_one_empire(app, client, jwt1, backend):
     """No lock: the function app takes the id with a conditional write and refuses a galaxy already in an empire."""
     _two_player_galaxy()
+    # An empire founded by an earlier test leaves empire_politics_0 behind (the reset between tests blanks documents,
+    # it does not delete them), and creating the new empire's documents would then fail. Between rounds /resetstate
+    # deletes them.
+    if backend is not None:
+        for doc_id in [d for d in backend.docs if d.startswith(("empire_politics_", "empire_news_"))]:
+            del backend.docs[doc_id]
     _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID))
 
     responses = _run_together(app, 5, lambda c, i: c.post(

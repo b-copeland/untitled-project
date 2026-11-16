@@ -139,3 +139,59 @@ def create_bots():
     except ValueError as error:
         return flask.jsonify({"message": str(error)}), 400
     return flask.jsonify({"message": f"Created {len(created)} bots", "status": "success", "bots": created}), 201
+
+
+# --- watching a round -------------------------------------------------------------------------------------------------
+# Admin only, and everything is shown: these routes are for the maintainer watching a round (bots included), not for
+# players. The universe view reads four shared documents whatever the number of kingdoms; a kingdom's details are two
+# reads, made when the admin opens it.
+
+
+@bp.route('/api/admin/universe', methods=["GET"])
+@flask_praetorian.roles_required('admin')
+def admin_universe():
+    """Every kingdom at a glance: name, galaxy, empire, stars, networth and points, and the round's times."""
+    import untitledapp.getters as uag
+
+    names = uag._get_kingdoms()
+    kd_empire, empires_info, _, galaxy_members = uag._get_empires_inverted()
+    galaxy_of = {kd: galaxy for galaxy, members in galaxy_members.items() for kd in members}
+    scores = uag._get_scores()
+    state = uag._get_state().get("state", {})
+    empires = empires_info.get("empires", {})
+    kingdoms = []
+    for kd_id, name in names.items():
+        empire = kd_empire.get(kd_id)
+        kingdoms.append({
+            "kd_id": kd_id,
+            "name": name,
+            # Bots are named bot_<playstyle>_<n> (bots.py).
+            "playstyle": name.split("_")[1] if name.startswith("bot_") and name.count("_") >= 2 else "player",
+            "galaxy": galaxy_of.get(kd_id),
+            "empire": empires.get(empire, {}).get("name") if empire else None,
+            "stars": scores.get("stars", {}).get(kd_id, 0),
+            "networth": scores.get("networth", {}).get(kd_id, 0),
+            "points": round(scores.get("points", {}).get(kd_id, 0), 1),
+        })
+    return flask.jsonify({
+        "kingdoms": sorted(kingdoms, key=lambda kd: -kd["networth"]),
+        "game_start": state.get("game_start"),
+        "game_end": state.get("game_end"),
+        "empires": {eid: {"name": e.get("name"), "galaxies": e.get("galaxies", []), "war": e.get("war", [])}
+                    for eid, e in empires.items()},
+    }), 200
+
+
+@bp.route('/api/admin/kingdom/<kd_id>', methods=["GET"])
+@flask_praetorian.roles_required('admin')
+def admin_kingdom(kd_id):
+    """One kingdom in full, with its bot's style, phase, memory and decisions if it is a bot, and its latest news."""
+    import untitledapp.getters as uag
+    import untitledapp.occ as occ
+
+    kingdom = uag._get_kd_info(kd_id)
+    if not kingdom or "kdId" not in kingdom:
+        return flask.jsonify({"message": "No such kingdom"}), 400
+    kingdom = {key: value for key, value in kingdom.items() if not key.startswith("_")}
+    news = occ.read(f'/kingdom/{kd_id}/news').get("news", [])
+    return flask.jsonify({"kingdom": kingdom, "news": news[-20:]}), 200

@@ -116,6 +116,12 @@ hidden state.
   1.1 it cost attackers 10% of their stars and intel bots 16%, without saving the attackers any stars, so it is 0.
   `DEFENSE_RISK = (0.95, 1.1)` gives each bot its own floor in that range instead (fixed per kingdom, `risk_floor`);
   that cost attackers 11% and the universe 6%, so it is off too.
+- **How much is enough, measured.** With `DEFENSE_RISK_MODE = "margin"` the range is each bot's aim instead of its
+  playstyle's margin. Within a playstyle riskier bots did no better (the riskier third of attackers ended 9% larger
+  but lost twice the stars to strikes); between playstyles it showed explorers far over-defended (1.5 times the
+  break-even) and intel bots hunted as soon as they drop to it. So explorers now aim at about the break-even
+  (`defense_margin` 0.85 of a line that counts war gains): they grew 27%, are still almost never hit, and attackers,
+  who lose fewer stars to each other, 11%. The universe ended 3% larger. Intel bots keep their margin.
 - **The rest of the army money is offense** (`army_plan`, `offense_share`), sent at primitives by the auto attack with
   every pure attacker (`pure` is 100%: they are no use at home). Recruits are drafted only as fast as the money turns
   them into units (`max_recruits`, units before recruits).
@@ -211,14 +217,23 @@ versions run with the same seed differ only by the change. One seed is still one
 before believing a change. `tests/test_bot_simulation.py` plays one day of it in the suite. (`scripts/simulate_bots.py` is the other one:
 it drives the real local stack in real time.)
 
+**Watching a round.** `--replay round.html` writes one page with the round in it (`replay_template.html`, data
+inlined, opens from disk): kingdoms ranked by networth or stars as the round plays, at a speed you choose or scrubbed
+by hand; attacks, spying, missiles and universe news as they happen; and for any kingdom, its stars over the round
+and every decision its bot made, with the reason. A frame every two epochs: a week of 100 bots is a few megabytes.
+For a round on the local stack (`simulate_bots.py`, or a real one), the admin page has **Watch the round**
+(`/api/admin/universe`, four reads whatever the number of kingdoms, and `/api/admin/kingdom/<id>`, two reads when
+one is opened): every kingdom at a glance, and one in full with its bot. Admin only; nothing is hidden there.
+
 **All `Personality` and archetype numbers are `TUNE` values.** `botbrain.problems(personality)` and
 `bots.problems(archetype)` check them, with the validators the routes use.
 
 ### Where it stands (2026-11-15)
 
 **100 bots in 10 galaxies, the default mix, seven days, mean of three seeds** (median stars, with steady-rate siphons
-and intel sold for its cut): attackers 10,100, explorers 11,400, thieves 8,500, intel bots 7,800. The measurements
-below were made before those two changes. Against the bots before siphon spreading and learning and the
+and intel sold for its cut): attackers 11,300, explorers 14,400, thieves 8,700, intel bots 7,200, with explorers
+defended at the break-even; before that, 10,100, 11,400, 8,500 and 7,800. The measurements below were made before
+these changes. Against the bots before siphon spreading and learning and the
 threat-aware defense, that is the same overall (9,520 median stars both ways); attackers lose a third fewer stars to
 strikes (960 against 1,380) and fewer die; siphon losses are spread (explorers lose 1.1 million each over the week
 instead of 0.3 million, intel bots 1.4 instead of 2.9); thieves take about a fifth less by siphons (6.5 million
@@ -275,21 +290,26 @@ Not changed: these are balance and rules, which are the maintainer's call.
    attempt brings about 15 per star per epoch, against about 95 a thief earns at home. Over a week siphons were 3-4% of a
    thief's income. Robbing primitives falls to about 1 per drone by day 7. A siphon that scaled with the target's
    income, or a higher per-drone amount, would be the lever.
-5. **Selling intel pays intel bots a little.** About 30% of the attackers' winning strikes use intel a galaxymate
+5. **Siphon targets are guessed blind.** Without drones intel a bot guesses 4 drones a star; attackers and explorers
+   have about 2.2 (the easiest targets), thieves 6.2, so thieves are overrated (72% expected, 62% worked) and still
+   draw a quarter of the siphons. Guessing from the drones the bot has seen (`DRONES_GUESS = "learned"`) and spying on
+   drones before siphoning (`SIPHON_SCOUT`) both left thieves worse off (siphon income down 13-32%), so both are off.
+   Siphons are 6.5% of a thief's own income: a bigger change to thieving is a balance question.
+6. **Selling intel pays intel bots a little.** About 30% of the attackers' winning strikes use intel a galaxymate
    shared. Each intel bot earns about 110 stars and 80,000 money a week from cuts (2% of its stars), which made it 6%
    larger and the attackers 5% smaller. (Until the bug below was fixed it earned nothing.) Lumina's offense penalty
    keeps it off the primitives.
-6. **The mix of playstyles matters less than expected** (100 bots, 10 galaxies, one seed each, so a lead not a
+7. **The mix of playstyles matters less than expected** (100 bots, 10 galaxies, one seed each, so a lead not a
    result; before the default mix). With only 10 attackers, those attackers took two and a half times the stars from kingdoms (3,200 against
    1,300 each). With only 10 thieves, each thief siphoned 30% more, but did not end ahead. At this size empires of three
    galaxies formed, and several wars ran at once.
-7. **`pop_bonus` does nothing.** The project says it increases homes capacity; no formula reads it. The bots put no
+8. **`pop_bonus` does nothing.** The project says it increases homes capacity; no formula reads it. The bots put no
    engineers on it.
-8. **Engineers can be disbanded.** `_validate_disband` builds the message "You can't disband engineers" but does not
+9. **Engineers can be disbanded.** `_validate_disband` builds the message "You can't disband engineers" but does not
    return it.
-9. **A small kingdom can be ground down to nothing.** An attack takes at least 25 stars however small the target, and
+10. **A small kingdom can be ground down to nothing.** An attack takes at least 25 stars however small the target, and
    nothing protects a kingdom a tenth of the attacker's size. Bots that only hit kingdoms do this to each other.
-10. **Treatied won the election in the runs looked at**, because three of the four playstyles vote for it. It makes
+11. **Treatied won the election in the runs looked at**, because three of the four playstyles vote for it. It makes
    every unit 20% dearer for all of them too.
 
 ### Bugs found on the way (fixed)
