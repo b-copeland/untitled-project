@@ -1142,6 +1142,8 @@ def _resolve_schedule_intelspy(new_kd_info, schedule):
     operation = schedule["options"].get("operation", "")
     target_kd = schedule["options"].get("target", "")
     share_to_galaxy = schedule["options"].get("share_to_galaxy", False)
+    # The cut asked for shared intel, in percent as on the Spy page (the Schedule page sends none: free).
+    cut = schedule["options"].get("cut", 0) or 0
 
     def _loop_spies(kd_id, drones_pct, max_tries, shielded, operation, target_kd, share_to_galaxy):
         kd_info = uag._get_kd_info(kd_id)
@@ -1151,6 +1153,7 @@ def _resolve_schedule_intelspy(new_kd_info, schedule):
                 "shielded": shielded,
                 "operation": operation,
                 "share_to_galaxy": share_to_galaxy,
+                "cut": cut,
             }
             new_kd_info, payload, status_code, success = uac._spy(req, kd_id, target_kd)
             if success:

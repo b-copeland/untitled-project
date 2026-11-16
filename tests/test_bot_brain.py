@@ -939,3 +939,23 @@ def test_every_bot_keeps_more_defense_than_makes_it_a_better_target_than_primiti
     wanted = float(why.split(" of ")[1].split(" wanted")[0].replace(",", ""))
     floor = world.me["stars"] * brain.strategy.break_even_per_star(world.epochs) * brain.MIN_DEFENSE
     assert wanted == pytest.approx(floor, abs=1)
+
+
+def test_each_bot_has_its_own_riskiness_within_the_range(monkeypatch):
+    monkeypatch.setattr(brain, "DEFENSE_RISK", (0.95, 1.1))
+    floors = [brain.risk_floor(kd) for kd in range(100)]
+    assert all(0.95 <= f <= 1.1 for f in floors) and max(floors) - min(floors) > 0.1
+    assert brain.risk_floor("7") == brain.risk_floor("7")  # fixed per kingdom
+
+
+def test_homes_follow_whether_recruits_are_trained_flat_out(monkeypatch):
+    monkeypatch.setattr(brain, "HOMES_RULE", "training")
+    world = StubWorld(day=3, me={"funding": {**kingdom()["funding"], "military": 10 ** 7}})
+    monkeypatch.setattr(brain, "recruits_training_share", lambda world: 1.0)
+    memory = {}
+    brain.plan_economy(world, ATTACKER, style(), memory)
+    assert memory["homes_shift"] == brain.HOMES_STEP  # flat out, money waiting: more homes
+    monkeypatch.setattr(brain, "recruits_training_share", lambda world: 0.3)
+    brain.plan_economy(world, ATTACKER, style(), memory)
+    brain.plan_economy(world, ATTACKER, style(), memory)
+    assert memory["homes_shift"] == -brain.HOMES_STEP  # not training flat out: too many homes

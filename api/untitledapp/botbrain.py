@@ -45,6 +45,7 @@ import datetime
 import math
 import random
 import uuid
+import zlib
 
 import flask
 
@@ -72,16 +73,23 @@ SPY_FAILS = 3               # TUNE: failed intel operations in a row before a ta
 SPY_FORGET_EPOCHS = 48      # TUNE: and for how long
 MAX_SIPHONS_PER_THINK = 3   # TUNE: siphons scheduled in one think, on different kingdoms
 SIPHON_PICK = "spread"      # TUNE: "spread" draws siphon targets in proportion to their worth; "best" takes the best
+SIPHON_SHARPNESS = 1.0      # TUNE: siphon targets are drawn in proportion to worth ** this (higher: the best more often)
 SIPHON_PRIOR = 2.0          # TUNE: how many siphons' worth of trust the forecast chance gets against what was seen
 SIPHON_MEMORY = 0.8         # TUNE: how much of what was seen of a target's spies is kept with each new try
 THREAT_MARGIN = 1.05        # TUNE: defense wanted over the strongest offense an outsider is known to have
 THREAT_CAP = 2.0            # TUNE: but never more than this many times the deterrence line
 THREAT_EPOCHS = 24          # TUNE: how long a threat seen is remembered
 HOMES_RULE = "surplus"      # TUNE: "surplus" moves the homes share with money to spare (more homes) or short (more
-                            #       mines); "people" sizes homes for the recruits the money could buy (it did worse)
+                            #       mines); "people" sizes homes for the recruits the money could buy (it did worse);
+                            #       "training" moves it by whether recruits are being trained at the cap
 MIN_DEFENSE = 0.0           # TUNE: the least defense any bot keeps home, in times the peacetime break-even with
                             #       primitives (1.1: a hit on it pays less than primitives, though it still hurts an
                             #       enemy). Off: at 1.1 attackers ended 10% and intel 16% smaller (docs/bots.md).
+TRAINING_FULL = 0.9         # TUNE: "training": recruits in training at this share of the cap or more is training flat out
+TRAINING_LOW = 0.7          # TUNE: and below this share there are more homes than the army can use
+HOMES_STEP = 0.03           # TUNE: how far the homes share moves in one think under "training"
+DEFENSE_RISK = None         # TUNE: (low, high): each bot keeps at least this range of the break-even with primitives,
+                            #       where in it fixed per kingdom (its riskiness); None: off
 HOMES_SPARE = 1.15          # TUNE: homes kept over what the recruits and engineers need
 ENGINEERS_PER_STAR = None   # TUNE: the most engineers a kingdom keeps per star (None: as many as the workshops hold)
 WAR_MARGIN = 1.3            # TUNE: how much more defense a kingdom whose empire is at war keeps
@@ -606,7 +614,10 @@ def plan_economy(world, personality, style, memory):
         margin *= WAR_MARGIN  # an enemy at war gains more from us, and wants to
     line = strategy.defense_wanted(me, world.epochs, margin)
     # Whatever the playstyle, never so little that hitting it pays better than primitives.
-    line = max(line, me["stars"] * strategy.break_even_per_star(world.epochs) * MIN_DEFENSE)
+    floor = MIN_DEFENSE
+    if DEFENSE_RISK:
+        floor = max(floor, risk_floor(world.kd_id))
+    line = max(line, me["stars"] * strategy.break_even_per_star(world.epochs) * floor)
     # And at least what keeps out the strongest army it knows of (its own intel and what galaxymates shared), up to a
     # point: a kingdom can not out-defend everybody.
     threat = note_threat(world, memory)
@@ -672,6 +683,18 @@ def plan_economy(world, personality, style, memory):
         "missile_silos": personality.missile_silos if style.get("bomber") and phase_name != "early" else 0.0,
         "homes": min(max(personality.homes + surplus * MAX_HOMES_SHIFT, 0.35), 0.9),
     }
+    if HOMES_RULE == "training":
+        # Mines earn more than homes; homes are for the people recruits are drafted from. Training recruits flat out
+        # with money waiting for them: more homes. Not training flat out: more homes than the army uses, so fewer.
+        share = recruits_training_share(world)
+        waiting = me["funding"].get("military", 0) > income
+        shift = memory.get("homes_shift", 0.0)
+        if share >= TRAINING_FULL and waiting:
+            shift += HOMES_STEP
+        elif share < TRAINING_LOW:
+            shift -= HOMES_STEP
+        memory["homes_shift"] = round(min(max(shift, -0.3), 0.4), 3)
+        land["homes"] = min(max(personality.homes + memory["homes_shift"], 0.2), 0.9)
     if HOMES_RULE == "people":
         # Homes for the people the army and the engineers draft from, a little over; mines for the rest of the land.
         # The army's share of the spending plan is itself capped by how fast recruits can be drafted, so sizing homes
@@ -743,6 +766,21 @@ def plan_economy(world, personality, style, memory):
         f"defense {counted * multiplier:,.0f} of {wanted:,.0f} wanted"
         + (", stalled" if stalled else "") + (", holding for a strike" if holding else ""))
     return settings, "; ".join(why)
+
+
+def recruits_training_share(world):
+    """Recruits in training as a share of the most there can be (``BASE_MAX_RECRUITS_CAP`` of the people), as the
+    Military page counts them. One read: the mobis queue."""
+    me = world.me
+    units = uag._calc_units(world.now, me["units"], me.get("generals_out", []), uag._get_mobis_queue(world.kd_id))
+    cap = uas.GAME_FUNCS["BASE_MAX_RECRUITS"](int(me.get("population", 0)))
+    return units["hour_24"].get("recruits", 0) / max(cap, 1)
+
+
+def risk_floor(kd_id):
+    """Where in ``DEFENSE_RISK`` this kingdom keeps its defense: fixed per kingdom, so each bot has its own riskiness."""
+    low, high = DEFENSE_RISK
+    return low + (high - low) * (zlib.crc32(str(kd_id).encode()) / 2 ** 32)
 
 
 def plan_survival(world, memory):
@@ -1230,10 +1268,11 @@ def plan_drones(world, personality, style, memory, rng):
         worth = sorted((option for option in options if option[0] > threshold and option[3] >= 0.2), reverse=True)
         picked = []
         while worth and len(picked) < min(spare, MAX_SIPHONS_PER_THINK):
-            draw = rng.random() * sum(option[0] for option in worth) if SIPHON_PICK == "spread" else 0.0
+            weights = [option[0] ** SIPHON_SHARPNESS for option in worth]
+            draw = rng.random() * sum(weights) if SIPHON_PICK == "spread" else 0.0
             index = 0
-            while index < len(worth) - 1 and draw > worth[index][0]:
-                draw -= worth[index][0]
+            while index < len(worth) - 1 and draw > weights[index]:
+                draw -= weights[index]
                 index += 1
             picked.append(worth.pop(index))
         for value, target, sent, chance in picked:

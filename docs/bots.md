@@ -114,6 +114,8 @@ hidden state.
 - **A floor for every playstyle, off for now** (`MIN_DEFENSE`): at 1.1 every bot keeps at least 1.1 times the
   peacetime break-even with primitives (`break_even_per_star`), so a hit on it pays less than primitives. Measured at
   1.1 it cost attackers 10% of their stars and intel bots 16%, without saving the attackers any stars, so it is 0.
+  `DEFENSE_RISK = (0.95, 1.1)` gives each bot its own floor in that range instead (fixed per kingdom, `risk_floor`);
+  that cost attackers 11% and the universe 6%, so it is off too.
 - **The rest of the army money is offense** (`army_plan`, `offense_share`), sent at primitives by the auto attack with
   every pure attacker (`pure` is 100%: they are no use at home). Recruits are drafted only as fast as the money turns
   them into units (`max_recruits`, units before recruits).
@@ -130,6 +132,10 @@ hidden state.
   the spending plan, which is itself capped by how fast recruits can be drafted, homes and army shrank each other
   (armies a quarter the size); sized from all the money the other categories leave, it overbuilt homes for intel bots
   and thieves (about half their homes-and-mines land) and the universe ended 6% smaller.
+  `"training"` moves the homes share by whether recruits are trained at the cap (`recruits_training_share`, one read of
+  the mobis queue): fewer homes while they are not. It fell into the same trap: a bot drafts recruits only as fast as
+  its money turns them into units, so it is never training flat out, and its homes went to the floor (armies a quarter
+  the size, the universe 4% smaller).
 - **Engineers where a bonus is slipping** (`projects_plan`): a continuous bonus gets what keeps it full as the kingdom
   grows; a share works on the playstyle's unlock (Drone Gadgets, Big Flexers, Star Busters for bombers), which also
   takes whoever the bonuses do not need.
@@ -150,7 +156,8 @@ hidden state.
 - **Thieves compare too**: a siphon is scheduled when its expected take beats what the same spy attempt robs from
   primitives, which it does more and more as primitives are robbed bare.
 - **Siphons spread out.** Siphons on one kingdom are held to its 15%, and a new one cuts the oldest for good, so
-  thieves that all pick the richest target take from each other. Each target is drawn in proportion to what it is worth (`SIPHON_PICK`), its income worked out from its
+  thieves that all pick the richest target take from each other. Each target is drawn in proportion to what it is worth (`SIPHON_PICK`; drawing by worth cubed,
+  `SIPHON_SHARPNESS = 3`, did worse), its income worked out from its
   structures when they are revealed (`income_from_intel`), so a kingdom of mines is worth more than one of homes.
 - **And learn who catches them** (`note_siphons`): every siphon's outcome, from the spy history, is counted per
   target with the older ones counting less (`SIPHON_MEMORY`), and blended with the forecast (`SIPHON_PRIOR`). A
@@ -209,8 +216,9 @@ it drives the real local stack in real time.)
 
 ### Where it stands (2026-11-15)
 
-**100 bots in 10 galaxies, the default mix, seven days, mean of three seeds** (median stars): attackers 9,700,
-explorers 11,200, thieves 8,500, intel bots 7,400. Against the bots before siphon spreading and learning and the
+**100 bots in 10 galaxies, the default mix, seven days, mean of three seeds** (median stars, with steady-rate siphons
+and intel sold for its cut): attackers 10,100, explorers 11,400, thieves 8,500, intel bots 7,800. The measurements
+below were made before those two changes. Against the bots before siphon spreading and learning and the
 threat-aware defense, that is the same overall (9,520 median stars both ways); attackers lose a third fewer stars to
 strikes (960 against 1,380) and fewer die; siphon losses are spread (explorers lose 1.1 million each over the week
 instead of 0.3 million, intel bots 1.4 instead of 2.9); thieves take about a fifth less by siphons (6.5 million
@@ -267,10 +275,10 @@ Not changed: these are balance and rules, which are the maintainer's call.
    attempt brings about 15 per star per epoch, against about 95 a thief earns at home. Over a week siphons were 3-4% of a
    thief's income. Robbing primitives falls to about 1 per drone by day 7. A siphon that scaled with the target's
    income, or a higher per-drone amount, would be the lever.
-5. **Selling intel earns intel bots nothing.** Over a week of 100 bots no intel bot earned a star from a cut: about
-   30% of the attackers' winning strikes used intel a galaxymate shared, but all of it was shared free (by attackers
-   and thieves, who ask no cut), and attackers accept what is offered first. Lumina's offense penalty also keeps it off
-   the primitives. Why no paid offer is ever used is not yet known.
+5. **Selling intel pays intel bots a little.** About 30% of the attackers' winning strikes use intel a galaxymate
+   shared. Each intel bot earns about 110 stars and 80,000 money a week from cuts (2% of its stars), which made it 6%
+   larger and the attackers 5% smaller. (Until the bug below was fixed it earned nothing.) Lumina's offense penalty
+   keeps it off the primitives.
 6. **The mix of playstyles matters less than expected** (100 bots, 10 galaxies, one seed each, so a lead not a
    result; before the default mix). With only 10 attackers, those attackers took two and a half times the stars from kingdoms (3,200 against
    1,300 each). With only 10 thieves, each thief siphoned 30% more, but did not end ahead. At this size empires of three
@@ -285,6 +293,9 @@ Not changed: these are balance and rules, which are the maintainer's call.
    every unit 20% dearer for all of them too.
 
 ### Bugs found on the way (fixed)
+
+- **A scheduled spy shared its intel for free whatever cut was asked**: `refresh._resolve_schedule_intelspy` dropped
+  the `cut` option. Players are not affected (the Schedule page has no cut field); the bots' intel was given away.
 
 - **The auto builder built no units once the army had the mix asked for**, which is always the case for a single-unit
   target such as "all defense". It now keeps building in the target's proportions. This affects players too (the Help
