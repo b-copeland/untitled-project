@@ -293,6 +293,12 @@ GAME_CONFIG = {
 
     "SURPRISE_WAR_PENALTY_OFFENSE_INCREASE": 0.1,
     "SURPRISE_WAR_PENALTY_MULTIPLIER": 48,
+
+    # A galaxy can not join an empire if the empire would then hold more than these shares of the universe's
+    # kingdoms or networth. An empire of two galaxies is always allowed.
+    "EMPIRE_MAX_KINGDOMS_SHARE": 0.30,
+    "EMPIRE_MAX_NETWORTH_SHARE": 0.35,
+    "EMPIRE_ALWAYS_ALLOWED_GALAXIES": 2,
 }
 
 GAME_FUNCS = {

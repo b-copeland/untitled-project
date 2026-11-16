@@ -798,7 +798,9 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
             if "max_bonus" in project_dict
         }
         kd_info_parse_allowed["current_bonuses"] = {
+            # A kingdom with no stars left (a dead one) has no project caps: no bonuses either.
             project: project_dict.get("max_bonus", 0) * min(kd_info_parse_allowed["projects_points"][project] / kd_info_parse_allowed["projects_max_points"][project], 1.0)
+            if kd_info_parse_allowed["projects_max_points"].get(project) else 0.0
             for project, project_dict in uas.PROJECTS.items()
             if "max_bonus" in project_dict
         }

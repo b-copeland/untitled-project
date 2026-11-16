@@ -43,10 +43,54 @@ def _claim_entry(path, field, expected, message):
     occ.update(path, claim)
 
 
-def _change_empire_galaxies(empire_id, add=None, remove=None):
+def empire_size_problem(empire_galaxies, galaxy, galaxy_members, galaxy_networth):
+    """
+    Why ``galaxy`` may not join an empire of ``empire_galaxies``, or None if it may: the empire would then hold more
+    than ``EMPIRE_MAX_KINGDOMS_SHARE`` of the universe's kingdoms or ``EMPIRE_MAX_NETWORTH_SHARE`` of its networth.
+    An empire of ``EMPIRE_ALWAYS_ALLOWED_GALAXIES`` galaxies is always allowed. ``galaxy_members`` is
+    ``{galaxy: [kingdoms]}`` and ``galaxy_networth`` ``{galaxy: networth}``, as the scores have it. The bots ask the
+    same question before they invite or ask.
+    """
+    together = set(empire_galaxies) | {galaxy}
+    if len(together) <= uas.GAME_CONFIG["EMPIRE_ALWAYS_ALLOWED_GALAXIES"]:
+        return None
+    kingdoms = sum(len(galaxy_members.get(g, [])) for g in together)
+    all_kingdoms = max(sum(len(members) for members in galaxy_members.values()), 1)
+    if kingdoms / all_kingdoms > uas.GAME_CONFIG["EMPIRE_MAX_KINGDOMS_SHARE"]:
+        return (f"The Empire would have {kingdoms / all_kingdoms:.0%} of the universe's kingdoms; "
+                f"the most an Empire can have is {uas.GAME_CONFIG['EMPIRE_MAX_KINGDOMS_SHARE']:.0%}")
+    networth = sum(galaxy_networth.get(g, 0) for g in together)
+    all_networth = max(sum(galaxy_networth.values()), 1)
+    if networth / all_networth > uas.GAME_CONFIG["EMPIRE_MAX_NETWORTH_SHARE"]:
+        return (f"The Empire would have {networth / all_networth:.0%} of the universe's networth; "
+                f"the most an Empire can have is {uas.GAME_CONFIG['EMPIRE_MAX_NETWORTH_SHARE']:.0%}")
+    return None
+
+
+def _size_check(galaxy):
+    """
+    A check for ``_change_empire_galaxies``: refuses ``galaxy`` if it would make the empire too large. The galaxies
+    and the scores are read only when the empire would be larger than the size that is always allowed, and once.
+    """
+    read = {}
+
+    def check(empire_galaxies):
+        if len(set(empire_galaxies) | {galaxy}) <= uas.GAME_CONFIG["EMPIRE_ALWAYS_ALLOWED_GALAXIES"]:
+            return
+        if not read:
+            read["members"] = uag._get_galaxies_inverted()[1]
+            read["networth"] = uag._get_scores().get("galaxy_networth", {})
+        problem = empire_size_problem(empire_galaxies, galaxy, read["members"], read["networth"])
+        if problem:
+            raise occ.Rejected(problem)
+    return check
+
+
+def _change_empire_galaxies(empire_id, add=None, remove=None, check=None):
     """
     Add a galaxy to an empire, or take one out, on the empires document as it is right now (not the copy read at the
-    start of the request, which would overwrite changes made since). Returns the empire's galaxies afterwards.
+    start of the request, which would overwrite changes made since). ``check`` is called with the empire's galaxies as
+    they are now, before ``add`` joins them, and may raise ``occ.Rejected``. Returns the empire's galaxies afterwards.
     """
     def change(empires_document):
         empire = empires_document["empires"][empire_id]
@@ -56,6 +100,8 @@ def _change_empire_galaxies(empire_id, add=None, remove=None):
         ):
             # Two invitations accepted at the same moment: whichever lands first wins.
             raise occ.Rejected("That galaxy is already part of an Empire")
+        if add is not None and check is not None and add not in galaxies:
+            check(galaxies)
         if add is not None and add not in galaxies:
             galaxies.append(add)
         empire["galaxies"] = galaxies
@@ -254,12 +300,16 @@ def ask_to_join_empire(kd_id, target_empire):
     app = flask.current_app
 
     galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
-    empires_inverted, _, _, _ = uag._get_empires_inverted()
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
 
 
     valid_join, message = _validate_join_empire(galaxy_politics, kd_id, empires_inverted)
     if not valid_join:
         return {"message": message}, 400
+    try:
+        _size_check(kd_galaxy)(empires_info["empires"].get(target_empire, {}).get("galaxies", []))
+    except occ.Rejected as rejection:
+        return {"message": rejection.message}, 400
         
         
     target_empire_politics = uag._get_empire_politics(target_empire)
@@ -322,7 +372,7 @@ def join_invited_empire(kd_id, target_empire):
             return {"message": message}, 400
         
         
-        _change_empire_galaxies(target_empire, add=kd_galaxy)
+        _change_empire_galaxies(target_empire, add=kd_galaxy, check=_size_check(kd_galaxy))
         target_empire_politics = uag._get_empire_politics(target_empire)
         _change_list(f'/empire/{target_empire}/politics', "empire_invitations", remove=kd_galaxy)
         galaxy_payload = {
@@ -369,7 +419,7 @@ def invite_galaxy_to_empire(kd_id, target_galaxy):
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
     galaxy_politics, _ = uag._get_galaxy_politics("", galaxy_id=target_galaxy)
-    empires_inverted, _, galaxy_empires, _ = uag._get_empires_inverted()
+    empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
     kd_empire = empires_inverted.get(kd_id)
 
     
@@ -378,6 +428,10 @@ def invite_galaxy_to_empire(kd_id, target_galaxy):
     valid_invite, message = _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, target_galaxy, kd_galaxy_politics, kd_galaxy_id)
     if not valid_invite:
         return {"message": message}, 400
+    try:
+        _size_check(target_galaxy)(empires_info["empires"].get(kd_empire, {}).get("galaxies", []))
+    except occ.Rejected as rejection:
+        return {"message": rejection.message}, 400
         
 
     _change_list(f'/empire/{kd_empire}/politics', "empire_invitations", add=target_galaxy)
@@ -452,7 +506,7 @@ def admit_galaxy_to_empire(kd_id, target_galaxy):
             return {"message": message}, 400
         
 
-        _change_empire_galaxies(kd_empire, add=target_galaxy)
+        _change_empire_galaxies(kd_empire, add=target_galaxy, check=_size_check(target_galaxy))
         _change_list(f'/empire/{kd_empire}/politics', "empire_join_requests", remove=target_galaxy)
         galaxy_payload = {
             "empire_invitations": [],

@@ -229,3 +229,61 @@ def test_a_double_click_on_create_empire_makes_one_empire(app, client, jwt1):
     assert {r.get_json()["message"] for r in responses if r.status_code == 400} == {"You are already part of an Empire"}
     empires = _get("/empires")["empires"]
     assert len(empires) == 1 and next(iter(empires.values()))["galaxies"] == ["1:1"]
+
+
+# --- how large an empire may grow
+
+
+def _ten_galaxies(empire_galaxies, networth=None, **leader_politics):
+    """Ten galaxies of one kingdom each; ``KD_ID`` leads 1:1, and empire e1 holds ``empire_galaxies``."""
+    _set_up_kingdom(money=0)
+    galaxies = {f"1:{i}": [KD_ID if i == 1 else str(i)] for i in range(1, 11)}
+    _create_item("galaxies", {"galaxies": galaxies})
+    for galaxy in galaxies:
+        _create_item(f"galaxy_votes_{galaxy}", _galaxy_politics(leader=galaxies[galaxy][0]))
+    _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID, **leader_politics))
+    _create_item("scores", {"stars": {}, "networth": {}, "points": {},
+                            "galaxy_networth": networth or {galaxy: 100 for galaxy in galaxies}})
+    _create_item("empires", {"empires": {"e1": {"galaxies": empire_galaxies, "aggression": {}}}})
+
+
+def test_an_empire_may_not_grow_past_30_percent_of_the_kingdoms():
+    import untitledapp.politics as uap
+
+    members = {f"g{i}": ["k"] for i in range(10)}
+    networth = {g: 100 for g in members}
+    assert uap.empire_size_problem(["g1"], "g2", members, networth) is None             # two may always ally
+    assert uap.empire_size_problem(["g1", "g2"], "g3", members, networth) is None       # 30% of the kingdoms
+    assert "kingdoms" in uap.empire_size_problem(["g1", "g2", "g3"], "g4", members, networth)
+    assert "networth" in uap.empire_size_problem(["g1", "g2"], "g3", members, {**networth, "g1": 1000})
+
+
+def test_accepting_an_invitation_that_would_make_the_empire_too_large_is_refused(app, client, jwt1):
+    _ten_galaxies(["1:2", "1:3", "1:4"], empire_invitations=["e1"])
+    _create_item("empire_politics_e1", _empire_politics("1:2", empire_invitations=["1:1"]))
+
+    response = client.post("/api/empire/e1/acceptinvite", headers=_auth(jwt1))
+
+    assert response.status_code == 400 and "30%" in response.get_json()["message"]
+    assert _get("/empires")["empires"]["e1"]["galaxies"] == ["1:2", "1:3", "1:4"]
+
+
+def test_asking_to_join_an_empire_with_too_much_networth_is_refused(app, client, jwt1):
+    _ten_galaxies(["1:2", "1:3"], networth={**{f"1:{i}": 100 for i in range(1, 11)}, "1:2": 1000})
+    _create_item("empire_politics_e1", _empire_politics("1:2"))
+
+    response = client.post("/api/empire/e1/join", headers=_auth(jwt1))
+
+    assert response.status_code == 400 and "networth" in response.get_json()["message"]
+    assert _get("/empire/e1/politics")["empire_join_requests"] == []
+
+
+def test_an_empire_with_room_admits_a_galaxy(app, client, jwt1):
+    _ten_galaxies(["1:1", "1:3"])
+    _create_item("galaxy_votes_1:4", _galaxy_politics(leader="4", empire_join_requests=["e1"]))
+    _create_item("empire_politics_e1", _empire_politics("1:1", empire_join_requests=["1:4"]))
+
+    response = client.post("/api/galaxy/1:4/accept", headers=_auth(jwt1))
+
+    assert response.status_code == 200, response.get_json()
+    assert _get("/empires")["empires"]["e1"]["galaxies"] == ["1:1", "1:3", "1:4"]
