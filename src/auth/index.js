@@ -1,6 +1,6 @@
 import { createAuthProvider } from 'react-token-auth';
 
-const { useAuth, authFetch, login, logout, getSession, getSessionState } = createAuthProvider({
+const { useAuth, authFetch: tokenAuthFetch, login, logout, getSession, getSessionState } = createAuthProvider({
     getAccessToken: session => session.accessToken,
     storage: localStorage,
     onUpdateToken: token =>
@@ -12,6 +12,30 @@ const { useAuth, authFetch, login, logout, getSession, getSessionState } = creat
     onHydratation: session => session,
     expirationThresholdMillisec: 1000 * 3600
 });
+
+/** authFetch, but a 401 (a token from an earlier round, or one the server no longer accepts) signs the player out. */
+const authFetch = async (...args) => {
+    const response = await tokenAuthFetch(...args);
+    if (response.status === 401) logout();
+    return response;
+};
+
+/**
+ * The server returns new tokens when it changes the player's kingdom (created, reset): the old ones still name the
+ * old state. Store them before anything is read again. A response without tokens changes nothing.
+ */
+const storeNewTokens = async (response) => {
+    try {
+        const body = await response.clone().json();
+        if (body && body.accessToken && body.refreshToken) {
+            login({ accessToken: body.accessToken, refreshToken: body.refreshToken });
+        }
+    } catch (e) {
+        // not JSON: nothing to store
+    }
+    return response;
+};
+
 const adminAuth = createAuthProvider({
     getAccessToken: session => session.accessToken,
     storage: localStorage,
@@ -24,4 +48,4 @@ const adminAuth = createAuthProvider({
     onHydratation: session => session,
     expirationThresholdMillisec: 1000 * 3600
 });
-export {useAuth, authFetch, login, logout, getSession, getSessionState, adminAuth}
+export {useAuth, authFetch, storeNewTokens, login, logout, getSession, getSessionState, adminAuth}

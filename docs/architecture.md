@@ -24,8 +24,10 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
 - **The function app owns storage, nothing else.** Each route reads or writes one Cosmos document. It does no game
   logic. Its `update_*` handlers merge or append into the newest version of the document (see [data-model.md](data-model.md)).
 - **Identity is in Cosmos, through the function app.** Each user is a `user_<id>` document (login, roles, `kd_id`), read
-  by `users.User`, which flask-praetorian logs in with. `current_user()` reads the caller's user once per request: one
-  function app call on every authenticated request. At startup Flask makes sure an `admin` user exists, so the function
+  by `users.User`, which flask-praetorian logs in with. The login token carries the kingdom id, whether the
+  kingdom was created, and the round ([decisions/0005](decisions/0005-kingdom-in-the-token.md)), so `current_user()`
+  answers `id`, `roles`, `kd_id` and `kd_created` from the token with no read; any other field reads the user document
+  once per request. At startup Flask makes sure an `admin` user exists, so the function
   app must be up before Flask starts. See [data-model.md](data-model.md#users) and
   [decisions/0004](decisions/0004-users-in-cosmos.md).
 - **The game tick.** Nothing advances on its own. Something must call `GET /api/refreshdata` with the `Refresh-Secret`
@@ -100,7 +102,7 @@ The project should be able to move to another cloud, database or web framework w
 | Optimistic concurrency | Cosmos `_etag` with `If-Match` | Every serious store has the same thing: Postgres row versions, DynamoDB conditional writes, Firestore preconditions. Keep the `decide` pattern, never the Cosmos details, in game code. |
 | Game rules | `shared.py` constants and formulas spread through the blueprints | Pure functions with no framework imports. |
 | Azure SDKs | Only in `funcapp/` | Keep it that way. Nothing in `api/` imports `azure.*`. |
-| Identity | flask-praetorian over `users.User`, documents behind the function app | Game code needs only `current_user().kd_id`. Keep it to that, so the user store can move again (and so the user read can later come out of hot routes, with the kingdom id as a JWT claim). |
+| Identity | flask-praetorian over `users.User`, documents behind the function app | Game code needs only `current_user().kd_id`. Keep it to that, so the user store can move again. The token's copy can be a day old: a route that decides something from the user (creating or resetting a kingdom) reads the document. |
 | Scheduling | An App Service WebJob calls `/api/refreshdata` (configured in the portal) | The tick is a plain authenticated HTTP call, so any scheduler works. |
 | Configuration | Environment variables (`api/config.py`, function app settings) | Keep it that way. No settings in code, no cloud-specific config files read by game code. |
 | Secrets | `api/.flaskenv`, `funcapp/local.settings.json`, App Service settings | Environment only. |
@@ -153,7 +155,8 @@ that the app starts without it). Do not bring SQL back.
 - **Locks** were removed once every writer of each document was conditional or commutative
   ([concurrency.md](concurrency.md)).
 
-In game code take `kd_id` from `flask_praetorian.current_user()` and nothing else new from `User`.
+In game code take `kd_id` from `flask_praetorian.current_user()` and nothing else new from `User`. A route that changes
+`kd_id` or `kd_created` must return new tokens (`users.issue_tokens`); the front end stores them (`storeNewTokens`).
 
 ## Where things are
 

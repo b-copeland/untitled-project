@@ -1,7 +1,7 @@
 import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
 import {useNavigate} from "react-router-dom";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
+import {login, authFetch, storeNewTokens, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
@@ -91,7 +91,7 @@ function Status(props) {
         setClickedReset(true);
         const updateFunc = () => authFetch('api/resetkingdom', {
             method: 'post'
-        })
+        }).then(storeNewTokens)
         props.updateData(['kingdom', 'kingdomid'], [updateFunc]);
     }
 

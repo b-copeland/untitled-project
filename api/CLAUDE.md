@@ -18,7 +18,7 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
 ## Conventions
 
 - Routes: `@bp.route(...)`, then `@flask_praetorian.auth_required` (or `roles_required('admin')`), then
-  `@alive_required` and, if needed, `@start_required`. The player's kingdom is `flask_praetorian.current_user().kd_id`.
+  `@alive_required` and, if needed, `@start_required`. The player's kingdom is `flask_praetorian.current_user().kd_id` (from the login token, no read).
 - Parse and type-check the request body first, and answer `400` with a message for bad input before touching state.
 - Responses: `flask.jsonify({"message": "...", "status": "success"}), 200` on success; `{"message": "<why>"}` with `400`
   on a refusal. Messages are short sentences the player reads in a toast.
@@ -33,7 +33,7 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
   forecasts and the bots.
 - Other kingdoms' data: through `_get_max_kd_info`, which keeps only the fields the caller has revealed. `max=True`
   skips the filter; never put that result in a response.
-- Users: game code takes only `flask_praetorian.current_user().kd_id` (read once per request) from the user. Change a
+- Users: game code takes only `flask_praetorian.current_user().kd_id` (from the login token) from the user. A route that changes `kd_id` or `kd_created` returns `issue_tokens(...)`. Change a
   user with `user.save(**fields)` or `user.update(decide)`, never by setting attributes. `User.by_kd_id`,
   `by_email`, `with_prefix` and `all` are one cross-partition query each: never per kingdom or per tick.
 - Nothing is stored in SQLite any more; do not bring it back.

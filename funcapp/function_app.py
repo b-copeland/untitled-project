@@ -2,6 +2,7 @@ import azure.functions as func
 import logging
 import os
 import json
+import uuid
 import datetime
 import re
 from collections import defaultdict
@@ -71,6 +72,7 @@ def init_state(req: func.HttpRequest) -> func.HttpResponse:
             {
                 "id": "state",
                 "state": {},
+                "round": str(uuid.uuid4()),
             }
         )
         CONTAINER.create_item(
@@ -192,6 +194,11 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
                     partition_key=item["id"],
                 )
 
+        # A new round id: login tokens issued before the reset stop working (decision 0005).
+        round_state = CONTAINER.read_item(item="state", partition_key="state")
+        round_state["round"] = str(uuid.uuid4())
+        CONTAINER.replace_item("state", round_state)
+
         accounts = CONTAINER.read_item(
             item="accounts",
             partition_key="accounts"
@@ -211,6 +218,9 @@ def reset_state(req: func.HttpRequest) -> func.HttpResponse:
         kingdoms = CONTAINER.read_item(
             item="kingdoms",
             partition_key="kingdoms"
+        )
+        kingdoms["next_id"] = max(
+            [kingdoms.get("next_id", 0), len(kingdoms["kingdoms"])] + [int(k) + 1 for k in kingdoms["kingdoms"]]
         )
         kingdoms["kingdoms"] = {}
         CONTAINER.replace_item(
@@ -446,10 +456,13 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
         kingdoms = existing_kds["kingdoms"]
         if kd_name in kingdoms.values():
             raise Refused("This kingdom already exists")
-        kd_id = str(len(kingdoms))
-        while kd_id in kingdoms:  # ids are never reused, even if one was ever removed
+        # `next_id` survives a round reset, so an id is never reused: a login token from an earlier round
+        # (docs/decisions/0005-kingdom-in-the-token.md) names a kingdom that does not exist, not someone else's.
+        kd_id = str(max(len(kingdoms), existing_kds.get("next_id", 0)))
+        while kd_id in kingdoms:
             kd_id = str(int(kd_id) + 1)
         kingdoms[kd_id] = kd_name
+        existing_kds["next_id"] = int(kd_id) + 1
         return kd_id
 
     def join_galaxy(galaxies):

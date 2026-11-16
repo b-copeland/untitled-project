@@ -123,6 +123,10 @@ def get_scores():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def kingdomid():
+    # Called when the app loads, so a token from an earlier round is turned away here, not on every poll.
+    from untitledapp import users
+    if users.token_is_stale():
+        return flask.jsonify({"message": users.STALE_MESSAGE}), 401
     kd_id = flask_praetorian.current_user().kd_id
     kd_created = flask_praetorian.current_user().kd_created
     if kd_id == None:

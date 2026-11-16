@@ -20,6 +20,7 @@ attribute and expect it to be stored.
 import json
 
 import flask
+from flask_praetorian.utilities import app_context_has_jwt_data, get_jwt_data_from_app_context
 
 from untitledapp import REQUESTS_SESSION
 import untitledapp.occ as occ
@@ -95,7 +96,20 @@ class User:
 
     @classmethod
     def identify(cls, id):
-        """The user with this id, read at most once per request. None if there is none."""
+        """
+        The user with this id. A token that carries the kingdom (docs/decisions/0005-kingdom-in-the-token.md) is
+        answered from the token, with no read: the full user is only read if something other than the id, roles,
+        ``kd_id`` and ``kd_created`` is asked for. Otherwise the document is read at most once per request. None if
+        there is none.
+        """
+        claims = _token_claims()
+        if claims is not None and "kd" in claims and not flask.g.get("strict_identify") and str(claims.get("id")) == str(id):
+            return TokenUser(claims)
+        return cls.read(id)
+
+    @classmethod
+    def read(cls, id):
+        """The user with this id from the document, read at most once per request. None if there is none."""
         try:
             path = f"/user/{int(id)}"
         except (TypeError, ValueError):
@@ -212,3 +226,94 @@ class User:
         if created.status_code >= 300:
             raise RuntimeError(f"Creating user {id_number} failed with {created.status_code}: {created.text}")
         return cls(document)
+
+
+def _token_claims():
+    """The verified claims of this request's token, or None outside an authenticated request."""
+    try:
+        if flask.has_request_context() and app_context_has_jwt_data():
+            return get_jwt_data_from_app_context()
+    except Exception:
+        pass
+    return None
+
+
+class TokenUser:
+    """
+    The caller as the login token describes them: id, roles, kingdom id and whether the kingdom was created. It is
+    what ``current_user()`` returns for most requests, so a poll does not read the user document. Any other field
+    (death date, email, ...) and ``save`` use the document, read once per request.
+
+    A token is valid for a day, so a player disabled since it was issued still passes ``is_valid`` here (decision
+    0005). ``refresh`` and login read the document.
+    """
+
+    def __init__(self, claims):
+        self.id = int(claims["id"])
+        self.kd_id = claims.get("kd") or None
+        self.kd_created = bool(claims.get("kc"))
+        self.roles = claims.get("rls", "")
+        self.round = claims.get("rnd", "")
+
+    @property
+    def identity(self):
+        return self.id
+
+    @property
+    def rolenames(self):
+        return [role for role in (self.roles or "").split(",") if role]
+
+    def is_valid(self):
+        return True
+
+    def _user(self):
+        user = User.read(self.id)
+        if user is None:
+            raise RuntimeError(f"User {self.id} no longer exists")
+        return user
+
+    def __getattr__(self, name):
+        # Only called for attributes not set above: the rest of the user's fields and methods.
+        if name.startswith("__") or name in ("claims",):
+            raise AttributeError(name)
+        return getattr(self._user(), name)
+
+    def save(self, **fields):
+        user = User.get(self.id)
+        result = user.save(**fields)
+        self.kd_id = user.kd_id or None
+        self.kd_created = bool(user.kd_created)
+        return result
+
+
+def issue_tokens(user, round_id=None):
+    """
+    A new ``{"accessToken", "refreshToken"}`` pair for ``user`` (a ``User`` read now), with the kingdom and the round
+    in the claims. Call it after every change to ``kd_id`` or ``kd_created`` and hand the result to the player.
+    """
+    guard = flask.current_app.extensions["praetorian"]
+    if round_id is None:
+        round_id = current_round()
+    claims = {"kd": user.kd_id or "", "kc": bool(user.kd_created), "rnd": round_id}
+    return {
+        "accessToken": guard.encode_jwt_token(user, **claims),
+        "refreshToken": guard.encode_jwt_token(user, **claims),
+    }
+
+
+def current_round():
+    """The id of the round now running ('' on a game that has never been reset)."""
+    import untitledapp.getters as getters
+    try:
+        return getters._get_state().get("round", "") or ""
+    except ValueError:  # no state document yet (a game that was never initialised)
+        return ""
+
+
+def token_is_stale():
+    """True if this request's token was issued in an earlier round. A token without a round (old) is not stale."""
+    claims = _token_claims()
+    return claims is not None and "rnd" in claims and claims["rnd"] != current_round()
+
+
+STALE_MESSAGE = "The round has ended. Please log in again."

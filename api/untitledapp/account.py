@@ -4,7 +4,11 @@ import re
 import flask
 import flask_praetorian
 
+import jwt
+from flask_praetorian.constants import AccessType
+
 from untitledapp import User, UserExists
+from untitledapp.users import issue_tokens, current_round, STALE_MESSAGE
 import untitledapp.mailer as mailer
 import untitledapp.occ as occ
 
@@ -17,17 +21,25 @@ def login():
     username = req.get('username', None)
     password = req.get('password', None)
     user = guard.authenticate(username, password)
-    ret = {'accessToken': guard.encode_jwt_token(user), 'refreshToken': guard.encode_jwt_token(user)}
-    return (flask.jsonify(ret), 200)
+    return (flask.jsonify(issue_tokens(user)), 200)
 
 @bp.route('/api/refresh', methods=['POST'])
 def refresh():
     guard = flask.current_app.extensions['praetorian']
 
     old_token = guard.read_token_from_header()
-    new_token = guard.refresh_jwt_token(old_token)
-    ret = {'accessToken': new_token}
-    return ret, 200
+    old_claims = guard.extract_jwt_token(old_token, access_type=AccessType.refresh)
+    round_id = current_round()
+    if "rnd" in old_claims and old_claims["rnd"] != round_id:
+        return flask.jsonify({"message": STALE_MESSAGE}), 401
+    # Read the user document, not the token's copy: a disabled player is refused here (decision 0005).
+    flask.g.strict_identify = True
+    claims = guard.extract_jwt_token(guard.refresh_jwt_token(old_token))
+    # praetorian copies the old token's custom claims; rebuild them from the user as they are now.
+    user = User.read(claims["id"])
+    claims.update({"kd": user.kd_id or "", "kc": bool(user.kd_created), "rnd": round_id})
+    new_token = jwt.encode(claims, guard.encode_key, guard.encode_algorithm)
+    return {'accessToken': new_token}, 200
 
 
 def _rejected(rejection):
