@@ -108,6 +108,12 @@ def reset_state():
         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/resetstate',
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
     )
+    # A new round is open for play again; the finished one stays in its archive.
+    REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + '/updatestate',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps({"game_over": ""}),
+    )
     # Users outlive the round (the function app's reset keeps their documents); only their kingdoms go.
     for user in User.all():
         if user.kd_id not in (None, "") or user.kd_created or user.kd_death_date not in (None, ""):

@@ -8,7 +8,6 @@ import logging
 from functools import wraps
 
 import flask
-import flask_sqlalchemy
 import flask_praetorian
 import flask_cors
 from flask_mail import Mail
@@ -16,7 +15,6 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_sock import Sock, ConnectionClosed
 
-db = flask_sqlalchemy.SQLAlchemy()
 guard = flask_praetorian.Praetorian()
 cors = flask_cors.CORS()
 mail = Mail()
@@ -152,8 +150,6 @@ def create_app(config_class='config.Config'):
     guard.init_app(app, User)
     app.extensions["praetorian"] = guard
 
-    db.init_app(app)
-
     # Initializes CORS so that the api_tool can talk to the example app
     cors.init_app(app)
 
@@ -179,6 +175,7 @@ def create_app(config_class='config.Config'):
     import untitledapp.misc as uam
     import untitledapp.politics as uap
     import untitledapp.refresh as uar
+    import untitledapp.roundend as uare
     app.register_blueprint(uaa.bp)
     app.register_blueprint(uaad.bp)
     app.register_blueprint(uab.bp)
@@ -187,6 +184,8 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uam.bp)
     app.register_blueprint(uap.bp)
     app.register_blueprint(uar.bp)
+    app.register_blueprint(uare.bp)
+    app.before_request(uare.frozen_response)  # once the round is over, the game is read only
 
     limiter = Limiter(
         _custom_limit_key_func,

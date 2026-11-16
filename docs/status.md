@@ -27,7 +27,6 @@ These pieces do not yet:
 
 | Piece | Problem | Direction |
 |---|---|---|
-| SQLAlchemy (2026-11-14) | Nothing is stored in SQLite any more (users moved to Cosmos, locks removed), but Flask-SQLAlchemy, `db.init_app` and `SQLALCHEMY_DATABASE_URI` remain. | Remove the dependency and the setting ([architecture.md](architecture.md#target-no-sqlite)) |
 | The `accounts` document (2026-11-14) | The last copy of the SQLite users. Nothing writes it since users moved to `user_` documents; `adhoc/migrate_users_to_cosmos.py` reads it. `/resetstate` still clears kingdom fields in it, and `GET`/`PATCH /accounts` still exist. | Kept as a backup until the migration has run in production and been checked, then remove the document, the routes, and its place in `/init` and `/resetstate` |
 | `SOCK_HANDLERS` (websocket registry) | A push only reaches sockets on the process that raised it. Each open socket also holds a server thread for its lifetime. | A pub/sub service, or polling notifications |
 | Rate limiter (`memory://`) | Limits are per process | Shared storage for the limiter |
@@ -35,7 +34,8 @@ These pieces do not yet:
 
 ## Deployment and operations
 
-- The function app is published by hand, not by CI. Intended to be automated ([deployment.md](deployment.md)).
+- The function app is published by CI (2026-11-14) but the workflow is untested until the maintainer adds the
+  `AZUREFUNCTIONS_PUBLISHPROFILE` secret and a merge to `main` runs it ([deployment.md](deployment.md)).
 - CI runs on pushes to `main` only, not on pull requests, so nothing checks a pull request before it merges. A pull
   request workflow running the same three suites would fix that.
 - `scripts/check.ps1` is PowerShell and expects conda; there is no equivalent script for Linux or macOS, only the plain

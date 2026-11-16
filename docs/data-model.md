@@ -58,7 +58,8 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 
 | id | Holds | Written by | Tier |
 |---|---|---|---|
-| `state` | `round` (an id that changes at every round reset; login tokens carry it, and tokens from another round are refused); `state`: `game_start`, `game_end`, `election_start`, `election_end`, `next_history`, `active_policies`, galaxy sizing, and whatever the admin page sets | admin routes, the refresh (elections, history time) | strict |
+| `state` | `round` (an id that changes at every round reset; login tokens carry it, and tokens from another round are refused); `state`: `game_start`, `game_end`, `election_start`, `election_end`, `next_history`, `active_policies`, `game_over` (when the round ended, `""` while it runs), `rounds_archived`, galaxy sizing, and whatever the admin page sets | admin routes, the refresh (elections, history time, the end of the round), `/resetstate` (`round`) | strict |
+| `archive_<n>` | One finished round: `number`, `ended_at`, `reason`, `game_start`, `game_end`, `scores`, `galaxies`, `kingdoms` (kd id to `{name, galaxy, race, status, stars, networth, bot}`), `ranking`. Kept by `/resetstate` | `roundend.end_round`, once per round | strict (written once) |
 | `kingdoms` | `kingdoms`: kd id to name; `next_id`, the next id to hand out, which survives a round reset so ids are never reused (read with a default of 0) | kingdom creation, `/resetstate` | strict |
 | `galaxies` | `galaxies`: galaxy id to a list of kd ids | the function app only: `POST /galaxy/<id>` (admin) and `POST /kingdom` (kingdom creation) | strict |
 | `empires` | `empires`: empire id to `{name, galaxies, aggression, num_kingdoms, aggression_max, war, peace, denounced, denounced_expires, surprise_war_penalty, surprise_war_penalty_expires}`; `last_update` | politics routes, the refresh (`_resolve_empires`), attacks (aggression) | strict for membership and war, derived for aggregates |
@@ -129,8 +130,8 @@ Fields added after creation:
 ## Users
 
 Users are Cosmos documents too ([decisions/0004](decisions/0004-users-in-cosmos.md)), read and written through
-`api/untitledapp/users.py` (`User`). The `Locks` table, the last thing in SQLite, holds the legacy locks
-([architecture.md](architecture.md#target-no-sqlite)): add nothing to it.
+`api/untitledapp/users.py` (`User`). Nothing is stored in SQL any more
+([architecture.md](architecture.md#target-no-sqlite)).
 
 | id | Holds | Written by |
 |---|---|---|

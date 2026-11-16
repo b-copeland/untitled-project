@@ -42,3 +42,13 @@ test("fuel and money carry their net rate per hour in a tooltip, and when a fall
     expect(tipOf("Fuel: 1,000")).toBe("-500 fuel per hour; runs out in about 2.0 h");
     expect(tipOf("Money: 1,000,000")).toBe("+1,200 income per hour");
 });
+
+test("once the round is over, every page says so", () => {
+    render(<Header data={{ kingdom, state: { state: { game_over: "2026-01-02T00:00:00Z" } } }} />);
+    expect(screen.getByRole("status").textContent).toMatch(/round is over/i);
+});
+
+test("during the round there is no such banner", () => {
+    render(<Header data={{ kingdom, state: { state: {} } }} />);
+    expect(screen.queryByRole("status")).toBeNull();
+});

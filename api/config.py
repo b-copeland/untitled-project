@@ -14,8 +14,6 @@ class Config:
     FRONTEND_URL = os.environ.get('FRONTEND_URL')  # base of the links in emails; defaults to the request's host
     AZURE_FUNCTION_ENDPOINT = os.environ.get('AZURE_FUNCTION_ENDPOINT')
     AZURE_FUNCTION_KEY = os.environ.get('AZURE_FUNCTIONS_HOST_KEY')
-    # Initialize a local database for the example
-    SQLALCHEMY_DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI")
 
 class TestingConfig(Config):
     SECRET_KEY="12345"
@@ -32,6 +30,3 @@ class TestingConfig(Config):
     FRONTEND_URL = 'http://frontend.test'
     AZURE_FUNCTION_ENDPOINT = "http://localhost:7071/api"
     AZURE_FUNCTION_KEY = ""
-    # Initialize a local database for the example
-    # One file per pytest-xdist worker, so parallel workers do not share users and locks.
-    SQLALCHEMY_DATABASE_URI = f"sqlite:///pytest{'_' + os.environ['PYTEST_XDIST_WORKER'] if os.environ.get('PYTEST_XDIST_WORKER') else ''}.db"
