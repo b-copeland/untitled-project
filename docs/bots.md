@@ -137,8 +137,10 @@ hidden state.
 - **Galaxy policies** by playstyle (`Personality.galaxy_votes`), and a **leader**: whoever the others back, and with no
   votes to go by, the strongest. (Everybody voting for today's strongest split the vote and elected nobody.)
 - **Empires.** A galaxy leader joins the strongest empire that has room, or founds one; an empire leader admits who asks
-  and invites galaxies without an empire. An empire takes at most a third of the universe (`empire_size_limit`, at least
-  two galaxies), so there is somebody left to fight. Bots never act against their own empire.
+  and invites galaxies without an empire. A bot never lets its empire grow past 30% of the universe's kingdoms or 35%
+  of its networth (`fits_in_empire`, `EMPIRE_MAX_KINGDOMS`, `EMPIRE_MAX_NETWORTH`; two galaxies may always ally), so
+  there is somebody left to fight. This is the bots' own rule, not a game rule: players are not bound by it. Bots never
+  act against their own empire, and attack an under-defended human as readily as an under-defended bot.
 - **War.** From the mid game the empire leader denounces the strongest other empire (the aggression that follows can
   bring a war without the penalty for a surprise), and late in the round declares war if it has not come.
 - **Universe votes.** In an election a bot buys votes once, with a quarter of its loose money, and casts most on the arms
@@ -209,19 +211,34 @@ skill" here means every rule is one the Help pages give a player, applied consis
 
 Not changed: these are balance and rules, which are the maintainer's call.
 
-1. **Primitives are the dominant way to grow, all round, for everybody.** A unit sent at them pays for itself in a day
-   or two even on day 5. Every playstyle that farms them ends well ahead of one that does not.
-2. **People, not money, limit a kingdom after the first day.** Recruits and engineers are a share of the population, so
-   income beyond that has little to buy. This is why the thief's money (robbing, siphons) does not turn into growth,
-   and why thieves and intel bots trail (they take none of the points, which go to the top ten by networth).
-3. **Drone factories are poor land.** Every cut in them raised the result, for thieves too.
-4. **`pop_bonus` does nothing.** The project says it increases homes capacity; no formula reads it. The bots put no
+1. **Settling is where most stars come from**, not primitives: over a week, 55-75% of a bot's stars are settled,
+   20-30% come from primitives, and attackers take another 25% from kingdoms (but lose most of it to each other).
+2. **A sensibly defended kingdom is exactly as good a target as primitives, and no better.** An attack takes a tenth of
+   the target's stars, so a kingdom with a tenth of the primitives' defense per star pays the same per point of offense
+   (the deterrence line, `botstrategy.deterrence_per_star`). Bots hold that line (about 55-65 per star on day 7 against
+   a line of 46 and primitives at 387). It moves with primitives, as the square root of time, so longer rounds do not
+   change it. What makes kingdoms the better target is whatever pulls their defense under the line: war (+20% gains),
+   losing attacks that wear it down, burning their fuel.
+3. **Money is what limits a bot, at the margin.** Idle money is about two epochs of income and recruits are none of the
+   army: the bots move land between homes and mines until neither people nor money is left over.
+4. **Siphons can not make a thief.** A siphon is worth 8 money per drone sent (`BASE_DRONES_SIPHON_PER_DRONE`); the 15%
+   is only a cap on the target. With 6 drones per star and one spy attempt every two epochs, even a siphon with every
+   attempt brings about 15 per star per epoch, against about 95 a thief earns at home. Over a week siphons were 3-4% of a
+   thief's income. Robbing primitives falls to about 1 per drone by day 7. A siphon that scaled with the target's
+   income, or a higher per-drone amount, would be the lever.
+5. **Lumina grows only through its galaxy.** Its offense penalty takes it off the primitives (fewest stars from them of
+   any playstyle), and intel shared for a cut paid it back a few dozen times a week.
+6. **The mix of playstyles matters less than expected** (100 bots, 10 galaxies, one seed each, so a lead not a
+   result). With only 10 attackers, those attackers took two and a half times the stars from kingdoms (3,200 against
+   1,300 each). With only 10 thieves, each thief siphoned 30% more, but did not end ahead. At this size empires of three
+   galaxies formed, and several wars ran at once.
+7. **`pop_bonus` does nothing.** The project says it increases homes capacity; no formula reads it. The bots put no
    engineers on it.
-5. **Engineers can be disbanded.** `_validate_disband` builds the message "You can't disband engineers" but does not
+8. **Engineers can be disbanded.** `_validate_disband` builds the message "You can't disband engineers" but does not
    return it.
-6. **A small kingdom can be ground down to nothing.** An attack takes at least 25 stars however small the target, and
+9. **A small kingdom can be ground down to nothing.** An attack takes at least 25 stars however small the target, and
    nothing protects a kingdom a tenth of the attacker's size. Bots that only hit kingdoms do this to each other.
-7. **Treatied won the election in the runs looked at**, because three of the four playstyles vote for it. It makes
+10. **Treatied won the election in the runs looked at**, because three of the four playstyles vote for it. It makes
    every unit 20% dearer for all of them too.
 
 ### Bugs found on the way (fixed)
@@ -250,12 +267,10 @@ Not changed: these are balance and rules, which are the maintainer's call.
 
 Nothing is blocked on these; I picked a default and moved on.
 
-1. **Aggression toward real players.** Bots treat players and bots alike. With about 100 bots and a few humans, bots
-   that hit only kingdoms will farm a weak human as readily as a weak bot. Options: a smaller edge against kingdoms
-   that are not bots, or no `players` style when humans are few.
-2. **Quick starts.** The archetypes now start with far more attackers and fewer drones (it is worth about 20% in the
+1. **Quick starts.** The archetypes now start with far more attackers and fewer drones (it is worth about 20% in the
    simulations). New players are offered the same starts. Is that what you want them offered?
-3. **Vote preferences** are from the policy text (`Personality.galaxy_votes`, `universe_votes`). Three playstyles
+2. **Vote preferences** are from the policy text (`Personality.galaxy_votes`, `universe_votes`). Three playstyles
    vote Treatied, which they also pay for.
-4. **Empire size.** A third of the universe at most, so the bots do not all make peace. Should it be smaller or larger?
-5. **Existing bots** (without `style`) keep working with a default style. Re-create them to get the mix.
+3. **Empire size as a game rule.** The 30% of kingdoms and 35% of networth limits are the bots' own. Making them a
+   rule for everybody means a check in `politics.py` (join, accept invite, admit) and the Empire help page.
+4. **Existing bots** (without `style`) keep working with a default style. Re-create them to get the mix.
