@@ -176,7 +176,11 @@ def homes_for_people(units_per_epoch, engineers_per_epoch, vult=False):
 
 
 def siphon_take(drones, target_income):
-    """Money a successful siphon brings in over its whole run."""
+    """
+    The most a successful siphon brings in over its whole run: its rate (8 per drone over 12 epochs) for the whole run,
+    but no more than the target's cap (15% of its income) allows. Other siphons on the target, newer ones especially,
+    can cut it below this (``refresh._settle_siphons``).
+    """
     return min(drones * CONFIG["BASE_DRONES_SIPHON_PER_DRONE"],
                target_income * CONFIG["BASE_MAX_SIPHON"] * CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"])
 

@@ -1224,8 +1224,9 @@ def plan_drones(world, personality, style, memory, rng):
             options.append((chance * strategy.siphon_take(sent, income), kd, sent, chance))
         threshold = rob * personality.siphon_edge if drone_style == "both" else 0.0
         spare = max(attempts - len(decisions) - 1, 1)
-        # Siphons on one kingdom share its pool, so thieves that all pick the best target take from each other. Spread
-        # them: each pick is drawn in proportion to what it is worth, among those worth more than robbing.
+        # Siphons on one kingdom are held to its 15%, and a new one cuts the oldest for good, so thieves that all pick
+        # the best target take from each other. Spread them: each pick is drawn in proportion to what it is worth,
+        # among those worth more than robbing.
         worth = sorted((option for option in options if option[0] > threshold and option[3] >= 0.2), reverse=True)
         picked = []
         while worth and len(picked) < min(spare, MAX_SIPHONS_PER_THINK):

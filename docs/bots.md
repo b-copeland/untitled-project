@@ -149,8 +149,8 @@ hidden state.
   it has run; the strike is timed for when enough generals are back (`_army_timeline`).
 - **Thieves compare too**: a siphon is scheduled when its expected take beats what the same spy attempt robs from
   primitives, which it does more and more as primitives are robbed bare.
-- **Siphons spread out.** Siphons on one kingdom share its 15%, so thieves that all pick the richest target take from
-  each other. Each target is drawn in proportion to what it is worth (`SIPHON_PICK`), its income worked out from its
+- **Siphons spread out.** Siphons on one kingdom are held to its 15%, and a new one cuts the oldest for good, so
+  thieves that all pick the richest target take from each other. Each target is drawn in proportion to what it is worth (`SIPHON_PICK`), its income worked out from its
   structures when they are revealed (`income_from_intel`), so a kingdom of mines is worth more than one of homes.
 - **And learn who catches them** (`note_siphons`): every siphon's outcome, from the spy history, is counted per
   target with the older ones counting less (`SIPHON_MEMORY`), and blended with the forecast (`SIPHON_PRIOR`). A
@@ -261,8 +261,9 @@ Not changed: these are balance and rules, which are the maintainer's call.
    when the kingdom is looked at) is about two epochs, and recruits are none of the army: the bots move land between
    homes and mines until neither people nor money is left over. Sizing homes by formula instead did worse (above).
 4. **Siphons can not make a thief.** A siphon is worth 8 money per drone sent (`BASE_DRONES_SIPHON_PER_DRONE`); the 15%
-   is only a cap on the target, shared pro rata by the siphons on it (see [status.md](status.md#siphons-2026-11-15) for
-   the rule intended instead). With 6 drones per star and one spy attempt every two epochs, even a siphon with every
+   is only a cap on the target: a siphon pays its 8 per drone over 12 epochs, and over the target's 15% the oldest
+   siphons are cut first, for good (`refresh._settle_siphons`). The runs here were made before that rule, when the 15%
+   was shared pro rata; the most a siphon can take is the same under both. With 6 drones per star and one spy attempt every two epochs, even a siphon with every
    attempt brings about 15 per star per epoch, against about 95 a thief earns at home. Over a week siphons were 3-4% of a
    thief's income. Robbing primitives falls to about 1 per drone by day 7. A siphon that scaled with the target's
    income, or a higher per-drone amount, would be the lever.

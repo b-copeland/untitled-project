@@ -89,9 +89,3 @@ Found by simulating rounds (2026-11-15), not changed because they are rules or b
 - An attack always takes at least `BASE_ATTACK_MIN_STARS_GAIN` stars, so a small kingdom can be ground down to nothing.
 - Details, and what else the simulations show, in
   [bots.md](bots.md#what-the-simulations-say-about-the-game-for-the-maintainer).
-
-## Siphons (2026-11-15)
-
-Siphons pay out as fast as the target's 15% allows and share it pro rata between the siphons on a target
-(`refresh._resolve_siphons`). The intended rule is a steady rate per siphon (8 per drone over 12 epochs), with the
-oldest siphons squeezed first when the total passes 15% of the target's income. Not built yet.
