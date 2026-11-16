@@ -556,18 +556,21 @@ def test_enemies_grudges_and_leaders_are_worth_more():
     assert float(hated.why.split("buffer, ")[1].split("x")[0]) > plain * 1.3
 
 
-def test_late_in_the_round_a_leader_it_can_not_beat_is_worn_down():
+def test_late_in_the_round_a_leader_it_can_not_beat_is_worn_down_only_if_asked():
     world = StubWorld(day=9, revealed={"4": {"military": until(30)}}, stats={"4": (9000, 2_000_000), "3": (500, 30_000)},
                       info={"4": military(4500)})  # 30,375 defense against about 23,400 offense
-    (decision,) = brain.plan_attack(world, ATTACKER, style(army="both"), {}, ChanceOf(0.0))
+    # Off by default: no attack it expects to lose.
+    assert [d.kind for d in brain.plan_attack(world, ATTACKER, style(army="both"), {}, ChanceOf(0.0))] != ["attack"]
+    chipper = dataclasses.replace(ATTACKER, chip_chance=1.0)
+    (decision,) = brain.plan_attack(world, chipper, style(army="both"), {}, ChanceOf(0.0))
     assert decision.kind == "attack" and decision.options["target"] == "4"
     assert decision.options["prefer_autofill"] is False and decision.options["pure_offense"] == 100
     assert "wear down" in decision.why
     # Not in the mid game, and not against a wall.
     mid = StubWorld(day=5, revealed={"4": {"military": until(30)}}, stats={"4": (9000, 2_000_000)}, info={"4": military(4500)})
-    assert [d.kind for d in brain.plan_attack(mid, ATTACKER, style(army="both"), {}, ChanceOf(0.0))] != ["attack"]
+    assert [d.kind for d in brain.plan_attack(mid, chipper, style(army="both"), {}, ChanceOf(0.0))] != ["attack"]
     wall = StubWorld(day=9, revealed={"4": {"military": until(30)}}, stats={"4": (9000, 2_000_000)}, info={"4": military(50_000)})
-    assert [d.kind for d in brain.plan_attack(wall, ATTACKER, style(army="both"), {}, ChanceOf(0.0))] != ["attack"]
+    assert [d.kind for d in brain.plan_attack(wall, chipper, style(army="both"), {}, ChanceOf(0.0))] != ["attack"]
 
 
 # ------------------------------------------------------------------------------------------------------------ drones

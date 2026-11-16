@@ -90,7 +90,6 @@ TRAINING_LOW = 0.7          # TUNE: and below this share there are more homes th
 HOMES_STEP = 0.03           # TUNE: how far the homes share moves in one think under "training"
 DRONES_GUESS = "fixed"      # TUNE: a kingdom's drones without intel: "fixed" 4 a star; "learned" the median drones per
                             #       star of the kingdoms whose drones the bot has seen
-SIPHON_SCOUT = False        # TUNE: spy on the drones of the best siphon targets it has no drones intel on, first
 DEFENSE_RISK_MODE = "floor"  # TUNE: with DEFENSE_RISK, "floor" raises the defense to it; "margin" makes it the bot's aim
                             #       (above or below what its playstyle would keep)
 DEFENSE_RISK = None         # TUNE: (low, high): each bot keeps at least this range of the break-even with primitives,
@@ -152,7 +151,8 @@ class Personality:
     player_edge: float = 1.0
     strike_wait: float = 8.0
     chip_ratio: float = 0.7
-    chip_chance: float = 0.3
+    # Off: in a week of 100 bots every lost attack was one of these, and without them every playstyle ended larger.
+    chip_chance: float = 0.0
 
     # TUNE: intel. Chance per think of spying for intel, which reveal operations it likes, the success chance it sends
     # drones for, tries, the chance that it offers what it learns to its galaxy, and the cut of the spoils it asks.
@@ -206,7 +206,7 @@ PERSONALITIES = {
         workshops=(0.08, 0.07, 0.07), drone_factories=0.05, homes=0.5,
         project_weights={"military_bonus": 1.0, "general_bonus": 1.0, "money_bonus": 0.8, "fuel_bonus": 0.5},
         key_projects=("big_flexers",), key_share=(0.5, 0.3, 0.15),
-        attack_buffer=(3.0, 9.0), player_edge=1.0, chip_chance=0.5,
+        attack_buffer=(3.0, 9.0), player_edge=1.0,
         intel_chance=0.7, intel_ops=("spymilitary",), share_chance=0.2,
         galaxy_votes={"policy_1": "2", "policy_2": "2"},     # Warlike, Conscription
         universe_votes={"policy_1": "1", "policy_2": "1"},    # Unregulated, Free trade
@@ -220,8 +220,9 @@ PERSONALITIES = {
         workshops=(0.07, 0.07, 0.08), drone_factories=0.06, homes=0.6,
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.5, "military_bonus": 0.7, "spy_bonus": 1.0},
         key_projects=("drone_gadgets", "big_flexers"), key_share=(0.6, 0.3, 0.15),
-        intel_chance=0.9, intel_ops=("spymilitary", "spymilitary", "spykingdom", "spydrones", "spyshields", "spyprojects",
-                                     "spystructures"),
+        # Military intel is what galaxymates buy and strike with; kingdom intel shows a kingdom out of fuel. Projects
+        # and structures intel nobody accepts, so it is no use to a bot.
+        intel_chance=0.9, intel_ops=("spymilitary", "spymilitary", "spymilitary", "spykingdom"),
         intel_tries=(1, 3), share_chance=0.95, share_cut=10.0,
         aggressive_chance=0.15, sabotage_chance=(0.0, 0.1, 0.5),
         galaxy_votes={"policy_1": "1", "policy_2": "1"},     # Expansionist, Intelligence
@@ -1293,21 +1294,6 @@ def plan_drones(world, personality, style, memory, rng):
         # the best target take from each other. Spread them: each pick is drawn in proportion to what it is worth,
         # among those worth more than robbing.
         worth = sorted((option for option in options if option[0] > threshold and option[3] >= 0.2), reverse=True)
-        if SIPHON_SCOUT and spare >= 2:
-            # Siphoning blind is a guess at the target's drones: first see the drones of the best target it has none
-            # on (and offer it to the galaxy, whose thieves want the same).
-            blind = [option for option in worth[:3] if world.seconds_left(option[1], "drones") <= 0]
-            if blind:
-                target = blind[0][1]
-                stars = known[target][0]
-                scout, chance = _spy_decision(world, personality, target, "spydrones", stars,
-                                              _guess_drones(world, target, stars, memory), rng,
-                                              rng.random() < personality.share_chance,
-                                              f"spy on the drones of {world.names[target]} before siphoning it")
-                if chance >= 2 * MIN_SPY_CHANCE:
-                    decisions.append(scout)
-                    worth = [option for option in worth if option[1] != target]
-                    spare -= 1
         picked = []
         while worth and len(picked) < min(spare, MAX_SIPHONS_PER_THINK):
             weights = [option[0] ** SIPHON_SHARPNESS for option in worth]

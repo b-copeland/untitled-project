@@ -95,14 +95,16 @@ hidden state.
 |---|---|
 | Early | Money goes to structures, settling, then the army; the army is nearly all attackers for primitives; engineers work on the key unlock; no shields (the fuel is for growth). |
 | Mid | The army moves ahead of settling for money (except for explorers); military shields go up; bombers start building silos; an empire leader denounces the strongest rival. |
-| Late | The army comes first; strikes may gather the whole army; leaders (the top three by networth it can name) are worth double as targets, get its intel first, are sabotaged, have their fuel burnt, and are worn down with losing attacks; war is declared if it has not come by itself. |
+| Late | The army comes first; strikes may gather the whole army; leaders (the top three by networth it can name) are worth double as targets, get its intel first, are sabotaged and have their fuel burnt (wearing them down with losing attacks, `chip_chance`, is off: in a week of 100 bots every lost attack was one, and without them every playstyle ended 1-4% larger); war is declared if it has not come by itself. |
 
 ### The economy (`plan_economy`, sums in `botstrategy.py`)
 
 - **Nothing sits idle** (`spending_plan`). Income is split by what each category can use in the coming hours: settling is
   capped at a tenth of the kingdom in the queue, structures at the empty stars, engineers by workshops and population,
   the army by how fast recruits can be drafted. Funding already waiting in a category counts against what it asks for.
-  What nothing can use stays as money (and is spent by hand, or on votes and missiles).
+  What nothing can use stays as money (and is spent by hand, or on votes and missiles). So the first plans of a round
+  put all new income into structures: the first strike on primitives brings 80-220 empty stars, and the settling and
+  military funding from the starting split is still waiting to be spent.
 - **Enough defense to not be worth it** (`deterrence_per_star`). An attacker gains a tenth of your stars, or what the
   same army takes from primitives. Primitives get harder all round, so the defense per star that makes a kingdom the
   worse deal rises with the square root of time. Each playstyle keeps a margin on that line (`defense_margin`), more
@@ -147,6 +149,8 @@ hidden state.
   takes whoever the bonuses do not need.
 - **Settle while it pays** (`settle_worth`): the networth of a star and what its income buys before the round ends,
   against simply buying units. Land gets dearer as a kingdom grows and the round runs out, so settling fades by itself.
+  Until then every playstyle, attackers included, keeps the settling queue at or near the cap: settling is cheap, and
+  the cap (a tenth of the stars) is what holds it back, which is why it is under a tenth of the spending.
 - **Shields** as the guide has it: military at maximum from the mid game whenever the fuel is there, the others with a
   reason.
 
@@ -156,7 +160,10 @@ hidden state.
   with the most stars for the army its networth could hide, or takes it from a galaxymate.
 - **Hit what pays** (`player_edge`). A target is worth its stars per point of offense, compared with primitives. A bot
   that hits both strikes only when the kingdom is the better deal; one that hits only kingdoms takes the best there is.
-  Enemies at war, grudges and (late) leaders count for more.
+  Enemies at war, grudges and (late) leaders count for more. So a kingdom well defended against primitives is still hit
+  by the attackers that hit only kingdoms (a quarter of them) once their army can beat it: in a week of 100 bots, 40%
+  of the strikes on kingdoms paid less than primitives would have, and nearly all of those on intel bots and explorers
+  (at about 0.5 of primitives, on kingdoms defended at 1.7-2 times the break-even).
 - **One strike at a time, with the army at home.** Auto attack is switched off from the think that plans a strike until
   it has run; the strike is timed for when enough generals are back (`_army_timeline`).
 - **Thieves compare too**: a siphon is scheduled when its expected take beats what the same spy attempt robs from
@@ -231,8 +238,9 @@ one is opened): every kingdom at a glance, and one in full with its bot. Admin o
 ### Where it stands (2026-11-15)
 
 **100 bots in 10 galaxies, the default mix, seven days, mean of three seeds** (median stars, with steady-rate siphons
-and intel sold for its cut): attackers 11,300, explorers 14,400, thieves 8,700, intel bots 7,200, with explorers
-defended at the break-even; before that, 10,100, 11,400, 8,500 and 7,800. The measurements below were made before
+and intel sold for its cut): attackers 10,800, explorers 14,200, thieves 8,700, intel bots 7,700, with explorers
+defended at the break-even, intel bots spying only on military and kingdoms, and no losing attacks; before those,
+10,100, 11,400, 8,500 and 7,800. The measurements below were made before
 these changes. Against the bots before siphon spreading and learning and the
 threat-aware defense, that is the same overall (9,520 median stars both ways); attackers lose a third fewer stars to
 strikes (960 against 1,380) and fewer die; siphon losses are spread (explorers lose 1.1 million each over the week
@@ -279,7 +287,7 @@ Not changed: these are balance and rules, which are the maintainer's call.
    (the deterrence line, `botstrategy.deterrence_per_star`). Bots hold that line (about 55-65 per star on day 7 against
    a line of 46 and primitives at 387). It moves with primitives, as the square root of time, so longer rounds do not
    change it. What makes kingdoms the better target is whatever pulls their defense under the line: war (+20% gains),
-   losing attacks that wear it down, burning their fuel.
+   burning their fuel. (Losing attacks that wear it down cost the attacker more than they gained, and are off.)
 3. **Money is what limits a bot, at the margin.** Idle money (money and funding not yet spent, in epochs of income,
    when the kingdom is looked at) is about two epochs, and recruits are none of the army: the bots move land between
    homes and mines until neither people nor money is left over. Sizing homes by formula instead did worse (above).
@@ -292,13 +300,19 @@ Not changed: these are balance and rules, which are the maintainer's call.
    income, or a higher per-drone amount, would be the lever.
 5. **Siphon targets are guessed blind.** Without drones intel a bot guesses 4 drones a star; attackers and explorers
    have about 2.2 (the easiest targets), thieves 6.2, so thieves are overrated (72% expected, 62% worked) and still
-   draw a quarter of the siphons. Guessing from the drones the bot has seen (`DRONES_GUESS = "learned"`) and spying on
-   drones before siphoning (`SIPHON_SCOUT`) both left thieves worse off (siphon income down 13-32%), so both are off.
+   draw a quarter of the siphons. Guessing from the drones the bot has seen (`DRONES_GUESS = "learned"`) left thieves
+   worse off (siphon income down 32%), so it is off. Spying on drones before siphoning cost 13% and was removed: the
+   spy attempt is worth more as a siphon. More drone factories for thieves (`thief.drone_factories` 0.15 and 0.25
+   against 0.07) doubled and tripled their siphon income but cost them 11% and 30% of their stars: a factory earned
+   about 65 money an epoch over the week in siphons, against 150 for a mine. Targets lost 2-3% of their income, far
+   from the 15% cap; what limits a thief is its spy attempts, not its drones.
    Siphons are 6.5% of a thief's own income: a bigger change to thieving is a balance question.
 6. **Selling intel pays intel bots a little.** About 30% of the attackers' winning strikes use intel a galaxymate
    shared. Each intel bot earns about 110 stars and 80,000 money a week from cuts (2% of its stars), which made it 6%
    larger and the attackers 5% smaller. (Until the bug below was fixed it earned nothing.) Lumina's offense penalty
-   keeps it off the primitives.
+   keeps it off the primitives. Intel bots spy only on military (three in four) and kingdoms (out of fuel): nobody
+   accepts projects or structures intel. With that they sold five times the stars (about 140 a week) and grew 6%;
+   attackers, striking each other more, ended 6% smaller.
 7. **The mix of playstyles matters less than expected** (100 bots, 10 galaxies, one seed each, so a lead not a
    result; before the default mix). With only 10 attackers, those attackers took two and a half times the stars from kingdoms (3,200 against
    1,300 each). With only 10 thieves, each thief siphoned 30% more, but did not end ahead. At this size empires of three
