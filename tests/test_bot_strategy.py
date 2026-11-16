@@ -256,3 +256,19 @@ def test_other_shields_only_with_a_reason():
     assert quiet["spy"] == 0 and quiet["missiles"] == 0
     alarmed = strategy.shields_plan(kd, "mid", True, True)[0]
     assert alarmed["spy"] > 0 and alarmed["spy_radar"] > 0 and alarmed["missiles"] > 0
+
+
+def test_intel_on_structures_tells_a_kingdoms_income_better_than_its_stars():
+    miner = {"structures": {"mines": 600, "homes": 200}}
+    homely = {"structures": {"mines": 100, "homes": 700}, "population": 30_000}
+    assert strategy.income_from_intel(miner, 1000) == 600 * 150 + 200 * 50 * 2
+    assert strategy.income_from_intel(homely, 1000) == 100 * 150 + 30_000 * 2
+    assert strategy.income_from_intel({}, 1000) == strategy.guess_income(1000)
+
+
+def test_homes_hold_the_people_a_steady_stream_of_recruits_needs():
+    # 100 units an epoch, each recruit a dozen epochs in training, at most 12% of the people training: 10,000 people.
+    assert strategy.homes_for_people(100, 0) == pytest.approx(100 * 12 / 0.12 / 50)
+    # Engineers draw on their own cap, so the larger need sets the homes.
+    assert strategy.homes_for_people(0, 10) == pytest.approx(10 * 12 / 0.05 / 50)
+    assert strategy.homes_for_people(100, 10) == strategy.homes_for_people(100, 0)

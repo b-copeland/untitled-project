@@ -26,6 +26,8 @@ import re
 import os
 import pathlib
 import random
+import subprocess
+import uuid
 import statistics
 import sys
 import time
@@ -204,6 +206,8 @@ class Simulation:
         seeded.Random = lambda *args: random.Random(args[0] if args else random.random())
         botbrain.random = seeded
         bots.random = seeded
+        # Ids of scheduled actions too: they order some lists.
+        botbrain.uuid = types.SimpleNamespace(uuid4=lambda: uuid.UUID(int=random.getrandbits(128), version=4))
 
         real_think = botbrain.think
 
@@ -365,6 +369,14 @@ class Simulation:
             counter["missile launches"] += len(self.doc(f"missile_history_{kd_id}").get("missile_history", []))
             news = self.doc(f"news_{kd_id}").get("news", [])
             counter["cuts earned for intel"] += sum(1 for item in news if item.get("kind") == "intel")
+            for item in news:
+                if item.get("kind") == "intel":
+                    gained = amounts(item.get("news", ""))
+                    flow["stars from intel shared"] += gained.get("stars", 0)
+                    flow["money from intel shared"] += gained.get("money", 0)
+                    # The attacker that used the intel: how much the attackers lean on what galaxymates share.
+                    attacker = kingdoms.get(str(item.get("from")), {})
+                    actions[(attacker.get("bot") or {}).get("type", "player")]["attack won with shared intel"] += 1
             counter["times defeated"] += sum(1 for item in news if "was defeated" in str(item.get("news", "")))
             for item in news:
                 if "was defeated" in str(item.get("news", "")):
@@ -520,13 +532,16 @@ def parse_mix(text, bots):
     sys.path.insert(0, str(ROOT / "api"))
     import untitledapp.bots as bots_module
 
-    kinds = list(bots_module.ARCHETYPES)
-    return {kind: bots // len(kinds) + (1 if index < bots % len(kinds) else 0) for index, kind in enumerate(kinds)}
+    return bots_module.mix_for(bots)
 
 
 def main():
+    # Python orders a set of strings differently in every process unless the hash seed is fixed, and the game and the
+    # bots loop over sets of kingdom ids: run again with it fixed, so a seed always plays the same round.
+    if os.environ.get("PYTHONHASHSEED") != "0":
+        sys.exit(subprocess.run([sys.executable, *sys.argv], env={**os.environ, "PYTHONHASHSEED": "0"}).returncode)
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--bots", type=int, default=40, help="total, split evenly over the archetypes")
+    parser.add_argument("--bots", type=int, default=40, help="total, split over the archetypes as bots.DEFAULT_MIX has it")
     parser.add_argument("--mix", help="instead of --bots: e.g. explorer=10,attacker=10")
     parser.add_argument("--galaxies", type=int, default=4)
     parser.add_argument("--days", type=float, default=7.0, help="length of the round in game days")

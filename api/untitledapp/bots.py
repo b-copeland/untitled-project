@@ -152,6 +152,21 @@ ARCHETYPES = {
 }
 
 
+
+# TUNE: the share of each playstyle in a universe of bots. Few intel bots, as they compete with each other to sell the
+# same galaxymates intel; thieves as a minority, so their siphons are not spread over each other.
+DEFAULT_MIX = {"intel": 0.10, "thief": 0.20, "attacker": 0.40, "explorer": 0.30}
+
+
+def mix_for(total, shares=None):
+    """``{archetype: count}`` for ``total`` bots in ``shares`` (``DEFAULT_MIX``), rounded so the counts add up."""
+    shares = shares or DEFAULT_MIX
+    exact = {kind: total * share / sum(shares.values()) for kind, share in shares.items()}
+    counts = {kind: int(value) for kind, value in exact.items()}
+    for kind in sorted(exact, key=lambda k: counts[k] - exact[k])[:total - sum(counts.values())]:
+        counts[kind] += 1
+    return counts
+
 def problems(archetype):
     """Everything illegal about an archetype, as plain sentences, using the validators the routes use. Empty if fine."""
     found = []

@@ -44,6 +44,18 @@ from azure.cosmos.exceptions import (
 FUNCAPP_DIR = pathlib.Path(__file__).resolve().parent.parent / "funcapp"
 
 
+def _copy(doc):
+    """
+    A private copy of a document. Documents are JSON, as they are in Cosmos, so a round trip through ``json`` (in C)
+    copies them several times faster than ``copy.deepcopy``, which was most of a simulation's time. Anything that is
+    not JSON falls back to ``deepcopy``, as the tests may hand the container anything.
+    """
+    try:
+        return json.loads(json.dumps(doc))
+    except (TypeError, ValueError):
+        return copy.deepcopy(doc)
+
+
 def _not_found(message):
     return CosmosResourceNotFoundError(status_code=404, message=message)
 
@@ -65,6 +77,15 @@ class FakeContainer:
         doc["_ts"] = int(time.time())
         return doc
 
+    def _store(self, item, doc):
+        """Keep ``doc`` (stamped, and the container's own) as ``item``, and return a copy of it for the caller."""
+        self.docs[item] = self._stamp(doc)
+        return _copy(doc)
+
+    def _read(self, item):
+        # A copy of the document as it is now: tests may change ``docs`` directly.
+        return _copy(self.docs[item])
+
     # --- the part of the container API the function app uses -------------------------------------------------------
 
     def read_item(self, item, partition_key=None, **kwargs):
@@ -72,15 +93,14 @@ class FakeContainer:
         with self.lock:
             if item not in self.docs:
                 raise _not_found(f"{item} does not exist")
-            return copy.deepcopy(self.docs[item])
+            return self._read(item)
 
     def create_item(self, body, **kwargs):
         self._pause()
         with self.lock:
             if body["id"] in self.docs:
                 raise CosmosResourceExistsError(status_code=409, message=f"{body['id']} already exists")
-            self.docs[body["id"]] = self._stamp(copy.deepcopy(body))
-            return copy.deepcopy(self.docs[body["id"]])
+            return self._store(body["id"], _copy(body))
 
     def replace_item(self, item, body, **kwargs):
         self._pause()
@@ -90,10 +110,9 @@ class FakeContainer:
             etag = kwargs.get("etag")
             if etag and kwargs.get("match_condition") == MatchConditions.IfNotModified and etag != self.docs[item]["_etag"]:
                 raise CosmosAccessConditionFailedError(status_code=412, message="The document changed")
-            new = {key: value for key, value in copy.deepcopy(body).items() if key not in ("_etag", "_ts", "_rid", "_self", "_attachments")}
+            new = {key: value for key, value in body.items() if key not in ("_etag", "_ts", "_rid", "_self", "_attachments")}
             new["id"] = item
-            self.docs[item] = self._stamp(new)
-            return copy.deepcopy(self.docs[item])
+            return self._store(item, _copy(new))
 
     def delete_item(self, item, partition_key=None, **kwargs):
         self._pause()
@@ -104,7 +123,7 @@ class FakeContainer:
 
     def read_all_items(self, **kwargs):
         with self.lock:
-            return [copy.deepcopy(doc) for doc in self.docs.values()]
+            return [self._read(item) for item in self.docs]
 
     def query_items(self, query, parameters=None, **kwargs):
         """
@@ -132,7 +151,7 @@ class FakeContainer:
             else:
                 raise NotImplementedError(f"FakeContainer can not run the clause {clause!r}")
         with self.lock:
-            return [copy.deepcopy(doc) for doc in self.docs.values() if all(test(doc) for test in tests)]
+            return [self._read(item) for item, doc in self.docs.items() if all(test(doc) for test in tests)]
 
     # --- for tests -------------------------------------------------------------------------------------------------
 
@@ -146,7 +165,7 @@ class FakeContainer:
                 if doc_id.startswith(("user_", "username_")):
                     del self.docs[doc_id]
                 else:
-                    self.docs[doc_id] = self._stamp({"id": doc_id})
+                    self._store(doc_id, {"id": doc_id})
 
     def reset(self):
         with self.lock:

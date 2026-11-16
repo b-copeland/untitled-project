@@ -49,8 +49,12 @@ plan only: the brain does not run for players.
 As an admin (log in at `/admin` or with the `admin` account):
 
 ```
-POST /api/admin/bots     {"explorer": 25, "attacker": 25, "intel": 25, "thief": 25}
+POST /api/admin/bots     {"explorer": 30, "attacker": 40, "intel": 10, "thief": 20}
 ```
+
+That is `bots.DEFAULT_MIX` for 100 bots (`bots.mix_for(100)`), the mix the simulator uses unless told otherwise: few
+intel bots, because they compete to sell the same galaxymates intel, and thieves a minority, so their siphons do not
+crowd each other.
 
 At most 200 per call. Names are `bot_<type>_<n>`. Each goes into the galaxy with the fewest members, like a new player.
 Resetting the round (`/api/resetstate`) clears every account's kingdom, bots included; create them again afterwards.
@@ -103,6 +107,13 @@ hidden state.
   same army takes from primitives. Primitives get harder all round, so the defense per star that makes a kingdom the
   worse deal rises with the square root of time. Each playstyle keeps a margin on that line (`defense_margin`), more
   when it has been hit, 30% more while its empire is at war.
+- **And enough to keep out the strongest army it knows of** (`note_threat`): the largest offense among the outsiders
+  whose military is revealed to it (its own spying, and intel it accepted from galaxymates), a little over
+  (`THREAT_MARGIN`), remembered for a day after the intel runs out, and never more than twice the line
+  (`THREAT_CAP`): a kingdom can not out-defend everybody.
+- **A floor for every playstyle, off for now** (`MIN_DEFENSE`): at 1.1 every bot keeps at least 1.1 times the
+  peacetime break-even with primitives (`break_even_per_star`), so a hit on it pays less than primitives. Measured at
+  1.1 it cost attackers 10% of their stars and intel bots 16%, without saving the attackers any stars, so it is 0.
 - **The rest of the army money is offense** (`army_plan`, `offense_share`), sent at primitives by the auto attack with
   every pure attacker (`pure` is 100%: they are no use at home). Recruits are drafted only as fast as the money turns
   them into units (`max_recruits`, units before recruits).
@@ -110,8 +121,15 @@ hidden state.
   once unlocked: twice and four times the strength for each recruit and hangar place. Otherwise defenders, the cheapest
   defense for the money.
 - **Land for the army on order** (`structures_plan`): hangars and fuel plants for the units the budget will buy, before
-  they arrive. The split of the rest between homes and mines follows what the kingdom is short of: more homes (people:
-  recruits and engineers) while money is left over, more mines while the army is short of money.
+  they arrive.
+- **Homes and mines by what the kingdom is short of** (`HOMES_RULE = "surplus"`). Homes earn less than mines but
+  hold the people recruits and engineers are drafted from. The homes share moves up while money is left over (people
+  are short) and down while the army is short of money, so both run out together.
+  The other rule, `"people"` (`homes_for_people`), sizes homes directly: at most 12% of the people can be recruits in
+  training, for about 12 epochs, so `n` units an epoch need `100 n` people. It did worse. Sized from the army's share of
+  the spending plan, which is itself capped by how fast recruits can be drafted, homes and army shrank each other
+  (armies a quarter the size); sized from all the money the other categories leave, it overbuilt homes for intel bots
+  and thieves (about half their homes-and-mines land) and the universe ended 6% smaller.
 - **Engineers where a bonus is slipping** (`projects_plan`): a continuous bonus gets what keeps it full as the kingdom
   grows; a share works on the playstyle's unlock (Drone Gadgets, Big Flexers, Star Busters for bombers), which also
   takes whoever the bonuses do not need.
@@ -131,16 +149,23 @@ hidden state.
   it has run; the strike is timed for when enough generals are back (`_army_timeline`).
 - **Thieves compare too**: a siphon is scheduled when its expected take beats what the same spy attempt robs from
   primitives, which it does more and more as primitives are robbed bare.
+- **Siphons spread out.** Siphons on one kingdom share its 15%, so thieves that all pick the richest target take from
+  each other. Each target is drawn in proportion to what it is worth (`SIPHON_PICK`), its income worked out from its
+  structures when they are revealed (`income_from_intel`), so a kingdom of mines is worth more than one of homes.
+- **And learn who catches them** (`note_siphons`): every siphon's outcome, from the spy history, is counted per
+  target with the older ones counting less (`SIPHON_MEMORY`), and blended with the forecast (`SIPHON_PRIOR`). A
+  kingdom with more drones than its stars suggest, a thief for example, is tried less and less, without anybody being
+  named as a thief.
 
 ### Politics
 
 - **Galaxy policies** by playstyle (`Personality.galaxy_votes`), and a **leader**: whoever the others back, and with no
   votes to go by, the strongest. (Everybody voting for today's strongest split the vote and elected nobody.)
 - **Empires.** A galaxy leader joins the strongest empire that has room, or founds one; an empire leader admits who asks
-  and invites galaxies without an empire. A bot never lets its empire grow past 30% of the universe's kingdoms or 35%
-  of its networth (`fits_in_empire`, `EMPIRE_MAX_KINGDOMS`, `EMPIRE_MAX_NETWORTH`; two galaxies may always ally), so
-  there is somebody left to fight. This is the bots' own rule, not a game rule: players are not bound by it. Bots never
-  act against their own empire, and attack an under-defended human as readily as an under-defended bot.
+  and invites galaxies without an empire. The game refuses a join that would give an empire more than 30% of the
+  universe's kingdoms or 35% of its networth (`politics.empire_size_problem`; two galaxies may always ally), and the
+  bots ask the same question first (`fits_in_empire`), so there is somebody left to fight. Bots never act against their
+  own empire, and attack an under-defended human as readily as an under-defended bot.
 - **War.** From the mid game the empire leader denounces the strongest other empire (the aggression that follows can
   bring a war without the penalty for a surprise), and late in the round declares war if it has not come.
 - **Universe votes.** In an election a bot buys votes once, with a quarter of its loose money, and casts most on the arms
@@ -156,7 +181,7 @@ In the kingdom document, under `bot` (read it with `GET /kingdom/<id>` on the fu
 | `next_think`, `phase` | When it thinks next; the phase it last planned for. |
 | `log` | The last 40 decisions: `{time, kind, why, outcome}`. `plan` entries say what it is spending on and how its defense stands. |
 | `counts` | How many times it has done each kind of thing all round (`attack`, `intelspy`, `buy_settle`, `empire_found`, `... refused`). |
-| `memory` | What it has learned: `grudges`, `defense_boost`, `buffer_extra`, `spy_fails`, `strike` (the one pending), `siphons` running, `stars_log`, `stalled`, `surplus` (money to spare, -0.5 to 1). |
+| `memory` | What it has learned: `grudges`, `defense_boost`, `buffer_extra`, `spy_fails`, `strike` (the one pending), `siphons` running, `siphon_record` (per target, siphons that worked and tried, decayed) and `siphons_seen`, `threat` (the strongest offense known, whose, when), `stars_log`, `stalled`, `surplus` (money to spare, -0.5 to 1). |
 | `reserved_generals` | Generals its auto attack leaves at home (0 once the brain has planned; bots from before keep 2). |
 
 Bots made before styles and memory existed get a default style and an empty memory on their next think.
@@ -169,17 +194,30 @@ python scripts/simulate_round.py --days 5 --set WAR_MARGIN=1.5 --set thief.defen
 ```
 
 It runs the real function app handlers on the in-memory backend the tests use and moves a simulated clock, so the epoch
-keeps its real length and a week takes about five minutes for 40 bots. It prints, per playstyle, stars and networth
-(median and best), points, growth by day, every action taken, the empires and wars, anything the game logged as an
-error, and the function app calls the bots cost. `--set` tries a number without editing the code. Runs with the same
-arguments are close but not identical, and one seed is noisy: compare the mean of several seeds before believing a
-change. `tests/test_bot_simulation.py` plays one day of it in the suite. (`scripts/simulate_bots.py` is the other one:
+keeps its real length. A simulated day of 40 bots takes about 25 seconds, a week of 100 bots about 12 minutes; most
+of it is the refresh's own function app calls, each a JSON round trip. It prints, per playstyle, stars and networth
+(median and best), points, growth by day, metrics by day, where stars and money came from (including intel sold for a
+cut), every action taken, the empires and wars, anything the game logged as an error, and the function app calls the
+bots cost. `--set` tries a number without editing the code. **A seed always plays the same round**: the script fixes
+Python's hash seed (it restarts itself with `PYTHONHASHSEED=0`) and draws every random number from the seed, so two
+versions run with the same seed differ only by the change. One seed is still one round: compare the mean of several
+before believing a change. `tests/test_bot_simulation.py` plays one day of it in the suite. (`scripts/simulate_bots.py` is the other one:
 it drives the real local stack in real time.)
 
 **All `Personality` and archetype numbers are `TUNE` values.** `botbrain.problems(personality)` and
 `bots.problems(archetype)` check them, with the validators the routes use.
 
 ### Where it stands (2026-11-15)
+
+**100 bots in 10 galaxies, the default mix, seven days, mean of three seeds** (median stars): attackers 9,700,
+explorers 11,200, thieves 8,500, intel bots 7,400. Against the bots before siphon spreading and learning and the
+threat-aware defense, that is the same overall (9,520 median stars both ways); attackers lose a third fewer stars to
+strikes (960 against 1,380) and fewer die; siphon losses are spread (explorers lose 1.1 million each over the week
+instead of 0.3 million, intel bots 1.4 instead of 2.9); thieves take about a fifth less by siphons (6.5 million
+against 8.3), since spreading means less likely targets, which costs them nothing in stars (siphons are a few percent
+of their income).
+
+Before that, at 40 bots in 4 galaxies:
 
 Seven days, 40 bots, 4 galaxies, mean of four seeds, against the bots as they were (auto builder only, plus a brain
 that spied, voted and attacked kingdoms):
@@ -219,17 +257,21 @@ Not changed: these are balance and rules, which are the maintainer's call.
    a line of 46 and primitives at 387). It moves with primitives, as the square root of time, so longer rounds do not
    change it. What makes kingdoms the better target is whatever pulls their defense under the line: war (+20% gains),
    losing attacks that wear it down, burning their fuel.
-3. **Money is what limits a bot, at the margin.** Idle money is about two epochs of income and recruits are none of the
-   army: the bots move land between homes and mines until neither people nor money is left over.
+3. **Money is what limits a bot, at the margin.** Idle money (money and funding not yet spent, in epochs of income,
+   when the kingdom is looked at) is about two epochs, and recruits are none of the army: the bots move land between
+   homes and mines until neither people nor money is left over. Sizing homes by formula instead did worse (above).
 4. **Siphons can not make a thief.** A siphon is worth 8 money per drone sent (`BASE_DRONES_SIPHON_PER_DRONE`); the 15%
-   is only a cap on the target. With 6 drones per star and one spy attempt every two epochs, even a siphon with every
+   is only a cap on the target, shared pro rata by the siphons on it (see [status.md](status.md#siphons-2026-11-15) for
+   the rule intended instead). With 6 drones per star and one spy attempt every two epochs, even a siphon with every
    attempt brings about 15 per star per epoch, against about 95 a thief earns at home. Over a week siphons were 3-4% of a
    thief's income. Robbing primitives falls to about 1 per drone by day 7. A siphon that scaled with the target's
    income, or a higher per-drone amount, would be the lever.
-5. **Lumina grows only through its galaxy.** Its offense penalty takes it off the primitives (fewest stars from them of
-   any playstyle), and intel shared for a cut paid it back a few dozen times a week.
+5. **Selling intel earns intel bots nothing.** Over a week of 100 bots no intel bot earned a star from a cut: about
+   30% of the attackers' winning strikes used intel a galaxymate shared, but all of it was shared free (by attackers
+   and thieves, who ask no cut), and attackers accept what is offered first. Lumina's offense penalty also keeps it off
+   the primitives. Why no paid offer is ever used is not yet known.
 6. **The mix of playstyles matters less than expected** (100 bots, 10 galaxies, one seed each, so a lead not a
-   result). With only 10 attackers, those attackers took two and a half times the stars from kingdoms (3,200 against
+   result; before the default mix). With only 10 attackers, those attackers took two and a half times the stars from kingdoms (3,200 against
    1,300 each). With only 10 thieves, each thief siphoned 30% more, but did not end ahead. At this size empires of three
    galaxies formed, and several wars ran at once.
 7. **`pop_bonus` does nothing.** The project says it increases homes capacity; no formula reads it. The bots put no
@@ -271,6 +313,4 @@ Nothing is blocked on these; I picked a default and moved on.
    simulations). New players are offered the same starts. Is that what you want them offered?
 2. **Vote preferences** are from the policy text (`Personality.galaxy_votes`, `universe_votes`). Three playstyles
    vote Treatied, which they also pay for.
-3. **Empire size as a game rule.** The 30% of kingdoms and 35% of networth limits are the bots' own. Making them a
-   rule for everybody means a check in `politics.py` (join, accept invite, admit) and the Empire help page.
-4. **Existing bots** (without `style`) keep working with a default style. Re-create them to get the mix.
+3. **Existing bots** (without `style`) keep working with a default style. Re-create them to get the mix.

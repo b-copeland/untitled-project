@@ -70,9 +70,19 @@ MIN_SPY_CHANCE = 0.15       # TUNE: the least chance worth a try for military in
 EFFICIENT_ARMY_SURPLUS = 0.2  # TUNE: how much money to spare (0 to 1) before defense is bought as flexers
 SPY_FAILS = 3               # TUNE: failed intel operations in a row before a target is left alone
 SPY_FORGET_EPOCHS = 48      # TUNE: and for how long
-EMPIRE_MAX_KINGDOMS = 0.30  # TUNE: the largest share of the universe's kingdoms a bot lets its empire hold
-EMPIRE_MAX_NETWORTH = 0.35  # TUNE: and of its networth
 MAX_SIPHONS_PER_THINK = 3   # TUNE: siphons scheduled in one think, on different kingdoms
+SIPHON_PICK = "spread"      # TUNE: "spread" draws siphon targets in proportion to their worth; "best" takes the best
+SIPHON_PRIOR = 2.0          # TUNE: how many siphons' worth of trust the forecast chance gets against what was seen
+SIPHON_MEMORY = 0.8         # TUNE: how much of what was seen of a target's spies is kept with each new try
+THREAT_MARGIN = 1.05        # TUNE: defense wanted over the strongest offense an outsider is known to have
+THREAT_CAP = 2.0            # TUNE: but never more than this many times the deterrence line
+THREAT_EPOCHS = 24          # TUNE: how long a threat seen is remembered
+HOMES_RULE = "surplus"      # TUNE: "surplus" moves the homes share with money to spare (more homes) or short (more
+                            #       mines); "people" sizes homes for the recruits the money could buy (it did worse)
+MIN_DEFENSE = 0.0           # TUNE: the least defense any bot keeps home, in times the peacetime break-even with
+                            #       primitives (1.1: a hit on it pays less than primitives, though it still hurts an
+                            #       enemy). Off: at 1.1 attackers ended 10% and intel 16% smaller (docs/bots.md).
+HOMES_SPARE = 1.15          # TUNE: homes kept over what the recruits and engineers need
 ENGINEERS_PER_STAR = None   # TUNE: the most engineers a kingdom keeps per star (None: as many as the workshops hold)
 WAR_MARGIN = 1.3            # TUNE: how much more defense a kingdom whose empire is at war keeps
 BOMBER_KEEP = 1.5           # TUNE: epochs of income a bomber keeps as money for missiles
@@ -406,6 +416,10 @@ class World:
         return self._lazy("shared", lambda: uag._get_shared(self.kd_id))
 
     @property
+    def spy_history(self):
+        return self._lazy("spy_history", lambda: occ.read(f'/kingdom/{self.kd_id}/spyhistory').get("spy_history", []))
+
+    @property
     def attack_history(self):
         return self._lazy("attack_history", lambda: occ.read(f'/kingdom/{self.kd_id}/attackhistory').get("attack_history", []))
 
@@ -590,7 +604,13 @@ def plan_economy(world, personality, style, memory):
     margin = personality.defense_margin / temper * memory.get("defense_boost", 1.0)
     if world.my_empire is not None and world.empires[1].get(world.my_empire, {}).get("war"):
         margin *= WAR_MARGIN  # an enemy at war gains more from us, and wants to
-    wanted = strategy.defense_wanted(me, world.epochs, margin)
+    line = strategy.defense_wanted(me, world.epochs, margin)
+    # Whatever the playstyle, never so little that hitting it pays better than primitives.
+    line = max(line, me["stars"] * strategy.break_even_per_star(world.epochs) * MIN_DEFENSE)
+    # And at least what keeps out the strongest army it knows of (its own intel and what galaxymates shared), up to a
+    # point: a kingdom can not out-defend everybody.
+    threat = note_threat(world, memory)
+    wanted = max(line, min(threat * THREAT_MARGIN, line * THREAT_CAP))
     units = strategy.all_units(me)
     multiplier = max(strategy.defense_multiplier(me), 0.5)
     # A bot that strikes kingdoms counts its flex units for half: they are away when it attacks. One that does not
@@ -652,6 +672,20 @@ def plan_economy(world, personality, style, memory):
         "missile_silos": personality.missile_silos if style.get("bomber") and phase_name != "early" else 0.0,
         "homes": min(max(personality.homes + surplus * MAX_HOMES_SHIFT, 0.35), 0.9),
     }
+    if HOMES_RULE == "people":
+        # Homes for the people the army and the engineers draft from, a little over; mines for the rest of the land.
+        # The army's share of the spending plan is itself capped by how fast recruits can be drafted, so sizing homes
+        # from it would shrink both in turn: size them for all the money the other categories do not take, so that
+        # money, not people, is what limits the army.
+        army_money = income * max(1 - shares["settle"] - shares["structures"] - shares["engineers"] - reserve, 0)
+        average_unit = (strategy.unit_cost("attack", world.cost_modifier) + strategy.unit_cost("defense", world.cost_modifier)) / 2
+        units_per_epoch = army_money / average_unit
+        engineers_per_epoch = shares["engineers"] * income / (uas.GAME_CONFIG["BASE_ENGINEER_COST"] * world.cost_modifier)
+        homes = strategy.homes_for_people(units_per_epoch, engineers_per_epoch, vult=me["race"] == "Vult") * HOMES_SPARE
+        taken = sum(land[key] for key in ("workshops", "drone_factories", "missile_silos")) * me["stars"]
+        taken += me["structures"].get("hangars", 0) + me["structures"].get("fuel_plants", 0)
+        free = max(me["stars"] - taken, 1)
+        land["homes"] = min(max(homes / free, 0.2), 0.9)
     structures_target = strategy.structures_plan(me, land, to_buy, shields_fuel)
 
     key_projects = personality.key_projects + (("star_busters",) if style.get("bomber") else ())
@@ -834,21 +868,10 @@ def plan_politics(world, personality, style, memory, rng):
 
 
 def fits_in_empire(world, empire_galaxies, galaxy):
-    """
-    Whether ``galaxy`` may join an empire of ``empire_galaxies``: the empire would then hold at most
-    ``EMPIRE_MAX_KINGDOMS`` of the universe's kingdoms and ``EMPIRE_MAX_NETWORTH`` of its networth (so there is somebody
-    left to fight). Two galaxies may always ally: an alliance of one is none. Both shares are public (the Galaxy and
-    Scores pages).
-    """
-    together = set(empire_galaxies) | {galaxy}
-    if len(together) <= 2:
-        return True
-    kingdoms = sum(len(world.galaxies.get(g, [])) for g in together)
-    all_kingdoms = max(sum(len(members) for members in world.galaxies.values()), 1)
-    galaxy_networth = dict(world.scores["galaxy_networth"])
-    networth = sum(galaxy_networth.get(g, 0) for g in together)
-    all_networth = max(sum(galaxy_networth.values()), 1)
-    return kingdoms / all_kingdoms <= EMPIRE_MAX_KINGDOMS and networth / all_networth <= EMPIRE_MAX_NETWORTH
+    """Whether ``galaxy`` may join an empire of ``empire_galaxies`` under the game's size rule (asked before inviting or
+    asking, so the bot does not ask for what will be refused)."""
+    return uap.empire_size_problem(empire_galaxies, galaxy, world.galaxies,
+                                   dict(world.scores["galaxy_networth"])) is None
 
 
 def _empire_networth(world, empire):
@@ -1148,6 +1171,12 @@ def plan_drones(world, personality, style, memory, rng):
             shields = world.target_info(kd).get("shields", {}).get("spy", 0.0)
         return strategy.spy_chance(sent, _guess_drones(world, kd, stars), stars, shields)
 
+    def learned_chance(kd, forecast):
+        # What the spies have seen of a target counts with what the forecast says: one that keeps catching them (a
+        # kingdom with more drones than its stars suggest, say) is tried less and less.
+        ok, tried = memory.get("siphon_record", {}).get(kd, (0.0, 0.0))
+        return (forecast * SIPHON_PRIOR + ok) / (SIPHON_PRIOR + tried)
+
     # Sabotage a leader.
     if rng.random() < _by_phase(personality.sabotage_chance, world.phase):
         leaders = [kd for kd in world.leaders(3) if kd in known]
@@ -1185,17 +1214,28 @@ def plan_drones(world, personality, style, memory, rng):
         for kd, (stars, _networth) in known.items():
             if kd in running or memory.get("spy_fails", {}).get(kd, 0) >= SPY_FAILS:
                 continue
-            income = strategy.guess_income(stars)
+            # The richer the target the more there is to take: income from its structures if they are revealed.
+            revealed = world.seconds_left(kd, "structures") > 0 or world.seconds_left(kd, "kingdom") > 0
+            income = strategy.income_from_intel(world.target_info(kd) if revealed else {}, stars)
             # No more drones than the siphon can use.
             useful = strategy.siphon_take(10 ** 12, income) / uas.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"]
             sent = min(drones, useful)
-            chance = chance_against(kd, sent)
+            chance = learned_chance(kd, chance_against(kd, sent))
             options.append((chance * strategy.siphon_take(sent, income), kd, sent, chance))
         threshold = rob * personality.siphon_edge if drone_style == "both" else 0.0
         spare = max(attempts - len(decisions) - 1, 1)
-        for value, target, sent, chance in sorted(options, reverse=True)[:min(spare, MAX_SIPHONS_PER_THINK)]:
-            if value <= threshold or chance < 0.2:
-                break
+        # Siphons on one kingdom share its pool, so thieves that all pick the best target take from each other. Spread
+        # them: each pick is drawn in proportion to what it is worth, among those worth more than robbing.
+        worth = sorted((option for option in options if option[0] > threshold and option[3] >= 0.2), reverse=True)
+        picked = []
+        while worth and len(picked) < min(spare, MAX_SIPHONS_PER_THINK):
+            draw = rng.random() * sum(option[0] for option in worth) if SIPHON_PICK == "spread" else 0.0
+            index = 0
+            while index < len(worth) - 1 and draw > worth[index][0]:
+                draw -= worth[index][0]
+                index += 1
+            picked.append(worth.pop(index))
+        for value, target, sent, chance in picked:
             decisions.append(Decision("aggressivespy", {
                 "target": target, "operation": "siphonfunds", "attempts": 1,
                 "drones_pct": round(min(max(sent / drones * 100, 1.0), 100.0), 1), "shielded": False,
@@ -1286,11 +1326,60 @@ def learn(world, personality, style, memory):
     if fails and memory.get("spy_fails_at") and not _recent(memory, "spy_fails_at", world.now, SPY_FORGET_EPOCHS):
         fails.clear()
         memory.pop("spy_fails_at", None)
+    if style.get("drones") in ("players", "both") and memory.get("siphons"):
+        note_siphons(world, memory)
     stalled = note_growth(world, memory)
     if stalled != memory.get("stalled", False):
         memory["stalled"] = stalled
         notes.append("stopped growing: settling harder and sending the army at primitives" if stalled else "growing again")
     return notes
+
+
+def note_siphons(world, memory):
+    """Count how the siphons the bot has sent went, per target, the older ones counting less."""
+    seen = memory.get("siphons_seen", "")
+    record = memory.setdefault("siphon_record", {})
+    fresh = [entry for entry in world.spy_history
+             if entry.get("operation") == "Siphon Funds" and entry.get("time", "") > seen and entry.get("to")]
+    for entry in fresh:
+        ok, tried = record.get(entry["to"], (0.0, 0.0))
+        won = not str(entry.get("news", "")).startswith("Failure")
+        record[entry["to"]] = [round(ok * SIPHON_MEMORY + won, 3), round(tried * SIPHON_MEMORY + 1, 3)]
+    if fresh:
+        memory["siphons_seen"] = max(entry["time"] for entry in fresh)
+
+
+def note_threat(world, memory):
+    """
+    The strongest offense the bot knows an outsider has, from the military intel revealed to it (its own, and what it
+    accepted from galaxymates), remembered for a while after the intel runs out. Returns it, or 0.
+    """
+    strongest, who = 0.0, None
+    known = world.known_stars()
+    for kd in sorted(world.revealed_with("military"), key=lambda k: -known.get(k, (0, 0))[1])[:3]:
+        info = world.target_info(kd)
+        units = dict(info.get("units") or {})
+        for general in info.get("generals_out") or []:
+            for unit, count in general.items():
+                if unit in uas.UNITS:
+                    units[unit] = units.get(unit, 0) + count
+        offense = uag._calc_max_offense(
+            {unit: count for unit, count in units.items() if unit in uas.UNITS},
+            military_bonus=uas.PROJECTS["military_bonus"]["max_bonus"], other_bonuses=0,
+            generals=max(int(info.get("generals_available", 0)) + len(info.get("generals_out") or []), 1),
+            lumina=info.get("race") == "Lumina", war=world.relation(kd)[0])
+        if offense > strongest:
+            strongest, who = float(offense), kd
+    old = memory.get("threat")
+    if old and not _recent({"at": old.get("at")}, "at", world.now, THREAT_EPOCHS):
+        old = None
+    if who is not None and (not old or strongest >= old["offense"]):
+        memory["threat"] = {"offense": round(strongest), "from": who, "at": world.now.isoformat()}
+        return strongest
+    if not old:
+        memory.pop("threat", None)
+        return 0.0
+    return float(old["offense"])
 
 
 def plan(world, personality, style, memory, rng):

@@ -108,6 +108,11 @@ def deterrence_per_star(epochs):
     return CONFIG["BASE_KINGDOM_LOSS_RATE"] * gains_multiplier(None, war=True) * primitives_defense_per_star(epochs)
 
 
+def break_even_per_star(epochs, war=False):
+    """The defense per star at which a hit on a kingdom pays exactly what the same army takes from primitives."""
+    return CONFIG["BASE_KINGDOM_LOSS_RATE"] * gains_multiplier(None, war=war) * primitives_defense_per_star(epochs)
+
+
 def player_edge(target_stars, offense_needed, epochs, race, war=False):
     """
     How many times more stars an attack on a kingdom takes than sending the same offense at primitives. Above 1 the
@@ -138,6 +143,36 @@ def guess_income(stars):
     """A kingdom's gross income per epoch when all that is known is its stars: about a third mines, the rest homes."""
     return stars * (0.33 * CONFIG["BASE_MINES_INCOME_PER_EPOCH"]
                     + 0.4 * CONFIG["BASE_HOMES_CAPACITY"] * CONFIG["BASE_POP_INCOME_PER_EPOCH"])
+
+
+def income_from_intel(info, stars):
+    """
+    A kingdom's gross income per epoch from what intel shows of it: its mines and homes if its structures are revealed
+    (people fill their homes), its people if its kingdom is, and a guess from its stars otherwise.
+    """
+    structures = info.get("structures")
+    population = info.get("population")
+    if structures:
+        people = population if population is not None else structures.get("homes", 0) * CONFIG["BASE_HOMES_CAPACITY"]
+        return structures.get("mines", 0) * CONFIG["BASE_MINES_INCOME_PER_EPOCH"] + people * CONFIG["BASE_POP_INCOME_PER_EPOCH"]
+    if population is not None:
+        return population * CONFIG["BASE_POP_INCOME_PER_EPOCH"] + 0.33 * stars * CONFIG["BASE_MINES_INCOME_PER_EPOCH"]
+    return guess_income(stars)
+
+
+def homes_for_people(units_per_epoch, engineers_per_epoch, vult=False):
+    """
+    The homes that hold enough people to draft ``units_per_epoch`` recruits and train ``engineers_per_epoch`` engineers
+    without waiting. At most a share of the people can be in training at once (``BASE_MAX_RECRUITS_CAP``,
+    ``BASE_MAX_ENGINEERS_POP_CAP``, two separate caps), for the average training time, so a steady stream of
+    ``n`` a epoch needs ``n * time / cap`` people.
+    """
+    recruit_time = (CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"] + CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"]) / 2
+    engineer_time = (CONFIG["BASE_ENGINEER_TIME_MIN_MULTIPLIER"] + CONFIG["BASE_ENGINEER_TIME_MAX_MUTLIPLIER"]) / 2
+    people = max(units_per_epoch * recruit_time / CONFIG["BASE_MAX_RECRUITS_CAP"],
+                 engineers_per_epoch * engineer_time / CONFIG["BASE_MAX_ENGINEERS_POP_CAP"])
+    per_home = CONFIG["BASE_HOMES_CAPACITY"] * (1 - (CONFIG["VULT_POPULATION_REDUCTION"] if vult else 0))
+    return people / per_home
 
 
 def siphon_take(drones, target_income):

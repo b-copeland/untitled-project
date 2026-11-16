@@ -11,8 +11,10 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 def test_a_day_of_bots_runs_clean_and_every_playstyle_grows(tmp_path):
     out = tmp_path / "round.json"
     done = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "simulate_round.py"), "--days", "1", "--bots", "12", "--galaxies", "3",
-         "--seed", "5", "--json", str(out)],
+        # Three of each playstyle, not the default mix: with one intel bot among five attackers, "the median intel bot"
+        # is one kingdom, and whether it is farmed on the first day is chance.
+        [sys.executable, str(ROOT / "scripts" / "simulate_round.py"), "--days", "1",
+         "--mix", "explorer=3,attacker=3,intel=3,thief=3", "--galaxies", "3", "--seed", "5", "--json", str(out)],
         cwd=ROOT, capture_output=True, text=True, timeout=300,
     )
     assert done.returncode == 0, done.stderr[-2000:]

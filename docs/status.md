@@ -87,5 +87,11 @@ Found by simulating rounds (2026-11-15), not changed because they are rules or b
 - The `pop_bonus` project has no effect: no formula reads it.
 - `_validate_disband` (`build.py`) does not refuse engineers: it builds the message and drops it.
 - An attack always takes at least `BASE_ATTACK_MIN_STARS_GAIN` stars, so a small kingdom can be ground down to nothing.
-- Money stops being what limits a kingdom after about a day (people are), which leaves the thief's income little to buy.
-  Details in [bots.md](bots.md#what-the-simulations-say-about-the-game-for-the-maintainer).
+- Details, and what else the simulations show, in
+  [bots.md](bots.md#what-the-simulations-say-about-the-game-for-the-maintainer).
+
+## Siphons (2026-11-15)
+
+Siphons pay out as fast as the target's 15% allows and share it pro rata between the siphons on a target
+(`refresh._resolve_siphons`). The intended rule is a steady rate per siphon (8 per drone over 12 epochs), with the
+oldest siphons squeezed first when the total passes 15% of the target's income. Not built yet.

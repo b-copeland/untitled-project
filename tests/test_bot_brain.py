@@ -875,3 +875,67 @@ def test_auto_spending_copes_with_a_kingdom_that_has_none_of_the_units_it_aims_f
     """Used to divide by zero, which skipped the kingdom on every tick."""
     training = _auto_spend_military(app, {}, {"attack": 0.5, "defense": 0.5})
     assert training.get("attack", 0) > 0 and training.get("defense", 0) > 0
+
+
+def test_siphons_are_spread_over_kingdoms_in_proportion_to_their_worth():
+    stats = {"3": (3000, 400_000), "4": (2500, 300_000)}
+    thief = dataclasses.replace(THIEF, sabotage_chance=(0.0, 0.0, 0.0))
+    world = StubWorld(day=5, stats=stats)
+    # A low draw takes the best target first, a high one the next: thieves do not all pile on the same kingdom.
+    class Rolls:
+        def __init__(self, *rolls):
+            self.rolls = list(rolls)
+
+        def random(self):
+            return self.rolls.pop(0) if self.rolls else 0.0
+
+    # The rolls: no sabotage, go siphoning, then the draw for the first target.
+    best = brain.plan_drones(world, thief, style(drones="players"), {}, Rolls(0.5, 0.0, 0.0))[0].options["target"]
+    other = brain.plan_drones(world, thief, style(drones="players"), {}, Rolls(0.5, 0.0, 0.99))[0].options["target"]
+    assert {best, other} == {"3", "4"}
+
+
+def test_a_kingdom_that_keeps_catching_the_siphons_is_tried_less():
+    stats = {"3": (3000, 400_000), "4": (2500, 300_000)}
+    thief = dataclasses.replace(THIEF, sabotage_chance=(0.0, 0.0, 0.0))
+    world = StubWorld(day=5, stats=stats)
+    world._cache["spy_history"] = [
+        {"time": until(-i), "to": "3", "operation": "Siphon Funds", "news": "Failure! Your drones were caught"}
+        for i in range(1, 6)] + [{"time": until(-1), "to": "4", "operation": "Siphon Funds", "news": "Success!"}]
+    memory = {"siphons": {"6": until(5)}}
+    brain.note_siphons(world, memory)
+    assert memory["siphon_record"]["3"][0] == 0 and memory["siphon_record"]["3"][1] > 3
+    assert memory["siphon_record"]["4"] == [1, 1]
+    assert brain.plan_drones(world, thief, style(drones="players"), memory, ChanceOf(0.0))[0].options["target"] == "4"
+    # What was counted is not counted again.
+    brain.note_siphons(world, memory)
+    assert memory["siphon_record"]["4"] == [1, 1]
+
+
+def test_a_bot_keeps_out_the_strongest_army_it_knows_of():
+    army = {"units": {"attack": 60_000, "defense": 0, "flex": 0, "big_flex": 0, "recruits": 0}, "generals_available": 4,
+            "race": "Xo"}
+    world = StubWorld(day=3, stats={"3": (1000, 500_000)}, revealed={"3": {"military": until(6)}}, info={"3": army})
+    memory = {}
+    threat = brain.note_threat(world, memory)
+    assert threat > 60_000 * uas.UNITS["attack"]["offense"] and memory["threat"]["from"] == "3"
+    settings, why = brain.plan_economy(world, ATTACKER, style(), memory)
+    line = max(brain.strategy.defense_wanted(world.me, world.epochs, ATTACKER.defense_margin),
+               world.me["stars"] * brain.strategy.break_even_per_star(world.epochs) * brain.MIN_DEFENSE)
+    wanted = float(why.split(" of ")[1].split(" wanted")[0].replace(",", ""))
+    assert line < wanted <= line * brain.THREAT_CAP + 1  # the log rounds it
+    # The threat is remembered for a while after the intel runs out, then forgotten.
+    blind = StubWorld(day=3, stats={"3": (1000, 500_000)})
+    assert brain.note_threat(blind, memory) == threat
+    memory["threat"]["at"] = (NOW - datetime.timedelta(seconds=(brain.THREAT_EPOCHS + 1) * brain.EPOCH)).isoformat()
+    assert brain.note_threat(blind, memory) == 0.0 and "threat" not in memory
+
+
+def test_every_bot_keeps_more_defense_than_makes_it_a_better_target_than_primitives(monkeypatch):
+    monkeypatch.setattr(brain, "MIN_DEFENSE", 1.1)  # off by default; the rule as it works when switched on
+    world = StubWorld(day=5)
+    bold = dataclasses.replace(ATTACKER, defense_margin=0.3)
+    _, why = brain.plan_economy(world, bold, style(), {})
+    wanted = float(why.split(" of ")[1].split(" wanted")[0].replace(",", ""))
+    floor = world.me["stars"] * brain.strategy.break_even_per_star(world.epochs) * brain.MIN_DEFENSE
+    assert wanted == pytest.approx(floor, abs=1)
