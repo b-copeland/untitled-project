@@ -7,7 +7,7 @@ What runs in production, how code gets there, and what is **not** automated yet.
 | Piece | Where it runs | How it is deployed |
 |---|---|---|
 | Web app: Flask API plus the built React frontend | Azure App Service (Linux, **Free F1 plan**), app `untitled-space-game-12k34j134` | Automatically, by GitHub Actions on every push to `main` |
-| Function app (`funcapp/`) | Azure Functions, app `usg-funcapp-1345kh132`, Linux Consumption (Y1) plan | **Manually** (see below). CI does not deploy it. |
+| Function app (`funcapp/`) | Azure Functions, app `usg-funcapp-1345kh132`, Linux Consumption (Y1) plan | Automatically, by the same GitHub Actions workflow, before the web app |
 | Game state | Azure Cosmos DB, one database `dev` with containers `data`, `dev`, `test`, `prod` | Created by hand in the Azure portal |
 | Users | Cosmos documents (`user_<id>`, `username_<key>`, `user_counter`) | Created at sign-up; the `admin` user by the app on first start if missing |
 | Periodic refresh | WebJob `refreshapp` on the web app, every minute | Created by hand in the portal. Not in this repository. |
@@ -86,9 +86,12 @@ These live in the Azure portal only. Check them before rebuilding the environmen
 
 ## Function app
 
-`funcapp/` is not deployed by CI yet (the intent is that it will be; see [status.md](status.md#deployment-and-operations)).
-Until then, deploy it from VS Code with the Azure Functions extension (the workspace settings
-already point `azureFunctions.deploySubpath` at `funcapp` and enable remote build), or from a terminal:
+CI publishes `funcapp/` with `Azure/functions-action@v1` (remote build) in the `deploy-funcapp` job, which runs after
+the tests and **before** the web app deploy; if it fails, the web app is not deployed. It needs the GitHub secret
+`AZUREFUNCTIONS_PUBLISHPROFILE`: the function app's publish profile, downloaded with "Get publish profile" in the
+portal (this needs basic authentication for SCM enabled on the function app). To publish by hand instead, use VS Code
+with the Azure Functions extension (the workspace settings already point `azureFunctions.deploySubpath` at `funcapp`
+and enable remote build), or from a terminal:
 
 ```powershell
 cd funcapp
@@ -99,7 +102,8 @@ Function app settings required in Azure: `FUNCTIONS_WORKER_RUNTIME=python`, `Azu
 `COSMOS_KEY`, `COSMOS_DATABASE_NAME`, `COSMOS_CONTAINER_NAME`. The routes use `AuthLevel.ADMIN`, so callers (the Flask
 API) must send the host key.
 
-Because CI does not deploy it, **a change to `funcapp/` does not go live when merged**. Remember to publish it.
+A change to `funcapp/` goes live when merged to `main`, once the secret above exists. Until then the deploy job fails
+and the web app is not deployed.
 
 ## The periodic refresh
 

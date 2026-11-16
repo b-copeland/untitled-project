@@ -35,7 +35,8 @@ These pieces do not yet:
 
 ## Deployment and operations
 
-- The function app is published by hand, not by CI. Intended to be automated ([deployment.md](deployment.md)).
+- The function app is published by CI (2026-11-14) but the workflow is untested until the maintainer adds the
+  `AZUREFUNCTIONS_PUBLISHPROFILE` secret and a merge to `main` runs it ([deployment.md](deployment.md)).
 - CI runs on pushes to `main` only, not on pull requests, so nothing checks a pull request before it merges. A pull
   request workflow running the same three suites would fix that.
 - `scripts/check.ps1` is PowerShell and expects conda; there is no equivalent script for Linux or macOS, only the plain
