@@ -143,7 +143,8 @@ Whether the backend behind `store.py` stays the function app is the maintainer's
 ### Target: no SQLite
 
 SQLite held the users and the legacy locks, in a file on one machine, which contradicts rule 1. Nothing is stored in it
-any more; the SQLAlchemy dependency itself is still to go ([status.md](status.md#parallelism-gaps)).
+any more, and SQLAlchemy is gone from the code, the requirements and the config (`tests/test_no_sqlalchemy.py` checks
+that the app starts without it). Do not bring SQL back.
 
 - **Users** moved to Cosmos ([decisions/0004](decisions/0004-users-in-cosmos.md)): `user_<id>`, `username_<key>`
   and `user_counter` documents behind function app routes ([data-model.md](data-model.md#users)), with a plain user
