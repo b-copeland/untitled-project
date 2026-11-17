@@ -130,3 +130,15 @@
 .projects-section { width: 100%; margin-top: 20px; }
 .projects-section-title { text-align: left; margin: 4px 5px 0; }
 .projects-section-note { display: block; text-align: left; margin: 0 5px; color: var(--bs-secondary-color, #6c757d); }
+/* Narrow screens: the description moves into an (i) popover so rows stay one line tall. */
+.project-name-line { display: inline-flex; align-items: center; gap: 4px; }
+.project-info-button {
+    display: none;
+    width: 16px; height: 16px; padding: 0; flex: none;
+    border: 1px solid currentColor; border-radius: 50%; background: transparent; color: inherit;
+    font-size: 10px; font-style: italic; font-weight: bold; line-height: 14px; text-align: center;
+}
+@media (max-width: 755px) {
+    .project-info-button { display: inline-block; }
+    .project-desc { display: none; }
+}

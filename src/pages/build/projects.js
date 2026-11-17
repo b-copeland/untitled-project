@@ -7,6 +7,8 @@ import { AmountInput } from "../../components/forms";
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
+import Popover from 'react-bootstrap/Popover';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Toast from 'react-bootstrap/Toast';
@@ -206,10 +208,25 @@ function projectCells(row, kdInfo, engineersInfo, projectsInfo) {
     };
 }
 
+/**
+ * The project's name and what it does. Wide screens show the description under the name; narrow ones hide it (it made
+ * every row tall) and show an (i) button that opens it in a popover instead. Which one shows is up to projects.css.
+ */
 function ProjectName({ row }) {
+    const about = (
+        <Popover id={`${row.key}-about`}>
+            <Popover.Header as="h3">{row.name}</Popover.Header>
+            <Popover.Body>{row.desc}</Popover.Body>
+        </Popover>
+    );
     return (
         <div className="project-name">
-            <span>{row.name}</span>
+            <span className="project-name-line">
+                {row.name}
+                <OverlayTrigger trigger="click" placement="auto" rootClose overlay={about}>
+                    <button type="button" className="project-info-button" aria-label={`About ${row.name}`}>i</button>
+                </OverlayTrigger>
+            </span>
             <small className="project-desc">{row.desc}</small>
         </div>
     );

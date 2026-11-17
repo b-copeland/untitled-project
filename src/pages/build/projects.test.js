@@ -80,3 +80,10 @@ test("continuous projects are in their own section, one-time projects in theirs 
     expect(screen.getAllByText("Continuous Projects").length).toBeGreaterThan(0);
     expect(screen.getAllByText("One-Time Projects").length).toBeGreaterThan(0);
 });
+
+test("the (i) button opens the project's description", async () => {
+    render(<ProjectsContent data={data()} loading={{}} updateData={jest.fn()} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assign" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "About Money Bonus" })[0]);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("More money");
+});
