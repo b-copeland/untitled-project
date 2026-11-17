@@ -266,7 +266,14 @@ def _calc_losses(
     }
     return losses
 
-def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0):
+def _general_speed(kd_info, current_bonuses):
+    """The share by which this kingdom's generals return sooner, from its projects (not politics or distance)."""
+    return current_bonuses["general_bonus"] + (
+        int(uas.has_project(kd_info, "xo_capstone")) * uas.GAME_CONFIG["XO_CAPSTONE_RETURN_REDUCTION"]
+    )
+
+
+def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0, war=False):
     """
     The share of its units each side loses in an attack, before race and war (``_calc_losses`` applies those): the base
     rates, the defender's scaled by how close the attack came (``attack_ratio``), and the projects that change them.
@@ -280,6 +287,8 @@ def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0):
         if uas.has_project(attacker_kd, "self_destructing_attackers"):
             defender_rate *= 1 + uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
         defender_rate *= 1 - uas.project_bonus(defender_kd, "casualties_bonus")
+        if war and uas.has_project(attacker_kd, "xo_capstone"):
+            defender_rate *= 1 + uas.GAME_CONFIG["XO_CAPSTONE_WAR_LOSSES_INCREASE"]
     attacker_rate *= 1 - uas.project_bonus(attacker_kd, "casualties_bonus")
     return attacker_rate, defender_rate
 
@@ -424,7 +433,7 @@ def calculate_attack(target_kd):
         attack_ratio = min(attack / defense, 1.0)
     except ZeroDivisionError:
         attack_ratio = 1.0
-    attacker_loss_rate, defender_loss_rate = _battle_loss_rates(kd_info_parse, max_target_kd_info, attack_ratio)
+    attacker_loss_rate, defender_loss_rate = _battle_loss_rates(kd_info_parse, max_target_kd_info, attack_ratio, war)
     attacker_losses = _calc_losses(
         attacker_units,
         attacker_loss_rate,
@@ -444,7 +453,7 @@ def calculate_attack(target_kd):
         int(attacker_raw_values.get("generals", 1) or 1),
         uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
-        current_bonuses["general_bonus"],
+        _general_speed(kd_info_parse, current_bonuses),
         is_warlike=is_warlike,
         coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], max_target_kd_info["coordinate"]),
     )
@@ -658,7 +667,7 @@ def _autofill_attack(req, kd_id, target_kd):
         attack_ratio = min(attack / defense_adjusted, 1.0)
     except ZeroDivisionError:
         attack_ratio = 1.0
-    attacker_loss_rate, defender_loss_rate = _battle_loss_rates(kd_info_parse, max_target_kd_info, attack_ratio)
+    attacker_loss_rate, defender_loss_rate = _battle_loss_rates(kd_info_parse, max_target_kd_info, attack_ratio, war)
     attacker_losses = _calc_losses(
         attacker_units,
         attacker_loss_rate,
@@ -678,7 +687,7 @@ def _autofill_attack(req, kd_id, target_kd):
         generals,
         uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
-        current_bonuses["general_bonus"],
+        _general_speed(kd_info_parse, current_bonuses),
         is_warlike=is_warlike,
         coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], max_target_kd_info["coordinate"]),
     )
@@ -852,7 +861,7 @@ def _attack(req, kd_id, target_kd):
                 n_generals,
                 uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
                 time_now,
-                current_bonuses["general_bonus"],
+                _general_speed(kd, current_bonuses),
                 is_warlike=is_warlike,
                 coordinate_distance=_calc_coordinate_distance(kd["coordinate"], target_kd_info["coordinate"]),
             )
@@ -906,7 +915,7 @@ def _attack(req, kd_id, target_kd):
             )
             # A kingdom with nothing to defend with has a defense of zero: any attack is at full strength.
             attack_ratio = min(attack / defense, 1.0) if defense > 0 else 1.0
-            _, defender_loss_rate = _battle_loss_rates(departure, target_doc, attack_ratio)
+            _, defender_loss_rate = _battle_loss_rates(departure, target_doc, attack_ratio, war)
             defender_losses = _calc_losses(
                 defender_units,
                 defender_loss_rate,
@@ -1324,7 +1333,7 @@ def calculate_attack_primitives():
         int(attacker_raw_values["generals"]),
         uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
-        current_bonuses["general_bonus"],
+        _general_speed(kd_info_parse, current_bonuses),
         is_warlike=is_warlike,
         coordinate_distance=25,
     )
@@ -1407,7 +1416,7 @@ def _attack_primitives(req, kd_id):
             n_generals,
             uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
             time_now,
-            current_bonuses["general_bonus"],
+            _general_speed(kd_info_parse, current_bonuses),
             is_warlike=is_warlike,
             coordinate_distance=25,
         )
@@ -1506,6 +1515,14 @@ def attack_primitives():
     _, attack_results, status_code = _attack_primitives(req, kd_id)
     return (flask.jsonify(attack_results), status_code)
 
+def _shielding_fuel(kd_info, drones):
+    """Fuel it costs this kingdom to shield ``drones`` drones on one operation."""
+    per_drone = uas.GAME_CONFIG["BASE_DRONES_SHIELDING_FUEL_PER_DRONE"] * (
+        1 - int(uas.has_project(kd_info, "lumina_capstone")) * uas.GAME_CONFIG["LUMINA_CAPSTONE_SHIELDING_FUEL_REDUCTION"]
+    )
+    return drones * per_drone
+
+
 def _validate_spy_request(
     drones,
     kd_info,
@@ -1516,7 +1533,7 @@ def _validate_spy_request(
     if drones < 0:
         return False, "You can not send negative drones"
     if shielded:
-        if kd_info["fuel"] < drones:
+        if kd_info["fuel"] < _shielding_fuel(kd_info, drones):
             return False, "You do not have enough fuel"
     if kd_info["spy_attempts"] == 0:
         return False, "You do not have any more spy attempts"
@@ -1608,7 +1625,10 @@ def _aggro_damage_multiplier(attacker_kd, target_kd):
     How much of an aggressive spy operation's damage lands, from the projects of both sides: 1 is the base damage.
     ``target_kd`` is the target, or what the attacker knows of it (a forecast).
     """
-    return 1 - uas.project_bonus(target_kd, "spy_protection_bonus")
+    multiplier = 1 - uas.project_bonus(target_kd, "spy_protection_bonus")
+    if uas.has_project(attacker_kd, "vult_capstone"):
+        multiplier *= 1 + uas.GAME_CONFIG["VULT_CAPSTONE_DRONE_DAMAGE_INCREASE"]
+    return multiplier
 
 
 def _calculate_spy_losses(
@@ -1788,7 +1808,7 @@ def _spy(req, kd_id, target_kd):
                 raise occ.Rejected(charge_message)
             charged = {"drones": kd["drones"] - drones, "spy_attempts": kd["spy_attempts"] - 1}
             if shielded:
-                charged["fuel"] = kd["fuel"] - drones
+                charged["fuel"] = kd["fuel"] - _shielding_fuel(kd, drones)
             return charged, None
 
         occ.update(f'/kingdom/{kd_id}', charge, document=kd_info_parse)
@@ -1924,7 +1944,7 @@ def _spy(req, kd_id, target_kd):
         if kidnap_return:
             kd_patch_payload["population"] = kd_info_parse["population"] + kidnap_return
         if shielded:
-            kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
+            kd_patch_payload["fuel"] = kd_info_parse["fuel"] - _shielding_fuel(kd_info_parse, drones)
         if revealed_until:
             next_resolve = kd_info_parse["next_resolve"]
             next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until.isoformat())
@@ -2160,7 +2180,7 @@ def _rob_primitives(req, kd_id):
             "funding": new_funding,
         }
         if shielded:
-            kd_patch_payload["fuel"] = kd_info_parse["fuel"] - drones
+            kd_patch_payload["fuel"] = kd_info_parse["fuel"] - _shielding_fuel(kd_info_parse, drones)
         return kd_patch_payload, (kd_info_parse, kd_patch_payload, message, status)
 
     try:
@@ -2562,6 +2582,7 @@ def _calculate_missiles_damage(
     attacker_missiles,
     defender_shields,
     fuzi=False,
+    damage_multiplier=1.0,
 ):
     if fuzi:
         adjusted_shields = min(defender_shields, 0.5)
@@ -2571,11 +2592,16 @@ def _calculate_missiles_damage(
     damage = {}
     for damage_category in damage_categories:
         damage[damage_category] = sum([
-            math.floor(value_missiles * uas.MISSILES[key_missile].get(damage_category) * (1 - adjusted_shields))
+            math.floor(value_missiles * uas.MISSILES[key_missile].get(damage_category) * (1 - adjusted_shields) * damage_multiplier)
             for key_missile, value_missiles in attacker_missiles.items()
         ])
     return damage
     
+
+def _missile_damage_multiplier(kd_info):
+    """How much of its missiles' damage this kingdom deals: 1 is the base damage."""
+    return 1 + int(uas.has_project(kd_info, "fuzi_capstone")) * uas.GAME_CONFIG["FUZI_CAPSTONE_MISSILE_DAMAGE_INCREASE"]
+
 
 @bp.route('/api/calculatemissiles/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
@@ -2623,6 +2649,7 @@ def calculate_missiles(target_kd):
         attacker_missiles,
         defender_shields,
         fuzi=kd_info_parse["race"] == "Fuzi",
+        damage_multiplier=_missile_damage_multiplier(kd_info_parse),
     )
 
     message = f"The missiles will destroy " + ', '.join([f"{value} {key.replace('_damage', '')}" for key, value in missile_damage.items()])
@@ -2681,6 +2708,7 @@ def _launch_missiles(req, kd_id, target_kd):
                 attacker_missiles,
                 target["shields"]["missiles"],
                 fuzi=kd_info_parse["race"] == "Fuzi",
+                damage_multiplier=_missile_damage_multiplier(kd_info_parse),
             )
             target_stars = target["stars"] - damage["stars_damage"]
             target_pop = target["population"] - damage["pop_damage"]
