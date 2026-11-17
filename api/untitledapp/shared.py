@@ -442,6 +442,8 @@ PROJECT_CATEGORIES = {
 }
 # One-time projects that complete with a fixed bonus (proposals).
 STRUCTURE_PROJECT_POINTS = 50000
+ECO_MILITARY_PROJECT_POINTS = 75000  # Cheaper Exploring, Cheaper Recruits, Population Growth and the loss projects
+ECO_MILITARY_PROJECT_BONUS = 0.25
 
 
 PROJECTS = {
@@ -521,50 +523,50 @@ PROJECTS = {
         "category": "economy",
     },
     "settle_cost_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Decreases the cost of settling new stars by the current bonus",
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Decreases the cost of settling new stars by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
         "name": "Cheaper Exploring",
         "category": "economy",
     },
     "recruit_cost_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Decreases the cost of recruits by the current bonus",
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Decreases the cost of recruits by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
         "name": "Cheaper Recruits",
         "category": "economy",
     },
     "pop_growth_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Increases population growth by the current bonus",
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Increases population growth by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
         "name": "Population Growth",
         "category": "economy",
     },
     "casualties_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Decreases the units you lose in battle, attacking or defending, by the current bonus",
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Decreases the units you lose in battle, attacking or defending, by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
         "name": "Fewer Casualties",
         "category": "military",
     },
     "drone_casualties_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Decreases the drones you lose on spy operations by the current bonus",
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Decreases the drones you lose on spy operations by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
         "name": "Fewer Drone Losses",
         "category": "spy",
     },
     "spy_protection_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Decreases the damage aggressive spy operations do to you by the current bonus",
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Decreases the damage aggressive spy operations do to you by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
         "name": "Counter-Intelligence",
         "category": "spy",
     },
