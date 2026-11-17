@@ -38,6 +38,16 @@ def with_bonus(project, share=1.0):
     return {project: uas.PROJECTS_FUNCS[project](300) * share}
 
 
+def full_bonus(project):
+    """
+    ``kingdom()`` overrides that give ``project`` its whole bonus, and the bonus: a continuous project at its max
+    points, a one-time project completed.
+    """
+    if "max_bonus" in uas.PROJECTS[project]:
+        return {"projects_points": with_bonus(project)}, uas.PROJECTS[project]["max_bonus"]
+    return {"completed_projects": [project]}, uas.PROJECTS[project]["bonus"]
+
+
 def income(app, kd, epochs=1.0, state=None, mobis=None):
     """
     The kingdom after ``epochs`` of income, as the refresh computes it. Sets up kingdom "1" in the store first, since

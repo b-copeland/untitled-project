@@ -35,8 +35,8 @@ function Structures(props) {
                 for each star that you have.
             </p>
             <p>
-                Each structure has a continuous project that improves it (see Projects): Pop Bonus for homes, Fuel
-                Bonus for fuel plants, and a bonus named after each of the others. The numbers below are before them.
+                Each structure has a project that improves it (see Projects): the continuous Pop Bonus for homes and
+                Fuel Bonus for fuel plants, and a one-time bonus named after each of the others. The numbers below are before them.
             </p>
             <p>
                 Structure cost increases with your stars at a rate of `(stars ^ {props.state.game_config?.BASE_STRUCTURE_STARS_POWER}) * {props.state.game_config?.BASE_STRUCTURE_COST_CONSTANT}`. 

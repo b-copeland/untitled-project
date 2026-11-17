@@ -419,7 +419,8 @@ GAME_FUNCS = {
 # Every project, in the order the Projects page lists them. Two kinds:
 #   - continuous (has "max_bonus"): the bonus is max_bonus times the share of max points earned, capped at 1. The max
 #     points grow with stars (stars ** stars_power * constant), so a growing kingdom needs engineers to keep its bonus.
-#   - one-time (no "max_bonus"): done once the points reach the max points; then it is in "completed_projects".
+#   - one-time (no "max_bonus"): done once the points reach the max points; then it is in "completed_projects". A
+#     one-time project with "bonus" gives that whole bonus from the moment it is completed, and nothing before.
 # "category" groups them on the page. "requires" lists projects that must be completed before engineers can work on
 # this one; "race" limits it to one race. Read projects through the helpers below (project_bonus, has_project,
 # project_locked_reason), never by indexing the kingdom's dicts: kingdoms made before a project existed lack its keys.
@@ -431,6 +432,10 @@ PROJECT_CATEGORIES = {
     "missiles": "Missiles",
     "racial": "Racial",
 }
+# One-time projects that complete with a fixed bonus (proposals).
+STRUCTURE_PROJECT_POINTS = 50000
+STRUCTURE_PROJECT_BONUS = 0.25
+
 
 PROJECTS = {
     "pop_bonus": {
@@ -449,44 +454,45 @@ PROJECTS = {
         "name": "Fuel Bonus",
         "category": "structures",
     },
-    # One continuous project per structure (homes and fuel plants are the two above), to reward engineers.
+    # One project per structure. Homes and fuel plants have the continuous ones above; the others are one-time, with a
+    # fixed bonus once completed.
     "mines_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Increases the money mines produce by the current bonus",
+        "stars_power": 0,
+        "constant": STRUCTURE_PROJECT_POINTS,
+        "bonus": STRUCTURE_PROJECT_BONUS,
+        "desc": f"Increases the money mines produce by {STRUCTURE_PROJECT_BONUS:.0%} once completed",
         "name": "Mines Bonus",
         "category": "structures",
     },
     "hangars_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Increases the units each hangar houses by the current bonus",
+        "stars_power": 0,
+        "constant": STRUCTURE_PROJECT_POINTS,
+        "bonus": STRUCTURE_PROJECT_BONUS,
+        "desc": f"Increases the units each hangar houses by {STRUCTURE_PROJECT_BONUS:.0%} once completed",
         "name": "Hangars Bonus",
         "category": "structures",
     },
     "drone_factories_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Increases the drones drone factories produce by the current bonus",
+        "stars_power": 0,
+        "constant": STRUCTURE_PROJECT_POINTS,
+        "bonus": STRUCTURE_PROJECT_BONUS,
+        "desc": f"Increases the drones drone factories produce by {STRUCTURE_PROJECT_BONUS:.0%} once completed",
         "name": "Drone Factories Bonus",
         "category": "structures",
     },
     "missile_silos_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Increases the missiles each missile silo stores by the current bonus",
+        "stars_power": 0,
+        "constant": STRUCTURE_PROJECT_POINTS,
+        "bonus": STRUCTURE_PROJECT_BONUS,
+        "desc": f"Increases the missiles each missile silo stores by {STRUCTURE_PROJECT_BONUS:.0%} once completed",
         "name": "Missile Silos Bonus",
         "category": "structures",
     },
     "workshops_bonus": {
-        "stars_power": 1.5,
-        "constant": 0.1,
-        "max_bonus": 0.25,
-        "desc": "Increases the engineers each workshop houses by the current bonus",
+        "stars_power": 0,
+        "constant": STRUCTURE_PROJECT_POINTS,
+        "bonus": STRUCTURE_PROJECT_BONUS,
+        "desc": f"Increases the engineers each workshop houses by {STRUCTURE_PROJECT_BONUS:.0%} once completed",
         "name": "Workshops Bonus",
         "category": "structures",
     },
@@ -648,6 +654,7 @@ PROJECTS_FUNCS = {
 
 CONTINUOUS_PROJECTS = [key for key, project in PROJECTS.items() if "max_bonus" in project]
 ONE_TIME_PROJECTS = [key for key, project in PROJECTS.items() if "max_bonus" not in project]
+BONUS_PROJECTS = [key for key, project in PROJECTS.items() if "max_bonus" in project or "bonus" in project]
 
 
 def projects_max_points(stars):
@@ -661,8 +668,13 @@ def has_project(kd_info, project):
 
 
 def project_bonus(kd_info, project):
-    """The current bonus of a continuous project: its max bonus times the share of max points earned, at most 1."""
-    max_bonus = PROJECTS[project].get("max_bonus", 0)
+    """
+    The current bonus of ``project``. Continuous: its max bonus times the share of max points earned, at most 1.
+    One-time with a "bonus": that bonus once completed, 0 before. Any other one-time project: 0.
+    """
+    if "max_bonus" not in PROJECTS[project]:
+        return PROJECTS[project].get("bonus", 0.0) if has_project(kd_info, project) else 0.0
+    max_bonus = PROJECTS[project]["max_bonus"]
     max_points = (kd_info.get("projects_max_points") or {}).get(project)
     if max_points is None:
         max_points = PROJECTS_FUNCS[project](kd_info.get("stars", 0))
@@ -673,8 +685,8 @@ def project_bonus(kd_info, project):
 
 
 def project_bonuses(kd_info):
-    """Every continuous project's current bonus, by project."""
-    return {project: project_bonus(kd_info, project) for project in CONTINUOUS_PROJECTS}
+    """The current bonus of every project that gives one (continuous, or one-time with a "bonus"), by project."""
+    return {project: project_bonus(kd_info, project) for project in BONUS_PROJECTS}
 
 
 def max_project_bonuses():

@@ -51,7 +51,7 @@ building.
 | Units | `attack`, `defense`, `flex`, plus units unlocked by projects (`heavy_` and `elite_` attackers and defenders, `big_flex`), and `recruits` and `engineers`. Stats in `UNITS`. |
 | Mobis | Units being trained (mobilizations); the `mobis` queue. |
 | Engineers | Work on projects, earning project points. |
-| Projects | Engineers earn points in them. Continuous projects give a bonus that grows with points up to a maximum, and need more points as stars grow; one-time projects unlock something once done. A project can require other projects first, or belong to one race (`PROJECTS` in `shared.py`). |
+| Projects | Engineers earn points in them. Continuous projects give a bonus that grows with points up to a maximum, and need more points as stars grow; one-time projects unlock something, or give a fixed bonus, once done. A project can require other projects first, or belong to one race (`PROJECTS` in `shared.py`). |
 | Generals | Lead attacks. An attack sends some, and they return after a delay that grows with distance (`coordinate`). |
 | Drones | Used for spying and robbing primitives. |
 | Spy attempts | A limited, regenerating allowance of spy operations. |

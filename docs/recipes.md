@@ -136,12 +136,13 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
 ## 9. A new project
 
 1. Add it to `PROJECTS` in `shared.py`: `name`, `desc`, `category` (a key of `PROJECT_CATEGORIES`), and the points
-   (`stars_power`, `constant`). A continuous project has `max_bonus`; a one-time project has none. Add `requires`
+   (`stars_power`, `constant`). A continuous project has `max_bonus`; a one-time project has none, and may have
+   `bonus`, a fixed bonus it gives once completed. Add `requires`
    (one-time projects that must be done first) or `race` if it has them. Every list of projects (the initial kingdom,
    the Projects page, the help page, the lock checks) is built from `PROJECTS`, so nothing else needs the name.
 2. Put its numbers in `GAME_CONFIG` and say in the pull request that they are proposals.
-3. Wire its effect where the rule lives, reading it with `uas.project_bonus(kd, key)` (continuous) or
-   `uas.has_project(kd, key)` (one-time). Never index `projects_points` or `completed_projects` directly: old kingdoms
+3. Wire its effect where the rule lives, reading it with `uas.project_bonus(kd, key)` (a bonus, continuous or
+   one-time) or `uas.has_project(kd, key)` (one-time, anything else). Never index `projects_points` or `completed_projects` directly: old kingdoms
    lack the keys of new projects.
 4. If the effect shows in a forecast or on a page (a price, a capacity, a loss), make sure that number comes from the
    same function the action uses.
