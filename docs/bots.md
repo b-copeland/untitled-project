@@ -302,16 +302,19 @@ Not changed: these are balance and rules, which are the maintainer's call.
    have about 2.2 (the easiest targets), thieves 6.2, so thieves are overrated (72% expected, 62% worked) and still
    draw a quarter of the siphons. Guessing from the drones the bot has seen (`DRONES_GUESS = "learned"`) left thieves
    worse off (siphon income down 32%), so it is off. Spying on drones before siphoning cost 13% and was removed: the
-   spy attempt is worth more as a siphon. More drone factories for thieves (`thief.drone_factories` 0.15 and 0.25
-   against 0.07) doubled and tripled their siphon income but cost them 11% and 30% of their stars: a factory earned
-   about 65 money an epoch over the week in siphons, against 150 for a mine. Targets lost 2-3% of their income, far
-   from the 15% cap; what limits a thief is its spy attempts, not its drones. A drone siphons 8 money per siphon, not
-   per epoch, and an attempt comes back every 2 epochs: a thief makes about 70 siphons a week (one in three of its
-   attempts; robs, intel and sabotage take the rest), so a drone earns about 1.2 money an epoch, and a factory matches
-   a mine once it is about 120 epochs old. Most factories are built late, as the kingdom grows. Keeping the attempts
-   from the auto rob for siphons (`SIPHON_KEEP_ATTEMPTS = 8`) made 20% more siphons and 29% more siphon money, but
-   left thieves 15% smaller, so it is off.
-   Siphons are 6.5% of a thief's own income: a bigger change to thieving is a balance question.
+   spy attempt is worth more as a siphon. A drone siphons 8 money per siphon (paid over 12 epochs), not per epoch,
+   and an attempt comes back every 2 epochs. Thieves made only about 70 siphons a week, a third of their attempts,
+   because they often knew no kingdom to siphon: a revealed galaxy lasts 16 epochs, and they revealed one only when
+   their intel roll passed. Settings that each make a thief more of a thief, all off by default and measured
+   together (mean of all thieves, 3 seeds): reveal a galaxy when fewer than 4 kingdoms are left to siphon
+   (`SIPHON_REVEAL_BELOW`), send every drone (`SIPHON_ALL_DRONES`), keep attempts from the auto rob
+   (`SIPHON_KEEP_ATTEMPTS`), every thief siphoning kingdoms, and little intel or sabotage. That took them to about
+   115 siphons a week and 8.3M siphon money (from 5.4M), stars and networth about the same. With drone factories at
+   15% of the land, siphons worked 90% of the time instead of 69% and brought 23M a week, a fifth of their income,
+   for 4% fewer stars and 3% more networth: siphons then about match mines. Half the land in factories until 1,000
+   stars (`early_drone_factories`, 0.3 measured) cost thieves 16% of their stars: the land not in mines early is
+   what compounds. Medians hid all this at first (a third of thieves did not siphon kingdoms at all), so compare
+   thieves by their means.
 6. **Selling intel pays intel bots a little.** About 30% of the attackers' winning strikes use intel a galaxymate
    shared. Each intel bot earns about 110 stars and 80,000 money a week from cuts (2% of its stars), which made it 6%
    larger and the attackers 5% smaller. (Until the bug below was fixed it earned nothing.) Lumina's offense penalty

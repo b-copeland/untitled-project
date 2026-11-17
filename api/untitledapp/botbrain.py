@@ -73,6 +73,8 @@ SPY_FAILS = 3               # TUNE: failed intel operations in a row before a ta
 SPY_FORGET_EPOCHS = 48      # TUNE: and for how long
 MAX_SIPHONS_PER_THINK = 3   # TUNE: siphons scheduled in one think, on different kingdoms
 SIPHON_KEEP_ATTEMPTS = 0    # TUNE: spy attempts kept from the auto rob while there are kingdoms worth siphoning
+SIPHON_ALL_DRONES = False   # TUNE: send every drone on a siphon, not only as many as the target's income can pay
+SIPHON_REVEAL_BELOW = 0     # TUNE: a siphoning bot reveals a galaxy when it has fewer kingdoms than this to siphon
 SIPHON_PICK = "spread"      # TUNE: "spread" draws siphon targets in proportion to their worth; "best" takes the best
 SIPHON_SHARPNESS = 1.0      # TUNE: siphon targets are drawn in proportion to worth ** this (higher: the best more often)
 SIPHON_PRIOR = 2.0          # TUNE: how many siphons' worth of trust the forecast chance gets against what was seen
@@ -135,6 +137,9 @@ class Personality:
     # the share that is homes (the rest is mines).
     workshops: tuple = (0.06, 0.06, 0.08)
     drone_factories: float = 0.05
+    # TUNE: and while the kingdom is under this many stars, at least this share of drone factories (share, stars):
+    # drones made early siphon for the rest of the round.
+    early_drone_factories: tuple = (0.0, 0)
     homes: float = 0.55
     missile_silos: float = 0.03   # bombers only, from the mid game
     # TUNE: engineers. How much it cares about each continuous bonus, the unlocks it works towards in order, and the
@@ -263,6 +268,8 @@ def problems(personality):
         values = getattr(personality, name)
         if len(values) != 3 or any(not 0 <= value <= 1 for value in values):
             found.append(f"{name} is three shares (early, mid, late), each from 0 to 1")
+    if not 0 <= personality.early_drone_factories[0] <= 0.6:
+        found.append("early drone factories are a share of the land, from 0 to 0.6")
     if max(personality.workshops) + personality.drone_factories + personality.missile_silos > 0.5:
         found.append("workshops, drone factories and missile silos leave too little land for anything else")
     if personality.intel_tries[0] < 1 or personality.intel_tries[1] > 10:
@@ -692,7 +699,8 @@ def plan_economy(world, personality, style, memory):
         "workshops": min(_by_phase(personality.workshops, phase_name) + min(max(surplus, 0.0), 1.0) * MAX_EXTRA_WORKSHOPS,
                          # No workshops beyond what the engineers it keeps need.
                          (ENGINEERS_PER_STAR or 99) / max(strategy.workshop_capacity({**me, "structures": {"workshops": 1}}), 1)),
-        "drone_factories": personality.drone_factories,
+        "drone_factories": max(personality.drone_factories, personality.early_drone_factories[0])
+        if me["stars"] < personality.early_drone_factories[1] else personality.drone_factories,
         "missile_silos": personality.missile_silos if style.get("bomber") and phase_name != "early" else 0.0,
         "homes": min(max(personality.homes + surplus * MAX_HOMES_SHIFT, 0.35), 0.9),
     }
@@ -1284,9 +1292,10 @@ def plan_drones(world, personality, style, memory, rng):
             # The richer the target the more there is to take: income from its structures if they are revealed.
             revealed = world.seconds_left(kd, "structures") > 0 or world.seconds_left(kd, "kingdom") > 0
             income = strategy.income_from_intel(world.target_info(kd) if revealed else {}, stars)
-            # No more drones than the siphon can use.
+            # No more drones than the siphon can use, or (SIPHON_ALL_DRONES) all of them: the guess at the target's
+            # income may be low, and more drones make the siphon likelier to work.
             useful = strategy.siphon_take(10 ** 12, income) / uas.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"]
-            sent = min(drones, useful)
+            sent = drones if SIPHON_ALL_DRONES else min(drones, useful)
             chance = learned_chance(kd, chance_against(kd, sent))
             options.append((chance * strategy.siphon_take(sent, income), kd, sent, chance))
         threshold = rob * personality.siphon_edge if drone_style == "both" else 0.0
@@ -1296,6 +1305,14 @@ def plan_drones(world, personality, style, memory, rng):
         # among those worth more than robbing.
         worth = sorted((option for option in options if option[0] > threshold and option[3] >= 0.2), reverse=True)
         memory["siphon_options"] = len(worth)
+        if len(options) < SIPHON_REVEAL_BELOW:
+            # Siphons need kingdoms to see: one attempt shows a whole galaxy for longer than a siphon runs.
+            hidden = [galaxy for galaxy in world.galaxies if galaxy != world.my_galaxy
+                      and galaxy not in world.revealed_info.get("galaxies", {})
+                      and world.empires[2].get(galaxy, -1) != world.my_empire]
+            if hidden:
+                decisions.append(Decision("reveal_galaxy", {}, f"reveal a galaxy: only {len(options)} kingdoms to siphon"))
+                spare -= 1
         picked = []
         while worth and len(picked) < min(spare, MAX_SIPHONS_PER_THINK):
             weights = [option[0] ** SIPHON_SHARPNESS for option in worth]
@@ -1311,7 +1328,7 @@ def plan_drones(world, personality, style, memory, rng):
                 "drones_pct": round(min(max(sent / drones * 100, 1.0), 100.0), 1), "shielded": False,
             }, f"siphon {world.names[target]}: worth about {value:,.0f} against {rob:,.0f} from robbing primitives "
                f"({chance:.0%} to work)"))
-        if not known:
+        if not known and not any(d.kind == "reveal_galaxy" for d in decisions):
             decisions.extend(plan_intel(world, personality, style, memory, rng, want_military=False))
     return decisions
 

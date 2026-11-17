@@ -593,6 +593,34 @@ def test_a_thief_siphons_when_that_beats_robbing_primitives():
     assert brain.plan_drones(world, THIEF, style(drones="both"), running, ChanceOf(0.0))[0].options["target"] == "4"
 
 
+def test_a_thief_can_send_all_its_drones_on_a_siphon(monkeypatch):
+    world = StubWorld(day=5, stats={"4": (500, 40_000)}, me={"drones": 200_000})
+    thief = dataclasses.replace(brain.PERSONALITIES["thief"], sabotage_chance=(0.0, 0.0, 0.0))
+    (capped,) = brain.plan_drones(world, thief, style(drones="players"), {}, ChanceOf(0.0))
+    assert capped.options["drones_pct"] < 100  # a small kingdom's income can not pay for 200,000 drones
+    monkeypatch.setattr(brain, "SIPHON_ALL_DRONES", True)
+    (everything,) = brain.plan_drones(world, thief, style(drones="players"), {}, ChanceOf(0.0))
+    assert everything.options["drones_pct"] == 100
+
+
+def test_a_thief_short_of_kingdoms_to_siphon_reveals_a_galaxy(monkeypatch):
+    world = StubWorld(day=5, stats={"4": (500, 40_000)}, me={"drones": 20_000})
+    thief = dataclasses.replace(brain.PERSONALITIES["thief"], sabotage_chance=(0.0, 0.0, 0.0))
+    assert "reveal_galaxy" not in [d.kind for d in brain.plan_drones(world, thief, style(drones="players"), {}, ChanceOf(0.0))]
+    monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 4)
+    kinds = [d.kind for d in brain.plan_drones(world, thief, style(drones="players"), {}, ChanceOf(0.0))]
+    assert kinds.count("reveal_galaxy") == 1 and "aggressivespy" in kinds  # and still siphons the one it knows
+
+
+def test_a_small_thief_can_put_its_land_into_drone_factories():
+    thief = dataclasses.replace(THIEF, early_drone_factories=(0.5, 1000))
+    small, _ = brain.plan_economy(StubWorld(me={"stars": 600}), thief, style(drones="both"), {})
+    big, _ = brain.plan_economy(StubWorld(me={"stars": 1500}), thief, style(drones="both"), {})
+    assert small["structures_target"]["drone_factories"] > 0.3  # what the hangars and fuel plants leave of 0.5
+    assert big["structures_target"]["drone_factories"] < 0.1
+    assert brain.problems(dataclasses.replace(THIEF, early_drone_factories=(0.9, 1000)))
+
+
 def test_late_in_the_round_drones_go_after_a_leader():
     stats = {"4": (9000, 2_000_000), "3": (500, 30_000)}
     world = StubWorld(day=9, stats=stats, me={"drones": 60_000})
