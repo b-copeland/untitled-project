@@ -652,6 +652,16 @@ def test_the_schedule_is_never_overfilled_and_actions_are_spread_out():
     assert len(delays) > 20
 
 
+def test_a_thief_with_kingdoms_worth_siphoning_keeps_its_attempts_from_the_auto_rob(monkeypatch):
+    monkeypatch.setattr(brain, "SIPHON_KEEP_ATTEMPTS", 8)
+    world = StubWorld(stats={"3": (2000, 150_000)}, day=9)
+    settings, _, _ = brain.plan(world, THIEF, style(drones="both"), {"siphon_options": 2}, ChanceOf(0.0))
+    assert settings["auto_rob_settings"]["keep"] == 8
+    # One that robs primitives only does not.
+    settings, _, _ = brain.plan(world, THIEF, style(drones="primitives"), {"siphon_options": 2}, ChanceOf(0.0))
+    assert settings["auto_rob_settings"]["keep"] < 8
+
+
 def test_a_planned_strike_keeps_the_army_home_and_spies_keep_their_attempts():
     world = StubWorld(revealed={"3": {"military": until(30)}}, stats={"3": (2500, 200_000)}, info={"3": military(1000)},
                       politics={"votes": {"policy_1": {"1": "2"}, "policy_2": {"1": "2"}, "leader": {"1": "1"}}})

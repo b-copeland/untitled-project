@@ -72,6 +72,7 @@ EFFICIENT_ARMY_SURPLUS = 0.2  # TUNE: how much money to spare (0 to 1) before de
 SPY_FAILS = 3               # TUNE: failed intel operations in a row before a target is left alone
 SPY_FORGET_EPOCHS = 48      # TUNE: and for how long
 MAX_SIPHONS_PER_THINK = 3   # TUNE: siphons scheduled in one think, on different kingdoms
+SIPHON_KEEP_ATTEMPTS = 0    # TUNE: spy attempts kept from the auto rob while there are kingdoms worth siphoning
 SIPHON_PICK = "spread"      # TUNE: "spread" draws siphon targets in proportion to their worth; "best" takes the best
 SIPHON_SHARPNESS = 1.0      # TUNE: siphon targets are drawn in proportion to worth ** this (higher: the best more often)
 SIPHON_PRIOR = 2.0          # TUNE: how many siphons' worth of trust the forecast chance gets against what was seen
@@ -1294,6 +1295,7 @@ def plan_drones(world, personality, style, memory, rng):
         # the best target take from each other. Spread them: each pick is drawn in proportion to what it is worth,
         # among those worth more than robbing.
         worth = sorted((option for option in options if option[0] > threshold and option[3] >= 0.2), reverse=True)
+        memory["siphon_options"] = len(worth)
         picked = []
         while worth and len(picked) < min(spare, MAX_SIPHONS_PER_THINK):
             weights = [option[0] ** SIPHON_SHARPNESS for option in worth]
@@ -1478,7 +1480,12 @@ def plan(world, personality, style, memory, rng):
 
     # Spy attempts the scheduled operations will need are kept back from the auto rob.
     needed = sum(d.options.get("max_tries", d.options.get("attempts", 1)) for d in scheduled if d.kind in ("intelspy", "aggressivespy"))
-    memory["keep_attempts"] = int(min(needed + (1 if personality.intel_chance >= 0.5 else 0), 8))
+    keep = min(needed + (1 if personality.intel_chance >= 0.5 else 0), 8)
+    if style.get("drones") in ("players", "both") and memory.get("siphon_options"):
+        # A siphon is worth more than a rob, so with kingdoms worth siphoning the attempts wait for the next think
+        # instead of going to the auto rob as soon as they come back.
+        keep = max(keep, SIPHON_KEEP_ATTEMPTS)
+    memory["keep_attempts"] = int(keep)
     if "auto_rob_settings" in settings:
         settings["auto_rob_settings"]["keep"] = memory["keep_attempts"]
 

@@ -305,7 +305,12 @@ Not changed: these are balance and rules, which are the maintainer's call.
    spy attempt is worth more as a siphon. More drone factories for thieves (`thief.drone_factories` 0.15 and 0.25
    against 0.07) doubled and tripled their siphon income but cost them 11% and 30% of their stars: a factory earned
    about 65 money an epoch over the week in siphons, against 150 for a mine. Targets lost 2-3% of their income, far
-   from the 15% cap; what limits a thief is its spy attempts, not its drones.
+   from the 15% cap; what limits a thief is its spy attempts, not its drones. A drone siphons 8 money per siphon, not
+   per epoch, and an attempt comes back every 2 epochs: a thief makes about 70 siphons a week (one in three of its
+   attempts; robs, intel and sabotage take the rest), so a drone earns about 1.2 money an epoch, and a factory matches
+   a mine once it is about 120 epochs old. Most factories are built late, as the kingdom grows. Keeping the attempts
+   from the auto rob for siphons (`SIPHON_KEEP_ATTEMPTS = 8`) made 20% more siphons and 29% more siphon money, but
+   left thieves 15% smaller, so it is off.
    Siphons are 6.5% of a thief's own income: a bigger change to thieving is a balance question.
 6. **Selling intel pays intel bots a little.** About 30% of the attackers' winning strikes use intel a galaxymate
    shared. Each intel bot earns about 110 stars and 80,000 money a week from cuts (2% of its stars), which made it 6%
