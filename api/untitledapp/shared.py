@@ -916,6 +916,9 @@ REVEAL_OPERATION_STATS = {operation: [operation.replace("spy", "")] for operatio
 REVEAL_OPERATION_STATS["spyall"] = ["kingdom", "military", "shields", "projects", "structures", "drones"]
 # Operations that need a project first.
 OPERATION_PROJECTS = {"spyall": "vult_evolution"}
+# Operations a project makes obsolete: the pages stop offering them once it is done (the server still accepts them, so
+# schedules made before keep working).
+OPERATIONS_REPLACED_BY_PROJECT = {"vult_evolution": [op for op in REVEAL_OPERATIONS if op != "spyall"]}
 AGGRO_OPERATIONS = [
     "siphonfunds",
     "bombhomes",

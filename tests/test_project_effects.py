@@ -505,6 +505,12 @@ def test_full_infiltration_reveals_everything_about_the_target(app, client, jwt1
         assert field in target, field
 
 
+def test_full_infiltration_replaces_the_single_intel_operations_on_the_pages():
+    replaced = uas.OPERATIONS_REPLACED_BY_PROJECT["vult_evolution"]
+    assert set(replaced) == set(uas.REVEAL_OPERATIONS) - {"spyall"}
+    assert set().union(*(uas.REVEAL_OPERATION_STATS[op] for op in replaced)) == set(uas.REVEAL_OPERATION_STATS["spyall"])
+
+
 def _lumina(completed):
     from tests.test_concurrency import _create_item
     _set_up_two_kingdoms()

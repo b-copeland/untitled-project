@@ -34,11 +34,17 @@ const OPERATIONS = [
 
 const whole = (value) => Math.floor(value || 0).toLocaleString();
 
-/** The operations this kingdom can run: those that need a project (``state.operation_projects``) only once it is done. */
+/**
+ * The operations to offer this kingdom: one that needs a project (``state.operation_projects``) only once it is done,
+ * and none that a completed project replaces (``state.operations_replaced_by_project``).
+ */
 export function availableOperations(operations, kingdom, state) {
     const needs = state?.operation_projects || {};
     const done = kingdom?.completed_projects || [];
-    return operations.filter((op) => !needs[op.value] || done.indexOf(needs[op.value]) >= 0);
+    const replaced = new Set(Object.entries(state?.operations_replaced_by_project || {})
+        .filter(([project]) => done.indexOf(project) >= 0)
+        .flatMap(([, replacedOperations]) => replacedOperations));
+    return operations.filter((op) => (!needs[op.value] || done.indexOf(needs[op.value]) >= 0) && !replaced.has(op.value));
 }
 
 /**

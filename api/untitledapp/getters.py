@@ -62,6 +62,7 @@ def get_state():
         "aggro_operations": uas.AGGRO_OPERATIONS,
         "reveal_operations": uas.REVEAL_OPERATIONS,
         "operation_projects": uas.OPERATION_PROJECTS,
+        "operations_replaced_by_project": uas.OPERATIONS_REPLACED_BY_PROJECT,
         "game_config": uas.GAME_CONFIG,
         "races": uas.RACES,
         "surrender_options": uas.SURRENDER_OPTIONS,
