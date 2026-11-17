@@ -122,3 +122,8 @@
 }
 .amount-field { width: 100%; max-width: 320px; margin: 8px auto; display: flex; flex-direction: column; gap: 4px; }
 .amount-field .amount-input { margin-left: 0; max-width: none; }
+
+.projects-category { width: 100%; margin-top: 12px; }
+.projects-category-title { text-align: left; margin: 4px 5px; }
+.project-name { display: flex; flex-direction: column; text-align: left; }
+.project-desc { color: var(--bs-secondary-color, #6c757d); font-size: 0.85em; max-width: 280px; }

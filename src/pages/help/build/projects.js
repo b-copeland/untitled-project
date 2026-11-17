@@ -13,10 +13,23 @@ function Projects(props) {
     }, [props.state]);
     const prettyNames = props.state.pretty_names || {};
     const projectsDesc = props.state.projects || {};
+    const categories = props.state.project_categories || {};
     const projectsRows = Object.keys(projectsDesc).map((projectsKey, iter) => {
+        const project = projectsDesc[projectsKey];
+        const requires = [
+            ...(project.requires || []).map((required) => projectsDesc[required]?.name || required),
+            ...(project.race ? [`${project.race} only`] : []),
+        ];
         return <tr key={"projects_" + iter}>
-            <td style={{textAlign: "left"}}>{projectsDesc[projectsKey].name}</td>
-            <td style={{textAlign: "left"}}>{projectsDesc[projectsKey].desc}</td>
+            <td style={{textAlign: "left"}}>{project.name}</td>
+            <td style={{textAlign: "left"}}>{categories[project.category] || project.category}</td>
+            <td style={{textAlign: "left"}}>
+                {project.max_bonus !== undefined
+                    ? `Continuous, up to ${displayPercent(project.max_bonus)}`
+                    : `One-time, ${Math.floor(project.constant || 0).toLocaleString()} points`}
+            </td>
+            <td style={{textAlign: "left"}}>{requires.join(", ")}</td>
+            <td style={{textAlign: "left"}}>{project.desc}</td>
         </tr>
     })
     return (
@@ -49,6 +62,11 @@ function Projects(props) {
                 you will no longer be able to assign engineers to these projects.
             </p>
             <p>
+                Some projects need others first: engineers can only work on a project once every project in its
+                "Requires" column is completed. Racial projects can only be researched by kingdoms of that race, and
+                you only see your own race's.
+            </p>
+            <p>
                 The Allocate page allows you to set the target allocation of engineers across all projects. When enabled, engineers will be 
                 automatically assigned to projects at the percentages you have chosen during each game update.
             </p>
@@ -56,6 +74,9 @@ function Projects(props) {
                 <thead>
                     <tr>
                         <th>Project</th>
+                        <th>Category</th>
+                        <th>Kind</th>
+                        <th>Requires</th>
                         <th>Description</th>
                     </tr>
                 </thead>

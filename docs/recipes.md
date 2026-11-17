@@ -133,7 +133,24 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
 3. If it changes what players see, update the help page.
 4. If `funcapp/queues.py` depends on it (the epoch length), keep them equal; `tests/test_queue_batching.py` checks it.
 
-## 9. A new unit, structure or missile
+## 9. A new project
+
+1. Add it to `PROJECTS` in `shared.py`: `name`, `desc`, `category` (a key of `PROJECT_CATEGORIES`), and the points
+   (`stars_power`, `constant`). A continuous project has `max_bonus`; a one-time project has none. Add `requires`
+   (one-time projects that must be done first) or `race` if it has them. Every list of projects (the initial kingdom,
+   the Projects page, the help page, the lock checks) is built from `PROJECTS`, so nothing else needs the name.
+2. Put its numbers in `GAME_CONFIG` and say in the pull request that they are proposals.
+3. Wire its effect where the rule lives, reading it with `uas.project_bonus(kd, key)` (continuous) or
+   `uas.has_project(kd, key)` (one-time). Never index `projects_points` or `completed_projects` directly: old kingdoms
+   lack the keys of new projects.
+4. If the effect shows in a forecast or on a page (a price, a capacity, a loss), make sure that number comes from the
+   same function the action uses.
+5. A test that would fail without the effect, next to the tests of the system it changes, and its help text.
+
+## 10. A new unit, structure or missile
+
+A unit that needs a project gets `"project"` in `UNITS` (a missile, in `MISSILES`); the routes and pages check it.
+The Military page and the kingdom view list units from `UNITS`.
 
 This touches many places; search for an existing name (for example `drone_factories`) across `api/`, `src/` and
 `funcapp/` and handle every hit. At least: `UNITS` or `STRUCTURES` or `MISSILES`, `INITIAL_KINGDOM_STATE` (counts and

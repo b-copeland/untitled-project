@@ -15,12 +15,13 @@ const data = () => ({
     kingdom: { money: 10000, units: { recruits: 50, attack: 5, defense: 0, flex: 0, big_flex: 0, engineers: 3 },
                completed_projects: [], units_target: { attack: 0.5 } },
     mobis: {
-        units_desc: { attack: unit(100, 5, 0), defense: unit(100, 0, 5), flex: unit(200, 4, 4), big_flex: unit(500, 8, 8) },
+        units_desc: { attack: unit(100, 5, 0), defense: unit(100, 0, 5), flex: unit(200, 4, 4), big_flex: { ...unit(500, 8, 8), project: "big_flexers" }, recruits: { offense: 0, defense: 1 } },
         units: { current_total: { attack: 5, recruits: 50 }, hour_24: {}, current: { recruits: 50 } },
         current_hangar_capacity: 50, max_hangar_capacity: 100, recruit_price: 10, recruit_time: 3600,
         current_available_recruits: 10, max_available_recruits: 10,
     },
-    state: { pretty_names: {}, game_config: {} },
+    state: { pretty_names: { attack: "Attackers", defense: "Defenders", flex: "Flexers", big_flex: "Big Flexers" },
+             projects: { big_flexers: { name: "Big Flexers" } }, game_config: {} },
 });
 const show = () => render(<MilitaryContent data={data()} loading={{}} updateData={jest.fn()} />);
 

@@ -15,13 +15,21 @@ import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
 import { checkCount } from "../../validation";
 
-// The units you train, in the order they are shown. Big flexers need their project first.
-const UNITS = [
-    { key: "attack", label: "Attackers" },
-    { key: "defense", label: "Defenders" },
-    { key: "flex", label: "Flexers" },
-    { key: "big_flex", label: "Big Flexers", project: "big_flexers", projectName: "Big Flexers" },
-];
+/**
+ * The units you train, in the server's order: every unit with a cost (not recruits or engineers). A unit with a
+ * project can only be trained once that project is done.
+ */
+export function trainableUnits(mobisInfo, state) {
+    return Object.entries(mobisInfo?.units_desc || {})
+        .filter(([, unit]) => unit.cost !== undefined)
+        .map(([key, unit]) => ({
+            key,
+            label: state?.pretty_names?.[key] || key,
+            project: unit.project,
+            projectName: state?.projects?.[unit.project]?.name || unit.project,
+        }));
+}
+const blankInput = (units) => Object.fromEntries(units.map(({ key }) => [key, ""]));
 const MODES = [
     { key: "train", label: "Train" },
     { key: "allocate", label: "Allocate" },
@@ -39,6 +47,7 @@ function MilitaryContent(props) {
     if (Object.keys(mobisInfo || {}).length === 0 || Object.keys(kdInfo || {}).length === 0) {
         return <Header data={props.data} />;
     }
+    const units = trainableUnits(mobisInfo, props.data.state);
     const used = mobisInfo.current_hangar_capacity || 0;
     const room = mobisInfo.max_hangar_capacity || 0;
     return (
@@ -58,9 +67,9 @@ function MilitaryContent(props) {
                     <Button key={key} variant={mode === key ? "primary" : "outline-secondary"} aria-pressed={mode === key} onClick={() => setMode(key)}>{label}</Button>
                 ))}
             </ButtonGroup>
-            {mode === "train" ? <Specialists kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/> : null}
-            {mode === "allocate" ? <Allocate kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/> : null}
-            {mode === "disband" ? <Disband kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData} state={props.data.state}/> : null}
+            {mode === "train" ? <Specialists units={units} kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/> : null}
+            {mode === "allocate" ? <Allocate units={units} kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/> : null}
+            {mode === "disband" ? <Disband units={units} kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData} state={props.data.state}/> : null}
         </div>
         <HelpButton scrollTarget={"military"}/>
     </>
@@ -71,9 +80,9 @@ function MilitaryContent(props) {
  * The one units table: what each unit costs and does, how many you have and have training, and a last column that is
  * whatever the mode asks for. A unit whose project is not done shows why in place of its numbers.
  */
-function UnitsTable({ kdInfo, mobisInfo, units = UNITS, lastHeader, last, extra = [] }) {
+function UnitsTable({ kdInfo, mobisInfo, units, lastHeader, last, extra = [] }) {
     const desc = mobisInfo.units_desc || {};
-    const locked = (unit) => Boolean(unit.project) && kdInfo.completed_projects.indexOf(unit.project) < 0;
+    const locked = (unit) => Boolean(unit.project) && (kdInfo.completed_projects || []).indexOf(unit.project) < 0;
     const whole = (value) => Math.floor(value || 0).toLocaleString();
     const columns = [
         { header: "Unit", align: "left", cell: (unit) => unit.label },
@@ -180,14 +189,8 @@ function Recruits(props) {
         )
 }
 
-const initialInput = {
-    "attack": "",
-    "defense": "",
-    "flex": "",
-    "big_flex": "",
-};
-
 function Specialists(props) {
+    const initialInput = blankInput(props.units);
     const [results, setResults] = useState([]);
     const [input, setInput] = useState(initialInput);
     const handleInputChange = (e) => {
@@ -195,8 +198,8 @@ function Specialists(props) {
         setInput((previous) => ({ ...previous, [name]: value }));
     };
     const desc = props.mobisInfo.units_desc;
-    const cost = UNITS.reduce((total, { key }) => total + (parseInt(input[key] || 0) || 0) * (desc[key]?.cost || 0), 0);
-    const recruitsUsed = UNITS.reduce((total, { key }) => total + (parseInt(input[key] || 0) || 0), 0);
+    const cost = props.units.reduce((total, { key }) => total + (parseInt(input[key] || 0) || 0) * (desc[key]?.cost || 0), 0);
+    const recruitsUsed = props.units.reduce((total, { key }) => total + (parseInt(input[key] || 0) || 0), 0);
     const recruits = props.kdInfo.units.recruits || 0;
     const money = props.kdInfo.money || 0;
     // The most of one unit: the recruits left after the others, and what the money covers after the others.
@@ -225,7 +228,7 @@ function Specialists(props) {
     return (
         <div className="specialists">
             <ResultToasts title="Training Results" results={results} setResults={setResults} />
-            <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} lastHeader="To Train"
+            <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} units={props.units} lastHeader="To Train"
                 last={(unit, locked) => <AmountInput name={unit.key} id={`${unit.key}-train-input`} label={`${unit.label} to train`}
                     value={input[unit.key]} onChange={handleInputChange} max={maxTrain(unit.key)} soloMax={soloTrain(unit.key)} disabled={locked} />} />
             <div className="military-summary">
@@ -239,7 +242,7 @@ function Specialists(props) {
 
 function Allocate(props) {
     const [results, setResults] = useState([]);
-    const [input, setInput] = useState(initialInput);
+    const [input, setInput] = useState(blankInput(props.units));
     const [maxRecruits, setMaxRecruits] = useState(props.kdInfo.max_recruits ?? "");
     const [recruitsBeforeUnits, setRecruitsBeforeUnits] = useState(props.kdInfo?.recruits_before_units);
     const handleInputChange = (e) => {
@@ -278,7 +281,7 @@ function Allocate(props) {
                 <Form.Control id="max-recruits-input" aria-label="Max recruits" onChange={(e) => setMaxRecruits(e.target.value)}
                     value={maxRecruits ?? ""} placeholder="0" autoComplete="off" isInvalid={Boolean(maxRecruitsError)} />
             </InputGroup>
-            <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} lastHeader="New Share"
+            <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} units={props.units} lastHeader="New Share"
                 extra={[{ header: "Share Now", cell: (unit) => displayPercent(props.kdInfo.units_target?.[unit.key] || 0) }]}
                 last={(unit, locked) => <AmountInput name={unit.key} id={`${unit.key}-allocate-input`} label={`${unit.label} share`}
                     value={input[unit.key]} onChange={handleInputChange} suffix="%" max={maxAllocate(unit.key)} soloMax={100} disabled={locked} />} />
@@ -305,7 +308,7 @@ function Disband(props) {
     const units = props.kdInfo.units || {};
     const prettyNames = props.state?.pretty_names || {};
     // Recruits can be disbanded too; engineers are not shown here, as before.
-    const rows = [{ key: "recruits", label: prettyNames.recruits || "Recruits" }, ...UNITS].filter(({ key }) => key in units);
+    const rows = [{ key: "recruits", label: prettyNames.recruits || "Recruits" }, ...props.units].filter(({ key }) => key in units);
     const chosen = Object.values(input).reduce((sum, value) => sum + (parseInt(value) || 0), 0);
     return (
         <div className="specialists">

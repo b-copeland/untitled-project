@@ -15,6 +15,7 @@ import "./projects.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
+import { GameTable } from "../../components/gametable";
 
 function ProjectsContent(props) {
     const kdInfo = props.data.kingdom;
@@ -34,10 +35,10 @@ function ProjectsContent(props) {
             <Train kdInfo={kdInfo} engineersInfo={engineersInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
           <Tab eventKey="assign" title="Assign">
-            <Assign kdInfo={kdInfo} engineersInfo={engineersInfo} projectsInfo={projectsInfo} loading={props.loading} updateData={props.updateData}/>
+            <Assign state={props.data.state} kdInfo={kdInfo} engineersInfo={engineersInfo} projectsInfo={projectsInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
           <Tab eventKey="allocate" title="Allocate">
-            <Allocate kdInfo={kdInfo} engineersInfo={engineersInfo} projectsInfo={projectsInfo} loading={props.loading} updateData={props.updateData}/>
+            <Allocate state={props.data.state} kdInfo={kdInfo} engineersInfo={engineersInfo} projectsInfo={projectsInfo} loading={props.loading} updateData={props.updateData}/>
           </Tab>
         </Tabs>
         <HelpButton scrollTarget={"projects"}/>
@@ -136,130 +137,150 @@ function Train(props) {
     )
 }
 
-const initialProjectsValues = {
-    "pop_bonus": "",
-    "fuel_bonus": "",
-    "military_bonus": "",
-    "money_bonus": "",
-    "general_bonus": "",
-    "spy_bonus": "",
-    "big_flexers": "",
-    "star_busters": "",
-    "galaxy_busters": "",
-    "drone_gadgets": "",
+/**
+ * The projects this kingdom can see, grouped by category in the server's order: every project but another race's.
+ * Each entry is {key, name, desc, oneTime, locked (why, or undefined), completed}.
+ */
+export function projectRows(state, kdInfo, projectsInfo) {
+    const projects = state?.projects || {};
+    const categories = state?.project_categories || {};
+    const completed = kdInfo.completed_projects || [];
+    const groups = {};
+    for (const [key, project] of Object.entries(projects)) {
+        if (project.race && project.race !== kdInfo.race) {
+            continue;
+        }
+        const category = project.category || "other";
+        groups[category] = groups[category] || [];
+        groups[category].push({
+            key,
+            name: project.name,
+            desc: project.desc,
+            oneTime: project.max_bonus === undefined,
+            locked: projectsInfo.locked?.[key],
+            completed: completed.indexOf(key) >= 0,
+        });
+    }
+    const order = Object.keys(categories);
+    return Object.keys(groups)
+        .sort((a, b) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)))
+        .map((category) => ({ category, title: categories[category] || category, rows: groups[category] }));
+}
+
+function blankValues(state) {
+    return Object.fromEntries(Object.keys(state?.projects || {}).map((key) => [key, ""]));
+}
+
+/** Points earned / needed, and what they are worth: the bonus for a continuous project, the progress for a one-time one. */
+function projectCells(row, kdInfo, engineersInfo, projectsInfo) {
+    const points = projectsInfo.points?.[row.key] ?? kdInfo.projects_points?.[row.key] ?? 0;
+    const maxPoints = projectsInfo.max_points?.[row.key] ?? kdInfo.projects_max_points?.[row.key] ?? 0;
+    const assigned = kdInfo.projects_assigned?.[row.key] || 0;
+    return {
+        assigned: `${assigned.toLocaleString()} (${displayPercent(assigned / (engineersInfo.current_engineers || 0))})`,
+        points: `${Math.floor(points).toLocaleString()} / ${Math.floor(maxPoints).toLocaleString()}`,
+        value: row.oneTime
+            ? (row.completed ? "Completed" : displayPercent(maxPoints > 0 ? Math.min(points / maxPoints, 1) : 0))
+            : `${displayPercent(projectsInfo.current_bonuses?.[row.key] || 0)} / ${displayPercent(projectsInfo.max_bonuses?.[row.key] || 0)}`,
+    };
+}
+
+function ProjectName({ row }) {
+    return (
+        <div className="project-name">
+            <span>{row.name}</span>
+            <small className="project-desc">{row.desc}</small>
+        </div>
+    );
+}
+
+/** One table per category. ``inputs(row)`` gives the cells after the shared ones; ``inputHeaders`` their headers. */
+function ProjectTables({ groups, kdInfo, engineersInfo, projectsInfo, inputHeaders, inputs }) {
+    return groups.map(({ category, title, rows }) => {
+        const blocked = (row) => Boolean(row.locked) || (row.oneTime && row.completed);
+        const columns = [
+            { header: "Project", align: "left", cell: (row) => <ProjectName row={row} /> },
+            { header: "Assigned", className: "assigned-col",
+              cell: (row) => (row.locked ? row.locked : projectCells(row, kdInfo, engineersInfo, projectsInfo).assigned),
+              span: (row) => (row.locked ? 2 : 1) },
+            { header: "Points", cell: (row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).points },
+            { header: "Bonus / Done", cell: (row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).value },
+            ...inputHeaders.map((header, index) => ({ header, cell: (row) => inputs(row, blocked(row))[index] })),
+        ];
+        return (
+            <div className="projects-category" key={category}>
+                <h5 className="projects-category-title">{title}</h5>
+                <GameTable className="game-table projects-table" columns={columns} rows={rows}
+                    rowClassName={(row) => (blocked(row) ? "disabled-table-row" : undefined)} />
+            </div>
+        );
+    });
 }
 
 function Assign(props) {
-    const [assignValues, setAssignValues] = useState(initialProjectsValues);
-    const [addValues, setAddValues] = useState(initialProjectsValues);
+    const blank = blankValues(props.state);
+    const [assignValues, setAssignValues] = useState(blank);
+    const [addValues, setAddValues] = useState(blank);
     const [assignResult, setAssignResult] = useState([]);
 
     const handleAssignInputChange = (e) => {
         const { name, value } = e.target;
-        setAssignValues({
-          ...assignValues,
-          [name]: value,
-        });
-      };
-      const handleAddInputChange = (e) => {
-          const { name, value } = e.target;
-          setAddValues({
-            ...addValues,
-            [name]: value,
-          });
-        };
-
-    const onAssignClick = (e)=>{
-        const assignOpts = {};
-        for (const [key, value] of Object.entries(assignValues)) {
-            if (value != "") {
-                assignOpts[key] = value
-            }
-        }
-        const hasAssign = Object.keys(assignOpts).length > 0;
-        if (hasAssign) {
-            const opts = {"assign": assignOpts}
-            const updateFunc = () => authFetch('api/projects', {
-                method: 'post',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => setAssignResult(assignResult.concat(r)))
-            props.updateData(['projects', 'kingdom'], [updateFunc]);
-        }
-        setAssignValues(initialProjectsValues);
-    }
-
-    const onAddClick = (e)=>{
-        const addOpts = {};
-        for (const [key, value] of Object.entries(addValues)) {
-            if (value != "") {
-                addOpts[key] = value
-            }
-        }
-        const hasAdd = Object.keys(addOpts).length > 0;
-        if (hasAdd){
-            const opts = {"add": addOpts}
-            const updateFunc = () => authFetch('api/projects', {
-                method: 'post',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => setAssignResult(assignResult.concat(r)))
-            props.updateData(['projects', 'kingdom'], [updateFunc]);
-        }
-        setAddValues(initialProjectsValues);
-    }
-
-    const OnClearAllClick = (e)=>{
-        const opts = {
-            "clear": Object.keys(initialProjectsValues)
-        };
+        setAssignValues((previous) => ({ ...previous, [name]: value }));
+    };
+    const handleAddInputChange = (e) => {
+        const { name, value } = e.target;
+        setAddValues((previous) => ({ ...previous, [name]: value }));
+    };
+    const send = (opts) => {
         const updateFunc = () => authFetch('api/projects', {
             method: 'post',
             body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => setAssignResult(assignResult.concat(r)))
+        }).then(r => r.json()).then(r => setAssignResult((previous) => previous.concat(r)));
         props.updateData(['projects', 'kingdom'], [updateFunc]);
-    }
+    };
+    const filled = (values) => Object.fromEntries(Object.entries(values).filter(([, value]) => value !== ""));
 
-    const OnClearClick = (e)=>{
-        const opts = {
-            "clear": [e.target.name]
-        };
-        const updateFunc = () => authFetch('api/projects', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => setAssignResult(assignResult.concat(r)))
-        props.updateData(['projects', 'kingdom'], [updateFunc]);
-    }
-    if (Object.keys(props.engineersInfo).length === 0) {
-        return null;
-    }
-    if (Object.keys(props.kdInfo).length === 0) {
-        return null;
-    }
-    if (Object.keys(props.projectsInfo).length === 0) {
-        return null;
-    }
-    const calcEngineersAssigned = (assignValues) => {
-        var total = 0
-        for (const assign in assignValues) {
-            total += (parseInt(assignValues[assign] || 0));
+    const onAssignClick = () => {
+        const assignOpts = filled(assignValues);
+        if (Object.keys(assignOpts).length > 0) {
+            send({ "assign": assignOpts });
         }
-        return total
-    }
-    const calcEngineersAdd = (addValues) => {
-        var total = 0
-        for (const addVal in addValues) {
-            total += (parseInt(addValues[addVal] || 0));
+        setAssignValues(blank);
+    };
+    const onAddClick = () => {
+        const addOpts = filled(addValues);
+        if (Object.keys(addOpts).length > 0) {
+            send({ "add": addOpts });
         }
-        return total
+        setAddValues(blank);
+    };
+    const OnClearAllClick = () => send({ "clear": Object.keys(blank) });
+    const OnClearClick = (e) => send({ "clear": [e.target.name] });
+
+    if (Object.keys(props.engineersInfo).length === 0 || Object.keys(props.kdInfo).length === 0
+        || Object.keys(props.projectsInfo).length === 0) {
+        return null;
     }
+    const total = (values) => Object.values(values).reduce((sum, value) => sum + (parseInt(value || 0) || 0), 0);
+    const free = Math.floor(props.projectsInfo.available_engineers || 0);
     // How many engineers one box can take: the free ones, less what the other boxes of the same column already ask for.
-    const maxEngineersFor = (values, name) => Math.max(
-        Math.floor(props.projectsInfo.available_engineers || 0)
-        - (calcEngineersAssigned(values) - (parseInt(values[name] || 0) || 0)), 0);
-    const engineersAssigned = calcEngineersAssigned(assignValues);
-    const engineersAdded = calcEngineersAdd(addValues);
+    const maxEngineersFor = (values, name) => Math.max(free - (total(values) - (parseInt(values[name] || 0) || 0)), 0);
+    const engineersAssigned = total(assignValues);
+    const engineersAdded = total(addValues);
+    const groups = projectRows(props.state, props.kdInfo, props.projectsInfo);
+    const inputs = (row, blocked) => [
+        <AmountInput name={row.key} id={`${row.key}-assign-input`} label={`Assign to ${row.name}`} value={assignValues[row.key]}
+            onChange={handleAssignInputChange} max={blocked ? 0 : maxEngineersFor(assignValues, row.key)} soloMax={blocked ? 0 : free} disabled={blocked} />,
+        <AmountInput name={row.key} id={`${row.key}-add-input`} label={`Add to ${row.name}`} value={addValues[row.key]}
+            onChange={handleAddInputChange} max={blocked ? 0 : maxEngineersFor(addValues, row.key)} soloMax={blocked ? 0 : free} disabled={blocked} />,
+        <Button className="remove-button" name={row.key} variant="primary" type="submit" onClick={OnClearClick}
+            disabled={props.loading.projects || (props.kdInfo.projects_assigned?.[row.key] || 0) === 0}>
+            {props.loading.projects ? "Loading..." : "Remove"}
+        </Button>,
+    ];
     return (
         <div className="projects">
-            <ResultToasts title="Structures Results" results={assignResult} setResults={setAssignResult} />
+            <ResultToasts title="Projects Results" results={assignResult} setResults={setAssignResult} />
             <div className="text-box box-tight projects-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Total Engineers</span>
@@ -270,451 +291,18 @@ function Assign(props) {
                     <span className="text-box-item-value">{props.projectsInfo.available_engineers?.toLocaleString()}</span>
                 </div>
             </div>
-            <div className="table-scroll"><Table className="projects-table" striped bordered hover size="sm">
-                <thead>
-                    <tr><th colSpan={7}>Continuous Projects</th></tr>
-                    <tr>
-                        <th style={{textAlign: "left"}}>Project</th>
-                        <th className="assigned-col" style={{textAlign: "right"}}>Assigned</th>
-                        <th style={{textAlign: "right"}}>Points</th>
-                        <th style={{textAlign: "right"}}>Bonus</th>
-                        <th style={{textAlign: "right"}}>Assign</th>
-                        <th style={{textAlign: "right"}}>Add</th>
-                        <th style={{textAlign: "right"}}>Remove</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Pop Bonus</td>
-                        <td className="assigned-col" style={{textAlign: "right"}}>
-                            {(props.kdInfo.projects_assigned.pop_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.pop_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {Math.floor(props.kdInfo.projects_points.pop_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.pop_bonus || 0).toLocaleString()}
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {displayPercent(props.projectsInfo.current_bonuses.pop_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.pop_bonus || 0)}
-                        </td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="pop_bonus" id="pop-bonus-assign-input" label="pop_bonus" value={assignValues.pop_bonus} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "pop_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                        }</td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="pop_bonus" id="pop-bonus-add-input" label="pop_bonus" value={addValues.pop_bonus} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "pop_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                        }</td>
-                        <td style={{textAlign: "right"}}>{
-                            props.loading.projects
-                            ? <Button className="remove-button" name="pop_bonus" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="remove-button" name="pop_bonus" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.pop_bonus || 0) == 0}>
-                                Remove
-                            </Button>
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Fuel Bonus</td>
-                        <td className="assigned-col" style={{textAlign: "right"}}>
-                            {(props.kdInfo.projects_assigned.fuel_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.fuel_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {Math.floor(props.kdInfo.projects_points.fuel_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.fuel_bonus || 0).toLocaleString()}
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {displayPercent(props.projectsInfo.current_bonuses.fuel_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.fuel_bonus || 0)}
-                        </td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="fuel_bonus" id="fuel-bonus-assign-input" label="fuel_bonus" value={assignValues.fuel_bonus} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "fuel_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                        }</td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="fuel_bonus" id="fuel-bonus-add-input" label="fuel_bonus" value={addValues.fuel_bonus} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "fuel_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                        }</td>
-                        <td style={{textAlign: "right"}}>{
-                            props.loading.projects
-                            ? <Button className="remove-button" name="fuel_bonus" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="remove-button" name="fuel_bonus" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.fuel_bonus || 0) == 0}>
-                                Remove
-                            </Button>
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Military Bonus</td>
-                        <td className="assigned-col" style={{textAlign: "right"}}>
-                            {(props.kdInfo.projects_assigned.military_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.military_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {Math.floor(props.kdInfo.projects_points.military_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.military_bonus || 0).toLocaleString()}
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {displayPercent(props.projectsInfo.current_bonuses.military_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.military_bonus || 0)}
-                        </td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="military_bonus" id="military-bonus-assign-input" label="military_bonus" value={assignValues.military_bonus} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "military_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                        }</td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="military_bonus" id="military-bonus-add-input" label="military_bonus" value={addValues.military_bonus} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "military_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                        }</td>
-                        <td style={{textAlign: "right"}}>{
-                            props.loading.projects
-                            ? <Button className="remove-button" name="military_bonus" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="remove-button" name="military_bonus" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.military_bonus || 0) == 0}>
-                                Remove
-                            </Button>
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Money Bonus</td>
-                        <td className="assigned-col" style={{textAlign: "right"}}>
-                            {(props.kdInfo.projects_assigned.money_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.money_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {Math.floor(props.kdInfo.projects_points.money_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.money_bonus || 0).toLocaleString()}
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {displayPercent(props.projectsInfo.current_bonuses.money_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.money_bonus || 0)}
-                        </td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="money_bonus" id="money-bonus-assign-input" label="money_bonus" value={assignValues.money_bonus} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "money_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                        }</td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="money_bonus" id="money-bonus-add-input" label="money_bonus" value={addValues.money_bonus} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "money_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                        }</td>
-                        <td style={{textAlign: "right"}}>{
-                            props.loading.projects
-                            ? <Button className="remove-button" name="money_bonus" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="remove-button" name="money_bonus" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.money_bonus || 0) == 0}>
-                                Remove
-                            </Button>
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Generals Speed Bonus</td>
-                        <td className="assigned-col" style={{textAlign: "right"}}>
-                            {(props.kdInfo.projects_assigned.general_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.general_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {Math.floor(props.kdInfo.projects_points.general_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.general_bonus || 0).toLocaleString()}
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {displayPercent(props.projectsInfo.current_bonuses.general_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.general_bonus || 0)}
-                        </td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="general_bonus" id="general-bonus-assign-input" label="general_bonus" value={assignValues.general_bonus} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "general_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                        }</td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="general_bonus" id="general-bonus-add-input" label="general_bonus" value={addValues.general_bonus} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "general_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                        }</td>
-                        <td style={{textAlign: "right"}}>{
-                            props.loading.projects
-                            ? <Button className="remove-button" name="general_bonus" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button className="remove-button" name="general_bonus" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.general_bonus || 0) == 0}>
-                                Remove
-                            </Button>
-                        }</td>
-                    </tr>
-                    {
-                        props.kdInfo.completed_projects.indexOf('drone_gadgets') >= 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Spy Bonus</td>
-                            <td className="assigned-col" style={{textAlign: "right"}}>
-                                {(props.kdInfo.projects_assigned.spy_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.spy_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}
-                            </td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="spy_bonus" id="spy-bonus-assign-input" label="spy_bonus" value={assignValues.spy_bonus} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "spy_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="spy_bonus" id="spy-bonus-add-input" label="spy_bonus" value={addValues.spy_bonus} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "spy_bonus")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                props.loading.projects
-                                ? <Button className="remove-button" name="spy_bonus" variant="primary" type="submit" disabled>
-                                    Loading...
-                                </Button>
-                                : <Button className="remove-button" name="spy_bonus" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.spy_bonus || 0) == 0}>
-                                    Remove
-                                </Button>
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Spy Bonus</td>
-                            <td className="assigned-col">Complete "Drone Gadgets" Project to Unlock</td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}
-                            </td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="spy_bonus" id="spy-bonus-assign-input" label="spy bonus" value={assignValues.spy_bonus} onChange={handleAssignInputChange} max={0} soloMax={0} disabled />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="spy_bonus" id="spy-bonus-add-input" label="spy bonus" value={addValues.spy_bonus} onChange={handleAddInputChange} max={0} soloMax={0} disabled />
-                            }</td>
-                            <td style={{textAlign: "right"}}></td>
-                        </tr>
-                    }
-                </tbody>
-                <thead>
-                    <tr><th colSpan={7}>One-Time Projects</th></tr>
-                    <tr>
-                        <th style={{textAlign: "left"}}>Project</th>
-                        <th className="assigned-col" style={{textAlign: "right"}}>Assigned</th>
-                        <th style={{textAlign: "right"}}>Points</th>
-                        <th style={{textAlign: "right"}}>% Completed</th>
-                        <th style={{textAlign: "right"}}>Assign</th>
-                        <th style={{textAlign: "right"}}>Add</th>
-                        <th style={{textAlign: "right"}}>Remove</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    
-                    {
-                        props.kdInfo.completed_projects.indexOf('big_flexers') < 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Big Flexers</td>
-                            <td className="assigned-col" style={{textAlign: "right"}}>
-                                {(props.kdInfo.projects_assigned.big_flexers || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))})
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="big_flexers" id="big-flexers-assign-input" label="big_flexers" value={assignValues.big_flexers} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "big_flexers")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="big_flexers" id="big-flexers-add-input" label="big_flexers" value={addValues.big_flexers} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "big_flexers")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                props.loading.projects
-                                ? <Button className="remove-button" name="big_flexers" variant="primary" type="submit" disabled>
-                                    Loading...
-                                </Button>
-                                : <Button className="remove-button" name="big_flexers" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.big_flexers || 0) == 0}>
-                                    Remove
-                                </Button>
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Big Flexers</td>
-                            <td className="assigned-col">Project Complete!</td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="big_flexers" id="big-flexers-assign-input" label="big_flexers" value={assignValues.big_flexers} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "big_flexers")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="big_flexers" id="big-flexers-add-input" label="big_flexers" value={addValues.big_flexers} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "big_flexers")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                props.loading.projects
-                                ? <Button className="remove-button" name="big_flexers" variant="primary" type="submit" disabled>
-                                    Loading...
-                                </Button>
-                                : <Button className="remove-button" name="big_flexers" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.big_flexers || 0) == 0}>
-                                    Remove
-                                </Button>
-                            }</td>
-                        </tr>
-                    }
-                    {
-                        props.kdInfo.completed_projects.indexOf('star_busters') < 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Star Busters</td>
-                            <td className="assigned-col" style={{textAlign: "right"}}>
-                                {(props.kdInfo.projects_assigned.star_busters || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))})
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="star_busters" id="star-busters-assign-input" label="star_busters" value={assignValues.star_busters} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "star_busters")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="star_busters" id="star-busters-add-input" label="star_busters" value={addValues.star_busters} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "star_busters")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                props.loading.projects
-                                ? <Button className="remove-button" name="star_busters" variant="primary" type="submit" disabled>
-                                    Loading...
-                                </Button>
-                                : <Button className="remove-button" name="star_busters" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.star_busters || 0) == 0}>
-                                    Remove
-                                </Button>
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Star Busters</td>
-                            <td className="assigned-col" >Project Complete!</td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="star_busters" id="star-busters-assign-input" label="star_busters" value={assignValues.star_busters} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "star_busters")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="star_busters" id="star-busters-add-input" label="star_busters" value={addValues.star_busters} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "star_busters")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                props.loading.projects
-                                ? <Button className="remove-button" name="star_busters" variant="primary" type="submit" disabled>
-                                    Loading...
-                                </Button>
-                                : <Button className="remove-button" name="star_busters" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.star_busters || 0) == 0}>
-                                    Remove
-                                </Button>
-                            }</td>
-                        </tr>
-                    }
-                    {
-                        props.kdInfo.completed_projects.indexOf('galaxy_busters') < 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Galaxy Busters</td>
-                            <td className="assigned-col" style={{textAlign: "right"}}>
-                                {(props.kdInfo.projects_assigned.galaxy_busters || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))})
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="galaxy_busters" id="galaxy-busters-assign-input" label="galaxy_busters" value={assignValues.galaxy_busters} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "galaxy_busters")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="galaxy_busters" id="galaxy-busters-add-input" label="galaxy_busters" value={addValues.galaxy_busters} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "galaxy_busters")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                props.loading.projects
-                                ? <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" disabled>
-                                    Loading...
-                                </Button>
-                                : <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.galaxy_busters || 0) == 0}>
-                                    Remove
-                                </Button>
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Galaxy Busters</td>
-                            <td className="assigned-col">Project Complete!</td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="galaxy_busters" id="galaxy-busters-assign-input" label="galaxy_busters" value={assignValues.galaxy_busters} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "galaxy_busters")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="galaxy_busters" id="galaxy-busters-add-input" label="galaxy_busters" value={addValues.galaxy_busters} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "galaxy_busters")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                props.loading.projects
-                                ? <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" disabled>
-                                    Loading...
-                                </Button>
-                                : <Button className="remove-button" name="galaxy_busters" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.galaxy_busters || 0) == 0}>
-                                    Remove
-                                </Button>
-                            }</td>
-                        </tr>
-                    }
-                    {
-                        props.kdInfo.completed_projects.indexOf('drone_gadgets') < 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Drone Gadgets</td>
-                            <td className="assigned-col" style={{textAlign: "right"}}>
-                                {(props.kdInfo.projects_assigned.drone_gadgets || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))})
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="drone_gadgets" id="drone-gadgets-assign-input" label="drone_gadgets" value={assignValues.drone_gadgets} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "drone_gadgets")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="drone_gadgets" id="drone-gadgets-add-input" label="drone_gadgets" value={addValues.drone_gadgets} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "drone_gadgets")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                props.loading.projects
-                                ? <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" disabled>
-                                    Loading...
-                                </Button>
-                                : <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.drone_gadgets || 0) == 0}>
-                                    Remove
-                                </Button>
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Drone Gadgets</td>
-                            <td className="assigned-col">Project Complete!</td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="drone_gadgets" id="drone-gadgets-assign-input" label="drone_gadgets" value={assignValues.drone_gadgets} onChange={handleAssignInputChange} max={maxEngineersFor(assignValues, "drone_gadgets")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="drone_gadgets" id="drone-gadgets-add-input" label="drone_gadgets" value={addValues.drone_gadgets} onChange={handleAddInputChange} max={maxEngineersFor(addValues, "drone_gadgets")} soloMax={Math.floor(props.projectsInfo.available_engineers || 0)} />
-                            }</td>
-                            <td style={{textAlign: "right"}}>{
-                                props.loading.projects
-                                ? <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" disabled>
-                                    Loading...
-                                </Button>
-                                : <Button className="remove-button" name="drone_gadgets" variant="primary" type="submit" onClick={OnClearClick} disabled={(props.kdInfo.projects_assigned.drone_gadgets || 0) == 0}>
-                                    Remove
-                                </Button>
-                            }</td>
-                        </tr>
-                    }
-                </tbody>
-            </Table></div>
+            <ProjectTables groups={groups} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
+                inputHeaders={["Assign", "Add", "Remove"]} inputs={inputs} />
             <div className="projects-buttons">
-                {
-                    props.loading.projects
-                    ? <Button className="projects-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="projects-button" variant="primary" type="submit" onClick={onAssignClick}>
-                        Assign
-                    </Button>
-                }
-                {
-                    props.loading.projects
-                    ? <Button className="projects-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="projects-button" variant="primary" type="submit" onClick={onAddClick}>
-                        Add
-                    </Button>
-                }
-                {
-                    props.loading.projects
-                    ? <Button className="projects-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="projects-button" variant="primary" type="submit" onClick={OnClearAllClick}>
-                        Remove All
-                    </Button>
-                }
+                <Button className="projects-button" variant="primary" type="submit" onClick={onAssignClick} disabled={props.loading.projects}>
+                    {props.loading.projects ? "Loading..." : "Assign"}
+                </Button>
+                <Button className="projects-button" variant="primary" type="submit" onClick={onAddClick} disabled={props.loading.projects}>
+                    {props.loading.projects ? "Loading..." : "Add"}
+                </Button>
+                <Button className="projects-button" variant="primary" type="submit" onClick={OnClearAllClick} disabled={props.loading.projects}>
+                    {props.loading.projects ? "Loading..." : "Remove All"}
+                </Button>
                 {
                     engineersAssigned !== 0
                     ? <h3>Unassigned Engineers: {(props.engineersInfo.current_engineers - engineersAssigned).toLocaleString()}</h3>
@@ -728,55 +316,43 @@ function Assign(props) {
 }
 
 function Allocate(props) {
-    const [assignValues, setAssignValues] = useState(initialProjectsValues);
+    const blank = blankValues(props.state);
+    const [assignValues, setAssignValues] = useState(blank);
     const [assignResult, setAssignResult] = useState([]);
-    const [enabled, setEnabled] = useState(props.kdInfo?.auto_assign_projects)
 
     const handleAssignInputChange = (e) => {
         const { name, value } = e.target;
-        setAssignValues({
-          ...assignValues,
-          [name]: value,
-        });
-      };
+        setAssignValues((previous) => ({ ...previous, [name]: value }));
+    };
+    const send = (opts) => {
+        const updateFunc = () => authFetch('api/projects/target', {
+            method: 'post',
+            body: JSON.stringify(opts)
+        }).then(r => r.json()).then(r => setAssignResult((previous) => previous.concat(r)));
+        props.updateData(['kingdom'], [updateFunc]);
+    };
+    const onSubmitClick = () => send({ "targets": assignValues });
+    const handleEnabledChange = (e) => send({ 'enabled': e.target.checked });
 
-    const onSubmitClick = (e)=>{
-        let opts = {"targets": assignValues};
-        const updateFunc = () => authFetch('api/projects/target', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => setAssignResult(assignResult.concat(r)))
-        props.updateData(['kingdom'], [updateFunc])
-    }
-    const handleEnabledChange = (e) => {
-        let opts = {
-            'enabled': e.target.checked
-        }
-        const updateFunc = () => authFetch('api/projects/target', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setAssignResult(assignResult.concat(r))})
-        props.updateData(['kingdom'], [updateFunc])
-        setEnabled(e.target.checked)
-    }
-    if (Object.keys(props.engineersInfo).length === 0) {
+    if (Object.keys(props.engineersInfo).length === 0 || Object.keys(props.kdInfo).length === 0
+        || Object.keys(props.projectsInfo).length === 0) {
         return null;
     }
     const maxPercent = (name) => Math.max(100 - Object.entries(assignValues).filter(([other]) => other !== name).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0);
-    if (Object.keys(props.kdInfo).length === 0) {
-        return null;
-    }
-    if (Object.keys(props.projectsInfo).length === 0) {
-        return null;
-    }
+    const groups = projectRows(props.state, props.kdInfo, props.projectsInfo);
+    const inputs = (row, blocked) => [
+        displayPercent(props.kdInfo.projects_target?.[row.key] || 0),
+        <AmountInput name={row.key} id={`${row.key}-allocate-input`} label={`Allocate to ${row.name}`} value={assignValues[row.key]}
+            onChange={handleAssignInputChange} suffix="%" max={blocked ? 0 : maxPercent(row.key)} soloMax={blocked ? 0 : 100} disabled={blocked} />,
+    ];
     return (
         <div className="projects">
-            <ResultToasts title="Structures Results" results={assignResult} setResults={setAssignResult} />
+            <ResultToasts title="Projects Results" results={assignResult} setResults={setAssignResult} />
             <div className="text-box box-tight projects-box">
                 <span>Choose the target allocation of assigned engineers that you would like the auto-spender to assign towards</span>
             </div>
             <Form>
-                <Form.Check 
+                <Form.Check
                     type="switch"
                     id="enable-auto-projects-switch"
                     label="Enable Auto Assign Engineers?"
@@ -785,274 +361,12 @@ function Allocate(props) {
                     disabled={props.loading.kingdom}
                 />
             </Form>
-            <div className="table-scroll"><Table className="projects-table" striped bordered hover size="sm">
-                <thead>
-                    <tr><th colSpan={6}>Continuous Projects</th></tr>
-                    <tr>
-                        <th style={{textAlign: "left"}}>Project</th>
-                        <th className="assigned-col" style={{textAlign: "right"}}>Assigned Engineers</th>
-                        <th style={{textAlign: "right"}}>Points</th>
-                        <th style={{textAlign: "right"}}>Bonus</th>
-                        <th style={{textAlign: "right"}}>Current Allocation</th>
-                        <th style={{textAlign: "right"}}>New Allocation</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Pop Bonus</td>
-                        <td className="assigned-col" style={{textAlign: "right"}}>
-                            {(props.kdInfo.projects_assigned.pop_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.pop_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {Math.floor(props.kdInfo.projects_points.pop_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.pop_bonus || 0).toLocaleString()}
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {displayPercent(props.projectsInfo.current_bonuses.pop_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.pop_bonus || 0)}
-                        </td>
-                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.pop_bonus || 0))}</td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="pop_bonus" id="pop-bonus-assign-input" label="pop_bonus" value={assignValues.pop_bonus} onChange={handleAssignInputChange} suffix="%" max={maxPercent("pop_bonus")} soloMax={100} />
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Fuel Bonus</td>
-                        <td className="assigned-col" style={{textAlign: "right"}}>
-                            {(props.kdInfo.projects_assigned.fuel_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.fuel_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {Math.floor(props.kdInfo.projects_points.fuel_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.fuel_bonus || 0).toLocaleString()}
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {displayPercent(props.projectsInfo.current_bonuses.fuel_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.fuel_bonus || 0)}
-                        </td>
-                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.fuel_bonus || 0))}</td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="fuel_bonus" id="fuel-bonus-assign-input" label="fuel_bonus" value={assignValues.fuel_bonus} onChange={handleAssignInputChange} suffix="%" max={maxPercent("fuel_bonus")} soloMax={100} />
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Military Bonus</td>
-                        <td className="assigned-col" style={{textAlign: "right"}}>
-                            {(props.kdInfo.projects_assigned.military_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.military_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {Math.floor(props.kdInfo.projects_points.military_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.military_bonus || 0).toLocaleString()}
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {displayPercent(props.projectsInfo.current_bonuses.military_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.military_bonus || 0)}
-                        </td>
-                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.military_bonus || 0))}</td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="military_bonus" id="military-bonus-assign-input" label="military_bonus" value={assignValues.military_bonus} onChange={handleAssignInputChange} suffix="%" max={maxPercent("military_bonus")} soloMax={100} />
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Money Bonus</td>
-                        <td className="assigned-col" style={{textAlign: "right"}}>
-                            {(props.kdInfo.projects_assigned.money_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.money_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {Math.floor(props.kdInfo.projects_points.money_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.money_bonus || 0).toLocaleString()}
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {displayPercent(props.projectsInfo.current_bonuses.money_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.money_bonus || 0)}
-                        </td>
-                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.money_bonus || 0))}</td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="money_bonus" id="money-bonus-assign-input" label="money_bonus" value={assignValues.money_bonus} onChange={handleAssignInputChange} suffix="%" max={maxPercent("money_bonus")} soloMax={100} />
-                        }</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Generals Speed Bonus</td>
-                        <td className="assigned-col" style={{textAlign: "right"}}>
-                            {(props.kdInfo.projects_assigned.general_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.general_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {Math.floor(props.kdInfo.projects_points.general_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.general_bonus || 0).toLocaleString()}
-                        </td>
-                        <td style={{textAlign: "right"}}>
-                            {displayPercent(props.projectsInfo.current_bonuses.general_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.general_bonus || 0)}
-                        </td>
-                        <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.general_bonus || 0))}</td>
-                        <td style={{textAlign: "right"}}>{
-                            <AmountInput name="general_bonus" id="general-bonus-assign-input" label="general_bonus" value={assignValues.general_bonus} onChange={handleAssignInputChange} suffix="%" max={maxPercent("general_bonus")} soloMax={100} />
-                        }</td>
-                    </tr>
-                    {
-                        props.kdInfo.completed_projects.indexOf('drone_gadgets') >= 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Spy Bonus</td>
-                            <td className="assigned-col" style={{textAlign: "right"}}>
-                                {(props.kdInfo.projects_assigned.spy_bonus || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.spy_bonus || 0) / (props.engineersInfo.current_engineers || 0))})
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.spy_bonus || 0))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="spy_bonus" id="spy-bonus-assign-input" label="spy_bonus" value={assignValues.spy_bonus} onChange={handleAssignInputChange} suffix="%" max={maxPercent("spy_bonus")} soloMax={100} />
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Spy Bonus</td>
-                            <td className="assigned-col" >Complete "Drone Gadgets" Project to Unlock</td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.spy_bonus || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.spy_bonus || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {displayPercent(props.projectsInfo.current_bonuses.spy_bonus || 0)} / {displayPercent(props.projectsInfo.max_bonuses.spy_bonus || 0)}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.spy_bonus || 0))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="spy_bonus" id="spy-bonus-assign-input" label="spy bonus" value={assignValues.spy_bonus} onChange={handleAssignInputChange} max={0} soloMax={0} disabled />
-                            }</td>
-                        </tr>
-                    }
-                </tbody>
-                <thead>
-                    <tr><th colSpan={6}>One-Time Projects</th></tr>
-                    <tr>
-                        <th style={{textAlign: "left"}}>Project</th>
-                        <th className="assigned-col" style={{textAlign: "right"}}>Assigned</th>
-                        <th style={{textAlign: "right"}}>Points</th>
-                        <th style={{textAlign: "right"}}>% Completed</th>
-                        <th style={{textAlign: "right"}}>Current Allocation</th>
-                        <th style={{textAlign: "right"}}>New Allocation</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    
-                    {
-                        props.kdInfo.completed_projects.indexOf('big_flexers') < 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Big Flexers</td>
-                            <td className="assigned-col" style={{textAlign: "right"}}>
-                                {(props.kdInfo.projects_assigned.big_flexers || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.big_flexers || 0) / (props.engineersInfo.current_engineers || 0))})
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.big_flexers || 0))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="big_flexers" id="big-flexers-assign-input" label="big_flexers" value={assignValues.big_flexers} onChange={handleAssignInputChange} suffix="%" max={maxPercent("big_flexers")} soloMax={100} />
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Big Flexers</td>
-                            <td className="assigned-col">Project Complete!</td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.big_flexers || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.big_flexers || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.big_flexers || 0)/(props.kdInfo.projects_max_points.big_flexers))}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.big_flexers || 0))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="big_flexers" id="big-flexers-assign-input" label="big_flexers" value={assignValues.big_flexers} onChange={handleAssignInputChange} suffix="%" max={maxPercent("big_flexers")} soloMax={100} />
-                            }</td>
-                        </tr>
-                    }
-                    {
-                        props.kdInfo.completed_projects.indexOf('star_busters') < 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Star Busters</td>
-                            <td className="assigned-col" style={{textAlign: "right"}}>
-                                {(props.kdInfo.projects_assigned.star_busters || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.star_busters || 0) / (props.engineersInfo.current_engineers || 0))})
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.star_busters || 0))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="star_busters" id="star-busters-assign-input" label="star_busters" value={assignValues.star_busters} onChange={handleAssignInputChange} suffix="%" max={maxPercent("star_busters")} soloMax={100} />
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Star Busters</td>
-                            <td className="assigned-col">Project Complete!</td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.star_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.star_busters || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.star_busters || 0)/(props.kdInfo.projects_max_points.star_busters))}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.star_busters || 0))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="star_busters" id="star-busters-assign-input" label="star_busters" value={assignValues.star_busters} onChange={handleAssignInputChange} suffix="%" max={maxPercent("star_busters")} soloMax={100} />
-                            }</td>
-                        </tr>
-                    }
-                    {
-                        props.kdInfo.completed_projects.indexOf('galaxy_busters') < 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Galaxy Busters</td>
-                            <td className="assigned-col" style={{textAlign: "right"}}>
-                                {(props.kdInfo.projects_assigned.galaxy_busters || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.galaxy_busters || 0) / (props.engineersInfo.current_engineers || 0))})
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.galaxy_busters || 0))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="galaxy_busters" id="galaxy-busters-assign-input" label="galaxy_busters" value={assignValues.galaxy_busters} onChange={handleAssignInputChange} suffix="%" max={maxPercent("galaxy_busters")} soloMax={100} />
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Galaxy Busters</td>
-                            <td className="assigned-col">Project Complete!</td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.galaxy_busters || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.galaxy_busters || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.galaxy_busters || 0)/(props.kdInfo.projects_max_points.galaxy_busters))}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.galaxy_busters || 0))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="galaxy_busters" id="galaxy-busters-assign-input" label="galaxy_busters" value={assignValues.galaxy_busters} onChange={handleAssignInputChange} suffix="%" max={maxPercent("galaxy_busters")} soloMax={100} />
-                            }</td>
-                        </tr>
-                    }
-                    {
-                        props.kdInfo.completed_projects.indexOf('drone_gadgets') < 0
-                        ? <tr>
-                            <td style={{textAlign: "left"}}>Drone Gadgets</td>
-                            <td className="assigned-col" style={{textAlign: "right"}}>
-                                {(props.kdInfo.projects_assigned.drone_gadgets || 0).toLocaleString()} ({displayPercent((props.kdInfo.projects_assigned.drone_gadgets || 0) / (props.engineersInfo.current_engineers || 0))})
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.drone_gadgets || 0))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="drone_gadgets" id="drone-gadgets-assign-input" label="drone_gadgets" value={assignValues.drone_gadgets} onChange={handleAssignInputChange} suffix="%" max={maxPercent("drone_gadgets")} soloMax={100} />
-                            }</td>
-                        </tr>
-                        : <tr className="disabled-table-row">
-                            <td style={{textAlign: "left"}}>Drone Gadgets</td>
-                            <td className="assigned-col">Project Complete!</td>
-                            <td style={{textAlign: "right"}}>
-                                {Math.floor(props.kdInfo.projects_points.drone_gadgets || 0).toLocaleString()} / {Math.floor(props.kdInfo.projects_max_points.drone_gadgets || 0).toLocaleString()}
-                            </td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_points.drone_gadgets || 0)/(props.kdInfo.projects_max_points.drone_gadgets))}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.kdInfo.projects_target?.drone_gadgets || 0))}</td>
-                            <td style={{textAlign: "right"}}>{
-                                <AmountInput name="drone_gadgets" id="drone-gadgets-assign-input" label="drone_gadgets" value={assignValues.drone_gadgets} onChange={handleAssignInputChange} suffix="%" max={maxPercent("drone_gadgets")} soloMax={100} />
-                            }</td>
-                        </tr>
-                    }
-                </tbody>
-            </Table></div>
+            <ProjectTables groups={groups} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
+                inputHeaders={["Current Allocation", "New Allocation"]} inputs={inputs} />
             <div className="projects-buttons">
-                {
-                    props.loading.kingdom
-                    ? <Button className="auto-projects-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="auto-projects-button" variant="primary" type="submit" onClick={onSubmitClick}>
-                        Update
-                    </Button>
-                }
+                <Button className="auto-projects-button" variant="primary" type="submit" onClick={onSubmitClick} disabled={props.loading.kingdom}>
+                    {props.loading.kingdom ? "Loading..." : "Update"}
+                </Button>
             </div>
         </div>
     )

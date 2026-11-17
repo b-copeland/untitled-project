@@ -125,7 +125,7 @@ Created from `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`, which has the st
 | `next_resolve` | Per category, when the refresh next has work: `generals`, `spy_attempt`, `settles`, `mobis`, `missiles`, `engineers`, `structures`, `revealed`, `shared`, `auto_spending` |
 | `spy_attempts` | Spy operations available now |
 | `generals_available`, `generals_out` | Generals home, and those on an attack with their return time and units |
-| `units` | Units at home: `attack`, `defense`, `flex`, `big_flex`, `recruits`, `engineers` |
+| `units` | Units at home, one count per key of `UNITS` (including `recruits` and `engineers`) |
 | `units_target`, `structures_target`, `projects_target` | What the auto builder aims for, as shares |
 | `max_recruits`, `recruits_before_units` | Auto builder settings for recruits |
 | `structures` | Structures built |
@@ -135,7 +135,7 @@ Created from `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`, which has the st
 | `auto_spending_enabled`, `auto_spending`, `funding` | Auto builder switch, the income split, and the money set aside per category |
 | `auto_attack_enabled`, `auto_attack_settings` | Automatic attacks on primitives |
 | `auto_rob_enabled`, `auto_rob_settings` | Automatic robbing of primitives |
-| `projects_points`, `projects_max_points`, `projects_assigned`, `completed_projects`, `auto_assign_projects` | Projects: progress, caps, engineers assigned, unlocks done |
+| `projects_points`, `projects_max_points`, `projects_assigned`, `completed_projects`, `auto_assign_projects` | Projects: progress, caps, engineers assigned, unlocks done. One key per project in `PROJECTS`; a kingdom made before a unit or project existed lacks its keys until its next tick fills them (`with_new_fields` in `shared.py`), so read them with the helpers there. |
 | `schedule` | Scheduled actions waiting for their time |
 | `siphons` | Siphons this kingdom is running |
 
