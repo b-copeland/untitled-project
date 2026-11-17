@@ -142,7 +142,7 @@ def test_bots_of_one_playstyle_differ_and_between_them_hit_everything():
     assert 20 < sum(s["bomber"] for s in styles) < 120
     assert len({s["temper"] for s in styles}) > 100
     thieves = [brain.roll_style(THIEF, random.Random(seed)) for seed in range(200)]
-    assert {s["drones"] for s in thieves} == {"primitives", "players", "both"}
+    assert {s["drones"] for s in thieves} == {"players", "both"}  # every thief siphons kingdoms
     assert "none" in {s["army"] for s in thieves}
 
 
@@ -575,7 +575,8 @@ def test_late_in_the_round_a_leader_it_can_not_beat_is_worn_down_only_if_asked()
 
 # ------------------------------------------------------------------------------------------------------------ drones
 
-def test_a_thief_siphons_when_that_beats_robbing_primitives():
+def test_a_thief_siphons_when_that_beats_robbing_primitives(monkeypatch):
+    monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 0)
     stats = {"3": (3000, 400_000), "4": (500, 40_000)}
     world = StubWorld(day=5, stats=stats)  # primitives are robbed half bare by now
     THIEF = dataclasses.replace(brain.PERSONALITIES["thief"], sabotage_chance=(0.0, 0.0, 0.0))  # siphons only, here
@@ -594,6 +595,8 @@ def test_a_thief_siphons_when_that_beats_robbing_primitives():
 
 
 def test_a_thief_can_send_all_its_drones_on_a_siphon(monkeypatch):
+    monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 0)
+    monkeypatch.setattr(brain, "SIPHON_ALL_DRONES", False)
     world = StubWorld(day=5, stats={"4": (500, 40_000)}, me={"drones": 200_000})
     thief = dataclasses.replace(brain.PERSONALITIES["thief"], sabotage_chance=(0.0, 0.0, 0.0))
     (capped,) = brain.plan_drones(world, thief, style(drones="players"), {}, ChanceOf(0.0))
@@ -606,6 +609,7 @@ def test_a_thief_can_send_all_its_drones_on_a_siphon(monkeypatch):
 def test_a_thief_short_of_kingdoms_to_siphon_reveals_a_galaxy(monkeypatch):
     world = StubWorld(day=5, stats={"4": (500, 40_000)}, me={"drones": 20_000})
     thief = dataclasses.replace(brain.PERSONALITIES["thief"], sabotage_chance=(0.0, 0.0, 0.0))
+    monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 0)
     assert "reveal_galaxy" not in [d.kind for d in brain.plan_drones(world, thief, style(drones="players"), {}, ChanceOf(0.0))]
     monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 4)
     kinds = [d.kind for d in brain.plan_drones(world, thief, style(drones="players"), {}, ChanceOf(0.0))]
@@ -617,7 +621,7 @@ def test_a_small_thief_can_put_its_land_into_drone_factories():
     small, _ = brain.plan_economy(StubWorld(me={"stars": 600}), thief, style(drones="both"), {})
     big, _ = brain.plan_economy(StubWorld(me={"stars": 1500}), thief, style(drones="both"), {})
     assert small["structures_target"]["drone_factories"] > 0.3  # what the hangars and fuel plants leave of 0.5
-    assert big["structures_target"]["drone_factories"] < 0.1
+    assert big["structures_target"]["drone_factories"] <= THIEF.drone_factories + 0.001
     assert brain.problems(dataclasses.replace(THIEF, early_drone_factories=(0.9, 1000)))
 
 
@@ -918,7 +922,8 @@ def test_auto_spending_copes_with_a_kingdom_that_has_none_of_the_units_it_aims_f
     assert training.get("attack", 0) > 0 and training.get("defense", 0) > 0
 
 
-def test_siphons_are_spread_over_kingdoms_in_proportion_to_their_worth():
+def test_siphons_are_spread_over_kingdoms_in_proportion_to_their_worth(monkeypatch):
+    monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 0)  # two kingdoms are enough here
     stats = {"3": (3000, 400_000), "4": (2500, 300_000)}
     thief = dataclasses.replace(THIEF, sabotage_chance=(0.0, 0.0, 0.0))
     world = StubWorld(day=5, stats=stats)
@@ -936,7 +941,8 @@ def test_siphons_are_spread_over_kingdoms_in_proportion_to_their_worth():
     assert {best, other} == {"3", "4"}
 
 
-def test_a_kingdom_that_keeps_catching_the_siphons_is_tried_less():
+def test_a_kingdom_that_keeps_catching_the_siphons_is_tried_less(monkeypatch):
+    monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 0)
     stats = {"3": (3000, 400_000), "4": (2500, 300_000)}
     thief = dataclasses.replace(THIEF, sabotage_chance=(0.0, 0.0, 0.0))
     world = StubWorld(day=5, stats=stats)

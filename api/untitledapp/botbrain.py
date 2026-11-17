@@ -72,9 +72,9 @@ EFFICIENT_ARMY_SURPLUS = 0.2  # TUNE: how much money to spare (0 to 1) before de
 SPY_FAILS = 3               # TUNE: failed intel operations in a row before a target is left alone
 SPY_FORGET_EPOCHS = 48      # TUNE: and for how long
 MAX_SIPHONS_PER_THINK = 3   # TUNE: siphons scheduled in one think, on different kingdoms
-SIPHON_KEEP_ATTEMPTS = 0    # TUNE: spy attempts kept from the auto rob while there are kingdoms worth siphoning
-SIPHON_ALL_DRONES = False   # TUNE: send every drone on a siphon, not only as many as the target's income can pay
-SIPHON_REVEAL_BELOW = 0     # TUNE: a siphoning bot reveals a galaxy when it has fewer kingdoms than this to siphon
+SIPHON_KEEP_ATTEMPTS = 8    # TUNE: spy attempts kept from the auto rob while there are kingdoms worth siphoning
+SIPHON_ALL_DRONES = True    # TUNE: send every drone on a siphon, not only as many as the target's income can pay
+SIPHON_REVEAL_BELOW = 4     # TUNE: a siphoning bot reveals a galaxy when it has fewer kingdoms than this to siphon
 SIPHON_PICK = "spread"      # TUNE: "spread" draws siphon targets in proportion to their worth; "best" takes the best
 SIPHON_SHARPNESS = 1.0      # TUNE: siphon targets are drawn in proportion to worth ** this (higher: the best more often)
 SIPHON_PRIOR = 2.0          # TUNE: how many siphons' worth of trust the forecast chance gets against what was seen
@@ -237,14 +237,15 @@ PERSONALITIES = {
     "thief": Personality(
         think_epochs=(1.5, 4.0), max_new=3, max_pending=6,
         army_targets={"none": 0.1, "primitives": 0.9},
-        drone_targets={"primitives": 0.3, "players": 0.2, "both": 0.5}, bomber_chance=0.2,
+        # Every thief siphons kingdoms, with nearly every spy attempt, from drone factories on 15% of its land.
+        drone_targets={"players": 0.5, "both": 0.5}, bomber_chance=0.2,
         settle_drive=(1.0, 1.0, 0.8), military_drive=(0.4, 0.45, 0.6), defense_margin=1.0,
         offense_share=(1.0, 0.9, 0.4),
-        workshops=(0.06, 0.06, 0.08), drone_factories=0.07, homes=0.6,
+        workshops=(0.06, 0.06, 0.08), drone_factories=0.15, homes=0.6,
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.5, "military_bonus": 0.7, "spy_bonus": 1.0},
         key_projects=("drone_gadgets", "big_flexers"), key_share=(0.6, 0.3, 0.15),
-        intel_chance=0.5, intel_ops=("spykingdom", "spydrones", "spymilitary"), share_chance=0.3,
-        aggressive_chance=0.9, sabotage_chance=(0.0, 0.15, 0.6),
+        intel_chance=0.1, intel_ops=("spykingdom", "spydrones", "spymilitary"), share_chance=0.3,
+        aggressive_chance=0.9, sabotage_chance=(0.0, 0.0, 0.1),
         sabotage_ops=("kidnappopulation", "bombhomes", "sabotagefuelplants", "kidnappopulation"),
         galaxy_votes={"policy_1": "1", "policy_2": "1"},
         universe_votes={"policy_1": "2", "policy_2": "1"},

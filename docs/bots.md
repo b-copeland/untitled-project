@@ -20,7 +20,7 @@ rules as a player, through the same code as the routes, and sees only what a pla
 | `explorer` | Gaian | settling all round (it stays ahead of the army in the queue for money), primitives, the strongest defense |
 | `attacker` | Xo | primitives, then kingdoms when they pay better; most of its army is offense |
 | `intel` | Lumina | primitives and settling; spies widely and offers what it learns to its galaxy for a cut of the spoils |
-| `thief` | Vult | primitives and settling; robs primitives, siphons kingdoms when that pays more, sabotages leaders |
+| `thief` | Vult | primitives and settling; siphons kingdoms with nearly every spy attempt and all its drones (robs primitives only when that pays more), drone factories on 15% of its land |
 
 (The leader playstyle is not ready, so there is no leader bot.)
 
@@ -240,8 +240,8 @@ one is opened): every kingdom at a glance, and one in full with its bot. Admin o
 **100 bots in 10 galaxies, the default mix, seven days, mean of three seeds** (median stars, with steady-rate siphons
 and intel sold for its cut): attackers 10,800, explorers 14,200, thieves 8,700, intel bots 7,700, with explorers
 defended at the break-even, intel bots spying only on military and kingdoms, and no losing attacks; before those,
-10,100, 11,400, 8,500 and 7,800. The measurements below were made before
-these changes. Against the bots before siphon spreading and learning and the
+10,100, 11,400, 8,500 and 7,800. With a spy attempt every epoch and the thieves below, the means are attackers
+9,700, explorers 12,300, thieves 7,000, intel bots 6,100. The measurements below were made before these changes. Against the bots before siphon spreading and learning and the
 threat-aware defense, that is the same overall (9,520 median stars both ways); attackers lose a third fewer stars to
 strikes (960 against 1,380) and fewer die; siphon losses are spread (explorers lose 1.1 million each over the week
 instead of 0.3 million, intel bots 1.4 instead of 2.9); thieves take about a fifth less by siphons (6.5 million
@@ -294,7 +294,7 @@ Not changed: these are balance and rules, which are the maintainer's call.
 4. **Siphons can not make a thief.** A siphon is worth 8 money per drone sent (`BASE_DRONES_SIPHON_PER_DRONE`); the 15%
    is only a cap on the target: a siphon pays its 8 per drone over 12 epochs, and over the target's 15% the oldest
    siphons are cut first, for good (`refresh._settle_siphons`). The runs here were made before that rule, when the 15%
-   was shared pro rata; the most a siphon can take is the same under both. With 6 drones per star and one spy attempt every two epochs, even a siphon with every
+   was shared pro rata; the most a siphon can take is the same under both. With 6 drones per star and one spy attempt every two epochs (as it was then), even a siphon with every
    attempt brings about 15 per star per epoch, against about 95 a thief earns at home. Over a week siphons were 3-4% of a
    thief's income. Robbing primitives falls to about 1 per drone by day 7. A siphon that scaled with the target's
    income, or a higher per-drone amount, would be the lever.
@@ -303,18 +303,20 @@ Not changed: these are balance and rules, which are the maintainer's call.
    draw a quarter of the siphons. Guessing from the drones the bot has seen (`DRONES_GUESS = "learned"`) left thieves
    worse off (siphon income down 32%), so it is off. Spying on drones before siphoning cost 13% and was removed: the
    spy attempt is worth more as a siphon. A drone siphons 8 money per siphon (paid over 12 epochs), not per epoch,
-   and an attempt comes back every 2 epochs. Thieves made only about 70 siphons a week, a third of their attempts,
-   because they often knew no kingdom to siphon: a revealed galaxy lasts 16 epochs, and they revealed one only when
-   their intel roll passed. Settings that each make a thief more of a thief, all off by default and measured
-   together (mean of all thieves, 3 seeds): reveal a galaxy when fewer than 4 kingdoms are left to siphon
-   (`SIPHON_REVEAL_BELOW`), send every drone (`SIPHON_ALL_DRONES`), keep attempts from the auto rob
-   (`SIPHON_KEEP_ATTEMPTS`), every thief siphoning kingdoms, and little intel or sabotage. That took them to about
-   115 siphons a week and 8.3M siphon money (from 5.4M), stars and networth about the same. With drone factories at
-   15% of the land, siphons worked 90% of the time instead of 69% and brought 23M a week, a fifth of their income,
-   for 4% fewer stars and 3% more networth: siphons then about match mines. Half the land in factories until 1,000
-   stars (`early_drone_factories`, 0.3 measured) cost thieves 16% of their stars: the land not in mines early is
-   what compounds. Medians hid all this at first (a third of thieves did not siphon kingdoms at all), so compare
-   thieves by their means.
+   and an attempt came back every 2 epochs (every epoch since 2026-11-17). Thieves made only about 70 siphons a
+   week, a third of their attempts, because they often knew no kingdom to siphon: a revealed galaxy lasts 16 epochs,
+   and they revealed one only when their intel roll passed. So now a thief reveals a galaxy when fewer than 4
+   kingdoms are left to siphon (`SIPHON_REVEAL_BELOW`), sends every drone (`SIPHON_ALL_DRONES`), keeps its attempts
+   from the auto rob (`SIPHON_KEEP_ATTEMPTS`), siphons kingdoms whatever its style, spies and sabotages little, and
+   keeps drone factories on 15% of its land. With an attempt every epoch (mean of all thieves, 3 seeds): about 260
+   siphons a week, 89% of them working, 42M of siphon money against 73M from its own land (5M and 104M before), and
+   networth as before; against an attempt every epoch with the old thief, 5% more stars and 8% more networth. Still
+   short of parity in stars (thieves 7,000, attackers 9,700, explorers 12,300, means): thieves settle less, and the
+   homes rule reads siphon money as money to spare and turns mines into homes (1,200 mines against 2,600). Factories
+   on 25% of the land brought 55M a week for the same stars. Half the land in factories until 1,000 stars
+   (`early_drone_factories`, 0.3 measured) cost thieves 16% of their stars: the land not in mines early is what
+   compounds. Medians hid all this at first (a third of thieves did not siphon kingdoms at all), so compare thieves by
+   their means.
 6. **Selling intel pays intel bots a little.** About 30% of the attackers' winning strikes use intel a galaxymate
    shared. Each intel bot earns about 110 stars and 80,000 money a week from cuts (2% of its stars), which made it 6%
    larger and the attackers 5% smaller. (Until the bug below was fixed it earned nothing.) Lumina's offense penalty
