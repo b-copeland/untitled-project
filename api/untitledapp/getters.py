@@ -532,7 +532,10 @@ def _calc_maxes(
     return maxes
 
 def _calc_hangar_capacity(kd_info, units):
-    max_hangar_capacity = math.floor(kd_info["structures"]["hangars"]) * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]
+    max_hangar_capacity = math.floor(
+        math.floor(kd_info["structures"]["hangars"]) * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]
+        * (1 + uas.project_bonus(kd_info, "hangars_bonus"))
+    )
     current_hangar_capacity = sum([
         uas.unit_hangar_space(kd_info, key) * (units["current_total"].get(key, 0) + units["hour_24"].get(key, 0))
         for key, stat_map in uas.UNITS.items()
@@ -935,6 +938,21 @@ def _get_missiles_info(kd_id):
     missiles_info_parse = json.loads(missiles_info.text)
     return missiles_info_parse["missiles"]
 
+def _calc_missile_capacity(kd_info):
+    """How many of each missile the kingdom's silos hold: per silo, more for Fuzi and with the Missile Silos project."""
+    per_silo = math.floor(
+        uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
+        * (
+            1
+            + int(kd_info["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_SILO_CAPACITY_INCREASE"]
+        )
+    )
+    return math.floor(
+        math.floor(kd_info["structures"]["missile_silos"]) * per_silo
+        * (1 + uas.project_bonus(kd_info, "missile_silos_bonus"))
+    )
+
+
 def _get_missiles_building(missiles_info):
     missiles_building = {
         k: 0
@@ -971,13 +989,7 @@ def missiles():
 
     current_missiles = kd_info_parse["missiles"]
 
-    max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * math.floor(
-        uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
-        * (
-            1
-            + int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_SILO_CAPACITY_INCREASE"]
-        )
-    )
+    max_available_missiles = _calc_missile_capacity(kd_info_parse)
 
     cost_modifier = (
         1
@@ -1009,12 +1021,16 @@ def _get_engineers_queue(kd_id):
     return engineers_info_parse["engineers"]
 
 def _calc_workshop_capacity(kd_info, engineers_building):
-    max_workshop_capacity = math.floor(kd_info["structures"]["workshops"]) * math.floor(
+    per_workshop = math.floor(
         uas.GAME_CONFIG["BASE_WORKSHOP_CAPACITY"]
         * (
             1
             - int(kd_info["race"] == "Xo") * uas.GAME_CONFIG["XO_WORKSHOP_CAPACITY_REDUCTION"]
         )
+    )
+    max_workshop_capacity = math.floor(
+        math.floor(kd_info["structures"]["workshops"]) * per_workshop
+        * (1 + uas.project_bonus(kd_info, "workshops_bonus"))
     )
     current_engineers = kd_info["units"]["engineers"]
     current_workshop_capacity = current_engineers + engineers_building

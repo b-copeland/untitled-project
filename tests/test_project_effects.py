@@ -3,6 +3,7 @@ What each project does: one or more tests per project, each failing if the proje
 as the Projects page groups them. The lock rules shared by every project are in tests/test_projects.py.
 """
 import datetime
+import math
 
 import pytest
 
@@ -143,3 +144,77 @@ def test_the_playstyle_projects_need_the_best_unit_of_their_kind():
     }.items():
         assert uas.project_locked_reason(nothing, project) is not None, project
         assert uas.project_locked_reason({**nothing, "completed_projects": [needs]}, project) is None, project
+
+
+# --- structure projects -------------------------------------------------------------------------------------------------
+
+def _full(project):
+    """A kingdom with ``project`` at its full bonus, and the bonus."""
+    return kingdoms.with_bonus(project), uas.PROJECTS[project]["max_bonus"]
+
+
+def test_the_homes_project_houses_more_population():
+    import untitledapp.refresh as refresh
+    points, bonus = _full("pop_bonus")
+    plain = kingdoms.kingdom(structures={"homes": 100})
+    boosted = kingdoms.kingdom(structures={"homes": 100}, projects_points=points)
+    _, capacity = refresh._calc_pop_change_per_epoch(plain, False, 1, [])
+    _, boosted_capacity = refresh._calc_pop_change_per_epoch(boosted, False, 1, [])
+    assert capacity == 100 * uas.GAME_CONFIG["BASE_HOMES_CAPACITY"]
+    assert boosted_capacity == pytest.approx(capacity * (1 + bonus), abs=1)
+
+
+def test_the_mines_project_makes_mines_produce_more_money(app):
+    points, bonus = _full("mines_bonus")
+    plain = kingdoms.income(app, kingdoms.kingdom(structures={"mines": 100}))
+    boosted = kingdoms.income(app, kingdoms.kingdom(structures={"mines": 100}, projects_points=points))
+    assert boosted["income"]["money"]["mines"] == pytest.approx(plain["income"]["money"]["mines"] * (1 + bonus))
+    assert boosted["income"]["money"]["population"] == plain["income"]["money"]["population"]
+
+
+def test_the_fuel_plants_project_makes_fuel_plants_produce_more_fuel(app):
+    points, bonus = _full("fuel_bonus")
+    plants = {"fuel_plants": 100}
+    plain = kingdoms.income(app, kingdoms.kingdom(structures=plants))
+    boosted = kingdoms.income(app, kingdoms.kingdom(structures=plants, projects_points=points))
+    produced = 100 * uas.GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"]
+    assert boosted["income"]["fuel"]["net"] - plain["income"]["fuel"]["net"] == pytest.approx(produced * bonus)
+
+
+def test_the_hangars_project_makes_hangars_hold_more_units():
+    points, bonus = _full("hangars_bonus")
+    empty = {"current_total": {}, "hour_24": {}}
+    plain, _ = uag._calc_hangar_capacity(kingdoms.kingdom(structures={"hangars": 100}), empty)
+    boosted, _ = uag._calc_hangar_capacity(kingdoms.kingdom(structures={"hangars": 100}, projects_points=points), empty)
+    assert plain == 100 * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]
+    assert boosted == pytest.approx(plain * (1 + bonus), abs=1)
+
+
+def test_the_drone_factories_project_makes_more_drones(app):
+    points, bonus = _full("drone_factories_bonus")
+    plain = kingdoms.income(app, kingdoms.kingdom(structures={"drone_factories": 100}))
+    boosted = kingdoms.income(app, kingdoms.kingdom(structures={"drone_factories": 100}, projects_points=points))
+    assert boosted["income"]["drones"] == pytest.approx(plain["income"]["drones"] * (1 + bonus))
+    assert boosted["drones"] - plain["drones"] == pytest.approx(plain["income"]["drones"] * bonus)
+
+
+def test_the_missile_silos_project_makes_silos_hold_more_missiles():
+    points, bonus = _full("missile_silos_bonus")
+    plain = uag._calc_missile_capacity(kingdoms.kingdom(structures={"missile_silos": 100}))
+    boosted = uag._calc_missile_capacity(kingdoms.kingdom(structures={"missile_silos": 100}, projects_points=points))
+    assert plain == 100 * uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
+    assert boosted == pytest.approx(plain * (1 + bonus), abs=1)
+
+
+def test_the_workshops_project_makes_workshops_house_more_engineers():
+    points, bonus = _full("workshops_bonus")
+    plain, _ = uag._calc_workshop_capacity(kingdoms.kingdom(race="Gaian", structures={"workshops": 100}), 0)
+    boosted, _ = uag._calc_workshop_capacity(
+        kingdoms.kingdom(race="Gaian", structures={"workshops": 100}, projects_points=points), 0)
+    assert plain == 100 * uas.GAME_CONFIG["BASE_WORKSHOP_CAPACITY"]
+    assert boosted == pytest.approx(plain * (1 + bonus), abs=1)
+
+
+def test_a_structure_project_with_no_points_changes_nothing():
+    assert uag._calc_missile_capacity(kingdoms.kingdom(race="Fuzi", structures={"missile_silos": 7})) == 7 * math.floor(
+        uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"] * (1 + uas.GAME_CONFIG["FUZI_MISSILE_SILO_CAPACITY_INCREASE"]))

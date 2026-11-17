@@ -35,6 +35,10 @@ function Structures(props) {
                 for each star that you have.
             </p>
             <p>
+                Each structure has a continuous project that improves it (see Projects): Pop Bonus for homes, Fuel
+                Bonus for fuel plants, and a bonus named after each of the others. The numbers below are before them.
+            </p>
+            <p>
                 Structure cost increases with your stars at a rate of `(stars ^ {props.state.game_config?.BASE_STRUCTURE_STARS_POWER}) * {props.state.game_config?.BASE_STRUCTURE_COST_CONSTANT}`. 
                 The base average construction time is {props.state.game_config?.BASE_EPOCH_SECONDS * (props.state.game_config?.BASE_STRUCTURE_TIME_MIN_MULTIPLIER + props.state.game_config?.BASE_STRUCTURE_TIME_MAX_MUTLIPLIER) / 2 / 3600} hours.
             </p>

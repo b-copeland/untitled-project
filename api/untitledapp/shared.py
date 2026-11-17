@@ -425,6 +425,7 @@ GAME_FUNCS = {
 # project_locked_reason), never by indexing the kingdom's dicts: kingdoms made before a project existed lack its keys.
 PROJECT_CATEGORIES = {
     "economy": "Economy",
+    "structures": "Structures",
     "military": "Military",
     "spy": "Drones and spying",
     "missiles": "Missiles",
@@ -438,7 +439,7 @@ PROJECTS = {
         "max_bonus": 0.25,
         "desc": "Increases homes capacity by the current bonus",
         "name": "Pop Bonus",
-        "category": "economy",
+        "category": "structures",
     },
     "fuel_bonus": {
         "stars_power": 1.5,
@@ -446,8 +447,50 @@ PROJECTS = {
         "max_bonus": 0.25,
         "desc": "Increases fuel production by the current bonus",
         "name": "Fuel Bonus",
-        "category": "economy",
+        "category": "structures",
     },
+    # One continuous project per structure (homes and fuel plants are the two above), to reward engineers.
+    "mines_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases the money mines produce by the current bonus",
+        "name": "Mines Bonus",
+        "category": "structures",
+    },
+    "hangars_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases the units each hangar houses by the current bonus",
+        "name": "Hangars Bonus",
+        "category": "structures",
+    },
+    "drone_factories_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases the drones drone factories produce by the current bonus",
+        "name": "Drone Factories Bonus",
+        "category": "structures",
+    },
+    "missile_silos_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases the missiles each missile silo stores by the current bonus",
+        "name": "Missile Silos Bonus",
+        "category": "structures",
+    },
+    "workshops_bonus": {
+        "stars_power": 1.5,
+        "constant": 0.1,
+        "max_bonus": 0.25,
+        "desc": "Increases the engineers each workshop houses by the current bonus",
+        "name": "Workshops Bonus",
+        "category": "structures",
+    },
+
     "military_bonus": {
         "stars_power": 1.5,
         "constant": 0.1,
