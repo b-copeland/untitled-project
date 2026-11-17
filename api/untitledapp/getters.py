@@ -542,11 +542,16 @@ def _calc_hangar_capacity(kd_info, units):
     ])
     return max_hangar_capacity, current_hangar_capacity
 
+def _recruit_price(kd_info):
+    """What one recruit costs this kingdom."""
+    return uas.GAME_CONFIG["BASE_RECRUIT_COST"] * (1 - uas.project_bonus(kd_info, "recruit_cost_bonus"))
+
+
 def _calc_max_recruits(kd_info, units):
     recruits_training = units["hour_24"]["recruits"]
     max_total_recruits = uas.GAME_FUNCS["BASE_MAX_RECRUITS"](int(kd_info["population"]))
     max_available_recruits = max(max_total_recruits - recruits_training, 0)
-    max_recruits_cost = uas.GAME_CONFIG["BASE_RECRUIT_COST"] * max_available_recruits
+    max_recruits_cost = _recruit_price(kd_info) * max_available_recruits
     try:
         current_available_recruits = min(
             math.floor((kd_info["money"] / max_recruits_cost) * max_available_recruits),
@@ -618,7 +623,7 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policie
     payload = {
         'units': units,
         'maxes': maxes,
-        'recruit_price': uas.GAME_CONFIG["BASE_RECRUIT_COST"],
+        'recruit_price': _recruit_price(kd_info_parse),
         'recruit_time': recruit_time,
         'max_hangar_capacity': max_hangar_capacity,
         'current_hangar_capacity': current_hangar_capacity,
@@ -853,6 +858,7 @@ def _get_settle_price(kd_info, is_expansionist):
             1
             - (int(is_expansionist) * uas.GAME_CONFIG["BASE_EXPANSIONIST_SETTLE_REDUCTION"])
             - (int(kd_info["race"] == "Gaian") * uas.GAME_CONFIG["GAIAN_SETTLE_COST_REDUCTION"])
+            - uas.project_bonus(kd_info, "settle_cost_bonus")
         )
     )
 

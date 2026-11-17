@@ -130,7 +130,7 @@ def _recruit(kd_id, recruits_input):
 
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["mobis"] = min(next_resolve["mobis"], min_recruits_time)
-        new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_RECRUIT_COST"] * recruits_input
+        new_money = kd_info_parse["money"] - uag._recruit_price(kd_info_parse) * recruits_input
         return {'money': new_money, 'next_resolve': next_resolve}, new_recruits
 
     try:

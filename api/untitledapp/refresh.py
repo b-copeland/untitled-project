@@ -87,7 +87,11 @@ def _calc_pop_change_per_epoch(
     elif pop_difference > 0:
         pct_pop_gain = uas.GAME_CONFIG["BASE_PCT_POP_GROWTH_PER_EPOCH"] * kd_info_parse["population"] * epoch_elapsed
         stars_pop_gain = uas.GAME_CONFIG["BASE_POP_GROWTH_PER_STAR_PER_EPOCH"] * kd_info_parse["stars"] * epoch_elapsed
-        greater_pop_gain = max(pct_pop_gain, stars_pop_gain) * (1 - int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_POP_GROWTH_REDUCTION"])
+        greater_pop_gain = (
+            max(pct_pop_gain, stars_pop_gain)
+            * (1 - int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_POP_GROWTH_REDUCTION"])
+            * (1 + uas.project_bonus(kd_info_parse, "pop_growth_bonus"))
+        )
         pop_change = min(greater_pop_gain, pop_difference)
     else:
         pop_change = 0

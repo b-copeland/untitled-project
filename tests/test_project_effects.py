@@ -250,3 +250,81 @@ def test_the_refresh_completes_a_one_time_structure_project(app):
 def test_a_structure_project_with_no_points_changes_nothing():
     assert uag._calc_missile_capacity(kingdoms.kingdom(race="Fuzi", structures={"missile_silos": 7})) == 7 * math.floor(
         uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"] * (1 + uas.GAME_CONFIG["FUZI_MISSILE_SILO_CAPACITY_INCREASE"]))
+
+
+# --- economy projects ---------------------------------------------------------------------------------------------------
+
+def test_cheaper_exploring_lowers_the_settle_price():
+    points, bonus = _full("settle_cost_bonus")
+    plain = uag._get_settle_price(kingdoms.kingdom(), False)
+    cheaper = uag._get_settle_price(kingdoms.kingdom(projects_points=points), False)
+    assert cheaper == pytest.approx(plain * (1 - bonus))
+
+
+def test_cheaper_recruits_lower_what_recruiting_charges(app, client, jwt1):
+    from tests.test_concurrency import _set_up_kingdom
+    points, bonus = _full("recruit_cost_bonus")
+    _set_up_kingdom(100000, race="Xo", population=10000,
+                    projects_points={**uas.INITIAL_KINGDOM_STATE["kingdom"]["projects_points"], **points})
+    response = client.post("/api/recruits", json={"recruitsInput": 100}, headers={"Authorization": f"Bearer {jwt1}"})
+    assert response.status_code == 200, response.get_json()
+    charged = 100000 - _get(f"/kingdom/{KD_ID}")["money"]
+    assert charged == pytest.approx(100 * uas.GAME_CONFIG["BASE_RECRUIT_COST"] * (1 - bonus))
+
+
+def test_population_growth_grows_population_faster():
+    import untitledapp.refresh as refresh
+    points, bonus = _full("pop_growth_bonus")
+    roomy = {"structures": {"homes": 300}, "population": 1000}
+    plain, _ = refresh._calc_pop_change_per_epoch(kingdoms.kingdom(**roomy), False, 1, [])
+    faster, _ = refresh._calc_pop_change_per_epoch(kingdoms.kingdom(**roomy, projects_points=points), False, 1, [])
+    assert plain > 0
+    assert faster == pytest.approx(plain * (1 + bonus))
+
+
+# --- military and spy projects ------------------------------------------------------------------------------------------
+
+def test_fewer_casualties_lowers_the_owners_losses_attacking_defending_and_on_primitives():
+    points, bonus = _full("casualties_bonus")
+    plain = kingdoms.kingdom()
+    tough = kingdoms.kingdom(projects_points=points)
+    assert uac._battle_loss_rates(tough, plain)[0] == pytest.approx(uac._battle_loss_rates(plain, plain)[0] * (1 - bonus))
+    assert uac._battle_loss_rates(plain, tough)[1] == pytest.approx(uac._battle_loss_rates(plain, plain)[1] * (1 - bonus))
+    assert uac._battle_loss_rates(tough, None)[0] == pytest.approx(uac._battle_loss_rates(plain, None)[0] * (1 - bonus))
+    assert uac._battle_loss_rates(tough, plain)[1] == uac._battle_loss_rates(plain, plain)[1]  # only its own losses
+
+
+def test_fewer_drone_losses_lowers_the_drones_lost_on_operations():
+    assert uac._calculate_spy_losses(10000, False, loss_reduction=0.25) == (75, 150)
+    assert uac._calculate_spy_losses(10000, False) == (100, 200)
+
+
+def test_fewer_drone_losses_applies_when_robbing(app, client, jwt1):
+    from tests.test_concurrency import _set_up_kingdom
+    points, bonus = _full("drone_casualties_bonus")
+
+    def lost(projects_points):
+        _set_up_kingdom(0, race="Xo", drones=10000,
+                        projects_points={**uas.INITIAL_KINGDOM_STATE["kingdom"]["projects_points"], **projects_points})
+        response = client.post("/api/robprimitives", json={"drones": 10000, "shielded": False},
+                               headers={"Authorization": f"Bearer {jwt1}"})
+        assert response.status_code == 200, response.get_json()
+        return 10000 - _get(f"/kingdom/{KD_ID}")["drones"]
+
+    assert lost(points) == math.floor(lost({}) * (1 - bonus))
+
+
+def test_counter_intelligence_lowers_the_damage_of_aggressive_operations(app, client, jwt1):
+    points, bonus = _full("spy_protection_bonus")
+    assert uac._aggro_damage_multiplier({}, kingdoms.kingdom(projects_points=points)) == pytest.approx(1 - bonus)
+
+    def fuel_burned(target_points):
+        _set_up_two_kingdoms(target_overrides={
+            "projects_points": {**uas.INITIAL_KINGDOM_STATE["kingdom"]["projects_points"], **target_points}})
+        response = client.post(f"/api/spy/{TARGET_ID}", json={"drones": 100, "shielded": False, "operation": "suicidedrones"},
+                               headers={"Authorization": f"Bearer {jwt1}"})
+        assert response.status_code == 200, response.get_json()
+        return uas.INITIAL_KINGDOM_STATE["kingdom"]["fuel"] - _get(f"/kingdom/{TARGET_ID}")["fuel"]
+
+    assert fuel_burned({}) == 100 * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"]
+    assert fuel_burned(points) == math.floor(100 * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"] * (1 - bonus))
