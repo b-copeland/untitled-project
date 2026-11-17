@@ -127,3 +127,6 @@
 .projects-category-title { text-align: left; margin: 4px 5px; }
 .project-name { display: flex; flex-direction: column; text-align: left; }
 .project-desc { color: var(--bs-secondary-color, #6c757d); font-size: 0.85em; max-width: 280px; }
+.projects-section { width: 100%; margin-top: 20px; }
+.projects-section-title { text-align: left; margin: 4px 5px 0; }
+.projects-section-note { display: block; text-align: left; margin: 0 5px; color: var(--bs-secondary-color, #6c757d); }

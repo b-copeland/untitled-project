@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import ProjectsContent, { projectRows } from "./projects";
+import ProjectsContent, { projectRows, projectSections } from "./projects";
 import { authFetch } from "../../auth";
 
 jest.mock("../../components/header", () => () => null);
@@ -68,4 +68,15 @@ test("assigning sends only the projects with a number", () => {
     fireEvent.change(document.getElementById("money_bonus-assign-input"), { target: { value: "3" } });
     fireEvent.click(screen.getByRole("button", { name: "Assign" }));
     expect(authFetch).toHaveBeenCalledWith("api/projects", expect.objectContaining({ body: JSON.stringify({ assign: { money_bonus: "3" } }) }));
+});
+
+test("continuous projects are in their own section, one-time projects in theirs by category", () => {
+    const sections = projectSections(state, data().kingdom, data().projects);
+    expect(sections.map((section) => section.key)).toEqual(["continuous", "one-time"]);
+    expect(sections[0].groups.flatMap((group) => group.rows.map((row) => row.key))).toEqual(["money_bonus"]);
+    expect(sections[1].groups.map((group) => group.title)).toEqual(["Military", "Racial"]);
+    render(<ProjectsContent data={data()} loading={{}} updateData={jest.fn()} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assign" }));
+    expect(screen.getAllByText("Continuous Projects").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("One-Time Projects").length).toBeGreaterThan(0);
 });

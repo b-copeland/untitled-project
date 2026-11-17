@@ -168,6 +168,26 @@ export function projectRows(state, kdInfo, projectsInfo) {
         .map((category) => ({ category, title: categories[category] || category, rows: groups[category] }));
 }
 
+/**
+ * The page's two sections: continuous projects (a bonus that grows with points) in one table, then one-time projects
+ * (done once, then they unlock something or give a fixed bonus) in one table per category. Empty sections are left out.
+ */
+export function projectSections(state, kdInfo, projectsInfo) {
+    const groups = projectRows(state, kdInfo, projectsInfo);
+    const continuous = groups.flatMap((group) => group.rows.filter((row) => !row.oneTime));
+    const oneTime = groups
+        .map((group) => ({ ...group, rows: group.rows.filter((row) => row.oneTime) }))
+        .filter((group) => group.rows.length > 0);
+    return [
+        { key: "continuous", title: "Continuous Projects", valueHeader: "Bonus / Max",
+          note: "The bonus grows with points, up to its maximum. The points needed grow with your stars.",
+          groups: continuous.length > 0 ? [{ category: "continuous", title: null, rows: continuous }] : [] },
+        { key: "one-time", title: "One-Time Projects", valueHeader: "Progress",
+          note: "Done once the points are reached, and then permanent.",
+          groups: oneTime },
+    ].filter((section) => section.groups.length > 0);
+}
+
 function blankValues(state) {
     return Object.fromEntries(Object.keys(state?.projects || {}).map((key) => [key, ""]));
 }
@@ -195,8 +215,20 @@ function ProjectName({ row }) {
     );
 }
 
+/** Each section of ``projectSections`` under its heading, its groups drawn by ``ProjectTables``. */
+function ProjectSections({ state, kdInfo, projectsInfo, ...tableProps }) {
+    return projectSections(state, kdInfo, projectsInfo).map((section) => (
+        <div className="projects-section" key={section.key}>
+            <h4 className="projects-section-title">{section.title}</h4>
+            <small className="projects-section-note">{section.note}</small>
+            <ProjectTables groups={section.groups} valueHeader={section.valueHeader} kdInfo={kdInfo}
+                projectsInfo={projectsInfo} {...tableProps} />
+        </div>
+    ));
+}
+
 /** One table per category. ``inputs(row)`` gives the cells after the shared ones; ``inputHeaders`` their headers. */
-function ProjectTables({ groups, kdInfo, engineersInfo, projectsInfo, inputHeaders, inputs }) {
+function ProjectTables({ groups, valueHeader, kdInfo, engineersInfo, projectsInfo, inputHeaders, inputs }) {
     return groups.map(({ category, title, rows }) => {
         const blocked = (row) => Boolean(row.locked) || (row.oneTime && row.completed);
         const columns = [
@@ -205,12 +237,12 @@ function ProjectTables({ groups, kdInfo, engineersInfo, projectsInfo, inputHeade
               cell: (row) => (row.locked ? row.locked : projectCells(row, kdInfo, engineersInfo, projectsInfo).assigned),
               span: (row) => (row.locked ? 2 : 1) },
             { header: "Points", cell: (row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).points },
-            { header: "Bonus / Done", cell: (row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).value },
+            { header: valueHeader, cell:(row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).value },
             ...inputHeaders.map((header, index) => ({ header, cell: (row) => inputs(row, blocked(row))[index] })),
         ];
         return (
             <div className="projects-category" key={category}>
-                <h5 className="projects-category-title">{title}</h5>
+                {title ? <h5 className="projects-category-title">{title}</h5> : null}
                 <GameTable className="game-table projects-table" columns={columns} rows={rows}
                     rowClassName={(row) => (blocked(row) ? "disabled-table-row" : undefined)} />
             </div>
@@ -268,7 +300,7 @@ function Assign(props) {
     const maxEngineersFor = (values, name) => Math.max(free - (total(values) - (parseInt(values[name] || 0) || 0)), 0);
     const engineersAssigned = total(assignValues);
     const engineersAdded = total(addValues);
-    const groups = projectRows(props.state, props.kdInfo, props.projectsInfo);
+
     const inputs = (row, blocked) => [
         <AmountInput name={row.key} id={`${row.key}-assign-input`} label={`Assign to ${row.name}`} value={assignValues[row.key]}
             onChange={handleAssignInputChange} max={blocked ? 0 : maxEngineersFor(assignValues, row.key)} soloMax={blocked ? 0 : free} disabled={blocked} />,
@@ -292,7 +324,7 @@ function Assign(props) {
                     <span className="text-box-item-value">{props.projectsInfo.available_engineers?.toLocaleString()}</span>
                 </div>
             </div>
-            <ProjectTables groups={groups} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
+            <ProjectSections state={props.state} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
                 inputHeaders={["Assign", "Add", "Remove"]} inputs={inputs} />
             <div className="projects-buttons">
                 <Button className="projects-button" variant="primary" type="submit" onClick={onAssignClick} disabled={props.loading.projects}>
@@ -340,7 +372,7 @@ function Allocate(props) {
         return null;
     }
     const maxPercent = (name) => Math.max(100 - Object.entries(assignValues).filter(([other]) => other !== name).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0);
-    const groups = projectRows(props.state, props.kdInfo, props.projectsInfo);
+
     const inputs = (row, blocked) => [
         displayPercent(props.kdInfo.projects_target?.[row.key] || 0),
         <AmountInput name={row.key} id={`${row.key}-allocate-input`} label={`Allocate to ${row.name}`} value={assignValues[row.key]}
@@ -362,7 +394,7 @@ function Allocate(props) {
                     disabled={props.loading.kingdom}
                 />
             </Form>
-            <ProjectTables groups={groups} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
+            <ProjectSections state={props.state} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
                 inputHeaders={["Current Allocation", "New Allocation"]} inputs={inputs} />
             <div className="projects-buttons">
                 <Button className="auto-projects-button" variant="primary" type="submit" onClick={onSubmitClick} disabled={props.loading.kingdom}>

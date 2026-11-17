@@ -51,7 +51,7 @@ function Projects(props) {
                 per {props.state.game_config?.BASE_EPOCH_SECONDS} seconds.
             </p>
             <p>
-                The Assign page allow you to assign available engineers to your projects. The Assign column overwrites currently 
+                The Assign page allow you to assign available engineers to your projects, listed in two sections: continuous projects, then one-time projects by category. The Assign column overwrites currently 
                 assigned engineers across all projects, while the Add column is used to add engineers to projects.
             </p>
             <p>
@@ -60,7 +60,7 @@ function Projects(props) {
                 likely have to choose which projects you would like to invest in.
             </p>
             <p>
-                The "One-Time Projects" are projects which provide some benefit after they are completed. Once you have finished these projects, 
+                The "One-Time Projects" are projects which provide some benefit after they are completed: they unlock something, or give a fixed bonus. Once you have finished these projects, 
                 you will no longer be able to assign engineers to these projects.
             </p>
             <p>
