@@ -7,6 +7,7 @@ Each project's own effect has its tests in the file for the system it changes; s
 import json
 
 import untitledapp.shared as uas
+from tests import kingdoms
 from tests.test_concurrency import _get, _set_up_kingdom
 
 
@@ -138,3 +139,81 @@ def test_a_locked_unit_can_not_be_trained_or_targeted(app, client, jwt1):
     response = _post(client, jwt1, "/api/mobis/target", {"targets": {"big_flex": 10}})
     assert response.status_code == 400
     assert response.get_json()["message"] == "Complete the Big Flexers project to train Big Flexers"
+
+
+# --- the improved units (heavy and elite attackers and defenders) ------------------------------------------------------
+
+import pytest
+import untitledapp.getters as uag
+
+IMPROVED_UNITS = {
+    "heavy_attack": "heavy_attackers",
+    "elite_attack": "elite_attackers",
+    "heavy_defense": "heavy_defenders",
+    "elite_defense": "elite_defenders",
+}
+
+
+@pytest.mark.parametrize("unit,project", IMPROVED_UNITS.items())
+def test_an_improved_unit_is_trained_only_once_its_project_is_done(app, client, jwt1, unit, project):
+    units = {**uas.INITIAL_KINGDOM_STATE["kingdom"]["units"], "recruits": 10}
+    _set_up_kingdom(100000, race="Xo", units=units)
+    assert _post(client, jwt1, "/api/mobis", {unit: 1}).status_code == 400
+
+    _set_up_kingdom(100000, race="Xo", units=units, completed_projects=[project])
+    response = _post(client, jwt1, "/api/mobis", {unit: 1})
+    assert response.status_code == 200, response.get_json()
+    assert _get("/kingdom/1")["units"]["recruits"] == 9
+    assert any(entry.get(unit) for entry in _get("/kingdom/1/mobis")["mobis"])
+
+
+def test_the_elite_projects_need_the_heavy_ones_first():
+    kd = {"race": "Xo", "completed_projects": []}
+    assert uas.project_locked_reason(kd, "elite_attackers") == 'Complete "Heavy Attackers" first'
+    assert uas.project_locked_reason(kd, "elite_defenders") == 'Complete "Heavy Defenders" first'
+    assert uas.project_locked_reason(kd, "heavy_attackers") is None
+    kd["completed_projects"] = ["heavy_attackers", "heavy_defenders"]
+    assert uas.project_locked_reason(kd, "elite_attackers") is None
+    assert uas.project_locked_reason(kd, "elite_defenders") is None
+
+
+def test_improved_units_are_stronger_and_count_in_offense_and_defense():
+    assert uag._calc_max_offense({"heavy_attack": 10}, military_bonus=0, generals=1) == 60
+    assert uag._calc_max_offense({"elite_attack": 10}, military_bonus=0, generals=1) == 70
+    assert uag._calc_max_defense({"heavy_defense": 10}, military_bonus=0, shields=0) == 60
+    assert uag._calc_max_defense({"elite_defense": 10}, military_bonus=0, shields=0) == 70
+
+
+def test_each_improvement_costs_more_per_point_of_strength_but_takes_the_same_hangar_space():
+    def per_strength(unit):
+        return uas.UNITS[unit]["cost"] / max(uas.UNITS[unit]["offense"], uas.UNITS[unit]["defense"])
+
+    for line in (("attack", "heavy_attack", "elite_attack"), ("defense", "heavy_defense", "elite_defense")):
+        assert per_strength(line[0]) < per_strength(line[1]) < per_strength(line[2])
+        assert len({uas.UNITS[unit]["hangar_capacity"] for unit in line}) == 1
+
+
+def test_elite_projects_cost_about_five_times_the_heavy_ones_and_defense_about_a_fifth_more():
+    points = {key: uas.PROJECTS_FUNCS[key](0) for key in IMPROVED_UNITS.values()}
+    assert points["elite_attackers"] / points["heavy_attackers"] == pytest.approx(5, rel=0.2)
+    assert points["elite_defenders"] / points["heavy_defenders"] == pytest.approx(5, rel=0.2)
+    assert points["heavy_defenders"] / points["heavy_attackers"] == pytest.approx(1.2, rel=0.05)
+    assert points["elite_defenders"] / points["elite_attackers"] == pytest.approx(1.2, rel=0.05)
+
+
+def test_improved_units_have_a_networth_and_a_name():
+    for unit in IMPROVED_UNITS:
+        assert uas.GAME_CONFIG["NETWORTH_VALUES"][unit] > 0
+        assert uas.PRETTY_NAMES[unit]
+
+
+def test_the_refresh_completes_a_unit_project_once_its_points_are_reached(app):
+    kd = kingdoms.kingdom(
+        units={"engineers": 100},
+        projects_assigned={"heavy_attackers": 100},
+        projects_points={"heavy_attackers": uas.PROJECTS_FUNCS["heavy_attackers"](0) - 10},
+        structures={"homes": 100},
+    )
+    new = kingdoms.income(app, kd, epochs=1)
+    assert "heavy_attackers" in new["completed_projects"]
+    assert new["projects_assigned"]["heavy_attackers"] == 0

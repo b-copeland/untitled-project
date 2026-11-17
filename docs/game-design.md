@@ -48,7 +48,7 @@ building.
 | Settling | Buying new stars; they arrive over time through the `settles` queue. |
 | Structures | Built on stars: homes, mines, fuel plants, hangars, drone factories, missile silos, workshops. |
 | Recruits | Population drafted for the army; trained into units. |
-| Units | `attack`, `defense`, `flex`, `big_flex` (unlocked by a project), plus `recruits` and `engineers`. Stats in `UNITS`. |
+| Units | `attack`, `defense`, `flex`, plus units unlocked by projects (`heavy_` and `elite_` attackers and defenders, `big_flex`), and `recruits` and `engineers`. Stats in `UNITS`. |
 | Mobis | Units being trained (mobilizations); the `mobis` queue. |
 | Engineers | Work on projects, earning project points. |
 | Projects | Engineers earn points in them. Continuous projects give a bonus that grows with points up to a maximum, and need more points as stars grow; one-time projects unlock something once done. A project can require other projects first, or belong to one race (`PROJECTS` in `shared.py`). |

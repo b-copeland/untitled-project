@@ -21,6 +21,7 @@ function Military(props) {
             <td style={{textAlign: "right"}}>{unitsDesc[unitKey].defense}</td>
             <td style={{textAlign: "right"}}>{unitsDesc[unitKey].hangar_capacity}</td>
             <td style={{textAlign: "right"}}>{unitsDesc[unitKey].fuel}</td>
+            <td style={{textAlign: "left"}}>{props.state.projects?.[unitsDesc[unitKey].project]?.name || ""}</td>
         </tr>
     })
     return (
@@ -60,6 +61,11 @@ function Military(props) {
                 This can be useful to get your hangar capacity back to 100% after being attacked multiple times, or to boost your 
                 population if you are in danger of dying due to 0 population. 
             </p>
+            <p>
+                Some units can only be trained once a project is completed (the "Unlocked by" column). The heavy and
+                elite units pack more strength into each hangar space, so the same hangars hold a stronger army and
+                more of your land can go to homes and mines, but each point of their strength costs more money.
+            </p>
             <Table className="specialists-table" striped bordered hover size="sm">
                 <thead>
                     <tr>
@@ -69,6 +75,7 @@ function Military(props) {
                         <th style={{textAlign: "right"}}>Defense</th>
                         <th style={{textAlign: "right"}}>Hangar Usage</th>
                         <th style={{textAlign: "right"}}>Fuel</th>
+                        <th style={{textAlign: "left"}}>Unlocked by</th>
                     </tr>
                 </thead>
                 <tbody>

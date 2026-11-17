@@ -1,3 +1,4 @@
+import { attackUnits } from "./attack";
 import React, { useEffect, useState } from "react";
 import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -38,8 +39,7 @@ function Primitives(props) {
     );
 }
 
-const ATTACK_UNITS = [["attack", "Attackers"], ["flex", "Flexers"], ["big_flex", "Big flexers"]];
-const initialAttackerValues = { recruits: "", attack: "", flex: "", big_flex: "", military_bonus: "", generals: "" };
+const initialAttackerValues = { military_bonus: "", generals: "" };
 
 /** An on/off switch with the settings under it, for the automatic version of an action. */
 function AutoPanel({ title, hint, enabled, onToggle, disabled, children, onSave, saveLabel = "Save settings" }) {
@@ -66,6 +66,7 @@ function AttackPrimitives(props) {
     const unitsDesc = props.data.mobis?.units_desc || {};
     const myUnits = kingdom.units || {};
     const settings = kingdom.auto_attack_settings || {};
+    const ATTACK_UNITS = attackUnits(unitsDesc, props.data.state?.pretty_names);
 
     useEffect(() => {
         const bonus = props.data.projects.current_bonuses?.military_bonus;
@@ -121,9 +122,9 @@ function AttackPrimitives(props) {
             <div className="planner-grid">
                 <Panel title="Your attack" hint="Choose what to send. The forecast updates as you go; nothing is sent until you press Send.">
                     {ATTACK_UNITS.map(([key, name]) => (
-                        (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
+                        (!unitsDesc[key]?.project || myUnits[key] > 0 || attackerValues[key])
                             ? <FieldRow key={key} label={name} stat={<UnitStat kind="offense" value={unitsDesc[key]?.offense} />} htmlFor={"prim-" + key}>
-                                <AmountInput box name={key} id={"prim-" + key} label={name} value={attackerValues[key]} onChange={onChange} max={myUnits[key] || 0} />
+                                <AmountInput box name={key} id={"prim-" + key} label={name} value={attackerValues[key] || ""} onChange={onChange} max={myUnits[key] || 0} />
                             </FieldRow>
                             : null
                     ))}

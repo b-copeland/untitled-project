@@ -266,7 +266,7 @@ def _calc_networth(
             for key_unit, value_unit in general.items():
                 if key_unit == "return_time":
                     continue
-                total_units[key_unit] += value_unit
+                total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
 
     total_structures = sum(kd_info_parse["structures"].values())
     total_money = sum(kd_info_parse["funding"].values()) + kd_info_parse["money"]
@@ -322,7 +322,7 @@ def _kingdom_with_income(
         for key_unit, value_unit in general.items():
             if key_unit == "return_time":
                 continue
-            total_units[key_unit] += value_unit
+            total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
 
     income["fuel"]["fuel_plants"] = math.floor(kd_info_parse["structures"]["fuel_plants"]) * uas.GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"]
     income["fuel"]["bonus"] = current_bonuses["fuel_bonus"] + (int(kd_info_parse["race"] == "Lumina") * uas.GAME_CONFIG["LUMINA_FUEL_PRODUCTION_INCREASE"])
@@ -896,11 +896,11 @@ def _resolve_auto_attack(kd_info_parse):
         for key_unit, value_unit in general_units.items():
             if key_unit == "return_time":
                 continue
-            total_units[key_unit] += value_unit
+            total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
             total_general_units[key_unit] += value_unit
 
     pct_units_out = {
-        k: v / max(total_units.get(k), 1)
+        k: v / max(total_units.get(k, 0), 1)
         for k, v in total_general_units.items()
     }
     pct_units_available_pure = {
@@ -1050,11 +1050,11 @@ def _resolve_schedule_attack(new_kd_info, schedule):
             for key_unit, value_unit in general_units.items():
                 if key_unit == "return_time":
                     continue
-                total_units[key_unit] += value_unit
+                total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
                 total_general_units[key_unit] += value_unit
 
         pct_units_out = {
-            k: v / max(total_units.get(k), 1)
+            k: v / max(total_units.get(k, 0), 1)
             for k, v in total_general_units.items()
         }
         pct_units_available_pure = {
@@ -1102,11 +1102,11 @@ def _resolve_schedule_attackprimitives(new_kd_info, schedule):
         for key_unit, value_unit in general_units.items():
             if key_unit == "return_time":
                 continue
-            total_units[key_unit] += value_unit
+            total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
             total_general_units[key_unit] += value_unit
 
     pct_units_out = {
-        k: v / max(total_units.get(k), 1)
+        k: v / max(total_units.get(k, 0), 1)
         for k, v in total_general_units.items()
     }
     pct_units_available_pure = {
@@ -1415,7 +1415,7 @@ def _update_history(
         for key_unit, value_unit in general_units.items():
             if key_unit == "return_time":
                 continue
-            total_units[key_unit] += value_unit
+            total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
             total_general_units[key_unit] += value_unit
         
     offense = uag._calc_max_offense(total_units)

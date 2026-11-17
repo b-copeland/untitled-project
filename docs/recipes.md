@@ -150,7 +150,7 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
 ## 10. A new unit, structure or missile
 
 A unit that needs a project gets `"project"` in `UNITS` (a missile, in `MISSILES`); the routes and pages check it.
-The Military page and the kingdom view list units from `UNITS`.
+The Military, Attack, Primitives and home pages and the kingdom view list units from `UNITS`.
 
 This touches many places; search for an existing name (for example `drone_factories`) across `api/`, `src/` and
 `funcapp/` and handle every hit. At least: `UNITS` or `STRUCTURES` or `MISSILES`, `INITIAL_KINGDOM_STATE` (counts and
