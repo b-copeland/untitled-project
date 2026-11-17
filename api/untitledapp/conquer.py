@@ -1620,15 +1620,25 @@ def _calculate_spy_probability(
 
     return shielded_probability, drones_defense, stars_defense
 
-def _aggro_damage_multiplier(attacker_kd, target_kd):
+def _aggro_damage_multiplier(attacker_kd, target_kd, war=False):
     """
     How much of an aggressive spy operation's damage lands, from the projects of both sides: 1 is the base damage.
-    ``target_kd`` is the target, or what the attacker knows of it (a forecast).
+    ``target_kd`` is the target, or what the attacker knows of it (a forecast). ``war``: the two empires are at war.
     """
     multiplier = 1 - uas.project_bonus(target_kd, "spy_protection_bonus")
     if uas.has_project(attacker_kd, "vult_capstone"):
         multiplier *= 1 + uas.GAME_CONFIG["VULT_CAPSTONE_DRONE_DAMAGE_INCREASE"]
+    if war and uas.has_project(attacker_kd, "lumina_evolution"):
+        multiplier *= 1 + uas.GAME_CONFIG["LUMINA_EVOLUTION_WAR_DRONE_DAMAGE_INCREASE"]
     return multiplier
+
+
+def _operation_locked(kd_info, operation):
+    """Why this kingdom can not run ``operation`` yet, or None."""
+    project = uas.OPERATION_PROJECTS.get(operation)
+    if project and not uas.has_project(kd_info, project):
+        return f"Complete the {uas.PROJECTS[project]['name']} project to use {uas.PRETTY_NAMES.get(operation, operation)}"
+    return None
 
 
 def _calculate_spy_losses(
@@ -1677,6 +1687,9 @@ def calculate_spy(target_kd):
     )
     if not valid_request:
         return (flask.jsonify({"message": message}), 400)
+    locked = _operation_locked(kd_info_parse, operation)
+    if locked:
+        return (flask.jsonify({"message": locked}), 400)
     
     revealed = uag._get_revealed(kd_id)
     max_target_kd_info = uag._get_max_kd_info(target_kd, kd_id, revealed)
@@ -1704,6 +1717,7 @@ def calculate_spy(target_kd):
     attacker_empire = empires_inverted.get(kd_id)
     defender_empire = empires_inverted.get(target_kd)
     peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
+    war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
 
     spy_probability, drones_defense, stars_defense = _calculate_spy_probability(
         drones,
@@ -1719,11 +1733,11 @@ def calculate_spy(target_kd):
         has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
     )
 
-    damage_multiplier = _aggro_damage_multiplier(kd_info_parse, max_target_kd_info)
+    damage_multiplier = _aggro_damage_multiplier(kd_info_parse, max_target_kd_info, war)
     message = f"The operation has a {spy_probability:.2%} chance of success. \n\nIf successful, {success_losses} drones will be lost. \nIf unsuccessful, {failure_losses} drones will be lost.\n"
 
     if operation in uas.REVEAL_OPERATIONS:
-        revealed_stat = operation.replace('spy', '')
+        revealed_stat = ", ".join(uas.REVEAL_OPERATION_STATS[operation])
         reveal_duration_seconds = uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
         reveal_duration_hours = reveal_duration_seconds / 3600
         message += f"If successful, the target's {revealed_stat} will be revealed for {reveal_duration_hours} hours.\n"
@@ -1795,6 +1809,9 @@ def _spy(req, kd_id, target_kd):
         )
         if not valid_request:
             return kd_info_parse, {"message": message}, 400, False
+        locked = _operation_locked(kd_info_parse, operation)
+        if locked:
+            return kd_info_parse, {"message": locked}, 400, False
         
         max_target_kd_info = uag._get_kd_info(target_kd)
         if max_target_kd_info["status"].lower() == "dead":
@@ -1821,7 +1838,8 @@ def _spy(req, kd_id, target_kd):
         attacker_empire = empires_inverted.get(kd_id)
         defender_empire = empires_inverted.get(target_kd)
         peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
-        
+        war = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("war", [])
+
         spy_probability, drones_defense, stars_defense = _calculate_spy_probability(
             drones,
             defender_drones,
@@ -1860,7 +1878,7 @@ def _spy(req, kd_id, target_kd):
             burnable_fuel = max_target_kd_info["fuel"] - uas.GAME_FUNCS["BASE_NEGATIVE_FUEL_CAP"](max_target_kd_info["stars"])
             fuel_damage = math.floor(min(
                 burnable_fuel,
-                drones * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"] * _aggro_damage_multiplier(kd_info_parse, max_target_kd_info),
+                drones * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"] * _aggro_damage_multiplier(kd_info_parse, max_target_kd_info, war),
             ))
             losses = drones
             status = "success"
@@ -1870,7 +1888,6 @@ def _spy(req, kd_id, target_kd):
             if success:
                 status = "success"
                 if operation in uas.REVEAL_OPERATIONS:
-                    revealed_stat = operation.replace('spy', '')
                     reveal_duration_seconds = uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
                     revealed_until = time_now + datetime.timedelta(seconds=reveal_duration_seconds)
                     reveal_duration_hours = reveal_duration_seconds / 3600
@@ -1879,6 +1896,7 @@ def _spy(req, kd_id, target_kd):
                         "new_revealed": {
                             target_kd: {
                                 revealed_stat: revealed_until.isoformat()
+                                for revealed_stat in uas.REVEAL_OPERATION_STATS[operation]
                             }
                         }
                     }
@@ -1890,7 +1908,7 @@ def _spy(req, kd_id, target_kd):
                     message = f"Success! The target will be revealed for {reveal_duration_hours} hours. You have lost {success_losses} drones."
                     target_message = "You were infiltrated by drones on a spy operation."
                 
-                damage_multiplier = _aggro_damage_multiplier(kd_info_parse, max_target_kd_info)
+                damage_multiplier = _aggro_damage_multiplier(kd_info_parse, max_target_kd_info, war)
                 if operation == "siphonfunds":
                     siphon_damage = math.floor(drones * uas.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"] * damage_multiplier)
                     siphon_seconds = uas.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
@@ -2071,13 +2089,14 @@ def _spy(req, kd_id, target_kd):
             share_to_galaxy = req.get("share_to_galaxy", False)
             cut = float(req.get("cut") or 0)
             if share_to_galaxy:
-                req_share = {
-                    "shared": target_kd,
-                    "shared_stat": operation.replace("spy", ""),
-                    "shared_to": "galaxy",
-                    "cut": cut,
-                }
-                _offer_shared(req_share, kd_id)
+                for shared_stat in uas.REVEAL_OPERATION_STATS[operation]:
+                    req_share = {
+                        "shared": target_kd,
+                        "shared_stat": shared_stat,
+                        "shared_to": "galaxy",
+                        "cut": cut,
+                    }
+                    _offer_shared(req_share, kd_id)
 
         empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
         attacker_empire = empires_inverted.get(kd_id)

@@ -23,6 +23,8 @@ const OPERATIONS = [
     { value: "spyprojects", label: "Spy on projects", group: "Gather intel" },
     { value: "spystructures", label: "Spy on structures", group: "Gather intel" },
     { value: "spydrones", label: "Spy on drones", group: "Gather intel" },
+    // Only for kingdoms that have completed the project (state.operation_projects says which).
+    { value: "spyall", label: "Full infiltration (everything)", group: "Gather intel" },
     { value: "siphonfunds", label: "Siphon funds", group: "Hostile" },
     { value: "bombhomes", label: "Bomb homes", group: "Hostile" },
     { value: "sabotagefuelplants", label: "Sabotage fuel plants", group: "Hostile" },
@@ -31,6 +33,13 @@ const OPERATIONS = [
 ];
 
 const whole = (value) => Math.floor(value || 0).toLocaleString();
+
+/** The operations this kingdom can run: those that need a project (``state.operation_projects``) only once it is done. */
+export function availableOperations(operations, kingdom, state) {
+    const needs = state?.operation_projects || {};
+    const done = kingdom?.completed_projects || [];
+    return operations.filter((op) => !needs[op.value] || done.indexOf(needs[op.value]) >= 0);
+}
 
 /**
  * Spies are sent straight away, hostile operations too. The player is asked first only when the chance of success is
@@ -99,7 +108,8 @@ function Spy(props) {
     if ((kingdom.spy_attempts || 0) < 1) problems.push("You have no spy attempts left");
     const blocked = problems[0];
     const intel = Object.entries((props.data.revealed?.revealed || {})[selected] || {});
-    const chosen = OPERATIONS.find((op) => op.value === operation);
+    const operations = availableOperations(OPERATIONS, kingdom, props.data.state);
+    const chosen = operations.find((op) => op.value === operation);
 
     const setDefender = (key) => (e) => setDefenderValues((previous) => ({ ...previous, [key]: e.target.value }));
     const entered = (key) => String(defenderValues[key]).trim() !== "";
@@ -120,7 +130,7 @@ function Spy(props) {
                                 placeholder="Type a kingdom to filter" autoFocus={selected === undefined} />
                         </FieldRow>
                         <FieldRow label="Operation" htmlFor="spy-operation">
-                            <Picker id="spy-operation" options={OPERATIONS} value={operation} onChange={setOperation}
+                            <Picker id="spy-operation" options={operations} value={operation} onChange={setOperation}
                                 placeholder="Choose an operation" searchable={false} />
                         </FieldRow>
                         {intel.length > 0

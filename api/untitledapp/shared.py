@@ -115,6 +115,8 @@ def unit_hangar_space(kd_info, unit):
     space = UNITS[unit]["hangar_capacity"]
     if unit == "big_flex" and has_project(kd_info, "compact_flexers"):
         space = GAME_CONFIG["COMPACT_FLEX_HANGAR_CAPACITY"]
+    if unit in PURE_ATTACK_UNITS and has_project(kd_info, "gaian_evolution"):
+        space *= GAME_CONFIG["GAIAN_EVOLUTION_ATTACK_HANGAR_MULTIPLIER"]
     return space
 
 
@@ -420,6 +422,17 @@ GAME_CONFIG = {
     "LUMINA_CAPSTONE_SHIELDING_FUEL_REDUCTION": 0.5,  # fuel a shielded drone costs
     "FUZI_CAPSTONE_MISSILE_DAMAGE_INCREASE": 0.25,
     "BASE_DRONES_SHIELDING_FUEL_PER_DRONE": 1,
+
+    # Racial evolutions (proposals).
+    "GAIAN_EVOLUTION_ATTACK_HANGAR_MULTIPLIER": 0.5,  # hangar space a pure attacker takes, as a share of its usual
+    "XO_EVOLUTION_SETTLE_COST_REDUCTION": 0.2,
+    "XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE": 1.75,  # per epoch
+    "LUMINA_EVOLUTION_WAR_DRONE_DAMAGE_INCREASE": 0.25,  # aggressive spy damage against empires at war with you
+    "FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO": 0.5,  # per epoch
+    "FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO": 50,  # per epoch
+    "FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO": 100,  # per epoch
+    "FUZI_EVOLUTION_FUEL_STORAGE_PER_EMPTY_SILO": 500,
+    "FUZI_EVOLUTION_POP_PER_EMPTY_SILO": 25,
 }
 
 GAME_FUNCS = {
@@ -459,6 +472,7 @@ ECO_MILITARY_PROJECT_BONUS = 0.25
 
 # Racial capstones are the second most expensive projects, and evolutions (after their capstone) the most expensive.
 RACIAL_CAPSTONE_POINTS = 500000
+RACIAL_EVOLUTION_POINTS = 1000000
 
 PROJECTS = {
     "pop_bonus": {
@@ -694,6 +708,57 @@ PROJECTS = {
         "category": "racial",
         "race": "Fuzi",
     },
+    "gaian_evolution": {
+        "stars_power": 0,
+        "constant": RACIAL_EVOLUTION_POINTS,
+        "desc": f"Pure attackers take {GAME_CONFIG['GAIAN_EVOLUTION_ATTACK_HANGAR_MULTIPLIER']:.0%} of their usual hangar space",
+        "name": "Gaian Evolution: Living Hangars",
+        "category": "racial",
+        "race": "Gaian",
+        "requires": ["gaian_capstone"],
+    },
+    "xo_evolution": {
+        "stars_power": 0,
+        "constant": RACIAL_EVOLUTION_POINTS,
+        "desc": f"Settling costs {GAME_CONFIG['XO_EVOLUTION_SETTLE_COST_REDUCTION']:.0%} less, and each open hangar space "
+                f"earns {GAME_CONFIG['XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE']} money per epoch",
+        "name": "Xo Evolution: Mercenary Hangars",
+        "category": "racial",
+        "race": "Xo",
+        "requires": ["xo_capstone"],
+    },
+    "vult_evolution": {
+        "stars_power": 0,
+        "constant": RACIAL_EVOLUTION_POINTS,
+        "desc": "Unlocks Full Infiltration, a drone operation that reveals everything about the target at once",
+        "name": "Vult Evolution: Full Infiltration",
+        "category": "racial",
+        "race": "Vult",
+        "requires": ["vult_capstone"],
+    },
+    "lumina_evolution": {
+        "stars_power": 0,
+        "constant": RACIAL_EVOLUTION_POINTS,
+        "desc": f"Every galaxy is always revealed to you, and aggressive spy operations against empires at war with you "
+                f"do {GAME_CONFIG['LUMINA_EVOLUTION_WAR_DRONE_DAMAGE_INCREASE']:.0%} more damage",
+        "name": "Lumina Evolution: All-Seeing",
+        "category": "racial",
+        "race": "Lumina",
+        "requires": ["lumina_capstone"],
+    },
+    "fuzi_evolution": {
+        "stars_power": 0,
+        "constant": RACIAL_EVOLUTION_POINTS,
+        "desc": f"Each empty missile silo makes {GAME_CONFIG['FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO']} drones, "
+                f"{GAME_CONFIG['FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO']} money and "
+                f"{GAME_CONFIG['FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO']} fuel per epoch, stores "
+                f"{GAME_CONFIG['FUZI_EVOLUTION_FUEL_STORAGE_PER_EMPTY_SILO']} fuel and houses "
+                f"{GAME_CONFIG['FUZI_EVOLUTION_POP_PER_EMPTY_SILO']} population",
+        "name": "Fuzi Evolution: Silo Cities",
+        "category": "racial",
+        "race": "Fuzi",
+        "requires": ["fuzi_capstone"],
+    },
     "heavy_attackers": {
         "stars_power": 0,
         "constant": 40000,
@@ -844,7 +909,13 @@ REVEAL_OPERATIONS = [
     "spyprojects",
     "spystructures",
     "spydrones",
+    "spyall",
 ]
+# What each intel operation reveals: its name without "spy", except Full Infiltration, which reveals everything.
+REVEAL_OPERATION_STATS = {operation: [operation.replace("spy", "")] for operation in REVEAL_OPERATIONS}
+REVEAL_OPERATION_STATS["spyall"] = ["kingdom", "military", "shields", "projects", "structures", "drones"]
+# Operations that need a project first.
+OPERATION_PROJECTS = {"spyall": "vult_evolution"}
 AGGRO_OPERATIONS = [
     "siphonfunds",
     "bombhomes",
@@ -1088,6 +1159,7 @@ PRETTY_NAMES = {
     "spyprojects": "Spy on Projects",
     "spystructures": "Spy on Structures",
     "spydrones": "Spy on Drones",
+    "spyall": "Full Infiltration",
     "siphonfunds": "Siphon Funds",
     "bombhomes": "Bomb Homes",
     "sabotagefuelplants": "Sabotage Fuel Plants",

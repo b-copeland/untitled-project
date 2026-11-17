@@ -76,6 +76,9 @@ def _calc_pop_change_per_epoch(
         )
     )
     
+    if uas.has_project(kd_info_parse, "fuzi_evolution"):
+        pop_capacity += math.floor(uag._empty_missile_silos(kd_info_parse) * uas.GAME_CONFIG["FUZI_EVOLUTION_POP_PER_EMPTY_SILO"])
+
     pop_capacity_less_overflow = max(pop_capacity - overflow, 0)
 
     pop_difference = pop_capacity_less_overflow - kd_info_parse["population"]
@@ -97,6 +100,42 @@ def _calc_pop_change_per_epoch(
         pop_change = 0
     
     return pop_change, pop_capacity_less_overflow
+
+def _open_hangar_money(kd_info_parse, mobis_queue):
+    """Money per epoch from Xo Evolution: for each hangar space not taken by a unit (trained, out, or in training)."""
+    if not uas.has_project(kd_info_parse, "xo_evolution"):
+        return 0
+    start_time = datetime.datetime.now(datetime.timezone.utc)
+    units = uag._calc_units(start_time, kd_info_parse["units"], kd_info_parse["generals_out"], mobis_queue or [])
+    max_hangar_capacity, current_hangar_capacity = uag._calc_hangar_capacity(kd_info_parse, units)
+    open_space = max(max_hangar_capacity - current_hangar_capacity, 0)
+    return open_space * uas.GAME_CONFIG["XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE"]
+
+
+def _reveal_every_galaxy(kd_info_parse, time_update, context, effects=None):
+    """
+    Lumina Evolution: reveal every other galaxy, and the stats of every kingdom in it, for twice the usual reveal time,
+    and come back after the usual time to renew it, so they never lapse. The write is an effect; writing it twice
+    reveals the same thing. Returns when to renew.
+    """
+    app = flask.current_app
+    kd_id = kd_info_parse["kdId"]
+    duration = datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])
+    until = (time_update + 2 * duration).isoformat()
+    galaxy_of = context.galaxies_inverted
+    own_galaxy = galaxy_of.get(kd_id)
+    payload = {
+        "new_galaxies": {galaxy: until for galaxy in set(galaxy_of.values()) if galaxy != own_galaxy},
+        "new_revealed": {other: {"stats": until} for other, galaxy in galaxy_of.items() if galaxy != own_galaxy},
+    }
+    _defer(effects, lambda: REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps(payload),
+    ))
+    kd_info_parse["next_resolve"]["revealed"] = min(kd_info_parse["next_resolve"]["revealed"], until)
+    return time_update + duration
+
 
 def _calc_structures_losses(
     kd_info_parse,
@@ -308,10 +347,16 @@ def _kingdom_with_income(
     )
     income["money"]["population"] = math.floor(kd_info_parse["population"]) * uas.GAME_CONFIG["BASE_POP_INCOME_PER_EPOCH"]
     income["money"]["bonus"] = current_bonuses["money_bonus"] - is_isolationist * uas.GAME_CONFIG["BASE_ISOLATIONIST_DECREASE"] + is_free_trade * uas.GAME_CONFIG["BASE_FREE_TRADE_INCREASE"]
+    # Xo Evolution pays for open hangar space; Fuzi Evolution makes money, fuel and drones in empty missile silos.
+    if mobis_queue is None and uas.has_project(kd_info_parse, "xo_evolution"):
+        mobis_queue = uag._get_mobis_queue(kd_info_parse["kdId"])  # read once, for this and the population below
+    income["money"]["open_hangars"] = _open_hangar_money(kd_info_parse, mobis_queue)
+    empty_silos = uag._empty_missile_silos(kd_info_parse) if uas.has_project(kd_info_parse, "fuzi_evolution") else 0
+    income["money"]["empty_silos"] = empty_silos * uas.GAME_CONFIG["FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO"]
     income["money"]["gross"] = (
         income["money"]["mines"]
         + income["money"]["population"]
-    ) * (1 + income["money"]["bonus"])
+    ) * (1 + income["money"]["bonus"]) + income["money"]["open_hangars"] + income["money"]["empty_silos"]
     income["money"]["siphons_out"], income["money"]["siphons_in"], siphons_in = _resolve_siphons(
         income["money"]["gross"],
         kd_info_parse["kdId"],
@@ -344,7 +389,8 @@ def _kingdom_with_income(
     income["fuel"]["shields"]["spy_radar"] = kd_info_parse["shields"]["spy_radar"] * 100 * kd_info_parse["stars"] * uas.GAME_CONFIG["BASE_SPY_RADAR_COST_PER_LAND_PER_PCT"]
     income["fuel"]["shields"]["missiles"] = kd_info_parse["shields"]["missiles"] * 100 * kd_info_parse["stars"] * uas.GAME_CONFIG["BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT"]
 
-    new_fuel = income["fuel"]["fuel_plants"] * (1 + income["fuel"]["bonus"])
+    income["fuel"]["empty_silos"] = empty_silos * uas.GAME_CONFIG["FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO"]
+    new_fuel = income["fuel"]["fuel_plants"] * (1 + income["fuel"]["bonus"]) + income["fuel"]["empty_silos"]
     raw_fuel_consumption = (
         sum(income["fuel"]["units"].values())
         + sum(income["fuel"]["shields"].values())
@@ -352,7 +398,10 @@ def _kingdom_with_income(
     )
     income["fuel"]["net"] = new_fuel - raw_fuel_consumption
     net_fuel = income["fuel"]["net"] * epoch_elapsed
-    max_fuel = math.floor(kd_info_parse["structures"]["fuel_plants"]) * uas.GAME_CONFIG["BASE_FUEL_PLANTS_CAPACITY"]
+    max_fuel = (
+        math.floor(kd_info_parse["structures"]["fuel_plants"]) * uas.GAME_CONFIG["BASE_FUEL_PLANTS_CAPACITY"]
+        + empty_silos * uas.GAME_CONFIG["FUZI_EVOLUTION_FUEL_STORAGE_PER_EMPTY_SILO"]
+    )
     min_fuel = uas.GAME_FUNCS["BASE_NEGATIVE_FUEL_CAP"](kd_info_parse["stars"])
 
     income["drones"] = (
@@ -362,6 +411,7 @@ def _kingdom_with_income(
             * (1 + (int(kd_info_parse["race"] == "Vult") * uas.GAME_CONFIG["VULT_DRONE_PRODUCTION_INCREASE"]))
             + uas.project_increase(kd_info_parse, "drone_factories_bonus")
         )
+        + empty_silos * uas.GAME_CONFIG["FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO"]
     )
     new_drones = income["drones"] * epoch_elapsed
 
@@ -1656,6 +1706,11 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
                 **next_resolves,
                 **next_resolves_spending_effective,
             }
+        # Lumina Evolution keeps every galaxy revealed (a timer of its own; kingdoms without the project have none).
+        if uas.has_project(kd_info_parse, "lumina_evolution") and (
+            _utc(kd_info_parse["next_resolve"].get("galaxies_revealed", "2000-01-01T00:00:00+00:00")) < time_update
+        ):
+            next_resolves["galaxies_revealed"] = _reveal_every_galaxy(kd_info_parse, time_update, context, effects)
         if kd_info_parse["auto_assign_projects"] and (kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values()) > 0):
             kd_info_parse = _resolve_auto_projects(kd_info_parse)
 
