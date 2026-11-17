@@ -1,4 +1,5 @@
 import { displayPercent } from "../../../format";
+import { inOrder } from "../../../order";
 import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
@@ -14,7 +15,7 @@ function Projects(props) {
     const prettyNames = props.state.pretty_names || {};
     const projectsDesc = props.state.projects || {};
     const categories = props.state.project_categories || {};
-    const projectsRows = Object.keys(projectsDesc).map((projectsKey, iter) => {
+    const projectsRows = inOrder(Object.keys(projectsDesc), props.state.order?.projects).map((projectsKey, iter) => {
         const project = projectsDesc[projectsKey];
         const requires = [
             ...(project.requires || []).map((required) => projectsDesc[required]?.name || required),

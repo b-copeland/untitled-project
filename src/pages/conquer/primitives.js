@@ -66,7 +66,7 @@ function AttackPrimitives(props) {
     const unitsDesc = props.data.mobis?.units_desc || {};
     const myUnits = kingdom.units || {};
     const settings = kingdom.auto_attack_settings || {};
-    const ATTACK_UNITS = attackUnits(unitsDesc, props.data.state?.pretty_names);
+    const ATTACK_UNITS = attackUnits(unitsDesc, props.data.state?.pretty_names, props.data.state?.order?.units);
 
     useEffect(() => {
         const bonus = props.data.projects.current_bonuses?.military_bonus;

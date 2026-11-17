@@ -16,6 +16,7 @@ import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
+import { inOrder, entriesInOrder } from "../../order";
 
 function ProjectsContent(props) {
     const kdInfo = props.data.kingdom;
@@ -146,7 +147,7 @@ export function projectRows(state, kdInfo, projectsInfo) {
     const categories = state?.project_categories || {};
     const completed = kdInfo.completed_projects || [];
     const groups = {};
-    for (const [key, project] of Object.entries(projects)) {
+    for (const [key, project] of entriesInOrder(projects, state?.order?.projects)) {
         if (project.race && project.race !== kdInfo.race) {
             continue;
         }
@@ -161,7 +162,7 @@ export function projectRows(state, kdInfo, projectsInfo) {
             completed: completed.indexOf(key) >= 0,
         });
     }
-    const order = Object.keys(categories);
+    const order = inOrder(Object.keys(categories), state?.order?.project_categories);
     return Object.keys(groups)
         .sort((a, b) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)))
         .map((category) => ({ category, title: categories[category] || category, rows: groups[category] }));

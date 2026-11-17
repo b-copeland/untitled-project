@@ -1,4 +1,5 @@
 import { displayPercent } from "../../../format";
+import { inOrder } from "../../../order";
 import React, { useMemo, useEffect, useState, useRef } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Table from 'react-bootstrap/Table';
@@ -13,7 +14,7 @@ function Military(props) {
     }, [props.state]);
     const unitsDesc = props.state.units || {};
     const prettyNames = props.state.pretty_names || {};
-    const unitsRows = Object.keys(unitsDesc).map((unitKey, iter) => {
+    const unitsRows = inOrder(Object.keys(unitsDesc), props.state.order?.units).map((unitKey, iter) => {
         return <tr key={"units_" + iter}>
             <td style={{textAlign: "left"}}>{prettyNames[unitKey]}</td>
             <td style={{textAlign: "right"}}>{unitsDesc[unitKey].cost}</td>
