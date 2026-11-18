@@ -758,7 +758,7 @@ def _resolve_auto_spending(
                 if v > 0
             }
             if sum(target_structures_to_build_nonzero.values()) > 0:
-                new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero, time_update)
+                new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero, time_update, kd_info_parse)
                 next_resolves["structures"] = min(min_structures_time, kd_info_parse["next_resolve"]["structures"])
                 structures_payload = {
                     "new_structures": new_structures_payload

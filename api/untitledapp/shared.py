@@ -410,6 +410,16 @@ GAME_CONFIG = {
     "SOLAR_FUEL_REDUCTION": 0.5,  # solar_attackers / solar_defenders: pure units of that kind use this much less fuel
     "SELF_DESTRUCT_LOSSES_INCREASE": 0.5,  # self_destructing_*: the other side's unit losses are this much higher
     "COMPACT_FLEX_HANGAR_CAPACITY": 1,  # compact_flexers: hangar space one big flexer takes
+
+    # Racial capstones (proposals).
+    "GAIAN_CAPSTONE_SETTLE_TIME_REDUCTION": 0.25,
+    "GAIAN_CAPSTONE_STRUCTURE_TIME_REDUCTION": 0.25,
+    "XO_CAPSTONE_RETURN_REDUCTION": 0.15,  # added to the generals speed bonus
+    "XO_CAPSTONE_WAR_LOSSES_INCREASE": 0.25,  # the defender's losses when Xo attacks an empire it is at war with
+    "VULT_CAPSTONE_DRONE_DAMAGE_INCREASE": 0.25,  # damage of aggressive spy operations
+    "LUMINA_CAPSTONE_SHIELDING_FUEL_REDUCTION": 0.5,  # fuel a shielded drone costs
+    "FUZI_CAPSTONE_MISSILE_DAMAGE_INCREASE": 0.25,
+    "BASE_DRONES_SHIELDING_FUEL_PER_DRONE": 1,
 }
 
 GAME_FUNCS = {
@@ -446,6 +456,9 @@ STRUCTURE_PROJECT_POINTS = 50000
 ECO_MILITARY_PROJECT_POINTS = 75000  # Cheaper Exploring, Cheaper Recruits, Population Growth and the loss projects
 ECO_MILITARY_PROJECT_BONUS = 0.25
 
+
+# Racial capstones are the second most expensive projects, and evolutions (after their capstone) the most expensive.
+RACIAL_CAPSTONE_POINTS = 500000
 
 PROJECTS = {
     "pop_bonus": {
@@ -638,6 +651,48 @@ PROJECTS = {
         "name": "Compact Flexers",
         "category": "military",
         "requires": ["big_flexers"],
+    },
+    "gaian_capstone": {
+        "stars_power": 0,
+        "constant": RACIAL_CAPSTONE_POINTS,
+        "desc": f"Settling takes {GAME_CONFIG['GAIAN_CAPSTONE_SETTLE_TIME_REDUCTION']:.0%} less time and building structures "
+                f"{GAME_CONFIG['GAIAN_CAPSTONE_STRUCTURE_TIME_REDUCTION']:.0%} less time",
+        "name": "Gaian Terraforming",
+        "category": "racial",
+        "race": "Gaian",
+    },
+    "xo_capstone": {
+        "stars_power": 0,
+        "constant": RACIAL_CAPSTONE_POINTS,
+        "desc": f"Generals return {GAME_CONFIG['XO_CAPSTONE_RETURN_REDUCTION']:.0%} faster, and kingdoms of empires you are "
+                f"at war with lose {GAME_CONFIG['XO_CAPSTONE_WAR_LOSSES_INCREASE']:.0%} more units to your attacks",
+        "name": "Xo Warlords",
+        "category": "racial",
+        "race": "Xo",
+    },
+    "vult_capstone": {
+        "stars_power": 0,
+        "constant": RACIAL_CAPSTONE_POINTS,
+        "desc": f"Aggressive spy operations do {GAME_CONFIG['VULT_CAPSTONE_DRONE_DAMAGE_INCREASE']:.0%} more damage",
+        "name": "Vult Swarm",
+        "category": "racial",
+        "race": "Vult",
+    },
+    "lumina_capstone": {
+        "stars_power": 0,
+        "constant": RACIAL_CAPSTONE_POINTS,
+        "desc": f"Shielding drones costs {GAME_CONFIG['LUMINA_CAPSTONE_SHIELDING_FUEL_REDUCTION']:.0%} less fuel",
+        "name": "Lumina Prisms",
+        "category": "racial",
+        "race": "Lumina",
+    },
+    "fuzi_capstone": {
+        "stars_power": 0,
+        "constant": RACIAL_CAPSTONE_POINTS,
+        "desc": f"Missiles do {GAME_CONFIG['FUZI_CAPSTONE_MISSILE_DAMAGE_INCREASE']:.0%} more damage",
+        "name": "Fuzi Warheads",
+        "category": "racial",
+        "race": "Fuzi",
     },
     "heavy_attackers": {
         "stars_power": 0,

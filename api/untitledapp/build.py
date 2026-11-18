@@ -425,12 +425,24 @@ def _validate_structures(structures_input, current_available_structures):
     
     return True
 
-def _get_new_structures(structures_request, start_time):
-    structure_time_splits = _make_time_splits(
-        uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MIN_MULTIPLIER"],
-        uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MAX_MUTLIPLIER"],
-        uas.GAME_CONFIG["BASE_STRUCTURE_TIME_SPLITS"],
-    )
+def _structure_time_multiplier(kd_info):
+    """How much of the base construction time this kingdom's structures take."""
+    if kd_info is not None and uas.has_project(kd_info, "gaian_capstone"):
+        return 1 - uas.GAME_CONFIG["GAIAN_CAPSTONE_STRUCTURE_TIME_REDUCTION"]
+    return 1
+
+
+def _get_new_structures(structures_request, start_time, kd_info=None):
+    """The queue entries for building ``structures_request``, spread over the construction times of ``kd_info``."""
+    speed = _structure_time_multiplier(kd_info)
+    structure_time_splits = [
+        split * speed
+        for split in _make_time_splits(
+            uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MIN_MULTIPLIER"],
+            uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MAX_MUTLIPLIER"],
+            uas.GAME_CONFIG["BASE_STRUCTURE_TIME_SPLITS"],
+        )
+    ]
     structures_request_split = collections.defaultdict(dict)
     for key_structure, amt_structure in structures_request.items():
         split_amt_structure = _divide_across_splits(
@@ -490,7 +502,7 @@ def _build_structures(kd_id, structures_request):
         if not valid_structures:
             raise occ.Rejected('Please enter valid structures values')
 
-        new_structures, min_structures_time = _get_new_structures(structures_request, start_time)
+        new_structures, min_structures_time = _get_new_structures(structures_request, start_time, kd_info_parse)
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["structures"] = min(next_resolve["structures"], min_structures_time)
         new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price

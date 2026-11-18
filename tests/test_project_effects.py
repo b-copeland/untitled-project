@@ -342,3 +342,88 @@ def test_counter_intelligence_lowers_the_damage_of_aggressive_operations(app, cl
 
     assert fuel_burned({}) == 100 * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"]
     assert fuel_burned(points) == math.floor(100 * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"] * (1 - bonus))
+
+
+# --- racial capstones ---------------------------------------------------------------------------------------------------
+
+CAPSTONES = {"Gaian": "gaian_capstone", "Xo": "xo_capstone", "Vult": "vult_capstone", "Lumina": "lumina_capstone",
+             "Fuzi": "fuzi_capstone"}
+
+
+@pytest.mark.parametrize("race,project", CAPSTONES.items())
+def test_a_racial_capstone_is_only_for_its_race_and_costs_more_than_every_project_but_the_evolutions(race, project):
+    assert uas.project_locked_reason({"race": race}, project) is None
+    other = next(r for r in uas.RACES if r != race)
+    assert uas.project_locked_reason({"race": other}, project) == f"Only {race} kingdoms can research {uas.PROJECTS[project]['name']}"
+    points = uas.PROJECTS_FUNCS[project](0)
+    not_racial = [key for key in uas.ONE_TIME_PROJECTS if uas.PROJECTS[key]["category"] != "racial"]
+    assert all(points > uas.PROJECTS_FUNCS[key](0) for key in not_racial)
+
+
+def test_gaian_terraforming_makes_settling_and_building_faster():
+    import untitledapp.build as uab
+    plain = kingdoms.kingdom(race="Gaian")
+    terraformed = kingdoms.kingdom(race="Gaian", completed_projects=["gaian_capstone"])
+    assert uag._get_settle_time(terraformed, 10) == pytest.approx(
+        uag._get_settle_time(plain, 10) * (1 - uas.GAME_CONFIG["GAIAN_CAPSTONE_SETTLE_TIME_REDUCTION"]))
+
+    def latest(kd):
+        entries, _ = uab._get_new_structures({"homes": 100}, NOW, kd)
+        return max(datetime.datetime.fromisoformat(entry["time"]) for entry in entries) - NOW
+
+    assert latest(terraformed) == latest(plain) * (1 - uas.GAME_CONFIG["GAIAN_CAPSTONE_STRUCTURE_TIME_REDUCTION"])
+    assert latest(None) == latest(plain)
+
+
+def test_xo_warlords_bring_generals_home_sooner():
+    bonuses = {"general_bonus": 0.1}
+    plain = kingdoms.kingdom()
+    warlord = kingdoms.kingdom(completed_projects=["xo_capstone"])
+    assert uac._general_speed(plain, bonuses) == 0.1
+    assert uac._general_speed(warlord, bonuses) == pytest.approx(0.1 + uas.GAME_CONFIG["XO_CAPSTONE_RETURN_REDUCTION"])
+    times = lambda kd: uac._calc_generals_return_time(1, 24, NOW, uac._general_speed(kd, bonuses))[0]
+    assert times(warlord) < times(plain)
+
+
+def test_xo_warlords_inflict_more_losses_only_at_war():
+    plain = kingdoms.kingdom()
+    warlord = kingdoms.kingdom(completed_projects=["xo_capstone"])
+    assert uac._battle_loss_rates(warlord, plain, 1.0, war=False) == uac._battle_loss_rates(plain, plain, 1.0, war=False)
+    assert uac._battle_loss_rates(warlord, plain, 1.0, war=True)[1] == pytest.approx(
+        uac._battle_loss_rates(plain, plain, 1.0, war=True)[1] * (1 + uas.GAME_CONFIG["XO_CAPSTONE_WAR_LOSSES_INCREASE"]))
+
+
+def test_vult_swarm_makes_aggressive_operations_do_more_damage():
+    swarm = kingdoms.kingdom(race="Vult", completed_projects=["vult_capstone"])
+    assert uac._aggro_damage_multiplier(swarm, kingdoms.kingdom()) == pytest.approx(
+        1 + uas.GAME_CONFIG["VULT_CAPSTONE_DRONE_DAMAGE_INCREASE"])
+    assert uac._aggro_damage_multiplier(kingdoms.kingdom(race="Vult"), kingdoms.kingdom()) == 1
+
+
+def test_lumina_prisms_make_shielding_drones_cost_less_fuel():
+    plain = kingdoms.kingdom(race="Lumina", fuel=60, drones=100, spy_attempts=1)
+    prisms = kingdoms.kingdom(race="Lumina", fuel=60, drones=100, spy_attempts=1, completed_projects=["lumina_capstone"])
+    assert uac._shielding_fuel(plain, 100) == 100 * uas.GAME_CONFIG["BASE_DRONES_SHIELDING_FUEL_PER_DRONE"]
+    assert uac._shielding_fuel(prisms, 100) == pytest.approx(
+        100 * (1 - uas.GAME_CONFIG["LUMINA_CAPSTONE_SHIELDING_FUEL_REDUCTION"]))
+    assert uac._validate_spy_request(100, plain, True) == (False, "You do not have enough fuel")
+    assert uac._validate_spy_request(100, prisms, True) == (True, "")
+
+
+def test_lumina_prisms_charge_less_fuel_when_robbing_shielded(app, client, jwt1):
+    from tests.test_concurrency import _set_up_kingdom
+    _set_up_kingdom(0, race="Lumina", drones=1000, completed_projects=["lumina_capstone"])
+    response = client.post("/api/robprimitives", json={"drones": 1000, "shielded": True},
+                           headers={"Authorization": f"Bearer {jwt1}"})
+    assert response.status_code == 200, response.get_json()
+    spent = uas.INITIAL_KINGDOM_STATE["kingdom"]["fuel"] - _get(f"/kingdom/{KD_ID}")["fuel"]
+    assert spent == pytest.approx(1000 * (1 - uas.GAME_CONFIG["LUMINA_CAPSTONE_SHIELDING_FUEL_REDUCTION"]))
+
+
+def test_fuzi_warheads_make_missiles_do_more_damage():
+    missiles = {"planet_busters": 100}
+    warheads = kingdoms.kingdom(race="Fuzi", completed_projects=["fuzi_capstone"])
+    assert uac._missile_damage_multiplier(kingdoms.kingdom(race="Fuzi")) == 1
+    damage = uac._calculate_missiles_damage(missiles, 0, fuzi=True)
+    boosted = uac._calculate_missiles_damage(missiles, 0, fuzi=True, damage_multiplier=uac._missile_damage_multiplier(warheads))
+    assert boosted["stars_damage"] == math.floor(damage["stars_damage"] * (1 + uas.GAME_CONFIG["FUZI_CAPSTONE_MISSILE_DAMAGE_INCREASE"]))

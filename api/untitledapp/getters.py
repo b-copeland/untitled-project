@@ -865,6 +865,8 @@ def _get_settle_price(kd_info, is_expansionist):
 def _get_settle_time(kd_info, time_multiplier):
     seconds = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier * (
         1 - (int(kd_info["race"] == "Gaian") * uas.GAME_CONFIG["GAIAN_SETTLE_TIME_REDUCTION"])
+    ) * (
+        1 - int(uas.has_project(kd_info, "gaian_capstone")) * uas.GAME_CONFIG["GAIAN_CAPSTONE_SETTLE_TIME_REDUCTION"]
     )
     return seconds
 
