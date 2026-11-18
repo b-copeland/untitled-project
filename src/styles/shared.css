@@ -85,6 +85,8 @@
 
 /* Wide tables scroll sideways inside this instead of squeezing or pushing the page wider. */
 .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* No side margin inside it: a full-width table plus a margin is always a little too wide, and scrolls for nothing. */
+.table-scroll > .table { margin-left: 0; margin-right: 0; }
 
 /* --- Icon-only buttons (components/iconbutton.js): just the icon, in the link colour ------------------------------ */
 

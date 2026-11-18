@@ -6,11 +6,15 @@ import Tabs from 'react-bootstrap/Tabs';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
+import { useNavigate } from "react-router-dom";
+import { BsEye } from "react-icons/bs";
 import "./intel.css";
+import Kingdom from "../kingdominfo.js";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { GameTable } from "../../components/gametable";
+import { IconButton } from "../../components/iconbutton";
 import { Panel, FieldRow, Picker, clockUntil } from "../../components/planner";
 import { displayPercent } from "../../format";
 import { checkCount, checkPercent, firstError } from "../../validation";
@@ -21,7 +25,9 @@ import { checkCount, checkPercent, firstError } from "../../validation";
  * comes with ``problem``, the reason this kingdom could not take it, or null.
  *
  * The pieces take an optional ``target`` so the same tables and forms can show one kingdom's intel (KingdomIntel),
- * wherever a kingdom is shown.
+ * wherever a kingdom is shown. With ``onView(kdId)`` the tables offer to view a row's kingdom; with
+ * ``onAttempt(kdId, operation)`` a bounty you have no intel for offers the spy operation that would get it (by default
+ * the Spy page, opened with that target and operation).
  */
 
 const EMPTY = { listings: [], bounties: [], accepted: [], cuts: {}, my_intel: [], exclusions: [], history: [] };
@@ -38,6 +44,27 @@ const myKd = (data) => String(data.kingdomid?.kd_id ?? data.kingdom?.kdId ?? "")
 const myGalaxymates = (data) => (data.galaxies?.[data.galaxies_inverted?.[myKd(data)]] || []).map(String);
 const forTarget = (items, target) => (target === undefined ? items : items.filter((item) => String(item.target) === String(target)));
 const categoriesOf = (data) => (data.state?.reveal_operations || []).map((operation) => operation.replace(/^spy/, ""));
+
+const TABLE_CLASS = "game-table intel-table";
+
+/** The tables' "view kingdom" button, when the page can show one. */
+function ViewButton({ onView, kdId }) {
+    return onView ? <IconButton icon={BsEye} label="View kingdom" onClick={() => onView(kdId)} /> : null;
+}
+
+/** Spy for a bounty's intel: the operation that reveals ``category`` on ``target``. */
+function AttemptButton({ target, category, onAttempt, loading }) {
+    const navigate = useNavigate();
+    const operation = "spy" + category;
+    const attempt = onAttempt || ((kdId, op) => navigate("/spy", { state: { kdId: String(kdId), operation: op } }));
+    return (
+        <Button size="sm" variant="outline-primary" className="intel-action" disabled={loading}
+            title={`You have no ${category} intel on them: spy for it, then fulfil the bounty`}
+            onClick={() => attempt(target, operation)}>
+            Attempt
+        </Button>
+    );
+}
 
 /** Sends an intel action and keeps the answer for a toast. */
 function useIntelAction(props, setResults) {
@@ -68,7 +95,7 @@ function CutBox({ id, value, onChange, error }) {
 }
 
 /** The intel this kingdom has revealed, each with a cut box, List and Share free. */
-export function YourIntelTable({ target, send, ...props }) {
+export function YourIntelTable({ target, send, onView, ...props }) {
     const intel = intelOf(props.data);
     const [cuts, setCuts] = useState({});
     const rows = forTarget(intel.my_intel, target).map((item) => ({ ...item, key: `${item.target}.${item.category}` }));
@@ -98,16 +125,20 @@ export function YourIntelTable({ target, send, ...props }) {
                             onClick={() => send("share", { target: row.target, category: row.category, cut: 0 }, ["intel", "revealed"])}>Share free</Action>
                         {row.listing ? <Action variant="outline-danger" loading={props.loading.intel}
                             onClick={() => send("delist", { listing: row.listing })}>Remove</Action> : null}
+                        <ViewButton onView={onView} kdId={row.target} />
                     </span>
                 );
             },
         },
     ];
-    return <GameTable columns={columns} rows={rows} />;
+    return <GameTable className={TABLE_CLASS} columns={columns} rows={rows} />;
 }
 
-/** Listings on the market, each with Buy (or Remove for your own). */
-export function ListingsTable({ target, send, ...props }) {
+/** Whether this kingdom already has ``category`` intel on ``target`` from a galaxymate. */
+const taken = (intel, target, category) => intel.accepted.some((item) => String(item.target) === String(target) && item.category === category);
+
+/** Listings on the market, each with Buy (or Remove for your own). Intel you have already taken is shaded. */
+export function ListingsTable({ target, send, onView, ...props }) {
     const intel = intelOf(props.data);
     const rows = forTarget(intel.listings, target).map((item) => ({ ...item, key: item.id }));
     if (rows.length === 0) {
@@ -117,20 +148,32 @@ export function ListingsTable({ target, send, ...props }) {
     const columns = [
         { header: "Seller", align: "left", cell: (row) => kdName(props.data, row.seller) },
         ...(target === undefined ? [{ header: "Kingdom", align: "left", cell: (row) => kdLabel(props.data, row.target) }] : []),
-        { header: "Intel", align: "left", cell: (row) => row.category },
+        {
+            header: "Intel", align: "left", cell: (row) => <>{row.category}{taken(intel, row.target, row.category)
+                ? <span className="status-tag tag-optional" title="You already have this intel from a galaxymate">taken</span> : null}</>,
+        },
         { header: "Cut", cell: (row) => displayPercent(row.cut) },
         { header: "Ends in", cell: (row) => clockUntil(row.time) },
         {
-            header: "", align: "left", cell: (row) => (String(row.seller) === me
-                ? <Action variant="outline-danger" loading={props.loading.intel} onClick={() => send("delist", { listing: row.id })}>Remove</Action>
-                : <Action loading={props.loading.intel} problem={row.problem} onClick={() => send("buy", { listing: row.id }, ["intel", "revealed"])}>Buy</Action>),
+            header: "", align: "left", cell: (row) => (
+                <span className="intel-share">
+                    {String(row.seller) === me
+                        ? <Action variant="outline-danger" loading={props.loading.intel} onClick={() => send("delist", { listing: row.id })}>Remove</Action>
+                        : <Action loading={props.loading.intel} problem={row.problem} onClick={() => send("buy", { listing: row.id }, ["intel", "revealed"])}>Buy</Action>}
+                    <ViewButton onView={onView} kdId={row.target} />
+                </span>
+            ),
         },
     ];
-    return <GameTable columns={columns} rows={rows} />;
+    return <GameTable className={TABLE_CLASS} columns={columns} rows={rows}
+        rowClassName={(row) => (taken(intel, row.target, row.category) ? "intel-row-taken" : undefined)} />;
 }
 
-/** Open bounties, each with Fulfil (or Withdraw for your own). */
-export function BountiesTable({ target, send, ...props }) {
+/**
+ * Open bounties, each with Fulfil (or Withdraw for your own). A bounty for intel you do not have offers Attempt
+ * instead, the spy operation that would get it.
+ */
+export function BountiesTable({ target, send, onView, onAttempt, ...props }) {
     const intel = intelOf(props.data);
     const rows = forTarget(intel.bounties, target).map((item) => ({ ...item, key: item.id }));
     if (rows.length === 0) {
@@ -144,12 +187,19 @@ export function BountiesTable({ target, send, ...props }) {
         { header: "Cut", cell: (row) => displayPercent(row.cut) },
         { header: "Ends in", cell: (row) => clockUntil(row.time) },
         {
-            header: "", align: "left", cell: (row) => (String(row.requester) === me
-                ? <Action variant="outline-danger" loading={props.loading.intel} onClick={() => send("cancelbounty", { bounty: row.id })}>Withdraw</Action>
-                : <Action loading={props.loading.intel} problem={row.problem} onClick={() => send("fulfil", { bounty: row.id })}>Fulfil</Action>),
+            header: "", align: "left", cell: (row) => (
+                <span className="intel-share">
+                    {String(row.requester) === me
+                        ? <Action variant="outline-danger" loading={props.loading.intel} onClick={() => send("cancelbounty", { bounty: row.id })}>Withdraw</Action>
+                        : row.have === false
+                        ? <AttemptButton target={row.target} category={row.category} onAttempt={onAttempt} loading={props.loading.intel} />
+                        : <Action loading={props.loading.intel} problem={row.problem} onClick={() => send("fulfil", { bounty: row.id })}>Fulfil</Action>}
+                    <ViewButton onView={onView} kdId={row.target} />
+                </span>
+            ),
         },
     ];
-    return <GameTable columns={columns} rows={rows} />;
+    return <GameTable className={TABLE_CLASS} columns={columns} rows={rows} />;
 }
 
 /** The form to ask the galaxy for intel. With ``target`` it asks about that kingdom only. */
@@ -170,7 +220,7 @@ export function BountyForm({ target, send, ...props }) {
         category === undefined ? "Choose the intel you want" : null,
         cutError,
         epochsError,
-        String(epochs).trim() === "" || parseInt(epochs, 10) < 1 ? "Choose how many epochs it stays up" : null,
+        String(epochs).trim() !== "" && !(parseFloat(epochs) > 0) ? "A bounty stays up for at least 1 epoch" : null,
     );
     return (
         <div className="intel-form">
@@ -186,13 +236,13 @@ export function BountyForm({ target, send, ...props }) {
                 <CutBox id="bounty-cut" value={cut} onChange={setCut} error={cutError} />
                 {cutError ? <div className="amount-input-error">{cutError}</div> : null}
             </FieldRow>
-            <FieldRow label="Stays up for" hint={`Epochs, 1 to ${maxEpochs}`} htmlFor="bounty-epochs">
-                <Form.Control id="bounty-epochs" size="sm" inputMode="numeric" placeholder="0" autoComplete="off" className="intel-epochs"
+            <FieldRow label="Stays up for" hint={`Epochs, 1 to ${maxEpochs}; blank for ${maxEpochs}`} htmlFor="bounty-epochs">
+                <Form.Control id="bounty-epochs" size="sm" inputMode="numeric" placeholder={String(maxEpochs)} autoComplete="off" className="intel-epochs"
                     value={epochs} onChange={(e) => setEpochs(e.target.value)} isInvalid={Boolean(epochsError)} />
                 {epochsError ? <div className="amount-input-error">{epochsError}</div> : null}
             </FieldRow>
             <Button size="sm" disabled={Boolean(blocked) || props.loading.intel} title={blocked || undefined}
-                onClick={() => send("bounty", { target: chosen, category, cut: cut === "" ? 0 : cut, epochs })}>Post bounty</Button>
+                onClick={() => send("bounty", { target: chosen, category, cut: cut === "" ? 0 : cut, ...(String(epochs).trim() === "" ? {} : { epochs }) })}>Post bounty</Button>
             {blocked ? <div className="planner-why">{blocked}</div> : null}
         </div>
     );
@@ -213,7 +263,7 @@ export function AcceptedTable({ target, ...props }) {
         { header: "All cuts on it", cell: (row) => displayPercent(intel.cuts[row.target] || 0) },
         { header: "Ends in", cell: (row) => clockUntil(row.time) },
     ];
-    return <GameTable columns={columns} rows={rows} />;
+    return <GameTable className={TABLE_CLASS} columns={columns} rows={rows} />;
 }
 
 /** Recent purchases, fulfilled bounties and free shares, of the given ``kinds``. */
@@ -234,7 +284,7 @@ export function HistoryTable({ kinds, ...props }) {
         { header: "Intel", align: "left", cell: (row) => row.category },
         { header: "Cut", cell: (row) => (row.cut > 0 ? displayPercent(row.cut) : "free") },
     ];
-    return <GameTable columns={columns} rows={rows} />;
+    return <GameTable className={TABLE_CLASS} columns={columns} rows={rows} />;
 }
 
 /** Which galaxymates may not see or take your intel. */
@@ -263,9 +313,25 @@ export function ExclusionsForm({ send, ...props }) {
     );
 }
 
+/** One kingdom's details, as far as you have revealed them (the server filters them), as the View dialogs show them. */
+export function KingdomView({ kdId, data }) {
+    const [info, setInfo] = useState(undefined);
+    useEffect(() => {
+        let current = true;
+        setInfo(undefined);
+        authFetch("api/kingdom/" + kdId).then(safeJson).then((r) => { if (current) setInfo(r); });
+        return () => { current = false; };
+    }, [kdId]);
+    if (info === undefined) {
+        return <h3>Loading...</h3>;
+    }
+    return <Kingdom data={{ kingdom: info, kingdoms: data.kingdoms, galaxies_inverted: data.galaxies_inverted, shields: data.shields, state: data.state, kdId }} />;
+}
+
 /** Everything about one kingdom's intel: yours to share, what is on the market, bounties, and asking for more. */
 export function KingdomIntel(props) {
     const [results, setResults] = useState([]);
+    const [viewing, setViewing] = useState(false);
     const send = useIntelAction(props, setResults);
     const shared = { ...props, send };
     if (props.loading.intel && !props.data.intel?.listings) {
@@ -274,11 +340,17 @@ export function KingdomIntel(props) {
     return (
         <div className="kingdom-intel">
             <ResultToasts title="Intel" results={results} setResults={setResults} />
-            <h4>Intel on {kdName(props.data, props.target)}</h4>
+            <div className="kingdom-intel-head">
+                <h4>Intel on {kdName(props.data, props.target)}</h4>
+                <Button size="sm" variant="outline-light" onClick={() => setViewing(!viewing)} aria-expanded={viewing}>
+                    {viewing ? "Hide kingdom" : "View kingdom"}
+                </Button>
+            </div>
+            {viewing ? <Panel><KingdomView kdId={props.target} data={props.data} /></Panel> : null}
             <Panel title="Your intel"><YourIntelTable {...shared} /></Panel>
             <Panel title="On the market"><ListingsTable {...shared} /></Panel>
             <Panel title="Bounties"><BountiesTable {...shared} /></Panel>
-            <Panel title="Ask the galaxy for intel"><BountyForm {...shared} /></Panel>
+            <Panel title="Ask the galaxy for intel" className="intel-form-panel"><BountyForm {...shared} /></Panel>
             <Panel title="Intel you have taken"><AcceptedTable {...shared} /></Panel>
         </div>
     );
@@ -333,8 +405,9 @@ export function TargetIntel({ target, ...props }) {
 
 function IntelMarket(props) {
     const [results, setResults] = useState([]);
+    const [viewing, setViewing] = useState(undefined);
     const send = useIntelAction(props, setResults);
-    const shared = { ...props, send };
+    const shared = { ...props, send, onView: setViewing };
     const notifs = parseInt(props.data.notifs?.shared || 0, 10);
     const { updateData } = props;
     useEffect(() => {
@@ -351,10 +424,15 @@ function IntelMarket(props) {
             <Header data={props.data} />
             <div className="intel-market">
                 <ResultToasts title="Intel" results={results} setResults={setResults} />
+                <Modal show={viewing !== undefined} onHide={() => setViewing(undefined)} animation={false} dialogClassName="view-modal">
+                    <Modal.Header closeButton><Modal.Title>View</Modal.Title></Modal.Header>
+                    <Modal.Body>{viewing !== undefined ? <KingdomView kdId={viewing} data={props.data} /> : null}</Modal.Body>
+                    <Modal.Footer><Button variant="secondary" onClick={() => setViewing(undefined)}>Close</Button></Modal.Footer>
+                </Modal>
                 <Tabs id="intel-tabs" defaultActiveKey="bounties" justify fill variant="tabs">
                     <Tab eventKey="bounties" title={`Bounties (${intel.bounties.length})`}>
                         <Panel title="Open bounties"><BountiesTable {...shared} /></Panel>
-                        <Panel title="Ask the galaxy for intel"><BountyForm {...shared} /></Panel>
+                        <Panel title="Ask the galaxy for intel" className="intel-form-panel"><BountyForm {...shared} /></Panel>
                         <Panel title="Recently answered"><HistoryTable kinds={["bounty"]} {...props} /></Panel>
                     </Tab>
                     <Tab eventKey="market" title={`Market (${intel.listings.length})`}>
@@ -364,7 +442,8 @@ function IntelMarket(props) {
                     </Tab>
                     <Tab eventKey="yours" title="Your intel">
                         <Panel title="Your intel"><YourIntelTable {...shared} /></Panel>
-                        <Panel title="Keep your intel from"><ExclusionsForm {...shared} /></Panel>
+                        <Panel title="Keep your intel from" className="intel-form-panel"
+                            hint="They will not see your listings or bounties, nor get the intel you share free."><ExclusionsForm {...shared} /></Panel>
                     </Tab>
                 </Tabs>
             </div>

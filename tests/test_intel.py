@@ -359,8 +359,9 @@ def test_bounty_posted_fulfilled_and_kept_in_history(app, client, jwt1, jwt2):
     posted = _post(client, jwt2, "bounty", {"target": TARGET, "category": "military", "cut": 10, "epochs": 4})
     assert posted.status_code == 200, posted.get_json()
     (bounty,) = _intel(client, jwt1)["bounties"]
-    assert (bounty["requester"], bounty["cut"], bounty["problem"]) == ("2", 0.1, None)
+    assert (bounty["requester"], bounty["cut"], bounty["problem"], bounty["have"]) == ("2", 0.1, None, True)
     assert _intel(client, jwt2)["bounties"][0]["problem"] == "This is your bounty"
+    assert _intel(client, jwt2)["bounties"][0]["have"] is False  # 2 has no military intel, so its page offers to spy
 
     fulfilled = _post(client, jwt1, "fulfil", {"bounty": bounty["id"]})
     assert fulfilled.status_code == 200, fulfilled.get_json()
@@ -372,6 +373,20 @@ def test_bounty_posted_fulfilled_and_kept_in_history(app, client, jwt1, jwt2):
     assert _get("/kingdom/2/revealed")["revealed"][TARGET]["military"] == until
     assert _get("/kingdom/2")["next_resolve"]["revealed"] == until
     assert _get("/kingdom/2/news")["news"][0]["kind"] == "intel"
+
+
+def test_a_bounty_left_without_a_length_stays_up_as_long_as_it_may(app, client, jwt1, jwt2):
+    _set_up()
+    for epochs in (None, ""):
+        body = {"target": TARGET, "category": "military", "cut": 10}
+        if epochs is not None:
+            body["epochs"] = epochs
+        posted = _post(client, jwt1, "bounty", body)
+        assert posted.status_code == 200, posted.get_json()
+        (bounty,) = _intel(client, jwt1)["bounties"]
+        longest = uas.GAME_CONFIG["BASE_INTEL_BOUNTY_MAX_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 3600
+        assert _later(longest - 0.1) < bounty["time"] <= _later(longest)
+        assert _post(client, jwt1, "cancelbounty", {"bounty": bounty["id"]}).status_code == 200
 
 
 def test_a_bounty_is_fulfilled_once(app, jwt1, jwt2):

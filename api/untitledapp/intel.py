@@ -247,7 +247,8 @@ def view(market, kd_id, revealed, now, members=()):
     What ``kd_id`` sees of its galaxy's market. Listings and bounties from kingdoms that exclude it are left out, and only its own
     accepted intel and exclusions are included, and its own intel (``my_intel``) leaves out galaxymates, whose
     intel can not be shared. Each listing and bounty says why the viewer could not take it
-    (``problem``, None if it can), so the page can say so before anything is sent.
+    (``problem``, None if it can), so the page can say so before anything is sent. Each bounty also says whether the
+    viewer has that intel at all (``have``): without it, the page offers to spy for it instead.
     """
     market = prune(normalize(market), now)
     listings = []
@@ -264,7 +265,8 @@ def view(market, kd_id, revealed, now, members=()):
     for bounty in market["bounties"].values():
         if kd_id in market["exclusions"].get(bounty["requester"], []):
             continue
-        bounties.append({**bounty, "problem": fulfil_problem(market, kd_id, bounty, revealed, now)})
+        bounties.append({**bounty, "problem": fulfil_problem(market, kd_id, bounty, revealed, now),
+                         "have": revealed_until(revealed, bounty["target"], bounty["category"], now) is not None})
     accepted = [
         {"target": target, "category": category, **record}
         for target, categories in market["accepted"].get(kd_id, {}).items()
@@ -517,7 +519,9 @@ def _post_bounty(kd_id, target, category, cut_percent, epochs):
     try:
         _check_category(category)
         cut = _cut_from_percent(cut_percent)
-        epochs = float(epochs)
+        # Left blank, a bounty stays up as long as one may.
+        epochs = (uas.GAME_CONFIG["BASE_INTEL_BOUNTY_MAX_EPOCHS"] if epochs is None or str(epochs).strip() == ""
+                  else float(epochs))
         if not 0 < epochs <= uas.GAME_CONFIG["BASE_INTEL_BOUNTY_MAX_EPOCHS"]:
             raise ValueError(f"A bounty lasts from more than 0 to {uas.GAME_CONFIG['BASE_INTEL_BOUNTY_MAX_EPOCHS']} epochs")
     except (TypeError, ValueError) as error:
@@ -670,7 +674,7 @@ def buy():
 def post_bounty():
     body = _body()
     return _answer(_post_bounty(_me(), body.get("target", ""), body.get("category"), body.get("cut", 0),
-                                body.get("epochs", 0)))
+                                body.get("epochs")))
 
 
 @bp.route('/api/intel/cancelbounty', methods=['POST'])

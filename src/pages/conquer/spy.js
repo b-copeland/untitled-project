@@ -4,6 +4,7 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
+import { useLocation } from "react-router-dom";
 import Alert from 'react-bootstrap/Alert';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import "./spy.css";
@@ -43,9 +44,13 @@ export function spyNeedsConfirmation({ hasForecast, guessing, chance }) {
 }
 
 function Spy(props) {
+    // A target and operation come as props (the dialogs on Conquer and Galaxy) or with the link here (Attempt, on an
+    // intel bounty: the operation that would reveal the intel asked for).
+    const arrived = useLocation().state || {};
+    const initialKd = props.initialKd ?? arrived.kdId;
     const [defenderValues, setDefenderValues] = useState(initialDefenderValues);
-    const [selected, setSelected] = useState(props.initialKd || undefined);
-    const [operation, setOperation] = useState("");
+    const [selected, setSelected] = useState(initialKd || undefined);
+    const [operation, setOperation] = useState(props.initialOperation ?? arrived.operation ?? "");
     const [targetKdInfo, setTargetKdInfo] = useState({});
     const [results, setResults] = useState([]);
     const [drones, setDrones] = useState("");
@@ -56,8 +61,8 @@ function Spy(props) {
 
     const loadTarget = (kdId) => authFetch("api/kingdom/" + kdId).then(safeJson).then(r => setTargetKdInfo(r));
     useEffect(() => {
-        if (props.initialKd !== undefined) {
-            loadTarget(props.initialKd);
+        if (initialKd !== undefined) {
+            loadTarget(initialKd);
         }
     }, []);
     const onPickTarget = (kdId) => { setSelected(kdId); setForecast({}); setTargetKdInfo({}); loadTarget(kdId); };
@@ -130,7 +135,8 @@ function Spy(props) {
                         {intel.length > 0
                             ? <Stats items={intel.map(([what, until]) => ({ label: `${what} revealed for`, value: clockUntil(until) }))} />
                             : null}
-                        <TargetIntel target={selected} data={props.data} loading={props.loading} updateData={props.updateData} />
+                        <TargetIntel target={selected} data={props.data} loading={props.loading} updateData={props.updateData}
+                            onAttempt={(kdId, op) => setOperation(op)} />
                     </Panel>
 
                     <Panel className="area-drones" title="2. Your drones">

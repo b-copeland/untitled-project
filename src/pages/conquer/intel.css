@@ -1,7 +1,44 @@
 /* The Intel page and the per-kingdom intel panel. Tables, panels and pickers use the shared styles. */
+.intel-market {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
 .intel-market .panel,
 .kingdom-intel .panel {
     margin-top: 1rem;
+}
+
+/* The forms are narrower than the tables: their panel is as wide as the form, in the middle of the page. */
+.intel-market .panel.intel-form-panel,
+.kingdom-intel .panel.intel-form-panel {
+    max-width: 40rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* The tables fill their panel, rather than the half a page other tables take on a wide screen. */
+.intel-market .table.intel-table,
+.kingdom-intel .table.intel-table {
+    width: 100%;
+    min-width: 0;
+}
+
+/* A listing of intel you already have from a galaxymate: still there, but nothing to do with you. */
+.intel-row-taken > td {
+    opacity: 0.5;
+}
+
+.kingdom-intel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.kingdom-intel-head h4 {
+    margin: 0;
 }
 
 .intel-share {
@@ -27,10 +64,6 @@
 
 .intel-action {
     white-space: nowrap;
-}
-
-.intel-form {
-    max-width: 36rem;
 }
 
 .target-intel {
