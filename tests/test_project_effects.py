@@ -164,11 +164,17 @@ def test_the_homes_project_houses_more_population():
     assert boosted_capacity == pytest.approx(capacity * (1 + bonus), abs=1)
 
 
-def test_the_mines_project_makes_mines_produce_more_money(app):
-    points, bonus = _full("mines_bonus")
+def _done(project):
+    """``kingdom()`` overrides that complete the one-time ``project``, and what it adds to each structure."""
+    return {"completed_projects": [project]}, uas.PROJECTS[project]["increase"]
+
+
+def test_the_mines_project_makes_each_mine_produce_more_money(app):
+    done, more = _done("mines_bonus")
+    assert more == uas.GAME_CONFIG["MINES_PROJECT_MONEY_PER_MINE"]
     plain = kingdoms.income(app, kingdoms.kingdom(structures={"mines": 100}))
-    boosted = kingdoms.income(app, kingdoms.kingdom(structures={"mines": 100}, **points))
-    assert boosted["income"]["money"]["mines"] == pytest.approx(plain["income"]["money"]["mines"] * (1 + bonus))
+    boosted = kingdoms.income(app, kingdoms.kingdom(structures={"mines": 100}, **done))
+    assert boosted["income"]["money"]["mines"] == plain["income"]["money"]["mines"] + 100 * more
     assert boosted["income"]["money"]["population"] == plain["income"]["money"]["population"]
 
 
@@ -181,64 +187,64 @@ def test_the_fuel_plants_project_makes_fuel_plants_produce_more_fuel(app):
     assert boosted["income"]["fuel"]["net"] - plain["income"]["fuel"]["net"] == pytest.approx(produced * bonus)
 
 
-def test_the_hangars_project_makes_hangars_hold_more_units():
-    points, bonus = _full("hangars_bonus")
+def test_the_hangars_project_makes_each_hangar_hold_more_units():
+    done, more = _done("hangars_bonus")
     empty = {"current_total": {}, "hour_24": {}}
     plain, _ = uag._calc_hangar_capacity(kingdoms.kingdom(structures={"hangars": 100}), empty)
-    boosted, _ = uag._calc_hangar_capacity(kingdoms.kingdom(structures={"hangars": 100}, **points), empty)
+    boosted, _ = uag._calc_hangar_capacity(kingdoms.kingdom(structures={"hangars": 100}, **done), empty)
     assert plain == 100 * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]
-    assert boosted == pytest.approx(plain * (1 + bonus), abs=1)
+    assert boosted == plain + 100 * more
 
 
-def test_the_drone_factories_project_makes_more_drones(app):
-    points, bonus = _full("drone_factories_bonus")
-    plain = kingdoms.income(app, kingdoms.kingdom(structures={"drone_factories": 100}))
-    boosted = kingdoms.income(app, kingdoms.kingdom(structures={"drone_factories": 100}, **points))
-    assert boosted["income"]["drones"] == pytest.approx(plain["income"]["drones"] * (1 + bonus))
-    assert boosted["drones"] - plain["drones"] == pytest.approx(plain["income"]["drones"] * bonus)
+@pytest.mark.parametrize("race", ["Xo", "Vult"])
+def test_the_drone_factories_project_makes_each_factory_produce_more_drones(app, race):
+    done, more = _done("drone_factories_bonus")
+    plain = kingdoms.income(app, kingdoms.kingdom(race=race, structures={"drone_factories": 100}))
+    boosted = kingdoms.income(app, kingdoms.kingdom(race=race, structures={"drone_factories": 100}, **done))
+    assert boosted["income"]["drones"] == pytest.approx(plain["income"]["drones"] + 100 * more)
+    assert boosted["drones"] - plain["drones"] == pytest.approx(100 * more)
 
 
-def test_the_missile_silos_project_makes_silos_hold_more_missiles():
-    points, bonus = _full("missile_silos_bonus")
+def test_the_missile_silos_project_makes_each_silo_hold_more_missiles():
+    done, more = _done("missile_silos_bonus")
     plain = uag._calc_missile_capacity(kingdoms.kingdom(structures={"missile_silos": 100}))
-    boosted = uag._calc_missile_capacity(kingdoms.kingdom(structures={"missile_silos": 100}, **points))
+    boosted = uag._calc_missile_capacity(kingdoms.kingdom(structures={"missile_silos": 100}, **done))
     assert plain == 100 * uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
-    assert boosted == pytest.approx(plain * (1 + bonus), abs=1)
+    assert boosted == plain + 100 * more
 
 
-def test_the_workshops_project_makes_workshops_house_more_engineers():
-    points, bonus = _full("workshops_bonus")
+def test_the_workshops_project_makes_each_workshop_house_more_engineers():
+    done, more = _done("workshops_bonus")
     plain, _ = uag._calc_workshop_capacity(kingdoms.kingdom(race="Gaian", structures={"workshops": 100}), 0)
     boosted, _ = uag._calc_workshop_capacity(
-        kingdoms.kingdom(race="Gaian", structures={"workshops": 100}, **points), 0)
+        kingdoms.kingdom(race="Gaian", structures={"workshops": 100}, **done), 0)
     assert plain == 100 * uas.GAME_CONFIG["BASE_WORKSHOP_CAPACITY"]
-    assert boosted == pytest.approx(plain * (1 + bonus), abs=1)
+    assert boosted == plain + 100 * more
 
 
-def test_the_new_structure_projects_are_one_time_with_a_bonus_once_completed():
+def test_the_new_structure_projects_are_one_time_with_a_raw_increase_once_completed():
     for project in ("mines_bonus", "hangars_bonus", "drone_factories_bonus", "missile_silos_bonus", "workshops_bonus"):
         assert project in uas.ONE_TIME_PROJECTS, project
-        assert uas.PROJECTS[project]["bonus"] > 0, project
+        assert uas.PROJECTS[project]["increase"] > 0, project
+        assert "bonus" not in uas.PROJECTS[project], project
     assert "pop_bonus" in uas.CONTINUOUS_PROJECTS and "fuel_bonus" in uas.CONTINUOUS_PROJECTS
 
 
-def test_a_one_time_bonus_counts_only_once_completed_not_for_points():
+def test_a_one_time_increase_counts_only_once_completed_not_for_points():
     max_points = uas.PROJECTS_FUNCS["mines_bonus"](300)
     almost = kingdoms.kingdom(projects_points={"mines_bonus": max_points * 2})
-    assert uas.project_bonus(almost, "mines_bonus") == 0
-    assert uas.project_bonuses(almost)["mines_bonus"] == 0
+    assert uas.project_increase(almost, "mines_bonus") == 0
     done = kingdoms.kingdom(completed_projects=["mines_bonus"])
-    assert uas.project_bonus(done, "mines_bonus") == uas.PROJECTS["mines_bonus"]["bonus"]
-    assert uas.project_bonuses(done)["mines_bonus"] == uas.PROJECTS["mines_bonus"]["bonus"]
+    assert uas.project_increase(done, "mines_bonus") == uas.PROJECTS["mines_bonus"]["increase"]
 
 
-def test_the_refresh_completes_a_one_time_bonus_project(app):
+def test_the_refresh_completes_a_one_time_structure_project(app):
     max_points = uas.PROJECTS_FUNCS["mines_bonus"](300)
     kd = kingdoms.kingdom(structures={"mines": 100}, projects_points={"mines_bonus": max_points},
                           projects_max_points={"mines_bonus": max_points})
     after = kingdoms.income(app, kd)
     assert "mines_bonus" in after["completed_projects"]
-    assert uas.project_bonus(after, "mines_bonus") == uas.PROJECTS["mines_bonus"]["bonus"]
+    assert uas.project_increase(after, "mines_bonus") == uas.PROJECTS["mines_bonus"]["increase"]
 
 
 def test_a_structure_project_with_no_points_changes_nothing():

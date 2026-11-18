@@ -533,8 +533,8 @@ def _calc_maxes(
 
 def _calc_hangar_capacity(kd_info, units):
     max_hangar_capacity = math.floor(
-        math.floor(kd_info["structures"]["hangars"]) * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]
-        * (1 + uas.project_bonus(kd_info, "hangars_bonus"))
+        math.floor(kd_info["structures"]["hangars"])
+        * (uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"] + uas.project_increase(kd_info, "hangars_bonus"))
     )
     current_hangar_capacity = sum([
         uas.unit_hangar_space(kd_info, key) * (units["current_total"].get(key, 0) + units["hour_24"].get(key, 0))
@@ -948,8 +948,8 @@ def _calc_missile_capacity(kd_info):
         )
     )
     return math.floor(
-        math.floor(kd_info["structures"]["missile_silos"]) * per_silo
-        * (1 + uas.project_bonus(kd_info, "missile_silos_bonus"))
+        math.floor(kd_info["structures"]["missile_silos"])
+        * (per_silo + uas.project_increase(kd_info, "missile_silos_bonus"))
     )
 
 
@@ -1029,8 +1029,8 @@ def _calc_workshop_capacity(kd_info, engineers_building):
         )
     )
     max_workshop_capacity = math.floor(
-        math.floor(kd_info["structures"]["workshops"]) * per_workshop
-        * (1 + uas.project_bonus(kd_info, "workshops_bonus"))
+        math.floor(kd_info["structures"]["workshops"])
+        * (per_workshop + uas.project_increase(kd_info, "workshops_bonus"))
     )
     current_engineers = kd_info["units"]["engineers"]
     current_workshop_capacity = current_engineers + engineers_building

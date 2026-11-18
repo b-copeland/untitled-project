@@ -137,7 +137,8 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
 
 1. Add it to `PROJECTS` in `shared.py`: `name`, `desc`, `category` (a key of `PROJECT_CATEGORIES`), and the points
    (`stars_power`, `constant`). A continuous project has `max_bonus`; a one-time project has none, and may have
-   `bonus`, a fixed bonus it gives once completed. Add `requires`
+   `bonus`, a fixed share it gives once completed, or `increase`, a raw amount each structure of its kind gains
+   (read with `uas.project_increase`). Add `requires`
    (one-time projects that must be done first) or `race` if it has them. Every list of projects (the initial kingdom,
    the Projects page, the help page, the lock checks) is built from `PROJECTS`, so nothing else needs the name.
 2. Put its numbers in `GAME_CONFIG` and say in the pull request that they are proposals.

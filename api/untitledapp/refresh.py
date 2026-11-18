@@ -300,8 +300,7 @@ def _kingdom_with_income(
     }
     income["money"]["mines"] = (
         math.floor(kd_info_parse["structures"]["mines"])
-        * uas.GAME_CONFIG["BASE_MINES_INCOME_PER_EPOCH"]
-        * (1 + current_bonuses.get("mines_bonus", 0))
+        * (uas.GAME_CONFIG["BASE_MINES_INCOME_PER_EPOCH"] + uas.project_increase(kd_info_parse, "mines_bonus"))
     )
     income["money"]["population"] = math.floor(kd_info_parse["population"]) * uas.GAME_CONFIG["BASE_POP_INCOME_PER_EPOCH"]
     income["money"]["bonus"] = current_bonuses["money_bonus"] - is_isolationist * uas.GAME_CONFIG["BASE_ISOLATIONIST_DECREASE"] + is_free_trade * uas.GAME_CONFIG["BASE_FREE_TRADE_INCREASE"]
@@ -354,11 +353,10 @@ def _kingdom_with_income(
 
     income["drones"] = (
         math.floor(kd_info_parse["structures"]["drone_factories"])
-        * uas.GAME_CONFIG["BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH"]
         * (
-            1
-            + (int(kd_info_parse["race"] == "Vult") * uas.GAME_CONFIG["VULT_DRONE_PRODUCTION_INCREASE"])
-            + current_bonuses.get("drone_factories_bonus", 0)
+            uas.GAME_CONFIG["BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH"]
+            * (1 + (int(kd_info_parse["race"] == "Vult") * uas.GAME_CONFIG["VULT_DRONE_PRODUCTION_INCREASE"]))
+            + uas.project_increase(kd_info_parse, "drone_factories_bonus")
         )
     )
     new_drones = income["drones"] * epoch_elapsed
