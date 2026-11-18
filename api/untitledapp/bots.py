@@ -107,7 +107,7 @@ ARCHETYPES = {
         structures_target={"homes": 0.34, "mines": 0.24, "fuel_plants": 0.11, "hangars": 0.16, "drone_factories": 0.08,
                            "workshops": 0.07},
         units_target={"attack": 0.65, "defense": 0.25, "flex": 0.1},
-        projects_target={"military_bonus": 0.2, "general_bonus": 0.2, "money_bonus": 0.1, "big_flexers": 0.5},
+        projects_target={"military_bonus": 0.2, "casualties_bonus": 0.2, "money_bonus": 0.1, "big_flexers": 0.5},
         recruits_before_units=False, max_recruits=800,
         auto_attack={"pure": 1.0, "flex": 0.5},
         auto_rob={"drones": 0.9, "shielded": False, "keep": 3},

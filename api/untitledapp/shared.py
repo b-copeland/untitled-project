@@ -398,6 +398,7 @@ GAME_CONFIG = {
     "EMPIRE_MAX_KINGDOMS_SHARE": 0.30,
     "EMPIRE_MAX_NETWORTH_SHARE": 0.35,
     "EMPIRE_ALWAYS_ALLOWED_GALAXIES": 2,
+
     # One-time structure projects: what each structure of that kind gains once completed (proposals).
     "MINES_PROJECT_MONEY_PER_MINE": 20,  # per epoch
     "HANGARS_PROJECT_UNITS_PER_HANGAR": 10,
@@ -442,6 +443,8 @@ PROJECT_CATEGORIES = {
 }
 # One-time projects that complete with a fixed bonus (proposals).
 STRUCTURE_PROJECT_POINTS = 50000
+ECO_MILITARY_PROJECT_POINTS = 75000  # Cheaper Exploring, Cheaper Recruits, Population Growth and the loss projects
+ECO_MILITARY_PROJECT_BONUS = 0.25
 
 
 PROJECTS = {
@@ -520,6 +523,46 @@ PROJECTS = {
         "name": "Money Bonus",
         "category": "economy",
     },
+    "settle_cost_bonus": {
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Decreases the cost of settling new stars by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
+        "name": "Cheaper Exploring",
+        "category": "economy",
+    },
+    "recruit_cost_bonus": {
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Decreases the cost of recruits by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
+        "name": "Cheaper Recruits",
+        "category": "economy",
+    },
+    "pop_growth_bonus": {
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Increases population growth by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
+        "name": "Population Growth",
+        "category": "economy",
+    },
+    "casualties_bonus": {
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Decreases the units you lose in battle, attacking or defending, by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
+        "name": "Fewer Casualties",
+        "category": "military",
+    },
+    "spy_protection_bonus": {
+        "stars_power": 0,
+        "constant": ECO_MILITARY_PROJECT_POINTS,
+        "bonus": ECO_MILITARY_PROJECT_BONUS,
+        "desc": f"Decreases the damage aggressive spy operations do to you by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
+        "name": "Counter-Intelligence",
+        "category": "spy",
+    },
     "general_bonus": {
         "stars_power": 1.5,
         "constant": 0.1,
@@ -527,6 +570,7 @@ PROJECTS = {
         "desc": "Decreases generals time to return by the current bonus",
         "name": "Generals Speed Bonus",
         "category": "military",
+        "requires": ["casualties_bonus"],
     },
     "spy_bonus": {
         "stars_power": 1.5,
@@ -763,14 +807,13 @@ INITIAL_PROJECT_POINTS = {
     "fuel_bonus": 1000,
     "military_bonus": 1000,
     "money_bonus": 1000,
-    "general_bonus": 1000,
 }
+# Generals Speed Bonus is not here: it needs Fewer Casualties first.
 INITIAL_PROJECTS_TARGET = {
-    "pop_bonus": 0.2,
-    "fuel_bonus": 0.2,
-    "military_bonus": 0.2,
-    "money_bonus": 0.2,
-    "general_bonus": 0.2,
+    "pop_bonus": 0.25,
+    "fuel_bonus": 0.25,
+    "military_bonus": 0.25,
+    "money_bonus": 0.25,
 }
 INITIAL_KINGDOM_STATE = {
     "kingdom": {

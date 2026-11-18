@@ -279,6 +279,8 @@ def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0):
             attacker_rate *= 1 + uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
         if uas.has_project(attacker_kd, "self_destructing_attackers"):
             defender_rate *= 1 + uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
+        defender_rate *= 1 - uas.project_bonus(defender_kd, "casualties_bonus")
+    attacker_rate *= 1 - uas.project_bonus(attacker_kd, "casualties_bonus")
     return attacker_rate, defender_rate
 
 
@@ -1601,6 +1603,14 @@ def _calculate_spy_probability(
 
     return shielded_probability, drones_defense, stars_defense
 
+def _aggro_damage_multiplier(attacker_kd, target_kd):
+    """
+    How much of an aggressive spy operation's damage lands, from the projects of both sides: 1 is the base damage.
+    ``target_kd`` is the target, or what the attacker knows of it (a forecast).
+    """
+    return 1 - uas.project_bonus(target_kd, "spy_protection_bonus")
+
+
 def _calculate_spy_losses(
     drones_to_send,
     shielded,
@@ -1686,9 +1696,10 @@ def calculate_spy(target_kd):
     success_losses, failure_losses = _calculate_spy_losses(
         drones,
         shielded,
-        has_drone_gadgets="drone_gadgets" in kd_info_parse["completed_projects"]
+        has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
     )
 
+    damage_multiplier = _aggro_damage_multiplier(kd_info_parse, max_target_kd_info)
     message = f"The operation has a {spy_probability:.2%} chance of success. \n\nIf successful, {success_losses} drones will be lost. \nIf unsuccessful, {failure_losses} drones will be lost.\n"
 
     if operation in uas.REVEAL_OPERATIONS:
@@ -1697,35 +1708,35 @@ def calculate_spy(target_kd):
         reveal_duration_hours = reveal_duration_seconds / 3600
         message += f"If successful, the target's {revealed_stat} will be revealed for {reveal_duration_hours} hours.\n"
     if operation == "siphonfunds":
-        siphon_damage = math.floor(drones * uas.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"])
+        siphon_damage = math.floor(drones * uas.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"] * damage_multiplier)
         siphon_seconds = uas.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
         siphon_hours = siphon_seconds / 3600
         message += f"If successful, you will siphon up to {siphon_damage} money over the next {siphon_hours} hours."
     if operation == "bombhomes":
         if "structures" in max_target_kd_info.keys():
-            homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * uas.GAME_CONFIG["BASE_DRONES_MAX_HOME_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"]))
+            homes_damage = math.floor(min(math.floor(max_target_kd_info["structures"]["homes"] * uas.GAME_CONFIG["BASE_DRONES_MAX_HOME_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"])) * damage_multiplier)
             message += f"If successful, you will destroy {homes_damage} homes."
         else:
-            homes_damage = math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"])
+            homes_damage = math.floor(math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"]) * damage_multiplier)
             message += f"If successful, you will destroy up to {homes_damage} homes."
     if operation == "sabotagefuelplants":
         if "structures" in max_target_kd_info.keys():
-            fuel_plant_damage = min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * uas.GAME_CONFIG["BASE_DRONES_MAX_FUEL_PLANT_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"]))
+            fuel_plant_damage = math.floor(min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * uas.GAME_CONFIG["BASE_DRONES_MAX_FUEL_PLANT_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"])) * damage_multiplier)
             message += f"If successful, you will destroy {fuel_plant_damage} fuel plants."
         else:
-            fuel_plant_damage = math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"])
+            fuel_plant_damage = math.floor(math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"]) * damage_multiplier)
             message += f"If successful, you will destroy up to {fuel_plant_damage} fuel plants."
     if operation == "kidnappopulation":
         if "population" in max_target_kd_info.keys():
-            kidnap_damage = min(math.floor(max_target_kd_info["population"] * uas.GAME_CONFIG["BASE_DRONES_MAX_KIDNAP_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_KIDNAP"]))
+            kidnap_damage = math.floor(min(math.floor(max_target_kd_info["population"] * uas.GAME_CONFIG["BASE_DRONES_MAX_KIDNAP_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_KIDNAP"])) * damage_multiplier)
             kidnap_return = math.floor(kidnap_damage * uas.GAME_CONFIG["BASE_KIDNAP_RETURN_RATE"])
             message += f"If successful, you will kidnap {kidnap_damage} civilians. {kidnap_return} civilians will join your population."
         else:
-            kidnap_damage = math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_KIDNAP"])
+            kidnap_damage = math.floor(math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_KIDNAP"]) * damage_multiplier)
             kidnap_return = math.floor(kidnap_damage * uas.GAME_CONFIG["BASE_KIDNAP_RETURN_RATE"])
             message += f"If successful, you will kidnap up to {kidnap_damage} civilians. Up to {kidnap_return} civilians will join your population."
     if operation == "suicidedrones":
-        fuel_damage = drones * 5
+        fuel_damage = math.floor(drones * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"] * damage_multiplier)
         if "fuel" in max_target_kd_info.keys():
             fuel_damage = min(fuel_damage, max_target_kd_info["fuel"])
             message = f"You will destroy {fuel_damage} fuel."
@@ -1803,7 +1814,7 @@ def _spy(req, kd_id, target_kd):
         success_losses, failure_losses = _calculate_spy_losses(
             drones,
             shielded,
-            has_drone_gadgets="drone_gadgets" in kd_info_parse["completed_projects"]
+            has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
         )
 
         roll = random.uniform(0, 1)
@@ -1827,7 +1838,10 @@ def _spy(req, kd_id, target_kd):
 
         if operation == "suicidedrones":
             burnable_fuel = max_target_kd_info["fuel"] - uas.GAME_FUNCS["BASE_NEGATIVE_FUEL_CAP"](max_target_kd_info["stars"])
-            fuel_damage = min(burnable_fuel, drones * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"])
+            fuel_damage = math.floor(min(
+                burnable_fuel,
+                drones * uas.GAME_CONFIG["BASE_DRONES_SUICIDE_FUEL_DAMAGE"] * _aggro_damage_multiplier(kd_info_parse, max_target_kd_info),
+            ))
             losses = drones
             status = "success"
             message = f"You have destroyed {fuel_damage} fuel. You have lost {losses} drones"
@@ -1856,23 +1870,24 @@ def _spy(req, kd_id, target_kd):
                     message = f"Success! The target will be revealed for {reveal_duration_hours} hours. You have lost {success_losses} drones."
                     target_message = "You were infiltrated by drones on a spy operation."
                 
+                damage_multiplier = _aggro_damage_multiplier(kd_info_parse, max_target_kd_info)
                 if operation == "siphonfunds":
-                    siphon_damage = drones * uas.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"]
+                    siphon_damage = math.floor(drones * uas.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"] * damage_multiplier)
                     siphon_seconds = uas.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
                     siphon_hours = siphon_seconds / 3600
                     siphon_until = time_now + datetime.timedelta(seconds=siphon_seconds)
                     message = f"Success! Your drones will siphon up to {siphon_damage} money over the next {siphon_hours} hours. You have lost {success_losses} drones."
                     target_message = f"Enemy drones have begun siphoning up to {siphon_damage} money over the next {siphon_hours} hours."
                 if operation == "bombhomes":
-                    homes_damage = min(math.floor(max_target_kd_info["structures"]["homes"] * uas.GAME_CONFIG["BASE_DRONES_MAX_HOME_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"]))
+                    homes_damage = math.floor(min(math.floor(max_target_kd_info["structures"]["homes"] * uas.GAME_CONFIG["BASE_DRONES_MAX_HOME_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"])) * damage_multiplier)
                     message = f"Success! You have destroyed {homes_damage} homes. You have lost {success_losses} drones."
                     target_message = f"Enemy drones have destroyed {homes_damage} homes."
                 if operation == "sabotagefuelplants":
-                    fuel_plant_damage = min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * uas.GAME_CONFIG["BASE_DRONES_MAX_FUEL_PLANT_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"]))
+                    fuel_plant_damage = math.floor(min(math.floor(max_target_kd_info["structures"]["fuel_plants"] * uas.GAME_CONFIG["BASE_DRONES_MAX_FUEL_PLANT_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_FUEL_PLANT_DAMAGE"])) * damage_multiplier)
                     message = f"Success! You have destroyed {fuel_plant_damage} fuel plants. You have lost {success_losses} drones."
                     target_message = f"Enemy drones have destroyed {fuel_plant_damage} fuel plants."
                 if operation == "kidnappopulation":
-                    kidnap_damage = min(math.floor(max_target_kd_info["population"] * uas.GAME_CONFIG["BASE_DRONES_MAX_KIDNAP_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_KIDNAP"]))
+                    kidnap_damage = math.floor(min(math.floor(max_target_kd_info["population"] * uas.GAME_CONFIG["BASE_DRONES_MAX_KIDNAP_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_KIDNAP"])) * damage_multiplier)
                     kidnap_return = math.floor(kidnap_damage * uas.GAME_CONFIG["BASE_KIDNAP_RETURN_RATE"])
                     message = f"Success! You have kidnapped {kidnap_damage} civilians. {kidnap_return} civilians have joined your population. You have lost {success_losses} drones."
                     target_message = f"Enemy drones have kidnapped {kidnap_damage} civilians."
@@ -2119,7 +2134,7 @@ def _rob_primitives(req, kd_id):
         success_losses, _ = _calculate_spy_losses(
             drones,
             shielded,
-            has_drone_gadgets="drone_gadgets" in kd_info_parse["completed_projects"]
+            has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
         )
 
         status = "success"

@@ -87,7 +87,11 @@ def _calc_pop_change_per_epoch(
     elif pop_difference > 0:
         pct_pop_gain = uas.GAME_CONFIG["BASE_PCT_POP_GROWTH_PER_EPOCH"] * kd_info_parse["population"] * epoch_elapsed
         stars_pop_gain = uas.GAME_CONFIG["BASE_POP_GROWTH_PER_STAR_PER_EPOCH"] * kd_info_parse["stars"] * epoch_elapsed
-        greater_pop_gain = max(pct_pop_gain, stars_pop_gain) * (1 - int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_POP_GROWTH_REDUCTION"])
+        greater_pop_gain = (
+            max(pct_pop_gain, stars_pop_gain)
+            * (1 - int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_POP_GROWTH_REDUCTION"])
+            * (1 + uas.project_bonus(kd_info_parse, "pop_growth_bonus"))
+        )
         pop_change = min(greater_pop_gain, pop_difference)
     else:
         pop_change = 0
@@ -979,10 +983,14 @@ def _resolve_auto_projects(kd_info_parse):
         k: v / total_engineers
         for k, v in kd_info_parse["projects_assigned"].items()
     }
+    # A project engineers can not work on yet (locked, or a one-time project already done) gets none, whatever its target.
     target_gap = {
         k: kd_info_parse["projects_target"].get(k, 0) - v
         for k, v in pct_assigned.items()
         if (kd_info_parse["projects_target"].get(k, 0) - v) > 0
+        and k in uas.PROJECTS
+        and uas.project_locked_reason(kd_info_parse, k) is None
+        and not (k in uas.ONE_TIME_PROJECTS and uas.has_project(kd_info_parse, k))
     }
     if target_gap:
         total_target_gap = sum(target_gap.values())
