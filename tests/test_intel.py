@@ -126,7 +126,7 @@ def test_free_intel_never_replaces_paid_intel_but_replaces_older_free_intel():
     assert market["history"][0]["kind"] == "free" and market["history"][0]["to"] is None
 
 
-def test_the_view_hides_excluded_listings_and_says_why_each_item_can_not_be_taken():
+def test_the_view_hides_excluded_listings_and_bounties_and_says_why_each_item_can_not_be_taken():
     market = {
         "listings": {
             "1.5.military": {"id": "1.5.military", "seller": "1", "target": TARGET, "category": "military", "cut": 0.1,
@@ -135,10 +135,12 @@ def test_the_view_hides_excluded_listings_and_says_why_each_item_can_not_be_take
                             "time": _at(8)},
         },
         "bounties": {
-            "3.5.shields": {"id": "3.5.shields", "requester": "3", "target": TARGET, "category": "shields", "cut": 0.1,
+            "4.5.shields": {"id": "4.5.shields", "requester": "4", "target": TARGET, "category": "shields", "cut": 0.1,
                             "time": _at(8)},
-            "3.5.drones": {"id": "3.5.drones", "requester": "3", "target": TARGET, "category": "drones", "cut": 0.1,
+            "4.5.drones": {"id": "4.5.drones", "requester": "4", "target": TARGET, "category": "drones", "cut": 0.1,
                            "time": _at(8)},
+            "3.5.projects": {"id": "3.5.projects", "requester": "3", "target": TARGET, "category": "projects", "cut": 0.1,
+                             "time": _at(8)},  # 3 excludes 2, so 2 does not see it
         },
         "accepted": {"2": {TARGET: {"drones": _record("1", 0)}}, "3": {"6": {"military": _record("1", 0.1)}}},
         "exclusions": {"3": ["2"]},
@@ -148,7 +150,7 @@ def test_the_view_hides_excluded_listings_and_says_why_each_item_can_not_be_take
     assert [listing["id"] for listing in seen["listings"]] == ["1.5.military"]  # 3 excludes 2
     assert seen["listings"][0]["problem"] is None
     problems = {bounty["id"]: bounty["problem"] for bounty in seen["bounties"]}
-    assert problems == {"3.5.shields": None, "3.5.drones": "You can not pass on intel that was shared with you"}
+    assert problems == {"4.5.shields": None, "4.5.drones": "You can not pass on intel that was shared with you"}
     assert seen["accepted"] == [{"target": TARGET, "category": "drones", **_record("1", 0)}]
     assert [(item["target"], item["category"], item["received"]) for item in seen["my_intel"]] == [
         (TARGET, "drones", True), (TARGET, "shields", False),  # expired military and galaxymate 1 left out
@@ -284,6 +286,15 @@ def test_exclusions(app, client, jwt1, jwt2):
     assert _intel(client, jwt2)["listings"] == []
     refused = _post(client, jwt2, "buy", {"listing": uai.listing_id("1", TARGET, "military")})
     assert refused.status_code == 400 and "no longer on offer" in refused.get_json()["message"]
+
+    # Nor 1's bounties.
+    _post(client, jwt1, "bounty", {"target": TARGET, "category": "shields", "cut": 10, "epochs": 4})
+    assert _intel(client, jwt2)["bounties"] == []
+    hidden = _post(client, jwt2, "fulfil", {"bounty": uai.bounty_id("1", TARGET, "shields")})
+    assert hidden.status_code == 400 and "no longer open" in hidden.get_json()["message"]
+    with app.app_context():
+        assert [bounty["id"] for bounty in uai.view(uai._market("1"), "3", {}, uai._now())["bounties"]] == [
+            uai.bounty_id("1", TARGET, "shields")]  # 3 is not excluded and still sees it
 
     shared = _post(client, jwt1, "share", {"target": TARGET, "category": "kingdom", "cut": 0})
     assert shared.status_code == 200, shared.get_json()

@@ -16,8 +16,8 @@ paid to its own sharer, up to ``BASE_MAX_TOTAL_SHARE_CUT`` for one target. Once 
 target, it can not take the same category on that target at a lower cut (so a galaxymate can not cut the first
 sharer out by offering it cheaper), and a free share never replaces paid intel.
 
-A kingdom can exclude galaxymates from its intel: they do not see its listings, can not buy them, and get nothing from
-its free shares. Intel received from a galaxymate can not be passed on.
+A kingdom can exclude galaxymates from its intel: they do not see its listings or its bounties, can not buy or answer
+them, and get nothing from its free shares. Intel received from a galaxymate can not be passed on.
 
 Everything lives in one document per galaxy, ``galaxy_intel_<galaxy>``, which is the single decision point of every
 action here (``occ.update``). Its fields (each read with a default, since the function app creates it as ``{"id"}``):
@@ -217,7 +217,7 @@ def revealed_until(revealed, target, category, now):
 
 def view(market, kd_id, revealed, now, members=()):
     """
-    What ``kd_id`` sees of its galaxy's market. Listings from kingdoms that exclude it are left out, and only its own
+    What ``kd_id`` sees of its galaxy's market. Listings and bounties from kingdoms that exclude it are left out, and only its own
     accepted intel and exclusions are included, and its own intel (``my_intel``) leaves out galaxymates, whose
     intel can not be shared. Each listing and bounty says why the viewer could not take it
     (``problem``, None if it can), so the page can say so before anything is sent.
@@ -235,6 +235,8 @@ def view(market, kd_id, revealed, now, members=()):
         listings.append({**listing, "problem": problem})
     bounties = []
     for bounty in market["bounties"].values():
+        if kd_id in market["exclusions"].get(bounty["requester"], []):
+            continue
         bounties.append({**bounty, "problem": fulfil_problem(market, kd_id, bounty, revealed, now)})
     accepted = [
         {"target": target, "category": category, **record}
@@ -546,7 +548,7 @@ def _fulfil(kd_id, bounty):
     def decide(document):
         market = prune(normalize(document), now)
         wanted = market["bounties"].get(bounty)
-        if wanted is None:
+        if wanted is None or kd_id in market["exclusions"].get(wanted["requester"], []):
             raise occ.Rejected("That bounty is no longer open")
         problem = fulfil_problem(market, kd_id, wanted, revealed, now)
         if problem:
