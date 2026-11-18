@@ -71,69 +71,101 @@ class Archetype:
 
 
 ARCHETYPES = {
+    # The starts share one idea, which the simulations bore out at every step: an army can only grow as fast as
+    # recruits can be drafted (a share of the population), and early stars compound, so every playstyle starts with a
+    # real force of attackers to send at primitives from the first hour, while they are easy. What is left goes to
+    # enough defenders not to be the easiest target, engineers for the first unlock, and drones (which rob primitives
+    # from the start, and which only factories make later) in the measure of the role: most for the thief, then the
+    # intel bot. Recruits are cheap to draft later, so few are bought with points. Hangars and fuel plants fit the army.
     "explorer": Archetype(
         key="explorer",
         label="Explorer",
         race="Gaian",
         description="Claims stars with cheap fast settling and builds the economy; defends rather than attacks.",
-        unit_choices={"drones": 2000, "recruits": 2000, "attack": 0, "defense": 1400, "flex": 0, "engineers": 900},
-        structures_choices={"homes": 110, "mines": 60, "fuel_plants": 40, "hangars": 20, "drone_factories": 10,
-                            "missile_silos": 0, "workshops": 60},
-        auto_spending={"settle": 0.5, "structures": 0.3, "military": 0.1, "engineers": 0.1},
-        structures_target={"homes": 0.35, "mines": 0.2, "fuel_plants": 0.12, "hangars": 0.06, "drone_factories": 0.03,
-                           "workshops": 0.15},
-        units_target={"defense": 0.7, "attack": 0.0, "flex": 0.1},
-        projects_target={"pop_bonus": 0.3, "money_bonus": 0.25, "fuel_bonus": 0.15, "military_bonus": 0.1},
+        unit_choices={"drones": 1000, "recruits": 500, "attack": 1900, "defense": 900, "flex": 0, "engineers": 450},
+        structures_choices={"homes": 112, "mines": 92, "fuel_plants": 32, "hangars": 48, "drone_factories": 4,
+                            "missile_silos": 0, "workshops": 12},
+        auto_spending={"settle": 0.35, "structures": 0.35, "military": 0.2, "engineers": 0.1},
+        structures_target={"homes": 0.36, "mines": 0.3, "fuel_plants": 0.1, "hangars": 0.11, "drone_factories": 0.06,
+                           "workshops": 0.06},
+        units_target={"defense": 0.75, "attack": 0.25},
+        projects_target={"money_bonus": 0.3, "military_bonus": 0.2, "fuel_bonus": 0.15, "drone_gadgets": 0.35},
+        recruits_before_units=False, max_recruits=500,
+        auto_attack={"pure": 1.0, "flex": 0.0},
+        auto_rob={"drones": 0.9, "shielded": False, "keep": 2},
         shields={"military": 0.05},
     ),
     "attacker": Archetype(
         key="attacker",
         label="Attacker",
         race="Xo",
-        description="Grows by attacking other kingdoms with a mix of pure offense and flex units, on a timer.",
-        unit_choices={"drones": 1000, "recruits": 1000, "attack": 1200, "defense": 0, "flex": 1000, "engineers": 400},
-        structures_choices={"homes": 90, "mines": 70, "fuel_plants": 50, "hangars": 70, "drone_factories": 0,
-                            "missile_silos": 0, "workshops": 20},
-        auto_spending={"settle": 0.1, "structures": 0.2, "military": 0.6, "engineers": 0.1},
-        structures_target={"homes": 0.25, "mines": 0.2, "fuel_plants": 0.15, "hangars": 0.25, "workshops": 0.05},
-        units_target={"attack": 0.4, "flex": 0.4, "defense": 0.1},
-        projects_target={"military_bonus": 0.35, "general_bonus": 0.25, "money_bonus": 0.2, "pop_bonus": 0.1},
-        auto_attack={"pure": 0.5, "flex": 0.3},
+        description="Grows by attacking: primitives while they are easy, then other kingdoms, with an army that is mostly offense.",
+        unit_choices={"drones": 1000, "recruits": 500, "attack": 2800, "defense": 400, "flex": 0, "engineers": 250},
+        structures_choices={"homes": 105, "mines": 80, "fuel_plants": 32, "hangars": 54, "drone_factories": 13,
+                            "missile_silos": 0, "workshops": 16},
+        auto_spending={"settle": 0.15, "structures": 0.3, "military": 0.45, "engineers": 0.1},
+        structures_target={"homes": 0.34, "mines": 0.24, "fuel_plants": 0.11, "hangars": 0.16, "drone_factories": 0.08,
+                           "workshops": 0.07},
+        units_target={"attack": 0.65, "defense": 0.25, "flex": 0.1},
+        projects_target={"military_bonus": 0.2, "general_bonus": 0.2, "money_bonus": 0.1, "big_flexers": 0.5},
+        recruits_before_units=False, max_recruits=800,
+        auto_attack={"pure": 1.0, "flex": 0.5},
+        auto_rob={"drones": 0.9, "shielded": False, "keep": 3},
         shields={"military": 0.05},
     ),
     "intel": Archetype(
         key="intel",
         label="Intel",
         race="Lumina",
-        description="Support: drone-heavy, reveals other kingdoms and shares what it learns with its galaxy.",
-        unit_choices={"drones": 6000, "recruits": 1000, "attack": 0, "defense": 1000, "flex": 0, "engineers": 800},
-        structures_choices={"homes": 90, "mines": 50, "fuel_plants": 40, "hangars": 20, "drone_factories": 70,
-                            "missile_silos": 0, "workshops": 30},
-        auto_spending={"settle": 0.2, "structures": 0.3, "military": 0.3, "engineers": 0.2},
-        structures_target={"homes": 0.28, "mines": 0.15, "fuel_plants": 0.12, "hangars": 0.07, "drone_factories": 0.25,
-                           "workshops": 0.1},
-        units_target={"defense": 0.5, "flex": 0.2},
-        projects_target={"money_bonus": 0.3, "pop_bonus": 0.25, "fuel_bonus": 0.2, "military_bonus": 0.1},
+        description="Support: drone-heavy, reveals other kingdoms and shares what it learns with its galaxy for a cut of the spoils.",
+        unit_choices={"drones": 2000, "recruits": 500, "attack": 1600, "defense": 800, "flex": 0, "engineers": 550},
+        structures_choices={"homes": 112, "mines": 88, "fuel_plants": 22, "hangars": 42, "drone_factories": 21,
+                            "missile_silos": 0, "workshops": 15},
+        auto_spending={"settle": 0.3, "structures": 0.35, "military": 0.2, "engineers": 0.15},
+        structures_target={"homes": 0.34, "mines": 0.27, "fuel_plants": 0.07, "hangars": 0.09, "drone_factories": 0.15,
+                           "workshops": 0.07},
+        units_target={"defense": 0.6, "attack": 0.4},
+        projects_target={"money_bonus": 0.2, "military_bonus": 0.1, "fuel_bonus": 0.1, "drone_gadgets": 0.6},
+        recruits_before_units=False, max_recruits=500,
+        auto_attack={"pure": 1.0, "flex": 0.0},
+        auto_rob={"drones": 0.9, "shielded": False, "keep": 4},
         shields={"spy": 0.1, "spy_radar": 0.1},
     ),
     "thief": Archetype(
         key="thief",
         label="Thief",
         race="Vult",
-        description="Lives off drones: robs primitives on a timer and keeps enough defense to be left alone.",
-        unit_choices={"drones": 8000, "recruits": 1000, "attack": 0, "defense": 800, "flex": 0, "engineers": 700},
-        structures_choices={"homes": 80, "mines": 50, "fuel_plants": 40, "hangars": 10, "drone_factories": 90,
-                            "missile_silos": 0, "workshops": 30},
-        auto_spending={"settle": 0.2, "structures": 0.3, "military": 0.3, "engineers": 0.2},
-        structures_target={"homes": 0.25, "mines": 0.15, "fuel_plants": 0.12, "hangars": 0.03, "drone_factories": 0.3,
-                           "workshops": 0.1},
-        units_target={"defense": 0.6},
-        projects_target={"money_bonus": 0.3, "pop_bonus": 0.2, "fuel_bonus": 0.1, "drone_gadgets": 0.2},
-        auto_rob={"drones": 0.5, "shielded": False, "keep": 5},
+        description="Lives off drones: robs primitives, siphons richer kingdoms, and keeps enough defense to be left alone.",
+        unit_choices={"drones": 3000, "recruits": 500, "attack": 1700, "defense": 800, "flex": 0, "engineers": 400},
+        structures_choices={"homes": 112, "mines": 85, "fuel_plants": 24, "hangars": 43, "drone_factories": 26,
+                            "missile_silos": 0, "workshops": 10},
+        auto_spending={"settle": 0.3, "structures": 0.35, "military": 0.2, "engineers": 0.15},
+        structures_target={"homes": 0.33, "mines": 0.25, "fuel_plants": 0.08, "hangars": 0.08, "drone_factories": 0.2,
+                           "workshops": 0.06},
+        units_target={"defense": 0.6, "attack": 0.4},
+        projects_target={"money_bonus": 0.2, "military_bonus": 0.1, "fuel_bonus": 0.1, "drone_gadgets": 0.6},
+        recruits_before_units=False, max_recruits=500,
+        auto_attack={"pure": 1.0, "flex": 0.0},
+        auto_rob={"drones": 0.9, "shielded": False, "keep": 3},
         shields={"spy": 0.1, "spy_radar": 0.05},
     ),
 }
 
+
+
+# TUNE: the share of each playstyle in a universe of bots. Few intel bots, as they compete with each other to sell the
+# same galaxymates intel; thieves as a minority, so their siphons are not spread over each other.
+DEFAULT_MIX = {"intel": 0.10, "thief": 0.20, "attacker": 0.40, "explorer": 0.30}
+
+
+def mix_for(total, shares=None):
+    """``{archetype: count}`` for ``total`` bots in ``shares`` (``DEFAULT_MIX``), rounded so the counts add up."""
+    shares = shares or DEFAULT_MIX
+    exact = {kind: total * share / sum(shares.values()) for kind, share in shares.items()}
+    counts = {kind: int(value) for kind, value in exact.items()}
+    for kind in sorted(exact, key=lambda k: counts[k] - exact[k])[:total - sum(counts.values())]:
+        counts[kind] += 1
+    return counts
 
 def problems(archetype):
     """Everything illegal about an archetype, as plain sentences, using the validators the routes use. Empty if fine."""
@@ -175,14 +207,21 @@ def vary(values, rng, spread=0.25):
 
 def settings_for(archetype, rng):
     """The auto builder fields for one bot's kingdom document (the part that is not the starting units/structures)."""
+    personality = botbrain.PERSONALITIES[archetype.key]
     settings = {
         # What marks a kingdom as a bot, and the brain's state: its type, when it next thinks (spread out so a hundred
-        # new bots do not all think at once) and the log of what it decided. See botbrain.py.
+        # new bots do not all think at once) and the log of what it decided. See botbrain.py. The auto builder fields
+        # below are only how it starts: the brain re-plans them every time it thinks.
         "bot": {
             "type": archetype.key,
-            "next_think": botbrain.first_think_time(
-                botbrain.PERSONALITIES[archetype.key], rng, datetime.datetime.now(datetime.timezone.utc)).isoformat(),
+            "next_think": botbrain.first_think_time(personality, rng, datetime.datetime.now(datetime.timezone.utc)).isoformat(),
             "log": [],
+            # What this bot hits (primitives, players, both or nothing, with its army and with its drones), whether it
+            # builds missiles, and how bold it is. Drawn once, so a hundred bots of a type are not a hundred copies.
+            "style": botbrain.roll_style(personality, rng),
+            "memory": {},
+            "counts": {},
+            "reserved_generals": 0,
         },
         "auto_spending_enabled": True,
         "auto_spending": vary(archetype.auto_spending, rng, 0.2),

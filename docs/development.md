@@ -215,6 +215,22 @@ Invoke-WebRequest http://localhost:8000/api/refreshdata -Headers @{ 'Refresh-Sec
 
 ## Simulating a round with bots
 
+Two scripts. To see how the bots do, or to tune them, use the first: it needs nothing running.
+
+`scripts/simulate_round.py` plays a whole round in one process: the function app's real handlers on the in-memory
+backend the tests use, and a simulated clock, so a week of game time takes about five minutes for 40 bots and the epoch
+keeps its real length.
+
+```powershell
+conda run -n funcapp python scripts/simulate_round.py --days 7 --bots 40 --galaxies 4 --detail
+conda run -n funcapp python scripts/simulate_round.py --days 5 --set thief.defense_margin=1.3   # try a number
+```
+
+It prints how each playstyle grew, what actions were taken, the empires and wars, anything the game logged as an
+error, and what the bots cost in function app calls. What to make of it is in [bots.md](bots.md#tuning-scriptssimulate_roundpy).
+`--replay round.html` also writes a page to watch the round back (open it from disk): every kingdom ranked over time,
+what happened, and any bot's decisions with its reasons.
+
 `scripts/simulate_bots.py` plays a whole round on your local stack, so you can watch the bots work without waiting hours.
 It needs no Azure resources: everything runs on the Cosmos emulator. A short epoch makes the game run fast, so start the
 **function app and Flask with `EPOCH_SECONDS`** set (30 makes an epoch half a minute instead of half an hour, so 10 minutes
@@ -232,6 +248,10 @@ The script **wipes the local game** (`/api/resetstate`), sets the round's start 
 It refuses to run unless `COSMOS_ENDPOINT` is the local emulator. `--no-reset` keeps the current game and just ticks.
 Afterwards reseed the emulator if you want the copy of the real data back (`seed_cosmos_emulator.py --apply --replace`).
 Leave `EPOCH_SECONDS` unset for a normal game.
+
+To watch it in the browser, `npm start` and log in at `/admin` with the `admin` account: below the round settings,
+**Watch the round** lists every kingdom (stars, networth, points, galaxy, empire), refreshed every 30 seconds if asked,
+and clicking one shows all of it, its bot's decisions and memory, and its news.
 
 ## Troubleshooting
 

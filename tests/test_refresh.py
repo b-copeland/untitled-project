@@ -644,3 +644,18 @@ def test_settles_queued_while_the_tick_runs_survive_the_trim(app, session, monke
     _refresh(app, monkeypatch)
 
     assert [entry["amount"] for entry in session.docs["/kingdom/1/settles"]["settles"]] == [2, 5]
+
+
+def test_a_scheduled_spy_shares_its_intel_for_the_cut_asked(monkeypatch):
+    sent = []
+    monkeypatch.setattr(refresh.uag, "_get_kd_info", lambda kd_id: {"drones": 1000})
+    monkeypatch.setattr(refresh.uac, "_spy", lambda req, kd_id, target: (sent.append(req) or ({}, {}, 200, True)))
+    options = {"drones_pct": 0.5, "max_tries": 1, "operation": "spymilitary", "target": "2", "share_to_galaxy": True}
+
+    func, args = refresh._resolve_schedule_intelspy({"kdId": "1"}, {"options": {**options, "cut": 10.0}})
+    func(*args)
+    func, args = refresh._resolve_schedule_intelspy({"kdId": "1"}, {"options": options})  # the Schedule page sends none
+    func(*args)
+
+    assert [req["cut"] for req in sent] == [10.0, 0]
+    assert all(req["share_to_galaxy"] for req in sent)

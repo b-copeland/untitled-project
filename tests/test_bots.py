@@ -62,14 +62,19 @@ def test_a_created_bot_is_a_playable_kingdom_with_the_builder_on(app, client):
 
     attacker = _get(f"/kingdom/{ids[0]}")
     assert attacker["race"] == "Xo" and attacker["auto_spending_enabled"] is True
-    assert attacker["units"]["attack"] == 1200 and attacker["units"]["flex"] == 1000
+    assert attacker["units"]["attack"] == 2800 and attacker["drones"] == 1000
     assert attacker["auto_attack_enabled"] is True and attacker["auto_attack_settings"]["pure"] > 0
     assert sum(attacker["auto_spending"].values()) <= 1.0001
     assert attacker["next_resolve"]["auto_spending"] < uas.DATE_SENTINEL
+    assert attacker["recruits_before_units"] is False  # or recruits take all the army's money (see docs/bots.md)
+    # What the brain needs: what this bot hits, an empty memory, and a first think within its first interval.
+    bot = attacker["bot"]
+    assert bot["type"] == "attacker" and bot["style"]["army"] in ("primitives", "players", "both")
+    assert bot["memory"] == {} and bot["reserved_generals"] == 0 and bot["next_think"]
 
     thief = _get(f"/kingdom/{ids[2]}")
-    assert thief["race"] == "Vult" and thief["drones"] == 8000
-    assert thief["auto_rob_enabled"] is True and thief["auto_attack_enabled"] is False
+    assert thief["race"] == "Vult" and thief["drones"] == 3000
+    assert thief["auto_rob_enabled"] is True and thief["auto_attack_enabled"] is True
 
 
 def test_bots_cannot_be_logged_in_to(app, client):

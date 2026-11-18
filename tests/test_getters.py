@@ -225,3 +225,19 @@ def test_military_estimate_counts_units_out_with_generals_and_only_when_units_ar
     assert with_generals_out["offense"] > home["offense"] and with_generals_out["defense"] == home["defense"]
     # Lumina's offense is reduced, and Gaian's defense is not the same as anybody else's.
     assert getters._military_estimate({"units": {"attack": 100}, "race": "Lumina"})["offense"] < getters._military_estimate({"units": {"attack": 100}})["offense"]
+
+
+def test_the_projects_of_a_dead_kingdom_can_be_looked_at(app, client, jwt1):
+    from tests.test_concurrency import _create_item
+
+    _create_item("galaxies", {"galaxies": {"1:1": ["1"], "1:2": ["2"]}})
+    _create_item("revealed_1", {"revealed": {"2": {"projects": "2999-01-01T00:00:00+00:00"}}, "revealed_galaxymates": []})
+    zero = {project: 0 for project in app_shared.PROJECTS}
+    _create_item("kingdom_2", {**app_shared.INITIAL_KINGDOM_STATE["kingdom"],
+                               "kdId": "2", "name": "kd2", "stars": 0, "status": "Dead", "networth": 0,
+                               "projects_points": zero, "projects_max_points": zero})
+
+    resp = client.get("/api/kingdom/2", headers={"Authorization": f"Bearer {jwt1}"})
+
+    assert resp.status_code == 200, resp.get_data(as_text=True)
+    assert set(resp.json["current_bonuses"].values()) == {0.0}

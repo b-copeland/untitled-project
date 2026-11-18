@@ -77,7 +77,17 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
 
 - Not converted to check-before-sending: the politics forms.
 - UX proposals not built: see [decisions/0003-ux-review.md](decisions/0003-ux-review.md#proposed-not-built).
+- Spy attempts come back every epoch again (2026-11-17), so a player away for more than 10 epochs loses attempts.
+  Recurring scheduled siphons and intel are issue #137.
 
 ## Bots
 
 See [bots.md](bots.md) for what bots do not do yet and the open questions.
+
+Found by simulating rounds (2026-11-15), not changed because they are rules or balance:
+
+- The `pop_bonus` project has no effect: no formula reads it.
+- `_validate_disband` (`build.py`) does not refuse engineers: it builds the message and drops it.
+- An attack always takes at least `BASE_ATTACK_MIN_STARS_GAIN` stars, so a small kingdom can be ground down to nothing.
+- Details, and what else the simulations show, in
+  [bots.md](bots.md#what-the-simulations-say-about-the-game-for-the-maintainer).

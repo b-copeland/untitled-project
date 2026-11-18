@@ -43,10 +43,54 @@ def _claim_entry(path, field, expected, message):
     occ.update(path, claim)
 
 
-def _change_empire_galaxies(empire_id, add=None, remove=None):
+def empire_size_problem(empire_galaxies, galaxy, galaxy_members, galaxy_networth):
+    """
+    Why ``galaxy`` may not join an empire of ``empire_galaxies``, or None if it may: the empire would then hold more
+    than ``EMPIRE_MAX_KINGDOMS_SHARE`` of the universe's kingdoms or ``EMPIRE_MAX_NETWORTH_SHARE`` of its networth.
+    An empire of ``EMPIRE_ALWAYS_ALLOWED_GALAXIES`` galaxies is always allowed. ``galaxy_members`` is
+    ``{galaxy: [kingdoms]}`` and ``galaxy_networth`` ``{galaxy: networth}``, as the scores have it. The bots ask the
+    same question before they invite or ask.
+    """
+    together = set(empire_galaxies) | {galaxy}
+    if len(together) <= uas.GAME_CONFIG["EMPIRE_ALWAYS_ALLOWED_GALAXIES"]:
+        return None
+    kingdoms = sum(len(galaxy_members.get(g, [])) for g in together)
+    all_kingdoms = max(sum(len(members) for members in galaxy_members.values()), 1)
+    if kingdoms / all_kingdoms > uas.GAME_CONFIG["EMPIRE_MAX_KINGDOMS_SHARE"]:
+        return (f"The Empire would have {kingdoms / all_kingdoms:.0%} of the universe's kingdoms; "
+                f"the most an Empire can have is {uas.GAME_CONFIG['EMPIRE_MAX_KINGDOMS_SHARE']:.0%}")
+    networth = sum(galaxy_networth.get(g, 0) for g in together)
+    all_networth = max(sum(galaxy_networth.values()), 1)
+    if networth / all_networth > uas.GAME_CONFIG["EMPIRE_MAX_NETWORTH_SHARE"]:
+        return (f"The Empire would have {networth / all_networth:.0%} of the universe's networth; "
+                f"the most an Empire can have is {uas.GAME_CONFIG['EMPIRE_MAX_NETWORTH_SHARE']:.0%}")
+    return None
+
+
+def _size_check(galaxy):
+    """
+    A check for ``_change_empire_galaxies``: refuses ``galaxy`` if it would make the empire too large. The galaxies
+    and the scores are read only when the empire would be larger than the size that is always allowed, and once.
+    """
+    read = {}
+
+    def check(empire_galaxies):
+        if len(set(empire_galaxies) | {galaxy}) <= uas.GAME_CONFIG["EMPIRE_ALWAYS_ALLOWED_GALAXIES"]:
+            return
+        if not read:
+            read["members"] = uag._get_galaxies_inverted()[1]
+            read["networth"] = uag._get_scores().get("galaxy_networth", {})
+        problem = empire_size_problem(empire_galaxies, galaxy, read["members"], read["networth"])
+        if problem:
+            raise occ.Rejected(problem)
+    return check
+
+
+def _change_empire_galaxies(empire_id, add=None, remove=None, check=None):
     """
     Add a galaxy to an empire, or take one out, on the empires document as it is right now (not the copy read at the
-    start of the request, which would overwrite changes made since). Returns the empire's galaxies afterwards.
+    start of the request, which would overwrite changes made since). ``check`` is called with the empire's galaxies as
+    they are now, before ``add`` joins them, and may raise ``occ.Rejected``. Returns the empire's galaxies afterwards.
     """
     def change(empires_document):
         empire = empires_document["empires"][empire_id]
@@ -56,6 +100,8 @@ def _change_empire_galaxies(empire_id, add=None, remove=None):
         ):
             # Two invitations accepted at the same moment: whichever lands first wins.
             raise occ.Rejected("That galaxy is already part of an Empire")
+        if add is not None and check is not None and add not in galaxies:
+            check(galaxies)
         if add is not None and add not in galaxies:
             galaxies.append(add)
         empire["galaxies"] = galaxies
@@ -80,21 +126,16 @@ def _change_list(path, field, add=None, remove=None):
     occ.update(path, change)
 
 
-@bp.route('/api/galaxypolitics/leader', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def galaxy_leader():
+def cast_leader_vote(kd_id, selected):
+    """Vote for ``selected`` as the leader of ``kd_id``'s galaxy. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    req = flask.request.get_json(force=True)
-    kd_id = flask_praetorian.current_user().kd_id
     
     galaxy_votes, galaxy_id = uag._get_galaxy_politics(kd_id)
     
     
     def vote(galaxy_votes):
         # Added to the votes as they are right now, so galaxymates voting together all count.
-        galaxy_votes["votes"]["leader"][kd_id] = req["selected"]
+        galaxy_votes["votes"]["leader"][kd_id] = selected
         patch_payload = {
             "votes": galaxy_votes["votes"],
         }
@@ -117,9 +158,19 @@ def galaxy_leader():
     try:
         galaxy_votes = occ.update(f'/galaxy/{galaxy_id}/politics', vote)
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
+        return {"message": "Server is busy"}, 400
 
-    return (flask.jsonify(galaxy_votes), 200)
+    return galaxy_votes, 200
+
+
+@bp.route('/api/galaxypolitics/leader', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def galaxy_leader():
+    req = flask.request.get_json(force=True)
+    payload, status = cast_leader_vote(flask_praetorian.current_user().kd_id, req["selected"])
+    return flask.jsonify(payload), status
 
 def cast_galaxy_vote(kd_id, galaxy_id, policy, option):
     """
@@ -193,16 +244,9 @@ def _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted)
     return True, ""
 
 
-@bp.route('/api/empire', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-@start_required
-# @flask_praetorian.roles_required('verified')
-def create_empire():
+def found_empire(kd_id, empire_name):
+    """Found an empire led by ``kd_id``'s galaxy. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    req = flask.request.get_json(force=True)
-    empire_name = req.get("empireName", "")
-    kd_id = flask_praetorian.current_user().kd_id
 
     # A quick answer for the player. What stops two clicks (or a join that lands at the same moment) from putting the
     # galaxy in two empires is the function app: it takes the new empire's id with a conditional write on `empires`
@@ -212,7 +256,7 @@ def create_empire():
 
     valid_name, message = _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted)
     if not valid_name:
-        return flask.jsonify({"message": message}), 400
+        return {"message": message}, 400
 
     empire_payload = {
         "empire_name": empire_name,
@@ -225,11 +269,22 @@ def create_empire():
         data=json.dumps(empire_payload)
     )
     if create_empire_response.status_code == 409:
-        return flask.jsonify({"message": "You are already part of an Empire"}), 400
+        return {"message": "You are already part of an Empire"}, 400
     if create_empire_response.status_code != 201:
-        return flask.jsonify({"message": "The Empire could not be created"}), 500
+        return {"message": "The Empire could not be created"}, 500
 
-    return flask.jsonify({"message": "Empire created", "status": "success"}), 201
+    return {"message": "Empire created", "status": "success"}, 201
+
+
+@bp.route('/api/empire', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def create_empire():
+    req = flask.request.get_json(force=True)
+    payload, status = found_empire(flask_praetorian.current_user().kd_id, req.get("empireName", ""))
+    return flask.jsonify(payload), status
 
 def _validate_join_empire(galaxy_politics, kd_id, empires_inverted):    
     if galaxy_politics["leader"] != kd_id:
@@ -240,29 +295,50 @@ def _validate_join_empire(galaxy_politics, kd_id, empires_inverted):
     
     return True, ""
 
-@bp.route('/api/empire/<target_empire>/join', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-@start_required
-# @flask_praetorian.roles_required('verified')
-def request_join_empire(target_empire):
+def ask_to_join_empire(kd_id, target_empire):
+    """Ask for ``kd_id``'s galaxy to join an empire. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    kd_id = flask_praetorian.current_user().kd_id
 
     galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
-    empires_inverted, _, _, _ = uag._get_empires_inverted()
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
 
 
     valid_join, message = _validate_join_empire(galaxy_politics, kd_id, empires_inverted)
     if not valid_join:
-        return flask.jsonify({"message": message}), 400
+        return {"message": message}, 400
+    try:
+        _size_check(kd_galaxy)(empires_info["empires"].get(target_empire, {}).get("galaxies", []))
+    except occ.Rejected as rejection:
+        return {"message": rejection.message}, 400
         
         
     target_empire_politics = uag._get_empire_politics(target_empire)
 
     _change_list(f'/empire/{target_empire}/politics', "empire_join_requests", add=kd_galaxy)
     _change_list(f'/galaxy/{kd_galaxy}/politics', "empire_join_requests", add=target_empire)
-    return flask.jsonify({"message": "Join request sent", "status": "success"}), 200
+    return {"message": "Join request sent", "status": "success"}, 200
+
+
+@bp.route('/api/empire/<target_empire>/join', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def request_join_empire(target_empire):
+    payload, status = ask_to_join_empire(flask_praetorian.current_user().kd_id, target_empire)
+    return flask.jsonify(payload), status
+
+def withdraw_join_request(kd_id, target_empire):
+    """Take back ``kd_id``'s galaxy's request to join an empire. Returns ``(payload, status_code)``. The route and the bots both come through here."""
+    galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
+
+    if galaxy_politics["leader"] != kd_id:
+        return {"message": "You must be galaxy leader to manage Empire requests"}, 400
+
+    _change_list(f'/empire/{target_empire}/politics', "empire_join_requests", remove=kd_galaxy)
+    _change_list(f'/galaxy/{kd_galaxy}/politics', "empire_join_requests", remove=target_empire)
+    return {"message": "Join request cancelled", "status": "success"}, 200
+
 
 @bp.route('/api/empire/<target_empire>/canceljoin', methods=['POST'])
 @flask_praetorian.auth_required
@@ -270,20 +346,8 @@ def request_join_empire(target_empire):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def cancel_join_empire(target_empire):
-    app = flask.current_app
-    kd_id = flask_praetorian.current_user().kd_id
-
-    galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
-
-    if galaxy_politics["leader"] != kd_id:
-        return flask.jsonify({"message": "You must be galaxy leader to manage Empire requests"}), 400    
-    
-
-    target_empire_politics = uag._get_empire_politics(target_empire)
-
-    _change_list(f'/empire/{target_empire}/politics', "empire_join_requests", remove=kd_galaxy)
-    _change_list(f'/galaxy/{kd_galaxy}/politics', "empire_join_requests", remove=target_empire)
-    return flask.jsonify({"message": "Join request cancelled", "status": "success"}), 200
+    payload, status = withdraw_join_request(flask_praetorian.current_user().kd_id, target_empire)
+    return flask.jsonify(payload), status
 
 def _validate_empire_invite(galaxy_politics, kd_id, empires_inverted):    
     if galaxy_politics["leader"] != kd_id:
@@ -294,14 +358,9 @@ def _validate_empire_invite(galaxy_politics, kd_id, empires_inverted):
     
     return True, ""
 
-@bp.route('/api/empire/<target_empire>/acceptinvite', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-@start_required
-# @flask_praetorian.roles_required('verified')
-def accept_empire_invite(target_empire):
+def join_invited_empire(kd_id, target_empire):
+    """Accept an empire's invitation to ``kd_id``'s galaxy. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    kd_id = flask_praetorian.current_user().kd_id
 
     galaxy_politics, kd_galaxy = uag._get_galaxy_politics(kd_id)
     empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
@@ -310,10 +369,10 @@ def accept_empire_invite(target_empire):
     try:
         valid_invite, message = _validate_empire_invite(galaxy_politics, kd_id, empires_inverted)
         if not valid_invite:
-            return flask.jsonify({"message": message}), 400
+            return {"message": message}, 400
         
         
-        _change_empire_galaxies(target_empire, add=kd_galaxy)
+        _change_empire_galaxies(target_empire, add=kd_galaxy, check=_size_check(kd_galaxy))
         target_empire_politics = uag._get_empire_politics(target_empire)
         _change_list(f'/empire/{target_empire}/politics', "empire_invitations", remove=kd_galaxy)
         galaxy_payload = {
@@ -327,10 +386,20 @@ def accept_empire_invite(target_empire):
             data=json.dumps(galaxy_payload)
         )
     except occ.Rejected as rejection:
-        return flask.jsonify({"message": rejection.message}), rejection.status
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return flask.jsonify({"message": "Server is busy"}), 400
-    return flask.jsonify({"message": "Joined Empire", "status": "success"}), 200
+        return {"message": "Server is busy"}, 400
+    return {"message": "Joined Empire", "status": "success"}, 200
+
+
+@bp.route('/api/empire/<target_empire>/acceptinvite', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def accept_empire_invite(target_empire):
+    payload, status = join_invited_empire(flask_praetorian.current_user().kd_id, target_empire)
+    return flask.jsonify(payload), status
 
 def _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, galaxy_id, kd_galaxy_politics, kd_galaxy_id):    
     if empire_politics["leader"] != kd_galaxy_id:
@@ -344,18 +413,13 @@ def _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, galaxy_id, k
     
     return True, ""
 
-@bp.route('/api/galaxy/<target_galaxy>/invite', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-@start_required
-# @flask_praetorian.roles_required('verified')
-def invite_galaxy(target_galaxy):
+def invite_galaxy_to_empire(kd_id, target_galaxy):
+    """Invite a galaxy into the empire ``kd_id`` leads. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    kd_id = flask_praetorian.current_user().kd_id
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
     galaxy_politics, _ = uag._get_galaxy_politics("", galaxy_id=target_galaxy)
-    empires_inverted, _, galaxy_empires, _ = uag._get_empires_inverted()
+    empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
     kd_empire = empires_inverted.get(kd_id)
 
     
@@ -363,12 +427,26 @@ def invite_galaxy(target_galaxy):
 
     valid_invite, message = _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, target_galaxy, kd_galaxy_politics, kd_galaxy_id)
     if not valid_invite:
-        return flask.jsonify({"message": message}), 400
+        return {"message": message}, 400
+    try:
+        _size_check(target_galaxy)(empires_info["empires"].get(kd_empire, {}).get("galaxies", []))
+    except occ.Rejected as rejection:
+        return {"message": rejection.message}, 400
         
 
     _change_list(f'/empire/{kd_empire}/politics', "empire_invitations", add=target_galaxy)
     _change_list(f'/galaxy/{target_galaxy}/politics', "empire_invitations", add=kd_empire)
-    return flask.jsonify({"message": "Invitation sent", "status": "success"}), 200
+    return {"message": "Invitation sent", "status": "success"}, 200
+
+
+@bp.route('/api/galaxy/<target_galaxy>/invite', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def invite_galaxy(target_galaxy):
+    payload, status = invite_galaxy_to_empire(flask_praetorian.current_user().kd_id, target_galaxy)
+    return flask.jsonify(payload), status
 
 @bp.route('/api/galaxy/<target_galaxy>/cancelinvite', methods=['POST'])
 @flask_praetorian.auth_required
@@ -410,14 +488,9 @@ def _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, gala
     
     return True, ""
 
-@bp.route('/api/galaxy/<target_galaxy>/accept', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-@start_required
-# @flask_praetorian.roles_required('verified')
-def accept_galaxy_request(target_galaxy):
+def admit_galaxy_to_empire(kd_id, target_galaxy):
+    """Accept a galaxy's request to join the empire ``kd_id`` leads. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    kd_id = flask_praetorian.current_user().kd_id
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
     galaxy_politics, _ = uag._get_galaxy_politics("", galaxy_id=target_galaxy)
@@ -430,10 +503,10 @@ def accept_galaxy_request(target_galaxy):
 
         valid_request, message = _validate_accept_galaxy_request(empire_politics, kd_id, galaxy_empires, target_galaxy, kd_galaxy_politics, kd_galaxy_id)
         if not valid_request:
-            return flask.jsonify({"message": message}), 400
+            return {"message": message}, 400
         
 
-        _change_empire_galaxies(kd_empire, add=target_galaxy)
+        _change_empire_galaxies(kd_empire, add=target_galaxy, check=_size_check(target_galaxy))
         _change_list(f'/empire/{kd_empire}/politics', "empire_join_requests", remove=target_galaxy)
         galaxy_payload = {
             "empire_invitations": [],
@@ -446,10 +519,20 @@ def accept_galaxy_request(target_galaxy):
             data=json.dumps(galaxy_payload)
         )
     except occ.Rejected as rejection:
-        return flask.jsonify({"message": rejection.message}), rejection.status
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return flask.jsonify({"message": "Server is busy"}), 400
-    return flask.jsonify({"message": "Galaxy added to Empire", "status": "success"}), 200
+        return {"message": "Server is busy"}, 400
+    return {"message": "Galaxy added to Empire", "status": "success"}, 200
+
+
+@bp.route('/api/galaxy/<target_galaxy>/accept', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def accept_galaxy_request(target_galaxy):
+    payload, status = admit_galaxy_to_empire(flask_praetorian.current_user().kd_id, target_galaxy)
+    return flask.jsonify(payload), status
 
 def _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics):
     
@@ -507,14 +590,9 @@ def _validate_denounce(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id,
 
     return True, ""
 
-@bp.route('/api/empire/<target_empire>/denounce', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-@start_required
-# @flask_praetorian.roles_required('verified')
-def denounce(target_empire):
+def denounce_empire(kd_id, target_empire):
+    """Denounce an empire, as the leader of ``kd_id``'s empire. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    kd_id = flask_praetorian.current_user().kd_id
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
     empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
@@ -558,10 +636,20 @@ def denounce(target_empire):
             data=json.dumps(news_payload)
         )
     except occ.Rejected as rejection:
-        return flask.jsonify({"message": rejection.message}), rejection.status
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return flask.jsonify({"message": "Server is busy"}), 400
-    return flask.jsonify({"message": "Denounced!", "status": "success"}), 200
+        return {"message": "Server is busy"}, 400
+    return {"message": "Denounced!", "status": "success"}, 200
+
+
+@bp.route('/api/empire/<target_empire>/denounce', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def denounce(target_empire):
+    payload, status = denounce_empire(flask_praetorian.current_user().kd_id, target_empire)
+    return flask.jsonify(payload), status
 
 def _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire):    
     if empire_politics["leader"] != kd_galaxy_id:
@@ -581,14 +669,9 @@ def _validate_declare_war(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_
 
     return True, ""
 
-@bp.route('/api/empire/<target_empire>/declare', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-@start_required
-# @flask_praetorian.roles_required('verified')
-def declare_war(target_empire):
+def declare_war_on(kd_id, target_empire):
+    """Declare war on an empire, as the leader of ``kd_id``'s empire. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    kd_id = flask_praetorian.current_user().kd_id
 
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
     empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
@@ -629,10 +712,20 @@ def declare_war(target_empire):
             data=json.dumps(news_payload)
         )
     except occ.Rejected as rejection:
-        return flask.jsonify({"message": rejection.message}), rejection.status
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return flask.jsonify({"message": "Server is busy"}), 400
-    return flask.jsonify({"message": "Declared war!", "status": "success"}), 200
+        return {"message": "Server is busy"}, 400
+    return {"message": "Declared war!", "status": "success"}, 200
+
+
+@bp.route('/api/empire/<target_empire>/declare', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def declare_war(target_empire):
+    payload, status = declare_war_on(flask_praetorian.current_user().kd_id, target_empire)
+    return flask.jsonify(payload), status
 
 def _validate_request_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire, surrender_type, surrender_value):    
     if empire_politics["leader"] != kd_galaxy_id:
@@ -1052,17 +1145,10 @@ def _validate_buy_votes(
     
     return True, ""
 
-@bp.route('/api/votes', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-@start_required
-# @flask_praetorian.roles_required('verified')
-def buy_votes():
+def buy_universe_votes(kd_id, votes):
+    """Buy ``votes`` universe votes with ``kd_id``'s money. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    req = flask.request.get_json(force=True)
-    kd_id = flask_praetorian.current_user().kd_id
     
-    votes = int(req["votes"])
     votes_cost = votes * uas.GAME_CONFIG["BASE_VOTES_COST"]
 
 
@@ -1079,10 +1165,21 @@ def buy_votes():
     try:
         occ.update(f'/kingdom/{kd_id}', decide)
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    return (flask.jsonify({"message": "Bought votes", "status": "success"}), 200)
+        return {"message": "Server is busy"}, 400
+    return {"message": "Bought votes", "status": "success"}, 200
+
+
+@bp.route('/api/votes', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def buy_votes():
+    req = flask.request.get_json(force=True)
+    payload, status = buy_universe_votes(flask_praetorian.current_user().kd_id, int(req["votes"]))
+    return flask.jsonify(payload), status
 
 def _validate_cast_votes(
     kd_info,

@@ -41,6 +41,7 @@ Slower checks, when the change calls for them:
 | A page or component | A Jest test: what it shows for given data, the blocked reason on the button, the request body it sends |
 | A doc | `tests/test_docs.py` checks that links and code paths exist and that the data model lists every kingdom field |
 | Bot archetypes | `tests/test_bots.py` checks each archetype is legal by the same validators as the routes |
+| A bot rule or a `TUNE` number | `tests/test_bot_strategy.py` (the sums) and `tests/test_bot_brain.py` (each rule on a made-up world, `StubWorld`); then `scripts/simulate_round.py` on several seeds, before and after ([bots.md](bots.md#tuning-scriptssimulate_roundpy)). `tests/test_bot_simulation.py` plays one day in the suite. |
 
 ## Writing backend tests
 

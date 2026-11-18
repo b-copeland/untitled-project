@@ -48,7 +48,8 @@ function Military(props) {
                 build towards, as well as the maximum number of recruits to train. The auto-spender will first spend funding on training recruits if enabled, 
                 and then prioritize training units that are farther from their target allocation. Both 
                 currently trained and in-training units are considered when determining the "current" mix of units. The allocation is based on the number of 
-                units (i.e. the allocation does not consider cost of the unit).
+                units (i.e. the allocation does not consider cost of the unit). Once your army has exactly the mix you asked for
+                (always the case when you ask for a single unit), the auto-spender keeps training in those proportions.
             </p>
             <p>
                 Units consume fuel every {props.state.game_config?.BASE_EPOCH_SECONDS} seconds based on the table below.

@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Round Replay</title>
+<!-- Written by scripts/simulate_round.py --replay: the round's data is in the REPLAY constant below. -->
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e3e2dd; --accent: #2f5fd0;
+    --explorer: #2a9d8f; --attacker: #d1495b; --intel: #6a4c93; --thief: #e9a23b; --player: #3d5a80;
+    --good: #2e7d32; --bad: #c62828; --dead: #b9b8b2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141413; --panel: #1e1e1c; --text: #ecebe6; --muted: #a3a29c; --line: #34332f; --accent: #7fa2ff;
+      --explorer: #4fc3b5; --attacker: #f06c7e; --intel: #a487d1; --thief: #f2bd62; --player: #7fa6d6;
+      --good: #66bb6a; --bad: #ef5350; --dead: #5b5a55;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141413; --panel: #1e1e1c; --text: #ecebe6; --muted: #a3a29c; --line: #34332f; --accent: #7fa2ff;
+    --explorer: #4fc3b5; --attacker: #f06c7e; --intel: #a487d1; --thief: #f2bd62; --player: #7fa6d6;
+    --good: #66bb6a; --bad: #ef5350; --dead: #5b5a55;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 16px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+  h1 { font-size: 17px; margin: 0 8px 0 0; }
+  .day { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 9ch; }
+  button, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; min-width: 5.5em; }
+  input[type=range] { flex: 1 1 260px; accent-color: var(--accent); }
+  main { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; padding: 16px; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+  h2 { font-size: 14px; margin: 0 0 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .rank { display: grid; grid-template-columns: 2.2em minmax(7em, 11em) 1fr 6.5em; align-items: center; gap: 6px; padding: 2px 0; cursor: pointer; }
+  .rank:hover { background: var(--bg); }
+  .rank.selected { outline: 2px solid var(--accent); outline-offset: -1px; border-radius: 4px; }
+  .rank .n { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .rank .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rank .track { height: 12px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+  .rank .fill { height: 100%; border-radius: 3px; transition: width .25s linear; }
+  .rank .v { text-align: right; font-variant-numeric: tabular-nums; }
+  .rank.dead .name, .rank.dead .v { color: var(--dead); text-decoration: line-through; }
+  .galaxies { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .galaxy { border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; font-size: 12px; cursor: pointer; }
+  .galaxy.on { border-color: var(--accent); color: var(--accent); }
+  .events { max-height: 420px; overflow-y: auto; font-size: 13px; }
+  .event { padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .event .t { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  .tag { font-size: 11px; border-radius: 4px; padding: 0 5px; margin-right: 5px; border: 1px solid currentColor; }
+  .ok { color: var(--good); } .fail { color: var(--bad); }
+  .filters { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; margin-bottom: 6px; color: var(--muted); }
+  .detail { grid-column: 1 / -1; }
+  .detail .head { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; margin-bottom: 8px; }
+  .detail .head strong { font-size: 16px; }
+  svg.spark { width: 100%; height: 90px; display: block; }
+  .decisions { max-height: 320px; overflow-y: auto; font-size: 13px; }
+  .decisions div { padding: 3px 0; border-bottom: 1px solid var(--line); }
+  .muted { color: var(--muted); }
+  .empires { font-size: 12px; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>Round Replay</h1>
+    <button class="primary" id="play">Play</button>
+    <label class="muted">Speed
+      <select id="speed">
+        <option value="0.05">1 day / 20 s</option>
+        <option value="0.1" selected>1 day / 10 s</option>
+        <option value="0.25">1 day / 4 s</option>
+        <option value="0.5">1 day / 2 s</option>
+      </select>
+    </label>
+    <label class="muted">Rank by
+      <select id="metric"><option value="1">networth</option><option value="0">stars</option></select>
+    </label>
+    <span class="day" id="day">Day 0.00</span>
+    <input type="range" id="time" min="0" step="1" value="0" aria-label="Time">
+  </div>
+</header>
+<main>
+  <section>
+    <h2>Kingdoms</h2>
+    <div class="legend" id="legend"></div>
+    <div class="galaxies" id="galaxies"></div>
+    <div id="ranks"></div>
+    <div class="empires" id="empires"></div>
+  </section>
+  <section>
+    <h2>What happened</h2>
+    <div class="filters" id="filters"></div>
+    <div class="events" id="events"></div>
+  </section>
+  <section class="detail" id="detail"><p class="muted">Click a kingdom to follow it: its stars over the round and every decision its bot made, with the reason.</p></section>
+</main>
+<script>
+const REPLAY = /*REPLAY_DATA*/null;
+const TYPES = ["explorer", "attacker", "intel", "thief", "player"];
+const KINDS = { attack: "attacks", primitives: "primitives", spy: "spying", missiles: "missiles", universe: "universe" };
+const state = { frame: 0, playing: false, galaxy: null, selected: null, metric: 1,
+                show: { attack: true, primitives: false, spy: true, missiles: true, universe: true } };
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => Math.round(n).toLocaleString();
+const color = (type) => `var(--${TYPES.includes(type) ? type : "player"})`;
+const name = (kd) => (REPLAY.kingdoms[kd] || {}).name || (kd ? `#${kd}` : "primitives");
+const esc = (text) => String(text ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function setup() {
+  if (!REPLAY) { document.body.innerHTML = "<p style='padding:16px'>No replay data in this page.</p>"; return; }
+  $("time").max = REPLAY.frames.length - 1;
+  $("legend").innerHTML = TYPES.filter((t) => Object.values(REPLAY.kingdoms).some((k) => k.type === t))
+    .map((t) => `<span><span class="swatch" style="background:${color(t)}"></span>${t}</span>`).join("");
+  const galaxies = [...new Set(Object.values(REPLAY.kingdoms).map((k) => k.galaxy).filter(Boolean))].sort();
+  $("galaxies").innerHTML = `<span class="galaxy on" data-g="">all galaxies</span>` +
+    galaxies.map((g) => `<span class="galaxy" data-g="${esc(g)}">${esc(g)}</span>`).join("");
+  $("galaxies").onclick = (e) => {
+    const g = e.target.dataset.g; if (g === undefined) return;
+    state.galaxy = g || null;
+    for (const el of $("galaxies").children) el.classList.toggle("on", (el.dataset.g || null) === state.galaxy);
+    render();
+  };
+  $("filters").innerHTML = Object.entries(KINDS).map(([k, label]) =>
+    `<label><input type="checkbox" data-k="${k}" ${state.show[k] ? "checked" : ""}> ${label}</label>`).join("");
+  $("filters").onchange = (e) => { state.show[e.target.dataset.k] = e.target.checked; render(); };
+  $("time").oninput = (e) => { state.frame = Number(e.target.value); render(); };
+  $("metric").onchange = (e) => { state.metric = Number(e.target.value); render(); };
+  $("play").onclick = () => { state.playing = !state.playing; $("play").textContent = state.playing ? "Pause" : "Play"; if (state.playing) loop(); };
+  $("ranks").onclick = (e) => { const row = e.target.closest(".rank"); if (row) { state.selected = row.dataset.kd; render(); } };
+  render();
+}
+
+let last = null;
+function loop(now) {
+  if (!state.playing) { last = null; return; }
+  if (now && last) {
+    const days = (now - last) / 1000 * Number($("speed").value);
+    const target = REPLAY.frames[state.frame][0] + days;
+    while (state.frame < REPLAY.frames.length - 1 && REPLAY.frames[state.frame + 1][0] <= target) state.frame++;
+    if (state.frame >= REPLAY.frames.length - 1) { state.playing = false; $("play").textContent = "Play"; }
+    $("time").value = state.frame;
+    render();
+  }
+  last = now || performance.now();
+  requestAnimationFrame(loop);
+}
+
+function render() {
+  const [day, values] = REPLAY.frames[state.frame];
+  $("day").textContent = `Day ${day.toFixed(2)}`;
+  const rows = Object.entries(values)
+    .filter(([kd]) => !state.galaxy || REPLAY.kingdoms[kd]?.galaxy === state.galaxy)
+    .sort((a, b) => b[1][state.metric] - a[1][state.metric]);
+  const top = rows.length ? Math.max(rows[0][1][state.metric], 1) : 1;
+  $("ranks").innerHTML = rows.map(([kd, v], i) => {
+    const k = REPLAY.kingdoms[kd] || {};
+    return `<div class="rank ${v[2] ? "dead" : ""} ${kd === state.selected ? "selected" : ""}" data-kd="${esc(kd)}">
+      <span class="n">${i + 1}</span><span class="name" title="${esc(k.name)} (${esc(k.galaxy)})">${esc(k.name)}</span>
+      <span class="track"><span class="fill" style="display:block;width:${(v[state.metric] / top * 100).toFixed(1)}%;background:${color(k.type)}"></span></span>
+      <span class="v">${fmt(v[state.metric])}</span></div>`;
+  }).join("");
+  const empires = REPLAY.empires.filter(([t]) => t <= day).pop();
+  $("empires").innerHTML = empires && Object.keys(empires[1]).length
+    ? "Empires: " + Object.values(empires[1]).map((e) => `<strong>${esc(e.name)}</strong> (${e.galaxies.map(esc).join(", ")})${e.war.length ? ", at war" : ""}`).join("; ")
+    : "No empires yet.";
+  renderEvents(day);
+  renderDetail(day);
+}
+
+function renderEvents(day) {
+  const recent = [];
+  for (let i = REPLAY.events.length - 1; i >= 0 && recent.length < 80; i--) {
+    const e = REPLAY.events[i];
+    if (e[0] > day || e[0] < day - 1) continue;
+    if (!state.show[e[1]]) continue;
+    if (state.galaxy && REPLAY.kingdoms[e[2]]?.galaxy !== state.galaxy && REPLAY.kingdoms[e[3]]?.galaxy !== state.galaxy) continue;
+    recent.push(e);
+  }
+  $("events").innerHTML = recent.length ? recent.map(([t, kind, from, to, ok, text]) =>
+    `<div class="event"><span class="t">${t.toFixed(2)}</span><span class="tag ${ok ? "ok" : "fail"}">${KINDS[kind]}</span>` +
+    (from ? `<strong>${esc(name(from))}</strong>` : "") + (to ? ` → <strong>${esc(name(to))}</strong>` : "") +
+    `<div class="muted">${esc(text).slice(0, 220)}</div></div>`).join("")
+    : `<p class="muted">Nothing in the last day of game time with these filters.</p>`;
+}
+
+function renderDetail(day) {
+  const kd = state.selected;
+  if (!kd) return;
+  const k = REPLAY.kingdoms[kd] || {};
+  const series = REPLAY.frames.filter(([, v]) => v[kd]).map(([t, v]) => [t, v[kd][0]]);
+  const max = Math.max(...series.map((p) => p[1]), 1);
+  const x = (t) => (t / REPLAY.days * 1000).toFixed(1), y = (v) => (85 - v / max * 80).toFixed(1);
+  const path = series.map(([t, v], i) => `${i ? "L" : "M"}${x(t)},${y(v)}`).join("");
+  const now = REPLAY.frames[state.frame][1][kd];
+  const decisions = (REPLAY.decisions[kd] || []).filter((d) => d[0] !== null && d[0] <= day).slice(-40).reverse();
+  $("detail").innerHTML = `<h2>Following</h2><div class="head"><strong>${esc(k.name)}</strong>
+      <span><span class="swatch" style="background:${color(k.type)}"></span>${esc(k.type)}, ${esc(k.race)}, galaxy ${esc(k.galaxy)}</span>
+      ${now ? `<span>${fmt(now[0])} stars, networth ${fmt(now[1])}${now[2] ? ", dead" : ""}</span>` : ""}
+      ${k.style && Object.keys(k.style).length ? `<span class="muted">style ${esc(JSON.stringify(k.style))}</span>` : ""}</div>
+    <svg class="spark" viewBox="0 0 1000 90" preserveAspectRatio="none" role="img" aria-label="Stars over the round">
+      <path d="${path}" fill="none" stroke="${color(k.type)}" stroke-width="2" vector-effect="non-scaling-stroke"/>
+      <line x1="${x(day)}" x2="${x(day)}" y1="0" y2="90" stroke="var(--muted)" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <h2>Its decisions, newest first</h2>
+    <div class="decisions">${decisions.length ? decisions.map(([t, kind, why, outcome]) =>
+      `<div><span class="muted">${t.toFixed(2)}</span> <strong>${esc(kind)}</strong> ${esc(why)}${outcome ? ` <span class="muted">(${esc(outcome)})</span>` : ""}</div>`).join("")
+      : `<p class="muted">${k.type === "player" ? "Not a bot." : "No decisions yet."}</p>`}</div>`;
+}
+
+setup();
+</script>
+</body>
+</html>

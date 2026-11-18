@@ -81,7 +81,7 @@ def test_choosing_the_auto_builder_switches_on_what_the_archetype_plays_by(clien
 
     kingdom = _get(f"/kingdom/{_user(app, name)[0]}")
     assert kingdom["auto_spending_enabled"] is True and kingdom["auto_attack_enabled"] is True
-    assert kingdom["auto_rob_enabled"] is False  # the attacker has no robbing plan
+    assert kingdom["auto_rob_enabled"] is True  # every quick start robs primitives with its drones
     assert kingdom["next_resolve"]["auto_spending"] < uas.DATE_SENTINEL
     assert kingdom["shields"]["military"] == bots.ARCHETYPES["attacker"].shields["military"]
 

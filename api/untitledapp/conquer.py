@@ -18,20 +18,15 @@ from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_H
 
 bp = flask.Blueprint("conquer", __name__)
 
-@bp.route('/api/revealrandomgalaxy', methods=['GET'])
-@flask_praetorian.auth_required
-@alive_required
-@start_required
-# @flask_praetorian.roles_required('verified')
-def reveal_random_galaxy():
+def _reveal_random_galaxy(kd_id):
+    """Spend a spy attempt to reveal a random galaxy's stats to ``kd_id``. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    kd_id = flask_praetorian.current_user().kd_id
     
 
     try:
         kd_info = occ.read(f'/kingdom/{kd_id}')
         if kd_info["spy_attempts"] <= 0:
-            return (flask.jsonify({"message": 'You do not have any spy attempts remaining'}), 400)
+            return {"message": 'You do not have any spy attempts remaining'}, 400
 
         revealed_info = uag._get_revealed(kd_id)
 
@@ -53,7 +48,7 @@ def reveal_random_galaxy():
         potential_galaxies = set(galaxy_info.keys()) - set(excluded_galaxies)
 
         if not len(potential_galaxies):
-            return (flask.jsonify({"message": 'There are no more galaxies to reveal'}), 400)
+            return {"message": 'There are no more galaxies to reveal'}, 400
 
         galaxy_to_reveal = random.choice(list(potential_galaxies))
 
@@ -86,11 +81,21 @@ def reveal_random_galaxy():
             data=json.dumps(payload),
         )
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
+        return {"message": "Server is busy"}, 400
 
-    return (flask.jsonify({"message": f"Reveavled galaxy {galaxy_to_reveal}", "status": "success"}), 200)
+    return {"message": f"Reveavled galaxy {galaxy_to_reveal}", "status": "success"}, 200
+
+
+@bp.route('/api/revealrandomgalaxy', methods=['GET'])
+@flask_praetorian.auth_required
+@alive_required
+@start_required
+# @flask_praetorian.roles_required('verified')
+def reveal_random_galaxy():
+    payload, status = _reveal_random_galaxy(flask_praetorian.current_user().kd_id)
+    return flask.jsonify(payload), status
 
 def _add_aggression(
     source_empire,
@@ -884,7 +889,8 @@ def _attack(req, kd_id, target_kd):
                 gaian=departure["race"] == "Gaian",
                 peace=peace,
             )
-            attack_ratio = min(attack / defense, 1.0)
+            # A kingdom with nothing to defend with has a defense of zero: any attack is at full strength.
+            attack_ratio = min(attack / defense, 1.0) if defense > 0 else 1.0
             defender_losses = _calc_losses(
                 defender_units,
                 uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
@@ -2796,16 +2802,10 @@ def launch_missiles(target_kd):
     _, payload, status_code = _launch_missiles(req, kd_id, target_kd)
     return (flask.jsonify(payload), status_code)
 
-@bp.route('/api/shared', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def accept_shared():
+def _accept_shared(kd_id, accepted_shared_from):
+    """Accept intel offered to ``kd_id`` (``<target>_<sharer>``). Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
-    req = flask.request.get_json(force=True)
-    accepted_shared_from = str(req["shared"])
     accepted_kd, shared_from_kd = accepted_shared_from.split('_')
-    kd_id = flask_praetorian.current_user().kd_id
     
 
     
@@ -2848,10 +2848,20 @@ def accept_shared():
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    return (flask.jsonify({"message": "Accepted intel", "status": "success"}), 200)
+        return {"message": "Server is busy"}, 400
+    return {"message": "Accepted intel", "status": "success"}, 200
+
+
+@bp.route('/api/shared', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def accept_shared():
+    req = flask.request.get_json(force=True)
+    payload, status = _accept_shared(flask_praetorian.current_user().kd_id, str(req["shared"]))
+    return flask.jsonify(payload), status
 
 def _offer_shared(req, kd_id):
     app = flask.current_app

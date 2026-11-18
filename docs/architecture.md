@@ -171,7 +171,7 @@ In game code take `kd_id` from `flask_praetorian.current_user()` and nothing els
 | The end of a round: archive, read-only game | `roundend.py` |
 | Constants, formulas, initial kingdom | `shared.py` |
 | Optimistic concurrency helper | `occ.py` |
-| Bots (archetypes, also the quick starts on Create Kingdom) | `bots.py`, [bots.md](bots.md) |
+| Bots (archetypes, also the quick starts on Create Kingdom; what they decide) | `bots.py`, `botstrategy.py`, `botbrain.py`, [bots.md](bots.md) |
 | Route decorators `alive_required`, `start_required`, `before_start_required`, app factory, websocket | `api/untitledapp/__init__.py` |
 | Email | `mailer.py`, [email.md](email.md) |
 | Function app routes, conditional writes, queue folding | `funcapp/function_app.py`, `funcapp/concurrency.py`, `funcapp/queues.py` |

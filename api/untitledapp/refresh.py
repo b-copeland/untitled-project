@@ -785,7 +785,8 @@ def _resolve_auto_spending(
                     continue
                 # A general can carry a unit the plan does not list (e.g. big_flex), which must not crash the refresh.
                 total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
-        count_total_units = sum(total_units.values())
+        # A kingdom with none of the units it aims for yet has shares of zero, not a division by zero.
+        count_total_units = max(sum(total_units.values()), 1)
         pct_total_units = {
             k: v / count_total_units
             for k, v in total_units.items()
@@ -795,6 +796,10 @@ def _resolve_auto_spending(
             for k, v in pct_total_units.items()
             if (kd_info_parse["units_target"].get(k, 0) - v) > 0
         }
+        if not target_units_gap:
+            # The army already has exactly the mix asked for (always so when the target is a single unit): keep
+            # building in the target's proportions instead of building nothing.
+            target_units_gap = {k: v for k, v in kd_info_parse["units_target"].items() if v > 0}
         total_target_units_gap = sum(target_units_gap.values())
         target_units_gap_pct = {
             k: v / total_target_units_gap
@@ -878,7 +883,7 @@ def _resolve_auto_attack(kd_info_parse):
 
     req = {
         "attackerValues": {
-            "generals": kd_info_parse["generals_available"] - (botbrain.RESERVED_GENERALS if kd_info_parse.get("bot") else 0)
+            "generals": kd_info_parse["generals_available"] - botbrain.reserved_generals(kd_info_parse)
         }
     }
     total_units = kd_info_parse["units"].copy()
@@ -1020,6 +1025,9 @@ def _resolve_schedule_attack(new_kd_info, schedule):
                 "generals": schedule["options"].get("generals", 0),
             }
             autofill_payload, _ = uac._autofill_attack(autofill_req, new_kd_info["kdId"], target_kd)
+            if "attacker_offense" not in autofill_payload:
+                # The autofill refused the request (fewer generals at home than the schedule asks for): do nothing.
+                return (lambda: None), ()
             if autofill_payload["attacker_offense"] > autofill_payload["defender_defense"]:
                 for key_unit, value_unit in autofill_payload["attacker_units"].items():
                     req["attackerValues"][key_unit] = value_unit
@@ -1134,6 +1142,8 @@ def _resolve_schedule_intelspy(new_kd_info, schedule):
     operation = schedule["options"].get("operation", "")
     target_kd = schedule["options"].get("target", "")
     share_to_galaxy = schedule["options"].get("share_to_galaxy", False)
+    # The cut asked for shared intel, in percent as on the Spy page (the Schedule page sends none: free).
+    cut = schedule["options"].get("cut", 0) or 0
 
     def _loop_spies(kd_id, drones_pct, max_tries, shielded, operation, target_kd, share_to_galaxy):
         kd_info = uag._get_kd_info(kd_id)
@@ -1143,6 +1153,7 @@ def _resolve_schedule_intelspy(new_kd_info, schedule):
                 "shielded": shielded,
                 "operation": operation,
                 "share_to_galaxy": share_to_galaxy,
+                "cut": cut,
             }
             new_kd_info, payload, status_code, success = uac._spy(req, kd_id, target_kd)
             if success:
@@ -1670,7 +1681,7 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
     new_kd_info = json.loads(kd_payload)
     if _resolve_schedules(kd_id, time_update, new_kd_info):
         new_kd_info = uag._get_kd_info(kd_id)
-    reserved_generals = botbrain.RESERVED_GENERALS if new_kd_info.get("bot") else 0  # kept for the bot's own attacks
+    reserved_generals = botbrain.reserved_generals(new_kd_info)  # kept for the bot's own attacks
     if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > reserved_generals:
         if _resolve_auto_attack(new_kd_info):
             new_kd_info = uag._get_kd_info(kd_id)
