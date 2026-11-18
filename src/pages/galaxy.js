@@ -12,12 +12,11 @@ import Table from 'react-bootstrap/Table';
 import Modal from 'react-bootstrap/Modal';
 import ButtonGroup from 'react-bootstrap/ButtonGroup';
 import "./galaxy.css";
-import Kingdom from "./kingdominfo.js";
 import Attack from "./conquer/attack.js";
 import Spy from "./conquer/spy.js";
 import LaunchMissiles from "./conquer/launchmissiles.js";
 import Message from "./message.js";
-import { IntelModal, tradable } from "./conquer/intel.js";
+import { IntelModal, KingdomModal, tradable } from "./conquer/intel.js";
 import Header from "../components/header";
 import HelpButton from "../components/helpbutton";
 import { IconButton } from "../components/iconbutton";
@@ -273,24 +272,8 @@ function Galaxy(props) {
         <>
         <Header data={props.data} />
         <div className="galaxy">
-            <Modal
-                show={showView}
-                onHide={() => setShowView(false)}
-                animation={false}
-                dialogClassName="view-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>View</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Kingdom data={{"kingdom": galaxyInfo[kdToShow], "kingdoms": props.data.kingdoms, "galaxies_inverted": props.data.galaxies_inverted, "shields": props.data.shields, "state": props.data.state, "kdId": kdToShow}}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowView(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+            <KingdomModal show={showView} onHide={() => setShowView(false)} target={kdToShow} tab="kingdom"
+                data={props.data} loading={props.loading} updateData={props.updateData} />
             <Modal
                 show={showAttack}
                 onHide={() => setShowAttack(false)}

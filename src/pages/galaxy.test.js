@@ -50,7 +50,7 @@ test("the kingdom's name on a card opens its view", async () => {
     show();
     await waitFor(() => expect(screen.getByRole("button", { name: "Delta" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Delta" }));
-    expect(await screen.findByText("View")).toBeTruthy();   // the View modal's title
+    expect(await screen.findByText("Delta (1:1)")).toBeTruthy();   // the kingdom dialog's title
 });
 
 test("a wide screen starts on the table, and the choice is remembered", async () => {

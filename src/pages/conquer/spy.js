@@ -64,7 +64,7 @@ function Spy(props) {
         if (initialKd !== undefined) {
             loadTarget(initialKd);
         }
-    }, []);
+    }, []);  // eslint-disable-line react-hooks/exhaustive-deps -- the target it opened with, once
     const onPickTarget = (kdId) => { setSelected(kdId); setForecast({}); setTargetKdInfo({}); loadTarget(kdId); };
 
     const kingdom = props.data.kingdom;

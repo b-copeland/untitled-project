@@ -1,13 +1,20 @@
 import React from "react";
 import { render as renderBare, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
-import IntelMarket, { KingdomIntel, TargetIntel, tradable } from "./intel";
+import IntelMarket, { KingdomIntel, KingdomModal, TargetIntel, tradable } from "./intel";
 import { authFetch } from "../../auth";
 
 jest.mock("../../components/header", () => () => null);
 jest.mock("../../components/helpbutton", () => () => null);
 jest.mock("../../auth", () => ({ authFetch: jest.fn() }));
-jest.mock("../kingdominfo.js", () => (props) => <div>Kingdom view of {props.data.kdId}: {props.data.kingdom.name}</div>);
+// The kingdom view, with the intel actions it is given for military (a tab's bar) and drones (inline).
+jest.mock("../kingdominfo.js", () => (props) => (
+    <div>
+        Kingdom view of {props.data.kdId}: {props.data.kingdom.name}
+        {props.intelActions?.("military")}
+        {props.intelActions?.("drones", true)}
+    </div>
+));
 
 // The pages link to the Spy page, so they are shown inside a router; /spy shows where the link went.
 function SpyProbe() {
@@ -54,7 +61,7 @@ const data = {
     notifs: { shared: 0 },
     state: {
         reveal_operations: ["spykingdom", "spymilitary", "spyshields", "spyprojects", "spystructures", "spydrones"],
-        game_config: { BASE_MAX_SHARE_CUT: 0.15, BASE_MAX_TOTAL_SHARE_CUT: 0.3, BASE_INTEL_BOUNTY_MAX_EPOCHS: 48 },
+        game_config: { BASE_MAX_SHARE_CUT: 0.15, BASE_MAX_TOTAL_SHARE_CUT: 0.3, BASE_INTEL_BOUNTY_MAX_EPOCHS: 48, BASE_EPOCH_SECONDS: 1800 },
     },
 };
 
@@ -119,7 +126,7 @@ test("a page that is itself the spy page takes the operation in place", () => {
 
 test("a bounty left without a length is posted without one, for the server's longest", () => {
     render(<KingdomIntel data={data} loading={{}} updateData={updateData} target="6" />);
-    expect(screen.getByLabelText(/Stays up for/).getAttribute("placeholder")).toBe("48");
+    expect(screen.getByLabelText(/Stays up for/).getAttribute("placeholder")).toBe("24");  // 48 half-hour epochs, in hours
     fireEvent.keyDown(document.getElementById("bounty-category"), { key: "ArrowDown" });  // opens the picker
     fireEvent.click(screen.getAllByText("drones").pop());  // its menu is the last thing on the page
     const post = screen.getByRole("button", { name: "Post bounty" });
@@ -216,4 +223,72 @@ test("there is no target line for a galaxymate or before a target is chosen", ()
     expect(mate.textContent).toBe("");
     const { container: none } = render(<TargetIntel data={data} loading={{}} updateData={updateData} target={undefined} />);
     expect(none.textContent).toBe("");
+});
+
+test("a bounty's length is in hours", () => {
+    render(<KingdomIntel data={data} loading={{}} updateData={updateData} target="6" />);
+    fireEvent.keyDown(document.getElementById("bounty-category"), { key: "ArrowDown" });
+    fireEvent.click(screen.getAllByText("drones").pop());
+    fireEvent.change(screen.getByLabelText(/Stays up for/), { target: { value: "30" } });
+    expect(screen.getAllByText("At most 24 hours").length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText(/Stays up for/), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Post bounty" }));
+    const [[, request]] = sentBodies();
+    expect(JSON.parse(request.body)).toEqual({ target: "6", category: "drones", cut: 0, hours: "5" });
+});
+
+const showKingdom = (target, tab = "kingdom") => render(
+    <KingdomModal show onHide={() => {}} target={target} tab={tab} data={data} loading={{}} updateData={updateData} />);
+const activePane = () => within(document.querySelector(".kingdom-modal-tabs + .tab-content > .tab-pane.active"));
+
+test("asking the galaxy from the kingdom view fills in the bounty form on its intel tab", async () => {
+    showKingdom("6");
+    expect(await screen.findByText(/Kingdom view of 6/)).toBeTruthy();
+    // No drones intel on Six: spy for it or ask for it, inline. Military is yours: share it.
+    expect(screen.getByRole("button", { name: "Spy on drones" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ask the galaxy" }));
+    expect(screen.getByRole("tab", { name: "Intel market" }).getAttribute("aria-selected")).toBe("true");
+    const post = activePane().getByRole("button", { name: "Post bounty" });
+    expect(post.disabled).toBe(false);  // the drones category is filled in
+    fireEvent.click(post);
+    const [[route, request]] = sentBodies();
+    expect(route).toBe("api/intel/bounty");
+    expect(JSON.parse(request.body)).toEqual({ target: "6", category: "drones", cut: 0 });
+    // And back again.
+    fireEvent.click(activePane().getByRole("button", { name: "View kingdom" }));
+    expect(screen.getByRole("tab", { name: "Kingdom info" }).getAttribute("aria-selected")).toBe("true");
+});
+
+test("intel you have is shared from the kingdom view, in place", async () => {
+    showKingdom("6");
+    await screen.findByText(/Kingdom view of 6/);
+    expect(screen.getByText(/Your military intel lasts/)).toBeTruthy();
+    fireEvent.click(activePane().getByRole("button", { name: "Share military intel" }));
+    fireEvent.click(activePane().getByRole("button", { name: "Share free" }));
+    const [[route, request]] = sentBodies();
+    expect(route).toBe("api/intel/share");
+    expect(JSON.parse(request.body)).toEqual({ target: "6", category: "military", cut: 0 });
+});
+
+test("the kingdom view offers the cheapest listing you can take", async () => {
+    showKingdom("5");
+    await screen.findByText(/Kingdom view of 5/);
+    fireEvent.click(screen.getByRole("button", { name: "Buy it (10.0%)" }));
+    const [[route, request]] = sentBodies();
+    expect(route).toBe("api/intel/buy");
+    expect(JSON.parse(request.body)).toEqual({ listing: "2.5.military" });
+});
+
+test("a galaxymate's kingdom view has no intel tab or actions", async () => {
+    showKingdom("2");
+    await screen.findByText(/Kingdom view of 2/);
+    expect(screen.queryByRole("tab", { name: "Intel market" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ask the galaxy" })).toBeNull();
+});
+
+test("the Intel page opens one kingdom's intel from its rows", async () => {
+    render(<IntelMarket data={data} loading={{}} updateData={updateData} />);
+    fireEvent.click(within(row("drones")).getByRole("button", { name: "Intel on this kingdom" }));
+    expect(await screen.findByText("Intel on Six")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Intel market" }).getAttribute("aria-selected")).toBe("true");
 });

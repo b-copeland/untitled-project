@@ -12,9 +12,8 @@ import Galaxy from "../galaxy.js";
 import Attack from "./attack.js";
 import Spy from "./spy.js";
 import LaunchMissiles from "./launchmissiles.js";
-import { IntelModal, tradable } from "./intel.js";
+import { IntelModal, KingdomModal, tradable } from "./intel.js";
 import Message from "../message.js";
-import Kingdom from "../kingdominfo.js";
 import Header from "../../components/header";
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
@@ -247,24 +246,8 @@ function Revealed(props) {
     return (
         <div className="revealed">
             <ResultToasts title="Reveal Results" results={results} setResults={setResults} />
-            <Modal
-                show={showView}
-                onHide={() => setShowView(false)}
-                animation={false}
-                dialogClassName="view-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>View</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "shields": props.data.shields, "state": props.data.state, "kdId": kdToShow}}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowView(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+            <KingdomModal show={showView} onHide={() => setShowView(false)} target={kdToShow} tab="kingdom"
+                data={props.data} loading={props.loading} updateData={props.updateData} />
             <Modal
                 show={showAttack}
                 onHide={() => setShowAttack(false)}
@@ -517,24 +500,8 @@ function Pinned(props) {
     );
     return (
         <div className="revealed">
-            <Modal
-                show={showView}
-                onHide={() => setShowView(false)}
-                animation={false}
-                dialogClassName="view-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>View</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "shields": props.data.shields, "state": props.data.state, "kdId": kdToShow}}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowView(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+            <KingdomModal show={showView} onHide={() => setShowView(false)} target={kdToShow} tab="kingdom"
+                data={props.data} loading={props.loading} updateData={props.updateData} />
             <Modal
                 show={showAttack}
                 onHide={() => setShowAttack(false)}

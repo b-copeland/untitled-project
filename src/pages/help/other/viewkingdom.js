@@ -19,6 +19,11 @@ function ViewKingdom(props) {
                 been shared with you.
             </p>
             <p>
+                For a kingdom in another galaxy, the dialog also has an Intel market tab, and each kind of intel you do
+                not have offers to spy on it, buy it, or ask the galaxy for it; intel you have can be shared from
+                there. See Conquer - Intel.
+            </p>
+            <p>
                 If you open View Kingdom for a galaxymate who has shared their kingdom information with you, you will be able to see 
                 all their information.
             </p>

@@ -11,6 +11,7 @@ function Intel(props) {
       }
     }, [props.state]);
     const config = props.state.game_config || {};
+    const maxHours = (config.BASE_INTEL_BOUNTY_MAX_EPOCHS || 0) * (config.BASE_EPOCH_SECONDS || 0) / 3600;
     return (
         <div id="intel" ref={yourElementRef} className="help-section">
             <h2>Conquer - Intel</h2>
@@ -32,7 +33,7 @@ function Intel(props) {
                 </li>
                 <li>
                     <strong>Bounties.</strong> Ask the galaxy for intel you want, offering a cut, for up
-                    to {config.BASE_INTEL_BOUNTY_MAX_EPOCHS} epochs (leave the length blank for the longest). The first
+                    to {maxHours} hours (leave the length blank for the longest). The first
                     galaxymate to answer it with their own intel earns the cut, and the bounty leaves the board. If you
                     do not have the intel a bounty asks for, Attempt opens the Spy page with that kingdom and operation
                     chosen; once the spies bring it back, Fulfil the bounty.
@@ -52,7 +53,16 @@ function Intel(props) {
                 They are not told.
             </p>
             <p>
-                The eye button on each row shows the kingdom the intel is on, as far as you have revealed it.
+                On each row, the eye button opens the kingdom the intel is on, as far as you have revealed it, and the
+                clipboard button opens the intel market for that kingdom alone. The two are tabs of one dialog, so you
+                can move between them.
+            </p>
+            <p>
+                Viewing a kingdom in another galaxy, each kind of intel says what you can do about it. Without it: Spy on
+                it (the Spy page, with that operation chosen), buy the cheapest listing you can take, or Ask the galaxy,
+                which opens the bounty form with that intel filled in. With intel of your own: share it, for a cut or
+                free. Military, structures, projects and shields are at the top of their tab; kingdom intel at the top
+                of the Kingdom tab, and drones next to the drones value.
             </p>
             <p>
                 The history keeps the most recent purchases, answered bounties and free shares.

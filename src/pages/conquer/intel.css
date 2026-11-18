@@ -58,8 +58,25 @@
     width: 4.5rem;
 }
 
-.intel-epochs.form-control {
+.intel-hours.form-control {
     width: 5rem;
+}
+
+/* What you can do about one kind of intel, in the kingdom view: a bar at the top of a tab, or inline after a value. */
+.intel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    margin: 0.5rem 0;
+}
+.intel-actions.inline {
+    display: inline-flex;
+    margin: 0 0 0 0.5rem;
+    vertical-align: middle;
+}
+.kingdom-modal-tabs {
+    margin-bottom: 0.75rem;
 }
 
 .intel-action {
