@@ -398,6 +398,7 @@ GAME_CONFIG = {
     "EMPIRE_MAX_KINGDOMS_SHARE": 0.30,
     "EMPIRE_MAX_NETWORTH_SHARE": 0.35,
     "EMPIRE_ALWAYS_ALLOWED_GALAXIES": 2,
+
     # One-time structure projects: what each structure of that kind gains once completed (proposals).
     "MINES_PROJECT_MONEY_PER_MINE": 20,  # per epoch
     "HANGARS_PROJECT_UNITS_PER_HANGAR": 10,
