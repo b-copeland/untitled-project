@@ -1615,12 +1615,8 @@ def _calculate_spy_losses(
     drones_to_send,
     shielded,
     has_drone_gadgets=False,
-    loss_reduction=0.0,
 ):
-    """Drones lost if the operation succeeds and if it fails. ``loss_reduction`` is the Fewer Drone Losses bonus."""
-    additive_loss_reduction = (
-        1 - (int(has_drone_gadgets) * uas.GAME_CONFIG["BASE_DRONE_GADGETS_LOSS_REDUCTION"])
-    ) * (1 - loss_reduction)
+    additive_loss_reduction = 1 - (int(has_drone_gadgets) * uas.GAME_CONFIG["BASE_DRONE_GADGETS_LOSS_REDUCTION"])
     multiplicative_reduction = additive_loss_reduction * (1 - (int(shielded) * uas.GAME_CONFIG["BASE_DRONES_SHIELDING_LOSS_REDUCTION"]))
     success_loss = math.floor(drones_to_send * uas.GAME_CONFIG["BASE_DRONES_SUCCESS_LOSS_RATE"] * multiplicative_reduction)
     failure_loss = math.floor(drones_to_send * uas.GAME_CONFIG["BASE_DRONES_FAILURE_LOSS_RATE"] * multiplicative_reduction)
@@ -1701,7 +1697,6 @@ def calculate_spy(target_kd):
         drones,
         shielded,
         has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
-        loss_reduction=uas.project_bonus(kd_info_parse, "drone_casualties_bonus"),
     )
 
     damage_multiplier = _aggro_damage_multiplier(kd_info_parse, max_target_kd_info)
@@ -1820,7 +1815,6 @@ def _spy(req, kd_id, target_kd):
             drones,
             shielded,
             has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
-            loss_reduction=uas.project_bonus(kd_info_parse, "drone_casualties_bonus"),
         )
 
         roll = random.uniform(0, 1)
@@ -2141,7 +2135,6 @@ def _rob_primitives(req, kd_id):
             drones,
             shielded,
             has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
-            loss_reduction=uas.project_bonus(kd_info_parse, "drone_casualties_bonus"),
         )
 
         status = "success"

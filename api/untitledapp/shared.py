@@ -554,14 +554,6 @@ PROJECTS = {
         "name": "Fewer Casualties",
         "category": "military",
     },
-    "drone_casualties_bonus": {
-        "stars_power": 0,
-        "constant": ECO_MILITARY_PROJECT_POINTS,
-        "bonus": ECO_MILITARY_PROJECT_BONUS,
-        "desc": f"Decreases the drones you lose on spy operations by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
-        "name": "Fewer Drone Losses",
-        "category": "spy",
-    },
     "spy_protection_bonus": {
         "stars_power": 0,
         "constant": ECO_MILITARY_PROJECT_POINTS,
@@ -577,6 +569,7 @@ PROJECTS = {
         "desc": "Decreases generals time to return by the current bonus",
         "name": "Generals Speed Bonus",
         "category": "military",
+        "requires": ["casualties_bonus"],
     },
     "spy_bonus": {
         "stars_power": 1.5,
@@ -813,14 +806,13 @@ INITIAL_PROJECT_POINTS = {
     "fuel_bonus": 1000,
     "military_bonus": 1000,
     "money_bonus": 1000,
-    "general_bonus": 1000,
 }
+# Generals Speed Bonus is not here: it needs Fewer Casualties first.
 INITIAL_PROJECTS_TARGET = {
-    "pop_bonus": 0.2,
-    "fuel_bonus": 0.2,
-    "military_bonus": 0.2,
-    "money_bonus": 0.2,
-    "general_bonus": 0.2,
+    "pop_bonus": 0.25,
+    "fuel_bonus": 0.25,
+    "military_bonus": 0.25,
+    "money_bonus": 0.25,
 }
 INITIAL_KINGDOM_STATE = {
     "kingdom": {

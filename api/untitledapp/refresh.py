@@ -983,10 +983,14 @@ def _resolve_auto_projects(kd_info_parse):
         k: v / total_engineers
         for k, v in kd_info_parse["projects_assigned"].items()
     }
+    # A project engineers can not work on yet (locked, or a one-time project already done) gets none, whatever its target.
     target_gap = {
         k: kd_info_parse["projects_target"].get(k, 0) - v
         for k, v in pct_assigned.items()
         if (kd_info_parse["projects_target"].get(k, 0) - v) > 0
+        and k in uas.PROJECTS
+        and uas.project_locked_reason(kd_info_parse, k) is None
+        and not (k in uas.ONE_TIME_PROJECTS and uas.has_project(kd_info_parse, k))
     }
     if target_gap:
         total_target_gap = sum(target_gap.values())

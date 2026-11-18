@@ -57,7 +57,7 @@ function Spy(props) {
                 while {displayPercent(props.state.game_config?.BASE_DRONES_FAILURE_LOSS_RATE)} will be lost during failed operations. 
                 Shielding drones during any operation will reduce drones losses 
                 by {displayPercent(props.state.game_config?.BASE_DRONES_SHIELDING_LOSS_REDUCTION)}. Each drone during a shielded operation 
-                requires 1 fuel. The Drone Gadgets and Fewer Drone Losses projects reduce drone losses further.
+                requires 1 fuel. The Drone Gadgets project reduces drone losses further.
             </p>
             <p>
                 Aggressive operations do less damage to a kingdom with the Counter-Intelligence project. The forecast
