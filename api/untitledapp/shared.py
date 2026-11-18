@@ -32,6 +32,35 @@ UNITS = {
         'fuel': 2,
         'hangar_capacity': 2,
     },
+    # Better pure units, unlocked by projects: more strength per hangar space, but more money per point of strength.
+    'heavy_attack': {
+        'offense': 6,
+        'defense': 0,
+        'cost': 400,
+        'fuel': 1,
+        'hangar_capacity': 1,
+    },
+    'elite_attack': {
+        'offense': 7,
+        'defense': 0,
+        'cost': 525,
+        'fuel': 1,
+        'hangar_capacity': 1,
+    },
+    'heavy_defense': {
+        'offense': 0,
+        'defense': 6,
+        'cost': 460,
+        'fuel': 1,
+        'hangar_capacity': 1,
+    },
+    'elite_defense': {
+        'offense': 0,
+        'defense': 7,
+        'cost': 600,
+        'fuel': 1,
+        'hangar_capacity': 1,
+    },
     'recruits': {
         'offense': 0,
         'defense': 1,
@@ -46,8 +75,26 @@ UNITS = {
     }
 }
 
+# The order pages list units in: attackers, defenders, flexers, then recruits and engineers.
+UNITS = {key: UNITS[key] for key in (
+    "attack", "heavy_attack", "elite_attack",
+    "defense", "heavy_defense", "elite_defense",
+    "flex", "big_flex",
+    "recruits", "engineers",
+)}
+
 # A unit with "project" can only be trained once that project is completed.
 UNITS["big_flex"]["project"] = "big_flexers"
+UNITS["heavy_attack"]["project"] = "heavy_attackers"
+UNITS["elite_attack"]["project"] = "elite_attackers"
+UNITS["heavy_defense"]["project"] = "heavy_defenders"
+UNITS["elite_defense"]["project"] = "elite_defenders"
+
+# Units by role: offense only, defense only. Projects and race rules that name "pure" attackers or defenders use these.
+PURE_ATTACK_UNITS = [key for key, unit in UNITS.items() if unit["offense"] > 0 and unit["defense"] == 0]
+PURE_DEFENSE_UNITS = [
+    key for key, unit in UNITS.items() if unit["defense"] > 0 and unit["offense"] == 0 and key != "recruits"
+]
 
 # The units trained from recruits: everything but recruits and engineers.
 TRAINABLE_UNITS = [key for key in UNITS if key not in ("recruits", "engineers")]
@@ -59,8 +106,12 @@ def unit_locked(kd_info, unit):
     return bool(project) and not has_project(kd_info, project)
 
 
+# The order a suggested attack fills units in: pure attackers first, cheapest strength first, then flexers, which also
+# defend at home.
 AUTOFILL_PRIORITY = [
     "attack",
+    "heavy_attack",
+    "elite_attack",
     "big_flex",
     "flex",
 ]
@@ -252,7 +303,11 @@ GAME_CONFIG = {
         "structures": 25,
         "money": 0.002,
         "attack": 7,
+        "heavy_attack": 8,
+        "elite_attack": 9,
         "defense": 8,
+        "heavy_defense": 9,
+        "elite_defense": 11,
         "flex": 10,
         "big_flex": 20,
         "recruits": 2,
@@ -401,6 +456,38 @@ PROJECTS = {
         "desc": "Unlocks the Big Flexer unit",
         "name": "Big Flexers",
         "category": "military",
+    },
+    # The 7-strength units cost about five times the points of the 6-strength ones, and need them first. Defender
+    # projects cost about 20% more than attacker projects.
+    "heavy_attackers": {
+        "stars_power": 0,
+        "constant": 40000,
+        "desc": "Unlocks the Heavy Attacker unit (6 offense)",
+        "name": "Heavy Attackers",
+        "category": "military",
+    },
+    "elite_attackers": {
+        "stars_power": 0,
+        "constant": 200000,
+        "desc": "Unlocks the Elite Attacker unit (7 offense)",
+        "name": "Elite Attackers",
+        "category": "military",
+        "requires": ["heavy_attackers"],
+    },
+    "heavy_defenders": {
+        "stars_power": 0,
+        "constant": 48000,
+        "desc": "Unlocks the Heavy Defender unit (6 defense)",
+        "name": "Heavy Defenders",
+        "category": "military",
+    },
+    "elite_defenders": {
+        "stars_power": 0,
+        "constant": 240000,
+        "desc": "Unlocks the Elite Defender unit (7 defense)",
+        "name": "Elite Defenders",
+        "category": "military",
+        "requires": ["heavy_defenders"],
     },
     "star_busters": {
         "stars_power": 0,
@@ -767,6 +854,10 @@ PRETTY_NAMES = {
     "defense": "Defenders",
     "flex": "Flexers",
     "big_flex": "Big Flexers",
+    "heavy_attack": "Heavy Attackers",
+    "elite_attack": "Elite Attackers",
+    "heavy_defense": "Heavy Defenders",
+    "elite_defense": "Elite Defenders",
     "engineers": "Engineers",
     "homes": "Homes",
     "mines": "Mines",

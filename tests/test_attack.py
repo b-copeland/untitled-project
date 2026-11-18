@@ -281,7 +281,7 @@ def test_the_attack_context_gives_the_target_an_estimate_and_your_own_defense(ap
     body = response.get_json()
     assert body["revealed"] == {"units": False, "military_bonus": False, "shields": False}
     assert body["estimate"]["basis"] == "your own army"
-    assert set(body["estimate"]["units"]) == {"recruits", "defense", "flex", "big_flex"}
+    assert set(body["estimate"]["units"]) == {key for key, unit in uas.UNITS.items() if unit["defense"] > 0}
     assert body["mine"]["defense_if_all_sent"] <= body["mine"]["defense_now"]
 
 

@@ -22,7 +22,7 @@ function KingdomContent(props) {
             variant="tabs"
         >
             <Tab eventKey="kingdom" title="Kingdom">
-            <Kingdom kingdom={props.data.kingdom} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} kdId={props.data.kdId}/>
+            <Kingdom kingdom={props.data.kingdom} state={props.data.state} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} kdId={props.data.kdId}/>
             </Tab>
             <Tab eventKey="military" title="Military">
             <Military kingdom={props.data.kingdom} state={props.data.state} />
@@ -92,26 +92,14 @@ function Kingdom(props) {
                     <span className="text-box-item-value">{props.kingdom?.spy_attempts?.toLocaleString()}</span>
                 </div>
                 <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Recruits</span>
-                    <span className="text-box-item-value">{props.kingdom?.units?.recruits?.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Attackers</span>
-                    <span className="text-box-item-value">{props.kingdom?.units?.attack?.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Defenders</span>
-                    <span className="text-box-item-value">{props.kingdom?.units?.defense?.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Flexers</span>
-                    <span className="text-box-item-value">{props.kingdom?.units?.flex?.toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Big Flexers</span>
-                    <span className="text-box-item-value">{props.kingdom?.units?.big_flex?.toLocaleString()}</span>
-                </div>
+                {Object.keys(props.state?.units || props.kingdom?.units || {})
+                    .filter((key) => key !== "engineers" && (!props.state?.units?.[key]?.project || props.kingdom?.units?.[key]))
+                    .map((key) => (
+                        <div className="text-box-item" key={key}>
+                            <span className="text-box-item-title">{props.state?.pretty_names?.[key] || key}</span>
+                            <span className="text-box-item-value">{props.kingdom?.units?.[key]?.toLocaleString()}</span>
+                        </div>
+                    ))}
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Planet Busters</span>

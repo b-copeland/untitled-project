@@ -212,7 +212,7 @@ def attack_context(target_kd):
     revealed = uag._get_revealed(kd_id)
     target = uag._get_max_kd_info(target_kd, kd_id, revealed)
 
-    sendable = ("attack", "flex", "big_flex")
+    sendable = [key for key, unit in uas.UNITS.items() if unit["offense"] > 0]
     all_out = {key: kd_info_parse["units"].get(key, 0) for key in sendable}
     mine = {
         "defense_now": _home_defense(kd_info_parse, current_bonuses, {}),
@@ -225,7 +225,7 @@ def attack_context(target_kd):
     # edit, and the page only uses the parts that "revealed" says are missing.
     estimate = {
         "basis": "your own army",
-        "units": {key: kd_info_parse["units"].get(key, 0) for key in ("recruits", "defense", "flex", "big_flex")},
+        "units": {key: kd_info_parse["units"].get(key, 0) for key, unit in uas.UNITS.items() if unit["defense"] > 0},
         "military_bonus": round(uas.PROJECTS["military_bonus"]["max_bonus"] * 100, 1),
         "shields": round(uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_MAX"] * 100, 1),
     }

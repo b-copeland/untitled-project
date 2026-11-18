@@ -19,19 +19,24 @@ import { displayPercent } from "../../format";
  * again, after a pause, when it changes.
  */
 
-const noDefender = { recruits: "", defense: "", flex: "", big_flex: "", military_bonus: "", shields: "" };
-const noAttacker = { attack: "", flex: "", big_flex: "", generals: "", buffer: "1.0" };
+const noDefender = { military_bonus: "", shields: "" };
+const noAttacker = { generals: "", buffer: "1.0" };
 
-const ATTACK_UNITS = [["attack", "Attackers"], ["flex", "Flexers"], ["big_flex", "Big flexers"]];
-const DEFENDER_UNITS = [["recruits", "Recruits"], ["defense", "Defenders"], ["flex", "Flexers"], ["big_flex", "Big flexers"]];
+/** The units that can attack (any offense) and those that defend (any defense), as [key, name], in the server's order. */
+export function attackUnits(unitsDesc, names = {}) {
+    return Object.entries(unitsDesc || {}).filter(([, unit]) => unit.offense > 0).map(([key]) => [key, names[key] || key]);
+}
+export function defenderUnits(unitsDesc, names = {}) {
+    return Object.entries(unitsDesc || {}).filter(([, unit]) => unit.defense > 0).map(([key]) => [key, names[key] || key]);
+}
 
 const whole = (value) => Math.floor(value || 0).toLocaleString();
 const text = (value) => (value ? String(value) : "");
 
 // The plan the server is asked about: fixed order and plain strings, so the same plan is always the same question.
-const planFor = (selected, attacker, defender) => ({
+const planFor = (selected, attacker, defender, units) => ({
     selected,
-    attacker: { attack: text(attacker.attack), flex: text(attacker.flex), big_flex: text(attacker.big_flex), generals: text(attacker.generals) },
+    attacker: { ...Object.fromEntries(units.map(([key]) => [key, text(attacker[key])])), generals: text(attacker.generals) },
     defender,
 });
 
@@ -59,12 +64,15 @@ function Attack(props) {
     const kingdom = props.data.kingdom;
     const unitsDesc = props.data.mobis?.units_desc || {};
     const myUnits = kingdom.units || {};
+    const names = props.data.state?.pretty_names || {};
+    const ATTACK_UNITS = attackUnits(unitsDesc, names);
+    const DEFENDER_UNITS = defenderUnits(unitsDesc, names);
 
     const sending = ATTACK_UNITS.reduce((sum, [key]) => sum + (parseInt(attackerValues[key], 10) || 0), 0);
     const generals = parseInt(attackerValues.generals, 10) || 0;
 
     const [forecast, pending, setForecast] = useServerForecast(
-        selected !== undefined && sending > 0 ? planFor(selected, attackerValues, defenderValues) : null,
+        selected !== undefined && sending > 0 ? planFor(selected, attackerValues, defenderValues, ATTACK_UNITS) : null,
         (plan) => authFetch('api/calculate/' + plan.selected, {
             method: 'POST',
             body: JSON.stringify({ attackerValues: plan.attacker, defenderValues: plan.defender }),
@@ -82,7 +90,7 @@ function Attack(props) {
             const next = { ...attacker, generals: attacker.generals || "1" };
             ATTACK_UNITS.forEach(([key]) => { next[key] = text(answer.attacker_units[key]); });
             setAttackerValues(next);
-            setForecast(answer, planFor(target, next, defender));
+            setForecast(answer, planFor(target, next, defender, ATTACK_UNITS));
         } else {
             setNotice(answer.message || "No attack could be suggested.");
         }
@@ -110,10 +118,7 @@ function Attack(props) {
         setContext(ctx);
         const guess = ctx.estimate;
         const defender = {
-            recruits: text(info.units ? "" : guess.units.recruits),
-            defense: text(info.units ? "" : guess.units.defense),
-            flex: text(info.units ? "" : guess.units.flex),
-            big_flex: text(info.units ? "" : guess.units.big_flex),
+            ...Object.fromEntries(DEFENDER_UNITS.map(([key]) => [key, text(info.units ? "" : guess.units[key])])),
             military_bonus: String(guess.military_bonus),
             shields: String(guess.shields),
         };
@@ -131,7 +136,10 @@ function Attack(props) {
         setDefenderValues((previous) => ({ ...previous, [event.target.name]: event.target.value }));
     };
     const onAttacker = (event) => setAttackerValues((previous) => ({ ...previous, [event.target.name]: event.target.value }));
-    const onClear = () => { setAttackerValues((previous) => ({ ...previous, attack: "", flex: "", big_flex: "", generals: "" })); setForecast({}); };
+    const onClear = () => {
+        setAttackerValues((previous) => ({ ...previous, ...Object.fromEntries(ATTACK_UNITS.map(([key]) => [key, ""])), generals: "" }));
+        setForecast({});
+    };
 
     const send = () => {
         setConfirming(false);
@@ -202,7 +210,7 @@ function Attack(props) {
                                 {unitsKnown
                                     ? <span className="known-value">{whole(targetKdInfo.units[key])}</span>
                                     : <Form.Control id={"def-" + key} name={key} size="sm" inputMode="numeric" placeholder="0" autoComplete="off"
-                                        value={defenderValues[key]} onChange={onDefender} />}
+                                        value={defenderValues[key] || ""} onChange={onDefender} />}
                             </FieldRow>
                         ))}
                         <FieldRow label="Military efficiency" status={bonusKnown ? "revealed" : edited.military_bonus ? "estimate" : "needed"} htmlFor="def-military_bonus">
@@ -221,9 +229,10 @@ function Attack(props) {
 
                     <Panel className="area-attack" title="3. Your attack">
                         {ATTACK_UNITS.map(([key, name]) => (
-                            (key !== "big_flex" || myUnits.big_flex > 0 || attackerValues.big_flex)
+                            // A unit that needs a project is shown once you have some.
+                            (!unitsDesc[key]?.project || myUnits[key] > 0 || attackerValues[key])
                                 ? <FieldRow key={key} label={name} stat={<UnitStat kind="offense" value={unitsDesc[key]?.offense} />} htmlFor={"att-" + key}>
-                                    <AmountInput box name={key} id={"att-" + key} label={name} value={attackerValues[key]} onChange={onAttacker} max={myUnits[key] || 0} />
+                                    <AmountInput box name={key} id={"att-" + key} label={name} value={attackerValues[key] || ""} onChange={onAttacker} max={myUnits[key] || 0} />
                                 </FieldRow>
                                 : null
                         ))}
@@ -262,7 +271,7 @@ function Attack(props) {
                         <table className="planner-table table table-sm">
                             <thead><tr><th>Units lost</th><th>You</th><th>Them</th></tr></thead>
                             <tbody>
-                                {[["attack", "Attackers"], ["flex", "Flexers"], ["big_flex", "Big flexers"], ["defense", "Defenders"], ["recruits", "Recruits"]].map(([key, name]) => {
+                                {Object.keys(unitsDesc).map((key) => [key, names[key] || key]).map(([key, name]) => {
                                     const yours = forecast.attacker_losses?.[key];
                                     const theirs = forecast.defender_losses?.[key];
                                     return (yours || theirs)

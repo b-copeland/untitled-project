@@ -53,7 +53,7 @@ function StatusContent(props) {
           <Spending kingdom={props.data.kingdom} loading={props.loading} updateData={props.updateData} />
         </Tab>
         <Tab eventKey="military" title="Military">
-          <Military mobis={props.data.mobis} />
+          <Military mobis={props.data.mobis} state={props.data.state} />
         </Tab>
         <Tab eventKey="structures" title="Structures">
           <Structures kingdom={props.data.kingdom} structures={props.data.structures}/>
@@ -237,26 +237,12 @@ function Status(props) {
                         <span className="text-box-item-value">{getTimeString(props.kingdom.next_resolve?.spy_attempt)}</span>
                     </div>
                     <br />
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Recruits</span>
-                        <span className="text-box-item-value">{props.mobis.units?.current_total?.recruits.toLocaleString()}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Attackers</span>
-                        <span className="text-box-item-value">{props.mobis.units?.current_total?.attack.toLocaleString()}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Defenders</span>
-                        <span className="text-box-item-value">{props.mobis.units?.current_total?.defense.toLocaleString()}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Flexers</span>
-                        <span className="text-box-item-value">{props.mobis.units?.current_total?.flex.toLocaleString()}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Big Flexers</span>
-                        <span className="text-box-item-value">{props.mobis.units?.current_total?.big_flex.toLocaleString()}</span>
-                    </div>
+                    {unitKeys(props.mobis.units?.current_total, props.state).map((key) => (
+                        <div className="text-box-item" key={key}>
+                            <span className="text-box-item-title">{props.state.pretty_names?.[key] || key}</span>
+                            <span className="text-box-item-value">{(props.mobis.units?.current_total?.[key] || 0).toLocaleString()}</span>
+                        </div>
+                    ))}
                     <br />
                     <div className="text-box-item">
                         <span className="text-box-item-title">Planet Busters</span>
@@ -683,6 +669,15 @@ function Spending(props) {
     )
 }
 
+/**
+ * The units to list, in the server's order: recruits and every unit but engineers (shown on their own). A unit that
+ * needs a project is only listed once the kingdom has some.
+ */
+function unitKeys(counts, state) {
+    const all = Object.keys(state?.units || counts || {}).filter((key) => key !== "engineers");
+    return all.filter((key) => !state?.units?.[key]?.project || (counts?.[key] || 0) > 0);
+}
+
 function Military(props) {
     if (Object.keys(props.mobis).length === 0) {
         return null;
@@ -712,46 +707,15 @@ function Military(props) {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Recruits</td>
-                            <td style={{textAlign: "right"}}>{units.current?.recruits?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_0?.recruits?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_1?.recruits?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_2?.recruits?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_3?.recruits?.toLocaleString() || 0}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Attackers</td>
-                            <td style={{textAlign: "right"}}>{units.current?.attack?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_0?.attack?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_1?.attack?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_2?.attack?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_3?.attack?.toLocaleString() || 0}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Defenders</td>
-                            <td style={{textAlign: "right"}}>{units.current?.defense?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_0?.defense?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_1?.defense?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_2?.defense?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_3?.defense?.toLocaleString() || 0}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Flexers</td>
-                            <td style={{textAlign: "right"}}>{units.current?.flex?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_0?.flex?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_1?.flex?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_2?.flex?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_3?.flex?.toLocaleString() || 0}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Big Flexers</td>
-                            <td style={{textAlign: "right"}}>{units.current?.big_flex?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_0?.big_flex?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_1?.big_flex?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_2?.big_flex?.toLocaleString() || 0}</td>
-                            <td style={{textAlign: "right"}}>{units.general_3?.big_flex?.toLocaleString() || 0}</td>
-                        </tr>
+                        {unitKeys(units.current_total, props.state).map((key) => (
+                            <tr key={key}>
+                                <td style={{textAlign: "left"}}>{props.state?.pretty_names?.[key] || key}</td>
+                                <td style={{textAlign: "right"}}>{units.current?.[key]?.toLocaleString() || 0}</td>
+                                {[0, 1, 2, 3].map((index) => (
+                                    <td key={index} style={{textAlign: "right"}}>{units[`general_${index}`]?.[key]?.toLocaleString() || 0}</td>
+                                ))}
+                            </tr>
+                        ))}
                     </tbody>
                 </Table>
                 <Table striped bordered hover className="army-table" size="sm">
@@ -806,51 +770,15 @@ function Military(props) {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Recruits</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(units.current_total?.recruits || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.recruits || 0) + (units.hour_1?.recruits || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.recruits || 0) + (units.hour_2?.recruits || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.recruits || 0) + (units.hour_4?.recruits || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.recruits || 0) + (units.hour_8?.recruits || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.recruits || 0) + (units.hour_24?.recruits || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Attackers</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(units.current_total?.attack || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.attack || 0) + (units.hour_1?.attack || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.attack || 0) + (units.hour_2?.attack || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.attack || 0) + (units.hour_4?.attack || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.attack || 0) + (units.hour_8?.attack || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.attack || 0) + (units.hour_24?.attack || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Defenders</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(units.current_total?.defense || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.defense || 0) + (units.hour_1?.defense || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.defense || 0) + (units.hour_2?.defense || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.defense || 0) + (units.hour_4?.defense || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.defense || 0) + (units.hour_8?.defense || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.defense || 0) + (units.hour_24?.defense || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Flexers</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(units.current_total?.flex || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.flex || 0) + (units.hour_1?.flex || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.flex || 0) + (units.hour_2?.flex || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.flex || 0) + (units.hour_4?.flex || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.flex || 0) + (units.hour_8?.flex || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.flex || 0) + (units.hour_24?.flex || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Big Flexers</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(units.current_total?.big_flex || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.big_flex || 0) + (units.hour_1?.big_flex || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.big_flex || 0) + (units.hour_2?.big_flex || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.big_flex || 0) + (units.hour_4?.big_flex || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.big_flex || 0) + (units.hour_8?.big_flex || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((units.current_total?.big_flex || 0) + (units.hour_24?.big_flex || 0)).toLocaleString()}</td>
-                        </tr>
+                        {unitKeys(units.current_total, props.state).map((key) => (
+                            <tr key={key}>
+                                <td style={{textAlign: "left"}}>{props.state?.pretty_names?.[key] || key}</td>
+                                <td style={{textAlign: "right"}}>{Math.floor(units.current_total?.[key] || 0).toLocaleString()}</td>
+                                {[1, 2, 4, 8, 24].map((hours) => (
+                                    <td key={hours} style={{textAlign: "right"}}>{Math.floor((units.current_total?.[key] || 0) + (units[`hour_${hours}`]?.[key] || 0)).toLocaleString()}</td>
+                                ))}
+                            </tr>
+                        ))}
                     </tbody>
                 </Table>
                 <Table striped bordered hover className="mobis-table" size="sm">
