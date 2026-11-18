@@ -100,6 +100,33 @@ PURE_DEFENSE_UNITS = [
 TRAINABLE_UNITS = [key for key in UNITS if key not in ("recruits", "engineers")]
 
 
+def unit_fuel(kd_info, unit):
+    """Fuel one ``unit`` of this kingdom uses per epoch, after its projects."""
+    fuel = UNITS[unit]["fuel"]
+    if unit in PURE_ATTACK_UNITS and has_project(kd_info, "solar_attackers"):
+        fuel *= 1 - GAME_CONFIG["SOLAR_FUEL_REDUCTION"]
+    if unit in PURE_DEFENSE_UNITS and has_project(kd_info, "solar_defenders"):
+        fuel *= 1 - GAME_CONFIG["SOLAR_FUEL_REDUCTION"]
+    return fuel
+
+
+def unit_hangar_space(kd_info, unit):
+    """Hangar space one ``unit`` of this kingdom takes, after its projects."""
+    space = UNITS[unit]["hangar_capacity"]
+    if unit == "big_flex" and has_project(kd_info, "compact_flexers"):
+        space = GAME_CONFIG["COMPACT_FLEX_HANGAR_CAPACITY"]
+    return space
+
+
+def units_for(kd_info, units_desc=None):
+    """``UNITS`` (or ``units_desc``, e.g. with costs adjusted) with this kingdom's fuel and hangar space per unit."""
+    units_desc = units_desc if units_desc is not None else UNITS
+    return {
+        key: {**unit, "fuel": unit_fuel(kd_info, key), "hangar_capacity": unit_hangar_space(kd_info, key)}
+        for key, unit in units_desc.items()
+    }
+
+
 def unit_locked(kd_info, unit):
     """Whether ``unit`` needs a project the kingdom has not completed."""
     project = UNITS.get(unit, {}).get("project")
@@ -371,6 +398,10 @@ GAME_CONFIG = {
     "EMPIRE_MAX_KINGDOMS_SHARE": 0.30,
     "EMPIRE_MAX_NETWORTH_SHARE": 0.35,
     "EMPIRE_ALWAYS_ALLOWED_GALAXIES": 2,
+    # Playstyle projects, unlocked by the best unit of each kind (proposals).
+    "SOLAR_FUEL_REDUCTION": 0.5,  # solar_attackers / solar_defenders: pure units of that kind use this much less fuel
+    "SELF_DESTRUCT_LOSSES_INCREASE": 0.5,  # self_destructing_*: the other side's unit losses are this much higher
+    "COMPACT_FLEX_HANGAR_CAPACITY": 1,  # compact_flexers: hangar space one big flexer takes
 }
 
 GAME_FUNCS = {
@@ -459,6 +490,55 @@ PROJECTS = {
     },
     # The 7-strength units cost about five times the points of the 6-strength ones, and need them first. Defender
     # projects cost about 20% more than attacker projects.
+    # Playstyle projects: two for the best unit of each kind.
+    "solar_attackers": {
+        "stars_power": 0,
+        "constant": 150000,
+        "desc": f"Pure attackers use {GAME_CONFIG['SOLAR_FUEL_REDUCTION']:.0%} less fuel",
+        "name": "Solar Attackers",
+        "category": "military",
+        "requires": ["elite_attackers"],
+    },
+    "self_destructing_attackers": {
+        "stars_power": 0,
+        "constant": 150000,
+        "desc": f"When you attack a kingdom, its units take {GAME_CONFIG['SELF_DESTRUCT_LOSSES_INCREASE']:.0%} more losses",
+        "name": "Self-Destructing Attackers",
+        "category": "military",
+        "requires": ["elite_attackers"],
+    },
+    "solar_defenders": {
+        "stars_power": 0,
+        "constant": 180000,
+        "desc": f"Pure defenders use {GAME_CONFIG['SOLAR_FUEL_REDUCTION']:.0%} less fuel",
+        "name": "Solar Defenders",
+        "category": "military",
+        "requires": ["elite_defenders"],
+    },
+    "self_destructing_defenders": {
+        "stars_power": 0,
+        "constant": 180000,
+        "desc": f"Kingdoms that attack you take {GAME_CONFIG['SELF_DESTRUCT_LOSSES_INCREASE']:.0%} more unit losses",
+        "name": "Self-Destructing Defenders",
+        "category": "military",
+        "requires": ["elite_defenders"],
+    },
+    "warp_speed": {
+        "stars_power": 0,
+        "constant": 150000,
+        "desc": "Big flexers sent on an attack all come home with the first general to return",
+        "name": "Warp Speed",
+        "category": "military",
+        "requires": ["big_flexers"],
+    },
+    "compact_flexers": {
+        "stars_power": 0,
+        "constant": 150000,
+        "desc": f"Big flexers take {GAME_CONFIG['COMPACT_FLEX_HANGAR_CAPACITY']} hangar space each",
+        "name": "Compact Flexers",
+        "category": "military",
+        "requires": ["big_flexers"],
+    },
     "heavy_attackers": {
         "stars_power": 0,
         "constant": 40000,

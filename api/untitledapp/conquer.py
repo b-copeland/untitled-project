@@ -266,6 +266,42 @@ def _calc_losses(
     }
     return losses
 
+def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0):
+    """
+    The share of its units each side loses in an attack, before race and war (``_calc_losses`` applies those): the base
+    rates, the defender's scaled by how close the attack came (``attack_ratio``), and the projects that change them.
+    ``defender_kd`` is the defending kingdom, what the attacker knows of it (a forecast), or None for primitives.
+    """
+    attacker_rate = uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"]
+    defender_rate = uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio
+    if defender_kd is not None:
+        if uas.has_project(defender_kd, "self_destructing_defenders"):
+            attacker_rate *= 1 + uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
+        if uas.has_project(attacker_kd, "self_destructing_attackers"):
+            defender_rate *= 1 + uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
+    return attacker_rate, defender_rate
+
+
+def _split_across_generals(kd_info, units, return_times):
+    """
+    The generals of an attack, each with its return time and its share of the units that survived: an even split, the
+    remainder to the earliest. With Warp Speed every big flexer goes with the general who returns first.
+    """
+    n_generals = len(return_times)
+    first = min(range(n_generals), key=lambda i: return_times[i])
+    warp = uas.has_project(kd_info, "warp_speed")
+    generals = []
+    for i_general, general_time in enumerate(return_times):
+        general = {"return_time": general_time.isoformat()}
+        for key_unit, count in units.items():
+            if warp and key_unit == "big_flex":
+                general[key_unit] = count if i_general == first else 0
+            else:
+                general[key_unit] = math.floor(count / n_generals) + int((count % n_generals) > i_general)
+        generals.append(general)
+    return generals
+
+
 def _calc_coordinate_distance(
     coord_a,
     coord_b,
@@ -386,15 +422,16 @@ def calculate_attack(target_kd):
         attack_ratio = min(attack / defense, 1.0)
     except ZeroDivisionError:
         attack_ratio = 1.0
+    attacker_loss_rate, defender_loss_rate = _battle_loss_rates(kd_info_parse, max_target_kd_info, attack_ratio)
     attacker_losses = _calc_losses(
         attacker_units,
-        uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        attacker_loss_rate,
         war=war,
         xo=kd_info_parse["race"] == "Xo",
     )
     defender_losses = _calc_losses(
         defender_units,
-        uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
+        defender_loss_rate,
         war=war,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
@@ -471,8 +508,8 @@ def calculate_attack(target_kd):
         "attacker_offense": attack,
         "defender_losses": defender_losses,
         "attacker_losses": attacker_losses,
-        "defender_unit_losses_rate": uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"],
-        "attacker_unit_losses_rate": uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        "defender_unit_losses_rate": defender_loss_rate,
+        "attacker_unit_losses_rate": attacker_loss_rate,
         "defender_stars_loss_rate": uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"],
         "generals_return_times": generals_return_times,
         "message": message,
@@ -619,15 +656,16 @@ def _autofill_attack(req, kd_id, target_kd):
         attack_ratio = min(attack / defense_adjusted, 1.0)
     except ZeroDivisionError:
         attack_ratio = 1.0
+    attacker_loss_rate, defender_loss_rate = _battle_loss_rates(kd_info_parse, max_target_kd_info, attack_ratio)
     attacker_losses = _calc_losses(
         attacker_units,
-        uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        attacker_loss_rate,
         war=war,
         xo=kd_info_parse["race"] == "Xo",
     )
     defender_losses = _calc_losses(
         defender_units,
-        uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
+        defender_loss_rate,
         war=war,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
@@ -704,8 +742,8 @@ def _autofill_attack(req, kd_id, target_kd):
         "attacker_offense": attack,
         "defender_losses": defender_losses,
         "attacker_losses": attacker_losses,
-        "defender_unit_losses_rate": uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"],
-        "attacker_unit_losses_rate": uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        "defender_unit_losses_rate": defender_loss_rate,
+        "attacker_unit_losses_rate": attacker_loss_rate,
         "defender_stars_loss_rate": uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"],
         "generals_return_times": generals_return_times,
         "message": message,
@@ -799,9 +837,11 @@ def _attack(req, kd_id, target_kd):
                 war=war,
                 surprise_war_penalty=surprise_war_penalty,
             )
+            # The attacker's losses do not depend on how the battle goes, so they are fixed as the units leave.
+            attacker_loss_rate, _ = _battle_loss_rates(kd, target_kd_info)
             attacker_losses = _calc_losses(
                 attacker_units,
-                uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+                attacker_loss_rate,
                 war=war,
                 xo=kd["race"] == "Xo",
             )
@@ -818,16 +858,7 @@ def _attack(req, kd_id, target_kd):
                 key_unit: value_unit - attacker_losses.get(key_unit, 0)
                 for key_unit, value_unit in attacker_units.items()
             }
-            generals = [
-                {
-                    "return_time": general_time.isoformat(),
-                    **{
-                        key_unit: math.floor(attacking_unit / n_generals) + int((attacking_unit % n_generals) > i_general)
-                        for key_unit, attacking_unit in remaining_attacker_units.items()
-                    }
-                }
-                for i_general, general_time in enumerate(generals_return_times)
-            ]
+            generals = _split_across_generals(kd, remaining_attacker_units, generals_return_times)
             next_return_time = min([general["return_time"] for general in generals])
             next_resolve = kd["next_resolve"]
             next_resolve["generals"] = min(next_resolve["generals"], next_return_time)
@@ -848,6 +879,7 @@ def _attack(req, kd_id, target_kd):
                 "time_now": time_now,
                 "name": kd["name"],
                 "race": kd["race"],
+                "completed_projects": list(kd.get("completed_projects", [])),
             }
 
         def resolve(target_doc):
@@ -872,9 +904,10 @@ def _attack(req, kd_id, target_kd):
             )
             # A kingdom with nothing to defend with has a defense of zero: any attack is at full strength.
             attack_ratio = min(attack / defense, 1.0) if defense > 0 else 1.0
+            _, defender_loss_rate = _battle_loss_rates(departure, target_doc, attack_ratio)
             defender_losses = _calc_losses(
                 defender_units,
-                uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio,
+                defender_loss_rate,
                 war=war,
             )
             attacker_losses = departure["attacker_losses"]
@@ -1275,9 +1308,10 @@ def calculate_attack_primitives():
     money = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_MONEY_PER_STAR"]
     fuel = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_FUEL_PER_STAR"]
     pop = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_POPULATION_PER_STAR"]
+    attacker_loss_rate, _ = _battle_loss_rates(kd_info_parse, None)
     attacker_losses = _calc_losses(
         attacker_units,
-        uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        attacker_loss_rate,
         xo=kd_info_parse["race"] == "Xo",
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
@@ -1312,7 +1346,7 @@ def calculate_attack_primitives():
     payload = {
         "attacker_offense": attack,
         "attacker_losses": attacker_losses,
-        "attacker_unit_losses_rate": uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+        "attacker_unit_losses_rate": attacker_loss_rate,
         "generals_return_times": generals_return_times,
         "message": message
     }
@@ -1356,9 +1390,10 @@ def _attack_primitives(req, kd_id):
             fuelless=attacker_fuelless,
             lumina=kd_info_parse["race"] == "Lumina",
         )
+        attacker_loss_rate, _ = _battle_loss_rates(kd_info_parse, None)
         attacker_losses = _calc_losses(
             attacker_units,
-            uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"],
+            attacker_loss_rate,
             xo=kd_info_parse["race"] == "Xo",
         )
         time_now = datetime.datetime.now(datetime.timezone.utc)
@@ -1382,16 +1417,7 @@ def _attack_primitives(req, kd_id):
             key_unit: value_unit - attacker_losses.get(key_unit, 0)
             for key_unit, value_unit in attacker_units.items()
         }
-        generals = [
-            {
-                "return_time": general_time.isoformat(),
-                **{
-                    key_unit: math.floor(attacking_unit / n_generals) + int((attacking_unit % n_generals) > i_general)
-                    for key_unit, attacking_unit in remaining_attacker_units.items()
-                }
-            }
-            for i_general, general_time in enumerate(generals_return_times)
-        ]
+        generals = _split_across_generals(kd_info_parse, remaining_attacker_units, generals_return_times)
         next_return_time = min([general["return_time"] for general in generals])
 
         stars = math.floor(

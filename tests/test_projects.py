@@ -2,7 +2,7 @@
 Projects: the shared helpers in shared.py, the lock rules (race, required projects, completed one-time projects) that the
 project routes enforce, and kingdoms made before a project existed.
 
-Each project's own effect has its tests in the file for the system it changes; see the list in docs/game-design.md.
+What each project does is tested in tests/test_project_effects.py.
 """
 import json
 

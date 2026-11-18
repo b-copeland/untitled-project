@@ -534,7 +534,7 @@ def _calc_maxes(
 def _calc_hangar_capacity(kd_info, units):
     max_hangar_capacity = math.floor(kd_info["structures"]["hangars"]) * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]
     current_hangar_capacity = sum([
-        stat_map["hangar_capacity"] * (units["current_total"].get(key, 0) + units["hour_24"].get(key, 0))
+        uas.unit_hangar_space(kd_info, key) * (units["current_total"].get(key, 0) + units["hour_24"].get(key, 0))
         for key, stat_map in uas.UNITS.items()
     ])
     return max_hangar_capacity, current_hangar_capacity
@@ -621,7 +621,7 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policie
         'current_hangar_capacity': current_hangar_capacity,
         'max_available_recruits': max_available_recruits,
         'current_available_recruits': current_available_recruits,
-        'units_desc': units_adjusted_costs,
+        'units_desc': uas.units_for(kd_info_parse, units_adjusted_costs),
         'top_queue': top_queue,
         'len_queue': len_queue,
         'is_conscription': is_conscription,

@@ -328,7 +328,7 @@ def _kingdom_with_income(
     income["fuel"]["bonus"] = current_bonuses["fuel_bonus"] + (int(kd_info_parse["race"] == "Lumina") * uas.GAME_CONFIG["LUMINA_FUEL_PRODUCTION_INCREASE"])
     income["fuel"]["units"] = {}
     for key_unit, value_units in total_units.items():
-        income["fuel"]["units"][key_unit] = value_units * uas.UNITS[key_unit]["fuel"]
+        income["fuel"]["units"][key_unit] = value_units * uas.unit_fuel(kd_info_parse, key_unit)
     income["fuel"]["population"] = kd_info_parse["population"] * uas.GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"]
     income["fuel"]["shields"] = {}
     income["fuel"]["shields"]["military"] = kd_info_parse["shields"]["military"] * 100 * kd_info_parse["stars"] * uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT"]
