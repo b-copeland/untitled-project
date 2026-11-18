@@ -95,7 +95,7 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
 2. Write it as a function of `(kd_info, time_update, ...)` that returns the new values and the next resolve time, and
    call it from `_refresh_kd` **inside the attempt loop, before the single kingdom write.** It must be correct when run
    twice and when the loop retries, so it does not write other documents. (The one exception in the code is expiry of
-   `revealed` and `shared` entries, which gives the same result however often it runs.)
+   `revealed` entries, which gives the same result however often it runs.)
 3. Effects on other documents go in `effects` (run after the write). Anything credited from a queue uses the
    `queues_resolved_until` cursor so it is credited once.
 4. Compute from elapsed time, not from "one tick happened": the refresh may run late or twice.

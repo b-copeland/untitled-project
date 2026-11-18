@@ -19,7 +19,7 @@ the component catalog are in [docs/ux.md](../docs/ux.md); read it before changin
   `react-icons` through `IconButton`.
 - **Amounts:** `AmountInput` is a slider with the chosen number on its left and the most possible on its right; give it
   `max` and `soloMax`. `box` adds a number box and Max for the planner pages.
-- **Planner pages** (Attack, Spy, Primitives, Share Intel, Schedule, Launch Missiles): `Panel`, `FieldRow`, `Stats`,
+- **Planner pages** (Attack, Spy, Primitives, Schedule, Launch Missiles): `Panel`, `FieldRow`, `Stats`,
   `VersusBar`, `Picker` from `components/planner.js`, a forecast that follows the inputs, and a confirmation only for
   the troublesome cases.
 - **CSS:** shared classes and tokens in `styles/shared.css` (`col-center`, `box-tight`, `game-table`, `table-scroll`).

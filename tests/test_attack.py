@@ -320,18 +320,23 @@ def test_attack_news_is_tagged_with_its_kind(app, client, jwt1):
 
 
 SHARER_ID = "3"
+OTHER_SHARER_ID = "4"
 
 
-def _shared_intel(cut):
-    """Kingdom 3, the attacker's galaxymate, has shared its intel on the target with the attacker for ``cut``."""
+def _accepted(sharer, cut, time="2099-01-01T00:00:00+00:00"):
+    return {"sharer": sharer, "cut": cut, "time": time, "source": "market", "accepted_at": "2026-01-01T00:00:00+00:00"}
+
+
+def _shared_intel(cut=None, accepted=None):
+    """
+    Kingdoms 3 and 4 are the attacker's galaxymates. The attacker has taken intel on the target: 3's military intel for
+    ``cut``, or ``accepted`` (category to record) when given.
+    """
     _set_up_kingdom(money=0, kd_id=SHARER_ID)
+    _set_up_kingdom(money=0, kd_id=OTHER_SHARER_ID)
     _set_up_two_kingdoms()
-    _create_item("galaxies", {"galaxies": {"1": [KD_ID, SHARER_ID], "2": [TARGET_ID]}})
-    _create_item(f"shared_{KD_ID}", {
-        "shared": {TARGET_ID: {"shared_by": SHARER_ID, "shared_stat": "military", "cut": cut,
-                               "time": "2099-01-01T00:00:00+00:00"}},
-        "shared_requests": {}, "shared_offers": {},
-    })
+    _create_item("galaxies", {"galaxies": {"1": [KD_ID, SHARER_ID, OTHER_SHARER_ID], "2": [TARGET_ID]}})
+    _create_item("galaxy_intel_1", {"accepted": {KD_ID: {TARGET_ID: accepted or {"military": _accepted(SHARER_ID, cut)}}}})
 
 
 def test_shared_intel_pays_its_sharer_the_agreed_cut(app, client, jwt1):
@@ -352,3 +357,57 @@ def test_shared_intel_pays_its_sharer_the_agreed_cut(app, client, jwt1):
     news = _get(f"/kingdom/{SHARER_ID}/news")["news"]
     assert len(news) == 1 and news[0]["kind"] == "intel"
     assert "provided intel" in _get("/galaxy/1/news")["news"][0]["news"]
+
+
+def test_each_category_of_intel_pays_its_own_sharer(app, client, jwt1):
+    # Issue #28: military from 3 at 10% and kingdom from 4 at 15% add up to 25%, each paid to its sharer.
+    _shared_intel(accepted={"military": _accepted(SHARER_ID, 0.10), "kingdom": _accepted(OTHER_SHARER_ID, 0.15)})
+    before = {kd: _get(f"/kingdom/{kd}") for kd in (KD_ID, TARGET_ID, SHARER_ID, OTHER_SHARER_ID)}
+
+    response = _attack(client, jwt1)
+
+    assert response.status_code == 200 and response.get_json()["status"] == "success", response.get_json()
+    after = {kd: _get(f"/kingdom/{kd}") for kd in before}
+    gained = {kd: after[kd]["stars"] - before[kd]["stars"] for kd in (KD_ID, SHARER_ID, OTHER_SHARER_ID)}
+    taken = before[TARGET_ID]["stars"] - after[TARGET_ID]["stars"]
+    assert sum(gained.values()) == taken
+    # Each share is its cut of the whole spoils, rounded down, so the whole is a little more than the target lost.
+    assert any(
+        (gained[KD_ID], gained[SHARER_ID], gained[OTHER_SHARER_ID]) == (int(whole * 0.75), int(whole * 0.10), int(whole * 0.15))
+        for whole in range(taken, taken + 3)
+    ), (gained, taken)
+    assert "provided intel" in _get("/galaxy/1/news")["news"][0]["news"]
+    assert all(_get(f"/kingdom/{kd}/news")["news"][0]["kind"] == "intel" for kd in (SHARER_ID, OTHER_SHARER_ID))
+
+
+def test_one_sharer_of_two_categories_gets_both_cuts(app, client, jwt1):
+    _shared_intel(accepted={"military": _accepted(SHARER_ID, 0.10), "shields": _accepted(SHARER_ID, 0.05)})
+    before = {kd: _get(f"/kingdom/{kd}")["stars"] for kd in (TARGET_ID, SHARER_ID)}
+    assert _attack(client, jwt1).get_json()["status"] == "success"
+    taken = before[TARGET_ID] - _get(f"/kingdom/{TARGET_ID}")["stars"]
+    sharer_gained = _get(f"/kingdom/{SHARER_ID}")["stars"] - before[SHARER_ID]
+    assert any(sharer_gained == int(whole * 0.15) for whole in range(taken, taken + 2)), (sharer_gained, taken)
+
+
+def test_expired_and_free_intel_earn_no_cut(app, client, jwt1):
+    _shared_intel(accepted={"military": _accepted(SHARER_ID, 0.10, time="2020-01-01T00:00:00+00:00"),
+                            "kingdom": _accepted(OTHER_SHARER_ID, 0)})
+    before = {kd: _get(f"/kingdom/{kd}")["stars"] for kd in (SHARER_ID, OTHER_SHARER_ID)}
+    assert _attack(client, jwt1).get_json()["status"] == "success"
+    assert {kd: _get(f"/kingdom/{kd}")["stars"] for kd in before} == before
+
+
+def test_the_forecast_names_every_sharer_and_their_cut(app, client, jwt1):
+    _shared_intel(accepted={"military": _accepted(SHARER_ID, 0.10), "kingdom": _accepted(OTHER_SHARER_ID, 0.15)})
+    _create_item("kingdoms", {"kingdoms": {KD_ID: "Attacker", TARGET_ID: "Target", SHARER_ID: "Three", OTHER_SHARER_ID: "Four"}})
+    _create_item(f"revealed_{KD_ID}", {"revealed": {TARGET_ID: {"kingdom": "2099-01-01T00:00:00+00:00"}},
+                                         "galaxies": {}, "revealed_galaxymates": [], "revealed_to_galaxymates": []})
+    response = client.post(
+        f"/api/calculate/{TARGET_ID}",
+        json={"attackerValues": {"attack": "1000", "generals": "1"},
+              "defenderValues": {"recruits": "", "defense": "0", "flex": "", "big_flex": "", "military_bonus": "0", "shields": "0"}},
+        headers={"Authorization": f"Bearer {jwt1}"},
+    )
+    assert response.status_code == 200, response.get_json()
+    message = response.get_json()["message"]
+    assert "(10.0%) for sharing intel" in message and "(15.0%) for sharing intel" in message

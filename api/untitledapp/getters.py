@@ -1136,25 +1136,6 @@ def revealed():
     revealed_info = _get_revealed(kd_id)
     return (flask.jsonify(revealed_info), 200)
 
-def _get_shared(kd_id):
-    app = flask.current_app
-    shared_info = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/shared',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-    )
-    
-    shared_info_parse = json.loads(shared_info.text)
-    return shared_info_parse
-
-@bp.route('/api/shared', methods=['GET'])
-@flask_praetorian.auth_required
-# @flask_praetorian.roles_required('verified')
-def shared():
-    kd_id = flask_praetorian.current_user().kd_id
-    
-    shared_info = _get_shared(kd_id)
-    return (flask.jsonify(shared_info), 200)
-
 def _get_pinned(kd_id):
     app = flask.current_app
     pinned_info = REQUESTS_SESSION.get(

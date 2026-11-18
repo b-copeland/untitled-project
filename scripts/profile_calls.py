@@ -215,7 +215,7 @@ def main():
         "/api/galaxies", "/api/galaxies_inverted", "/api/empires", "/api/empires_inverted", "/api/galaxynews",
         "/api/universenews", "/api/attackhistory", "/api/spyhistory", "/api/missilehistory", "/api/mobis",
         "/api/structures", f"/api/kingdom/{target}", "/api/galaxy/1:1", "/api/settle", "/api/missiles", "/api/engineers",
-        "/api/projects", "/api/revealed", "/api/shared", "/api/pinned", "/api/galaxypolitics", "/api/universepolitics",
+        "/api/projects", "/api/revealed", "/api/intel", "/api/pinned", "/api/galaxypolitics", "/api/universepolitics",
         "/api/siphonsout", "/api/history", "/api/scores", "/api/notifs", f"/api/attackcontext/{target}",
         "/api/revealrandomgalaxy",
     ]

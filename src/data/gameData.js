@@ -33,7 +33,7 @@ export const ENDPOINTS = {
   engineers: "api/engineers",
   projects: "api/projects",
   revealed: "api/revealed",
-  shared: "api/shared",
+  intel: "api/intel",
   pinned: "api/pinned",
   galaxypolitics: "api/galaxypolitics",
   universepolitics: "api/universepolitics",
@@ -68,7 +68,7 @@ export const initGlobalData = {
   engineers: {},
   projects: {},
   revealed: {},
-  shared: {},
+  intel: {},
   pinned: [],
   galaxypolitics: {},
   universepolitics: {},
@@ -93,7 +93,8 @@ export const RESOLVE_KEYS_MAP = {
   engineers: ["engineers"],
   structures: ["structures"],
   revealed: ["revealed"],
-  shared: ["shared"],
+  // Kingdoms made before the intel market have this timer; the refresh retires it once.
+  shared: ["intel"],
   auto_spending: ["kingdom", "settle", "structures", "mobis", "engineers"],
 };
 

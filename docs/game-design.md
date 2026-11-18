@@ -58,7 +58,7 @@ building.
 | Reveal | Spying that shows part of another kingdom for a time (`REVEAL_OPERATIONS`). What is revealed decides what the API shows you. |
 | Aggressive spying | Siphon funds, bomb homes, sabotage fuel plants, kidnap population, suicide drones (`AGGRO_OPERATIONS`). |
 | Siphon | Taking money from another kingdom's income at a steady rate for a time: the drones sent times `BASE_DRONES_SIPHON_PER_DRONE`, paid evenly over `BASE_DRONES_SIPHON_TIME_MULTIPLIER` epochs. A kingdom loses at most `BASE_MAX_SIPHON` of its gross income per epoch to all siphons together. Over that cap the oldest siphons are cut first and newer ones pay in full, and a cut is permanent. |
-| Shared intel | Passing a reveal to a galaxymate, optionally for a cut of the gains. |
+| Intel market | Each galaxy's board for trading reveals. A kingdom lists intel it revealed for a cut of the spoils (any galaxymate can buy it), shares it free (every galaxymate gets it at once), or posts a bounty for intel it wants. A cut is paid from every successful attack on that target while the intel lasts; each category pays its own sharer, up to `BASE_MAX_TOTAL_SHARE_CUT` per target. |
 | Primitives | Unclaimed land held by nobody. Attacking them gains stars; robbing them gains money. Both have automatic versions. |
 | Shields | Paid, per-epoch protection: military, spy, spy radar, missiles. |
 | Missiles | Planet, star and galaxy busters; built in silos, launched at a kingdom. |
@@ -89,7 +89,8 @@ building.
 | Settling, structures, military, projects, missiles (building) | `build.py`, calculations in `getters.py` | `BASE_SETTLE_*`, `BASE_STRUCTURE_*`, `UNITS`, `PROJECTS`, `MISSILES` | `src/pages/help/build/*.js` |
 | Attacks and primitives | `conquer.py` (`_attack`, `/api/attack/<target>`, `/api/calculate/<target>`, `/api/attackprimitives`) | `BASE_GENERALS_*`, `BASE_*_LOSS_RATE`, `BASE_PRIMITIVES_*` | `src/pages/help/conquer/attack.js`, `primitives.js` |
 | Spying and robbing | `conquer.py` (`/api/spy/<target>`, `/api/calculatespy/<target>`, `/api/robprimitives`) | `BASE_SPY_*`, `BASE_DRONES_*`, `BASE_REVEAL_DURATION_MULTIPLIER` | `src/pages/help/conquer/spy.js` |
-| Shared intel | `conquer.py` (`/api/offershared`, `/api/shared`), `misc.py` (`/api/share/<kingdom>`) | `BASE_MAX_SHARE_CUT` | `src/pages/help/conquer/shareintel.js` |
+| Intel market | `intel.py` (`/api/intel`, `/api/intel/*`); the cut of the spoils in `conquer._attack` and `_spoils_forecast` | `BASE_MAX_SHARE_CUT`, `BASE_MAX_TOTAL_SHARE_CUT`, `BASE_INTEL_BOUNTY_MAX_EPOCHS` | `src/pages/help/conquer/intel.js` |
+| Sharing your own kingdom with galaxymates | `misc.py` (`/api/share/<kingdom>`, `/api/unshare/<kingdom>`) | | `src/pages/help/other/viewkingdom.js` |
 | Schedule | `conquer.py` (`/api/schedule`), `refresh._resolve_schedules` | | `src/pages/help/conquer/schedule.js` |
 | Politics | `politics.py`, `refresh._begin_election`, `_resolve_election` | `GALAXY_POLICIES`, `UNIVERSE_POLICIES`, `BASE_VOTES_COST`, `AGGRO_*`, `DENOUNCE_*`, `PEACE_*`, `WAR_*` | `src/pages/help/politics/*.js` |
 | Scores and history | `refresh._resolve_scores`, `_update_history` | `NETWORTH_VALUES`, `NETWORTH_POINTS` | `src/pages/help/home/scores.js` |

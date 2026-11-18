@@ -22,7 +22,7 @@ import Missiles from "./pages/build/missiles.js";
 import ConquerContent from "./pages/conquer/conquer.js";
 import Attack from "./pages/conquer/attack.js";
 import Spy from "./pages/conquer/spy.js";
-import ShareIntel from "./pages/conquer/shareintel.js";
+import IntelMarket from "./pages/conquer/intel.js";
 import LaunchMissiles from "./pages/conquer/launchmissiles.js";
 import Schedule from "./pages/conquer/schedule.js";
 import Primitives from "./pages/conquer/primitives.js";
@@ -81,7 +81,7 @@ export const sections = [
       { path: "/conquer", label: "Overview", component: ConquerContent },
       { path: "/attack", label: "Attack", component: Attack },
       { path: "/spy", label: "Spy", component: Spy },
-      { path: "/shareintel", label: "Share Intel", component: ShareIntel },
+      { path: "/intel", label: "Intel", component: IntelMarket, notifs: ["shared"] },
       { path: "/launchmissiles", label: "Launch Missiles", component: LaunchMissiles },
       { path: "/schedule", label: "Schedule", component: Schedule },
       { path: "/primitives", label: "Primitives", component: Primitives },

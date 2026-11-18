@@ -20,7 +20,7 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
 ```
 
 - **Flask owns the rules.** Every decision (can you afford it, does the attack win, what does the player see) is made in
-  `api/untitledapp/`. Blueprints: `account`, `admin`, `build`, `conquer`, `getters`, `misc`, `politics`, `refresh`.
+  `api/untitledapp/`. Blueprints: `account`, `admin`, `build`, `conquer`, `getters`, `intel`, `misc`, `politics`, `refresh`.
 - **The function app owns storage, nothing else.** Each route reads or writes one Cosmos document. It does no game
   logic. Its `update_*` handlers merge or append into the newest version of the document (see [data-model.md](data-model.md)).
 - **Identity is in Cosmos, through the function app.** Each user is a `user_<id>` document (login, roles, `kd_id`), read
@@ -164,7 +164,8 @@ In game code take `kd_id` from `flask_praetorian.current_user()` and nothing els
 |---|---|
 | Kingdom creation, shields, messages, spending, sharing, notifications | `misc.py` |
 | Settling, building, training, projects, missiles | `build.py` |
-| Attacks, spying, primitives, missiles launched, schedule, shared intel, pinned | `conquer.py` |
+| Attacks, spying, primitives, missiles launched, schedule, pinned | `conquer.py` |
+| The galaxy's intel market: listings, bounties, free shares, exclusions, who earns which cut | `intel.py` |
 | Galaxy, empire and universe politics, votes, war, surrender | `politics.py` |
 | Read routes (`/api/kingdom`, `/api/structures`, ...) and the calculations they share | `getters.py` |
 | The tick | `refresh.py` (`refresh_data` calls `_refresh_kd` per kingdom) |

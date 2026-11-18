@@ -1,0 +1,34 @@
+/* The Intel page and the per-kingdom intel panel. Tables, panels and pickers use the shared styles. */
+.intel-market .panel,
+.kingdom-intel .panel {
+    margin-top: 1rem;
+}
+
+.intel-share {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.intel-cut {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.intel-cut .form-control {
+    width: 4.5rem;
+}
+
+.intel-epochs.form-control {
+    width: 5rem;
+}
+
+.intel-action {
+    white-space: nowrap;
+}
+
+.intel-form {
+    max-width: 36rem;
+}

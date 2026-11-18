@@ -583,6 +583,18 @@ def test_finished_settles_are_credited_and_the_queue_is_trimmed_after_the_kingdo
     assert session.docs["/kingdom/1/settles"]["settles"] == [{"time": FUTURE, "amount": 2}]
 
 
+def test_the_old_shared_timer_is_retired_without_reading_anything_for_it(app, session, monkeypatch):
+    # Kingdoms made before the intel market have a "shared" timer. It is set to never, and no shared document is read.
+    session.kingdom = _kingdom_doc(next_resolve={"shared": PAST})
+    session.kingdom["_etag"] = '"k1"'
+
+    _refresh(app, monkeypatch)
+
+    (written,) = _kingdom_writes(session)
+    assert written["next_resolve"]["shared"].startswith("2099")
+    assert not any("/shared" in path for _, path, _ in session.calls)
+
+
 def test_the_kingdom_is_written_with_the_version_it_was_read_at(app, session, monkeypatch):
     _settling(session)
     seen = []

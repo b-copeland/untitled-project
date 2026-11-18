@@ -41,7 +41,7 @@ what needs doing, and what is worth doing next.** Every page should answer its p
 | A plain number field | `NumberField` (shows `error` under the box) | `src/components/forms.js` |
 | The send button | `SubmitButton` with `blocked` set to the reason, or null | `src/components/forms.js` |
 | Results of an action | `ResultToasts` | `src/components/results.js` |
-| A planning page (Attack, Spy, Primitives, Share Intel, Schedule, Launch Missiles) | `Panel`, `FieldRow`, `Stats`, `VersusBar`, `Picker`, status tags, `useServerForecast` (asks again 700 ms after the last change, drops answers that were overtaken) | `src/components/planner.js` |
+| A planning page (Attack, Spy, Primitives, Schedule, Launch Missiles) | `Panel`, `FieldRow`, `Stats`, `VersusBar`, `Picker`, status tags, `useServerForecast` (asks again 700 ms after the last change, drops answers that were overtaken) | `src/components/planner.js` |
 | An icon action | `IconButton` (`react-icons`; the name is the tooltip and the accessible label) | `src/components/iconbutton.js` |
 | Formatting numbers and percents | `src/format.js` | |
 | Page header and help | `Header`, `HelpButton` with the page's help topic | `src/components/` |

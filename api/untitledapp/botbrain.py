@@ -53,6 +53,7 @@ import untitledapp.botstrategy as strategy
 import untitledapp.build as uab
 import untitledapp.conquer as uac
 import untitledapp.getters as uag
+import untitledapp.intel as uai
 import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.politics as uap
@@ -437,8 +438,11 @@ class World:
         return self._lazy("news", lambda: occ.read(f'/kingdom/{self.kd_id}/news').get("news", []))
 
     @property
-    def shared(self):
-        return self._lazy("shared", lambda: uag._get_shared(self.kd_id))
+    def intel(self):
+        """The galaxy's intel market as the Intel page shows it to this kingdom (intel.view)."""
+        members = self.galaxies.get(self.my_galaxy, [])
+        return self._lazy("intel", lambda: uai.view(uai._market(self.my_galaxy), self.kd_id, self.revealed_info,
+                                                    self.now, members))
 
     @property
     def spy_history(self):
@@ -1094,7 +1098,7 @@ def plan_intel(world, personality, style, memory, rng, want_military=False):
 
 
 def accept_intel(world, personality, style, memory):
-    """Take what galaxymates offer: military intel if the bot attacks kingdoms, anything if it runs drones on them."""
+    """Buy what galaxymates list: military intel if the bot attacks kingdoms, anything if it runs drones on them."""
     wanted = set()
     if style.get("army") in ("players", "both"):
         wanted.add("military")
@@ -1104,12 +1108,12 @@ def accept_intel(world, personality, style, memory):
         return []
     outsiders = set(world.outsiders())
     decisions = []
-    for key, offer in (world.shared.get("shared_requests") or {}).items():
-        target = key.split("_")[0]
-        if offer.get("shared_stat") in wanted and target in outsiders and world.seconds_left(target, offer["shared_stat"]) <= 0:
-            if _utc(offer["time"]) > world.now + datetime.timedelta(seconds=2 * EPOCH):
-                decisions.append(Decision("accept_intel", {"key": key},
-                                          f"accept {offer['shared_stat']} intel on {world.names.get(target, target)}"))
+    for listing in world.intel.get("listings") or []:
+        target, category = listing["target"], listing["category"]
+        if listing.get("problem") is None and category in wanted and target in outsiders and world.seconds_left(target, category) <= 0:
+            if _utc(listing["time"]) > world.now + datetime.timedelta(seconds=2 * EPOCH):
+                decisions.append(Decision("accept_intel", {"listing": listing["id"]},
+                                          f"buy {category} intel on {world.names.get(target, target)}"))
         if len(decisions) >= 3:
             break
     return decisions
@@ -1622,7 +1626,7 @@ def _do(kd_id, world, decision):
         if kind == "reveal_galaxy":
             return _answer(uac._reveal_random_galaxy(kd_id))
         if kind == "accept_intel":
-            return _answer(uac._accept_shared(kd_id, options["key"]))
+            return _answer(uai._buy(kd_id, options["listing"]))
         if kind == "build_missiles":
             return _answer(uab._build_missiles(kd_id, dict(options)))
         if kind == "disband":

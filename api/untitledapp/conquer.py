@@ -13,6 +13,7 @@ from flask_sock import Sock, ConnectionClosed
 import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.getters as uag
+import untitledapp.intel as uai
 import untitledapp.shared as uas
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
 
@@ -293,6 +294,42 @@ def _calc_generals_return_time(
     ]
     return return_times
 
+def _spoils_forecast(kd_id, target_kd, max_target_kd_info, race, war):
+    """
+    The lines of an attack forecast that say what a win would take, for the attacker and for each galaxymate whose
+    intel on the target earns a cut. Worked out like the attack (intel.split_spoils), from what the attacker can see.
+    """
+    spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
+        1
+        + (int(race == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+        + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
+    )
+    min_stars_gain = math.floor(uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
+        1
+        + (int(race == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+        + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
+    ))
+    total_spoils = {
+        key_spoil: max(math.floor(value_spoil * spoils_rate), 0)
+        for key_spoil, value_spoil in max_target_kd_info.items()
+        if key_spoil in {"stars", "population", "money", "fuel"}
+    }
+    if "stars" in total_spoils:
+        total_spoils["stars"] = max(total_spoils["stars"], min_stars_gain)
+    if not total_spoils:
+        return ""
+    cuts = uai.spoils_cuts_for(kd_id, target_kd)
+    spoils_values, sharers_spoils = uai.split_spoils(total_spoils, cuts)
+    message = 'You will gain ' + ', '.join([f"{value} {key}" for key, value in spoils_values.items()]) + '. \n'
+    if sharers_spoils:
+        kingdoms = uag._get_kingdoms()
+        for sharer, sharer_spoils in sharers_spoils.items():
+            message += (f'Your galaxymate {kingdoms.get(sharer, sharer)} will gain '
+                        + ', '.join([f"{value} {key}" for key, value in sharer_spoils.items()])
+                        + f' ({cuts[sharer]:.1%}) for sharing intel. \n')
+    return message
+
+
 @bp.route('/api/calculate/<target_kd>', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -314,7 +351,6 @@ def calculate_attack(target_kd):
     current_bonuses = uas.project_bonuses(kd_info_parse)
 
     revealed = uag._get_revealed(kd_id)
-    shared = uag._get_shared(kd_id)["shared"]
     max_target_kd_info = uag._get_max_kd_info(target_kd, kd_id, revealed)
 
     valid_attack_request, attack_request_message = _validate_attack_request(
@@ -416,50 +452,7 @@ def calculate_attack(target_kd):
     if attack > defense:
         message = f"The attack will be a success!\n"
         message += f"Your general(s) will return in: {generals_strftime}. \n"
-        if target_kd in shared:
-            cut = shared[target_kd]["cut"]
-            sharer = shared[target_kd]["shared_by"]
-        else:
-            cut = 0
-            sharer = None
-        spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
-            1
-            + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
-            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
-        )
-        min_stars_gain = uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
-            1
-            + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
-            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
-        )
-        spoils_values = {
-            key_spoil: max(math.floor(value_spoil * spoils_rate * (1 - cut)), 0)
-            for key_spoil, value_spoil in max_target_kd_info.items()
-            if key_spoil in {"stars", "population", "money", "fuel"}
-        }
-        try:
-            spoils_values["stars"] = max(spoils_values["stars"], math.floor(min_stars_gain * (1 - cut)))
-        except KeyError:
-            pass
-        if spoils_values:
-            message += 'You will gain '
-            message += ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
-            message += '. \n'
-            if sharer:
-                sharer_spoils_values = {
-                    key_spoil: max(math.floor(value_spoil * spoils_rate * cut), 0)
-                    for key_spoil, value_spoil in max_target_kd_info.items()
-                    if key_spoil in {"stars", "population", "money", "fuel"}
-                }
-                try:
-                    sharer_spoils_values["stars"] = max(sharer_spoils_values["stars"], math.floor(min_stars_gain * cut))
-                except KeyError:
-                    pass
-                kingdoms = uag._get_kingdoms()
-                sharer_name = kingdoms[sharer]
-                message += f'Your galaxymate {sharer_name} will gain '
-                message += ', '.join([f"{value} {key}" for key, value in sharer_spoils_values.items()])
-                message += ' for sharing intel. \n'
+        message += _spoils_forecast(kd_id, target_kd, max_target_kd_info, kd_info_parse["race"], war)
 
                 
     else:
@@ -516,7 +509,6 @@ def _autofill_attack(req, kd_id, target_kd):
     current_bonuses = uas.project_bonuses(kd_info_parse)
 
     revealed = uag._get_revealed(kd_id)
-    shared = uag._get_shared(kd_id)["shared"]
     max_target_kd_info = uag._get_max_kd_info(target_kd, kd_id, revealed)
 
     valid_request, request_message = _validate_autofill_request(
@@ -649,50 +641,7 @@ def _autofill_attack(req, kd_id, target_kd):
     if attack > defense:
         message = f"The attack will be a success!\n"
         message += f"Your general(s) will return in: {generals_strftime}. \n"
-        if target_kd in shared:
-            cut = shared[target_kd]["cut"]
-            sharer = shared[target_kd]["shared_by"]
-        else:
-            cut = 0
-            sharer = None
-        spoils_rate = uas.GAME_CONFIG["BASE_KINGDOM_LOSS_RATE"] * (
-            1
-            + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
-            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
-        )
-        min_stars_gain = uas.GAME_CONFIG["BASE_ATTACK_MIN_STARS_GAIN"] * (
-            1
-            + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
-            + (int(war) * uas.GAME_CONFIG["WAR_GAINS_INCREASE"])
-        )
-        spoils_values = {
-            key_spoil: max(math.floor(value_spoil * spoils_rate * (1 - cut)), 0)
-            for key_spoil, value_spoil in max_target_kd_info.items()
-            if key_spoil in {"stars", "population", "money", "fuel"}
-        }
-        try:
-            spoils_values["stars"] = max(spoils_values["stars"], math.floor(min_stars_gain * (1 - cut)))
-        except KeyError:
-            pass
-        if spoils_values:
-            message += 'You will gain '
-            message += ', '.join([f"{value} {key}" for key, value in spoils_values.items()])
-            message += '. \n'
-            if sharer:
-                sharer_spoils_values = {
-                    key_spoil: max(math.floor(value_spoil * spoils_rate * cut), 0)
-                    for key_spoil, value_spoil in max_target_kd_info.items()
-                    if key_spoil in {"stars", "population", "money", "fuel"}
-                }
-                try:
-                    sharer_spoils_values["stars"] = max(sharer_spoils_values["stars"], math.floor(min_stars_gain * cut))
-                except KeyError:
-                    pass
-                kingdoms = uag._get_kingdoms()
-                sharer_name = kingdoms[sharer]
-                message += f'Your galaxymate {sharer_name} will gain '
-                message += ', '.join([f"{value} {key}" for key, value in sharer_spoils_values.items()])
-                message += ' for sharing intel. \n'
+        message += _spoils_forecast(kd_id, target_kd, max_target_kd_info, kd_info_parse["race"], war)
 
                 
     else:
@@ -743,15 +692,9 @@ def _attack(req, kd_id, target_kd):
     attacker_galaxy = galaxies_inverted[kd_id]
     defender_galaxy = galaxies_inverted[target_kd]
 
-    # Intel shared with the attacker about this target earns its sharer the agreed cut of the spoils; the attacker gets
-    # the rest. The same rule as the forecast in calculate_attack.
-    shared = uag._get_shared(kd_id)["shared"]
-    if target_kd in shared:
-        cut = shared[target_kd]["cut"]
-        sharer = shared[target_kd]["shared_by"]
-    else:
-        cut = 0
-        sharer = None
+    # Intel on this target the attacker took from galaxymates earns each sharer their cut of the spoils (each category
+    # its own cut, added up); the attacker gets the rest. The same split as the forecast (_spoils_forecast).
+    cuts = uai.spoils_cuts_for(kd_id, target_kd)
     try:
         # What follows is the attack in three committed steps, so that two attacks (or an attack and the defender's own
         # actions) can overlap without losing each other's changes. See docs/concurrency.md.
@@ -905,26 +848,7 @@ def _attack(req, kd_id, target_kd):
                     key_funding: max(math.floor(value_funding * spoils_rate), 0)
                     for key_funding, value_funding in target_doc["funding"].items()
                 }
-                spoils_values = {
-                    key_spoil: max(math.floor(value_spoil * (1 - cut)), 0)
-                    for key_spoil, value_spoil in total_spoils.items()
-                    if key_spoil in {"stars", "population", "money", "fuel"}
-                }
-                spoils_values["funding"] = {
-                    key_funding: max(math.floor(value_funding * (1 - cut)), 0)
-                    for key_funding, value_funding in total_spoils["funding"].items()
-                }
-                sharer_spoils_values = {}
-                if sharer:
-                    sharer_spoils_values = {
-                        key_spoil: max(math.floor(value_spoil * cut), 0)
-                        for key_spoil, value_spoil in total_spoils.items()
-                        if key_spoil in {"stars", "population", "money", "fuel"}
-                    }
-                    sharer_spoils_values["funding"] = {
-                        key_funding: max(math.floor(value_funding * cut), 0)
-                        for key_funding, value_funding in total_spoils["funding"].items()
-                    }
+                spoils_values, sharers_spoils = uai.split_spoils(total_spoils, cuts)
                 units_destroyed = sum(defender_losses.values())
                 attack_status = "success"
                 attacker_message = (
@@ -942,16 +866,17 @@ def _attack(req, kd_id, target_kd):
                     + ' and '
                     + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in defender_losses.items()])
                 )
-                # Everything taken from the target, including the sharer's cut.
+                # Everything taken from the target, including the sharers' cuts.
                 for key_spoil in ("stars", "population", "money", "fuel"):
                     target_new[key_spoil] = (
-                        target_doc[key_spoil] - spoils_values[key_spoil] - sharer_spoils_values.get(key_spoil, 0)
+                        target_doc[key_spoil] - spoils_values[key_spoil]
+                        - sum(spoils.get(key_spoil, 0) for spoils in sharers_spoils.values())
                     )
                 target_new["funding"] = {
                     key_funding: (
                         value_funding
                         - spoils_values["funding"].get(key_funding, 0)
-                        - sharer_spoils_values.get("funding", {}).get(key_funding, 0)
+                        - sum(spoils.get("funding", {}).get(key_funding, 0) for spoils in sharers_spoils.values())
                     )
                     for key_funding, value_funding in target_doc["funding"].items()
                 }
@@ -968,14 +893,14 @@ def _attack(req, kd_id, target_kd):
                 )
                 total_spoils = {}
                 spoils_values = {}
-                sharer_spoils_values = {}
+                sharers_spoils = {}
             outcome.update({
                 "status": attack_status,
                 "attacker_message": attacker_message,
                 "defender_message": defender_message,
                 "total_spoils": total_spoils,
                 "spoils_values": spoils_values,
-                "sharer_spoils_values": sharer_spoils_values,
+                "sharers_spoils": sharers_spoils,
                 "target_name": target_doc["name"],
                 "target_dead": target_new.get("status") == "Dead",
             })
@@ -1043,7 +968,7 @@ def _attack(req, kd_id, target_kd):
         defender_message = outcome["defender_message"]
         total_spoils = outcome["total_spoils"]
         spoils_values = outcome["spoils_values"]
-        sharer_spoils_values = outcome["sharer_spoils_values"]
+        sharers_spoils = outcome["sharers_spoils"]
         target_kd_info["name"] = outcome["target_name"]
         kd_info_parse["name"] = departure["name"]
 
@@ -1051,15 +976,20 @@ def _attack(req, kd_id, target_kd):
             occ.update(f'/kingdom/{kd_id}', credit(spoils_values))
         if outcome["target_dead"]:
             uam._mark_kingdom_death(target_kd)
-        if sharer and sharer_spoils_values:
+        sharer_names = {}
+        for sharer, sharer_spoils_values in sharers_spoils.items():
+            if not any(value for key, value in sharer_spoils_values.items() if key != "funding") \
+                    and not sum(sharer_spoils_values.get("funding", {}).values()):
+                continue
             sharer_message = (
                 "You have gained "
                 + ', '.join([f"{value} {key}" for key, value in sharer_spoils_values.items() if key != "funding"])
                 + f', {sum(sharer_spoils_values["funding"].values())} funding'
-                + f" for sharing intel leading to a successful attack by your galaxymate {kd_info_parse['name']}"
+                + f" ({cuts[sharer]:.1%}) for sharing intel leading to a successful attack by your galaxymate"
+                + f" {kd_info_parse['name']}"
             )
             occ.update(f'/kingdom/{sharer}', credit(sharer_spoils_values))
-            sharer_kd_info = {"name": occ.read(f'/kingdom/{sharer}')["name"]}
+            sharer_names[sharer] = occ.read(f'/kingdom/{sharer}')["name"]
             REQUESTS_SESSION.patch(
                 app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{sharer}/news',
                 headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
@@ -1069,7 +999,7 @@ def _attack(req, kd_id, target_kd):
             try:
                 ws = SOCK_HANDLERS[sharer]
                 ws.send(json.dumps({
-                    "message": f"You have gained {sharer_spoils_values['stars']} from an attack by your galaxymate {kd_info_parse['name']}",
+                    "message": f"You have gained {sharer_spoils_values['stars']} stars from an attack by your galaxymate {kd_info_parse['name']}",
                     "status": "info",
                     "category": "Galaxy",
                     "delay": 15000,
@@ -1142,8 +1072,8 @@ def _attack(req, kd_id, target_kd):
         }
         if attack > defense:
             attacker_galaxy_payload["news"] = f"{kd_info_parse['name']} successfully attacked {target_kd_info['name']} and gained {spoils_values['stars']} stars."
-            if sharer_spoils_values:
-                attacker_galaxy_payload["news"] += f" {sharer_kd_info['name']} provided intel and gained {sharer_spoils_values['stars']} stars."
+            for sharer, sharer_name in sharer_names.items():
+                attacker_galaxy_payload["news"] += f" {sharer_name} provided intel and gained {sharers_spoils[sharer]['stars']} stars."
 
             defender_galaxy_payload["news"] = f"{target_kd_info['name']} was defeated by {kd_info_parse['name']} and lost {total_spoils['stars']} stars."
         else:
@@ -2006,17 +1936,9 @@ def _spy(req, kd_id, target_kd):
         except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
             pass
 
-        if success and operation in uas.REVEAL_OPERATIONS:
-            share_to_galaxy = req.get("share_to_galaxy", False)
-            cut = float(req.get("cut") or 0)
-            if share_to_galaxy:
-                req_share = {
-                    "shared": target_kd,
-                    "shared_stat": operation.replace("spy", ""),
-                    "shared_to": "galaxy",
-                    "cut": cut,
-                }
-                _offer_shared(req_share, kd_id)
+        if success and operation in uas.REVEAL_OPERATIONS and req.get("share_to_galaxy", False):
+            # Free (no cut) goes to the whole galaxy at once; with a cut it is listed on the galaxy's market.
+            uai._share(kd_id, target_kd, operation.replace("spy", "", 1), req.get("cut") or 0)
 
         empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
         attacker_empire = empires_inverted.get(kd_id)
@@ -2762,176 +2684,6 @@ def launch_missiles(target_kd):
         return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
     
     _, payload, status_code = _launch_missiles(req, kd_id, target_kd)
-    return (flask.jsonify(payload), status_code)
-
-def _accept_shared(kd_id, accepted_shared_from):
-    """Accept intel offered to ``kd_id`` (``<target>_<sharer>``). Returns ``(payload, status_code)``. The route and the bots both come through here."""
-    app = flask.current_app
-    accepted_kd, shared_from_kd = accepted_shared_from.split('_')
-    
-
-    
-    def accept(shared_info):
-        # Moves the request into the accepted intel, on the shared document as it is right now.
-        if accepted_shared_from not in shared_info["shared_requests"]:
-            raise occ.Rejected("That intel is no longer on offer")
-        requests = dict(shared_info["shared_requests"])
-        new_shared = requests.pop(accepted_shared_from)
-        accepted = {**shared_info["shared"], accepted_kd: new_shared}
-        return {"shared_requests": requests, "shared": accepted}, new_shared
-
-    try:
-        kingdoms = uag._get_kingdoms()
-
-        new_shared = occ.update(f'/kingdom/{kd_id}/shared', accept, method="post")
-
-        revealed_payload = {
-            "new_revealed" : {
-                accepted_kd: {
-                    new_shared["shared_stat"]: new_shared["time"],
-                }
-            }
-        }
-        revealed_response = REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/revealed',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(revealed_payload),
-        )
-        
-        try:
-            ws = SOCK_HANDLERS[shared_from_kd]
-            ws.send(json.dumps({
-                "message": f"{kingdoms[kd_id]} accepted intel {shared_info['shared'][accepted_kd]['shared_stat']} for target {kingdoms[accepted_kd]}",
-                "status": "info",
-                "category": "Galaxy",
-                "delay": 15000,
-                "update": [],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
-    except occ.Rejected as rejection:
-        return {"message": rejection.message}, rejection.status
-    except occ.Busy:
-        return {"message": "Server is busy"}, 400
-    return {"message": "Accepted intel", "status": "success"}, 200
-
-
-@bp.route('/api/shared', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def accept_shared():
-    req = flask.request.get_json(force=True)
-    payload, status = _accept_shared(flask_praetorian.current_user().kd_id, str(req["shared"]))
-    return flask.jsonify(payload), status
-
-def _offer_shared(req, kd_id):
-    app = flask.current_app
-    shared_kd = str(req["shared"])
-    shared_stat = req["shared_stat"]
-    shared_to_kd = str(req["shared_to"])
-    cut = float(req.get("cut") or 0) / 100
-    kingdoms = uag._get_kingdoms()
-
-    if (
-        shared_kd == "" or shared_kd == None
-        or shared_stat == "" or shared_stat == None
-        or shared_to_kd == "" or shared_to_kd == None
-    ):
-        return {"message": "The request selections are not complete"}, 400
-    
-    if (
-        cut > uas.GAME_CONFIG["BASE_MAX_SHARE_CUT"]
-    ):
-        return {"message": f"Cut must be less than {uas.GAME_CONFIG['BASE_MAX_SHARE_CUT']:.1%}"}, 400
-    
-
-    galaxies_inverted, galaxies = uag._get_galaxies_inverted()
-    revealed_info = uag._get_revealed(kd_id)
-    
-    your_shared_info = uag._get_shared(kd_id)
-    your_galaxy = galaxies_inverted[kd_id]
-    shared_to_galaxy = galaxies_inverted.get(shared_to_kd, None)
-
-    if your_galaxy != shared_to_galaxy and shared_to_kd != "galaxy":
-        return {"message": "You can not share to kingdoms outside of your galaxy"}, 400
-
-    if shared_stat not in revealed_info["revealed"][shared_kd].keys():
-        return {"message": "You do not have that revealed stat to share"}, 400
-    
-    previously_shared_stats = []
-    for shared_key, shared_dict in your_shared_info["shared"].items():
-        if shared_key.split("_")[0] == shared_kd:
-            previously_shared_stats.append(shared_dict["shared_stat"])
-    if shared_stat in previously_shared_stats:
-        return {"message": "You can not share intel that was shared with you"}, 400
-
-    shared_resolve_time = revealed_info["revealed"][shared_kd][shared_stat]
-    if shared_to_kd == "galaxy":
-        kds_to_update = [
-            _id
-            for _id in galaxies[your_galaxy]
-            if _id != kd_id
-        ]
-    else:
-        kds_to_update = [shared_to_kd]
-
-    offers = {}
-    for kd_to_update in kds_to_update:
-        shared_from_key = f"{shared_kd}_{kd_id}"
-        shared_to_key = f"{shared_kd}_{kd_to_update}"
-        offers[shared_to_key] = {
-            "shared_to": kd_to_update,
-            "shared_stat": shared_stat,
-            "cut": cut,
-            "time": shared_resolve_time,
-        }
-
-        # Added to the recipient's requests as they are right now, so offers from several players arriving together
-        # all survive.
-        def add_request(shared_info, shared_from_key=shared_from_key):
-            requests = {**shared_info["shared_requests"], shared_from_key: {
-                "shared_by": kd_id,
-                "shared_stat": shared_stat,
-                "cut": cut,
-                "time": shared_resolve_time,
-            }}
-            return {"shared_requests": requests}, None
-
-        occ.update(f'/kingdom/{kd_to_update}/shared', add_request, method="post")
-        uam._add_notifs(kd_to_update, ["shared"])
-        _lower_timer(kd_to_update, "shared", shared_resolve_time)
-
-        try:
-            ws = SOCK_HANDLERS[kd_to_update]
-            ws.send(json.dumps({
-                "message": f"{kingdoms[kd_id]} offered intel {shared_stat} for target {kingdoms[shared_kd]} with a cut of {cut:.1%}",
-                "status": "info",
-                "category": "Galaxy",
-                "delay": 15000,
-                "update": [],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
-
-    def add_offers(shared_info):
-        return {"shared_offers": {**shared_info["shared_offers"], **offers}}, None
-
-    occ.update(f'/kingdom/{kd_id}/shared', add_offers, method="post")
-    _lower_timer(kd_id, "shared", shared_resolve_time)
-    payload = {
-        "message": "Succesfully shared intel", "status": "success"
-    }
-    return payload, 200
-
-@bp.route('/api/offershared', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def offer_shared():
-    req = flask.request.get_json(force=True)
-    kd_id = flask_praetorian.current_user().kd_id
-    payload, status_code = _offer_shared(req, kd_id)
     return (flask.jsonify(payload), status_code)
 
 @bp.route('/api/pinned', methods=['POST'])

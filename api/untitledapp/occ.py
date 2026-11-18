@@ -68,8 +68,8 @@ def update(path, decide, write_path=None, method="patch", document=None):
     value to hand back to the caller. It may raise ``Rejected``. Returns ``result``.
 
     ``write_path`` is for the few documents whose function app route to read differs from the one to write (for
-    example ``GET /universevotes`` but ``PATCH /universepolitics``). ``method`` is "post" for the few documents
-    written with POST (``/kingdom/<id>/shared``).
+    example ``GET /universevotes`` but ``PATCH /universepolitics``). ``method`` is "post" for a document written with
+    POST.
 
     ``document`` is the document as the caller has just read it (with its ``_etag``), to decide against first instead
     of reading it again. It is safe to pass one that may have changed since: the write is conditional on its

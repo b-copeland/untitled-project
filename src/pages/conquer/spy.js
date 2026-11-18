@@ -12,6 +12,7 @@ import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
 import { Panel, FieldRow, Stats, Picker, useServerForecast, clockUntil } from "../../components/planner";
+import { checkPercent } from "../../validation";
 
 const initialDefenderValues = { drones: "", stars: "", shields: "" };
 
@@ -80,7 +81,7 @@ function Spy(props) {
         const body = { drones, shielded: shieldDrones, operation, share_to_galaxy: share, cut: cut === "" ? 0 : cut };
         const updateFunc = async () => authFetch('api/spy/' + selected, { method: 'POST', body: JSON.stringify(body) })
             .then(safeJson).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); });
-        props.updateData(['kingdom', 'spyhistory', 'revealed', 'shared'], [updateFunc]);
+        props.updateData(['kingdom', 'spyhistory', 'revealed', 'intel'], [updateFunc]);
     };
 
     const sendingDrones = parseInt(drones, 10) || 0;
@@ -97,6 +98,8 @@ function Spy(props) {
     if (sendingDrones < 1) problems.push("Send at least 1 drone");
     if (sendingDrones > maxDrones) problems.push(`You only have ${whole(maxDrones)} drones`);
     if ((kingdom.spy_attempts || 0) < 1) problems.push("You have no spy attempts left");
+    const cutError = sharesResult && share ? checkPercent(cut, { max: (props.data.state.game_config?.BASE_MAX_SHARE_CUT || 0) * 100 }) : null;
+    if (cutError) problems.push(cutError);
     const blocked = problems[0];
     const intel = Object.entries((props.data.revealed?.revealed || {})[selected] || {});
     const chosen = OPERATIONS.find((op) => op.value === operation);
@@ -137,16 +140,17 @@ function Spy(props) {
                             <Form.Check type="switch" id="shield-drones-switch" checked={shieldDrones} onChange={(e) => setShieldDrones(e.target.checked)} />
                         </FieldRow>
                         {sharesResult ? <>
-                            <FieldRow label="Share with your galaxy" hint="Galaxymates see what you learn">
+                            <FieldRow label="Share with your galaxy" hint={parseFloat(cut) > 0 ? "Listed on the Intel market for your cut" : "Free: every galaxymate gets it at once"}>
                                 <Form.Check type="switch" id="share-switch" checked={share} onChange={(e) => setShare(e.target.checked)} />
                             </FieldRow>
-                            <FieldRow label="Your cut" hint="Share of any gains you keep" htmlFor="spy-cut">
+                            {share ? <FieldRow label="Your cut" hint={`Of their spoils from each win, at most ${(props.data.state.game_config?.BASE_MAX_SHARE_CUT || 0) * 100}%; blank is free`} htmlFor="spy-cut">
                                 <div className="attack-buffer">
                                     <Form.Control id="spy-cut" name="cut" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
-                                        value={cut} onChange={(e) => setCut(e.target.value)} />
+                                        value={cut} onChange={(e) => setCut(e.target.value)} isInvalid={Boolean(cutError)} />
                                     <span>%</span>
                                 </div>
-                            </FieldRow>
+                                {cutError ? <div className="amount-input-error">{cutError}</div> : null}
+                            </FieldRow> : null}
                         </> : null}
                     </Panel>
 
