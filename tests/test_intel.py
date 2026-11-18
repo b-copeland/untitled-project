@@ -126,6 +126,26 @@ def test_free_intel_never_replaces_paid_intel_but_replaces_older_free_intel():
     assert market["history"][0]["kind"] == "free" and market["history"][0]["to"] is None
 
 
+def test_free_intel_that_outlasts_paid_intel_still_can_not_be_passed_on():
+    # 2 bought military intel from 3 until 4h from now; 1 then shares the same free until 8h from now.
+    market = _market(accepted={"2": {TARGET: {"military": _record("3", 0.10, hours=4)}}})
+    uai.share_free(market, "1", TARGET, "military", _at(8), ["2"], NOW)
+    assert market["accepted"]["2"][TARGET]["military"]["sharer"] == "3"  # 3 keeps its cut
+    later = NOW + datetime.timedelta(hours=5)  # 3's record is over; 1's free intel is not
+    assert uai.accepted_on(market, "2", TARGET, later) == {}
+    assert uai.has_received(market, "2", TARGET, "military", later) is True
+    assert uai.has_received(market, "2", TARGET, "military", NOW + datetime.timedelta(hours=9)) is False
+    uai.prune(market, NOW + datetime.timedelta(hours=9))
+    assert market["received"] == {}
+
+
+def test_every_way_of_receiving_intel_is_noted():
+    market = _market()
+    uai._give(market, "2", TARGET, "military", _record("1", 0.1, hours=6))
+    uai._give(market, "2", TARGET, "military", _record("3", 0.1, hours=3))  # sooner: the later time stays
+    assert market["received"] == {"2": {TARGET: {"military": _at(6)}}}
+
+
 def test_the_view_hides_excluded_listings_and_bounties_and_says_why_each_item_can_not_be_taken():
     market = {
         "listings": {
@@ -258,6 +278,7 @@ def test_intel_you_received_can_not_be_passed_on(app, client, jwt1, jwt2):
     _post(client, jwt2, "buy", {"listing": uai.listing_id("1", TARGET, "military")})
     resold = _post(client, jwt2, "share", {"target": TARGET, "category": "military", "cut": 5})
     assert resold.status_code == 400 and "pass on" in resold.get_json()["message"]
+    assert _stored()["received"]["2"][TARGET]["military"] == until
     assert next(item for item in _intel(client, jwt2)["my_intel"] if item["category"] == "military")["received"] is True
 
 
