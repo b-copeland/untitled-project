@@ -23,10 +23,10 @@ Read the handler in `funcapp/function_app.py` before relying on one, but these a
 
 | Pattern | Routes | What the body does |
 |---|---|---|
-| **Shallow merge** | `PATCH /kingdom/<id>`, `/kingdoms`, `/scores`, `/empires`, `/galaxy/<id>/politics`, `/empire/<id>/politics`, `/universepolitics`; `POST /kingdom/<id>/shared`; `/updatestate` (merges into the inner `state` object) | `{**document, **body}`. Top-level keys in the body replace the stored ones **entirely**. Sending `{"next_resolve": {"structures": t}}` replaces the whole `next_resolve` object with one key. Send the full nested object. |
+| **Shallow merge** | `PATCH /kingdom/<id>`, `/kingdoms`, `/scores`, `/empires`, `/galaxy/<id>/politics`, `/empire/<id>/politics`, `/universepolitics`, `/galaxy/<id>/intel`; `POST /kingdom/<id>/shared`; `/updatestate` (merges into the inner `state` object) | `{**document, **body}`. Top-level keys in the body replace the stored ones **entirely**. Sending `{"next_resolve": {"structures": t}}` replaces the whole `next_resolve` object with one key. Send the full nested object. |
 | **Append or replace** | queues (`/settles`, `/mobis`, `/structures`, `/missiles`, `/engineers`) | `new_<field>` (a list of entries) is appended and the queue folded, see below; `<field>` replaces the list. |
 | | `/siphonsin`, `/siphonsout` | `new_siphons` (one item) is appended; `siphons` replaces the list. |
-| | `/revealed` | `new_revealed` is merged per target kingdom and stat, the incoming expiry replacing the stored one; `new_galaxies` is merged; `new_revealed_galaxymates` and `new_revealed_to_galaxymates` are appended. The same names without `new_` replace. |
+| | `/revealed` | `new_revealed` is merged per target kingdom and stat, each stat keeping the later of the stored and the incoming expiry (so shared intel never shortens a reveal); `new_galaxies` is merged; `new_revealed_galaxymates` and `new_revealed_to_galaxymates` are appended. The same names without `new_` replace. |
 | **Prepend** | `/kingdom/<id>/news`, `/galaxy/<id>/news`, `/kingdom/<id>/messages` | The body is the item, or a list of items; newest first. Messages keep the newest 100. |
 | | `/universenews` | The same, but the body is `{"news": item or list}`. |
 | | `/spyhistory`, `/attackhistory`, `/missilehistory` | The body is one item. |
@@ -70,6 +70,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `galaxy_news_<galaxy>` | `news`: list | actions affecting the galaxy | eventual |
 | `galaxy_votes_<galaxy>` | `votes` (`policy_1`, `policy_2`, `leader`), `active_policies`, `leader`, `policy_1_winner`, `policy_2_winner`, `empire_invitations`, `empire_join_requests` | galaxy politics routes, empire routes | strict |
 | `empire_politics_<empire>` | `empire_invitations`, `empire_join_requests`, `surrender_offers_sent`, `surrender_offers_received`, `surrender_requests_sent`, `surrender_requests_received`, `leader` | empire politics routes | strict |
+| `galaxy_intel_<galaxy>` | The galaxy's intel market. Every field belongs to Flask; `GET /galaxy/<id>/intel` creates the document as `{"id": ...}` the first time it is read, so it needs no backfill | nothing yet | strict: every change is decided on it with `If-Match` |
 | `empire_news_<empire>` | `news`: list | nothing yet: it is created empty and read, but never written | eventual |
 
 ## Per-kingdom documents
