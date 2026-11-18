@@ -398,6 +398,13 @@ GAME_CONFIG = {
     "EMPIRE_MAX_KINGDOMS_SHARE": 0.30,
     "EMPIRE_MAX_NETWORTH_SHARE": 0.35,
     "EMPIRE_ALWAYS_ALLOWED_GALAXIES": 2,
+    # One-time structure projects: what each structure of that kind gains once completed (proposals).
+    "MINES_PROJECT_MONEY_PER_MINE": 20,  # per epoch
+    "HANGARS_PROJECT_UNITS_PER_HANGAR": 10,
+    "DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY": 0.25,  # per epoch
+    "MISSILE_SILOS_PROJECT_MISSILES_PER_SILO": 1,
+    "WORKSHOPS_PROJECT_ENGINEERS_PER_WORKSHOP": 10,
+
     # Playstyle projects, unlocked by the best unit of each kind (proposals).
     "SOLAR_FUEL_REDUCTION": 0.5,  # solar_attackers / solar_defenders: pure units of that kind use this much less fuel
     "SELF_DESTRUCT_LOSSES_INCREASE": 0.5,  # self_destructing_*: the other side's unit losses are this much higher
@@ -419,17 +426,23 @@ GAME_FUNCS = {
 # Every project, in the order the Projects page lists them. Two kinds:
 #   - continuous (has "max_bonus"): the bonus is max_bonus times the share of max points earned, capped at 1. The max
 #     points grow with stars (stars ** stars_power * constant), so a growing kingdom needs engineers to keep its bonus.
-#   - one-time (no "max_bonus"): done once the points reach the max points; then it is in "completed_projects".
+#   - one-time (no "max_bonus"): done once the points reach the max points; then it is in "completed_projects". A
+#     one-time project with "bonus" gives that whole bonus (a share) from the moment it is completed, and nothing
+#     before; one with "increase" adds that raw amount to each structure of its kind (read with project_increase).
 # "category" groups them on the page. "requires" lists projects that must be completed before engineers can work on
 # this one; "race" limits it to one race. Read projects through the helpers below (project_bonus, has_project,
 # project_locked_reason), never by indexing the kingdom's dicts: kingdoms made before a project existed lack its keys.
 PROJECT_CATEGORIES = {
     "economy": "Economy",
+    "structures": "Structures",
     "military": "Military",
     "spy": "Drones and spying",
     "missiles": "Missiles",
     "racial": "Racial",
 }
+# One-time projects that complete with a fixed bonus (proposals).
+STRUCTURE_PROJECT_POINTS = 50000
+
 
 PROJECTS = {
     "pop_bonus": {
@@ -438,7 +451,7 @@ PROJECTS = {
         "max_bonus": 0.25,
         "desc": "Increases homes capacity by the current bonus",
         "name": "Pop Bonus",
-        "category": "economy",
+        "category": "structures",
     },
     "fuel_bonus": {
         "stars_power": 1.5,
@@ -446,8 +459,51 @@ PROJECTS = {
         "max_bonus": 0.25,
         "desc": "Increases fuel production by the current bonus",
         "name": "Fuel Bonus",
-        "category": "economy",
+        "category": "structures",
     },
+    # One project per structure. Homes and fuel plants have the continuous ones above; the others are one-time, and
+    # once completed each structure of that kind gives a fixed amount more.
+    "mines_bonus": {
+        "stars_power": 0,
+        "constant": STRUCTURE_PROJECT_POINTS,
+        "increase": GAME_CONFIG["MINES_PROJECT_MONEY_PER_MINE"],
+        "desc": f"Each mine produces {GAME_CONFIG['MINES_PROJECT_MONEY_PER_MINE']} more money per epoch",
+        "name": "Mines Bonus",
+        "category": "structures",
+    },
+    "hangars_bonus": {
+        "stars_power": 0,
+        "constant": STRUCTURE_PROJECT_POINTS,
+        "increase": GAME_CONFIG["HANGARS_PROJECT_UNITS_PER_HANGAR"],
+        "desc": f"Each hangar houses {GAME_CONFIG['HANGARS_PROJECT_UNITS_PER_HANGAR']} more units",
+        "name": "Hangars Bonus",
+        "category": "structures",
+    },
+    "drone_factories_bonus": {
+        "stars_power": 0,
+        "constant": STRUCTURE_PROJECT_POINTS,
+        "increase": GAME_CONFIG["DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY"],
+        "desc": f"Each drone factory produces {GAME_CONFIG['DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY']} more drones per epoch",
+        "name": "Drone Factories Bonus",
+        "category": "structures",
+    },
+    "missile_silos_bonus": {
+        "stars_power": 0,
+        "constant": STRUCTURE_PROJECT_POINTS,
+        "increase": GAME_CONFIG["MISSILE_SILOS_PROJECT_MISSILES_PER_SILO"],
+        "desc": f"Each missile silo stores {GAME_CONFIG['MISSILE_SILOS_PROJECT_MISSILES_PER_SILO']} more missiles",
+        "name": "Missile Silos Bonus",
+        "category": "structures",
+    },
+    "workshops_bonus": {
+        "stars_power": 0,
+        "constant": STRUCTURE_PROJECT_POINTS,
+        "increase": GAME_CONFIG["WORKSHOPS_PROJECT_ENGINEERS_PER_WORKSHOP"],
+        "desc": f"Each workshop houses {GAME_CONFIG['WORKSHOPS_PROJECT_ENGINEERS_PER_WORKSHOP']} more engineers",
+        "name": "Workshops Bonus",
+        "category": "structures",
+    },
+
     "military_bonus": {
         "stars_power": 1.5,
         "constant": 0.1,
@@ -605,6 +661,7 @@ PROJECTS_FUNCS = {
 
 CONTINUOUS_PROJECTS = [key for key, project in PROJECTS.items() if "max_bonus" in project]
 ONE_TIME_PROJECTS = [key for key, project in PROJECTS.items() if "max_bonus" not in project]
+BONUS_PROJECTS = [key for key, project in PROJECTS.items() if "max_bonus" in project or "bonus" in project]
 
 
 def projects_max_points(stars):
@@ -618,8 +675,13 @@ def has_project(kd_info, project):
 
 
 def project_bonus(kd_info, project):
-    """The current bonus of a continuous project: its max bonus times the share of max points earned, at most 1."""
-    max_bonus = PROJECTS[project].get("max_bonus", 0)
+    """
+    The current bonus of ``project``. Continuous: its max bonus times the share of max points earned, at most 1.
+    One-time with a "bonus": that bonus once completed, 0 before. Any other one-time project: 0.
+    """
+    if "max_bonus" not in PROJECTS[project]:
+        return PROJECTS[project].get("bonus", 0.0) if has_project(kd_info, project) else 0.0
+    max_bonus = PROJECTS[project]["max_bonus"]
     max_points = (kd_info.get("projects_max_points") or {}).get(project)
     if max_points is None:
         max_points = PROJECTS_FUNCS[project](kd_info.get("stars", 0))
@@ -629,9 +691,14 @@ def project_bonus(kd_info, project):
     return max_bonus * min(points / max_points, 1.0)
 
 
+def project_increase(kd_info, project):
+    """What a one-time project with an "increase" adds to each structure of its kind: the increase once completed, else 0."""
+    return PROJECTS[project].get("increase", 0) if has_project(kd_info, project) else 0
+
+
 def project_bonuses(kd_info):
-    """Every continuous project's current bonus, by project."""
-    return {project: project_bonus(kd_info, project) for project in CONTINUOUS_PROJECTS}
+    """The current bonus of every project that gives one (continuous, or one-time with a "bonus"), by project."""
+    return {project: project_bonus(kd_info, project) for project in BONUS_PROJECTS}
 
 
 def max_project_bonuses():

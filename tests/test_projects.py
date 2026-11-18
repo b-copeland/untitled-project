@@ -27,7 +27,8 @@ def test_project_bonus_is_the_share_of_max_points_earned_times_the_max_bonus_and
 def test_a_project_the_kingdom_has_no_keys_for_counts_as_no_points():
     kd = {"stars": 300, "projects_points": {}, "projects_max_points": {}}
     assert uas.project_bonus(kd, "money_bonus") == 0
-    assert set(uas.project_bonuses(kd)) == set(uas.CONTINUOUS_PROJECTS)
+    assert set(uas.project_bonuses(kd)) == set(uas.BONUS_PROJECTS)
+    assert all(value == 0 for value in uas.project_bonuses(kd).values())
 
 
 def test_one_time_and_continuous_projects_are_told_apart_by_max_bonus():

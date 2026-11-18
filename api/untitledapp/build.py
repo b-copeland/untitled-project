@@ -775,13 +775,7 @@ def _build_missiles(kd_id, missiles_request):
         missiles_info = uag._get_missiles_info(kd_id)
         missiles_building = uag._get_missiles_building(missiles_info)
 
-        max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * math.floor(
-            uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
-            * (
-                1
-                + int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_SILO_CAPACITY_INCREASE"]
-            )
-        )
+        max_available_missiles = uag._calc_missile_capacity(kd_info_parse)
 
         valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles)
         if not valid_missiles:

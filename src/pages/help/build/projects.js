@@ -26,7 +26,8 @@ function Projects(props) {
             <td style={{textAlign: "left"}}>
                 {project.max_bonus !== undefined
                     ? `Continuous, up to ${displayPercent(project.max_bonus)}`
-                    : `One-time, ${Math.floor(project.constant || 0).toLocaleString()} points`}
+                    : `One-time, ${Math.floor(project.constant || 0).toLocaleString()} points`
+                        + (project.bonus !== undefined ? `, ${displayPercent(project.bonus)} once completed` : "")}
             </td>
             <td style={{textAlign: "left"}}>{requires.join(", ")}</td>
             <td style={{textAlign: "left"}}>{project.desc}</td>
