@@ -46,6 +46,19 @@ UNITS = {
     }
 }
 
+# A unit with "project" can only be trained once that project is completed.
+UNITS["big_flex"]["project"] = "big_flexers"
+
+# The units trained from recruits: everything but recruits and engineers.
+TRAINABLE_UNITS = [key for key in UNITS if key not in ("recruits", "engineers")]
+
+
+def unit_locked(kd_info, unit):
+    """Whether ``unit`` needs a project the kingdom has not completed."""
+    project = UNITS.get(unit, {}).get("project")
+    return bool(project) and not has_project(kd_info, project)
+
+
 AUTOFILL_PRIORITY = [
     "attack",
     "big_flex",
@@ -85,6 +98,10 @@ MISSILES = {
         "cost": 15000,
     },
 }
+
+# A missile with "project" can only be built once that project is completed.
+MISSILES["star_busters"]["project"] = "star_busters"
+MISSILES["galaxy_busters"]["project"] = "galaxy_busters"
 
 RACES = [
     "Gaian",
@@ -313,6 +330,21 @@ GAME_FUNCS = {
     "BASE_NEGATIVE_FUEL_CAP": lambda stars: stars * -GAME_CONFIG["BASE_NEGATIVE_FUEL_PER_STAR"], 
 }
 
+# Every project, in the order the Projects page lists them. Two kinds:
+#   - continuous (has "max_bonus"): the bonus is max_bonus times the share of max points earned, capped at 1. The max
+#     points grow with stars (stars ** stars_power * constant), so a growing kingdom needs engineers to keep its bonus.
+#   - one-time (no "max_bonus"): done once the points reach the max points; then it is in "completed_projects".
+# "category" groups them on the page. "requires" lists projects that must be completed before engineers can work on
+# this one; "race" limits it to one race. Read projects through the helpers below (project_bonus, has_project,
+# project_locked_reason), never by indexing the kingdom's dicts: kingdoms made before a project existed lack its keys.
+PROJECT_CATEGORIES = {
+    "economy": "Economy",
+    "military": "Military",
+    "spy": "Drones and spying",
+    "missiles": "Missiles",
+    "racial": "Racial",
+}
+
 PROJECTS = {
     "pop_bonus": {
         "stars_power": 1.5,
@@ -320,6 +352,7 @@ PROJECTS = {
         "max_bonus": 0.25,
         "desc": "Increases homes capacity by the current bonus",
         "name": "Pop Bonus",
+        "category": "economy",
     },
     "fuel_bonus": {
         "stars_power": 1.5,
@@ -327,6 +360,7 @@ PROJECTS = {
         "max_bonus": 0.25,
         "desc": "Increases fuel production by the current bonus",
         "name": "Fuel Bonus",
+        "category": "economy",
     },
     "military_bonus": {
         "stars_power": 1.5,
@@ -334,6 +368,7 @@ PROJECTS = {
         "max_bonus": 0.25,
         "desc": "Increases offensive and defensive strength by the current bonus",
         "name": "Military Bonus",
+        "category": "military",
     },
     "money_bonus": {
         "stars_power": 1.5,
@@ -341,6 +376,7 @@ PROJECTS = {
         "max_bonus": 0.25,
         "desc": "Increases income from population and mines by the current bonus",
         "name": "Money Bonus",
+        "category": "economy",
     },
     "general_bonus": {
         "stars_power": 1.5,
@@ -348,6 +384,7 @@ PROJECTS = {
         "max_bonus": 0.25,
         "desc": "Decreases generals time to return by the current bonus",
         "name": "Generals Speed Bonus",
+        "category": "military",
     },
     "spy_bonus": {
         "stars_power": 1.5,
@@ -355,30 +392,36 @@ PROJECTS = {
         "max_bonus": 0.25,
         "desc": "Decreases cooldown of spy attempts by the current bonus",
         "name": "Spy Bonus",
+        "category": "spy",
+        "requires": ["drone_gadgets"],
     },
     "big_flexers": {
         "stars_power": 0,
         "constant": 100000,
         "desc": "Unlocks the Big Flexer unit",
         "name": "Big Flexers",
+        "category": "military",
     },
     "star_busters": {
         "stars_power": 0,
         "constant": 100000,
         "desc": "Unlocks the Star Buster missile",
         "name": "Star Busters",
+        "category": "missiles",
     },
     "galaxy_busters": {
         "stars_power": 0,
         "constant": 250000,
         "desc": "Unlocks the Galaxy Buster missile",
         "name": "Galaxy Busters",
+        "category": "missiles",
     },
     "drone_gadgets": {
         "stars_power": 0,
         "constant": 50000,
         "desc": f"Unlocks the Spy Bonus project. Reduces drone losses by {GAME_CONFIG['BASE_DRONE_GADGETS_LOSS_REDUCTION']:.1%}",
         "name": "Drone Gadgets",
+        "category": "spy",
     },
 }
 
@@ -393,12 +436,73 @@ PROJECTS_FUNCS = {
     for key, project_dict in PROJECTS.items()
 }
 
-ONE_TIME_PROJECTS = [
-    "big_flexers",
-    "star_busters",
-    "galaxy_busters",
-    "drone_gadgets",
-]
+CONTINUOUS_PROJECTS = [key for key, project in PROJECTS.items() if "max_bonus" in project]
+ONE_TIME_PROJECTS = [key for key, project in PROJECTS.items() if "max_bonus" not in project]
+
+
+def projects_max_points(stars):
+    """Every project's max points for a kingdom of ``stars`` stars (what ``projects_max_points`` holds)."""
+    return {key: PROJECTS_FUNCS[key](stars) for key in PROJECTS}
+
+
+def has_project(kd_info, project):
+    """Whether the kingdom has completed the one-time ``project``."""
+    return project in (kd_info.get("completed_projects") or [])
+
+
+def project_bonus(kd_info, project):
+    """The current bonus of a continuous project: its max bonus times the share of max points earned, at most 1."""
+    max_bonus = PROJECTS[project].get("max_bonus", 0)
+    max_points = (kd_info.get("projects_max_points") or {}).get(project)
+    if max_points is None:
+        max_points = PROJECTS_FUNCS[project](kd_info.get("stars", 0))
+    if not max_points:
+        return 0.0
+    points = (kd_info.get("projects_points") or {}).get(project, 0)
+    return max_bonus * min(points / max_points, 1.0)
+
+
+def project_bonuses(kd_info):
+    """Every continuous project's current bonus, by project."""
+    return {project: project_bonus(kd_info, project) for project in CONTINUOUS_PROJECTS}
+
+
+def max_project_bonuses():
+    """Every continuous project's largest bonus, by project."""
+    return {project: PROJECTS[project]["max_bonus"] for project in CONTINUOUS_PROJECTS}
+
+
+def project_locked_reason(kd_info, project):
+    """
+    Why engineers can not work on ``project`` yet, as a sentence for the player, or None if they can. A project is
+    locked while it belongs to another race or a project it requires is not completed.
+    """
+    project_dict = PROJECTS[project]
+    race = project_dict.get("race")
+    if race and kd_info.get("race") != race:
+        return f"Only {race} kingdoms can research {project_dict['name']}"
+    missing = [required for required in project_dict.get("requires", []) if not has_project(kd_info, required)]
+    if missing:
+        return "Complete " + ", ".join(f'"{PROJECTS[required]["name"]}"' for required in missing) + " first"
+    return None
+
+
+def with_new_fields(kd_info):
+    """
+    Fill in, in place, the unit and project keys a kingdom made before they existed does not have, with their starting
+    values, and return the kingdom. Only nested objects that are already there are filled. The refresh calls it, and
+    writes the whole kingdom, so every kingdom has the keys after its next tick.
+    """
+    stars = kd_info.get("stars", 0)
+    starting = INITIAL_KINGDOM_STATE["kingdom"]
+    for field in ("units", "units_target", "projects_points", "projects_target", "projects_assigned"):
+        if isinstance(kd_info.get(field), dict):
+            for key, value in starting[field].items():
+                kd_info[field].setdefault(key, value)
+    if isinstance(kd_info.get("projects_max_points"), dict):
+        for key in PROJECTS:
+            kd_info["projects_max_points"].setdefault(key, PROJECTS_FUNCS[key](stars))
+    return kd_info
 
 REVEAL_OPERATIONS = [
     "spykingdom",
@@ -419,6 +523,21 @@ AGGRO_OPERATIONS = [
 DATE_SENTINEL = "2099-01-01T00:00:00+00:00"
 
 INITIAL_KINGDOM_STARS = 300
+# What a new kingdom starts with: some points in the first continuous projects, and engineers spread over them.
+INITIAL_PROJECT_POINTS = {
+    "pop_bonus": 1000,
+    "fuel_bonus": 1000,
+    "military_bonus": 1000,
+    "money_bonus": 1000,
+    "general_bonus": 1000,
+}
+INITIAL_PROJECTS_TARGET = {
+    "pop_bonus": 0.2,
+    "fuel_bonus": 0.2,
+    "military_bonus": 0.2,
+    "money_bonus": 0.2,
+    "general_bonus": 0.2,
+}
 INITIAL_KINGDOM_STATE = {
     "kingdom": {
         "kdId": "",
@@ -449,22 +568,10 @@ INITIAL_KINGDOM_STATE = {
         "spy_attempts": 10,
         "generals_available": 4,
         "generals_out": [],
-        "units": {
-            "attack": 0,
-            "defense": 0,
-            "flex": 0,
-            "recruits": 0,
-            "engineers": 0,
-            "big_flex": 0,
-        },
+        "units": {key: 0 for key in UNITS},
         "max_recruits": 99999,
         "recruits_before_units": True,
-        "units_target": {
-            "attack": 0,
-            "defense": 0,
-            "flex": 0,
-            "big_flex": 0,
-        },
+        "units_target": {key: 0 for key in TRAINABLE_UNITS},
         "structures": {
             "homes": 0,
             "mines": 0,
@@ -508,55 +615,13 @@ INITIAL_KINGDOM_STATE = {
             "shielded": False,
             "keep": 0,
         },
-        "projects_points": {
-            "pop_bonus": 1000,
-            "fuel_bonus": 1000,
-            "military_bonus": 1000,
-            "money_bonus": 1000,
-            "general_bonus": 1000,
-            "spy_bonus": 0,
-            "big_flexers": 0,
-            "star_busters": 0,
-            "galaxy_busters": 0,
-            "drone_gadgets": 0
-        },
+        "projects_points": {key: INITIAL_PROJECT_POINTS.get(key, 0) for key in PROJECTS},
         "auto_assign_projects": True,
-        "projects_target": {
-            "pop_bonus": 0.2,
-            "fuel_bonus": 0.2,
-            "military_bonus": 0.2,
-            "money_bonus": 0.2,
-            "general_bonus": 0.2,
-            "spy_bonus": 0,
-            "big_flexers": 0,
-            "star_busters": 0,
-            "galaxy_busters": 0,
-            "drone_gadgets": 0
-        },
+        "projects_target": {key: INITIAL_PROJECTS_TARGET.get(key, 0) for key in PROJECTS},
         "projects_max_points": {
-            "pop_bonus": PROJECTS_FUNCS["pop_bonus"](INITIAL_KINGDOM_STARS),
-            "fuel_bonus": PROJECTS_FUNCS["fuel_bonus"](INITIAL_KINGDOM_STARS),
-            "military_bonus": PROJECTS_FUNCS["military_bonus"](INITIAL_KINGDOM_STARS),
-            "money_bonus": PROJECTS_FUNCS["money_bonus"](INITIAL_KINGDOM_STARS),
-            "general_bonus": PROJECTS_FUNCS["general_bonus"](INITIAL_KINGDOM_STARS),
-            "spy_bonus": PROJECTS_FUNCS["spy_bonus"](INITIAL_KINGDOM_STARS),
-            "big_flexers": PROJECTS_FUNCS["big_flexers"](0),
-            "star_busters": PROJECTS_FUNCS["star_busters"](0),
-            "galaxy_busters": PROJECTS_FUNCS["galaxy_busters"](0),
-            "drone_gadgets": PROJECTS_FUNCS["drone_gadgets"](0),
+            key: PROJECTS_FUNCS[key](INITIAL_KINGDOM_STARS if key in CONTINUOUS_PROJECTS else 0) for key in PROJECTS
         },
-        "projects_assigned": {
-            "pop_bonus": 0,
-            "fuel_bonus": 0,
-            "military_bonus": 0,
-            "money_bonus": 0,
-            "general_bonus": 0,
-            "spy_bonus": 0,
-            "big_flexers": 0,
-            "star_busters": 0,
-            "galaxy_busters": 0,
-            "drone_gadgets": 0
-        },
+        "projects_assigned": {key: 0 for key in PROJECTS},
         "completed_projects": [],
         "missiles": {
             "planet_busters": 0,

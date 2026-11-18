@@ -177,7 +177,9 @@ def _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cos
         return False
     if mobis_cost > kd_info_parse["money"]:
         return False
-    if mobis_request.get("big_flex", 0) > 0 and "big_flexers" not in kd_info_parse["completed_projects"]:
+    if any(key_unit not in uas.TRAINABLE_UNITS for key_unit in mobis_request):
+        return False
+    if any(units_value > 0 and uas.unit_locked(kd_info_parse, key_unit) for key_unit, units_value in mobis_request.items()):
         return False
     
     return True
@@ -296,8 +298,10 @@ def _validate_mobis_target(req_targets, kd_info_parse):
         return False, "Target values must be less than 100%"
     if sum(values) > 1:
         return False, "Target values must be less than 100%"
-    if req_targets.get("big_flex", 0) > 0 and "big_flexers" not in kd_info_parse["completed_projects"]:
-        return False, "You have not unlocked big_flexers"
+    for key_unit, value in req_targets.items():
+        if value > 0 and uas.unit_locked(kd_info_parse, key_unit):
+            project = uas.PROJECTS[uas.UNITS[key_unit]["project"]]["name"]
+            return False, f"Complete the {project} project to train {uas.PRETTY_NAMES.get(key_unit, key_unit)}"
     
     return True, ""
 
@@ -749,9 +753,12 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
         return False
     if fuel_costs > kd_info_parse["fuel"]:
         return False
-    if missiles_request.get("star_busters", 0) > 0 and "star_busters" not in kd_info_parse["completed_projects"]:
-        return False
-    if missiles_request.get("galaxy_busters", 0) > 0 and "galaxy_busters" not in kd_info_parse["completed_projects"]:
+    if any(
+        value_missile > 0
+        and uas.MISSILES[key_missile].get("project")
+        and not uas.has_project(kd_info_parse, uas.MISSILES[key_missile]["project"])
+        for key_missile, value_missile in missiles_request.items()
+    ):
         return False
     
     return True
@@ -941,18 +948,28 @@ def _validate_projects_target(req_targets, kd_info_parse):
         return False, "Target values must be less than 100%"
     if sum(values) > 1:
         return False, "Target values must be less than 100%"
-    if req_targets.get("spy_bonus", 0) > 0 and "drone_gadgets" not in kd_info_parse["completed_projects"]:
-        return False, "You have not unlocked drone_gadgets"
-
-    completed_projects_targets = {
-        uas.PRETTY_NAMES.get(k, k): v
-        for k, v in req_targets.items()
-        if k in kd_info_parse["completed_projects"] and k in uas.ONE_TIME_PROJECTS
-    }
-    if sum(completed_projects_targets.values()) > 0:
-        return False, f"You can not allocate engineers to completed projects: {str(completed_projects_targets)}"
-    
+    message = _projects_refusal(req_targets, kd_info_parse)
+    if message:
+        return False, message
     return True, ""
+
+
+def _projects_refusal(engineers_by_project, kd_info_parse):
+    """
+    Why engineers (or a share of them) can not go to these projects, or None. Each must be a project, unlocked for
+    this kingdom (its race, the projects it requires), and not a one-time project that is already completed.
+    """
+    for project, value in engineers_by_project.items():
+        if project not in uas.PROJECTS:
+            return f"There is no project called {project}"
+        if not value or value <= 0:
+            continue
+        locked = uas.project_locked_reason(kd_info_parse, project)
+        if locked:
+            return locked
+        if project in uas.ONE_TIME_PROJECTS and uas.has_project(kd_info_parse, project):
+            return f"{uas.PROJECTS[project]['name']} is already completed"
+    return None
 
 @bp.route('/api/projects/target', methods=['POST'])
 @flask_praetorian.auth_required
@@ -999,24 +1016,28 @@ def allocate_projects():
     return (flask.jsonify({"message": message, "status": "success"}), 200)
 
 def _validate_assign_projects(req, kd_info_parse):
+    """(ok, message) for assigning engineers to projects: the counts in ``req["assign"]`` replace all assignments."""
     engineers_assigned = sum(req["assign"].values())
-    if engineers_assigned > kd_info_parse["units"]["engineers"]:
-        return False
     if any(value < 0 for value in req["assign"].values()):
-        return False
-    if req.get("spy_bonus", 0) > 0 and "drone_gadgets" not in kd_info_parse["completed_projects"]:
-        return False
-    return True
+        return False, "Please enter valid assign engineers value"
+    if engineers_assigned > kd_info_parse["units"]["engineers"]:
+        return False, "You do not have that many engineers"
+    message = _projects_refusal(req["assign"], kd_info_parse)
+    if message:
+        return False, message
+    return True, ""
 
 def _validate_add_projects(req, available_engineers, kd_info_parse):
+    """(ok, message) for adding free engineers to projects."""
     engineers_added = sum(req["add"].values())
-    if engineers_added > available_engineers:
-        return False
     if any(value < 0 for value in req["add"].values()):
-        return False
-    if req.get("spy_bonus", 0) > 0 and "drone_gadgets" not in kd_info_parse["completed_projects"]:
-        return False
-    return True
+        return False, "Please enter valid add engineers value"
+    if engineers_added > available_engineers:
+        return False, "You do not have that many free engineers"
+    message = _projects_refusal(req["add"], kd_info_parse)
+    if message:
+        return False, message
+    return True, ""
 
 @bp.route('/api/projects', methods=['POST'])
 @flask_praetorian.auth_required
@@ -1029,35 +1050,34 @@ def manage_projects():
     
     
 
+    # Parsed and type-checked before anything is read: counts are whole numbers.
+    try:
+        for field in ("assign", "add"):
+            if field in req:
+                req[field] = {k: int(v or 0) for k, v in req[field].items()}
+    except (TypeError, ValueError, AttributeError):
+        return (flask.jsonify({"message": "Please enter whole numbers of engineers"}), 400)
+
     def decide(kd_info_parse):
-        new_projects_assigned = kd_info_parse["projects_assigned"].copy()
+        assigned = {key: kd_info_parse["projects_assigned"].get(key, 0) for key in uas.PROJECTS}
+        new_projects_assigned = dict(assigned)
         if "clear" in req.keys():
-            projects_to_clear = req["clear"]
-            for project_to_clear in projects_to_clear:
-                new_projects_assigned[project_to_clear] = 0
+            for project_to_clear in req["clear"]:
+                if project_to_clear in new_projects_assigned:
+                    new_projects_assigned[project_to_clear] = 0
 
         elif "assign" in req.keys():
-            req["assign"] = {k: int(v) for k, v in req["assign"].items()}
-            valid_assign = _validate_assign_projects(req, kd_info_parse)
+            valid_assign, message = _validate_assign_projects(req, kd_info_parse)
             if not valid_assign:
-                raise occ.Rejected('Please enter valid assign engineers value')
-
-            new_projects_assigned = {
-                key: req["assign"].get(key, 0)
-                for key in kd_info_parse["projects_assigned"]
-            }
+                raise occ.Rejected(message)
+            new_projects_assigned = {key: req["assign"].get(key, 0) for key in uas.PROJECTS}
 
         elif "add" in req.keys():
-            req["add"] = {k: int(v) for k, v in req["add"].items()}
-            available_engineers = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
-            valid_add = _validate_add_projects(req, available_engineers, kd_info_parse)
+            available_engineers = kd_info_parse["units"]["engineers"] - sum(assigned.values())
+            valid_add, message = _validate_add_projects(req, available_engineers, kd_info_parse)
             if not valid_add:
-                raise occ.Rejected('Please enter valid add engineers value')
-
-            new_projects_assigned = {
-                key: value + req["add"].get(key, 0)
-                for key, value in kd_info_parse["projects_assigned"].items()
-            }
+                raise occ.Rejected(message)
+            new_projects_assigned = {key: value + req["add"].get(key, 0) for key, value in assigned.items()}
 
         return {"projects_assigned": new_projects_assigned}, None
 

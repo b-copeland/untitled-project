@@ -53,6 +53,7 @@ def get_state():
             "engineers_capacity_per_workshop": uas.GAME_CONFIG["BASE_WORKSHOP_CAPACITY"],
         },
         "projects": uas.PROJECTS,
+        "project_categories": uas.PROJECT_CATEGORIES,
         "missiles": uas.MISSILES,
         "income_per_pop": uas.GAME_CONFIG["BASE_POP_INCOME_PER_EPOCH"],
         "fuel_consumption_per_pop": uas.GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"],
@@ -792,18 +793,9 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
         if k in kingdom_info_keys
     }
     if "projects_points" in kd_info_parse_allowed:
-        kd_info_parse_allowed["max_bonuses"] = {
-            project: project_dict.get("max_bonus", 0)
-            for project, project_dict in uas.PROJECTS.items()
-            if "max_bonus" in project_dict
-        }
-        kd_info_parse_allowed["current_bonuses"] = {
-            # A kingdom with no stars left (a dead one) has no project caps: no bonuses either.
-            project: project_dict.get("max_bonus", 0) * min(kd_info_parse_allowed["projects_points"][project] / kd_info_parse_allowed["projects_max_points"][project], 1.0)
-            if kd_info_parse_allowed["projects_max_points"].get(project) else 0.0
-            for project, project_dict in uas.PROJECTS.items()
-            if "max_bonus" in project_dict
-        }
+        # A kingdom with no stars left (a dead one) has no project caps: project_bonus gives it no bonuses.
+        kd_info_parse_allowed["max_bonuses"] = uas.max_project_bonuses()
+        kd_info_parse_allowed["current_bonuses"] = uas.project_bonuses(kd_info_parse_allowed)
         kd_info_parse_allowed["engineers"] = kd_info_parse["units"]["engineers"]
         try:
             kd_info_parse_allowed["units"]["engineers"] = kd_info_parse["units"]["engineers"]
@@ -1101,22 +1093,26 @@ def projects():
     
     kd_info_parse = json.loads(kd_info.text)
 
-    max_bonuses = {
-        project: project_dict.get("max_bonus", 0)
-        for project, project_dict in uas.PROJECTS.items()
-        if "max_bonus" in project_dict
-    }
-    current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-        for project, project_dict in uas.PROJECTS.items()
-        if "max_bonus" in project_dict
-    }
+    max_bonuses = uas.max_project_bonuses()
+    current_bonuses = uas.project_bonuses(kd_info_parse)
     available_engineers = kd_info_parse["units"]["engineers"] - sum(kd_info_parse["projects_assigned"].values())
 
     payload = {
         "current_bonuses": current_bonuses,
         "max_bonuses": max_bonuses,
         "available_engineers": available_engineers,
+        # Why each project engineers can not work on yet is locked; projects that are not listed are open.
+        "locked": {
+            project: reason
+            for project in uas.PROJECTS
+            if (reason := uas.project_locked_reason(kd_info_parse, project))
+        },
+        # Each project's points and max points, including projects added after this kingdom was made.
+        "points": {project: kd_info_parse.get("projects_points", {}).get(project, 0) for project in uas.PROJECTS},
+        "max_points": {
+            project: kd_info_parse.get("projects_max_points", {}).get(project, uas.PROJECTS_FUNCS[project](kd_info_parse["stars"]))
+            for project in uas.PROJECTS
+        },
     }
     return (flask.jsonify(payload), 200)
 

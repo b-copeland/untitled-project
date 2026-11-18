@@ -208,11 +208,7 @@ def attack_context(target_kd):
         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}',
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
     ).text)
-    current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-        for project, project_dict in uas.PROJECTS.items()
-        if "max_bonus" in project_dict
-    }
+    current_bonuses = uas.project_bonuses(kd_info_parse)
     revealed = uag._get_revealed(kd_id)
     target = uag._get_max_kd_info(target_kd, kd_id, revealed)
 
@@ -315,11 +311,7 @@ def calculate_attack(target_kd):
     )
     
     kd_info_parse = json.loads(kd_info.text)
-    current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-        for project, project_dict in uas.PROJECTS.items()
-        if "max_bonus" in project_dict
-    }
+    current_bonuses = uas.project_bonuses(kd_info_parse)
 
     revealed = uag._get_revealed(kd_id)
     shared = uag._get_shared(kd_id)["shared"]
@@ -521,11 +513,7 @@ def _autofill_attack(req, kd_id, target_kd):
     )
     
     kd_info_parse = json.loads(kd_info.text)
-    current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-        for project, project_dict in uas.PROJECTS.items()
-        if "max_bonus" in project_dict
-    }
+    current_bonuses = uas.project_bonuses(kd_info_parse)
 
     revealed = uag._get_revealed(kd_id)
     shared = uag._get_shared(kd_id)["shared"]
@@ -789,15 +777,8 @@ def _attack(req, kd_id, target_kd):
         is_warlike = "Warlike" in galaxy_policies["active_policies"]
         n_generals = int(attacker_raw_values["generals"])
 
-        def project_bonuses(kd):
-            return {
-                project: project_dict.get("max_bonus", 0) * min(kd["projects_points"][project] / kd["projects_max_points"][project], 1.0)
-                for project, project_dict in uas.PROJECTS.items()
-                if "max_bonus" in project_dict
-            }
-
         def depart(kd):
-            current_bonuses = project_bonuses(kd)
+            current_bonuses = uas.project_bonuses(kd)
             valid_attack_request, attack_request_message = _validate_attack_request(attacker_raw_values, kd)
             if not valid_attack_request:
                 raise occ.Rejected(attack_request_message)
@@ -873,7 +854,7 @@ def _attack(req, kd_id, target_kd):
             """The outcome of the attack against the target as it is now, and the changes it makes to the target."""
             if target_doc["status"].lower() == "dead":
                 raise occ.Rejected("You can't attack this kingdom because they are dead!")
-            target_current_bonuses = project_bonuses(target_doc)
+            target_current_bonuses = uas.project_bonuses(target_doc)
             defender_units = {
                 key: value
                 for key, value in target_doc["units"].items()
@@ -975,10 +956,7 @@ def _attack(req, kd_id, target_kd):
                     for key_funding, value_funding in target_doc["funding"].items()
                 }
                 target_new["stars"] = max(target_new["stars"], 0)
-                target_new["projects_max_points"] = {
-                    **target_doc["projects_max_points"],
-                    **{key_project: uas.PROJECTS_FUNCS[key_project](target_new["stars"]) for key_project in uas.PROJECTS},
-                }
+                target_new["projects_max_points"] = {**target_doc["projects_max_points"], **uas.projects_max_points(target_new["stars"])}
                 if target_new["stars"] <= 0:
                     target_new["status"] = "Dead"
             else:
@@ -1032,10 +1010,7 @@ def _attack(req, kd_id, target_kd):
                 changes["money"] = money
                 changes["funding"] = funding
                 if "stars" in changes:
-                    changes["projects_max_points"] = {
-                        **kd["projects_max_points"],
-                        **{key_project: uas.PROJECTS_FUNCS[key_project](changes["stars"]) for key_project in uas.PROJECTS},
-                    }
+                    changes["projects_max_points"] = {**kd["projects_max_points"], **uas.projects_max_points(changes["stars"])}
                 return changes, None
             return add
 
@@ -1266,11 +1241,7 @@ def calculate_attack_primitives():
     primitives_defense_per_star = uas.GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
     
     kd_info_parse = json.loads(kd_info.text)
-    current_bonuses = {
-        project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-        for project, project_dict in uas.PROJECTS.items()
-        if "max_bonus" in project_dict
-    }
+    current_bonuses = uas.project_bonuses(kd_info_parse)
 
     valid_attack_request, attack_request_message = _validate_attack_request(
         attacker_raw_values,
@@ -1355,11 +1326,7 @@ def _attack_primitives(req, kd_id):
 
     def decide(kd_info_parse):
         # Validated against the attacker as it is right now: a duplicate request finds the units already gone.
-        current_bonuses = {
-            project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-            for project, project_dict in uas.PROJECTS.items()
-            if "max_bonus" in project_dict
-        }
+        current_bonuses = uas.project_bonuses(kd_info_parse)
         state = uag._get_state()
         
         start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
@@ -1472,9 +1439,7 @@ def _attack_primitives(req, kd_id):
                 else:
                     kd_info_parse["money"] += value_spoil
 
-        for key_project, project_dict in uas.PROJECTS.items():
-            project_max_func = uas.PROJECTS_FUNCS[key_project]
-            kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
+        kd_info_parse["projects_max_points"] = uas.projects_max_points(kd_info_parse["stars"])
 
         return kd_info_parse, (kd_info_parse, time_now, attack_status, attacker_message)
 
@@ -2682,10 +2647,7 @@ def _launch_missiles(req, kd_id, target_kd):
                 "stars": max(target_stars, 0),
                 "population": target_pop,
                 "fuel": target["fuel"] - damage["fuel_damage"],
-                "projects_max_points": {
-                    key_project: uas.PROJECTS_FUNCS[key_project](max(target_stars, 0))
-                    for key_project in uas.PROJECTS
-                },
+                "projects_max_points": uas.projects_max_points(max(target_stars, 0)),
             }
             if target_stars <= 0 or target_pop <= 0:
                 changes["status"] = "Dead"

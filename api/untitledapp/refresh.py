@@ -369,17 +369,18 @@ def _kingdom_with_income(
     }
     new_kd_info = kd_info_parse.copy()
     for key_project, new_points in new_project_points.items():
-        new_kd_info["projects_points"][key_project] += new_points
+        new_kd_info["projects_points"][key_project] = new_kd_info["projects_points"].get(key_project, 0) + new_points
     for key_project in uas.ONE_TIME_PROJECTS:
         if key_project not in kd_info_parse["completed_projects"]:
-            if new_kd_info["projects_points"][key_project] >= new_kd_info["projects_max_points"][key_project]:
+            max_points = new_kd_info["projects_max_points"].get(key_project, uas.PROJECTS_FUNCS[key_project](0))
+            if new_kd_info["projects_points"].get(key_project, 0) >= max_points:
                 new_kd_info["completed_projects"].append(key_project)
                 new_kd_info["projects_assigned"][key_project] = 0
                 new_kd_info["projects_target"][key_project] = 0
                 try:
                     ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
                     ws.send(json.dumps({
-                        "message": f"Completed project {key_project}!",
+                        "message": f"Completed project {uas.PROJECTS[key_project]['name']}!",
                         "status": "info",
                         "category": "Projects",
                         "delay": 15000,
@@ -1549,11 +1550,9 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
             # Never set up: the player made the kingdom but has not chosen its race, units and structures yet
             # (INITIAL_KINGDOM_STATE has no race; _finish_kingdom sets one). Nothing to credit until they do.
             return (0, 0)
-        current_bonuses = {
-            project: project_dict.get("max_bonus", 0) * min(kd_info_parse["projects_points"][project] / kd_info_parse["projects_max_points"][project], 1.0)
-            for project, project_dict in uas.PROJECTS.items()
-            if "max_bonus" in project_dict
-        }
+        # Units and projects added since this kingdom was made start at their initial values; the write below keeps them.
+        uas.with_new_fields(kd_info_parse)
+        current_bonuses = uas.project_bonuses(kd_info_parse)
 
         categories_to_resolve = [cat for cat, time in kd_info_parse["next_resolve"].items() if datetime.datetime.fromisoformat(time).astimezone(datetime.timezone.utc) < time_update]
         # The entries of each build queue still to come, read at most once per attempt and shared by the steps
@@ -1564,9 +1563,7 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
                 kd_id, "settles", time_update, _cursor(kd_info_parse, "settles"), effects, pending,
             )
             kd_info_parse["stars"] += new_stars
-            for key_project, project_dict in uas.PROJECTS.items():
-                project_max_func = uas.PROJECTS_FUNCS[key_project]
-                kd_info_parse["projects_max_points"][key_project] = project_max_func(kd_info_parse["stars"])
+            kd_info_parse["projects_max_points"] = uas.projects_max_points(kd_info_parse["stars"])
 
         if "mobis" in categories_to_resolve:
             new_units, next_resolves["mobis"] = _resolve_queue(
