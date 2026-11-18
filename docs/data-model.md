@@ -122,6 +122,7 @@ it is read and dropped whenever it is next written. Cuts are fractions.
 | `listings` | Listing id (`<seller>.<target>.<category>`) to `{id, seller, target, category, cut, time, listed_at}`. One per seller, target and category; listing again replaces it. `time` is when the seller's reveal, and so the listing, ends. Buying does not remove it. |
 | `bounties` | Bounty id (`<requester>.<target>.<category>`) to `{id, requester, target, category, cut, time, posted_at}`. `time` is when it expires. Answering it removes it. |
 | `accepted` | Buyer to target to category to `{sharer, cut, time, source, accepted_at}`: intel the buyer received and owes a cut for until `time`. `source` is `market`, `bounty` or `free` (cut 0). An attack pays each sharer the cuts of its records on that target. |
+| `received` | Receiver to target to category to the time until which it has that intel from galaxymates: the latest of everything bought, given for a bounty, or shared free. Intel received can not be passed on (listed, shared, or used for a bounty) until then. Kept apart from `accepted` because free intel that outlasts paid intel leaves the paid record in place. |
 | `exclusions` | Kingdom to the galaxymates it keeps its intel from: they do not see its listings or bounties, can not buy or answer them, and get nothing from its free shares |
 | `history` | The newest 50 of `{kind, time, from, to, target, category, cut}`; `kind` is `purchase`, `bounty` or `free` (`to` is null: the whole galaxy) |
 

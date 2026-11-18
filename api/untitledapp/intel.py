@@ -28,6 +28,10 @@ action here (``occ.update``). Its fields (each read with a default, since the fu
   category. ``time`` is when it expires.
 * ``accepted``: buyer to target to category to ``{sharer, cut, time, source, accepted_at}``: the intel the buyer has
   received, and so owes a cut for. ``source`` is ``market``, ``bounty`` or ``free``.
+* ``received``: receiver to target to category to the time until which the receiver has intel from galaxymates (the
+  latest of everything it bought, was given for a bounty, or got free). This, not ``accepted``, is what says it may not
+  pass the intel on: a free share that outlasts paid intel leaves the paid record (and its cut) in ``accepted``, but
+  the intel is still received until the free share ends.
 * ``exclusions``: kingdom to the galaxymates it keeps its intel from.
 * ``history``: the newest ``HISTORY_LENGTH`` of ``{kind, time, from, to, target, category, cut}``, ``kind`` being
   ``purchase``, ``bounty`` or ``free`` (``to`` is ``None`` for a free share, which went to the whole galaxy).
@@ -53,7 +57,7 @@ bp = flask.Blueprint("intel", __name__)
 
 CATEGORIES = [operation.replace("spy", "", 1) for operation in uas.REVEAL_OPERATIONS]
 HISTORY_LENGTH = 50
-FIELDS = ("listings", "bounties", "accepted", "exclusions", "history")
+FIELDS = ("listings", "bounties", "accepted", "received", "exclusions", "history")
 _EPSILON = 1e-9
 
 
@@ -83,13 +87,14 @@ def normalize(document):
         "listings": copy.deepcopy(document.get("listings") or {}),
         "bounties": copy.deepcopy(document.get("bounties") or {}),
         "accepted": copy.deepcopy(document.get("accepted") or {}),
+        "received": copy.deepcopy(document.get("received") or {}),
         "exclusions": copy.deepcopy(document.get("exclusions") or {}),
         "history": copy.deepcopy(document.get("history") or []),
     }
 
 
 def prune(market, now):
-    """Drop what has expired: listings, bounties and accepted intel whose time has passed, and old history."""
+    """Drop what has expired: listings, bounties, accepted and received intel whose time has passed, and old history."""
     market["listings"] = {key: item for key, item in market["listings"].items() if _utc(item["time"]) > now}
     market["bounties"] = {key: item for key, item in market["bounties"].items() if _utc(item["time"]) > now}
     accepted = {}
@@ -102,6 +107,16 @@ def prune(market, now):
         if kept_targets:
             accepted[buyer] = kept_targets
     market["accepted"] = accepted
+    received = {}
+    for kd_id, targets in market["received"].items():
+        kept_targets = {}
+        for target, categories in targets.items():
+            kept = {category: until for category, until in categories.items() if _utc(until) > now}
+            if kept:
+                kept_targets[target] = kept
+        if kept_targets:
+            received[kd_id] = kept_targets
+    market["received"] = received
     market["exclusions"] = {kd: list(excluded) for kd, excluded in market["exclusions"].items() if excluded}
     market["history"] = market["history"][:HISTORY_LENGTH]
     return market
@@ -114,8 +129,9 @@ def accepted_on(market, buyer, target, now):
 
 
 def has_received(market, kd_id, target, category, now):
-    """Whether ``kd_id`` got this intel from a galaxymate (and so may not pass it on)."""
-    return category in accepted_on(market, kd_id, target, now)
+    """Whether ``kd_id`` has this intel from a galaxymate (and so may not pass it on): bought, a bounty, or free."""
+    until = market["received"].get(kd_id, {}).get(target, {}).get(category)
+    return (until is not None and _utc(until) > now) or category in accepted_on(market, kd_id, target, now)
 
 
 def accept_problem(market, buyer, target, category, cut, now, until=None):
@@ -180,6 +196,15 @@ def _iso(value):
 
 def _give(market, buyer, target, category, record):
     market["accepted"].setdefault(buyer, {}).setdefault(target, {})[category] = record
+    _mark_received(market, buyer, target, category, record["time"])
+
+
+def _mark_received(market, kd_id, target, category, until):
+    """Note that ``kd_id`` has received this intel until ``until`` (the later of that and what was noted)."""
+    categories = market["received"].setdefault(kd_id, {}).setdefault(target, {})
+    stored = categories.get(category)
+    if stored is None or _utc(until) > _utc(stored):
+        categories[category] = _iso(until)
 
 
 def _history(market, kind, now, sharer, to, target, category, cut):
@@ -199,6 +224,8 @@ def share_free(market, sharer, target, category, until, recipients, now):
         existing = accepted_on(market, recipient, target, now).get(category)
         if existing is None or (existing["cut"] <= 0 and _utc(existing["time"]) < _utc(until)):
             _give(market, recipient, target, category, _record(sharer, 0, until, "free", now))
+        else:
+            _mark_received(market, recipient, target, category, until)  # the paid record stays; the intel is received
     met = [bounty for bounty in market["bounties"].values()
            if bounty["target"] == target and bounty["category"] == category and bounty["requester"] in recipients]
     for bounty in met:
