@@ -5,6 +5,7 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
+import Modal from 'react-bootstrap/Modal';
 import "./intel.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
@@ -242,8 +243,9 @@ export function ExclusionsForm({ send, ...props }) {
     const me = myKd(props.data);
     const mates = myGalaxymates(props.data).filter((kdId) => kdId !== me);
     const saved = intel.exclusions.map(String);
+    const savedKey = saved.join(",");
     const [excluded, setExcluded] = useState(saved);
-    useEffect(() => setExcluded(saved), [saved.join(",")]);
+    useEffect(() => setExcluded(savedKey ? savedKey.split(",") : []), [savedKey]);
     if (mates.length === 0) {
         return <p className="planner-hint-line">You have no galaxymates.</p>;
     }
@@ -282,16 +284,64 @@ export function KingdomIntel(props) {
     );
 }
 
+/** Whether intel on ``kdId`` can be traded here: not your own kingdom, nor a galaxymate. */
+export function tradable(data, kdId) {
+    return kdId !== undefined && kdId !== null && !myGalaxymates(data).includes(String(kdId)) && String(kdId) !== myKd(data);
+}
+
+/** KingdomIntel in a dialog, for the tables that list kingdoms. */
+export function IntelModal({ show, onHide, target, ...props }) {
+    return (
+        <Modal show={show} onHide={onHide} animation={false} dialogClassName="intel-modal">
+            <Modal.Header closeButton><Modal.Title>Intel</Modal.Title></Modal.Header>
+            <Modal.Body>{target !== undefined ? <KingdomIntel {...props} target={target} /> : null}</Modal.Body>
+            <Modal.Footer><Button variant="secondary" onClick={onHide}>Close</Button></Modal.Footer>
+        </Modal>
+    );
+}
+
+/**
+ * One line on a planner page about intel on the chosen target: the cuts you already give up on it, and what the
+ * market has. It opens KingdomIntel in place (these pages are themselves shown in dialogs, so not another dialog).
+ */
+export function TargetIntel({ target, ...props }) {
+    const [open, setOpen] = useState(false);
+    if (!tradable(props.data, target)) {
+        return null;
+    }
+    const intel = intelOf(props.data);
+    const taken = forTarget(intel.accepted, target);
+    const listings = forTarget(intel.listings, target).filter((item) => item.problem === null).length;
+    const bounties = forTarget(intel.bounties, target).length;
+    const cut = intel.cuts[target] || 0;
+    return (
+        <div className="target-intel">
+            <span className="planner-hint-line">
+                {taken.length
+                    ? <>Intel taken: {taken.map((item) => `${item.category} from ${kdName(props.data, item.sharer)}${item.cut > 0 ? ` (${displayPercent(item.cut)})` : ""}`).join(", ")}.
+                        {cut > 0 ? <> Your galaxymates get <strong>{displayPercent(cut)}</strong> of what you win from them.</> : null}</>
+                    : "No intel taken from galaxymates on them."}
+                {" "}{listings} for sale, {bounties} {bounties === 1 ? "bounty" : "bounties"}.
+            </span>
+            <Button size="sm" variant="outline-light" className="ms-2" onClick={() => setOpen(!open)} aria-expanded={open}>
+                {open ? "Hide intel market" : "Intel market"}
+            </Button>
+            {open ? <KingdomIntel {...props} target={target} /> : null}
+        </div>
+    );
+}
+
 function IntelMarket(props) {
     const [results, setResults] = useState([]);
     const send = useIntelAction(props, setResults);
     const shared = { ...props, send };
     const notifs = parseInt(props.data.notifs?.shared || 0, 10);
+    const { updateData } = props;
     useEffect(() => {
         if (notifs > 0) {
-            props.updateData(["notifs"], [() => authFetch("api/clearnotifs", { method: "POST", body: JSON.stringify({ categories: ["shared"] }) })]);
+            updateData(["notifs"], [() => authFetch("api/clearnotifs", { method: "POST", body: JSON.stringify({ categories: ["shared"] }) })]);
         }
-    }, [notifs]);
+    }, [notifs, updateData]);
     if (props.loading.intel && !props.data.intel?.listings) {
         return <h2>Loading...</h2>;
     }

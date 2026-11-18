@@ -37,8 +37,8 @@ formulas. Those live in Flask. If a handler needs to know game rules to work, th
 ## Known problems
 
 Handlers catch everything with a bare `except` and answer `500`, which hides throttling (`429`). Some `GET`s answer
-`201`. New handlers should let unexpected errors surface with their real status and log them. Three write routes do
-not work with the current documents and nothing calls them (see [docs/data-model.md](../docs/data-model.md#how-the-function-app-writes)).
+`201`. New handlers should let unexpected errors surface with their real status and log them. One write route does
+not work with the current documents and nothing calls it (see [docs/data-model.md](../docs/data-model.md#how-the-function-app-writes)).
 
 ## Tests and running
 

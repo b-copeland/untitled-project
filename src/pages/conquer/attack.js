@@ -12,6 +12,7 @@ import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
 import { Panel, FieldRow, UnitStat, Stats, VersusBar, Picker, useServerForecast, clockUntil } from "../../components/planner";
 import { displayPercent } from "../../format";
+import { TargetIntel } from "./intel.js";
 
 /*
  * Every figure on this page that is a projection (offense, defense, losses, spoils, what is left at home) comes from
@@ -191,6 +192,7 @@ function Attack(props) {
                     {intel.length > 0
                         ? <Stats items={intel.map(([what, until]) => ({ label: `${what} revealed for`, value: clockUntil(until) }))} />
                         : null}
+                    <TargetIntel target={selected} data={props.data} loading={props.loading} updateData={props.updateData} />
                 </Panel>
 
                 {context ? <Panel className="area-matchup" title="The matchup">

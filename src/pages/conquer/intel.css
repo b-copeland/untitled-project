@@ -32,3 +32,18 @@
 .intel-form {
     max-width: 36rem;
 }
+
+.target-intel {
+    margin-top: 0.5rem;
+}
+
+.intel-modal {
+    width: 100%;
+    max-width: none;
+}
+@media (min-width: 756px) {
+    .intel-modal {
+        width: 80%;
+        min-width: 750px;
+    }
+}

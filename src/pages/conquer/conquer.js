@@ -12,7 +12,7 @@ import Galaxy from "../galaxy.js";
 import Attack from "./attack.js";
 import Spy from "./spy.js";
 import LaunchMissiles from "./launchmissiles.js";
-import { KingdomIntel } from "./intel.js";
+import { IntelModal, tradable } from "./intel.js";
 import Message from "../message.js";
 import Kingdom from "../kingdominfo.js";
 import Header from "../../components/header";
@@ -25,7 +25,7 @@ import "primeicons/primeicons.css";
 import 'bootstrap/dist/css/bootstrap.css';
 import HelpButton from "../../components/helpbutton";
 import { IconButton } from "../../components/iconbutton";
-import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsGlobe2, BsCheckLg, BsHourglassSplit } from "react-icons/bs";
+import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsClipboardData, BsGlobe2, BsCheckLg, BsHourglassSplit } from "react-icons/bs";
 import { GiCrossedSwords } from "react-icons/gi";
 
 import { ResultToasts } from "../../components/results";
@@ -33,7 +33,7 @@ import { ResultToasts } from "../../components/results";
 // The action buttons in the tables here are icons, as on the Galaxy page: the word the button used to show is its tooltip.
 const ICONS = {
     View: [BsEye, "View"], Attack: [GiCrossedSwords, "Attack"], Spy: [BsBinoculars, "Spy"], Missile: [BsRocketTakeoff, "Launch missiles"],
-    Message: [BsChatDots, "Message"], Intel: [BsShare, "Intel: share, buy or ask for it"], Galaxy: [BsGlobe2, "View galaxy"], Pin: [BsPinAngle, "Pin"],
+    Message: [BsChatDots, "Message"], Intel: [BsClipboardData, "Intel: share, buy or ask for it"], Galaxy: [BsGlobe2, "View galaxy"], Pin: [BsPinAngle, "Pin"],
     Unpin: [BsPinAngleFill, "Unpin"], Accept: [BsCheckLg, "Accept"], "Loading...": [BsHourglassSplit, "Loading..."],
 };
 function ActionButton({ children, disabled, onClick }) {
@@ -215,9 +215,9 @@ function Revealed(props) {
                 <ActionButton onClick={() => {setKdToShow(kdId); {setKdToShow(kdId); setShowMessage(true)}}}>
                     Message
                 </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowIntel(true)}}>
+                {tradable(props.data, kdId) ? <ActionButton onClick={() => {setKdToShow(kdId); setShowIntel(true)}}>
                     Intel
-                </ActionButton>
+                </ActionButton> : null}
                 <ActionButton onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
                     Galaxy
                 </ActionButton>
@@ -337,24 +337,8 @@ function Revealed(props) {
                     </Button>
                 </Modal.Footer>
             </Modal>
-            <Modal
-                show={showIntel}
-                onHide={() => setShowIntel(false)}
-                animation={false}
-                dialogClassName="intel-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Intel</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <KingdomIntel data={props.data} loading={props.loading} updateData={props.updateData} target={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowIntel(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+            <IntelModal show={showIntel} onHide={() => setShowIntel(false)} target={kdToShow}
+                data={props.data} loading={props.loading} updateData={props.updateData} />
             <Modal
                 show={showGalaxy}
                 onHide={() => setShowGalaxy(false)}
@@ -432,6 +416,7 @@ function Pinned(props) {
     const [showSpy, setShowSpy] = useState(false);
     const [showMissile, setShowMissile] = useState(false);
     const [showMessage, setShowMessage] = useState(false);
+    const [showIntel, setShowIntel] = useState(false);
     const [showGalaxy, setShowGalaxy] = useState(false);
     const [galaxyToShow, setGalaxyToShow] = useState('');
     const [kdToShow, setKdToShow] = useState();
@@ -507,6 +492,9 @@ function Pinned(props) {
                 <ActionButton onClick={() => {setKdToShow(kdId); setShowMessage(true)}}>
                     Message
                 </ActionButton>
+                {tradable(props.data, kdId) ? <ActionButton onClick={() => {setKdToShow(kdId); setShowIntel(true)}}>
+                    Intel
+                </ActionButton> : null}
                 <ActionButton onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
                     Galaxy
                 </ActionButton>
@@ -619,6 +607,8 @@ function Pinned(props) {
                     </Button>
                 </Modal.Footer>
             </Modal>
+            <IntelModal show={showIntel} onHide={() => setShowIntel(false)} target={kdToShow}
+                data={props.data} loading={props.loading} updateData={props.updateData} />
             <Modal
                 show={showGalaxy}
                 onHide={() => setShowGalaxy(false)}

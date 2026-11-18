@@ -13,6 +13,7 @@ import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
 import { Panel, FieldRow, Stats, Picker, useServerForecast, clockUntil } from "../../components/planner";
 import { checkPercent } from "../../validation";
+import { TargetIntel } from "./intel.js";
 
 const initialDefenderValues = { drones: "", stars: "", shields: "" };
 
@@ -129,6 +130,7 @@ function Spy(props) {
                         {intel.length > 0
                             ? <Stats items={intel.map(([what, until]) => ({ label: `${what} revealed for`, value: clockUntil(until) }))} />
                             : null}
+                        <TargetIntel target={selected} data={props.data} loading={props.loading} updateData={props.updateData} />
                     </Panel>
 
                     <Panel className="area-drones" title="2. Your drones">

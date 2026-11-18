@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import IntelMarket, { KingdomIntel } from "./intel";
+import IntelMarket, { KingdomIntel, TargetIntel, tradable } from "./intel";
 import { authFetch } from "../../auth";
 
 jest.mock("../../components/header", () => () => null);
@@ -125,4 +125,27 @@ test("one kingdom's intel shows only that kingdom", () => {
     expect(screen.queryAllByRole("button", { name: "Buy" })).toHaveLength(0);  // the listings for sale are on Five
     expect(screen.getByText("drones")).toBeTruthy();  // Two's bounty on Six
     expect(screen.queryByLabelText("Kingdom", { selector: "input" })).toBeNull();  // the bounty form is for Six
+});
+
+test("intel is traded only on kingdoms outside your galaxy", () => {
+    expect(tradable(data, "5")).toBe(true);
+    expect(tradable(data, "2")).toBe(false);  // a galaxymate
+    expect(tradable(data, "1")).toBe(false);  // yourself
+    expect(tradable(data, undefined)).toBe(false);
+});
+
+test("a planner page's target line says what you give up and opens the market in place", () => {
+    const { container } = render(<TargetIntel data={data} loading={{}} updateData={updateData} target="5" />);
+    expect(container.textContent).toMatch(/kingdom from Three \(10\.0%\)/);
+    expect(container.textContent).toMatch(/get 10\.0% of what you win/);
+    expect(container.textContent).toMatch(/1 for sale, 1 bounty/);  // the kingdom listing can not be taken
+    fireEvent.click(screen.getByRole("button", { name: "Intel market" }));
+    expect(screen.getByText("Intel on Five")).toBeTruthy();
+});
+
+test("there is no target line for a galaxymate or before a target is chosen", () => {
+    const { container: mate } = render(<TargetIntel data={data} loading={{}} updateData={updateData} target="2" />);
+    expect(mate.textContent).toBe("");
+    const { container: none } = render(<TargetIntel data={data} loading={{}} updateData={updateData} target={undefined} />);
+    expect(none.textContent).toBe("");
 });

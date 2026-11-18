@@ -17,10 +17,11 @@ import Attack from "./conquer/attack.js";
 import Spy from "./conquer/spy.js";
 import LaunchMissiles from "./conquer/launchmissiles.js";
 import Message from "./message.js";
+import { IntelModal, tradable } from "./conquer/intel.js";
 import Header from "../components/header";
 import HelpButton from "../components/helpbutton";
 import { IconButton } from "../components/iconbutton";
-import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsShareFill } from "react-icons/bs";
+import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsShareFill, BsClipboardData } from "react-icons/bs";
 import { GiCrossedSwords } from "react-icons/gi";
 
 function getTimeString(date) {
@@ -68,6 +69,7 @@ function Galaxy(props) {
     const [showMissile, setShowMissile] = useState(false);
     const [showMessage, setShowMessage] = useState(false);
     const [showShareInfo, setShowShareInfo] = useState(false);
+    const [showIntel, setShowIntel] = useState(false);
     const [kdToShow, setKdToShow] = useState();
 
     const galaxiesArray = Object.keys(props.data.galaxies);
@@ -194,6 +196,7 @@ function Galaxy(props) {
             { icon: BsBinoculars, label: "Spy", onClick: open(setShowSpy) },
             { icon: BsRocketTakeoff, label: "Launch missiles", onClick: open(setShowMissile) },
             { icon: BsChatDots, label: "Message", onClick: open(setShowMessage) },
+            ...(tradable(props.data, kdId) ? [{ icon: BsClipboardData, label: "Intel: share, buy or ask for it", onClick: open(setShowIntel) }] : []),
             pinned
                 ? { icon: BsPinAngleFill, label: "Unpin", onClick: () => onSubmitUnpin({ target: { name: kdId } }), disabled: props.loading.pinned, active: true }
                 : { icon: BsPinAngle, label: "Pin", onClick: () => onSubmitPin({ target: { name: kdId } }), disabled: props.loading.pinned },
@@ -360,6 +363,8 @@ function Galaxy(props) {
                     </Button>
                 </Modal.Footer>
             </Modal>
+            <IntelModal show={showIntel} onHide={() => setShowIntel(false)} target={kdToShow}
+                data={props.data} loading={props.loading} updateData={props.updateData} />
             <Modal
                 show={showShareInfo}
                 onHide={() => setShowShareInfo(false)}
