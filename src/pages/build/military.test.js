@@ -55,3 +55,11 @@ test("training waits for units, and the slider stops at the recruits you have", 
     expect(document.getElementById("attack-train-input").value).toBe("50");
     expect(train().disabled).toBe(false);
 });
+
+test("the Disband page offers recruits and the trained units, but not engineers", () => {
+    show();
+    fireEvent.click(screen.getByRole("button", { name: "Disband" }));
+    expect(document.getElementById("disband-attack")).not.toBeNull();
+    expect(document.getElementById("disband-recruits")).not.toBeNull();
+    expect(document.getElementById("disband-engineers")).toBeNull();
+});
