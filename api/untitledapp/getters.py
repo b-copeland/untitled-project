@@ -61,6 +61,14 @@ def get_state():
         "primitives_rob_per_drone": primitives_rob_per_drone,
         "aggro_operations": uas.AGGRO_OPERATIONS,
         "reveal_operations": uas.REVEAL_OPERATIONS,
+        "operation_projects": uas.OPERATION_PROJECTS,
+        # The objects above reach the browser with their keys sorted; this is the order the game lists them in.
+        "order": {
+            "units": list(uas.UNITS),
+            "projects": list(uas.PROJECTS),
+            "project_categories": list(uas.PROJECT_CATEGORIES),
+        },
+        "operations_replaced_by_project": uas.OPERATIONS_REPLACED_BY_PROJECT,
         "game_config": uas.GAME_CONFIG,
         "races": uas.RACES,
         "surrender_options": uas.SURRENDER_OPTIONS,
@@ -859,6 +867,7 @@ def _get_settle_price(kd_info, is_expansionist):
             - (int(is_expansionist) * uas.GAME_CONFIG["BASE_EXPANSIONIST_SETTLE_REDUCTION"])
             - (int(kd_info["race"] == "Gaian") * uas.GAME_CONFIG["GAIAN_SETTLE_COST_REDUCTION"])
             - uas.project_bonus(kd_info, "settle_cost_bonus")
+            - (int(uas.has_project(kd_info, "xo_evolution")) * uas.GAME_CONFIG["XO_EVOLUTION_SETTLE_COST_REDUCTION"])
         )
     )
 
@@ -959,6 +968,20 @@ def _calc_missile_capacity(kd_info):
         math.floor(kd_info["structures"]["missile_silos"])
         * (per_silo + uas.project_increase(kd_info, "missile_silos_bonus"))
     )
+
+
+def _empty_missile_silos(kd_info):
+    """
+    Silos holding no missile: the silos less those needed for the largest stock of one missile (each silo holds some of
+    every missile). Missiles still being built are not counted.
+    """
+    silos = math.floor(kd_info["structures"].get("missile_silos", 0))
+    if silos <= 0:
+        return 0
+    per_silo = _calc_missile_capacity(kd_info) / silos
+    most_of_one = max((kd_info.get("missiles") or {}).values(), default=0)
+    used = math.ceil(most_of_one / per_silo) if per_silo > 0 else silos
+    return max(silos - used, 0)
 
 
 def _get_missiles_building(missiles_info):

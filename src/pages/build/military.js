@@ -14,13 +14,14 @@ import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
 import { checkCount } from "../../validation";
+import { entriesInOrder } from "../../order";
 
 /**
  * The units you train, in the server's order: every unit with a cost (not recruits or engineers). A unit with a
  * project can only be trained once that project is done.
  */
 export function trainableUnits(mobisInfo, state) {
-    return Object.entries(mobisInfo?.units_desc || {})
+    return entriesInOrder(mobisInfo?.units_desc, state?.order?.units)
         .filter(([, unit]) => unit.cost !== undefined)
         .map(([key, unit]) => ({
             key,

@@ -282,3 +282,9 @@ def test_a_bonus_locked_behind_a_project_gets_no_engineers_until_it_is_done():
     kd["completed_projects"] = ["casualties_bonus"]
     assert strategy.projects_plan(kd, weights, ("casualties_bonus",), 0.5)["general_bonus"] > 0
 
+
+def test_a_key_project_of_another_race_is_skipped_for_the_next_one():
+    kd = kingdom()
+    assert kd["race"] != "Fuzi"
+    assigned = strategy.projects_plan(kd, WEIGHTS, ("fuzi_capstone", "big_flexers"), 0.2)
+    assert assigned["fuzi_capstone"] == 0 and assigned["big_flexers"] > 0

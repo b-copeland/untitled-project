@@ -1,4 +1,5 @@
 import { displayPercent } from "../../format";
+import { inOrder } from "../../order";
 import React, { useEffect, useState } from "react";
 import {useNavigate} from "react-router-dom";
 import {login, authFetch, storeNewTokens, useAuth, logout, getSession, getSessionState} from "../../auth";
@@ -674,7 +675,7 @@ function Spending(props) {
  * needs a project is only listed once the kingdom has some.
  */
 function unitKeys(counts, state) {
-    const all = Object.keys(state?.units || counts || {}).filter((key) => key !== "engineers");
+    const all = inOrder(Object.keys(state?.units || counts || {}), state?.order?.units).filter((key) => key !== "engineers");
     return all.filter((key) => !state?.units?.[key]?.project || (counts?.[key] || 0) > 0);
 }
 

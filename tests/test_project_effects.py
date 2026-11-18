@@ -205,6 +205,22 @@ def test_the_drone_factories_project_makes_each_factory_produce_more_drones(app,
     assert boosted["drones"] - plain["drones"] == pytest.approx(100 * more)
 
 
+@pytest.mark.parametrize("silos,expected", [(1, 1), (2, 3), (3, 4), (4, 6), (101, 151)])
+def test_half_a_missile_per_silo_gives_one_more_missile_for_every_two_silos(monkeypatch, silos, expected):
+    monkeypatch.setitem(uas.PROJECTS["missile_silos_bonus"], "increase", 0.5)
+    done = kingdoms.kingdom(structures={"missile_silos": silos}, completed_projects=["missile_silos_bonus"])
+    assert uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"] == 1
+    assert uag._calc_missile_capacity(done) == expected
+
+
+def test_empty_silos_are_counted_with_a_fractional_capacity_per_silo(monkeypatch):
+    monkeypatch.setitem(uas.PROJECTS["missile_silos_bonus"], "increase", 0.5)
+    # 10 silos hold 15 of each missile, so 6 missiles fill 4 silos (1.5 each) and leave 6 empty.
+    kd = kingdoms.kingdom(structures={"missile_silos": 10}, completed_projects=["missile_silos_bonus"],
+                          missiles={"planet_busters": 6})
+    assert uag._empty_missile_silos(kd) == 6
+
+
 def test_the_missile_silos_project_makes_each_silo_hold_more_missiles():
     done, more = _done("missile_silos_bonus")
     plain = uag._calc_missile_capacity(kingdoms.kingdom(structures={"missile_silos": 100}))
@@ -351,13 +367,10 @@ CAPSTONES = {"Gaian": "gaian_capstone", "Xo": "xo_capstone", "Vult": "vult_capst
 
 
 @pytest.mark.parametrize("race,project", CAPSTONES.items())
-def test_a_racial_capstone_is_only_for_its_race_and_costs_more_than_every_project_but_the_evolutions(race, project):
+def test_a_racial_capstone_is_only_for_its_race(race, project):
     assert uas.project_locked_reason({"race": race}, project) is None
     other = next(r for r in uas.RACES if r != race)
     assert uas.project_locked_reason({"race": other}, project) == f"Only {race} kingdoms can research {uas.PROJECTS[project]['name']}"
-    points = uas.PROJECTS_FUNCS[project](0)
-    not_racial = [key for key in uas.ONE_TIME_PROJECTS if uas.PROJECTS[key]["category"] != "racial"]
-    assert all(points > uas.PROJECTS_FUNCS[key](0) for key in not_racial)
 
 
 def test_gaian_terraforming_makes_settling_and_building_faster():
@@ -427,3 +440,158 @@ def test_fuzi_warheads_make_missiles_do_more_damage():
     damage = uac._calculate_missiles_damage(missiles, 0, fuzi=True)
     boosted = uac._calculate_missiles_damage(missiles, 0, fuzi=True, damage_multiplier=uac._missile_damage_multiplier(warheads))
     assert boosted["stars_damage"] == math.floor(damage["stars_damage"] * (1 + uas.GAME_CONFIG["FUZI_CAPSTONE_MISSILE_DAMAGE_INCREASE"]))
+
+
+# --- racial evolutions --------------------------------------------------------------------------------------------------
+
+EVOLUTIONS = {"Gaian": "gaian_evolution", "Xo": "xo_evolution", "Vult": "vult_evolution", "Lumina": "lumina_evolution",
+              "Fuzi": "fuzi_evolution"}
+
+
+@pytest.mark.parametrize("race,project", EVOLUTIONS.items())
+def test_an_evolution_is_only_for_its_race_needs_no_capstone_and_is_the_most_expensive_kind_of_project(race, project):
+    assert uas.project_locked_reason({"race": race}, project) is None
+    assert "requires" not in uas.PROJECTS[project]
+    other = next(r for r in uas.RACES if r != race)
+    assert uas.project_locked_reason({"race": other}, project) is not None
+    points = uas.PROJECTS_FUNCS[project](0)
+    assert all(points > uas.PROJECTS_FUNCS[key](0) for key in uas.ONE_TIME_PROJECTS if not key.endswith("_evolution"))
+
+
+def test_gaian_evolution_halves_the_hangar_space_of_pure_attackers():
+    units = {"elite_attack": 100, "attack": 100, "defense": 100, "flex": 100}
+    plain = kingdoms.kingdom(race="Gaian")
+    evolved = kingdoms.kingdom(race="Gaian", completed_projects=["gaian_evolution"])
+    half = uas.GAME_CONFIG["GAIAN_EVOLUTION_ATTACK_HANGAR_MULTIPLIER"]
+    assert _hangar_used(plain, units) == 400
+    assert _hangar_used(evolved, units) == pytest.approx(200 * half + 200)
+
+
+def test_xo_evolution_makes_settling_cheaper():
+    plain = uag._get_settle_price(kingdoms.kingdom(), False)
+    evolved = uag._get_settle_price(kingdoms.kingdom(completed_projects=["xo_evolution"]), False)
+    assert evolved == pytest.approx(plain * (1 - uas.GAME_CONFIG["XO_EVOLUTION_SETTLE_COST_REDUCTION"]))
+
+
+def test_xo_evolution_pays_for_each_open_hangar_space(app):
+    setup = {"structures": {"hangars": 100}, "units": {"attack": 1000}}
+    plain = kingdoms.income(app, kingdoms.kingdom(**setup))
+    evolved = kingdoms.income(app, kingdoms.kingdom(**setup, completed_projects=["xo_evolution"]))
+    open_space = 100 * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"] - 1000
+    expected = open_space * uas.GAME_CONFIG["XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE"]
+    assert plain["income"]["money"]["open_hangars"] == 0
+    assert evolved["income"]["money"]["open_hangars"] == pytest.approx(expected)
+    assert evolved["money"] - plain["money"] == pytest.approx(expected)
+
+
+def test_xo_evolution_pays_nothing_for_full_hangars(app):
+    evolved = kingdoms.income(app, kingdoms.kingdom(structures={"hangars": 10}, units={"attack": 5000},
+                                                    completed_projects=["xo_evolution"]))
+    assert evolved["income"]["money"]["open_hangars"] == 0
+
+
+def _vult_spies(client, jwt, operation, completed):
+    from tests.test_concurrency import _create_item
+    _set_up_two_kingdoms()
+    kd = _get(f"/kingdom/{KD_ID}")
+    kd.pop("_etag", None)
+    kd.update({"race": "Vult", "drones": 100000, "completed_projects": completed})
+    _create_item(f"kingdom_{KD_ID}", kd)
+    return client.post(f"/api/spy/{TARGET_ID}", json={"drones": 100000, "shielded": False, "operation": operation},
+                       headers={"Authorization": f"Bearer {jwt}"})
+
+
+def test_full_infiltration_needs_vult_evolution(app, client, jwt1):
+    response = _vult_spies(client, jwt1, "spyall", ["vult_capstone"])
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "Complete the Vult Evolution: Full Infiltration project to use Full Infiltration"
+    assert _get(f"/kingdom/{KD_ID}")["drones"] == 100000  # nothing spent
+
+
+def test_full_infiltration_reveals_everything_about_the_target(app, client, jwt1):
+    response = _vult_spies(client, jwt1, "spyall", ["vult_capstone", "vult_evolution"])
+    assert response.status_code == 200, response.get_json()
+    assert response.get_json()["status"] == "success"
+    revealed = _get(f"/kingdom/{KD_ID}/revealed")["revealed"][TARGET_ID]
+    assert set(revealed) == set(uas.REVEAL_OPERATION_STATS["spyall"])
+    with app.app_context():
+        target = uag._get_max_kd_info(TARGET_ID, KD_ID, _get(f"/kingdom/{KD_ID}/revealed"))
+    for field in ("units", "structures", "shields", "projects_points", "drones", "money"):
+        assert field in target, field
+
+
+def test_full_infiltration_replaces_the_single_intel_operations_on_the_pages():
+    replaced = uas.OPERATIONS_REPLACED_BY_PROJECT["vult_evolution"]
+    assert set(replaced) == set(uas.REVEAL_OPERATIONS) - {"spyall"}
+    assert set().union(*(uas.REVEAL_OPERATION_STATS[op] for op in replaced)) == set(uas.REVEAL_OPERATION_STATS["spyall"])
+
+
+def _lumina(completed):
+    from tests.test_concurrency import _create_item
+    _set_up_two_kingdoms()
+    kd = _get(f"/kingdom/{KD_ID}")
+    kd.pop("_etag", None)
+    kd.update({"race": "Lumina", "last_income": NOW.isoformat(), "completed_projects": completed})
+    _create_item(f"kingdom_{KD_ID}", kd)
+
+
+def test_lumina_evolution_reveals_every_other_galaxy_and_renews_it(app):
+    import untitledapp.refresh as refresh
+    _lumina(["lumina_capstone", "lumina_evolution"])
+    later = NOW + datetime.timedelta(minutes=1)
+    with app.app_context():
+        refresh._refresh_kd(KD_ID, _get("/state"), later, False)
+    revealed = _get(f"/kingdom/{KD_ID}/revealed")
+    duration = datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"])
+    assert set(revealed["galaxies"]) == {"2"}  # every galaxy but its own
+    assert revealed["revealed"][TARGET_ID]["stats"] == (later + 2 * duration).isoformat()
+    assert _get(f"/kingdom/{KD_ID}")["next_resolve"]["galaxies_revealed"] == (later + duration).isoformat()
+
+
+def test_without_lumina_evolution_the_refresh_reveals_nothing(app):
+    import untitledapp.refresh as refresh
+    _lumina(["lumina_capstone"])
+    with app.app_context():
+        refresh._refresh_kd(KD_ID, _get("/state"), NOW + datetime.timedelta(minutes=1), False)
+    assert _get(f"/kingdom/{KD_ID}/revealed")["galaxies"] == {}
+    assert "galaxies_revealed" not in _get(f"/kingdom/{KD_ID}")["next_resolve"]
+
+
+def test_lumina_evolution_does_more_drone_damage_at_war_only():
+    evolved = kingdoms.kingdom(race="Lumina", completed_projects=["lumina_capstone", "lumina_evolution"])
+    target = kingdoms.kingdom()
+    assert uac._aggro_damage_multiplier(evolved, target, war=False) == 1
+    assert uac._aggro_damage_multiplier(evolved, target, war=True) == pytest.approx(
+        1 + uas.GAME_CONFIG["LUMINA_EVOLUTION_WAR_DRONE_DAMAGE_INCREASE"])
+
+
+def test_fuzi_evolution_counts_the_silos_with_no_missiles():
+    # A Fuzi silo holds two of each missile, so 30 of one missile fill 15 silos.
+    kd = kingdoms.kingdom(race="Fuzi", structures={"missile_silos": 100}, missiles={"planet_busters": 30, "star_busters": 4})
+    assert uag._empty_missile_silos(kd) == 85
+    assert uag._empty_missile_silos(kingdoms.kingdom(race="Fuzi")) == 0
+
+
+def test_fuzi_evolution_makes_empty_silos_produce_and_house_people(app):
+    import untitledapp.refresh as refresh
+    setup = {"race": "Fuzi", "structures": {"missile_silos": 100, "homes": 100}, "missiles": {"planet_busters": 30}}
+    plain_kd = kingdoms.kingdom(**setup)
+    evolved_kd = kingdoms.kingdom(**setup, completed_projects=["fuzi_capstone", "fuzi_evolution"])
+    plain, evolved = kingdoms.income(app, plain_kd), kingdoms.income(app, evolved_kd)
+    empty = 85
+    assert evolved["income"]["money"]["empty_silos"] == empty * uas.GAME_CONFIG["FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO"]
+    assert evolved["income"]["fuel"]["net"] - plain["income"]["fuel"]["net"] == pytest.approx(
+        empty * uas.GAME_CONFIG["FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO"])
+    assert evolved["income"]["drones"] - plain["income"]["drones"] == pytest.approx(
+        empty * uas.GAME_CONFIG["FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO"])
+    _, plain_cap = refresh._calc_pop_change_per_epoch(plain_kd, False, 1, [])
+    _, evolved_cap = refresh._calc_pop_change_per_epoch(evolved_kd, False, 1, [])
+    assert evolved_cap - plain_cap == empty * uas.GAME_CONFIG["FUZI_EVOLUTION_POP_PER_EMPTY_SILO"]
+
+
+def test_fuzi_evolution_empty_silos_store_fuel(app):
+    setup = {"race": "Fuzi", "structures": {"missile_silos": 100}, "fuel": 1_000_000}
+    plain = kingdoms.income(app, kingdoms.kingdom(**setup))
+    evolved = kingdoms.income(app, kingdoms.kingdom(**setup, completed_projects=["fuzi_capstone", "fuzi_evolution"]))
+    assert plain["fuel"] == 0  # no fuel plants, so no storage
+    assert evolved["fuel"] == 100 * uas.GAME_CONFIG["FUZI_EVOLUTION_FUEL_STORAGE_PER_EMPTY_SILO"]
