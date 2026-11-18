@@ -44,7 +44,8 @@ function Intel(props) {
             </p>
             <p>
                 Intel a galaxymate gave you can not be passed on. On Your intel you can keep your intel from chosen
-                galaxymates: they do not see your listings, can not buy them, and get nothing from your free shares.
+                galaxymates: they do not see your listings or bounties, can not buy or answer them, and get nothing from your
+                free shares.
                 They are not told.
             </p>
             <p>
