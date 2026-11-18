@@ -194,10 +194,10 @@ def test_each_improvement_costs_more_per_point_of_strength_but_takes_the_same_ha
         assert len({uas.UNITS[unit]["hangar_capacity"] for unit in line}) == 1
 
 
-def test_elite_projects_cost_about_five_times_the_heavy_ones_and_defense_about_a_fifth_more():
+def test_elite_projects_cost_more_than_the_heavy_ones_and_defense_about_a_fifth_more():
     points = {key: uas.PROJECTS_FUNCS[key](0) for key in IMPROVED_UNITS.values()}
-    assert points["elite_attackers"] / points["heavy_attackers"] == pytest.approx(5, rel=0.2)
-    assert points["elite_defenders"] / points["heavy_defenders"] == pytest.approx(5, rel=0.2)
+    assert points["elite_attackers"] > points["heavy_attackers"]
+    assert points["elite_defenders"] > points["heavy_defenders"]
     assert points["heavy_defenders"] / points["heavy_attackers"] == pytest.approx(1.2, rel=0.05)
     assert points["elite_defenders"] / points["elite_attackers"] == pytest.approx(1.2, rel=0.05)
 

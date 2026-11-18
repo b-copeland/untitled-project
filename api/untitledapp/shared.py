@@ -405,29 +405,36 @@ GAME_CONFIG = {
     "MINES_PROJECT_MONEY_PER_MINE": 20,  # per epoch
     "HANGARS_PROJECT_UNITS_PER_HANGAR": 10,
     "DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY": 0.25,  # per epoch
-    "MISSILE_SILOS_PROJECT_MISSILES_PER_SILO": 1,
+    "MISSILE_SILOS_PROJECT_MISSILES_PER_SILO": 0.5,
     "WORKSHOPS_PROJECT_ENGINEERS_PER_WORKSHOP": 10,
+
+    # One-time economy and military projects: the share they give once completed (proposals).
+    "SETTLE_COST_PROJECT_REDUCTION": 0.1,
+    "RECRUIT_COST_PROJECT_REDUCTION": 0.5,
+    "POP_GROWTH_PROJECT_INCREASE": 1,
+    "CASUALTIES_PROJECT_REDUCTION": 0.25,
+    "SPY_PROTECTION_PROJECT_REDUCTION": 0.25,
 
     # Playstyle projects, unlocked by the best unit of each kind (proposals).
     "SOLAR_FUEL_REDUCTION": 0.5,  # solar_attackers / solar_defenders: pure units of that kind use this much less fuel
     "SELF_DESTRUCT_LOSSES_INCREASE": 0.5,  # self_destructing_*: the other side's unit losses are this much higher
     "COMPACT_FLEX_HANGAR_CAPACITY": 1,  # compact_flexers: hangar space one big flexer takes
 
-    # Racial capstones (proposals).
-    "GAIAN_CAPSTONE_SETTLE_TIME_REDUCTION": 0.25,
-    "GAIAN_CAPSTONE_STRUCTURE_TIME_REDUCTION": 0.25,
-    "XO_CAPSTONE_RETURN_REDUCTION": 0.15,  # added to the generals speed bonus
+    # Racial capstones.
+    "GAIAN_CAPSTONE_SETTLE_TIME_REDUCTION": 0.50,
+    "GAIAN_CAPSTONE_STRUCTURE_TIME_REDUCTION": 0.50,
+    "XO_CAPSTONE_RETURN_REDUCTION": 0.10,  # added to the generals speed bonus
     "XO_CAPSTONE_WAR_LOSSES_INCREASE": 0.25,  # the defender's losses when Xo attacks an empire it is at war with
     "VULT_CAPSTONE_DRONE_DAMAGE_INCREASE": 0.25,  # damage of aggressive spy operations
     "LUMINA_CAPSTONE_SHIELDING_FUEL_REDUCTION": 0.5,  # fuel a shielded drone costs
     "FUZI_CAPSTONE_MISSILE_DAMAGE_INCREASE": 0.25,
     "BASE_DRONES_SHIELDING_FUEL_PER_DRONE": 1,
 
-    # Racial evolutions (proposals).
+    # Racial evolutions.
     "GAIAN_EVOLUTION_ATTACK_HANGAR_MULTIPLIER": 0.5,  # hangar space a pure attacker takes, as a share of its usual
-    "XO_EVOLUTION_SETTLE_COST_REDUCTION": 0.2,
+    "XO_EVOLUTION_SETTLE_COST_REDUCTION": 0.25,
     "XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE": 1.75,  # per epoch
-    "LUMINA_EVOLUTION_WAR_DRONE_DAMAGE_INCREASE": 0.25,  # aggressive spy damage against empires at war with you
+    "LUMINA_EVOLUTION_WAR_DRONE_DAMAGE_INCREASE": 0.40,  # aggressive spy damage against empires at war with you
     "FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO": 0.5,  # per epoch
     "FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO": 50,  # per epoch
     "FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO": 100,  # per epoch
@@ -464,15 +471,6 @@ PROJECT_CATEGORIES = {
     "missiles": "Missiles",
     "racial": "Racial",
 }
-# One-time projects that complete with a fixed bonus (proposals).
-STRUCTURE_PROJECT_POINTS = 50000
-ECO_MILITARY_PROJECT_POINTS = 75000  # Cheaper Exploring, Cheaper Recruits, Population Growth and the loss projects
-ECO_MILITARY_PROJECT_BONUS = 0.25
-
-
-# Racial capstones are the second most expensive projects, and evolutions (after their capstone) the most expensive.
-RACIAL_CAPSTONE_POINTS = 500000
-RACIAL_EVOLUTION_POINTS = 1000000
 
 PROJECTS = {
     "pop_bonus": {
@@ -495,7 +493,7 @@ PROJECTS = {
     # once completed each structure of that kind gives a fixed amount more.
     "mines_bonus": {
         "stars_power": 0,
-        "constant": STRUCTURE_PROJECT_POINTS,
+        "constant": 200000,
         "increase": GAME_CONFIG["MINES_PROJECT_MONEY_PER_MINE"],
         "desc": f"Each mine produces {GAME_CONFIG['MINES_PROJECT_MONEY_PER_MINE']} more money per epoch",
         "name": "Mines Bonus",
@@ -503,7 +501,7 @@ PROJECTS = {
     },
     "hangars_bonus": {
         "stars_power": 0,
-        "constant": STRUCTURE_PROJECT_POINTS,
+        "constant": 200000,
         "increase": GAME_CONFIG["HANGARS_PROJECT_UNITS_PER_HANGAR"],
         "desc": f"Each hangar houses {GAME_CONFIG['HANGARS_PROJECT_UNITS_PER_HANGAR']} more units",
         "name": "Hangars Bonus",
@@ -511,7 +509,7 @@ PROJECTS = {
     },
     "drone_factories_bonus": {
         "stars_power": 0,
-        "constant": STRUCTURE_PROJECT_POINTS,
+        "constant": 200000,
         "increase": GAME_CONFIG["DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY"],
         "desc": f"Each drone factory produces {GAME_CONFIG['DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY']} more drones per epoch",
         "name": "Drone Factories Bonus",
@@ -519,7 +517,7 @@ PROJECTS = {
     },
     "missile_silos_bonus": {
         "stars_power": 0,
-        "constant": STRUCTURE_PROJECT_POINTS,
+        "constant": 200000,
         "increase": GAME_CONFIG["MISSILE_SILOS_PROJECT_MISSILES_PER_SILO"],
         "desc": f"Each missile silo stores {GAME_CONFIG['MISSILE_SILOS_PROJECT_MISSILES_PER_SILO']} more missiles",
         "name": "Missile Silos Bonus",
@@ -527,7 +525,7 @@ PROJECTS = {
     },
     "workshops_bonus": {
         "stars_power": 0,
-        "constant": STRUCTURE_PROJECT_POINTS,
+        "constant": 200000,
         "increase": GAME_CONFIG["WORKSHOPS_PROJECT_ENGINEERS_PER_WORKSHOP"],
         "desc": f"Each workshop houses {GAME_CONFIG['WORKSHOPS_PROJECT_ENGINEERS_PER_WORKSHOP']} more engineers",
         "name": "Workshops Bonus",
@@ -552,41 +550,41 @@ PROJECTS = {
     },
     "settle_cost_bonus": {
         "stars_power": 0,
-        "constant": ECO_MILITARY_PROJECT_POINTS,
-        "bonus": ECO_MILITARY_PROJECT_BONUS,
-        "desc": f"Decreases the cost of settling new stars by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
+        "constant": 500000,
+        "bonus": GAME_CONFIG["SETTLE_COST_PROJECT_REDUCTION"],
+        "desc": f"Decreases the cost of settling new stars by {GAME_CONFIG['SETTLE_COST_PROJECT_REDUCTION']:.0%} once completed",
         "name": "Cheaper Exploring",
         "category": "economy",
     },
     "recruit_cost_bonus": {
         "stars_power": 0,
-        "constant": ECO_MILITARY_PROJECT_POINTS,
-        "bonus": ECO_MILITARY_PROJECT_BONUS,
-        "desc": f"Decreases the cost of recruits by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
+        "constant": 200000,
+        "bonus": GAME_CONFIG["RECRUIT_COST_PROJECT_REDUCTION"],
+        "desc": f"Decreases the cost of recruits by {GAME_CONFIG['RECRUIT_COST_PROJECT_REDUCTION']:.0%} once completed",
         "name": "Cheaper Recruits",
         "category": "economy",
     },
     "pop_growth_bonus": {
         "stars_power": 0,
-        "constant": ECO_MILITARY_PROJECT_POINTS,
-        "bonus": ECO_MILITARY_PROJECT_BONUS,
-        "desc": f"Increases population growth by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
+        "constant": 200000,
+        "bonus": GAME_CONFIG["POP_GROWTH_PROJECT_INCREASE"],
+        "desc": f"Increases population growth by {GAME_CONFIG['POP_GROWTH_PROJECT_INCREASE']:.0%} once completed",
         "name": "Population Growth",
         "category": "economy",
     },
     "casualties_bonus": {
         "stars_power": 0,
-        "constant": ECO_MILITARY_PROJECT_POINTS,
-        "bonus": ECO_MILITARY_PROJECT_BONUS,
-        "desc": f"Decreases the units you lose in battle, attacking or defending, by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
+        "constant": 100000,
+        "bonus": GAME_CONFIG["CASUALTIES_PROJECT_REDUCTION"],
+        "desc": f"Decreases the units you lose in battle, attacking or defending, by {GAME_CONFIG['CASUALTIES_PROJECT_REDUCTION']:.0%} once completed",
         "name": "Fewer Casualties",
         "category": "military",
     },
     "spy_protection_bonus": {
         "stars_power": 0,
-        "constant": ECO_MILITARY_PROJECT_POINTS,
-        "bonus": ECO_MILITARY_PROJECT_BONUS,
-        "desc": f"Decreases the damage aggressive spy operations do to you by {ECO_MILITARY_PROJECT_BONUS:.0%} once completed",
+        "constant": 200000,
+        "bonus": GAME_CONFIG["SPY_PROTECTION_PROJECT_REDUCTION"],
+        "desc": f"Decreases the damage aggressive spy operations do to you by {GAME_CONFIG['SPY_PROTECTION_PROJECT_REDUCTION']:.0%} once completed",
         "name": "Counter-Intelligence",
         "category": "spy",
     },
@@ -615,12 +613,42 @@ PROJECTS = {
         "name": "Big Flexers",
         "category": "military",
     },
-    # The 7-strength units cost about five times the points of the 6-strength ones, and need them first. Defender
+    # The 7-strength units cost more points than the 6-strength ones, and need them first. Defender
     # projects cost about 20% more than attacker projects.
     # Playstyle projects: two for the best unit of each kind.
+    "heavy_attackers": {
+        "stars_power": 0,
+        "constant": 100000,
+        "desc": "Unlocks the Heavy Attacker unit (6 offense)",
+        "name": "Heavy Attackers",
+        "category": "military",
+    },
+    "elite_attackers": {
+        "stars_power": 0,
+        "constant": 250000,
+        "desc": "Unlocks the Elite Attacker unit (7 offense)",
+        "name": "Elite Attackers",
+        "category": "military",
+        "requires": ["heavy_attackers"],
+    },
+    "heavy_defenders": {
+        "stars_power": 0,
+        "constant": 120000,
+        "desc": "Unlocks the Heavy Defender unit (6 defense)",
+        "name": "Heavy Defenders",
+        "category": "military",
+    },
+    "elite_defenders": {
+        "stars_power": 0,
+        "constant": 300000,
+        "desc": "Unlocks the Elite Defender unit (7 defense)",
+        "name": "Elite Defenders",
+        "category": "military",
+        "requires": ["heavy_defenders"],
+    },
     "solar_attackers": {
         "stars_power": 0,
-        "constant": 150000,
+        "constant": 500000,
         "desc": f"Pure attackers use {GAME_CONFIG['SOLAR_FUEL_REDUCTION']:.0%} less fuel",
         "name": "Solar Attackers",
         "category": "military",
@@ -628,7 +656,7 @@ PROJECTS = {
     },
     "self_destructing_attackers": {
         "stars_power": 0,
-        "constant": 150000,
+        "constant": 500000,
         "desc": f"When you attack a kingdom, its units take {GAME_CONFIG['SELF_DESTRUCT_LOSSES_INCREASE']:.0%} more losses",
         "name": "Self-Destructing Attackers",
         "category": "military",
@@ -636,7 +664,7 @@ PROJECTS = {
     },
     "solar_defenders": {
         "stars_power": 0,
-        "constant": 180000,
+        "constant": 600000,
         "desc": f"Pure defenders use {GAME_CONFIG['SOLAR_FUEL_REDUCTION']:.0%} less fuel",
         "name": "Solar Defenders",
         "category": "military",
@@ -644,7 +672,7 @@ PROJECTS = {
     },
     "self_destructing_defenders": {
         "stars_power": 0,
-        "constant": 180000,
+        "constant": 600000,
         "desc": f"Kingdoms that attack you take {GAME_CONFIG['SELF_DESTRUCT_LOSSES_INCREASE']:.0%} more unit losses",
         "name": "Self-Destructing Defenders",
         "category": "military",
@@ -652,7 +680,7 @@ PROJECTS = {
     },
     "warp_speed": {
         "stars_power": 0,
-        "constant": 150000,
+        "constant": 800000,
         "desc": "Big flexers sent on an attack all come home with the first general to return",
         "name": "Warp Speed",
         "category": "military",
@@ -660,7 +688,7 @@ PROJECTS = {
     },
     "compact_flexers": {
         "stars_power": 0,
-        "constant": 150000,
+        "constant": 800000,
         "desc": f"Big flexers take {GAME_CONFIG['COMPACT_FLEX_HANGAR_CAPACITY']} hangar space each",
         "name": "Compact Flexers",
         "category": "military",
@@ -668,7 +696,7 @@ PROJECTS = {
     },
     "gaian_capstone": {
         "stars_power": 0,
-        "constant": RACIAL_CAPSTONE_POINTS,
+        "constant": 500000,
         "desc": f"Settling takes {GAME_CONFIG['GAIAN_CAPSTONE_SETTLE_TIME_REDUCTION']:.0%} less time and building structures "
                 f"{GAME_CONFIG['GAIAN_CAPSTONE_STRUCTURE_TIME_REDUCTION']:.0%} less time",
         "name": "Gaian Terraforming",
@@ -677,7 +705,7 @@ PROJECTS = {
     },
     "xo_capstone": {
         "stars_power": 0,
-        "constant": RACIAL_CAPSTONE_POINTS,
+        "constant": 500000,
         "desc": f"Generals return {GAME_CONFIG['XO_CAPSTONE_RETURN_REDUCTION']:.0%} faster, and kingdoms of empires you are "
                 f"at war with lose {GAME_CONFIG['XO_CAPSTONE_WAR_LOSSES_INCREASE']:.0%} more units to your attacks",
         "name": "Xo Warlords",
@@ -686,7 +714,7 @@ PROJECTS = {
     },
     "vult_capstone": {
         "stars_power": 0,
-        "constant": RACIAL_CAPSTONE_POINTS,
+        "constant": 500000,
         "desc": f"Aggressive spy operations do {GAME_CONFIG['VULT_CAPSTONE_DRONE_DAMAGE_INCREASE']:.0%} more damage",
         "name": "Vult Swarm",
         "category": "racial",
@@ -694,7 +722,7 @@ PROJECTS = {
     },
     "lumina_capstone": {
         "stars_power": 0,
-        "constant": RACIAL_CAPSTONE_POINTS,
+        "constant": 500000,
         "desc": f"Shielding drones costs {GAME_CONFIG['LUMINA_CAPSTONE_SHIELDING_FUEL_REDUCTION']:.0%} less fuel",
         "name": "Lumina Prisms",
         "category": "racial",
@@ -702,7 +730,7 @@ PROJECTS = {
     },
     "fuzi_capstone": {
         "stars_power": 0,
-        "constant": RACIAL_CAPSTONE_POINTS,
+        "constant": 500000,
         "desc": f"Missiles do {GAME_CONFIG['FUZI_CAPSTONE_MISSILE_DAMAGE_INCREASE']:.0%} more damage",
         "name": "Fuzi Warheads",
         "category": "racial",
@@ -710,45 +738,41 @@ PROJECTS = {
     },
     "gaian_evolution": {
         "stars_power": 0,
-        "constant": RACIAL_EVOLUTION_POINTS,
+        "constant": 1000000,
         "desc": f"Pure attackers take {GAME_CONFIG['GAIAN_EVOLUTION_ATTACK_HANGAR_MULTIPLIER']:.0%} of their usual hangar space",
         "name": "Gaian Evolution: Living Hangars",
         "category": "racial",
         "race": "Gaian",
-        "requires": ["gaian_capstone"],
     },
     "xo_evolution": {
         "stars_power": 0,
-        "constant": RACIAL_EVOLUTION_POINTS,
+        "constant": 1000000,
         "desc": f"Settling costs {GAME_CONFIG['XO_EVOLUTION_SETTLE_COST_REDUCTION']:.0%} less, and each open hangar space "
                 f"earns {GAME_CONFIG['XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE']} money per epoch",
         "name": "Xo Evolution: Mercenary Hangars",
         "category": "racial",
         "race": "Xo",
-        "requires": ["xo_capstone"],
     },
     "vult_evolution": {
         "stars_power": 0,
-        "constant": RACIAL_EVOLUTION_POINTS,
+        "constant": 1000000,
         "desc": "Unlocks Full Infiltration, a drone operation that reveals everything about the target at once",
         "name": "Vult Evolution: Full Infiltration",
         "category": "racial",
         "race": "Vult",
-        "requires": ["vult_capstone"],
     },
     "lumina_evolution": {
         "stars_power": 0,
-        "constant": RACIAL_EVOLUTION_POINTS,
+        "constant": 1000000,
         "desc": f"Every galaxy is always revealed to you, and aggressive spy operations against empires at war with you "
                 f"do {GAME_CONFIG['LUMINA_EVOLUTION_WAR_DRONE_DAMAGE_INCREASE']:.0%} more damage",
         "name": "Lumina Evolution: All-Seeing",
         "category": "racial",
         "race": "Lumina",
-        "requires": ["lumina_capstone"],
     },
     "fuzi_evolution": {
         "stars_power": 0,
-        "constant": RACIAL_EVOLUTION_POINTS,
+        "constant": 1000000,
         "desc": f"Each empty missile silo makes {GAME_CONFIG['FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO']} drones, "
                 f"{GAME_CONFIG['FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO']} money and "
                 f"{GAME_CONFIG['FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO']} fuel per epoch, stores "
@@ -757,37 +781,6 @@ PROJECTS = {
         "name": "Fuzi Evolution: Silo Cities",
         "category": "racial",
         "race": "Fuzi",
-        "requires": ["fuzi_capstone"],
-    },
-    "heavy_attackers": {
-        "stars_power": 0,
-        "constant": 40000,
-        "desc": "Unlocks the Heavy Attacker unit (6 offense)",
-        "name": "Heavy Attackers",
-        "category": "military",
-    },
-    "elite_attackers": {
-        "stars_power": 0,
-        "constant": 200000,
-        "desc": "Unlocks the Elite Attacker unit (7 offense)",
-        "name": "Elite Attackers",
-        "category": "military",
-        "requires": ["heavy_attackers"],
-    },
-    "heavy_defenders": {
-        "stars_power": 0,
-        "constant": 48000,
-        "desc": "Unlocks the Heavy Defender unit (6 defense)",
-        "name": "Heavy Defenders",
-        "category": "military",
-    },
-    "elite_defenders": {
-        "stars_power": 0,
-        "constant": 240000,
-        "desc": "Unlocks the Elite Defender unit (7 defense)",
-        "name": "Elite Defenders",
-        "category": "military",
-        "requires": ["heavy_defenders"],
     },
     "star_busters": {
         "stars_power": 0,

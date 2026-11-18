@@ -205,6 +205,22 @@ def test_the_drone_factories_project_makes_each_factory_produce_more_drones(app,
     assert boosted["drones"] - plain["drones"] == pytest.approx(100 * more)
 
 
+@pytest.mark.parametrize("silos,expected", [(1, 1), (2, 3), (3, 4), (4, 6), (101, 151)])
+def test_half_a_missile_per_silo_gives_one_more_missile_for_every_two_silos(monkeypatch, silos, expected):
+    monkeypatch.setitem(uas.PROJECTS["missile_silos_bonus"], "increase", 0.5)
+    done = kingdoms.kingdom(structures={"missile_silos": silos}, completed_projects=["missile_silos_bonus"])
+    assert uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"] == 1
+    assert uag._calc_missile_capacity(done) == expected
+
+
+def test_empty_silos_are_counted_with_a_fractional_capacity_per_silo(monkeypatch):
+    monkeypatch.setitem(uas.PROJECTS["missile_silos_bonus"], "increase", 0.5)
+    # 10 silos hold 15 of each missile, so 6 missiles fill 4 silos (1.5 each) and leave 6 empty.
+    kd = kingdoms.kingdom(structures={"missile_silos": 10}, completed_projects=["missile_silos_bonus"],
+                          missiles={"planet_busters": 6})
+    assert uag._empty_missile_silos(kd) == 6
+
+
 def test_the_missile_silos_project_makes_each_silo_hold_more_missiles():
     done, more = _done("missile_silos_bonus")
     plain = uag._calc_missile_capacity(kingdoms.kingdom(structures={"missile_silos": 100}))
@@ -351,13 +367,10 @@ CAPSTONES = {"Gaian": "gaian_capstone", "Xo": "xo_capstone", "Vult": "vult_capst
 
 
 @pytest.mark.parametrize("race,project", CAPSTONES.items())
-def test_a_racial_capstone_is_only_for_its_race_and_costs_more_than_every_project_but_the_evolutions(race, project):
+def test_a_racial_capstone_is_only_for_its_race(race, project):
     assert uas.project_locked_reason({"race": race}, project) is None
     other = next(r for r in uas.RACES if r != race)
     assert uas.project_locked_reason({"race": other}, project) == f"Only {race} kingdoms can research {uas.PROJECTS[project]['name']}"
-    points = uas.PROJECTS_FUNCS[project](0)
-    not_racial = [key for key in uas.ONE_TIME_PROJECTS if uas.PROJECTS[key]["category"] != "racial"]
-    assert all(points > uas.PROJECTS_FUNCS[key](0) for key in not_racial)
 
 
 def test_gaian_terraforming_makes_settling_and_building_faster():
@@ -436,9 +449,11 @@ EVOLUTIONS = {"Gaian": "gaian_evolution", "Xo": "xo_evolution", "Vult": "vult_ev
 
 
 @pytest.mark.parametrize("race,project", EVOLUTIONS.items())
-def test_an_evolution_needs_its_capstone_and_is_the_most_expensive_kind_of_project(race, project):
-    assert uas.project_locked_reason({"race": race}, project) is not None
-    assert uas.project_locked_reason({"race": race, "completed_projects": [CAPSTONES[race]]}, project) is None
+def test_an_evolution_is_only_for_its_race_needs_no_capstone_and_is_the_most_expensive_kind_of_project(race, project):
+    assert uas.project_locked_reason({"race": race}, project) is None
+    assert "requires" not in uas.PROJECTS[project]
+    other = next(r for r in uas.RACES if r != race)
+    assert uas.project_locked_reason({"race": other}, project) is not None
     points = uas.PROJECTS_FUNCS[project](0)
     assert all(points > uas.PROJECTS_FUNCS[key](0) for key in uas.ONE_TIME_PROJECTS if not key.endswith("_evolution"))
 
