@@ -355,13 +355,13 @@ def allocate_mobis():
 
 def _validate_disband(kd_info, input):
 
+    if "engineers" in input.keys():
+        return False, "You can't disband engineers"
+
     for key_unit, value_unit in input.items():
         if value_unit < 0 or value_unit > kd_info["units"].get(key_unit, 0):
             return False, "You do not have that many units to disband"
-    
-    if "engineers" in input.keys():
-        "You can't disband engineers"
-        
+
     return True, ""
 
 def _disband(kd_id, req_input):

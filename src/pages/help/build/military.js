@@ -60,7 +60,7 @@ function Military(props) {
                 The Disband page allows you to disband units to return them to population and 
                 receive {displayPercent(props.state.game_config?.BASE_DISBAND_COST_RETURN)} of the unit's training cost back. 
                 This can be useful to get your hangar capacity back to 100% after being attacked multiple times, or to boost your 
-                population if you are in danger of dying due to 0 population. 
+                population if you are in danger of dying due to 0 population. Engineers can not be disbanded.
             </p>
             <p>
                 Some units can only be trained once a project is completed (the "Unlocked by" column). The heavy and
