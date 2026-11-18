@@ -142,3 +142,4 @@
     .project-info-button { display: inline-block; }
     .project-desc { display: none; }
 }
+.project-locked { opacity: 0.5; font-style: italic; }

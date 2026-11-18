@@ -250,9 +250,11 @@ function ProjectTables({ groups, valueHeader, kdInfo, engineersInfo, projectsInf
         const blocked = (row) => Boolean(row.locked) || (row.oneTime && row.completed);
         const columns = [
             { header: "Project", align: "left", cell: (row) => <ProjectName row={row} /> },
+            // A locked project says what unlocks it in the Assigned column only; its points still show.
             { header: "Assigned", className: "assigned-col",
-              cell: (row) => (row.locked ? row.locked : projectCells(row, kdInfo, engineersInfo, projectsInfo).assigned),
-              span: (row) => (row.locked ? 2 : 1) },
+              cell: (row) => (row.locked
+                  ? <span className="project-locked">{row.locked}</span>
+                  : projectCells(row, kdInfo, engineersInfo, projectsInfo).assigned) },
             { header: "Points", cell: (row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).points },
             { header: valueHeader, cell:(row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).value },
             ...inputHeaders.map((header, index) => ({ header, cell: (row) => inputs(row, blocked(row))[index] })),
@@ -261,7 +263,7 @@ function ProjectTables({ groups, valueHeader, kdInfo, engineersInfo, projectsInf
             <div className="projects-category" key={category}>
                 {title ? <h5 className="projects-category-title">{title}</h5> : null}
                 <GameTable className="game-table projects-table" columns={columns} rows={rows}
-                    rowClassName={(row) => (blocked(row) ? "disabled-table-row" : undefined)} />
+                    rowClassName={(row) => (row.oneTime && row.completed ? "disabled-table-row" : undefined)} />
             </div>
         );
     });

@@ -47,6 +47,10 @@ test("a locked project says what unlocks it and can not take engineers", () => {
     render(<ProjectsContent data={data()} loading={{}} updateData={jest.fn()} />);
     fireEvent.click(screen.getByRole("tab", { name: "Assign" }));
     expect(screen.getAllByText('Complete "Big Flexers" first').length).toBeGreaterThan(0);
+    // Only the Assigned cell says why; the points still show.
+    const lockedRow = screen.getAllByText('Complete "Big Flexers" first')[0].closest("tr");
+    expect(lockedRow).toHaveTextContent("0 / 500");
+    expect(screen.getAllByText('Complete "Big Flexers" first')[0].closest("td").getAttribute("colspan")).not.toBe("2");
     expect(document.getElementById("warp-assign-input").disabled).toBe(true);
     expect(document.getElementById("big_flexers-assign-input").disabled).toBe(false);
     expect(screen.queryByText("Gaian Thing")).toBeNull();
