@@ -35,6 +35,10 @@ function CreateKingdom(props) {
                 spending) and the Primitives page (auto attack and robbing).
             </p>
             <p>
+                Each race also has its own projects on the Projects page: a capstone and an evolution, that only
+                kingdoms of that race can research.
+            </p>
+            <p>
                 Custom lets you spend the starting unit points and stars yourself. You must use all of both. The numbers under
                 the choices update as you change them.
             </p>

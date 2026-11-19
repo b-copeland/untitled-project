@@ -327,16 +327,17 @@ Not changed: these are balance and rules, which are the maintainer's call.
    result; before the default mix). With only 10 attackers, those attackers took two and a half times the stars from kingdoms (3,200 against
    1,300 each). With only 10 thieves, each thief siphoned 30% more, but did not end ahead. At this size empires of three
    galaxies formed, and several wars ran at once.
-8. **`pop_bonus` does nothing.** The project says it increases homes capacity; no formula reads it. The bots put no
-   engineers on it.
-9. **Engineers can be disbanded.** `_validate_disband` builds the message "You can't disband engineers" but does not
-   return it.
-10. **A small kingdom can be ground down to nothing.** An attack takes at least 25 stars however small the target, and
+8. **The bots put no engineers on `pop_bonus`.** It raises homes capacity (the refresh applies it), but the bots'
+   homes sizing (`botstrategy.py`) uses the base capacity and they never assign it engineers.
+9. **A small kingdom can be ground down to nothing.** An attack takes at least 25 stars however small the target, and
    nothing protects a kingdom a tenth of the attacker's size. Bots that only hit kingdoms do this to each other.
-11. **Treatied won the election in the runs looked at**, because three of the four playstyles vote for it. It makes
+10. **Treatied won the election in the runs looked at**, because three of the four playstyles vote for it. It makes
    every unit 20% dearer for all of them too.
 
 ### Bugs found on the way (fixed)
+
+- **Engineers could be disbanded**: `_validate_disband` built the message "You can't disband engineers" and never
+  returned it. It now refuses.
 
 - **A scheduled spy shared its intel for free whatever cut was asked**: `refresh._resolve_schedule_intelspy` dropped
   the `cut` option. Players are not affected (the Schedule page has no cut field); the bots' intel was given away.

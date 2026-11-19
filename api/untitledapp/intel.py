@@ -55,7 +55,8 @@ from untitledapp import REQUESTS_SESSION, SOCK_HANDLERS, alive_required
 
 bp = flask.Blueprint("intel", __name__)
 
-CATEGORIES = [operation.replace("spy", "", 1) for operation in uas.REVEAL_OPERATIONS]
+# The kinds of intel: what the operations reveal (Full Infiltration reveals all of them, and is not a kind of its own).
+CATEGORIES = list(dict.fromkeys(stat for operation in uas.REVEAL_OPERATIONS for stat in uas.REVEAL_OPERATION_STATS[operation]))
 HISTORY_LENGTH = 50
 FIELDS = ("listings", "bounties", "accepted", "received", "exclusions", "history")
 _EPSILON = 1e-9

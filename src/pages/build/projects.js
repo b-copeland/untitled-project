@@ -7,6 +7,8 @@ import { AmountInput } from "../../components/forms";
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
+import Popover from 'react-bootstrap/Popover';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Toast from 'react-bootstrap/Toast';
@@ -16,6 +18,7 @@ import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
+import { inOrder, entriesInOrder } from "../../order";
 
 function ProjectsContent(props) {
     const kdInfo = props.data.kingdom;
@@ -146,7 +149,7 @@ export function projectRows(state, kdInfo, projectsInfo) {
     const categories = state?.project_categories || {};
     const completed = kdInfo.completed_projects || [];
     const groups = {};
-    for (const [key, project] of Object.entries(projects)) {
+    for (const [key, project] of entriesInOrder(projects, state?.order?.projects)) {
         if (project.race && project.race !== kdInfo.race) {
             continue;
         }
@@ -161,10 +164,30 @@ export function projectRows(state, kdInfo, projectsInfo) {
             completed: completed.indexOf(key) >= 0,
         });
     }
-    const order = Object.keys(categories);
+    const order = inOrder(Object.keys(categories), state?.order?.project_categories);
     return Object.keys(groups)
         .sort((a, b) => (order.indexOf(a) < 0 ? 99 : order.indexOf(a)) - (order.indexOf(b) < 0 ? 99 : order.indexOf(b)))
         .map((category) => ({ category, title: categories[category] || category, rows: groups[category] }));
+}
+
+/**
+ * The page's two sections: continuous projects (a bonus that grows with points) in one table, then one-time projects
+ * (done once, then they unlock something or give a fixed bonus) in one table per category. Empty sections are left out.
+ */
+export function projectSections(state, kdInfo, projectsInfo) {
+    const groups = projectRows(state, kdInfo, projectsInfo);
+    const continuous = groups.flatMap((group) => group.rows.filter((row) => !row.oneTime));
+    const oneTime = groups
+        .map((group) => ({ ...group, rows: group.rows.filter((row) => row.oneTime) }))
+        .filter((group) => group.rows.length > 0);
+    return [
+        { key: "continuous", title: "Continuous Projects", valueHeader: "Bonus / Max",
+          note: "The bonus grows with points, up to its maximum. The points needed grow with your stars.",
+          groups: continuous.length > 0 ? [{ category: "continuous", title: null, rows: continuous }] : [] },
+        { key: "one-time", title: "One-Time Projects", valueHeader: "Progress",
+          note: "Done once the points are reached, and then permanent.",
+          groups: oneTime },
+    ].filter((section) => section.groups.length > 0);
 }
 
 function blankValues(state) {
@@ -185,33 +208,62 @@ function projectCells(row, kdInfo, engineersInfo, projectsInfo) {
     };
 }
 
+/**
+ * The project's name and what it does. Wide screens show the description under the name; narrow ones hide it (it made
+ * every row tall) and show an (i) button that opens it in a popover instead. Which one shows is up to projects.css.
+ */
 function ProjectName({ row }) {
+    const about = (
+        <Popover id={`${row.key}-about`}>
+            <Popover.Header as="h3">{row.name}</Popover.Header>
+            <Popover.Body>{row.desc}</Popover.Body>
+        </Popover>
+    );
     return (
         <div className="project-name">
-            <span>{row.name}</span>
+            <span className="project-name-line">
+                {row.name}
+                <OverlayTrigger trigger="click" placement="auto" rootClose overlay={about}>
+                    <button type="button" className="project-info-button" aria-label={`About ${row.name}`}>i</button>
+                </OverlayTrigger>
+            </span>
             <small className="project-desc">{row.desc}</small>
         </div>
     );
 }
 
+/** Each section of ``projectSections`` under its heading, its groups drawn by ``ProjectTables``. */
+function ProjectSections({ state, kdInfo, projectsInfo, ...tableProps }) {
+    return projectSections(state, kdInfo, projectsInfo).map((section) => (
+        <div className="projects-section" key={section.key}>
+            <h4 className="projects-section-title">{section.title}</h4>
+            <small className="projects-section-note">{section.note}</small>
+            <ProjectTables groups={section.groups} valueHeader={section.valueHeader} kdInfo={kdInfo}
+                projectsInfo={projectsInfo} {...tableProps} />
+        </div>
+    ));
+}
+
 /** One table per category. ``inputs(row)`` gives the cells after the shared ones; ``inputHeaders`` their headers. */
-function ProjectTables({ groups, kdInfo, engineersInfo, projectsInfo, inputHeaders, inputs }) {
+function ProjectTables({ groups, valueHeader, kdInfo, engineersInfo, projectsInfo, inputHeaders, inputs }) {
     return groups.map(({ category, title, rows }) => {
         const blocked = (row) => Boolean(row.locked) || (row.oneTime && row.completed);
         const columns = [
             { header: "Project", align: "left", cell: (row) => <ProjectName row={row} /> },
+            // A locked project says what unlocks it in the Assigned column only; its points still show.
             { header: "Assigned", className: "assigned-col",
-              cell: (row) => (row.locked ? row.locked : projectCells(row, kdInfo, engineersInfo, projectsInfo).assigned),
-              span: (row) => (row.locked ? 2 : 1) },
+              cell: (row) => (row.locked
+                  ? <span className="project-locked">{row.locked}</span>
+                  : projectCells(row, kdInfo, engineersInfo, projectsInfo).assigned) },
             { header: "Points", cell: (row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).points },
-            { header: "Bonus / Done", cell: (row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).value },
+            { header: valueHeader, cell:(row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).value },
             ...inputHeaders.map((header, index) => ({ header, cell: (row) => inputs(row, blocked(row))[index] })),
         ];
         return (
             <div className="projects-category" key={category}>
-                <h5 className="projects-category-title">{title}</h5>
+                {title ? <h5 className="projects-category-title">{title}</h5> : null}
                 <GameTable className="game-table projects-table" columns={columns} rows={rows}
-                    rowClassName={(row) => (blocked(row) ? "disabled-table-row" : undefined)} />
+                    rowClassName={(row) => (row.oneTime && row.completed ? "disabled-table-row" : undefined)} />
             </div>
         );
     });
@@ -267,7 +319,7 @@ function Assign(props) {
     const maxEngineersFor = (values, name) => Math.max(free - (total(values) - (parseInt(values[name] || 0) || 0)), 0);
     const engineersAssigned = total(assignValues);
     const engineersAdded = total(addValues);
-    const groups = projectRows(props.state, props.kdInfo, props.projectsInfo);
+
     const inputs = (row, blocked) => [
         <AmountInput name={row.key} id={`${row.key}-assign-input`} label={`Assign to ${row.name}`} value={assignValues[row.key]}
             onChange={handleAssignInputChange} max={blocked ? 0 : maxEngineersFor(assignValues, row.key)} soloMax={blocked ? 0 : free} disabled={blocked} />,
@@ -291,7 +343,7 @@ function Assign(props) {
                     <span className="text-box-item-value">{props.projectsInfo.available_engineers?.toLocaleString()}</span>
                 </div>
             </div>
-            <ProjectTables groups={groups} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
+            <ProjectSections state={props.state} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
                 inputHeaders={["Assign", "Add", "Remove"]} inputs={inputs} />
             <div className="projects-buttons">
                 <Button className="projects-button" variant="primary" type="submit" onClick={onAssignClick} disabled={props.loading.projects}>
@@ -339,7 +391,7 @@ function Allocate(props) {
         return null;
     }
     const maxPercent = (name) => Math.max(100 - Object.entries(assignValues).filter(([other]) => other !== name).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0);
-    const groups = projectRows(props.state, props.kdInfo, props.projectsInfo);
+
     const inputs = (row, blocked) => [
         displayPercent(props.kdInfo.projects_target?.[row.key] || 0),
         <AmountInput name={row.key} id={`${row.key}-allocate-input`} label={`Allocate to ${row.name}`} value={assignValues[row.key]}
@@ -361,7 +413,7 @@ function Allocate(props) {
                     disabled={props.loading.kingdom}
                 />
             </Form>
-            <ProjectTables groups={groups} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
+            <ProjectSections state={props.state} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
                 inputHeaders={["Current Allocation", "New Allocation"]} inputs={inputs} />
             <div className="projects-buttons">
                 <Button className="auto-projects-button" variant="primary" type="submit" onClick={onSubmitClick} disabled={props.loading.kingdom}>

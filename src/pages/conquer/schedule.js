@@ -14,6 +14,7 @@ import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
 import { Panel, FieldRow, Picker } from "../../components/planner";
 import { displayPercent } from "../../format";
+import { availableOperations } from "./spy";
 
 function Schedule(props) {
     return (
@@ -63,6 +64,7 @@ const INTEL_OPERATIONS = [
     { value: "spymilitary", label: "Spy on military" }, { value: "spykingdom", label: "Spy on kingdom" },
     { value: "spyshields", label: "Spy on shields" }, { value: "spyprojects", label: "Spy on projects" },
     { value: "spystructures", label: "Spy on structures" }, { value: "spydrones", label: "Spy on drones" },
+    { value: "spyall", label: "Full infiltration (everything)" },
 ];
 const HOSTILE_OPERATIONS = [
     { value: "siphonfunds", label: "Siphon funds" }, { value: "bombhomes", label: "Bomb homes" },
@@ -210,7 +212,7 @@ function Add(props) {
                         {kind === "intelspy" || kind === "aggressivespy" ? <>
                             {targetRow}
                             <FieldRow label="Operation" htmlFor="sched-operation">
-                                <Picker id="sched-operation" options={kind === "intelspy" ? INTEL_OPERATIONS : HOSTILE_OPERATIONS}
+                                <Picker id="sched-operation" options={kind === "intelspy" ? availableOperations(INTEL_OPERATIONS, props.data.kingdom, props.data.state) : HOSTILE_OPERATIONS}
                                     value={options.operation} onChange={(value) => set("operation", value)} placeholder="Choose an operation" searchable={false} />
                             </FieldRow>
                             {percentRow("drones_pct", "Drones to send", "Share of the drones you have then")}

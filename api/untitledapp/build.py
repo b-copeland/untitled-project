@@ -130,7 +130,7 @@ def _recruit(kd_id, recruits_input):
 
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["mobis"] = min(next_resolve["mobis"], min_recruits_time)
-        new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_RECRUIT_COST"] * recruits_input
+        new_money = kd_info_parse["money"] - uag._recruit_price(kd_info_parse) * recruits_input
         return {'money': new_money, 'next_resolve': next_resolve}, new_recruits
 
     try:
@@ -355,13 +355,13 @@ def allocate_mobis():
 
 def _validate_disband(kd_info, input):
 
+    if "engineers" in input.keys():
+        return False, "You can't disband engineers"
+
     for key_unit, value_unit in input.items():
         if value_unit < 0 or value_unit > kd_info["units"].get(key_unit, 0):
             return False, "You do not have that many units to disband"
-    
-    if "engineers" in input.keys():
-        "You can't disband engineers"
-        
+
     return True, ""
 
 def _disband(kd_id, req_input):
@@ -425,12 +425,24 @@ def _validate_structures(structures_input, current_available_structures):
     
     return True
 
-def _get_new_structures(structures_request, start_time):
-    structure_time_splits = _make_time_splits(
-        uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MIN_MULTIPLIER"],
-        uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MAX_MUTLIPLIER"],
-        uas.GAME_CONFIG["BASE_STRUCTURE_TIME_SPLITS"],
-    )
+def _structure_time_multiplier(kd_info):
+    """How much of the base construction time this kingdom's structures take."""
+    if kd_info is not None and uas.has_project(kd_info, "gaian_capstone"):
+        return 1 - uas.GAME_CONFIG["GAIAN_CAPSTONE_STRUCTURE_TIME_REDUCTION"]
+    return 1
+
+
+def _get_new_structures(structures_request, start_time, kd_info=None):
+    """The queue entries for building ``structures_request``, spread over the construction times of ``kd_info``."""
+    speed = _structure_time_multiplier(kd_info)
+    structure_time_splits = [
+        split * speed
+        for split in _make_time_splits(
+            uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MIN_MULTIPLIER"],
+            uas.GAME_CONFIG["BASE_STRUCTURE_TIME_MAX_MUTLIPLIER"],
+            uas.GAME_CONFIG["BASE_STRUCTURE_TIME_SPLITS"],
+        )
+    ]
     structures_request_split = collections.defaultdict(dict)
     for key_structure, amt_structure in structures_request.items():
         split_amt_structure = _divide_across_splits(
@@ -490,7 +502,7 @@ def _build_structures(kd_id, structures_request):
         if not valid_structures:
             raise occ.Rejected('Please enter valid structures values')
 
-        new_structures, min_structures_time = _get_new_structures(structures_request, start_time)
+        new_structures, min_structures_time = _get_new_structures(structures_request, start_time, kd_info_parse)
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["structures"] = min(next_resolve["structures"], min_structures_time)
         new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
@@ -775,13 +787,7 @@ def _build_missiles(kd_id, missiles_request):
         missiles_info = uag._get_missiles_info(kd_id)
         missiles_building = uag._get_missiles_building(missiles_info)
 
-        max_available_missiles = math.floor(kd_info_parse["structures"]["missile_silos"]) * math.floor(
-            uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
-            * (
-                1
-                + int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_SILO_CAPACITY_INCREASE"]
-            )
-        )
+        max_available_missiles = uag._calc_missile_capacity(kd_info_parse)
 
         valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles)
         if not valid_missiles:

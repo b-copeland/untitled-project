@@ -20,6 +20,7 @@ function Spy(props) {
         "spystructures": `Reveals structures`,
         "spyprojects": `Reveals projects information`,
         "spydrones": `Reveals drones and spy attempts`,
+        "spyall": `Reveals everything the other intel operations do, at once. Only for Vult kingdoms with the Vult Evolution project, which then use it in place of the other intel operations`,
         "siphonfunds": `Steals up to ${props.state.game_config?.BASE_DRONES_SIPHON_PER_DRONE} money per drone, paid evenly over the next ${siphonDurationHours} hours. A kingdom loses at most ${siphonMax} of its income to all siphons together. When the siphons on it would take more, the oldest siphon is reduced first, then the next oldest, until they fit, and the newer ones pay in full. A reduced siphon stays reduced for the rest of its time, and what it could not take is lost.`,
         "bombhomes": `Destroys 1 home per ${props.state.game_config?.BASE_DRONES_PER_HOME_DAMAGE} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_HOME_DAMAGE)} of the target's homes.`,
         "sabotagefuelplants": `Destroys 1 fuel plant per ${props.state.game_config?.BASE_DRONES_PER_FUEL_PLANT_DAMAGE} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_FUEL_PLANT_DAMAGE)} of the target's fuel plants.`,
@@ -57,7 +58,11 @@ function Spy(props) {
                 while {displayPercent(props.state.game_config?.BASE_DRONES_FAILURE_LOSS_RATE)} will be lost during failed operations. 
                 Shielding drones during any operation will reduce drones losses 
                 by {displayPercent(props.state.game_config?.BASE_DRONES_SHIELDING_LOSS_REDUCTION)}. Each drone during a shielded operation 
-                requires 1 fuel.
+                requires 1 fuel. The Drone Gadgets project reduces drone losses further.
+            </p>
+            <p>
+                Aggressive operations do less damage to a kingdom with the Counter-Intelligence project. The forecast
+                only counts it if the target's projects are revealed to you.
             </p>
             <p>
                 If you fail an aggressive spy operation, or your target's spy radar catches you, your drones will be revealed to the target

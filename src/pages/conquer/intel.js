@@ -36,7 +36,8 @@ const kdLabel = (data, kdId) => `${kdName(data, kdId)} (${data.galaxies_inverted
 const myKd = (data) => String(data.kingdomid?.kd_id ?? data.kingdom?.kdId ?? "");
 const myGalaxymates = (data) => (data.galaxies?.[data.galaxies_inverted?.[myKd(data)]] || []).map(String);
 const forTarget = (items, target) => (target === undefined ? items : items.filter((item) => String(item.target) === String(target)));
-const categoriesOf = (data) => (data.state?.reveal_operations || []).map((operation) => operation.replace(/^spy/, ""));
+// Full Infiltration reveals every kind at once; it is not a kind of its own.
+const categoriesOf = (data) => (data.state?.reveal_operations || []).filter((operation) => operation !== "spyall").map((operation) => operation.replace(/^spy/, ""));
 
 /** Sends an intel action and keeps the answer for a toast. */
 function useIntelAction(props, setResults) {
