@@ -10,7 +10,7 @@ function ClusterPolitics(props) {
         if (Object.keys(props.state).length > 0 && props.scrollTarget === "clusterpolitics") {
             yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [props.state]);
+    }, [props.state, props.scrollTarget]);
 
     const config = props.state.game_config || {};
     const benefits = props.state.cluster_benefits || {};
@@ -52,6 +52,11 @@ function ClusterPolitics(props) {
                 The Cluster Politics page shows each benefit now, how fast it is changing, and how the galaxies of the
                 cluster are voting. Prices on the Settle and Military pages, and drone production, already include the
                 cluster's benefits.
+            </p>
+            <p>
+                The Universe Map shows every cluster as a circle holding its galaxies, each coloured by its empire and
+                sized by its number of kingdoms or its networth. Your galaxy has a white ring. Point at or tap a galaxy
+                to see it, or switch to the table.
             </p>
         </div>
     );
