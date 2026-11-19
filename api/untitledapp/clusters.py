@@ -220,9 +220,10 @@ def modifiers(cluster):
     return values
 
 
-def view(cluster, cluster_id, member_galaxies, galaxies, galaxy_empires, my_galaxy, is_leader):
+def view(cluster, cluster_id, member_galaxies, galaxies, galaxy_empires, my_galaxy):
     """What ``/api/cluster`` shows a kingdom of ``my_galaxy``: everything about its own cluster, which is all public
-    to the cluster. ``cluster`` is from ``advance``."""
+    to the cluster. ``cluster`` is from ``advance``. Whether the caller may vote is not here: the page knows its
+    galaxy's leader from ``/api/galaxypolitics``, and the vote route checks it."""
     gain = vote_gain(len(member_galaxies), cluster["alignment"])
     decay = uas.GAME_CONFIG["CLUSTER_DECAY_RATE"]
     counts = tally(cluster["votes"], member_galaxies)
@@ -241,7 +242,6 @@ def view(cluster, cluster_id, member_galaxies, galaxies, galaxy_empires, my_gala
     return {
         "cluster": cluster_id,
         "galaxy": my_galaxy,
-        "is_leader": is_leader,
         "galaxies": [
             {
                 "id": galaxy,
@@ -252,6 +252,7 @@ def view(cluster, cluster_id, member_galaxies, galaxies, galaxy_empires, my_gala
             for galaxy in member_galaxies
         ],
         "benefits": benefits,
+        "order": list(uas.CLUSTER_BENEFITS),  # the benefits reach the browser with their keys sorted
         "alignment": cluster["alignment"],
         "alignment_multiplier": alignment_multiplier(cluster["alignment"]),
         "vote_gain_per_epoch": gain,
@@ -285,10 +286,8 @@ def _view(kd_id):
         return {"message": "You are not in a galaxy"}, 400
     cluster_id = cluster_of(my_galaxy)
     member_galaxies = members(galaxies, cluster_id)
-    galaxy_politics, _ = uag._get_galaxy_politics(kd_id, my_galaxy)
     cluster = advance(uag._get_cluster_document(cluster_id), member_galaxies, _now())
-    return view(cluster, cluster_id, member_galaxies, galaxies, _galaxy_empires(), my_galaxy,
-                galaxy_politics.get("leader") == kd_id), 200
+    return view(cluster, cluster_id, member_galaxies, galaxies, _galaxy_empires(), my_galaxy), 200
 
 
 def vote(kd_id, benefit):

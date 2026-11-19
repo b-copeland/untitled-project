@@ -189,17 +189,26 @@ def test_the_view_shows_only_the_callers_own_cluster(app, client, jwt1):
     _cluster_of_two_galaxies()
     client.post("/api/cluster/vote", json={"benefit": "unit_cost"}, headers=_auth(jwt1))
     view = client.get("/api/cluster", headers=_auth(jwt1)).get_json()
-    assert view["cluster"] == "1" and view["galaxy"] == "1:1" and view["is_leader"] is True
+    assert view["cluster"] == "1" and view["galaxy"] == "1:1"
     assert [galaxy["id"] for galaxy in view["galaxies"]] == ["1:1", "1:2"]  # not 2:1
     assert view["galaxies"][0]["vote"] == "unit_cost"
     assert view["benefits"]["unit_cost"]["votes"] == 1
     assert set(view["benefits"]) == set(uas.CLUSTER_BENEFITS)
 
 
-def test_the_view_tells_a_non_leader_they_are_not(app, client, jwt2):
-    _cluster_of_two_galaxies(leader2="")
+def test_the_view_shows_the_benefits_in_the_games_order_and_their_forecast(app, client, jwt2):
+    _cluster_of_two_galaxies()
     view = client.get("/api/cluster", headers=_auth(jwt2)).get_json()
-    assert view["is_leader"] is False
+    assert view["order"] == list(uas.CLUSTER_BENEFITS)
+    assert view["benefits"]["unit_cost"]["rate_per_epoch"] == 0  # nothing to lose yet
+    assert view["galaxy"] == "1:2"
+
+
+def test_state_lists_the_cluster_benefits(app, client):
+    _set_up_kingdom(money=0)
+    state = client.get("/api/state").get_json()
+    assert state["order"]["cluster_benefits"] == list(uas.CLUSTER_BENEFITS)
+    assert set(state["cluster_benefits"]) == set(uas.CLUSTER_BENEFITS)
 
 
 # --- what the benefits do --------------------------------------------------------------------------------------------
