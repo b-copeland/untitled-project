@@ -1,11 +1,30 @@
 import React from "react";
-import { render, screen, fireEvent, within } from "@testing-library/react";
-import IntelMarket, { KingdomIntel } from "./intel";
+import { render as renderBare, screen, fireEvent, within } from "@testing-library/react";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
+import IntelMarket, { KingdomIntel, KingdomModal, TargetIntel, tradable } from "./intel";
 import { authFetch } from "../../auth";
 
 jest.mock("../../components/header", () => () => null);
 jest.mock("../../components/helpbutton", () => () => null);
 jest.mock("../../auth", () => ({ authFetch: jest.fn() }));
+// The kingdom view, with the intel actions it is given for military (a tab's bar) and drones (inline).
+jest.mock("../kingdominfo.js", () => (props) => (
+    <div>
+        Kingdom view of {props.data.kdId}: {props.data.kingdom.name}
+        {props.intelActions?.("military")}
+        {props.intelActions?.("drones", true)}
+    </div>
+));
+
+// The pages link to the Spy page, so they are shown inside a router; /spy shows where the link went.
+function SpyProbe() {
+    return <div>Spy page with {JSON.stringify(useLocation().state)}</div>;
+}
+const render = (ui) => renderBare(
+    <MemoryRouter initialEntries={["/intel"]}>
+        <Routes><Route path="/intel" element={ui} /><Route path="/spy" element={<SpyProbe />} /></Routes>
+    </MemoryRouter>,
+);
 
 const inHours = (hours) => new Date(Date.now() + hours * 3.6e6).toISOString();
 
@@ -17,8 +36,9 @@ const intel = {
         { id: "1.6.shields", seller: "1", target: "6", category: "shields", cut: 0.1, time: inHours(5), problem: "This is your listing" },
     ],
     bounties: [
-        { id: "2.6.drones", requester: "2", target: "6", category: "drones", cut: 0.1, time: inHours(3), problem: "You do not have drones intel on this kingdom" },
-        { id: "1.5.shields", requester: "1", target: "5", category: "shields", cut: 0.1, time: inHours(3), problem: "This is your bounty" },
+        { id: "2.6.drones", requester: "2", target: "6", category: "drones", cut: 0.1, time: inHours(3), problem: "You do not have drones intel on this kingdom", have: false },
+        { id: "1.5.shields", requester: "1", target: "5", category: "shields", cut: 0.1, time: inHours(3), problem: "This is your bounty", have: false },
+        { id: "3.6.military", requester: "3", target: "6", category: "military", cut: 0.05, time: inHours(4), problem: null, have: true },
     ],
     accepted: [{ target: "5", category: "kingdom", sharer: "3", cut: 0.1, time: inHours(2), source: "market" }],
     cuts: { 5: 0.1 },
@@ -41,7 +61,7 @@ const data = {
     notifs: { shared: 0 },
     state: {
         reveal_operations: ["spykingdom", "spymilitary", "spyshields", "spyprojects", "spystructures", "spydrones"],
-        game_config: { BASE_MAX_SHARE_CUT: 0.15, BASE_MAX_TOTAL_SHARE_CUT: 0.3, BASE_INTEL_BOUNTY_MAX_EPOCHS: 48 },
+        game_config: { BASE_MAX_SHARE_CUT: 0.15, BASE_MAX_TOTAL_SHARE_CUT: 0.3, BASE_INTEL_BOUNTY_MAX_EPOCHS: 48, BASE_EPOCH_SECONDS: 1800 },
     },
 };
 
@@ -75,16 +95,68 @@ test("the market tab buys a listing, and a listing that can not be taken says wh
 
 test("the bounties tab fulfils, withdraws, and asks for intel", () => {
     render(<IntelMarket data={data} loading={{}} updateData={updateData} />);
-    const fulfil = pane().getByRole("button", { name: "Fulfil" });
-    expect(fulfil.disabled).toBe(true);
-    expect(fulfil.getAttribute("title")).toMatch(/do not have/);
+    // Only the bounty for intel you have offers Fulfil.
+    const fulfil = within(row("military")).getByRole("button", { name: "Fulfil" });
+    expect(pane().getAllByRole("button", { name: "Fulfil" })).toHaveLength(1);
+    fireEvent.click(fulfil);
     fireEvent.click(pane().getByRole("button", { name: "Withdraw" }));
     const post = pane().getByRole("button", { name: "Post bounty" });
     expect(post.disabled).toBe(true);
     expect(post.getAttribute("title")).toBe("Choose a kingdom");
+    const sent = sentBodies();
+    expect(sent.map(([route]) => route)).toEqual(["api/intel/fulfil", "api/intel/cancelbounty"]);
+    expect(JSON.parse(sent[0][1].body)).toEqual({ bounty: "3.6.military" });
+    expect(JSON.parse(sent[1][1].body)).toEqual({ bounty: "1.5.shields" });
+});
+
+test("a bounty for intel you do not have offers to spy for it", () => {
+    render(<IntelMarket data={data} loading={{}} updateData={updateData} />);
+    const drones = row("drones");
+    expect(within(drones).queryByRole("button", { name: "Fulfil" })).toBeNull();
+    fireEvent.click(within(drones).getByRole("button", { name: "Attempt" }));
+    expect(screen.getByText('Spy page with {"kdId":"6","operation":"spydrones"}')).toBeTruthy();
+});
+
+test("a page that is itself the spy page takes the operation in place", () => {
+    const onAttempt = jest.fn();
+    render(<KingdomIntel data={data} loading={{}} updateData={updateData} target="6" onAttempt={onAttempt} />);
+    fireEvent.click(screen.getByRole("button", { name: "Attempt" }));
+    expect(onAttempt).toHaveBeenCalledWith("6", "spydrones");
+});
+
+test("a bounty left without a length is posted without one, for the server's longest", () => {
+    render(<KingdomIntel data={data} loading={{}} updateData={updateData} target="6" />);
+    expect(screen.getByLabelText(/Stays up for/).getAttribute("placeholder")).toBe("24");  // 48 half-hour epochs, in hours
+    fireEvent.keyDown(document.getElementById("bounty-category"), { key: "ArrowDown" });  // opens the picker
+    fireEvent.click(screen.getAllByText("drones").pop());  // its menu is the last thing on the page
+    const post = screen.getByRole("button", { name: "Post bounty" });
+    expect(post.disabled).toBe(false);
+    fireEvent.click(post);
     const [[route, request]] = sentBodies();
-    expect(route).toBe("api/intel/cancelbounty");
-    expect(JSON.parse(request.body)).toEqual({ bounty: "1.5.shields" });
+    expect(route).toBe("api/intel/bounty");
+    expect(JSON.parse(request.body)).toEqual({ target: "6", category: "drones", cut: 0 });
+});
+
+test("every row you can act on can show its kingdom", async () => {
+    authFetch.mockImplementation((url) => Promise.resolve({ json: () => Promise.resolve(url === "api/kingdom/5" ? { name: "Five's details" } : {}) }));
+    render(<IntelMarket data={data} loading={{}} updateData={updateData} />);
+    fireEvent.click(screen.getByRole("tab", { name: /Market/ }));
+    fireEvent.click(within(row("military")).getByRole("button", { name: "View kingdom" }));
+    expect(await screen.findByText("Kingdom view of 5: Five's details")).toBeTruthy();
+    for (const tab of [/Bounties/, "Your intel"]) {
+        fireEvent.click(screen.getByRole("tab", { name: tab }));
+        expect(pane().getAllByRole("button", { name: "View kingdom" }).length).toBeGreaterThan(0);
+    }
+});
+
+test("listings of intel you have already taken are shaded and tagged", () => {
+    render(<IntelMarket data={data} loading={{}} updateData={updateData} />);
+    fireEvent.click(screen.getByRole("tab", { name: /Market/ }));
+    const listings = pane().getAllByRole("table")[0];
+    const kingdom = within(listings).getByText("kingdom").closest("tr");
+    expect(kingdom.className).toBe("intel-row-taken");
+    expect(within(kingdom).getByText("taken")).toBeTruthy();
+    expect(within(listings).getByText("military").closest("tr").className).toBe("");
 });
 
 test("a cut over the most is refused before sending", () => {
@@ -117,12 +189,106 @@ test("your intel lists for a cut or shares free, and received intel can not be p
     expect(JSON.parse(authFetch.mock.calls[last][1].body)).toEqual({ excluded: [] });
 });
 
-test("one kingdom's intel shows only that kingdom", () => {
+test("one kingdom's intel shows only that kingdom", async () => {
     render(<KingdomIntel data={data} loading={{}} updateData={updateData} target="6" />);
     expect(screen.getByText("Intel on Six")).toBeTruthy();
     expect(screen.queryByText("can not be passed on")).toBeNull();  // that intel is on Five
     expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(2);  // my shields listing on Six, in both tables
     expect(screen.queryAllByRole("button", { name: "Buy" })).toHaveLength(0);  // the listings for sale are on Five
     expect(screen.getByText("drones")).toBeTruthy();  // Two's bounty on Six
+    fireEvent.click(screen.getByRole("button", { name: "View kingdom" }));  // one button: every row is on Six
+    expect(await screen.findByText(/Kingdom view of 6/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hide kingdom" })).toBeTruthy();
     expect(screen.queryByLabelText("Kingdom", { selector: "input" })).toBeNull();  // the bounty form is for Six
+});
+
+test("intel is traded only on kingdoms outside your galaxy", () => {
+    expect(tradable(data, "5")).toBe(true);
+    expect(tradable(data, "2")).toBe(false);  // a galaxymate
+    expect(tradable(data, "1")).toBe(false);  // yourself
+    expect(tradable(data, undefined)).toBe(false);
+});
+
+test("a planner page's target line says what you give up and opens the market in place", () => {
+    const { container } = render(<TargetIntel data={data} loading={{}} updateData={updateData} target="5" />);
+    expect(container.textContent).toMatch(/kingdom from Three \(10\.0%\)/);
+    expect(container.textContent).toMatch(/get 10\.0% of what you win/);
+    expect(container.textContent).toMatch(/1 for sale, 1 bounty/);  // the kingdom listing can not be taken
+    fireEvent.click(screen.getByRole("button", { name: "Intel market" }));
+    expect(screen.getByText("Intel on Five")).toBeTruthy();
+});
+
+test("there is no target line for a galaxymate or before a target is chosen", () => {
+    const { container: mate } = render(<TargetIntel data={data} loading={{}} updateData={updateData} target="2" />);
+    expect(mate.textContent).toBe("");
+    const { container: none } = render(<TargetIntel data={data} loading={{}} updateData={updateData} target={undefined} />);
+    expect(none.textContent).toBe("");
+});
+
+test("a bounty's length is in hours", () => {
+    render(<KingdomIntel data={data} loading={{}} updateData={updateData} target="6" />);
+    fireEvent.keyDown(document.getElementById("bounty-category"), { key: "ArrowDown" });
+    fireEvent.click(screen.getAllByText("drones").pop());
+    fireEvent.change(screen.getByLabelText(/Stays up for/), { target: { value: "30" } });
+    expect(screen.getAllByText("At most 24 hours").length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText(/Stays up for/), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: "Post bounty" }));
+    const [[, request]] = sentBodies();
+    expect(JSON.parse(request.body)).toEqual({ target: "6", category: "drones", cut: 0, hours: "5" });
+});
+
+const showKingdom = (target, tab = "kingdom") => render(
+    <KingdomModal show onHide={() => {}} target={target} tab={tab} data={data} loading={{}} updateData={updateData} />);
+const activePane = () => within(document.querySelector(".kingdom-modal-tabs + .tab-content > .tab-pane.active"));
+
+test("asking the galaxy from the kingdom view fills in the bounty form on its intel tab", async () => {
+    showKingdom("6");
+    expect(await screen.findByText(/Kingdom view of 6/)).toBeTruthy();
+    // No drones intel on Six: spy for it or ask for it, inline. Military is yours: share it.
+    expect(screen.getByRole("button", { name: "Spy on drones" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ask the galaxy" }));
+    expect(screen.getByRole("tab", { name: "Intel market" }).getAttribute("aria-selected")).toBe("true");
+    const post = activePane().getByRole("button", { name: "Post bounty" });
+    expect(post.disabled).toBe(false);  // the drones category is filled in
+    fireEvent.click(post);
+    const [[route, request]] = sentBodies();
+    expect(route).toBe("api/intel/bounty");
+    expect(JSON.parse(request.body)).toEqual({ target: "6", category: "drones", cut: 0 });
+    // And back again.
+    fireEvent.click(activePane().getByRole("button", { name: "View kingdom" }));
+    expect(screen.getByRole("tab", { name: "Kingdom info" }).getAttribute("aria-selected")).toBe("true");
+});
+
+test("intel you have is shared from the kingdom view, in place", async () => {
+    showKingdom("6");
+    await screen.findByText(/Kingdom view of 6/);
+    expect(screen.getByText(/Your military intel lasts/)).toBeTruthy();
+    fireEvent.click(activePane().getByRole("button", { name: "Share military intel" }));
+    fireEvent.click(activePane().getByRole("button", { name: "Share free" }));
+    const [[route, request]] = sentBodies();
+    expect(route).toBe("api/intel/share");
+    expect(JSON.parse(request.body)).toEqual({ target: "6", category: "military", cut: 0 });
+});
+
+test("the kingdom view offers the cheapest listing you can take", async () => {
+    showKingdom("5");
+    await screen.findByText(/Kingdom view of 5/);
+    fireEvent.click(screen.getByRole("button", { name: "Buy it (10.0%)" }));
+    const [[route, request]] = sentBodies();
+    expect(route).toBe("api/intel/buy");
+    expect(JSON.parse(request.body)).toEqual({ listing: "2.5.military" });
+});
+
+test("a galaxymate's kingdom view has no intel tab or actions", async () => {
+    showKingdom("2");
+    await screen.findByText(/Kingdom view of 2/);
+    expect(screen.queryByRole("tab", { name: "Intel market" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ask the galaxy" })).toBeNull();
+});
+
+test("the Intel page opens one kingdom's intel from its rows", async () => {
+    render(<IntelMarket data={data} loading={{}} updateData={updateData} />);
+    fireEvent.click(within(row("drones")).getByRole("button", { name: "Intel on this kingdom" }));
+    expect(await screen.findByText("Intel on Six")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Intel market" }).getAttribute("aria-selected")).toBe("true");
 });

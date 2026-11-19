@@ -12,6 +12,7 @@ import { AmountInput, useFormValues } from "../../components/forms";
 import { Panel, FieldRow, Stats, Picker, useServerForecast } from "../../components/planner";
 import { checkPercent } from "../../validation";
 import { displayNumber } from "../../format";
+import { TargetIntel } from "./intel.js";
 
 const MISSILES = [
     { key: "planet_busters", label: "Planet Buster" },
@@ -92,6 +93,7 @@ function LaunchMissiles(props) {
                                 </div>}
                         </FieldRow>
                         {shieldsError ? <div className="amount-input-error">{shieldsError}</div> : null}
+                        <TargetIntel target={selected} data={props.data} loading={props.loading} updateData={props.updateData} />
                     </Panel>
 
                     <Panel title="2. Missiles to send">

@@ -43,8 +43,8 @@ galaxy with one on `galaxies`), so creations at the same moment get different id
 name already taken (exactly the same name); `POST /empire` answers `409` if the galaxy is already in an empire, and
 both answer `503` if the document stayed too busy to write.
 
-Routes that exist but do not work with the current documents, so do not call them: `PATCH /empire/<id>/news`,
-`GET`, `POST` and `PATCH /kingdom/<id>/shared`, `/sharedrequests` (the old intel sharing; nothing reads `shared_<id>` any more, [status.md](status.md#code-health)).
+A route that exists but does not work with the current documents, so do not call it: `PATCH /empire/<id>/news`
+([status.md](status.md#code-health)).
 
 Every `update_*` handler is wrapped in `@retry_on_conflict`, so merges and appends land on the newest version and never
 lose each other. A caller that sends `If-Match: <_etag>` gets `412` if the document changed since it read it; `occ.update`
@@ -83,7 +83,6 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `siphons_in_<id>` | `siphons_in`: payments to this kingdom from its siphons, waiting for its next refresh | eventual: appended by the target's refresh, cleared by this kingdom's |
 | `news_<id>` | `news`: list of `{time, from, to, news, kind}` (`kind` is `attack`, `spy`, `missiles`, `intel` or missing on old items) | eventual |
 | `revealed_<id>` | `revealed`: kd id to stat to expiry time; `galaxies`: galaxy id to expiry; `revealed_galaxymates`, `revealed_to_galaxymates` | eventual. The kingdom's `next_resolve.revealed` timer is lowered to the soonest expiry (`_lower_timer` in `conquer.py`) so the refresh expires them on time. |
-| `shared_<id>` | The old intel sharing. Still created empty by `POST /kingdom`, but nothing reads or writes it | none |
 | `pinned_<id>` | `pinned`: list of kd ids | eventual |
 | `spy_history_<id>`, `attack_history_<id>`, `missile_history_<id>` | Lists of past operations | eventual |
 | `messages_<id>` | `messages`: list | eventual |

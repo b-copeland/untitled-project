@@ -489,7 +489,6 @@ def create_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             "missiles",
             "engineers",
             "revealed",
-            "shared",
             "pinned",
             "spy_history",
             "attack_history",
@@ -1756,117 +1755,6 @@ def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
     except:
         return func.HttpResponse(
             "The kingdom revealed were not updated",
-            status_code=500,
-        )
-        
-@APP.function_name(name="GetShared")
-@APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
-def get_shared(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed a get shared request.')    
-    kd_id = str(req.route_params.get('kdId'))
-    item_id = f"shared_{kd_id}"
-    shared = CONTAINER.read_item(
-        item=item_id,
-        partition_key=item_id,
-    )
-    try:
-        return func.HttpResponse(
-            json.dumps(shared),
-            status_code=200,
-        )
-    except:
-        return func.HttpResponse(
-            "The kingdom shared could not be retrieved",
-            status_code=500,
-        )
-        
-@APP.function_name(name="SetShared")
-@APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
-@retry_on_conflict
-def set_shared(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed a set shared request.')        
-    req_body = req.get_json()
-
-    kd_id = str(req.route_params.get('kdId'))
-    item_id = f"shared_{kd_id}"
-    shared = CONTAINER.read_item(
-        item=item_id,
-        partition_key=item_id,
-    )
-    new_shared = {
-        **shared,
-        **req_body,
-    }
-    try:
-        CONTAINER.replace_item(
-            item_id,
-            new_shared,
-        )
-        return func.HttpResponse(
-            "Kingdom shared set.",
-            status_code=200,
-        )
-    except:
-        return func.HttpResponse(
-            "The kingdom shared could not be retrieved",
-            status_code=500,
-        )
-
-@APP.function_name(name="UpdateShared")
-@APP.route(route="kingdom/{kdId:int}/shared", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
-@retry_on_conflict
-def update_shared(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed an update shared request.')    
-    req_body = req.get_json()
-    new_shared = req_body["shared"]
-    kd_id = str(req.route_params.get('kdId'))
-    item_id = f"shared_{kd_id}"
-    shared = CONTAINER.read_item(
-        item=item_id,
-        partition_key=item_id,
-    )
-    try:
-        shared["shared"] = shared["shared"] + new_shared
-        CONTAINER.replace_item(
-            item_id,
-            shared,
-        )
-        return func.HttpResponse(
-            "Kingdom shared updated.",
-            status_code=200,
-        )
-    except:
-        return func.HttpResponse(
-            "The kingdom shared were not updated",
-            status_code=500,
-        )
-
-@APP.function_name(name="UpdateSharedRequests")
-@APP.route(route="kingdom/{kdId:int}/sharedrequests", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
-@retry_on_conflict
-def update_shared_requests(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed an update shared_requests request.')    
-    req_body = req.get_json()
-    new_shared_requests = req_body["shared_requests"]
-    kd_id = str(req.route_params.get('kdId'))
-    item_id = f"shared_requests_{kd_id}"
-    shared_requests = CONTAINER.read_item(
-        item=item_id,
-        partition_key=item_id,
-    )
-    try:
-        shared_requests["shared_requests"] = shared_requests["shared_requests"] + new_shared_requests
-        CONTAINER.replace_item(
-            item_id,
-            shared_requests,
-        )
-        return func.HttpResponse(
-            "Kingdom shared_requests updated.",
-            status_code=200,
-        )
-    except:
-        return func.HttpResponse(
-            "The kingdom shared_requests were not updated",
             status_code=500,
         )
         

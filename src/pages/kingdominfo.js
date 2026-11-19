@@ -10,8 +10,14 @@ import "./kingdominfo.css";
 import HelpButton from "../components/helpbutton";
 
 
+/**
+ * Another kingdom's details, as far as they are revealed. ``intelActions(category, inline)`` (optional, from
+ * conquer/intel.js) gives what you can do about each kind of intel on it: shown at the top of the tab that kind of intel
+ * fills, and next to the single value it reveals (drones).
+ */
 function KingdomContent(props) {
     const [key, setKey] = useState('kingdom');
+    const actions = props.intelActions || (() => null);
 
     return (
         <>
@@ -23,18 +29,23 @@ function KingdomContent(props) {
             variant="tabs"
         >
             <Tab eventKey="kingdom" title="Kingdom">
-            <Kingdom kingdom={props.data.kingdom} state={props.data.state} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} kdId={props.data.kdId}/>
+            {actions("kingdom")}
+            <Kingdom kingdom={props.data.kingdom} state={props.data.state} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} kdId={props.data.kdId} actions={actions}/>
             </Tab>
             <Tab eventKey="military" title="Military">
+            {actions("military")}
             <Military kingdom={props.data.kingdom} state={props.data.state} />
             </Tab>
             <Tab eventKey="structures" title="Structures">
+            {actions("structures")}
             <Structures kingdom={props.data.kingdom}/>
             </Tab>
             <Tab eventKey="projects" title="Projects">
+            {actions("projects")}
             <Projects kingdom={props.data.kingdom} state={props.data.state}/>
             </Tab>
             <Tab eventKey="shields" title="Shields">
+            {actions("shields")}
             <Shields kingdom={props.data.kingdom} shields={props.data.shields}/>
             </Tab>
         </Tabs>
@@ -86,7 +97,7 @@ function Kingdom(props) {
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value">{props.kingdom?.drones != undefined ? Math.floor(props.kingdom?.drones).toLocaleString() : null}</span>
+                    <span className="text-box-item-value">{props.kingdom?.drones != undefined ? Math.floor(props.kingdom?.drones).toLocaleString() : null}{props.actions?.("drones", true)}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Spy Attempts</span>

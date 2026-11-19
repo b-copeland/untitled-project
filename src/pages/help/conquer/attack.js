@@ -37,6 +37,11 @@ function Attack(props) {
                 maximum Military Efficiency and Shields for determining if your attack will be a success.
             </p>
             <p>
+                Under the target, a line says what intel on it you have taken from galaxymates and the cut of your
+                winnings they will get, and what the Intel market has on it. Intel market opens it in place, to buy
+                intel, ask for it with a bounty, or share your own. The forecast names each galaxymate and their share.
+            </p>
+            <p>
                 To make an attack, you must send at least 1 general. Each general beyond the first will increase your offensive strength
                 by {displayPercent(props.state.game_config?.BASE_GENERALS_ATTACK_MODIFIER)}. Sending more generals allows some of your 
                 units to return quicker; your attacking units will be equally split across the returning generals (with the Warp Speed

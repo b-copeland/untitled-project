@@ -309,7 +309,7 @@ def test_exclusions(app, client, jwt1, jwt2):
     assert refused.status_code == 400 and "no longer on offer" in refused.get_json()["message"]
 
     # Nor 1's bounties.
-    _post(client, jwt1, "bounty", {"target": TARGET, "category": "shields", "cut": 10, "epochs": 4})
+    _post(client, jwt1, "bounty", {"target": TARGET, "category": "shields", "cut": 10, "hours": 4})
     assert _intel(client, jwt2)["bounties"] == []
     hidden = _post(client, jwt2, "fulfil", {"bounty": uai.bounty_id("1", TARGET, "shields")})
     assert hidden.status_code == 400 and "no longer open" in hidden.get_json()["message"]
@@ -332,7 +332,7 @@ def test_exclusions(app, client, jwt1, jwt2):
 def test_free_intel_reaches_every_galaxymate_at_once(app, client, jwt1, jwt2):
     until = _later(8)
     _set_up(revealed_1={TARGET: {"military": until}})
-    assert _post(client, jwt2, "bounty", {"target": TARGET, "category": "military", "cut": 10, "epochs": 4}).status_code == 200
+    assert _post(client, jwt2, "bounty", {"target": TARGET, "category": "military", "cut": 10, "hours": 4}).status_code == 200
 
     shared = _post(client, jwt1, "share", {"target": TARGET, "category": "military", "cut": 0})
     assert shared.status_code == 200 and "meeting 1 bounty" in shared.get_json()["message"], shared.get_json()
@@ -356,11 +356,12 @@ def test_a_free_share_never_shortens_a_reveal(app, client, jwt1, jwt2):
 def test_bounty_posted_fulfilled_and_kept_in_history(app, client, jwt1, jwt2):
     until = _later(8)
     _set_up(revealed_1={TARGET: {"military": until}})
-    posted = _post(client, jwt2, "bounty", {"target": TARGET, "category": "military", "cut": 10, "epochs": 4})
+    posted = _post(client, jwt2, "bounty", {"target": TARGET, "category": "military", "cut": 10, "hours": 4})
     assert posted.status_code == 200, posted.get_json()
     (bounty,) = _intel(client, jwt1)["bounties"]
-    assert (bounty["requester"], bounty["cut"], bounty["problem"]) == ("2", 0.1, None)
+    assert (bounty["requester"], bounty["cut"], bounty["problem"], bounty["have"]) == ("2", 0.1, None, True)
     assert _intel(client, jwt2)["bounties"][0]["problem"] == "This is your bounty"
+    assert _intel(client, jwt2)["bounties"][0]["have"] is False  # 2 has no military intel, so its page offers to spy
 
     fulfilled = _post(client, jwt1, "fulfil", {"bounty": bounty["id"]})
     assert fulfilled.status_code == 200, fulfilled.get_json()
@@ -372,6 +373,20 @@ def test_bounty_posted_fulfilled_and_kept_in_history(app, client, jwt1, jwt2):
     assert _get("/kingdom/2/revealed")["revealed"][TARGET]["military"] == until
     assert _get("/kingdom/2")["next_resolve"]["revealed"] == until
     assert _get("/kingdom/2/news")["news"][0]["kind"] == "intel"
+
+
+def test_a_bounty_left_without_a_length_stays_up_as_long_as_it_may(app, client, jwt1, jwt2):
+    _set_up()
+    for hours in (None, ""):
+        body = {"target": TARGET, "category": "military", "cut": 10}
+        if hours is not None:
+            body["hours"] = hours
+        posted = _post(client, jwt1, "bounty", body)
+        assert posted.status_code == 200, posted.get_json()
+        (bounty,) = _intel(client, jwt1)["bounties"]
+        longest = uai.bounty_max_hours()
+        assert _later(longest - 0.1) < bounty["time"] <= _later(longest)
+        assert _post(client, jwt1, "cancelbounty", {"bounty": bounty["id"]}).status_code == 200
 
 
 def test_a_bounty_is_fulfilled_once(app, jwt1, jwt2):
@@ -393,20 +408,20 @@ def test_a_bounty_is_fulfilled_once(app, jwt1, jwt2):
 
 
 def test_what_can_not_be_asked_for_or_fulfilled(app, client, jwt1, jwt2):
-    maximum = uas.GAME_CONFIG["BASE_INTEL_BOUNTY_MAX_EPOCHS"]
+    maximum = uai.bounty_max_hours()
     _set_up(revealed_2={TARGET: {"shields": _later(8)}})
     cases = [
-        ({"target": TARGET, "category": "military", "cut": 10, "epochs": maximum + 1}, "epochs"),
-        ({"target": TARGET, "category": "military", "cut": 10, "epochs": 0}, "epochs"),
-        ({"target": "3", "category": "military", "cut": 10, "epochs": 4}, "galaxymate"),
-        ({"target": "99", "category": "military", "cut": 10, "epochs": 4}, "no such kingdom"),
-        ({"target": TARGET, "category": "military", "cut": 20, "epochs": 4}, "at most"),
+        ({"target": TARGET, "category": "military", "cut": 10, "hours": maximum + 1}, "hours"),
+        ({"target": TARGET, "category": "military", "cut": 10, "hours": 0}, "hours"),
+        ({"target": "3", "category": "military", "cut": 10, "hours": 4}, "galaxymate"),
+        ({"target": "99", "category": "military", "cut": 10, "hours": 4}, "no such kingdom"),
+        ({"target": TARGET, "category": "military", "cut": 20, "hours": 4}, "at most"),
     ]
     for body, message in cases:
         response = _post(client, jwt1, "bounty", body)
         assert response.status_code == 400 and message in response.get_json()["message"], (body, response.get_json())
 
-    _post(client, jwt1, "bounty", {"target": TARGET, "category": "military", "cut": 10, "epochs": 4})
+    _post(client, jwt1, "bounty", {"target": TARGET, "category": "military", "cut": 10, "hours": 4})
     bounty = uai.bounty_id("1", TARGET, "military")
     no_intel = _post(client, jwt2, "fulfil", {"bounty": bounty})
     assert no_intel.status_code == 400 and "do not have" in no_intel.get_json()["message"]
@@ -418,14 +433,14 @@ def test_a_bounty_can_not_ask_for_less_than_intel_already_taken(app, client, jwt
     _set_up(revealed_1={TARGET: {"military": _later(8)}})
     _post(client, jwt1, "share", {"target": TARGET, "category": "military", "cut": 10})
     _post(client, jwt2, "buy", {"listing": uai.listing_id("1", TARGET, "military")})
-    cheaper = _post(client, jwt2, "bounty", {"target": TARGET, "category": "military", "cut": 5, "epochs": 4})
+    cheaper = _post(client, jwt2, "bounty", {"target": TARGET, "category": "military", "cut": 5, "hours": 4})
     assert cheaper.status_code == 400 and "lower" in cheaper.get_json()["message"]
 
 
 def test_withdrawing_bounties_and_listings(app, client, jwt1, jwt2):
     _set_up(revealed_1={TARGET: {"military": _later(8)}})
     _post(client, jwt1, "share", {"target": TARGET, "category": "military", "cut": 10})
-    _post(client, jwt2, "bounty", {"target": TARGET, "category": "kingdom", "cut": 10, "epochs": 4})
+    _post(client, jwt2, "bounty", {"target": TARGET, "category": "kingdom", "cut": 10, "hours": 4})
     listing, bounty = uai.listing_id("1", TARGET, "military"), uai.bounty_id("2", TARGET, "kingdom")
 
     assert _post(client, jwt2, "delist", {"listing": listing}).status_code == 400  # not theirs

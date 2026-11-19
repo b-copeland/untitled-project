@@ -50,7 +50,7 @@ test("the kingdom's name on a card opens its view", async () => {
     show();
     await waitFor(() => expect(screen.getByRole("button", { name: "Delta" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Delta" }));
-    expect(await screen.findByText("View")).toBeTruthy();   // the View modal's title
+    expect(await screen.findByText("Delta (1:1)")).toBeTruthy();   // the kingdom dialog's title
 });
 
 test("a wide screen starts on the table, and the choice is remembered", async () => {
@@ -63,4 +63,12 @@ test("a wide screen starts on the table, and the choice is remembered", async ()
     show();
     await waitFor(() => expect(screen.getByText("Delta")).toBeTruthy());
     expect(screen.queryByRole("table")).toBeNull();
+});
+
+test("kingdoms in another galaxy have an Intel action; galaxymates do not", async () => {
+    narrow(true);
+    const elsewhere = { ...data, galaxies: { "1:1": ["1", "3"], "2:2": ["2"] }, galaxies_inverted: { 1: "1:1", 2: "2:2", 3: "1:1" } };
+    render(<MemoryRouter><Galaxy data={elsewhere} loading={{}} updateData={jest.fn()} initialGalaxyId="1:1" /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText("Delta")).toBeTruthy());
+    expect(screen.getAllByRole("button", { name: "Intel: share, buy or ask for it" })).toHaveLength(1);
 });

@@ -49,9 +49,9 @@ These pieces do not yet:
 
 - The function app's handlers catch everything with a bare `except` and answer `500`, which hides throttling (`429`) and
   real errors alike. Several `GET` handlers answer `201`.
-- Function app write routes that cannot work (2026-11-14), all uncalled: `PATCH /empire/<id>/news` reads `empire_<id>`
-  where the document is `empire_news_<id>`, so empire news is never written; the old intel routes (`/kingdom/<id>/shared`,
-  `/sharedrequests`) and the empty `shared_<id>` document are unused since the intel market and are to be removed.
+- A function app write route that cannot work (2026-11-14), uncalled: `PATCH /empire/<id>/news` reads `empire_<id>`
+  where the document is `empire_news_<id>`, so empire news is never written. Kingdoms made before the intel market
+  (2026-11-18) still have an unused `shared_<id>` document; a round reset removes it.
 - `getters.py` and `conquer.py` are large and mix routes, formulas and storage calls.
 - Over a hundred raw `REQUESTS_SESSION` calls across the blueprints; the target is one storage module
   ([architecture.md](architecture.md#target-one-storage-module)).
@@ -87,7 +87,6 @@ Built 2026-11-18 ([game-design.md](game-design.md#glossary), `intel.py`).
 - `BASE_MAX_TOTAL_SHARE_CUT` (0.30) and `BASE_INTEL_BOUNTY_MAX_EPOCHS` (48) are proposals awaiting the maintainer's
   review.
 - Bots buy listings and list or share what they spy, but never post or answer bounties.
-- Not yet on every page that shows a kingdom: only the Conquer page's Revealed table has the Intel button.
 
 ## Bots
 
