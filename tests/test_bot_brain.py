@@ -51,7 +51,7 @@ class StubWorld(brain.World):
     the bot can see, ``info`` what ``target_info`` returns for a kingdom."""
 
     def __init__(self, me=None, day=3.5, days=10, galaxies=None, revealed=None, stats=None, info=None, empires=None,
-                 politics=None, news=None, shared=None, attack_history=None, state=None):
+                 politics=None, news=None, intel=None, attack_history=None, state=None):
         self.kd_id = "1"
         self.now = NOW
         self.me = kingdom(**(me or {}))
@@ -79,7 +79,8 @@ class StubWorld(brain.World):
                 "points": [], "galaxy_networth": [("g1", 300_000), ("g2", 900_000), ("g3", 100_000)],
             },
             "news": news or [],
-            "shared": shared or {"shared": {}, "shared_requests": {}, "shared_offers": {}},
+            "intel": intel or {"listings": [], "bounties": [], "accepted": [], "cuts": {}, "my_intel": [],
+                      "exclusions": [], "history": []},
             "attack_history": attack_history or [],
         }
 
@@ -462,19 +463,25 @@ def test_intel_bots_share_what_they_learn_for_a_cut_and_others_rarely_do():
     assert intel_cuts == {INTEL.share_cut} and INTEL.share_cut > 0
 
 
-def test_it_accepts_the_intel_it_can_use():
-    offers = {"shared": {}, "shared_offers": {}, "shared_requests": {
-        "3_2": {"shared_by": "2", "shared_stat": "military", "cut": 0.1, "time": until(6)},
-        "4_2": {"shared_by": "2", "shared_stat": "kingdom", "cut": 0.1, "time": until(6)},
-        "5_2": {"shared_by": "2", "shared_stat": "military", "cut": 0.1, "time": until(0.5)},  # about to run out
-    }}
-    attacker = brain.accept_intel(StubWorld(shared=offers), ATTACKER, style(army="both"), {})
-    assert [d.options["key"] for d in attacker] == ["3_2"]
-    thief = brain.accept_intel(StubWorld(shared=offers), THIEF, style(army="none", drones="both"), {})
-    assert [d.options["key"] for d in thief] == ["4_2"]
-    assert brain.accept_intel(StubWorld(shared=offers), EXPLORER, style(army="primitives"), {}) == []
+def _listing(target, category, hours, problem=None):
+    return {"id": f"2.{target}.{category}", "seller": "2", "target": target, "category": category, "cut": 0.1,
+            "time": until(hours), "listed_at": until(0), "problem": problem}
+
+
+def test_it_buys_the_intel_it_can_use():
+    market = {"listings": [
+        _listing("3", "military", 6),
+        _listing("4", "kingdom", 6),
+        _listing("5", "military", 0.5),  # about to run out
+        _listing("6", "military", 6, problem="That would make your cuts on this kingdom 35.0%; the most is 30.0%"),
+    ]}
+    attacker = brain.accept_intel(StubWorld(intel=market), ATTACKER, style(army="both"), {})
+    assert [d.options["listing"] for d in attacker] == ["2.3.military"]
+    thief = brain.accept_intel(StubWorld(intel=market), THIEF, style(army="none", drones="both"), {})
+    assert [d.options["listing"] for d in thief] == ["2.4.kingdom"]
+    assert brain.accept_intel(StubWorld(intel=market), EXPLORER, style(army="primitives"), {}) == []
     # What it already has it does not take again.
-    known = StubWorld(shared=offers, revealed={"3": {"military": until(8)}})
+    known = StubWorld(intel=market, revealed={"3": {"military": until(8)}})
     assert brain.accept_intel(known, ATTACKER, style(army="both"), {}) == []
 
 

@@ -631,22 +631,6 @@ def _resolve_revealed(kd_id, time_update):
     return occ.update(f'/kingdom/{kd_id}/revealed', expire)
 
 
-def _resolve_shared(kd_id, time_update):
-    """Forget shared intel, requests and offers that have expired, from the document as it is when the write lands."""
-    def expire(shared_info):
-        next_resolve = _utc(uas.DATE_SENTINEL)
-        kept = {}
-        for field in ("shared", "shared_requests", "shared_offers"):
-            kept[field] = {}
-            for shared_kd_id, shared_dict in shared_info[field].items():
-                time = _utc(shared_dict["time"])
-                if time > time_update:
-                    next_resolve = min(time, next_resolve)
-                    kept[field][shared_kd_id] = shared_dict
-        return kept, next_resolve
-
-    return occ.update(f'/kingdom/{kd_id}/shared', expire, method="post")
-
 def _resolve_generals(kd_info_parse, time_update):
     generals_keep = []
     returning_units = collections.defaultdict(int)
@@ -1661,10 +1645,9 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
             )
         
         if "shared" in categories_to_resolve:
-            next_resolves["shared"] = _resolve_shared(
-                kd_id,
-                time_update,
-            )
+            # Intel is shared through the galaxy's market now (intel.py), which needs no timer. Kingdoms made before it
+            # still have this one: it is set to never, once.
+            next_resolves["shared"] = _utc(uas.DATE_SENTINEL)
 
         if "generals" in categories_to_resolve:
             kd_info_parse, next_resolves["generals"] = _resolve_generals(

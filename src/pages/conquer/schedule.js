@@ -223,7 +223,7 @@ function Add(props) {
                                 <FieldRow label="Max tries" hint="Retries if it fails, 1 to 10" htmlFor="sched-max_tries">
                                     <AmountInput box name="max_tries" id="sched-max_tries" label="Max tries" value={options.max_tries} onChange={onText} max={10} />
                                 </FieldRow>
-                                <FieldRow label="Share with your galaxy">
+                                <FieldRow label="Share with your galaxy" hint="Free: every galaxymate gets it at once">
                                     <Form.Check type="switch" id="sched-share" checked={Boolean(options.share_to_galaxy)} onChange={(e) => set("share_to_galaxy", e.target.checked)} />
                                 </FieldRow>
                             </> : (

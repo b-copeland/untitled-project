@@ -12,7 +12,7 @@ From [concurrency.md](concurrency.md). Updated 2026-11-14.
 | Function app: the single-document `update_*` handlers | Conditional and retried |
 | Function app: `create_kingdom`, `create_empire` | The new id, and joining the galaxy, are conditional writes on `kingdoms`, `empires` and `galaxies` (`change_document`); the documents they then create are new. |
 | Function app: other multi-document admin handlers (`create_galaxy`, `reset_state`, `delete_all`, `init`) | Not changed. Admin and setup only. |
-| Every action route (build, shields, spending, kingdom setup, votes, attacks, primitives, spying, robbing, missiles, schedules, shared intel, politics, empires, surrender, auto attack and rob settings) | Conditional (`occ.update`) or commutative (appends and merges). |
+| Every action route (build, shields, spending, kingdom setup, votes, attacks, primitives, spying, robbing, missiles, schedules, the intel market, politics, empires, surrender, auto attack and rob settings) | Conditional (`occ.update`) or commutative (appends and merges). |
 | The refresh: the kingdom write, schedules, siphons, revealed and shared expiry, scores, empires, queue trims | Conditional, with `queues_resolved_until` cursors. Schedules are taken off the kingdom with a version-checked write before they run. |
 | The refresh: elections and the history mark | Decided on `/state` (`_claim_state`), so an overlapping tick does not open, close or record twice. |
 | Kingdom reset (`/api/resetkingdom`) | Overwrites the kingdom's documents with the initial state on purpose (before the game starts). |
@@ -50,8 +50,8 @@ These pieces do not yet:
 - The function app's handlers catch everything with a bare `except` and answer `500`, which hides throttling (`429`) and
   real errors alike. Several `GET` handlers answer `201`.
 - Function app write routes that cannot work (2026-11-14), all uncalled: `PATCH /empire/<id>/news` reads `empire_<id>`
-  where the document is `empire_news_<id>`, so empire news is never written; `PATCH /kingdom/<id>/shared` adds a list to
-  what is now an object; `/sharedrequests` reads a `shared_requests_<id>` document that is never created.
+  where the document is `empire_news_<id>`, so empire news is never written; the old intel routes (`/kingdom/<id>/shared`,
+  `/sharedrequests`) and the empty `shared_<id>` document are unused since the intel market and are to be removed.
 - `getters.py` and `conquer.py` are large and mix routes, formulas and storage calls.
 - Over a hundred raw `REQUESTS_SESSION` calls across the blueprints; the target is one storage module
   ([architecture.md](architecture.md#target-one-storage-module)).
@@ -79,6 +79,15 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
 - UX proposals not built: see [decisions/0003-ux-review.md](decisions/0003-ux-review.md#proposed-not-built).
 - Spy attempts come back every epoch again (2026-11-17), so a player away for more than 10 epochs loses attempts.
   Recurring scheduled siphons and intel are issue #137.
+
+## Intel market
+
+Built 2026-11-18 ([game-design.md](game-design.md#glossary), `intel.py`).
+
+- `BASE_MAX_TOTAL_SHARE_CUT` (0.30) and `BASE_INTEL_BOUNTY_MAX_EPOCHS` (48) are proposals awaiting the maintainer's
+  review.
+- Bots buy listings and list or share what they spy, but never post or answer bounties.
+- Not yet on every page that shows a kingdom: only the Conquer page's Revealed table has the Intel button.
 
 ## Bots
 

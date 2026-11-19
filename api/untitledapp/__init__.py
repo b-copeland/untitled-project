@@ -172,6 +172,7 @@ def create_app(config_class='config.Config'):
     import untitledapp.admin as uaad
     import untitledapp.build as uab
     import untitledapp.conquer as uac
+    import untitledapp.intel as uai
     import untitledapp.misc as uam
     import untitledapp.politics as uap
     import untitledapp.refresh as uar
@@ -180,6 +181,7 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uaad.bp)
     app.register_blueprint(uab.bp)
     app.register_blueprint(uac.bp)
+    app.register_blueprint(uai.bp)
     app.register_blueprint(uag.bp)
     app.register_blueprint(uam.bp)
     app.register_blueprint(uap.bp)

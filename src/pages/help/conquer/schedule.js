@@ -27,7 +27,7 @@ function Schedule(props) {
             </p>
             <p>
                 The Intel Spy action will attempt spy operations until getting a success, up to "Max Tries" tries. If 
-                Share to Galaxy is selected, the acquired intel will be shared to your galaxy.
+                Share with your galaxy is selected, the acquired intel is shared free with your galaxymates (see Intel).
             </p>
             <p>
                 The Aggressive Spy action will attempt aggressive spy operations for the number of attempts specified.

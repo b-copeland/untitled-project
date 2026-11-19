@@ -73,7 +73,7 @@ think a few at a time. Each think:
 | Survive | An army the hangars and fuel plants can no longer keep (after losing stars) is disbanded, defenders last, before it empties the homes (`plan_survival`). |
 | Spend loose money | Settle, build and train engineers with money that is not in a funding category, as on the Build pages (`spend_money`). |
 | Politics | Below (`plan_politics`). |
-| Intel | Reveal a galaxy when it knows nobody; spy where it pays; accept the intel galaxymates offer if it can use it (`plan_intel`, `accept_intel`). |
+| Intel | Reveal a galaxy when it knows nobody; spy where it pays; buy the intel galaxymates list if it can use it (`plan_intel`, `accept_intel`). |
 | Strike | A kingdom, when one pays better than primitives (`plan_attack`). |
 | Drones | A siphon when it beats robbing; sabotage on a leader late in the round (`plan_drones`). |
 | Missiles | Fill the silos; fire at whoever hit it, or the leader (`plan_missiles`). |
@@ -110,7 +110,7 @@ hidden state.
   worse deal rises with the square root of time. Each playstyle keeps a margin on that line (`defense_margin`), more
   when it has been hit, 30% more while its empire is at war.
 - **And enough to keep out the strongest army it knows of** (`note_threat`): the largest offense among the outsiders
-  whose military is revealed to it (its own spying, and intel it accepted from galaxymates), a little over
+  whose military is revealed to it (its own spying, and intel it bought from galaxymates), a little over
   (`THREAT_MARGIN`), remembered for a day after the intel runs out, and never more than twice the line
   (`THREAT_CAP`): a kingdom can not out-defend everybody.
 - **A floor for every playstyle, off for now** (`MIN_DEFENSE`): at 1.1 every bot keeps at least 1.1 times the

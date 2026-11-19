@@ -1,4 +1,3 @@
-import { displayPercent } from "../../format";
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import Tab from 'react-bootstrap/Tab';
@@ -13,7 +12,7 @@ import Galaxy from "../galaxy.js";
 import Attack from "./attack.js";
 import Spy from "./spy.js";
 import LaunchMissiles from "./launchmissiles.js";
-import ShareIntel from "./shareintel.js";
+import { KingdomIntel } from "./intel.js";
 import Message from "../message.js";
 import Kingdom from "../kingdominfo.js";
 import Header from "../../components/header";
@@ -34,7 +33,7 @@ import { ResultToasts } from "../../components/results";
 // The action buttons in the tables here are icons, as on the Galaxy page: the word the button used to show is its tooltip.
 const ICONS = {
     View: [BsEye, "View"], Attack: [GiCrossedSwords, "Attack"], Spy: [BsBinoculars, "Spy"], Missile: [BsRocketTakeoff, "Launch missiles"],
-    Message: [BsChatDots, "Message"], Intel: [BsShare, "Share intel"], Galaxy: [BsGlobe2, "View galaxy"], Pin: [BsPinAngle, "Pin"],
+    Message: [BsChatDots, "Message"], Intel: [BsShare, "Intel: share, buy or ask for it"], Galaxy: [BsGlobe2, "View galaxy"], Pin: [BsPinAngle, "Pin"],
     Unpin: [BsPinAngleFill, "Unpin"], Accept: [BsCheckLg, "Accept"], "Loading...": [BsHourglassSplit, "Loading..."],
 };
 function ActionButton({ children, disabled, onClick }) {
@@ -44,42 +43,10 @@ function ActionButton({ children, disabled, onClick }) {
 
 
 
-const getNotifsCount = (notifs, categories) => {
-    var total = 0;
-    for (const category of categories) {
-      total += parseInt(notifs[category]);
-    }
-    return total;
-  }
-  
-const getNotifsSuffix = (notifs, categories) => {
-    const count = getNotifsCount(notifs, categories);
-    if (count > 0) {
-      return ` (${count})`
-    } else {
-      return ""
-    }
-}
-  
-  
 function ConquerContent(props) {
     const [key, setKey] = useState('kingdom');
 
-    const clearNotifs = (categories) => {
-        const updateFunc = () => {
-            authFetch("api/clearnotifs", {
-                method: "POST",
-                body: JSON.stringify({"categories": categories})
-            });
-        }
-        props.updateData(['notifs'], [updateFunc])
-    }
     const handleNotifsSelect = (eventKey) => {
-        if (eventKey === "shared") {
-            if (props.data.notifs.shared > 0) {
-                clearNotifs(["shared"])
-            }
-        }
         setKey(eventKey);
     }
     return (
@@ -105,19 +72,6 @@ function ConquerContent(props) {
             updateData={props.updateData}
             data={props.data}
             />
-        </Tab>
-        <Tab eventKey="shared"title={`Shared${getNotifsSuffix(props.data.notifs, ["shared"])}`}>
-          <Shared
-            revealed={props.data.revealed}
-            kingdoms={props.data.kingdoms}
-            galaxies_inverted={props.data.galaxies_inverted}
-            empires={props.data.empires}
-            empires_inverted={props.data.empires_inverted}
-            pinned={props.data.pinned}
-            shared={props.data.shared}
-            loading={props.loading}
-            updateData={props.updateData}
-            data={props.data}/>
         </Tab>
         <Tab eventKey="pinned" title="Pinned">
           <Pinned
@@ -155,7 +109,7 @@ function Revealed(props) {
     const [showSpy, setShowSpy] = useState(false);
     const [showMissile, setShowMissile] = useState(false);
     const [showMessage, setShowMessage] = useState(false);
-    const [showShareIntel, setShowShareIntel] = useState(false);
+    const [showIntel, setShowIntel] = useState(false);
     const [showGalaxy, setShowGalaxy] = useState(false);
     const [galaxyToShow, setGalaxyToShow] = useState('');
     const [kdToShow, setKdToShow] = useState();
@@ -261,7 +215,7 @@ function Revealed(props) {
                 <ActionButton onClick={() => {setKdToShow(kdId); {setKdToShow(kdId); setShowMessage(true)}}}>
                     Message
                 </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowShareIntel(true)}}>
+                <ActionButton onClick={() => {setKdToShow(kdId); setShowIntel(true)}}>
                     Intel
                 </ActionButton>
                 <ActionButton onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
@@ -384,19 +338,19 @@ function Revealed(props) {
                 </Modal.Footer>
             </Modal>
             <Modal
-                show={showShareIntel}
-                onHide={() => setShowShareIntel(false)}
+                show={showIntel}
+                onHide={() => setShowIntel(false)}
                 animation={false}
-                dialogClassName="share-intel-modal"
+                dialogClassName="intel-modal"
             >
                 <Modal.Header closeButton>
-                    <Modal.Title>Share Intel</Modal.Title>
+                    <Modal.Title>Intel</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <ShareIntel data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
+                    <KingdomIntel data={props.data} loading={props.loading} updateData={props.updateData} target={kdToShow}/>
                 </Modal.Body>
                 <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowShareIntel(false)}>
+                    <Button variant="secondary" onClick={() => setShowIntel(false)}>
                     Close
                     </Button>
                 </Modal.Footer>
@@ -465,385 +419,6 @@ function Revealed(props) {
                 </thead>
                 <tbody>
                     {revealedGalaxyRows}
-                </tbody>
-            </Table>
-        </div>
-    )
-}
-
-function Shared(props) {
-    const [maxKdInfo, setMaxKdInfo] = useState({});
-    const [showView, setShowView] = useState(false);
-    const [showAttack, setShowAttack] = useState(false);
-    const [showSpy, setShowSpy] = useState(false);
-    const [showMissile, setShowMissile] = useState(false);
-    const [showMessage, setShowMessage] = useState(false);
-    const [showGalaxy, setShowGalaxy] = useState(false);
-    const [galaxyToShow, setGalaxyToShow] = useState('');
-    const [kdToShow, setKdToShow] = useState();
-
-    useEffect(() => {
-        const fetchData = async () => {
-            var sharedKds = Array();
-            for (const sharedKey in props.shared.shared) {
-                const kdId = sharedKey.split('_')[0];
-                sharedKds.push(kdId);
-            }
-            const opts = {"kingdoms": sharedKds}
-            if (sharedKds.length > 0) {
-                await authFetch("api/kingdomsinfo", {
-                    method: "POST",
-                    body: JSON.stringify(opts)
-                }).then(r => r.json()).then(r => setMaxKdInfo(r));
-            }
-        };
-        fetchData();
-    }, [props.shared.shared])
-    if (!props.shared.hasOwnProperty('shared')) {
-        return <h3>Loading...</h3>
-    }
-
-    const onAcceptShared = (e)=>{
-        const updateFunc = () => authFetch('api/shared', {
-            body: JSON.stringify({"shared": e.target.name}),
-            method: "POST", 
-        })
-        props.updateData(['shared', 'revealed'], [updateFunc])
-        
-    }
-
-    const onSubmitPin = (e)=>{
-        const updateFunc = () => authFetch('api/pinned', {
-            body: JSON.stringify({"pinned": [e.target.name]}),
-            method: "POST", 
-        })
-        props.updateData(['pinned'], [updateFunc])
-    }
-
-    const onSubmitUnpin = (e)=>{
-        const updateFunc = () => authFetch('api/pinned', {
-            body: JSON.stringify({"unpinned": [e.target.name]}),
-            method: "POST", 
-        })
-        props.updateData(['pinned'], [updateFunc])
-    }
-    
-    const getRemainingSpans = (kdId, revealed) => {
-        const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
-                <span className="remaining-time-title">{category}</span>
-                <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
-                <br />
-            </div>
-        )
-        return remainingSpans;
-    }
-    const getRemainingSharedSpans = (kdId, revealed, sharedStat) => {
-        const remainingSpans = Object.keys(revealed[kdId] || {}).map((category) =>
-            <div key={kdId.toString() + '_' + category} className="row remaining-timer">
-                {
-                    (category === sharedStat)
-                    ? <span className="remaining-time-title remaining-time-title-shared">{category}</span>
-                    : <span className="remaining-time-title">{category}</span>
-                }
-                <span className="remaining-time-value">{getTimeString(revealed[kdId][category])}</span>
-                <br />
-            </div>
-        )
-        return remainingSpans;
-    }
-    const sharedRows = Object.keys(props.shared.shared).map((sharedKey) => {
-        const kdId = sharedKey?.split('_')[0];
-        const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
-        const galaxyEmpire = (
-            empireName !== undefined
-            ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
-            : props.galaxies_inverted[kdId] || ""
-        )
-        return <tr key={sharedKey}>
-            <td>{getRemainingSharedSpans(kdId, props.revealed.revealed, props.shared.shared[sharedKey].shared_stat)}</td>
-            <td>{props.kingdoms[kdId] || ""}</td>
-            <td>{galaxyEmpire}</td>
-            <td>{props.kingdoms[props.shared.shared[sharedKey].shared_by] || ""}</td>
-            <td>{displayPercent(props.shared.shared[sharedKey].cut) || ""}</td>
-            <td>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowView(true)}}>
-                    View
-                </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
-                    Attack
-                </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
-                    Spy
-                </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
-                    Missile
-                </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowMessage(true)}}>
-                    Message
-                </ActionButton>
-                <ActionButton onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
-                    Galaxy
-                </ActionButton>
-                {
-                    props.loading.pinned
-                    ? <ActionButton name={kdId} disabled>
-                        Loading...
-                    </ActionButton>
-                    : props.pinned.indexOf(kdId) >= 0
-                    ? <ActionButton name={kdId} onClick={onSubmitUnpin}>
-                        Unpin
-                    </ActionButton>
-                    : <ActionButton name={kdId} onClick={onSubmitPin}>
-                        Pin
-                    </ActionButton>
-                }
-            </td>
-        </tr>
-    }
-    );
-    const sharedRequestRows = Object.keys(props.shared.shared_requests).map((sharedKey) => {
-        const kdId = sharedKey?.split('_')[0];
-        const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
-        const galaxyEmpire = (
-            empireName !== undefined
-            ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
-            : props.galaxies_inverted[kdId] || ""
-        )
-        return <tr key={sharedKey}>
-            <td>{getTimeString(props.shared.shared_requests[sharedKey].time)}</td>
-            <td>{props.kingdoms[kdId] || ""}</td>
-            <td>{galaxyEmpire}</td>
-            <td>{props.kingdoms[props.shared.shared_requests[sharedKey].shared_by] || ""}</td>
-            <td>{displayPercent(props.shared.shared_requests[sharedKey].cut) || ""}</td>
-            <td>{props.shared.shared_requests[sharedKey].shared_stat || ""}</td>
-            <td>
-                {
-                    props.loading.shared
-                    ? <ActionButton disabled>
-                        Loading...
-                    </ActionButton>
-                    : <ActionButton name={sharedKey} onClick={onAcceptShared}>
-                        Accept
-                    </ActionButton>
-                }
-                
-                <ActionButton onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
-                    Galaxy
-                </ActionButton>
-                {
-                    props.loading.pinned
-                    ? <ActionButton name={kdId} disabled>
-                        Loading...
-                    </ActionButton>
-                    : props.pinned.indexOf(kdId) >= 0
-                    ? <ActionButton name={kdId} onClick={onSubmitUnpin}>
-                        Unpin
-                    </ActionButton>
-                    : <ActionButton name={kdId} onClick={onSubmitPin}>
-                        Pin
-                    </ActionButton>
-                }
-            </td>
-        </tr>
-    }
-    );
-    const sharedOfferRows = Object.keys(props.shared.shared_offers).map((sharedKey) => {
-        const kdId = sharedKey?.split('_')[0];
-        const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
-        const galaxyEmpire = (
-            empireName !== undefined
-            ? (props.galaxies_inverted[kdId] || "") + ' (' + empireName + ')'
-            : props.galaxies_inverted[kdId] || ""
-        )
-        return <tr key={sharedKey}>
-            <td>{getTimeString(props.shared.shared_offers[sharedKey].time)}</td>
-            <td>{props.kingdoms[kdId] || ""}</td>
-            <td>{galaxyEmpire}</td>
-            <td>{props.kingdoms[props.shared.shared_offers[sharedKey].shared_to]}</td>
-            <td>{displayPercent(props.shared.shared_offers[sharedKey].cut) || ""}</td>
-            <td>{props.shared.shared_offers[sharedKey].shared_stat || ""}</td>
-            <td>
-                <ActionButton onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
-                    Galaxy
-                </ActionButton>
-                {
-                    props.loading.pinned
-                    ? <ActionButton name={kdId} disabled>
-                        Loading...
-                    </ActionButton>
-                    : props.pinned.indexOf(kdId) >= 0
-                    ? <ActionButton name={kdId} onClick={onSubmitUnpin}>
-                        Unpin
-                    </ActionButton>
-                    : <ActionButton name={kdId} onClick={onSubmitPin}>
-                        Pin
-                    </ActionButton>
-                }
-            </td>
-        </tr>
-    }
-    );
-    return (
-        <div className="revealed">
-            <Modal
-                show={showView}
-                onHide={() => setShowView(false)}
-                animation={false}
-                dialogClassName="view-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>View</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Kingdom data={{"kingdom": maxKdInfo[kdToShow], "kingdoms": props.kingdoms, "galaxies_inverted": props.galaxies_inverted, "shields": props.data.shields, "state": props.data.state, "kdId": kdToShow}}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowView(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showAttack}
-                onHide={() => setShowAttack(false)}
-                animation={false}
-                dialogClassName="attack-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Attack</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Attack data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowAttack(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showSpy}
-                onHide={() => setShowSpy(false)}
-                animation={false}
-                dialogClassName="spy-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Spy</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Spy data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowSpy(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showMissile}
-                onHide={() => setShowMissile(false)}
-                animation={false}
-                dialogClassName="missile-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Missile</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <LaunchMissiles data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowMissile(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showMessage}
-                onHide={() => setShowMessage(false)}
-                animation={false}
-                dialogClassName="message-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Message</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Message data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowMessage(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showGalaxy}
-                onHide={() => setShowGalaxy(false)}
-                animation={false}
-                dialogClassName="galaxy-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>View Galaxy</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Galaxy data={props.data} loading={props.loading} updateData={props.updateData} initialGalaxyId={galaxyToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowGalaxy(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <h2>Accepted</h2>
-            <Table className="table-small shared-table" striped bordered hover size="sm">
-                <thead>
-                    <tr>
-                        <th>Remaining</th>
-                        <th>Kingdom</th>
-                        <th>Galaxy</th>
-                        <th>Shared By</th>
-                        <th>Their Cut</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {sharedRows}
-                </tbody>
-            </Table>
-            <br />
-            <h2>Pending</h2>
-            <Table className="table-small shared-requests-table" striped bordered hover size="sm">
-                <thead>
-                    <tr>
-                        <th>Remaining</th>
-                        <th>Kingdom</th>
-                        <th>Galaxy</th>
-                        <th>Shared By</th>
-                        <th>Their Cut</th>
-                        <th>Shared Stat</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {sharedRequestRows}
-                </tbody>
-            </Table>
-            <br />
-            <h2>Offers</h2>
-            <Table className="table-small shared-offers-table" striped bordered hover size="sm">
-                <thead>
-                    <tr>
-                        <th>Remaining</th>
-                        <th>Kingdom</th>
-                        <th>Galaxy</th>
-                        <th>Shared To</th>
-                        <th>Your Cut</th>
-                        <th>Shared Stat</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {sharedOfferRows}
                 </tbody>
             </Table>
         </div>

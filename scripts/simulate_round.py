@@ -459,15 +459,16 @@ class Simulation:
                     flow["money from robbing"] += float(match.group(1).replace(",", "")) if match else 0
             counter["missile launches"] += len(self.doc(f"missile_history_{kd_id}").get("missile_history", []))
             news = self.doc(f"news_{kd_id}").get("news", [])
-            counter["cuts earned for intel"] += sum(1 for item in news if item.get("kind") == "intel")
-            for item in news:
-                if item.get("kind") == "intel":
-                    gained = amounts(item.get("news", ""))
-                    flow["stars from intel shared"] += gained.get("stars", 0)
-                    flow["money from intel shared"] += gained.get("money", 0)
-                    # The attacker that used the intel: how much the attackers lean on what galaxymates share.
-                    attacker = kingdoms.get(str(item.get("from")), {})
-                    actions[(attacker.get("bot") or {}).get("type", "player")]["attack won with shared intel"] += 1
+            # Intel news is also a sale or a fulfilled bounty; only the cut of an attack says "for sharing intel".
+            cut_news = [item for item in news if item.get("kind") == "intel" and "for sharing intel" in str(item.get("news", ""))]
+            counter["cuts earned for intel"] += len(cut_news)
+            for item in cut_news:
+                gained = amounts(item.get("news", ""))
+                flow["stars from intel shared"] += gained.get("stars", 0)
+                flow["money from intel shared"] += gained.get("money", 0)
+                # The attacker that used the intel: how much the attackers lean on what galaxymates share.
+                attacker = kingdoms.get(str(item.get("from")), {})
+                actions[(attacker.get("bot") or {}).get("type", "player")]["attack won with shared intel"] += 1
             counter["times defeated"] += sum(1 for item in news if "was defeated" in str(item.get("news", "")))
             for item in news:
                 if "was defeated" in str(item.get("news", "")):
@@ -479,9 +480,10 @@ class Simulation:
                 kd["stars"] - 300 - flow["stars from primitives"] - flow["stars from kingdoms"]
                 + flow["stars lost to kingdoms"] + flow["stars lost to missiles"], 0)
             rows[-1]["flows"] = dict(flow)
-            shared = self.doc(f"shared_{kd_id}")
-            counter["intel offers open"] += len(shared.get("shared_offers", {}))
-            counter["intel accepted (live)"] += len(shared.get("shared", {}))
+            galaxy = next((g for g, members in self.doc("galaxies").get("galaxies", {}).items() if kd_id in members), None)
+            market = self.doc(f"galaxy_intel_{galaxy}") if galaxy else {}
+            counter["intel listings open"] += sum(1 for item in (market.get("listings") or {}).values() if item.get("seller") == kd_id)
+            counter["intel accepted (live)"] += sum(len(c) for c in ((market.get("accepted") or {}).get(kd_id) or {}).values())
             for entry in (kd.get("bot") or {}).get("log", []):
                 counter[f"log:{entry.get('kind')}"] += 1
             for key, count in ((kd.get("bot") or {}).get("counts") or {}).items():

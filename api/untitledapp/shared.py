@@ -275,6 +275,10 @@ GAME_CONFIG = {
     "BASE_DRONE_GADGETS_LOSS_REDUCTION": 0.25,
 
     "BASE_MAX_SHARE_CUT": 0.15, 
+    # The most a kingdom gives up to all the intel it has accepted on one target (each category is paid to its sharer).
+    "BASE_MAX_TOTAL_SHARE_CUT": 0.30,
+    # The longest an intel bounty (a request on the galaxy's board) can stay up, in epochs.
+    "BASE_INTEL_BOUNTY_MAX_EPOCHS": 48,
 
     "BASE_DRONES_SIPHON_PER_DRONE": 8, 
     "BASE_DRONES_SIPHON_TIME_MULTIPLIER": 12, 
@@ -954,7 +958,6 @@ INITIAL_KINGDOM_STATE = {
             "engineers": DATE_SENTINEL,
             "structures": DATE_SENTINEL,
             "revealed": DATE_SENTINEL,
-            "shared": DATE_SENTINEL,
             "auto_spending": DATE_SENTINEL,
         },
         "stars": INITIAL_KINGDOM_STARS,
@@ -1050,11 +1053,6 @@ INITIAL_KINGDOM_STATE = {
         "galaxies": {},
         "revealed_galaxymates": [],
         "revealed_to_galaxymates": [],
-    },
-    "shared": {
-        "shared": {},
-        "shared_requests": {},
-        "shared_offers": {},
     },
     "pinned": {"pinned": []},
     "spy_history": {"spy_history": []},

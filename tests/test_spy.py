@@ -2,7 +2,7 @@
 import pytest
 
 from tests.test_attack import TARGET_ID, _set_up_two_kingdoms
-from tests.test_concurrency import KD_ID, _create_item, _get, _run_together  # noqa: F401
+from tests.test_concurrency import KD_ID, _create_item, _get, _run_together, _set_up_kingdom  # noqa: F401
 
 
 def _spy(client, jwt, operation="suicidedrones", drones=100):
@@ -152,3 +152,23 @@ def test_a_successful_siphon_stores_what_it_will_pay_each_epoch(app, client, jwt
     total = 120 * shared.GAME_CONFIG["BASE_DRONES_SIPHON_PER_DRONE"]
     assert siphon["from"] == KD_ID and siphon["siphon"] == total
     assert siphon["rate"] == total / shared.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"]
+
+
+@pytest.mark.parametrize("cut, listed", [(10, True), (0, False)])
+def test_a_reveal_shared_from_the_spy_page_is_listed_for_a_cut_or_given_free(app, client, jwt1, monkeypatch, cut, listed):
+    import untitledapp.conquer as conquer
+
+    _set_up_two_kingdoms()
+    _set_up_kingdom(money=0, kd_id="3")
+    _create_item("galaxies", {"galaxies": {"1": [KD_ID, "3"], "2": [TARGET_ID]}})
+    _create_item("kingdoms", {"kingdoms": {KD_ID: "One", "3": "Three", TARGET_ID: "Target"}})
+    monkeypatch.setattr(conquer.random, "uniform", lambda a, b: a)  # every roll succeeds
+    response = client.post(
+        f"/api/spy/{TARGET_ID}",
+        json={"drones": 1000, "shielded": False, "operation": "spymilitary", "share_to_galaxy": True, "cut": cut},
+        headers={"Authorization": f"Bearer {jwt1}"},
+    )
+    assert response.status_code == 200, response.get_json()
+    market = _get("/galaxy/1/intel")
+    assert bool(market.get("listings")) is listed
+    assert (TARGET_ID in _get("/kingdom/3/revealed")["revealed"]) is not listed

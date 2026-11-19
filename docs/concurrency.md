@@ -61,7 +61,7 @@ Rules:
    overlapping tick finds it done.
 
 `occ.update` also takes `write_path` (for documents read and written at different routes, such as `GET /universevotes`
-and `PATCH /universepolitics`), `method="post"` (for `/kingdom/<id>/shared`) and `document` (see rule 5). With a
+and `PATCH /universepolitics`), `method` ("post" for a document written with POST) and `document` (see rule 5). With a
 `document`, if `decide` finds nothing to change in it, nothing is read or written, so pass one only where "nothing to
 change in what I read" is a good enough answer.
 
@@ -72,7 +72,7 @@ big an outcome is?**
 
 | Tier | Documents | How they are written |
 |---|---|---|
-| **Strict** | The documents holding what is at stake: the actor's and the target's kingdom, votes, empire membership, `shared` offers being accepted | Conditional writes with `occ.update`. Keep this set small: most actions have one strict document, an attack has two. |
+| **Strict** | The documents holding what is at stake: the actor's and the target's kingdom, votes, empire membership, a galaxy's intel market | Conditional writes with `occ.update`. Keep this set small: most actions have one strict document, an attack has two. |
 | **Eventual** | News, history, notifications, messages, `revealed`, pinned | Appends or merges applied by the function app to the newest version. Order does not matter. Timers on the kingdom that these depend on are only ever lowered (`_lower_timer` in `conquer.py` keeps the sooner time), which is safe in any order. |
 | **Derived** | `scores`, galaxy networth, empire aggregates | Actions never write them. The refresh recomputes them from the kingdom documents. |
 

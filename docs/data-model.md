@@ -23,7 +23,7 @@ Read the handler in `funcapp/function_app.py` before relying on one, but these a
 
 | Pattern | Routes | What the body does |
 |---|---|---|
-| **Shallow merge** | `PATCH /kingdom/<id>`, `/kingdoms`, `/scores`, `/empires`, `/galaxy/<id>/politics`, `/empire/<id>/politics`, `/universepolitics`, `/galaxy/<id>/intel`; `POST /kingdom/<id>/shared`; `/updatestate` (merges into the inner `state` object) | `{**document, **body}`. Top-level keys in the body replace the stored ones **entirely**. Sending `{"next_resolve": {"structures": t}}` replaces the whole `next_resolve` object with one key. Send the full nested object. |
+| **Shallow merge** | `PATCH /kingdom/<id>`, `/kingdoms`, `/scores`, `/empires`, `/galaxy/<id>/politics`, `/empire/<id>/politics`, `/universepolitics`, `/galaxy/<id>/intel`; `/updatestate` (merges into the inner `state` object) | `{**document, **body}`. Top-level keys in the body replace the stored ones **entirely**. Sending `{"next_resolve": {"structures": t}}` replaces the whole `next_resolve` object with one key. Send the full nested object. |
 | **Append or replace** | queues (`/settles`, `/mobis`, `/structures`, `/missiles`, `/engineers`) | `new_<field>` (a list of entries) is appended and the queue folded, see below; `<field>` replaces the list. |
 | | `/siphonsin`, `/siphonsout` | `new_siphons` (one item) is appended; `siphons` replaces the list. |
 | | `/revealed` | `new_revealed` is merged per target kingdom and stat, each stat keeping the later of the stored and the incoming expiry (so shared intel never shortens a reveal); `new_galaxies` is merged; `new_revealed_galaxymates` and `new_revealed_to_galaxymates` are appended. The same names without `new_` replace. |
@@ -44,7 +44,7 @@ name already taken (exactly the same name); `POST /empire` answers `409` if the 
 both answer `503` if the document stayed too busy to write.
 
 Routes that exist but do not work with the current documents, so do not call them: `PATCH /empire/<id>/news`,
-`PATCH /kingdom/<id>/shared`, `/sharedrequests` ([status.md](status.md#code-health)).
+`GET`, `POST` and `PATCH /kingdom/<id>/shared`, `/sharedrequests` (the old intel sharing; nothing reads `shared_<id>` any more, [status.md](status.md#code-health)).
 
 Every `update_*` handler is wrapped in `@retry_on_conflict`, so merges and appends land on the newest version and never
 lose each other. A caller that sends `If-Match: <_etag>` gets `412` if the document changed since it read it; `occ.update`
@@ -70,7 +70,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `galaxy_news_<galaxy>` | `news`: list | actions affecting the galaxy | eventual |
 | `galaxy_votes_<galaxy>` | `votes` (`policy_1`, `policy_2`, `leader`), `active_policies`, `leader`, `policy_1_winner`, `policy_2_winner`, `empire_invitations`, `empire_join_requests` | galaxy politics routes, empire routes | strict |
 | `empire_politics_<empire>` | `empire_invitations`, `empire_join_requests`, `surrender_offers_sent`, `surrender_offers_received`, `surrender_requests_sent`, `surrender_requests_received`, `leader` | empire politics routes | strict |
-| `galaxy_intel_<galaxy>` | The galaxy's intel market. Every field belongs to Flask; `GET /galaxy/<id>/intel` creates the document as `{"id": ...}` the first time it is read, so it needs no backfill | nothing yet | strict: every change is decided on it with `If-Match` |
+| `galaxy_intel_<galaxy>` | The galaxy's intel market, see [below](#the-intel-market). `GET /galaxy/<id>/intel` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `intel.py` (every intel action) | strict: every change is decided on it with `occ.update` |
 | `empire_news_<empire>` | `news`: list | nothing yet: it is created empty and read, but never written | eventual |
 
 ## Per-kingdom documents
@@ -83,11 +83,11 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `siphons_in_<id>` | `siphons_in`: payments to this kingdom from its siphons, waiting for its next refresh | eventual: appended by the target's refresh, cleared by this kingdom's |
 | `news_<id>` | `news`: list of `{time, from, to, news, kind}` (`kind` is `attack`, `spy`, `missiles`, `intel` or missing on old items) | eventual |
 | `revealed_<id>` | `revealed`: kd id to stat to expiry time; `galaxies`: galaxy id to expiry; `revealed_galaxymates`, `revealed_to_galaxymates` | eventual. The kingdom's `next_resolve.revealed` timer is lowered to the soonest expiry (`_lower_timer` in `conquer.py`) so the refresh expires them on time. |
-| `shared_<id>` | `shared`, `shared_requests`, `shared_offers`: intel shared with, requested from and offered by this kingdom | strict for accepting offers |
+| `shared_<id>` | The old intel sharing. Still created empty by `POST /kingdom`, but nothing reads or writes it | none |
 | `pinned_<id>` | `pinned`: list of kd ids | eventual |
 | `spy_history_<id>`, `attack_history_<id>`, `missile_history_<id>` | Lists of past operations | eventual |
 | `messages_<id>` | `messages`: list | eventual |
-| `notifs_<id>` | Counters: `news_kingdom`, `news_galaxy`, `messages`, `shared` | eventual |
+| `notifs_<id>` | Counters: `news_kingdom`, `news_galaxy`, `messages`, `shared` (intel market events for this kingdom: a sale, a bounty answered, free intel received) | eventual |
 | `history_<id>` | `history`: series of `networth`, `stars`, `population`, `drones`, `engineers`, `max_offense`, `max_defense` | eventual, written by the refresh once an epoch |
 
 The tiers are explained in [concurrency.md](concurrency.md#which-documents-need-strict-handling). In short: **strict**
@@ -112,6 +112,24 @@ or have nothing left. Each payment is appended to the siphoner's `siphons_in` as
 remaining_siphon}`: `from` is the target, `siphon` the money paid, and `time` and `remaining_siphon` say when the
 siphon ends and what it still has to take. The siphoner's next refresh credits the payments and clears them.
 
+### The intel market
+
+`galaxy_intel_<galaxy>` is the one decision point of every intel action (`intel.py`): listing, buying, sharing free,
+posting, withdrawing or answering a bounty, and exclusions. Nothing in it is on a timer: expired entries are ignored when
+it is read and dropped whenever it is next written. Cuts are fractions.
+
+| Key | Holds |
+|---|---|
+| `listings` | Listing id (`<seller>.<target>.<category>`) to `{id, seller, target, category, cut, time, listed_at}`. One per seller, target and category; listing again replaces it. `time` is when the seller's reveal, and so the listing, ends. Buying does not remove it. |
+| `bounties` | Bounty id (`<requester>.<target>.<category>`) to `{id, requester, target, category, cut, time, posted_at}`. `time` is when it expires. Answering it removes it. |
+| `accepted` | Buyer to target to category to `{sharer, cut, time, source, accepted_at}`: intel the buyer received and owes a cut for until `time`. `source` is `market`, `bounty` or `free` (cut 0). An attack pays each sharer the cuts of its records on that target. |
+| `received` | Receiver to target to category to the time until which it has that intel from galaxymates: the latest of everything bought, given for a bounty, or shared free. Intel received can not be passed on (listed, shared, or used for a bounty) until then. Kept apart from `accepted` because free intel that outlasts paid intel leaves the paid record in place. |
+| `exclusions` | Kingdom to the galaxymates it keeps its intel from: they do not see its listings or bounties, can not buy or answer them, and get nothing from its free shares |
+| `history` | The newest 50 of `{kind, time, from, to, target, category, cut}`; `kind` is `purchase`, `bounty` or `free` (`to` is null: the whole galaxy) |
+
+Ids are never parsed: every entry carries its own fields. An action that gives intel then appends it to the receiver's
+`revealed` (keeping the later expiry) and lowers their `next_resolve.revealed`, so the refresh expires it on time.
+
 ## The kingdom document
 
 Created from `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`, which has the starting values.
@@ -123,7 +141,7 @@ Created from `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`, which has the st
 | `stars`, `fuel`, `population`, `money`, `drones`, `networth`, `votes` | Resources and totals |
 | `last_income` | When income was last credited |
 | `income` | The last income breakdown, for display |
-| `next_resolve` | Per category, when the refresh next has work: `generals`, `spy_attempt`, `settles`, `mobis`, `missiles`, `engineers`, `structures`, `revealed`, `shared`, `auto_spending`, and `galaxies_revealed` (only on kingdoms with Lumina Evolution: when to renew its reveal of every galaxy) |
+| `next_resolve` | Per category, when the refresh next has work: `generals`, `spy_attempt`, `settles`, `mobis`, `missiles`, `engineers`, `structures`, `revealed`, `auto_spending`, and `galaxies_revealed` (only on kingdoms with Lumina Evolution: when to renew its reveal of every galaxy). Kingdoms made before the intel market also have `shared`, which their next refresh sets to never |
 | `spy_attempts` | Spy operations available now |
 | `generals_available`, `generals_out` | Generals home, and those on an attack with their return time and units |
 | `units` | Units at home, one count per key of `UNITS` (including `recruits` and `engineers`) |

@@ -88,12 +88,12 @@
     }
 }
 
-.share-intel-modal {
+.intel-modal {
     width: 100%;
     max-width: none;
 }
 @media (min-width: 756px) {
-    .share-intel-modal {
+    .intel-modal {
         width: 80%;
         min-width: 750px;
     }

@@ -19,7 +19,7 @@ import BuildMissiles from "./build/buildmissiles.js";
 import Conquer from "./conquer/conquer.js";
 import Attack from "./conquer/attack.js";
 import Spy from "./conquer/spy.js";
-import ShareIntel from "./conquer/shareintel.js";
+import Intel from "./conquer/intel.js";
 import LaunchMissiles from "./conquer/launchmissiles.js";
 import Schedule from "./conquer/schedule.js";
 import Primitives from "./conquer/primitives.js";
@@ -35,7 +35,7 @@ const TOPICS = [
     ["Start here", [["guide", "Guide", Guide]]],
     ["Home", [["home", "Status", Home], ["news", "News", News], ["galaxy", "Galaxy", Galaxy], ["message", "Message", Message], ["history", "History", History], ["scores", "Scores", Scores]]],
     ["Build", [["build", "Overview", Build], ["settle", "Settle", Settle], ["structures", "Structures", Structures], ["military", "Military", Military], ["projects", "Projects", Projects], ["buildmissiles", "Build Missiles", BuildMissiles]]],
-    ["Conquer", [["conquer", "Overview", Conquer], ["attack", "Attack", Attack], ["spy", "Spy", Spy], ["shareintel", "Share Intel", ShareIntel], ["launchmissiles", "Launch Missiles", LaunchMissiles], ["schedule", "Schedule", Schedule], ["primitives", "Primitives", Primitives]]],
+    ["Conquer", [["conquer", "Overview", Conquer], ["attack", "Attack", Attack], ["spy", "Spy", Spy], ["intel", "Intel", Intel], ["launchmissiles", "Launch Missiles", LaunchMissiles], ["schedule", "Schedule", Schedule], ["primitives", "Primitives", Primitives]]],
     ["Politics", [["politics", "Galaxy Politics", Politics], ["empirepolitics", "Empire Politics", EmpirePolitics], ["universepolitics", "Universe Politics", UniversePolitics]]],
     ["Other", [["createkingdom", "Create Kingdom", CreateKingdom], ["viewkingdom", "View Kingdom", ViewKingdom]]],
 ];
