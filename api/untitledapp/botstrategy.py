@@ -389,11 +389,13 @@ def projects_plan(kd, weights, key_projects, key_share, growth_per_epoch=0.012):
     if engineers <= 0:
         return assigned
     completed = kd.get("completed_projects", [])
-    key = next((project for project in key_projects if project not in completed), None)
+    # Only projects engineers can work on now: not another race's, and not one whose required projects are not done.
+    workable = lambda project: uas.project_locked_reason(kd, project) is None
+    key = next((project for project in key_projects if project not in completed and workable(project)), None)
     needs = {}
     for project in CONTINUOUS_PROJECTS:
         weight = weights.get(project, 0)
-        if weight <= 0 or (project == "spy_bonus" and "drone_gadgets" not in completed):
+        if weight <= 0 or not workable(project):
             continue
         cap = kd["projects_max_points"][project]
         gap = max(cap - kd["projects_points"][project], 0)

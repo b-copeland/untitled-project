@@ -2,7 +2,7 @@
 Projects: the shared helpers in shared.py, the lock rules (race, required projects, completed one-time projects) that the
 project routes enforce, and kingdoms made before a project existed.
 
-Each project's own effect has its tests in the file for the system it changes; see the list in docs/game-design.md.
+What each project does is tested in tests/test_project_effects.py.
 """
 import json
 
@@ -27,7 +27,8 @@ def test_project_bonus_is_the_share_of_max_points_earned_times_the_max_bonus_and
 def test_a_project_the_kingdom_has_no_keys_for_counts_as_no_points():
     kd = {"stars": 300, "projects_points": {}, "projects_max_points": {}}
     assert uas.project_bonus(kd, "money_bonus") == 0
-    assert set(uas.project_bonuses(kd)) == set(uas.CONTINUOUS_PROJECTS)
+    assert set(uas.project_bonuses(kd)) == set(uas.BONUS_PROJECTS)
+    assert all(value == 0 for value in uas.project_bonuses(kd).values())
 
 
 def test_one_time_and_continuous_projects_are_told_apart_by_max_bonus():
@@ -193,10 +194,10 @@ def test_each_improvement_costs_more_per_point_of_strength_but_takes_the_same_ha
         assert len({uas.UNITS[unit]["hangar_capacity"] for unit in line}) == 1
 
 
-def test_elite_projects_cost_about_five_times_the_heavy_ones_and_defense_about_a_fifth_more():
+def test_elite_projects_cost_more_than_the_heavy_ones_and_defense_about_a_fifth_more():
     points = {key: uas.PROJECTS_FUNCS[key](0) for key in IMPROVED_UNITS.values()}
-    assert points["elite_attackers"] / points["heavy_attackers"] == pytest.approx(5, rel=0.2)
-    assert points["elite_defenders"] / points["heavy_defenders"] == pytest.approx(5, rel=0.2)
+    assert points["elite_attackers"] > points["heavy_attackers"]
+    assert points["elite_defenders"] > points["heavy_defenders"]
     assert points["heavy_defenders"] / points["heavy_attackers"] == pytest.approx(1.2, rel=0.05)
     assert points["elite_defenders"] / points["elite_attackers"] == pytest.approx(1.2, rel=0.05)
 

@@ -272,3 +272,19 @@ def test_homes_hold_the_people_a_steady_stream_of_recruits_needs():
     # Engineers draw on their own cap, so the larger need sets the homes.
     assert strategy.homes_for_people(0, 10) == pytest.approx(10 * 12 / 0.05 / 50)
     assert strategy.homes_for_people(100, 10) == strategy.homes_for_people(100, 0)
+
+
+def test_a_bonus_locked_behind_a_project_gets_no_engineers_until_it_is_done():
+    kd = kingdom(stars=2000)
+    kd["projects_max_points"] = {key: uas.PROJECTS_FUNCS[key](2000) for key in uas.PROJECTS}
+    weights = {**WEIGHTS, "general_bonus": 1.0}
+    assert strategy.projects_plan(kd, weights, ("casualties_bonus",), 0.5)["general_bonus"] == 0
+    kd["completed_projects"] = ["casualties_bonus"]
+    assert strategy.projects_plan(kd, weights, ("casualties_bonus",), 0.5)["general_bonus"] > 0
+
+
+def test_a_key_project_of_another_race_is_skipped_for_the_next_one():
+    kd = kingdom()
+    assert kd["race"] != "Fuzi"
+    assigned = strategy.projects_plan(kd, WEIGHTS, ("fuzi_capstone", "big_flexers"), 0.2)
+    assert assigned["fuzi_capstone"] == 0 and assigned["big_flexers"] > 0

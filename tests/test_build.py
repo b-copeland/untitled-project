@@ -37,3 +37,10 @@ def test__make_time_splits():
     
     twelve_splits = app_build._make_time_splits(1, 23, 12)
     assert twelve_splits == [13.0, 11.0, 15.0, 9.0, 17.0, 7.0, 19.0, 5.0, 21.0, 3.0, 23.0, 1.0]
+
+
+def test_engineers_can_not_be_disbanded():
+    kd_info = {"units": {"attack": 10, "engineers": 5}}
+    assert app_build._validate_disband(kd_info, {"engineers": 1}) == (False, "You can't disband engineers")
+    assert app_build._validate_disband(kd_info, {"attack": 3, "engineers": 1}) == (False, "You can't disband engineers")
+    assert app_build._validate_disband(kd_info, {"attack": 3}) == (True, "")

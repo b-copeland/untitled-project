@@ -1,4 +1,5 @@
 import { displayPercentOrNothing as displayPercent } from "../format";
+import { inOrder, entriesInOrder } from "../order";
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -103,7 +104,7 @@ function Kingdom(props) {
                     <span className="text-box-item-value">{props.kingdom?.spy_attempts?.toLocaleString()}</span>
                 </div>
                 <br />
-                {Object.keys(props.state?.units || props.kingdom?.units || {})
+                {inOrder(Object.keys(props.state?.units || props.kingdom?.units || {}), props.state?.order?.units)
                     .filter((key) => key !== "engineers" && (!props.state?.units?.[key]?.project || props.kingdom?.units?.[key]))
                     .map((key) => (
                         <div className="text-box-item" key={key}>
@@ -144,7 +145,7 @@ function Military(props) {
     const units = props.kingdom?.units;
     const generals = props.kingdom?.generals_out || [];
     // Every unit the game has (in the server's order), shown when this kingdom has some or the units are revealed.
-    const unitKeys = Object.keys(props.state?.units || units || {}).filter((key) => key !== "engineers");
+    const unitKeys = inOrder(Object.keys(props.state?.units || units || {}), props.state?.order?.units).filter((key) => key !== "engineers");
     const label = (key) => props.state?.pretty_names?.[key] || key;
     const count = (value) => (value ? value.toLocaleString() : null);
     return (
@@ -243,7 +244,7 @@ function Projects(props) {
     }
     const projects = props.state?.projects || Object.fromEntries(Object.keys(kingdom.projects_points || {}).map((key) => [key, { name: key }]));
     const completed = kingdom.completed_projects || [];
-    const rows = Object.entries(projects)
+    const rows = entriesInOrder(projects, props.state?.order?.projects)
         .filter(([, project]) => !project.race || project.race === kingdom.race)
         .map(([key, project]) => ({ key, ...project }));
     const continuous = rows.filter((row) => row.max_bonus !== undefined);

@@ -94,8 +94,6 @@ See [bots.md](bots.md) for what bots do not do yet and the open questions.
 
 Found by simulating rounds (2026-11-15), not changed because they are rules or balance:
 
-- The `pop_bonus` project has no effect: no formula reads it.
-- `_validate_disband` (`build.py`) does not refuse engineers: it builds the message and drops it.
 - An attack always takes at least `BASE_ATTACK_MIN_STARS_GAIN` stars, so a small kingdom can be ground down to nothing.
 - Details, and what else the simulations show, in
   [bots.md](bots.md#what-the-simulations-say-about-the-game-for-the-maintainer).

@@ -473,3 +473,8 @@ def test_listings_made_at_the_same_moment_are_all_kept(app):
 
     assert _run_together(app, 3, share) == [200, 200, 200]
     assert set(_stored()["listings"]) == {uai.listing_id(kd, TARGET, "military") for kd in sellers}
+
+
+def test_full_infiltration_is_not_a_kind_of_intel():
+    assert "all" not in uai.CATEGORIES
+    assert set(uai.CATEGORIES) == set(uas.REVEAL_OPERATION_STATS["spyall"])

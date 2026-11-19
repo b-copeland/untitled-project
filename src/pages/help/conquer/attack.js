@@ -44,7 +44,8 @@ function Attack(props) {
             <p>
                 To make an attack, you must send at least 1 general. Each general beyond the first will increase your offensive strength
                 by {displayPercent(props.state.game_config?.BASE_GENERALS_ATTACK_MODIFIER)}. Sending more generals allows some of your 
-                units to return quicker; your attacking units will be equally split across the returning generals. The base return time 
+                units to return quicker; your attacking units will be equally split across the returning generals (with the Warp Speed
+                project, every big flexer comes home with the first general). The base return time 
                 for generals is {props.state.game_config?.BASE_GENERALS_RETURN_TIME_MULTIPLIER * props.state.game_config?.BASE_EPOCH_SECONDS / 3600} hours.
             </p>
             <p>
@@ -52,6 +53,11 @@ function Attack(props) {
                 Coordinates range from 0 to 99 in a loop (i.e. 99 is 1 distance from 0). Your return times will be increased
                 by {displayPercent(props.state.game_config?.BASE_RETURN_TIME_PENALTY_PER_COORDINATE)} per distance for distances beyond 25, or 
                 reduced by {displayPercent(props.state.game_config?.BASE_RETURN_TIME_PENALTY_PER_COORDINATE)} per distance for distances under 25.
+            </p>
+            <p>
+                Unit losses are changed by races, war and projects: Self-Destructing Attackers raise the losses of the
+                kingdoms you attack, and Self-Destructing Defenders raise the losses of kingdoms that attack you. The
+                forecast uses what you know of the target, so a target whose projects are not revealed may cost more.
             </p>
             <p>
                 Other attack info:

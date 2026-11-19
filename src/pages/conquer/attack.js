@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { inOrder, entriesInOrder } from "../../order";
 import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
@@ -24,11 +25,11 @@ const noDefender = { military_bonus: "", shields: "" };
 const noAttacker = { generals: "", buffer: "1.0" };
 
 /** The units that can attack (any offense) and those that defend (any defense), as [key, name], in the server's order. */
-export function attackUnits(unitsDesc, names = {}) {
-    return Object.entries(unitsDesc || {}).filter(([, unit]) => unit.offense > 0).map(([key]) => [key, names[key] || key]);
+export function attackUnits(unitsDesc, names = {}, order) {
+    return entriesInOrder(unitsDesc, order).filter(([, unit]) => unit.offense > 0).map(([key]) => [key, names[key] || key]);
 }
-export function defenderUnits(unitsDesc, names = {}) {
-    return Object.entries(unitsDesc || {}).filter(([, unit]) => unit.defense > 0).map(([key]) => [key, names[key] || key]);
+export function defenderUnits(unitsDesc, names = {}, order) {
+    return entriesInOrder(unitsDesc, order).filter(([, unit]) => unit.defense > 0).map(([key]) => [key, names[key] || key]);
 }
 
 const whole = (value) => Math.floor(value || 0).toLocaleString();
@@ -66,8 +67,9 @@ function Attack(props) {
     const unitsDesc = props.data.mobis?.units_desc || {};
     const myUnits = kingdom.units || {};
     const names = props.data.state?.pretty_names || {};
-    const ATTACK_UNITS = attackUnits(unitsDesc, names);
-    const DEFENDER_UNITS = defenderUnits(unitsDesc, names);
+    const unitOrder = props.data.state?.order?.units;
+    const ATTACK_UNITS = attackUnits(unitsDesc, names, unitOrder);
+    const DEFENDER_UNITS = defenderUnits(unitsDesc, names, unitOrder);
 
     const sending = ATTACK_UNITS.reduce((sum, [key]) => sum + (parseInt(attackerValues[key], 10) || 0), 0);
     const generals = parseInt(attackerValues.generals, 10) || 0;
@@ -273,7 +275,7 @@ function Attack(props) {
                         <table className="planner-table table table-sm">
                             <thead><tr><th>Units lost</th><th>You</th><th>Them</th></tr></thead>
                             <tbody>
-                                {Object.keys(unitsDesc).map((key) => [key, names[key] || key]).map(([key, name]) => {
+                                {inOrder(Object.keys(unitsDesc), unitOrder).map((key) => [key, names[key] || key]).map(([key, name]) => {
                                     const yours = forecast.attacker_losses?.[key];
                                     const theirs = forecast.defender_losses?.[key];
                                     return (yours || theirs)

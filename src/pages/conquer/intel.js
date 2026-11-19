@@ -46,7 +46,8 @@ const kdLabel = (data, kdId) => `${kdName(data, kdId)} (${data.galaxies_inverted
 const myKd = (data) => String(data.kingdomid?.kd_id ?? data.kingdom?.kdId ?? "");
 const myGalaxymates = (data) => (data.galaxies?.[data.galaxies_inverted?.[myKd(data)]] || []).map(String);
 const forTarget = (items, target) => (target === undefined ? items : items.filter((item) => String(item.target) === String(target)));
-const categoriesOf = (data) => (data.state?.reveal_operations || []).map((operation) => operation.replace(/^spy/, ""));
+// Full Infiltration reveals every kind at once; it is not a kind of its own.
+const categoriesOf = (data) => (data.state?.reveal_operations || []).filter((operation) => operation !== "spyall").map((operation) => operation.replace(/^spy/, ""));
 const sameTarget = (item, target) => String(item.target) === String(target);
 /** The longest a bounty stays up, in hours (players are not shown epochs). */
 const bountyMaxHours = (data) => (config(data).BASE_INTEL_BOUNTY_MAX_EPOCHS || 0) * (config(data).BASE_EPOCH_SECONDS || 0) / 3600;
