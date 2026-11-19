@@ -41,7 +41,8 @@ building.
 |---|---|
 | Universe | Everyone in the round. Universe politics: policies voted on by all players; votes are bought with money. |
 | Empire | A group of galaxies. Empire politics: invitations, join requests, war, peace, denouncing, surrender. A galaxy can not join if the empire would then hold more than `EMPIRE_MAX_KINGDOMS_SHARE` of the kingdoms or `EMPIRE_MAX_NETWORTH_SHARE` of the networth (two galaxies always may). |
-| Galaxy | A team of kingdoms (the design notes call it a sector). Has a leader and galaxy policies chosen by vote. Ids look like `1:3`. |
+| Cluster | A fixed group of galaxies, set when the galaxies are made (`CLUSTER_SIZE` of them, in order) and never changed; not an empire, whose galaxies choose to join. Galaxy `2:3` is in cluster 2. Cluster politics: each galaxy's leader casts the galaxy's vote for a benefit every kingdom in the cluster gets; voted benefits grow, with diminishing returns, and every benefit fades on its own. The galaxies of a cluster may belong to different empires; the share in its largest empire is its alignment. |
+| Galaxy | A team of kingdoms (the design notes call it a sector). Has a leader and galaxy policies chosen by vote. Ids look like `1:3`: cluster 1, galaxy 3. |
 | Kingdom | One player's state. Ids are strings of integers (`"7"`). |
 | Epoch | The unit of game time, `BASE_EPOCH_SECONDS` (30 minutes). Durations are written as multiples of it. |
 | Stars | Land. Most costs and capacities scale with stars. |
@@ -93,6 +94,7 @@ building.
 | Sharing your own kingdom with galaxymates | `misc.py` (`/api/share/<kingdom>`, `/api/unshare/<kingdom>`) | | `src/pages/help/other/viewkingdom.js` |
 | Schedule | `conquer.py` (`/api/schedule`), `refresh._resolve_schedules` | | `src/pages/help/conquer/schedule.js` |
 | Politics | `politics.py`, `refresh._begin_election`, `_resolve_election` | `GALAXY_POLICIES`, `UNIVERSE_POLICIES`, `BASE_VOTES_COST`, `AGGRO_*`, `DENOUNCE_*`, `PEACE_*`, `WAR_*` | `src/pages/help/politics/*.js` |
+| Cluster politics | `clusters.py`, `refresh._resolve_clusters` | `CLUSTER_BENEFITS`, `CLUSTER_*` | `src/pages/help/politics/*.js` |
 | Scores and history | `refresh._resolve_scores`, `_update_history` | `NETWORTH_VALUES`, `NETWORTH_POINTS` | `src/pages/help/home/scores.js` |
 | Races | spread through the formulas (search the race name) | `GAIAN_*`, `VULT_*`, `LUMINA_*`, `XO_*`, `FUZI_*` | `src/pages/help/other/createkingdom.js` |
 | Bots and quick starts | `bots.py` (archetypes), `botstrategy.py` (sums), `botbrain.py` (decisions) | `TUNE` values in `bots.py` and `botbrain.py` | [bots.md](bots.md) |

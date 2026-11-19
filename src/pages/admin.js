@@ -25,6 +25,7 @@ function Admin(props) {
   const [numGalaxies, setNumGalaxies] = useState('');
   const [maxGalaxySize, setMaxGalaxySize] = useState('');
   const [avgSizeNewGalaxy, setAvgSizeNewGalaxy] = useState('');
+  const [clusterSize, setClusterSize] = useState('');
   const [createMessage, setCreateMessage] = useState('');
   const [updateMessage, setUpdateMessage] = useState('');
   const [resetMessage, setResetMessage] = useState('');
@@ -80,7 +81,8 @@ function Admin(props) {
     let opts = {
         "num_galaxies": numGalaxies,
         "max_galaxy_size": maxGalaxySize,
-        "avg_size_new_galaxy": avgSizeNewGalaxy
+        "avg_size_new_galaxy": avgSizeNewGalaxy,
+        "cluster_size": clusterSize || null,
     }
     adminAuth.authFetch('api/createstate', {
         method: 'POST',
@@ -252,8 +254,16 @@ function Admin(props) {
                 className="avg-size-new-galaxy-form"
                 id="avg-size-new-galaxy-input"
                 onChange={handleAvgSizeNewGalaxyChange}
-                value={avgSizeNewGalaxy || ""} 
+                value={avgSizeNewGalaxy || ""}
                 placeholder=""
+            />
+            <h3>Galaxies per Cluster</h3>
+            <Form.Control
+                className="cluster-size-form"
+                id="cluster-size-input"
+                onChange={(e) => setClusterSize(e.target.value)}
+                value={clusterSize || ""}
+                placeholder="Default"
             />
             <Button onClick={() => {setShowCreate(true)}}>Create State</Button>
             <h2>{createMessage}</h2>

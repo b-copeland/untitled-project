@@ -2230,3 +2230,44 @@ def update_galaxy_intel(req: func.HttpRequest) -> func.HttpResponse:
     except CosmosAccessConditionFailedError:
         return func.HttpResponse("Conflict", status_code=412)
     return func.HttpResponse("Galaxy intel updated", status_code=200)
+
+
+# --- cluster_<cluster>: a cluster's politics ---------------------------------------------------------------------
+# One document per cluster (the galaxies whose ids start "<cluster>:"). Flask owns every field (votes, benefit levels,
+# alignment, last_update) and decides every change with If-Match, so this layer only reads, creates and merges.
+
+CLUSTER_PREFIX = "cluster_"
+
+
+@APP.function_name(name="GetCluster")
+@APP.route(route="cluster/{cluster_id}", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_cluster(req: func.HttpRequest) -> func.HttpResponse:
+    """The cluster's document. Created empty (``{"id": ...}``) the first time it is read, so it always exists."""
+    item_id = f"{CLUSTER_PREFIX}{req.route_params.get('cluster_id')}"
+    document = _read_or_none(item_id)
+    if document is None:
+        try:
+            document = CONTAINER.create_item({"id": item_id})
+        except CosmosResourceExistsError:  # another request created it first
+            document = CONTAINER.read_item(item=item_id, partition_key=item_id)
+    return _json_response(document)
+
+
+@APP.function_name(name="UpdateCluster")
+@APP.route(route="cluster/{cluster_id}", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
+def update_cluster(req: func.HttpRequest) -> func.HttpResponse:
+    """Shallow merge into ``cluster_<cluster>``. Honours If-Match (412): Flask decides every change with it."""
+    item_id = f"{CLUSTER_PREFIX}{req.route_params.get('cluster_id')}"
+    body = req.get_json()
+    if not isinstance(body, dict):
+        return func.HttpResponse("The body must be an object", status_code=400)
+    document = _read_or_none(item_id)
+    if document is None:
+        return func.HttpResponse("No such cluster document", status_code=404)
+    changes = {key: value for key, value in body.items() if key != "id"}
+    try:
+        CONTAINER.replace_item(item_id, {**document, **changes})
+    except CosmosAccessConditionFailedError:
+        return func.HttpResponse("Conflict", status_code=412)
+    return func.HttpResponse("Cluster updated", status_code=200)

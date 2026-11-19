@@ -11,6 +11,7 @@ the other docs; they are not instructions themselves. Read one before arguing to
 | [0004](0004-users-in-cosmos.md) | Users move from SQLite to Cosmos documents behind the function app |
 | [0005](0005-kingdom-in-the-token.md) | The kingdom id travels in the login token, so game requests stop reading the user document |
 | [0006](0006-bots-plan-by-rules.md) | Bots plan by rules a player could follow, computed from the game's own formulas |
+| [0007](0007-cluster-politics.md) | Cluster politics: one document per cluster, levels computed on read, membership from the galaxy id |
 
 To add one: copy the shape below into the next number, and link it from this table.
 

@@ -331,6 +331,12 @@ GAME_CONFIG = {
     "BASE_FREE_TRADE_INCREASE": 0.1,
     "BASE_ISOLATIONIST_DECREASE": 0.1,
 
+    # Cluster politics (clusters.py). Placeholders: the framework is in, the balance is not.
+    "CLUSTER_SIZE": 5,  # galaxies per cluster when /api/createstate makes them
+    "CLUSTER_REF_SIZE": 5,  # a cluster of this many galaxies gains exactly CLUSTER_VOTE_RATE per vote
+    "CLUSTER_VOTE_RATE": 0.005,  # per galaxy vote per epoch, as a fraction of the benefit's max
+    "CLUSTER_DECAY_RATE": 0.005,  # per epoch, as a fraction of the benefit's max, voted for or not
+
     "NETWORTH_VALUES": {
         "stars": 25,
         "structures": 25,
@@ -1114,6 +1120,33 @@ GALAXY_POLICIES = {
                 "desc": "You protect your kingdoms through mandatory military enlistment. Your galaxy's recruits are trained 20% faster"
             }
         }
+    },
+}
+
+# What a cluster's galaxy leaders can vote to build up (clusters.py). Each benefit's level runs from 0 to ``max``;
+# ``thresholds`` are ``(level as a fraction of max, how effective votes are from there up)``, so votes add less the
+# higher the level gets. ``effect`` names the hook in the game that reads it (``clusters.modifiers``). Placeholders.
+CLUSTER_BENEFITS = {
+    "drone_production": {
+        "name": "Drone Production",
+        "desc": "Drone factories in the cluster produce more drones",
+        "max": 0.15,
+        "thresholds": [(1 / 3, 0.8), (2 / 3, 0.6)],
+        "effect": "drone_production",
+    },
+    "unit_cost": {
+        "name": "Cheaper Units",
+        "desc": "Military units in the cluster cost less",
+        "max": 0.05,
+        "thresholds": [(0.5, 0.8)],
+        "effect": "unit_cost",
+    },
+    "settle_cost": {
+        "name": "Cheaper Settling",
+        "desc": "Settling new stars in the cluster costs less",
+        "max": 0.10,
+        "thresholds": [(0.5, 0.8)],
+        "effect": "settle_cost",
     },
 }
 
