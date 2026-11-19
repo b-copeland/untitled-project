@@ -1681,6 +1681,22 @@ def get_revealed(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
         
+def _later(stored, incoming):
+    """The later of two ISO times (``stored`` may be missing). Compared as datetimes: the strings may differ in form."""
+    if stored is None:
+        return incoming
+    try:
+        stored_time = datetime.datetime.fromisoformat(stored)
+        incoming_time = datetime.datetime.fromisoformat(incoming)
+        if stored_time.tzinfo is None:
+            stored_time = stored_time.replace(tzinfo=datetime.timezone.utc)
+        if incoming_time.tzinfo is None:
+            incoming_time = incoming_time.replace(tzinfo=datetime.timezone.utc)
+    except (TypeError, ValueError):
+        return incoming
+    return stored if stored_time > incoming_time else incoming
+
+
 @APP.function_name(name="UpdateRevealed")
 @APP.route(route="kingdom/{kdId:int}/revealed", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
 @retry_on_conflict
@@ -1703,13 +1719,14 @@ def update_revealed(req: func.HttpRequest) -> func.HttpResponse:
     )
     try:
         if new_revealed:
+            # Each stat keeps the later of the stored and the incoming expiry, so intel shared by a galaxymate can never
+            # cut short a reveal the kingdom already has.
             current_revealed = revealed_info["revealed"]
             for kd_id, revealed_dict in new_revealed.items():
-                kd_revealed = current_revealed.get(kd_id, {})
-                current_revealed[kd_id] = {
-                    **kd_revealed,
-                    **revealed_dict,
-                }
+                kd_revealed = dict(current_revealed.get(kd_id, {}))
+                for stat, expiry in revealed_dict.items():
+                    kd_revealed[stat] = _later(kd_revealed.get(stat), expiry)
+                current_revealed[kd_id] = kd_revealed
             revealed_info["revealed"] = current_revealed
         if new_galaxies:
             revealed_info["galaxies"] = {
@@ -2284,3 +2301,44 @@ def get_users(req: func.HttpRequest) -> func.HttpResponse:
     ))
     users.sort(key=lambda user: user["id_number"])
     return _json_response({"users": users})
+
+
+# --- galaxy_intel_<galaxy>: the galaxy's intel market ------------------------------------------------------------
+# One document per galaxy. Flask owns every field in it (listings, bounties, accepted intel, exclusions, history) and
+# decides every change against it with If-Match, so this layer only reads it, creates it, and merges into it.
+
+GALAXY_INTEL_PREFIX = "galaxy_intel_"
+
+
+@APP.function_name(name="GetGalaxyIntel")
+@APP.route(route="galaxy/{galaxy_id}/intel", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_galaxy_intel(req: func.HttpRequest) -> func.HttpResponse:
+    """The galaxy's intel document. Created empty (``{"id": ...}``) the first time it is read, so it always exists."""
+    item_id = f"{GALAXY_INTEL_PREFIX}{req.route_params.get('galaxy_id')}"
+    document = _read_or_none(item_id)
+    if document is None:
+        try:
+            document = CONTAINER.create_item({"id": item_id})
+        except CosmosResourceExistsError:  # another request created it first
+            document = CONTAINER.read_item(item=item_id, partition_key=item_id)
+    return _json_response(document)
+
+
+@APP.function_name(name="UpdateGalaxyIntel")
+@APP.route(route="galaxy/{galaxy_id}/intel", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
+def update_galaxy_intel(req: func.HttpRequest) -> func.HttpResponse:
+    """Shallow merge into ``galaxy_intel_<galaxy>``. Honours If-Match (412): Flask decides every change with it."""
+    item_id = f"{GALAXY_INTEL_PREFIX}{req.route_params.get('galaxy_id')}"
+    body = req.get_json()
+    if not isinstance(body, dict):
+        return func.HttpResponse("The body must be an object", status_code=400)
+    document = _read_or_none(item_id)
+    if document is None:
+        return func.HttpResponse("No such galaxy intel document", status_code=404)
+    changes = {key: value for key, value in body.items() if key != "id"}
+    try:
+        CONTAINER.replace_item(item_id, {**document, **changes})
+    except CosmosAccessConditionFailedError:
+        return func.HttpResponse("Conflict", status_code=412)
+    return func.HttpResponse("Galaxy intel updated", status_code=200)
