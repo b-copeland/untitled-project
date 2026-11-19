@@ -1,11 +1,15 @@
 """Cluster politics (clusters.py): the level math, the leader's vote, the read view and the refresh's alignment sync."""
+import copy
 import datetime
 
 import pytest
 
 import untitledapp.admin as admin
 import untitledapp.clusters as clusters
+import untitledapp.getters as getters
+import untitledapp.refresh as refresh
 import untitledapp.shared as uas
+from tests import kingdoms
 from tests.test_concurrency import KD_ID, _create_item, _get, _run_together, _set_up_kingdom  # noqa: F401
 from tests.test_politics import _auth, _galaxy_politics
 
@@ -196,6 +200,81 @@ def test_the_view_tells_a_non_leader_they_are_not(app, client, jwt2):
     _cluster_of_two_galaxies(leader2="")
     view = client.get("/api/cluster", headers=_auth(jwt2)).get_json()
     assert view["is_leader"] is False
+
+
+# --- what the benefits do --------------------------------------------------------------------------------------------
+
+def test_the_unit_discount_lowers_every_unit_cost():
+    state = {"state": {"active_policies": []}}
+    plain = getters._get_units_adjusted_costs(state)
+    cheaper = getters._get_units_adjusted_costs(state, {"unit_cost": 0.05})
+    for unit, desc in plain.items():
+        if "cost" in desc:
+            assert cheaper[unit]["cost"] == pytest.approx(desc["cost"] * 0.95)
+
+
+def test_the_settle_discount_lowers_the_settle_price():
+    kd = kingdoms.kingdom()
+    base = uas.GAME_FUNCS["BASE_SETTLE_COST"](int(kd["stars"]))
+    assert (getters._get_settle_price(kd, False) - getters._get_settle_price(kd, False, 0.1)) == pytest.approx(base * 0.1)
+
+
+def test_the_drone_bonus_raises_drone_production(app):
+    kd = kingdoms.kingdom(structures={"drone_factories": 100})
+    later = kingdoms.START + datetime.timedelta(seconds=EPOCH)
+    with app.app_context():
+        _set_up_kingdom(0)
+        plain = refresh._kingdom_with_income(copy.deepcopy(kd), uas.project_bonuses(kd), {"state": {"active_policies": []}},
+                                             later, None, [])
+        more = refresh._kingdom_with_income(copy.deepcopy(kd), uas.project_bonuses(kd), {"state": {"active_policies": []}},
+                                            later, None, [], {"drone_production": 0.1})
+    base = 100 * uas.GAME_CONFIG["BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH"]
+    assert more["income"]["drones"] - plain["income"]["drones"] == pytest.approx(base * 0.1)
+
+
+def _a_cluster_at_full(**levels):
+    _create_item("cluster_1", {"levels": levels, "alignment": 0.0,
+                               "last_update": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+
+
+def test_the_settle_page_and_settling_use_the_clusters_discount(app, client, jwt1):
+    _set_up_kingdom(money=10**9)
+    plain = client.get("/api/settle", headers=_auth(jwt1)).get_json()["settle_price"]
+    _a_cluster_at_full(settle_cost=1.0)
+    cheaper = client.get("/api/settle", headers=_auth(jwt1)).get_json()["settle_price"]
+    stars = int(uas.INITIAL_KINGDOM_STATE["kingdom"]["stars"])
+    max_ = uas.CLUSTER_BENEFITS["settle_cost"]["max"]
+    assert plain - cheaper == pytest.approx(uas.GAME_FUNCS["BASE_SETTLE_COST"](stars) * max_, rel=1e-3)
+
+    response = client.post("/api/settle", json={"settleInput": 1}, headers=_auth(jwt1))
+    assert response.status_code == 200, response.get_json()
+    assert 10**9 - _get("/kingdom/1")["money"] == pytest.approx(cheaper, rel=1e-3)
+
+
+def test_the_military_page_shows_the_clusters_unit_discount(app, client, jwt1):
+    _set_up_kingdom(money=0)
+    plain = client.get("/api/mobis", headers=_auth(jwt1)).get_json()["units_desc"]
+    _a_cluster_at_full(unit_cost=1.0)
+    cheaper = client.get("/api/mobis", headers=_auth(jwt1)).get_json()["units_desc"]
+    max_ = uas.CLUSTER_BENEFITS["unit_cost"]["max"]
+    assert cheaper["attack"]["cost"] == pytest.approx(plain["attack"]["cost"] * (1 - max_), rel=1e-3)
+
+
+def test_a_kingdom_whose_cluster_has_no_document_pays_full_price(app, client, jwt1):
+    _set_up_kingdom(money=0)
+    base = uas.UNITS["attack"]["cost"]
+    assert client.get("/api/mobis", headers=_auth(jwt1)).get_json()["units_desc"]["attack"]["cost"] == pytest.approx(base)
+
+
+def test_the_refresh_context_reads_each_cluster_once(app, monkeypatch):
+    reads = []
+    monkeypatch.setattr(getters, "_get_galaxies_inverted",
+                        lambda: ({"1": "1:1", "2": "1:2", "3": "2:1"}, {"1:1": ["1"], "1:2": ["2"], "2:1": ["3"]}))
+    monkeypatch.setattr(getters, "_get_cluster_document", lambda cid: reads.append(cid) or {"levels": {"unit_cost": 1.0}})
+    context = refresh._RefreshContext(state={})
+    for kd_id in ("1", "2", "3", "1"):
+        assert context.cluster_modifiers(kd_id, NOW)["unit_cost"] == uas.CLUSTER_BENEFITS["unit_cost"]["max"]
+    assert reads == ["1", "2"]
 
 
 # --- the refresh's alignment sync ----------------------------------------------------------------------------------

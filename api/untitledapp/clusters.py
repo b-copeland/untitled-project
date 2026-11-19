@@ -27,7 +27,6 @@ default, since the function app creates it as ``{"id"}``):
 * ``alignment``: the alignment as of ``last_update``.
 * ``last_update``: when ``levels`` were last advanced.
 """
-import copy
 import datetime
 
 import flask
@@ -270,10 +269,6 @@ def _path(cluster_id):
     return f"/cluster/{cluster_id}"
 
 
-def _read(cluster_id):
-    return occ.read(_path(cluster_id))
-
-
 def _written(cluster):
     return {field: cluster[field] for field in ("votes", "levels", "alignment", "last_update")}
 
@@ -291,7 +286,7 @@ def _view(kd_id):
     cluster_id = cluster_of(my_galaxy)
     member_galaxies = members(galaxies, cluster_id)
     galaxy_politics, _ = uag._get_galaxy_politics(kd_id, my_galaxy)
-    cluster = advance(_read(cluster_id), member_galaxies, _now())
+    cluster = advance(uag._get_cluster_document(cluster_id), member_galaxies, _now())
     return view(cluster, cluster_id, member_galaxies, galaxies, _galaxy_empires(), my_galaxy,
                 galaxy_politics.get("leader") == kd_id), 200
 
