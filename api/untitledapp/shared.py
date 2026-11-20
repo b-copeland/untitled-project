@@ -339,6 +339,7 @@ GAME_CONFIG = {
     # Cluster politics (clusters.py). Placeholders: the framework is in, the balance is not.
     "CLUSTER_SIZE": 5,  # galaxies per cluster when /api/createstate makes them
     "CLUSTER_REF_SIZE": 5,  # a cluster of this many galaxies gains exactly CLUSTER_VOTE_RATE per vote
+    "CLUSTER_VOTE_COOLDOWN_EPOCHS": 6,  # once a galaxy's vote has changed (cast, switched or withdrawn), it stays this long
     "CLUSTER_VOTE_RATE": 0.005,  # per galaxy vote per epoch, as a fraction of the benefit's max
     "CLUSTER_DECAY_RATE": 0.005,  # per epoch, as a fraction of the benefit's max, voted for or not
 

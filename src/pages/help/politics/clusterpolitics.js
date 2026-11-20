@@ -28,7 +28,10 @@ function ClusterPolitics(props) {
             </p>
             <p>
                 Each galaxy's leader casts the galaxy's one vote for a benefit, which every kingdom in the cluster gets.
-                The leader can change or withdraw the vote at any time. Every hour, each vote builds its benefit up by
+                The leader can change or withdraw the vote, but once it has changed (cast, switched or withdrawn)
+                it stays for {config.CLUSTER_VOTE_COOLDOWN_EPOCHS * config.BASE_EPOCH_SECONDS / 3600} hours, so it can not be
+                flipped to chase whatever is ahead; the page says when it can change again. Voting for what the galaxy already
+                votes for changes nothing and starts no wait. Every hour, each vote builds its benefit up by
                 {" "}{percent(perHour(config.CLUSTER_VOTE_RATE, config.BASE_EPOCH_SECONDS))} of the benefit's maximum (shared out so that a whole cluster
                 voting together builds as fast whatever its size), and every benefit fades by
                 {" "}{percent(perHour(config.CLUSTER_DECAY_RATE, config.BASE_EPOCH_SECONDS))} of its maximum, whether anyone votes for it or not. A benefit
