@@ -70,6 +70,17 @@ class FakeSession:
         return [path for m, path, _ in self.calls if m == method]
 
 
+def _context(state):
+    """
+    A refresh context that already holds the galaxies, as a tick has after its first kingdom: they and the cluster
+    documents are read once per tick, not per kingdom, so the per-kingdom call counts below leave them out. Kingdom 1
+    is in no galaxy here, so its cluster benefits are none.
+    """
+    context = refresh._RefreshContext(state)
+    context._galaxies_inverted, context._galaxies = {}, {}
+    return context
+
+
 @pytest.fixture
 def session(monkeypatch):
     fake = FakeSession()
@@ -457,7 +468,7 @@ def refresh_one(app, session, monkeypatch):
         session.kingdom = doc
         monkeypatch.setattr(refresh, "_kingdom_with_income", lambda kd, bonuses, st, now, *effects: dict(kd))
         with app.app_context():
-            scores = refresh._refresh_kd(1, state, NOW, False, refresh._RefreshContext(state))
+            scores = refresh._refresh_kd(1, state, NOW, False, _context(state))
         return scores, session
 
     return run
@@ -566,7 +577,7 @@ def _refresh(app, monkeypatch, when=NOW):
     state = {"state": {}}
     monkeypatch.setattr(refresh, "_kingdom_with_income", lambda kd, bonuses, st, now, *effects: dict(kd))
     with app.app_context():
-        return refresh._refresh_kd(1, state, when, False, refresh._RefreshContext(state))
+        return refresh._refresh_kd(1, state, when, False, _context(state))
 
 
 def _kingdom_writes(session):

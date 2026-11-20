@@ -54,8 +54,17 @@ class _RefreshContext:
     def cluster_document(self, cluster_id):
         """The cluster's stored document (with its ``_etag``), read once per tick."""
         if cluster_id not in self._clusters:
-            self._clusters[cluster_id] = uacl._read(cluster_id)
+            self._clusters[cluster_id] = uag._get_cluster_document(cluster_id)
         return self._clusters[cluster_id]
+
+    def cluster_modifiers(self, kd_id, time_update):
+        """What ``kd_id``'s cluster's benefits are worth at ``time_update`` (zero for a kingdom in no galaxy)."""
+        galaxy_id = self.galaxies_inverted.get(kd_id)
+        if galaxy_id is None:
+            return uacl.modifiers(uacl.normalize({}))
+        cluster_id = uacl.cluster_of(galaxy_id)
+        cluster = uacl.advance(self.cluster_document(cluster_id), uacl.members(self.galaxies, cluster_id), time_update)
+        return uacl.modifiers(cluster)
 
     def galaxy_politics(self, kd_id, galaxy_id):
         if galaxy_id not in self._galaxy_politics:
@@ -344,8 +353,11 @@ def _kingdom_with_income(
     time_now,
     effects=None,
     mobis_queue=None,
+    cluster_modifiers=None,
 ):
-    time_last_income = datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
+    """``cluster_modifiers`` are the kingdom's cluster's benefits (``_RefreshContext.cluster_modifiers``); none if None."""
+    cluster_modifiers = cluster_modifiers or {}
+    time_last_income =datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_now - time_last_income).total_seconds()
     epoch_elapsed = seconds_elapsed / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
 
@@ -423,7 +435,11 @@ def _kingdom_with_income(
         math.floor(kd_info_parse["structures"]["drone_factories"])
         * (
             uas.GAME_CONFIG["BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH"]
-            * (1 + (int(kd_info_parse["race"] == "Vult") * uas.GAME_CONFIG["VULT_DRONE_PRODUCTION_INCREASE"]))
+            * (
+                1
+                + (int(kd_info_parse["race"] == "Vult") * uas.GAME_CONFIG["VULT_DRONE_PRODUCTION_INCREASE"])
+                + cluster_modifiers.get("drone_production", 0.0)
+            )
             + uas.project_increase(kd_info_parse, "drone_factories_bonus")
         )
         + empty_silos * uas.GAME_CONFIG["FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO"]
@@ -1691,14 +1707,16 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
             # tick has it (with what finished just now credited, and only what is still to come in the queues),
             # instead of each reading the kingdom, its queue, the state and the galaxy's politics again.
             galaxy_policies = context.galaxy_politics(kd_id, context.galaxies_inverted[kd_id])
+            cluster_modifiers = context.cluster_modifiers(kd_id, time_update)
             queue = lambda category: _pending_queue(kd_id, category, _cursor(kd_info_parse, category), pending)
             kd_info_parse, next_resolves_auto_spending = _resolve_auto_spending(
                 kd_info_parse,
                 time_update,
                 current_bonuses,
-                settle_info=uag._get_settle(kd_id, kd_info_parse, queue("settles"), galaxy_policies),
+                settle_info=uag._get_settle(kd_id, kd_info_parse, queue("settles"), galaxy_policies, cluster_modifiers),
                 structures_info=uag._get_structures_info(kd_id, kd_info_parse, queue("structures"), state),
-                mobis_info=uag._get_mobis(kd_id, kd_info_parse, queue("mobis"), state, galaxy_policies),
+                mobis_info=uag._get_mobis(kd_id, kd_info_parse, queue("mobis"), state, galaxy_policies,
+                                          cluster_modifiers),
                 engineers_info=uag._get_engineers(kd_id, kd_info_parse, queue("engineers")),
                 effects=effects,
             )
@@ -1727,7 +1745,8 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
         for category, next_resolve_datetime in next_resolves.items():
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
         # The mobis still to come, if this tick has read them (None: the population step reads them itself).
-        new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update, effects, pending.get("mobis"))
+        new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update, effects, pending.get("mobis"),
+                                           context.cluster_modifiers(kd_id, time_update))
         kd_payload = json.dumps(new_kd_info, default=str)
         write_headers = {'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         if etag:

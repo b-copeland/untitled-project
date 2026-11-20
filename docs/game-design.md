@@ -94,7 +94,7 @@ building.
 | Sharing your own kingdom with galaxymates | `misc.py` (`/api/share/<kingdom>`, `/api/unshare/<kingdom>`) | | `src/pages/help/other/viewkingdom.js` |
 | Schedule | `conquer.py` (`/api/schedule`), `refresh._resolve_schedules` | | `src/pages/help/conquer/schedule.js` |
 | Politics | `politics.py`, `refresh._begin_election`, `_resolve_election` | `GALAXY_POLICIES`, `UNIVERSE_POLICIES`, `BASE_VOTES_COST`, `AGGRO_*`, `DENOUNCE_*`, `PEACE_*`, `WAR_*` | `src/pages/help/politics/*.js` |
-| Cluster politics | `clusters.py`, `refresh._resolve_clusters` | `CLUSTER_BENEFITS`, `CLUSTER_*` | `src/pages/help/politics/*.js` |
+| Cluster politics | `clusters.py`, `refresh._resolve_clusters`; the benefits are read through `getters._get_cluster_modifiers` (unit costs, settle price) and `_RefreshContext.cluster_modifiers` (drone production, and the refresh's auto spending) | `CLUSTER_BENEFITS`, `CLUSTER_*` | `src/pages/help/politics/*.js` |
 | Scores and history | `refresh._resolve_scores`, `_update_history` | `NETWORTH_VALUES`, `NETWORTH_POINTS` | `src/pages/help/home/scores.js` |
 | Races | spread through the formulas (search the race name) | `GAIAN_*`, `VULT_*`, `LUMINA_*`, `XO_*`, `FUZI_*` | `src/pages/help/other/createkingdom.js` |
 | Bots and quick starts | `bots.py` (archetypes), `botstrategy.py` (sums), `botbrain.py` (decisions) | `TUNE` values in `bots.py` and `botbrain.py` | [bots.md](bots.md) |

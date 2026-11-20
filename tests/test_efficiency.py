@@ -51,6 +51,14 @@ def test_shared_documents_are_read_once_per_request(app, calls):
     assert _count(calls, "GET", "/galaxy/1/politics") == 1
 
 
+def test_a_page_load_reads_its_cluster_once(app, client, jwt1, calls):
+    _set_up_kingdom(money=0)
+    calls.clear()
+    assert client.get("/api/mobis", headers={"Authorization": f"Bearer {jwt1}"}).status_code == 200
+    assert client.get("/api/settle", headers={"Authorization": f"Bearer {jwt1}"}).status_code == 200
+    assert _count(calls, "GET", "/cluster/1") == 2  # once for each request
+
+
 def test_each_request_reads_afresh(app, calls):
     _set_up_kingdom(money=0)
     for _ in range(2):

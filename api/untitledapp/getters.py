@@ -572,11 +572,36 @@ def _calc_max_recruits(kd_info, units):
 def _calc_recruit_time(is_conscription, time_multiplier):
     return uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier * (1 - int(is_conscription) * uas.GAME_CONFIG["BASE_CONSCRIPTION_TIME_REDUCTION"])
 
-def _get_units_adjusted_costs(state):
+def _get_cluster_document(cluster_id):
+    """The cluster's stored document (with its ``_etag``), read at most once per request."""
+    return _get_shared_document(f'/cluster/{cluster_id}')
+
+
+def _get_cluster_modifiers(kd_id, galaxy_id=None, now=None):
+    """What the benefits of ``kd_id``'s cluster are worth now: effect to value, e.g. ``{"unit_cost": 0.02, ...}``."""
+    import untitledapp.clusters as uacl  # clusters imports this module
+
+    galaxies_inverted, galaxies = _get_galaxies_inverted()
+    galaxy_id = galaxy_id or galaxies_inverted.get(str(kd_id))
+    if galaxy_id is None:
+        return uacl.modifiers(uacl.normalize({}))
+    cluster_id = uacl.cluster_of(galaxy_id)
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    cluster = uacl.advance(_get_cluster_document(cluster_id), uacl.members(galaxies, cluster_id), now)
+    return uacl.modifiers(cluster)
+
+
+def _get_units_adjusted_costs(state, cluster_modifiers=None):
+    """``UNITS`` with each cost after the universe's arms policy and the cluster's unit discount."""
     is_unregulated = "Unregulated" in state["state"]["active_policies"]
     is_treatied = "Treatied" in state["state"]["active_policies"]
-    
-    cost_modifier = 1.0 - is_unregulated * uas.GAME_CONFIG["BASE_UNREGULATED_COST_REDUCTION"] + is_treatied * uas.GAME_CONFIG["BASE_TREATIED_COST_INCREASE"]
+
+    cost_modifier = (
+        1.0
+        - is_unregulated * uas.GAME_CONFIG["BASE_UNREGULATED_COST_REDUCTION"]
+        + is_treatied * uas.GAME_CONFIG["BASE_TREATIED_COST_INCREASE"]
+        - (cluster_modifiers or {}).get("unit_cost", 0.0)
+    )
     units_desc = copy.deepcopy(uas.UNITS)
     for unit, unit_dict in units_desc.items():
         if "cost" in unit_dict:
@@ -594,9 +619,9 @@ def _get_mobis_queue(kd_id):
     mobis_info_parse = json.loads(mobis_info.text)
     return mobis_info_parse["mobis"]
 
-def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policies=None):
-    """What the Military page shows. A caller that already holds the kingdom, its mobis queue, the state or the
-    galaxy's politics passes them, and only what is missing is read."""
+def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policies=None, cluster_modifiers=None):
+    """What the Military page shows. A caller that already holds the kingdom, its mobis queue, the state, the
+    galaxy's politics or the cluster's modifiers passes them, and only what is missing is read."""
     kd_info_parse = kd_info if kd_info is not None else _get_kd_info(kd_id)
     mobis_info_parse = mobis_queue if mobis_queue is not None else _get_mobis_queue(kd_id)
     current_units = kd_info_parse["units"]
@@ -624,7 +649,9 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policie
     is_conscription = "Conscription" in galaxy_policies["active_policies"]
     recruit_time = _calc_recruit_time(is_conscription, (uas.GAME_CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"] + uas.GAME_CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"]) / 2)
 
-    units_adjusted_costs = _get_units_adjusted_costs(state)
+    if cluster_modifiers is None:
+        cluster_modifiers = _get_cluster_modifiers(kd_id)
+    units_adjusted_costs = _get_units_adjusted_costs(state, cluster_modifiers)
 
     max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
     max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units)
@@ -859,12 +886,14 @@ def _get_settle_queue(kd_id):
     return settle_info_parse["settles"]
 
 
-def _get_settle_price(kd_info, is_expansionist):
+def _get_settle_price(kd_info, is_expansionist, cluster_settle_cost=0.0):
+    """The price of one star. ``cluster_settle_cost`` is the cluster's discount (``_get_cluster_modifiers``)."""
     return (
         uas.GAME_FUNCS["BASE_SETTLE_COST"](int(kd_info["stars"]))
         * (
             1
             - (int(is_expansionist) * uas.GAME_CONFIG["BASE_EXPANSIONIST_SETTLE_REDUCTION"])
+            - cluster_settle_cost
             - (int(kd_info["race"] == "Gaian") * uas.GAME_CONFIG["GAIAN_SETTLE_COST_REDUCTION"])
             - uas.project_bonus(kd_info, "settle_cost_bonus")
             - (int(uas.has_project(kd_info, "xo_evolution")) * uas.GAME_CONFIG["XO_EVOLUTION_SETTLE_COST_REDUCTION"])
@@ -879,14 +908,14 @@ def _get_settle_time(kd_info, time_multiplier):
     )
     return seconds
 
-def _get_available_settle(kd_info, settle_info, is_expansionist):
+def _get_available_settle(kd_info, settle_info, is_expansionist, cluster_settle_cost=0.0):
     max_settle = uas.GAME_FUNCS["BASE_MAX_SETTLE"](int(kd_info["stars"]))
     current_settle = sum([
         int(settle_item["amount"])
         for settle_item in settle_info
     ])
     max_available_settle = max(max_settle - current_settle, 0)
-    current_settle_cost = _get_settle_price(kd_info, is_expansionist)
+    current_settle_cost = _get_settle_price(kd_info, is_expansionist, cluster_settle_cost)
     max_settle_cost = current_settle_cost * max_available_settle
     try:
         current_available_settle = min(
@@ -899,9 +928,9 @@ def _get_available_settle(kd_info, settle_info, is_expansionist):
 
 
 
-def _get_settle(kd_id, kd_info=None, settle_queue=None, galaxy_policies=None):
-    """What the Settle page shows. A caller that already holds the kingdom, its settle queue or the galaxy's politics
-    passes them, and only what is missing is read."""
+def _get_settle(kd_id, kd_info=None, settle_queue=None, galaxy_policies=None, cluster_modifiers=None):
+    """What the Settle page shows. A caller that already holds the kingdom, its settle queue, the galaxy's politics or
+    the cluster's modifiers passes them, and only what is missing is read."""
     kd_info_parse = kd_info if kd_info is not None else _get_kd_info(kd_id)
     settle_info = settle_queue if settle_queue is not None else _get_settle_queue(kd_id)
 
@@ -914,8 +943,12 @@ def _get_settle(kd_id, kd_info=None, settle_queue=None, galaxy_policies=None):
     if galaxy_policies is None:
         galaxy_policies, _ = _get_galaxy_politics(kd_id)
     is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
-    settle_price = _get_settle_price(kd_info_parse, is_expansionist)
-    max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info, is_expansionist)
+    if cluster_modifiers is None:
+        cluster_modifiers = _get_cluster_modifiers(kd_id)
+    cluster_settle_cost = cluster_modifiers.get("settle_cost", 0.0)
+    settle_price = _get_settle_price(kd_info_parse, is_expansionist, cluster_settle_cost)
+    max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info, is_expansionist,
+                                                         cluster_settle_cost)
     avg_settle_time = (
         uas.GAME_CONFIG["BASE_SETTLE_TIME_MIN_MULTIPLIER"]
         + uas.GAME_CONFIG["BASE_SETTLE_TIME_MAX_MUTLIPLIER"]

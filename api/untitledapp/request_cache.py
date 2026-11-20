@@ -26,7 +26,7 @@ import re
 import flask
 
 # The documents worth caching: read by many helpers, written rarely.
-CACHEABLE = re.compile(r"^/(state|galaxies|empires|kingdoms|galaxy/[^/]+/politics|user/\d+)$")
+CACHEABLE = re.compile(r"^/(state|galaxies|empires|kingdoms|galaxy/[^/]+/politics|cluster/[^/]+|user/\d+)$")
 
 # Writes that change a cached document, and which one. A write to a per-kingdom document, or to a document that is
 # never cached, changes nothing cached. Any other write (creating kingdoms or galaxies, resets, ``/createitem``)
@@ -36,6 +36,7 @@ _WRITE_DROPS = (
     (re.compile(r"^/empires$"), lambda m: "/empires"),
     (re.compile(r"^/kingdoms$"), lambda m: "/kingdoms"),
     (re.compile(r"^/galaxy/([^/]+)/politics$"), lambda m: f"/galaxy/{m.group(1)}/politics"),
+    (re.compile(r"^/cluster/([^/]+)$"), lambda m: f"/cluster/{m.group(1)}"),
     (re.compile(r"^/user/(\d+)$"), lambda m: f"/user/{m.group(1)}"),
 )
 _WRITES_THAT_CHANGE_NOTHING_CACHED = re.compile(
