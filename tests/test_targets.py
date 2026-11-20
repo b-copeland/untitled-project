@@ -55,23 +55,6 @@ def test_payouts_are_in_proportion_to_points_and_round_down():
     assert uat.payout_shares({}, {"stars": 10, "money": 10}) == {}
 
 
-def test_a_fund_is_paid_out_at_most_once_per_cooldown():
-    entry = _entry(points={"1": 5}, fund={"stars": 10, "money": 0})
-    assert uat.payout_problem(entry, NOW) is None
-    shares = uat.pay_out(entry, NOW)
-    assert shares == {"1": {"stars": 10, "money": 0}}
-    assert entry["fund"] == {"stars": 0, "money": 0} and entry["paid"] == {"1": {"stars": 10, "money": 0}}
-    entry["fund"] = {"stars": 10, "money": 0}
-    assert "again in" in uat.payout_problem(entry, NOW + datetime.timedelta(seconds=1))
-    later = NOW + datetime.timedelta(seconds=uas.GAME_CONFIG["TARGET_PAYOUT_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] + 1)
-    assert uat.payout_problem(entry, later) is None
-
-
-def test_an_empty_fund_or_no_participants_can_not_be_paid_out():
-    assert "empty" in uat.payout_problem(_entry(points={"1": 5}), NOW)
-    assert "Nobody" in uat.payout_problem(_entry(fund={"stars": 10, "money": 0}), NOW)
-
-
 def test_only_intel_the_empire_did_not_have_earns_points():
     entry = _entry(actions={"intel": 1.0})
     until = NOW + datetime.timedelta(hours=4)
@@ -111,10 +94,10 @@ def test_no_payout_gives_a_kingdom_more_stars_than_its_cap_and_the_rest_leaves_t
     assert shares == {"1": {"stars": 20, "money": 10}, "2": {"stars": 5, "money": 0}} and over == 30
     # A participant with a cap of nothing (dead) gets no stars; with no stars and no money, nothing at all.
     assert uat.capped({"1": {"stars": 5, "money": 0}}, {"1": 0}) == ({}, 5)
-    entry = _entry(points={"1": 1, "2": 1}, fund={"stars": 100, "money": 0})
-    shares = uat.pay_out(entry, NOW, caps={"1": 20, "2": 100})
+    document = uat.normalize({"targets": {TARGET: _entry(points={"1": 1, "2": 1}, fund={"stars": 100, "money": 0})}})
+    shares = uat.end(document, TARGET, "removed", KD_ID, NOW, caps={"1": 20, "2": 100})
     assert shares == {"1": {"stars": 20, "money": 0}, "2": {"stars": 50, "money": 0}}
-    assert entry["fund"] == {"stars": 0, "money": 0} and entry["lost"] == {"stars": 30, "money": 0}  # not shared out
+    assert document["history"][0]["lost"] == {"stars": 30, "money": 0}  # not shared out among the others
 
 
 def test_a_dead_targets_land_and_money_go_to_the_fund_in_the_share_the_empire_earned():
@@ -375,30 +358,39 @@ def test_intel_on_a_target_is_shared_with_the_empire_and_earns_points_once(app, 
     assert _targets()["targets"][TARGET]["points"][KD_ID] == pytest.approx(first)
 
 
-def _with_fund(points, fund, last_payout=None):
+def _with_fund(points, fund):
     entry = uat.new_target(TARGET, {"successful_attacks": 1.0}, 0.1, KD_ID, NOW)
-    entry.update(points=points, fund=fund, last_payout=last_payout)
+    entry.update(points=points, fund=fund)
     _create_item("empire_targets_e1", {"targets": {TARGET: entry}})
     empires = _get("/empires")
     empires["empires"]["e1"]["targets"] = [TARGET]
     _create_item("empires", {"empires": empires["empires"]})
 
 
-def test_a_payout_credits_participants_in_proportion_to_their_points(app, client, jwt1, jwt2):
+def test_there_is_no_payout_before_a_target_ends(app, client, jwt1):
+    _set_up_empire()
+    _with_fund({MEMBER: 1}, {"stars": 20, "money": 0})
+    assert client.post(f"/api/empiretargets/{TARGET}/payout", headers=_auth(jwt1)).status_code in (404, 405)
+    assert _targets()["targets"][TARGET]["fund"] == {"stars": 20, "money": 0}
+
+
+def test_removing_a_target_pays_out_its_fund_by_points_and_keeps_it_in_the_history(app, client, jwt1, jwt2):
     _set_up_empire()
     _with_fund({KD_ID: 1, MEMBER: 3}, {"stars": 40, "money": 1000})
     stars1, stars2 = _get(f"/kingdom/{KD_ID}")["stars"], _get(f"/kingdom/{MEMBER}")["stars"]
 
-    assert client.post(f"/api/empiretargets/{TARGET}/payout", headers=_auth(jwt2)).status_code == 400  # not leadership
-    response = client.post(f"/api/empiretargets/{TARGET}/payout", headers=_auth(jwt1))
+    assert client.post(f"/api/empiretargets/{TARGET}/remove", headers=_auth(jwt2)).status_code == 400  # not leadership
+    response = client.post(f"/api/empiretargets/{TARGET}/remove", headers=_auth(jwt1))
 
     assert response.status_code == 200, response.get_json()
     assert _get(f"/kingdom/{KD_ID}")["stars"] == stars1 + 10
     assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + 30
-    entry = _targets()["targets"][TARGET]
-    assert entry["fund"] == {"stars": 0, "money": 0}
-    assert entry["paid"][MEMBER] == {"stars": 30, "money": 750}
-    assert entry["points"] == {KD_ID: 1, MEMBER: 3}  # points last for the whole target
+    document = _targets()
+    assert document["history"][0]["paid"][MEMBER] == {"stars": 30, "money": 750}
+    assert document["targets"] == {} and document["history"][0]["reason"] == "removed"
+    assert _get("/empires")["empires"]["e1"]["targets"] == []
+    view = client.get("/api/empiretargets", headers=_auth(jwt1)).get_json()
+    assert view["history"][0]["name"] == "Target"
 
 
 def test_a_payout_holds_each_kingdom_to_its_cap(app, client, jwt1):
@@ -406,39 +398,41 @@ def test_a_payout_holds_each_kingdom_to_its_cap(app, client, jwt1):
     _with_fund({MEMBER: 1}, {"stars": 100, "money": 0})
     stars2 = _get(f"/kingdom/{MEMBER}")["stars"]
 
-    assert client.post(f"/api/empiretargets/{TARGET}/payout", headers=_auth(jwt1)).status_code == 200
+    assert client.post(f"/api/empiretargets/{TARGET}/remove", headers=_auth(jwt1)).status_code == 200
 
     assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + uat.star_cap(stars2)
-    entry = _targets()["targets"][TARGET]
-    assert entry["fund"]["stars"] == 0 and entry["lost"]["stars"] == 100 - uat.star_cap(stars2)
+    assert _targets()["history"][0]["lost"]["stars"] == 100 - uat.star_cap(stars2)
 
 
 @pytest.mark.parametrize("repeat", range(2))
-def test_racing_payouts_pay_out_once(app, client, jwt1, repeat):
+def test_racing_removals_pay_out_once(app, client, jwt1, repeat):
     _set_up_empire()
     _with_fund({KD_ID: 1, MEMBER: 1}, {"stars": 40, "money": 0})
     stars2 = _get(f"/kingdom/{MEMBER}")["stars"]
 
-    responses = _run_together(app, 6, lambda c, i: c.post(f"/api/empiretargets/{TARGET}/payout", headers=_auth(jwt1)))
+    responses = _run_together(app, 6, lambda c, i: c.post(f"/api/empiretargets/{TARGET}/remove", headers=_auth(jwt1)))
 
     assert sorted(r.status_code for r in responses) == [200] + [400] * 5, [r.get_json() for r in responses]
     assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + 20
 
 
-def test_removing_a_target_pays_out_its_fund_and_keeps_it_in_the_history(app, client, jwt1):
+def test_a_removed_kingdom_can_be_marked_again_only_after_the_cooldown(app, client, jwt1):
     _set_up_empire()
-    _with_fund({MEMBER: 1}, {"stars": 20, "money": 0}, last_payout=datetime.datetime.now(datetime.timezone.utc).isoformat())
-    stars2 = _get(f"/kingdom/{MEMBER}")["stars"]
+    _add(client, jwt=jwt1)
+    assert client.post(f"/api/empiretargets/{TARGET}/remove", headers=_auth(jwt1)).status_code == 200
 
-    response = client.post(f"/api/empiretargets/{TARGET}/remove", headers=_auth(jwt1))
-
-    assert response.status_code == 200, response.get_json()
-    assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + 20  # the cooldown does not hold back the final payout
-    document = _targets()
-    assert document["targets"] == {} and document["history"][0]["reason"] == "removed"
-    assert _get("/empires")["empires"]["e1"]["targets"] == []
+    response = _add(client, jwt=jwt1)
+    assert response.status_code == 400 and "marked again in" in response.get_json()["message"]
     view = client.get("/api/empiretargets", headers=_auth(jwt1)).get_json()
-    assert view["history"][0]["name"] == "Target"
+    assert TARGET in view["removed"]
+
+    # Once the cooldown has passed, it can be.
+    cooldown = uas.GAME_CONFIG["TARGET_REMARK_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+    document = _get("/empire/e1/targets")
+    earlier = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=cooldown + 1)
+    _create_item("empire_targets_e1", {**document, "removed": {TARGET: earlier.isoformat()}})
+    assert _add(client, jwt=jwt1).status_code == 200
+    assert _targets()["removed"] == {}  # the old entry is dropped
 
 
 def test_killing_a_target_puts_its_remains_in_the_fund_and_ends_it(app, client, jwt1):

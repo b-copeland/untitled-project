@@ -66,15 +66,14 @@ function EmpirePolitics(props) {
                 </li>
             </ul>
             <p>
-                Leadership pays the spoils fund out to everyone who earned points on the target, in proportion to their
-                points, at most once
-                every {((config.TARGET_PAYOUT_COOLDOWN_EPOCHS || 0) * (config.BASE_EPOCH_SECONDS || 0)) / 3600} hours.
-                No kingdom receives more stars from one payout
+                The spoils fund is paid out only when the target ends: when leadership removes it, when it dies, or
+                when the war ends (a surrender). Everyone who earned points on the target gets a part in proportion to
+                their points, but no kingdom receives more stars from a target
                 than {displayPercent(config.TARGET_MAX_PAYOUT_STARS_SHARE || 0)} of its own land. Stars over that, and
-                the part of a dead target's land and money the Empire had not earned, leave the game. Points last as
-                long as the target. When a target ends, because leadership removes it, because it dies,
-                or because the war ends (a surrender), whatever is left in its fund is paid out at once; with nobody to pay, it is lost. Ended targets
-                stay in the History tab.
+                the part of a dead target's land and money the Empire had not earned, leave the game; with nobody to
+                pay, the whole fund does. A kingdom leadership removes can not be marked again
+                for {((config.TARGET_REMARK_COOLDOWN_EPOCHS || 0) * (config.BASE_EPOCH_SECONDS || 0)) / 3600} hours.
+                Points last as long as the target. Ended targets stay in the History tab.
             </p>
         </div>
     )

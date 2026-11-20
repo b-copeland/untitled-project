@@ -102,7 +102,7 @@ Built 2026-11-20 (issue #56, [decisions/0008](decisions/0008-empire-targets.md),
 balance is not.
 
 - Every number is a placeholder: `TARGET_MAX_DELEGATES` (3), `TARGET_DEFAULT_FUND_SHARE` (10%, from the issue),
-  `TARGET_MAX_FUND_SHARE` (50%), `TARGET_MAX_POINTS_MULTIPLIER` (5), `TARGET_PAYOUT_COOLDOWN_EPOCHS` (1, from the issue),
+  `TARGET_MAX_FUND_SHARE` (50%), `TARGET_MAX_POINTS_MULTIPLIER` (5), `TARGET_REMARK_COOLDOWN_EPOCHS` (24, from the maintainer),
   `TARGET_HISTORY_LENGTH` (20), `TARGET_REMAINS_POINTS_PER_STAR` (0.5), `TARGET_MAX_PAYOUT_STARS_SHARE` (10%, from the
   maintainer), and the points each measure earns in `TARGET_ACTIONS`.
 - A dead target's land and money count only in the share its empire earned, and no payout gives a kingdom more than its
@@ -110,8 +110,10 @@ balance is not.
   one blow). What either holds back leaves the game.
 - Targets exist only in a war (the maintainer, 2026-11-20): a surrender ends them. A target whose galaxy leaves the
   enemy empire mid-war is not ended automatically; it counts for nothing until leadership removes it.
-- Points last for the whole target, so every payout is shared by everyone who ever took part. A participant who is
-  dead at a payout loses their share.
+- Funds are paid out only when a target ends (the maintainer, 2026-11-20: the issue's payouts at any time, once an
+  epoch, would let small payouts pass the star cap). Removing and re-marking a kingdom every
+  `TARGET_REMARK_COOLDOWN_EPOCHS` is still a slow way to pay out more often.
+- Points last for the whole target. A participant who is dead when it ends loses their share.
 - Intel copied to the empire from a target can be listed or shared on a member's galaxy intel market like intel they
   took themselves.
 - Bots act on their empire's targets (about half their strikes, sabotage, intel and missiles, `TARGET_SHARE`) but never

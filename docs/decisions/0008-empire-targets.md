@@ -40,6 +40,10 @@ targets, and writes and function app calls cost request units on a free tier sha
   as the only participant, took the whole of its land. Now the empire's fund gets the dead target's land and money only
   in proportion to its points on it, all of it at `TARGET_REMAINS_POINTS_PER_STAR` points per star the target had when
   marked. And no payout, of any kind, gives a kingdom more stars than `TARGET_MAX_PAYOUT_STARS_SHARE` of its own land.
+  So that the cap holds, a fund is paid out only when its target ends: payouts at leadership's choosing (the issue's
+  "once per epoch") would let a fund pass the cap in many small payouts. A kingdom removed as a target can not be
+  marked again for `TARGET_REMARK_COOLDOWN_EPOCHS`, so removing and re-marking is slow (the maintainer chose a cooldown
+  over "not until the war ends").
   What either holds back leaves the game, as a dead kingdom's land did before targets. Considered and not taken: a
   flat cut (it hits an empire that besieged a kingdom for days as hard as the opportunist), a minimum time a target
   must be held (it adds little once the share follows points), and land never going to the fund (it removes the
@@ -61,5 +65,6 @@ targets, and writes and function app calls cost request units on a free tier sha
 - An intel operation on a target costs about three function calls per kingdom in the empire, like a free galaxy share.
 - A crash between the hint and the targets document, or two adds racing for the last place, can leave a kingdom in the
   hint that is not a target: a wasted read on each action against it until the empire's targets next change it.
-- A participant who is dead when a fund is paid out loses their share.
+- A participant who is dead when a target ends loses their share.
+- A fund waits for its target to end, so a long siege pays nothing until then.
 - Every number is a placeholder ([status.md](../status.md#empire-targets)).

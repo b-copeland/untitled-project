@@ -11,7 +11,6 @@ import { SubmitButton } from "../../components/forms";
 import { IconButton } from "../../components/iconbutton";
 import { Panel, Picker, Stats } from "../../components/planner";
 import { ResultToasts, safeJson } from "../../components/results";
-import { useWait, waitText } from "../../components/wait";
 import { displayNumber, displayPercent } from "../../format";
 import { checkDecimal, checkPercent, firstError } from "../../validation";
 import Attack from "../conquer/attack.js";
@@ -22,8 +21,8 @@ import "./targets.css";
 /*
  * The empire's targets (api/untitledapp/targets.py), on the Empire page under Politics. A target is a kingdom of an empire
  * yours is at war with, and actions on it count only while that war lasts. Every member sees the targets,
- * what each is marked for, its spoils fund and who has earned what; the emperor and their delegates also add, change,
- * pay out and remove targets, and the emperor names the delegates. Points, funds and limits all come from the server
+ * what each is marked for, its spoils fund and who has earned what; the emperor and their delegates also add, change
+ * and remove targets, and the emperor names the delegates. A fund is paid out only when its target ends. Points, funds and limits all come from the server
  * (`data.empiretargets`).
  */
 
@@ -160,7 +159,9 @@ function TargetFields({ form, setForm, targets, errors, idPrefix }) {
 function AddTarget({ data, targets, members, send, loading }) {
     const [target, setTarget] = useState(undefined);
     const [form, setForm] = useState(() => formFor(null, targets));
-    const taken = new Set((targets.targets || []).map((item) => String(item.target)));
+    // Kingdoms already targets, or removed too recently to be marked again (``removed``: kingdom to when it can be), are not offered.
+    const taken = new Set((targets.targets || []).map((item) => String(item.target))
+        .concat(Object.keys(targets.removed || {}).filter((kdId) => Date.parse(targets.removed[kdId]) > Date.now())));
     const options = warKingdoms(data, targets)
         .filter((kdId) => !members.includes(kdId) && !taken.has(kdId))
         .map((kdId) => ({ value: kdId, label: kdLabel(data, kdId) }));
@@ -202,19 +203,15 @@ function EditTarget({ target, targets, send, loading }) {
 
 function Leadership({ target, targets, send, loading }) {
     const [confirming, setConfirming] = useState(false);
-    const wait = useWait(target.next_payout_at);
-    const payoutBlocked = wait !== null ? `This fund can be paid out again in ${waitText(wait)}` : target.payout_problem;
     const fund = `${displayNumber(target.fund?.stars)} stars and ${displayNumber(target.fund?.money)} money`;
     return (
         <div className="targets-leadership">
             <div className="targets-buttons">
-                <SubmitButton loading={loading} blocked={payoutBlocked} onClick={() => send(`${target.target}/payout`, {})}>
-                    Pay out the fund
-                </SubmitButton>
                 {confirming
                     ? <>
                         <span className="targets-confirm">
-                            Remove {target.name}? Its fund ({fund}) is paid out to the participants now.
+                            Remove {target.name}? Its fund ({fund}) is paid out to the participants now, and it can not
+                            be marked again for {targets.remark_cooldown_hours} hours.
                         </span>
                         <Button className="game-button" variant="danger" disabled={loading}
                             onClick={() => { setConfirming(false); send(`${target.target}/remove`, {}); }}>
@@ -226,7 +223,6 @@ function Leadership({ target, targets, send, loading }) {
                         Remove target
                     </Button>}
             </div>
-            {payoutBlocked ? <p className="planner-hint-line">{payoutBlocked}</p> : null}
             <details className="targets-edit">
                 <summary>Change what it is marked for</summary>
                 <EditTarget key={JSON.stringify([target.actions, target.fund_share])} target={target} targets={targets}
@@ -391,8 +387,8 @@ export default function Targets(props) {
             <Stats items={[
                 { label: "Targets", value: `${list.length} of ${targets.max_targets}` },
                 { label: "Your role", value: role },
-                { label: "Funds paid out at most every", value: `${targets.payout_cooldown_hours} hours` },
-                { label: "Most stars one payout gives a kingdom", value: `${displayPercent(targets.max_payout_stars_share || 0)} of its land` },
+                { label: "Funds paid out", value: "When the target ends" },
+                { label: "Most stars a kingdom gets from a target", value: `${displayPercent(targets.max_payout_stars_share || 0)} of its land` },
             ]} />
             <Tabs id="targets-tabs" defaultActiveKey="targets" justify fill variant="tabs">
                 <Tab eventKey="targets" title={`Targets (${list.length})`}>
@@ -405,7 +401,7 @@ export default function Targets(props) {
                 {targets.can_manage ? (
                     <Tab eventKey="manage" title="Manage">
                         <Panel title="Mark a new target"
-                            hint="Targets are kingdoms of empires you are at war with; when the war ends, so do they, paying out their funds. Members earn points for the actions you mark, by the damage they do. Successful attacks put the fund share of their stars and money into the target's spoils fund, missiles every star they destroy, and the target's death its remaining stars and money.">
+                            hint="Targets are kingdoms of empires you are at war with. A target's fund is paid out when it ends: when you remove it, when it dies, or when the war ends. A kingdom you remove can not be marked again for a while. Members earn points for the actions you mark, by the damage they do. Successful attacks put the fund share of their stars and money into the target's spoils fund, missiles every star they destroy, and the target's death its remaining stars and money.">
                             <AddTarget data={props.data} targets={targets} members={members} send={send} loading={loading} />
                         </Panel>
                         {targets.is_emperor ? (

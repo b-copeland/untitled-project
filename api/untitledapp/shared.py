@@ -351,8 +351,8 @@ GAME_CONFIG = {
     "TARGET_DEFAULT_FUND_SHARE": 0.10,  # of a successful attack's stars and money on a target, into its spoils fund
     "TARGET_MAX_FUND_SHARE": 0.50,  # the most leadership can set the fund share to
     "TARGET_MAX_POINTS_MULTIPLIER": 5.0,  # leadership can scale each action's points from 0 up to this many times
-    "TARGET_PAYOUT_COOLDOWN_EPOCHS": 1,  # a target's fund can be paid out at most once this often
     "TARGET_HISTORY_LENGTH": 20,  # ended targets kept in the empire's history
+    "TARGET_REMARK_COOLDOWN_EPOCHS": 24,  # a kingdom removed as a target can be marked again by that empire after this
     # A dead target's land and money go into the fund in proportion to the empire's points on it, all of it once it has
     # this many points for every star the target had when it was marked; the rest leaves the game.
     "TARGET_REMAINS_POINTS_PER_STAR": 0.5,

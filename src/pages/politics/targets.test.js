@@ -28,12 +28,11 @@ const target = {
         { kd_id: "1", name: "Emperor", points: 10, share: 0.25, paid: { stars: 0, money: 0 } },
     ],
     intel: { military: "2099-01-01T00:00:00+00:00" }, remains_share: 0.4,
-    next_payout_at: null, payout_problem: null,
 };
 
 const targets = (overrides = {}) => ({
     empire: "e1", is_emperor: false, can_manage: false, delegates: [], max_delegates: 3, max_targets: 2,
-    actions, default_fund_share: 0.1, max_fund_share: 0.5, max_multiplier: 5, payout_cooldown_hours: 0.5,
+    actions, default_fund_share: 0.1, max_fund_share: 0.5, max_multiplier: 5, removed: { 6: "2099-01-01T00:00:00+00:00" }, remark_cooldown_hours: 12,
     max_payout_stars_share: 0.1,
     at_war_with: ["e2"],
     targets: [target], history: [], ...overrides,
@@ -42,9 +41,9 @@ const targets = (overrides = {}) => ({
 const data = (overrides = {}) => ({
     empiretargets: targets(),
     kingdomid: { kd_id: "1" },
-    kingdoms: { 1: "Emperor", 2: "Member", 5: "Target", 6: "Other", 7: "Neutral" },
-    galaxies_inverted: { 1: "1:1", 2: "1:2", 5: "1:3", 6: "1:3", 7: "1:4" },
-    empires_inverted: { empires_inverted: { 1: "e1", 2: "e1", 5: "e2", 6: "e2", 7: "e3" } },
+    kingdoms: { 1: "Emperor", 2: "Member", 5: "Target", 6: "Other", 7: "Neutral", 8: "Enemy" },
+    galaxies_inverted: { 1: "1:1", 2: "1:2", 5: "1:3", 6: "1:3", 7: "1:4", 8: "1:3" },
+    empires_inverted: { empires_inverted: { 1: "e1", 2: "e1", 5: "e2", 6: "e2", 7: "e3", 8: "e2" } },
     ...overrides,
 });
 
@@ -62,7 +61,7 @@ test("the empire's kingdoms come from the empires list", () => {
 });
 
 test("only kingdoms of an empire at war with yours can be targeted", () => {
-    expect(warKingdoms(data(), targets())).toEqual(["5", "6"]);
+    expect(warKingdoms(data(), targets())).toEqual(["5", "6", "8"]);
     expect(warKingdoms(data(), targets({ at_war_with: [] }))).toEqual([]);
 });
 
@@ -93,6 +92,7 @@ test("a member sees the target, its fund and the participants, but no leadership
     expect(screen.getByText("10 (25.0%)")).toBeTruthy();
     expect(screen.getByText("40.0% to the fund")).toBeTruthy();
     expect(screen.getByText("10.0% of its land")).toBeTruthy();
+    expect(screen.getByText("When the target ends")).toBeTruthy();
     expect(screen.getByRole("cell", { name: "Member" })).toBeTruthy();
     expect(screen.queryByText("Pay out the fund")).toBeNull();
     expect(screen.queryByText("Manage")).toBeNull();
@@ -105,25 +105,16 @@ test("an action button opens its planner on the target", () => {
     expect(screen.getByText("Spy planner on 5 with kidnappopulation")).toBeTruthy();
 });
 
-test("leadership pays out, and removing asks first and says what happens to the fund", () => {
+test("there is no pay out button: removing asks first and says the fund is paid out then", () => {
     const updateData = jest.fn((keys, funcs) => funcs.forEach((f) => f()));
     render(<Targets data={data({ empiretargets: targets({ can_manage: true }) })} loading={{}} updateData={updateData} />);
-    fireEvent.click(screen.getByRole("button", { name: "Pay out the fund" }));
-    expect(authFetch).toHaveBeenCalledWith("api/empiretargets/5/payout", expect.objectContaining({ method: "POST" }));
+    expect(screen.queryByText("Pay out the fund")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Remove target" }));
     expect(screen.getByText(/Its fund \(12 stars and 3,400 money\) is paid out/)).toBeTruthy();
+    expect(screen.getByText(/can not be marked again for 12 hours/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     expect(authFetch).toHaveBeenCalledWith("api/empiretargets/5/remove", expect.objectContaining({ method: "POST" }));
     expect(updateData).toHaveBeenCalledWith(["empiretargets", "kingdom"], [expect.any(Function)]);
-});
-
-test("a payout on cooldown is blocked with the reason", () => {
-    const later = new Date(Date.now() + 20 * 60000).toISOString();
-    render(<Targets data={data({ empiretargets: targets({ can_manage: true, targets: [{ ...target, next_payout_at: later }] }) })}
-        loading={{}} updateData={jest.fn()} />);
-    const button = screen.getByRole("button", { name: "Pay out the fund" });
-    expect(button.disabled).toBe(true);
-    expect(button.title).toMatch(/again in 20 min/);
 });
 
 test("the emperor marks a new target with the actions chosen", () => {
@@ -139,12 +130,13 @@ test("the emperor marks a new target with the actions chosen", () => {
     fireEvent.keyDown(within(form).getByLabelText("Kingdom"), { key: "ArrowDown" });
     expect(screen.queryByText("Member (1:2)")).toBeNull();
     expect(screen.queryByText("Neutral (1:4)")).toBeNull();
-    fireEvent.click(screen.getByText("Other (1:3)"));
+    expect(screen.queryByText("Other (1:3)")).toBeNull();  // removed too recently
+    fireEvent.click(screen.getByText("Enemy (1:3)"));
     expect(submit.title).toMatch(/at least one action/);
     fireEvent.click(within(form).getByLabelText("Kidnaps"));
     fireEvent.click(submit);
     expect(authFetch).toHaveBeenCalledWith("api/empiretargets/add", expect.objectContaining({
-        body: JSON.stringify({ target: "6", actions: { kidnap: 1 }, fund_share: "10" }),
+        body: JSON.stringify({ target: "8", actions: { kidnap: 1 }, fund_share: "10" }),
     }));
 });
 

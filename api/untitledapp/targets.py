@@ -19,26 +19,30 @@ While a kingdom is a target:
   its points against ``TARGET_REMAINS_POINTS_PER_STAR`` for each star the target had when it was marked), and the
   target ends.
 
-No participant receives more stars from one payout than ``TARGET_MAX_PAYOUT_STARS_SHARE`` of their own land
-(``star_cap``). What a cap holds back, and the unearned part of a dead target's land and money, leave the game.
+The fund is paid out only when the target ends: leadership removes it, it dies, or the war ends. Then each participant
+gets a part in proportion to their points, but never more stars than ``TARGET_MAX_PAYOUT_STARS_SHARE`` of their own
+land (``star_cap``). Paying out only once per target is what makes that cap hold: a fund paid out in many small payouts
+would pass it. What a cap holds back, and the unearned part of a dead target's land and money, leave the game. A
+kingdom leadership removed can not be marked again for ``TARGET_REMARK_COOLDOWN_EPOCHS``, so removing and re-marking it
+is a slow way to pay out more often.
 
 All of that holds only while the two empires are at war: an action on a target whose kingdom is no longer in an empire
 at war with this one (its galaxy left, say) counts for nothing, and when the war ends (a surrender) every target in the
 other empire ends with its final payout (``end_war``).
 
-Leadership pays the fund out, at most once every ``TARGET_PAYOUT_COOLDOWN_EPOCHS``, to the participants in proportion
-to their points. Points last for the whole life of the target. Ending a target (removing it, its death, or the end of
-the war) pays out
-what is left straight away; with no participants it is lost. Ended targets go into the empire's history.
+Points last for the whole life of the target. With no participants, the fund is lost. Ended targets go into the
+empire's history.
 
 Everything lives in one document per empire, ``empire_targets_<empire>``, which is the decision point of every change
 here (``occ.update``). Its fields, each read with a default since the function app creates it as ``{"id"}``:
 
 * ``delegates``: the kingdoms the emperor named.
-* ``targets``: target kingdom to ``{target, actions, fund_share, created_at, created_by, points, fund, paid,
-  last_payout, intel}``: ``actions`` maps each marked action to its points multiplier; ``points`` and ``paid`` are per
-  participant; ``fund`` is ``{stars, money}``; ``intel`` is category to when the empire's intel on the target ends.
-* ``history``: the newest ``TARGET_HISTORY_LENGTH`` ended targets, newest first.
+* ``targets``: target kingdom to ``{target, stars_at_start, actions, fund_share, created_at, created_by, points, fund,
+  intel}``: ``actions`` maps each marked action to its points multiplier; ``points`` are per participant; ``fund`` is
+  ``{stars, money}``; ``intel`` is category to when the empire's intel on the target ends.
+* ``removed``: kingdom to when leadership removed it as a target; it can not be marked again until
+  ``TARGET_REMARK_COOLDOWN_EPOCHS`` later. Entries past that are dropped when a target is next added.
+* ``history``: the newest ``TARGET_HISTORY_LENGTH`` ended targets, newest first, with what each participant was paid.
 
 The ``empires`` document carries a hint, ``targets`` (a list of kingdom ids) on each empire, so an attack, spy operation
 or missile strike knows without another read whether its target is one. It is a superset of the targets: a target is
@@ -62,7 +66,7 @@ from untitledapp import REQUESTS_SESSION, SOCK_HANDLERS, alive_required
 bp = flask.Blueprint("targets", __name__)
 
 ACTIONS = list(uas.TARGET_ACTIONS)
-FIELDS = ("delegates", "targets", "history")
+FIELDS = ("delegates", "targets", "removed", "history")
 _EPSILON = 1e-9
 
 
@@ -83,6 +87,8 @@ def normalize(document):
     return {
         "delegates": [str(kd) for kd in (document.get("delegates") or [])],
         "targets": copy.deepcopy(document.get("targets") or {}),
+        "removed": {str(kd): when for kd, when in (document.get("removed") or {}).items()}
+        if isinstance(document.get("removed"), dict) else {},
         "history": copy.deepcopy(document.get("history") or []),
     }
 
@@ -103,7 +109,6 @@ def new_target(target, actions, fund_share, by, now, stars=0):
         "points": {},
         "fund": {"stars": 0, "money": 0},
         "paid": {},
-        "last_payout": None,
         "intel": {},
     }
 
@@ -242,41 +247,6 @@ def _add_paid(entry, shares):
             paid[key] += part[key]
 
 
-def next_payout_at(entry):
-    """When the target's fund can next be paid out, or None if it can now (nothing paid out yet)."""
-    if not entry.get("last_payout"):
-        return None
-    seconds = uas.GAME_CONFIG["TARGET_PAYOUT_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
-    return _utc(entry["last_payout"]) + datetime.timedelta(seconds=seconds)
-
-
-def payout_problem(entry, now):
-    """Why the target's fund can not be paid out now, or None if it can."""
-    unlocks = next_payout_at(entry)
-    if unlocks is not None and unlocks > now:
-        return f"This fund was paid out recently. It can be paid out again in {uas.wait_text(unlocks - now)}"
-    if not (entry["fund"].get("stars") or entry["fund"].get("money")):
-        return "The spoils fund is empty"
-    if not payout_shares(entry["points"], entry["fund"]):
-        return "Nobody has earned points on this target yet"
-    return None
-
-
-def pay_out(entry, now, caps=None):
-    """
-    Pay the fund out to the participants, each held to their cap (``caps``: kingdom to the most stars it takes, see
-    ``star_cap``; None for no caps). Returns the shares paid; changes ``entry``. The whole share comes out of the fund,
-    and the stars over a cap leave the game.
-    """
-    shares = payout_shares(entry["points"], entry["fund"])
-    entry["fund"] = _take(entry["fund"], shares)
-    shares, over = capped(shares, caps or {})
-    _add_lost(entry, stars=over)
-    _add_paid(entry, shares)
-    entry["last_payout"] = now.isoformat()
-    return shares
-
-
 def end(document, target, reason, by, now, remains=None, caps=None):
     """
     End ``target``: add the empire's earned share (``remains_share``) of ``remains`` (a dead target's land and money,
@@ -297,6 +267,8 @@ def end(document, target, reason, by, now, remains=None, caps=None):
     _add_lost(entry, stars=leftover["stars"] + over, money=leftover["money"])
     lost = entry["lost"]
     _add_paid(entry, shares)
+    if reason == "removed":
+        document["removed"][target] = now.isoformat()
     record = {
         "target": target,
         "actions": entry["actions"],
@@ -346,7 +318,25 @@ def record_intel(entry, categories, until, kd_id, now):
     return earned, new
 
 
-def target_problem(document, target, empire_kingdoms, max_targets, alive, known, target_empire=None, at_war=False):
+def remark_at(document, target):
+    """When ``target``, removed as a target, can be marked again; None if it was never removed."""
+    removed = document["removed"].get(target)
+    if removed is None:
+        return None
+    seconds = uas.GAME_CONFIG["TARGET_REMARK_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+    return _utc(removed) + datetime.timedelta(seconds=seconds)
+
+
+def target_problem(document, target, empire_kingdoms, max_targets, alive, known, target_empire=None, at_war=False,
+                   now=None):
+    """See ``_target_problem``; also refuses a kingdom removed as a target less than the cooldown ago."""
+    unlocks = remark_at(document, target)
+    if now is not None and unlocks is not None and unlocks > now:
+        return f"You removed that kingdom as a target recently. It can be marked again in {uas.wait_text(unlocks - now)}"
+    return _target_problem(document, target, empire_kingdoms, max_targets, alive, known, target_empire, at_war)
+
+
+def _target_problem(document, target, empire_kingdoms, max_targets, alive, known, target_empire=None, at_war=False):
     """
     Why ``target`` can not be added as a new target, or None if it can. ``target_empire`` is the target's empire (None:
     it is in none), ``at_war`` whether this empire is at war with it.
@@ -400,7 +390,6 @@ def view(document, kd_id, empire, is_emperor, names, galaxy_of, max_targets, now
 
     targets = []
     for target, entry in sorted(document["targets"].items(), key=lambda item: item[1]["created_at"]):
-        unlocks = next_payout_at(entry)
         total = sum(value for value in entry["points"].values() if value > 0)
         targets.append({
             "target": target,
@@ -420,8 +409,6 @@ def view(document, kd_id, empire, is_emperor, names, galaxy_of, max_targets, now
             "my_share": entry["points"].get(kd_id, 0) / total if total > 0 else 0,
             "participants": participants(entry["points"], entry["paid"]),
             "intel": {category: until for category, until in entry["intel"].items() if _utc(until) > now},
-            "next_payout_at": unlocks.isoformat() if unlocks and unlocks > now else None,
-            "payout_problem": payout_problem(entry, now),
         })
     history = [{
         **record,
@@ -440,7 +427,9 @@ def view(document, kd_id, empire, is_emperor, names, galaxy_of, max_targets, now
         "max_fund_share": uas.GAME_CONFIG["TARGET_MAX_FUND_SHARE"],
         "max_multiplier": uas.GAME_CONFIG["TARGET_MAX_POINTS_MULTIPLIER"],
         "max_payout_stars_share": uas.GAME_CONFIG["TARGET_MAX_PAYOUT_STARS_SHARE"],
-        "payout_cooldown_hours": uas.GAME_CONFIG["TARGET_PAYOUT_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 3600,
+        # The kingdoms that can not be marked again yet, with when they can.
+        "removed": {kd: remark_at(document, kd).isoformat() for kd in document["removed"] if remark_at(document, kd) > now},
+        "remark_cooldown_hours": uas.GAME_CONFIG["TARGET_REMARK_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 3600,
         "targets": targets,
         "history": history,
     }
@@ -826,9 +815,10 @@ def add_target(kd_id, target, actions_value, fund_share_value):
     def decide(document):
         document = normalize(document)
         _must_manage(is_emperor, kd_id)(document)
-        problem = target_problem(document, target, members, max_targets, alive, known, target_empire, war)
+        problem = target_problem(document, target, members, max_targets, alive, known, target_empire, war, now=now)
         if problem:
             raise occ.Rejected(problem)
+        document["removed"] = {kd: when for kd, when in document["removed"].items() if remark_at(document, kd) > now}
         document["targets"][target] = new_target(target, actions, fund_share, kd_id, now,
                                                  stars=math.floor(target_info.get("stars", 0)))
         return written(document), None
@@ -909,48 +899,8 @@ def remove_target_route(target):
     except occ.Busy:
         return _answer({"message": "Server is busy"}, 400)
     paid = f", paying out its fund to {len(shares)} participant(s)" if shares else ""
-    return _answer({"message": f"Target removed{paid}", "status": "success"})
-
-
-def pay_out_target(kd_id, target):
-    """Pay out a target's fund. Returns ``(payload, status)``. The route and the bots both use it."""
-    target = str(target)
-    empire, is_emperor, _, _, _ = _context(kd_id)
-    if empire is None:
-        return {"message": "You are not in an empire"}, 400
-    now = _now()
-    caps = _caps_reader()
-
-    def decide(document):
-        document = normalize(document)
-        _must_manage(is_emperor, kd_id)(document)
-        entry = document["targets"].get(target)
-        if entry is None:
-            raise occ.Rejected("That kingdom is not a target")
-        problem = payout_problem(entry, now)
-        if problem:
-            raise occ.Rejected(problem)
-        return written(document), pay_out(entry, now, caps=caps(entry["points"]))
-
-    try:
-        shares = occ.update(_path(empire), decide)
-    except occ.Rejected as rejection:
-        return {"message": rejection.message}, rejection.status
-    except occ.Busy:
-        return {"message": "Server is busy"}, 400
-    _pay(shares, uag._get_kingdoms().get(target, target), now)
-    stars = sum(part["stars"] for part in shares.values())
-    money = sum(part["money"] for part in shares.values())
-    return {"message": f"Paid out {stars} stars and {money} money to {len(shares)} participant(s)",
-            "status": "success"}, 200
-
-
-@bp.route('/api/empiretargets/<target>/payout', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-def payout_route(target):
-    payload, status = pay_out_target(flask_praetorian.current_user().kd_id, target)
-    return _answer(payload, status)
+    hours = uas.GAME_CONFIG["TARGET_REMARK_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 3600
+    return _answer({"message": f"Target removed{paid}. It can be marked again in {hours:g} hours", "status": "success"})
 
 
 @bp.route('/api/empiretargets/delegates', methods=['POST'])
