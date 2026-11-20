@@ -54,9 +54,9 @@ function ClusterPolitics(props) {
                 cluster's benefits.
             </p>
             <p>
-                The Universe Map shows every cluster as a circle holding its galaxies, each coloured by its empire and
-                sized by its number of kingdoms or its networth. Your galaxy has a white ring. Point at or tap a galaxy
-                to see it, or switch to the table.
+                The Universe page shows every galaxy as a bubble inside a bigger one: its cluster (coloured by empire)
+                or its empire (coloured by cluster). Galaxies are sized by their kingdoms still alive or their
+                networth. Your galaxy has a white ring. Point at or tap a galaxy to see it, or switch to the table.
             </p>
         </div>
     );

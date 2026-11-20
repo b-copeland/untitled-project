@@ -63,7 +63,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `kingdoms` | `kingdoms`: kd id to name; `next_id`, the next id to hand out, which survives a round reset so ids are never reused (read with a default of 0) | kingdom creation, `/resetstate` | strict |
 | `galaxies` | `galaxies`: galaxy id to a list of kd ids | the function app only: `POST /galaxy/<id>` (admin) and `POST /kingdom` (kingdom creation) | strict |
 | `empires` | `empires`: empire id to `{name, galaxies, aggression, num_kingdoms, aggression_max, war, peace, denounced, denounced_expires, surprise_war_penalty, surprise_war_penalty_expires}`; `last_update` | politics routes, the refresh (`_resolve_empires`), attacks (aggression) | strict for membership and war, derived for aggregates |
-| `scores` | `points`, `stars`, `networth`, `galaxy_networth` (each keyed by id), `last_update` | the refresh only | derived |
+| `scores` | `points`, `stars`, `networth`, `galaxy_networth` (each keyed by id), `galaxy_kingdoms_alive` (galaxy to the number of its kingdoms the refresh scored, so neither dead nor never set up; missing until the first tick that wrote it), `last_update` | the refresh only | derived |
 | `universe_votes` | `votes`: policy, option, kd id to votes | `/api/votes`, `/api/universepolitics/policies`, elections | strict |
 | `universe_news` | `news`: list | elections, politics | eventual |
 | `accounts` | `accounts`: the last copy of the SQLite users, from before they moved to `user_` documents; the migration reads it | nothing any more | a frozen backup, to be removed ([status.md](status.md#parallelism-gaps)) |

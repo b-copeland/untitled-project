@@ -117,6 +117,8 @@ def _get_scores_redacted(revealed, kd_id, galaxies_inverted, everything_public=F
         "stars": redact("stars"),
         "points": redact("points", needs_reveal=False),
         "galaxy_networth": sorted(scores["galaxy_networth"].items(), key=lambda x: -x[1]),
+        # Missing until the first tick after this field was added.
+        "galaxy_kingdoms_alive": scores.get("galaxy_kingdoms_alive", {}),
     }
 
 @bp.route('/api/scores', methods=["GET"])

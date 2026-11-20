@@ -1457,10 +1457,14 @@ def _resolve_scores(kd_scores, time_update, context=None):
 
         galaxies_inverted = context.galaxies_inverted
         new_scores["galaxy_networth"] = collections.defaultdict(int)
+        # Kingdoms still in the game: dead kingdoms (and ones never set up) score nothing. Each kingdom's status is
+        # public, so the count is too.
+        new_scores["galaxy_kingdoms_alive"] = collections.defaultdict(int)
         for kd_id, networth in kd_scores["networth"].items():
             galaxy = galaxies_inverted[kd_id]
             new_scores["galaxy_networth"][galaxy] += networth
-        
+            new_scores["galaxy_kingdoms_alive"][galaxy] += int(networth > 0)
+
         return new_scores, None
 
     occ.update('/scores', decide)

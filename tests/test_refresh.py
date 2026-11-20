@@ -513,6 +513,23 @@ def test_auto_rob_that_does_not_rob_causes_no_extra_read(refresh_one, monkeypatc
     assert session.paths("GET") == ["/kingdom/1"]
 
 
+# --- _resolve_scores ------------------------------------------------------------------------------------------------
+
+
+def test_scores_count_each_galaxys_kingdoms_still_alive(app, session):
+    session.docs["/scores"] = {"points": {}, "stars": {}, "networth": {}, "galaxy_networth": {},
+                               "last_update": NOW.isoformat(), "_etag": '"s0"'}
+    context = refresh._RefreshContext(state={})
+    context._galaxies_inverted = {"1": "1:1", "2": "1:1", "3": "1:2"}
+    # Kingdom 2 is dead: the refresh scores a dead kingdom (0, 0).
+    scores = {"stars": {"1": 10, "2": 0, "3": 5}, "networth": {"1": 100, "2": 0, "3": 50}}
+    with app.app_context():
+        refresh._resolve_scores(scores, NOW, context)
+    written = session.docs["/scores"]
+    assert written["galaxy_kingdoms_alive"] == {"1:1": 1, "1:2": 1}
+    assert written["galaxy_networth"] == {"1:1": 100, "1:2": 50}
+
+
 # --- refresh_data: one bad kingdom ----------------------------------------------------------------------------------
 
 
