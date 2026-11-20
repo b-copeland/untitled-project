@@ -80,6 +80,14 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
 - Spy attempts come back every epoch again (2026-11-17), so a player away for more than 10 epochs loses attempts.
   Recurring scheduled siphons and intel are issue #137.
 
+## Vote cooldown
+
+Added 2026-11-20: a changed galaxy vote (leader, either doctrine) holds for `BASE_GALAXY_VOTE_COOLDOWN_EPOCHS` (6, proposed
+by the maintainer). Galaxy `GET /api/galaxypolitics` carries `vote_unlocks_at` per vote. Cluster votes have the same rule
+(`CLUSTER_VOTE_COOLDOWN_EPOCHS`) in the cluster politics PRs; once both are merged, the cluster code's own copies of the
+wait text (`clusters._wait_text`, and `waitText`/`useWait` on the cluster page) should be replaced by `shared.wait_text`
+and `src/components/wait.js`.
+
 ## Intel market
 
 Built 2026-11-18 ([game-design.md](game-design.md#glossary), `intel.py`).

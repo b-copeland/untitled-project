@@ -126,19 +126,40 @@ def _change_list(path, field, add=None, remove=None):
     occ.update(path, change)
 
 
+def _now():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _record_vote(galaxy_votes, kind, kd_id, choice, now):
+    """
+    Put ``kd_id``'s vote of ``kind`` as ``choice`` in ``galaxy_votes`` (the document as it is right now), and return the
+    fields to write. Changing a vote that was cast starts the cooldown, and inside it raises ``occ.Rejected`` saying when
+    it can change; voting what it already is changes nothing and starts nothing. The first vote is free.
+    """
+    fields = {}
+    if galaxy_votes["votes"][kind].get(kd_id) != choice:
+        unlocks = uas.galaxy_vote_unlocks_at(galaxy_votes, kind, kd_id, now)
+        if unlocks:
+            raise occ.Rejected(f"You changed this vote recently. You can change it again in {uas.wait_text(unlocks - now)}.")
+        changed = galaxy_votes.get("vote_changed") or {}
+        changed[kind] = {**(changed.get(kind) or {}), kd_id: now.isoformat()}
+        galaxy_votes["vote_changed"] = changed
+        fields["vote_changed"] = changed
+    galaxy_votes["votes"][kind][kd_id] = choice
+    fields["votes"] = galaxy_votes["votes"]
+    return fields
+
+
 def cast_leader_vote(kd_id, selected):
     """Vote for ``selected`` as the leader of ``kd_id``'s galaxy. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
     
     galaxy_votes, galaxy_id = uag._get_galaxy_politics(kd_id)
-    
-    
+    now = _now()
+
     def vote(galaxy_votes):
         # Added to the votes as they are right now, so galaxymates voting together all count.
-        galaxy_votes["votes"]["leader"][kd_id] = selected
-        patch_payload = {
-            "votes": galaxy_votes["votes"],
-        }
+        patch_payload = _record_vote(galaxy_votes, "leader", kd_id, selected, now)
         leader_votes = collections.defaultdict(int)
         for leader in galaxy_votes["votes"]["leader"].values():
             leader_votes[leader] += 1
@@ -157,6 +178,8 @@ def cast_leader_vote(kd_id, selected):
 
     try:
         galaxy_votes = occ.update(f'/galaxy/{galaxy_id}/politics', vote)
+    except occ.Rejected as rejection:
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
         return {"message": "Server is busy"}, 400
 
@@ -175,14 +198,13 @@ def galaxy_leader():
 def cast_galaxy_vote(kd_id, galaxy_id, policy, option):
     """
     Record ``kd_id``'s vote for ``option`` of ``policy`` in its galaxy, switching the galaxy's active policy if that
-    makes one option the clear leader. Returns the galaxy politics document. Raises ``occ.Busy``. The route and the bots
-    both come through here.
+    makes one option the clear leader. Returns the galaxy politics document. Raises ``occ.Busy``, and ``occ.Rejected``
+    inside the cooldown that follows a changed vote. The route and the bots both come through here.
     """
+    now = _now()
+
     def vote(galaxy_votes):
-        galaxy_votes["votes"][policy][kd_id] = option.split('_')[-1]
-        patch_payload = {
-            "votes": galaxy_votes["votes"],
-        }
+        patch_payload = _record_vote(galaxy_votes, policy, kd_id, option.split('_')[-1], now)
         policy_votes = collections.defaultdict(int)
         for chosen in galaxy_votes["votes"][policy].values():
             policy_votes[chosen] += 1
@@ -222,6 +244,8 @@ def galaxy_policies():
 
     try:
         galaxy_votes = cast_galaxy_vote(kd_id, galaxy_id, req["policy"], req["option"])
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
