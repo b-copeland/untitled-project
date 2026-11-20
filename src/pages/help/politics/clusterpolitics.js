@@ -3,6 +3,9 @@ import 'bootstrap/dist/css/bootstrap.css';
 
 const percent = (fraction, digits = 1) => (fraction != null ? `${(fraction * 100).toFixed(digits)}%` : "");
 
+// The game works in epochs; players read hours.
+const perHour = (perEpoch, epochSeconds) => (perEpoch != null && epochSeconds ? (perEpoch * 3600) / epochSeconds : null);
+
 function ClusterPolitics(props) {
     const yourElementRef = useRef(null);
 
@@ -25,10 +28,10 @@ function ClusterPolitics(props) {
             </p>
             <p>
                 Each galaxy's leader casts the galaxy's one vote for a benefit, which every kingdom in the cluster gets.
-                The leader can change or withdraw the vote at any time. Every epoch, each vote builds its benefit up by
-                {" "}{percent(config.CLUSTER_VOTE_RATE)} of the benefit's maximum (shared out so that a whole cluster
+                The leader can change or withdraw the vote at any time. Every hour, each vote builds its benefit up by
+                {" "}{percent(perHour(config.CLUSTER_VOTE_RATE, config.BASE_EPOCH_SECONDS))} of the benefit's maximum (shared out so that a whole cluster
                 voting together builds as fast whatever its size), and every benefit fades by
-                {" "}{percent(config.CLUSTER_DECAY_RATE)} of its maximum, whether anyone votes for it or not. A benefit
+                {" "}{percent(perHour(config.CLUSTER_DECAY_RATE, config.BASE_EPOCH_SECONDS))} of its maximum, whether anyone votes for it or not. A benefit
                 nobody keeps up fades away, and one that only some galaxies vote for may only hold steady.
             </p>
             <p>

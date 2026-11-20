@@ -16,8 +16,12 @@ import "./clusterpolitics.css";
 /** 0.0123 -> "1.23%" */
 const percent = (fraction, digits = 2) => `${((fraction || 0) * 100).toFixed(digits)}%`;
 
-/** A change per epoch, with its sign: "+0.07%", "-0.05%", or "Holding". */
+/** The server works per epoch; players read real time. Turns a per-epoch figure into a per-hour one (null if unknown). */
+export const perHour = (perEpoch, epochSeconds) => (epochSeconds ? ((perEpoch || 0) * 3600) / epochSeconds : null);
+
+/** A change per hour, with its sign: "+0.07%", "-0.05%", "Holding", or "--" when the rate is not known. */
 const change = (fraction) => {
+    if (fraction === null) return "--";
     if (!fraction || Math.abs(fraction) < 1e-9) return "Holding";
     return `${fraction > 0 ? "+" : "-"}${percent(Math.abs(fraction), 3)}`;
 };
@@ -29,7 +33,7 @@ export const benefitsOf = (cluster) => (cluster.order || Object.keys(cluster.ben
 
 const empireName = (data, empireId) => (empireId != null ? data.empires?.[empireId]?.name || `Empire ${empireId}` : "None");
 
-function BenefitsTable({ cluster }) {
+function BenefitsTable({ cluster, epochSeconds }) {
     return (
         <GameTable
             className="game-table cluster-table"
@@ -48,7 +52,7 @@ function BenefitsTable({ cluster }) {
                         </>
                     ),
                 },
-                { header: "Per epoch", cell: (row) => change(row.rate_per_epoch) },
+                { header: "Per hour", cell: (row) => change(perHour(row.rate_per_epoch, epochSeconds)) },
                 { header: "Votes", cell: (row) => row.votes },
             ]}
         />
@@ -102,6 +106,7 @@ function VoteForm({ cluster, isLeader, loading, send }) {
 function ClusterPolitics(props) {
     const [results, setResults] = useState([]);
     const cluster = props.data.cluster || {};
+    const epochSeconds = props.data.state?.game_config?.BASE_EPOCH_SECONDS;
     if (props.loading.cluster && !cluster.benefits) {
         return <h2>Loading...</h2>;
     }
@@ -134,8 +139,10 @@ function ClusterPolitics(props) {
                 <Tabs id="cluster-tabs" defaultActiveKey="benefits" justify fill variant="tabs">
                     <Tab eventKey="benefits" title="Benefits">
                         <Panel title="What the cluster has built up"
-                            hint={`Every kingdom in the cluster gets these. A vote adds ${percent(cluster.vote_gain_per_epoch, 2)} of a benefit's max each epoch, less as it gets higher, and every benefit loses ${percent(cluster.decay_per_epoch, 2)} of its max each epoch.`}>
-                            <BenefitsTable cluster={cluster} />
+                            hint={epochSeconds
+                                ? `Every kingdom in the cluster gets these. A vote adds ${percent(perHour(cluster.vote_gain_per_epoch, epochSeconds), 2)} of a benefit's max each hour, less as it gets higher, and every benefit loses ${percent(perHour(cluster.decay_per_epoch, epochSeconds), 2)} of its max each hour.`
+                                : "Every kingdom in the cluster gets these."}>
+                            <BenefitsTable cluster={cluster} epochSeconds={epochSeconds} />
                         </Panel>
                         <Panel title="Your galaxy's vote" className="cluster-form-panel">
                             <VoteForm key={mine.vote || ""} cluster={cluster} isLeader={leadsGalaxy(props.data)}

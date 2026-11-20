@@ -198,6 +198,11 @@ def _epoch_seconds():
     return int(value) if value == int(value) else value
 
 
+def per_hour(per_epoch):
+    """A per-epoch amount as the per-hour figure players are shown (they never see epochs), e.g. ``300`` or ``1.5``."""
+    return f"{per_epoch * 3600 / GAME_CONFIG['BASE_EPOCH_SECONDS']:g}"
+
+
 GAME_CONFIG = {
     "BASE_EPOCH_SECONDS": _epoch_seconds(),
 
@@ -505,7 +510,7 @@ PROJECTS = {
         "stars_power": 0,
         "constant": 200000,
         "increase": GAME_CONFIG["MINES_PROJECT_MONEY_PER_MINE"],
-        "desc": f"Each mine produces {GAME_CONFIG['MINES_PROJECT_MONEY_PER_MINE']} more money per epoch",
+        "desc": f"Each mine produces {per_hour(GAME_CONFIG['MINES_PROJECT_MONEY_PER_MINE'])} more money per hour",
         "name": "Mines Bonus",
         "category": "structures",
     },
@@ -521,7 +526,7 @@ PROJECTS = {
         "stars_power": 0,
         "constant": 200000,
         "increase": GAME_CONFIG["DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY"],
-        "desc": f"Each drone factory produces {GAME_CONFIG['DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY']} more drones per epoch",
+        "desc": f"Each drone factory produces {per_hour(GAME_CONFIG['DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY'])} more drones per hour",
         "name": "Drone Factories Bonus",
         "category": "structures",
     },
@@ -758,7 +763,7 @@ PROJECTS = {
         "stars_power": 0,
         "constant": 1000000,
         "desc": f"Settling costs {GAME_CONFIG['XO_EVOLUTION_SETTLE_COST_REDUCTION']:.0%} less, and each open hangar space "
-                f"earns {GAME_CONFIG['XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE']} money per epoch",
+                f"earns {per_hour(GAME_CONFIG['XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE'])} money per hour",
         "name": "Xo Evolution: Mercenary Hangars",
         "category": "racial",
         "race": "Xo",
@@ -783,9 +788,9 @@ PROJECTS = {
     "fuzi_evolution": {
         "stars_power": 0,
         "constant": 1000000,
-        "desc": f"Each empty missile silo makes {GAME_CONFIG['FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO']} drones, "
-                f"{GAME_CONFIG['FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO']} money and "
-                f"{GAME_CONFIG['FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO']} fuel per epoch, stores "
+        "desc": f"Each empty missile silo makes {per_hour(GAME_CONFIG['FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO'])} drones, "
+                f"{per_hour(GAME_CONFIG['FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO'])} money and "
+                f"{per_hour(GAME_CONFIG['FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO'])} fuel per hour, stores "
                 f"{GAME_CONFIG['FUZI_EVOLUTION_FUEL_STORAGE_PER_EMPTY_SILO']} fuel and houses "
                 f"{GAME_CONFIG['FUZI_EVOLUTION_POP_PER_EMPTY_SILO']} population",
         "name": "Fuzi Evolution: Silo Cities",

@@ -10,6 +10,9 @@ the component catalog are in [docs/ux.md](../docs/ux.md); read it before changin
 - **Data:** `data/gameData.js` fetches each key from its own `/api/<key>` route. After an action, call
   `updateData([keys it changed], [the request])`. Do not fetch game data with your own effects.
 - **Constants:** `data.state.game_config` and `data.state.pretty_names`. Never copy a game number into the frontend.
+- **Time:** players never see the word "epoch". Show rates per hour and durations in hours or minutes (real time),
+  converted from `game_config.BASE_EPOCH_SECONDS`, in the pages, the help topics and the descriptions the server sends
+  (`shared.per_hour`). "Epoch" stays in code, comments and constant names.
 - **Forecasts:** from the API (`useServerForecast` in `components/planner.js`), never computed in the browser.
 - **Check before sending:** `validation.js` mirrors the server's limits so a form can say why it would fail, as a red
   message under the field and as `SubmitButton`'s `blocked` tooltip. The server still decides. Politics forms are not
