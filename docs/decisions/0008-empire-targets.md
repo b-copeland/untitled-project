@@ -35,6 +35,15 @@ targets, and writes and function app calls cost request units on a free tier sha
 - **A dead target's remains are claimed on the dead kingdom** (its stars, money and funding set to zero with a version
   check), so they are taken once however often the death is handled. They go to the killer's empire if it targets the
   kingdom, otherwise evenly to every empire that does. A death in the refresh is handled after the kingdom is written.
+- **A dead target's land and money are earned, and payouts are capped** (the maintainer, 2026-11-20). An empire could
+  otherwise spot a kingdom dying of starvation, declare war, mark it and land one blow with its largest kingdom, which,
+  as the only participant, took the whole of its land. Now the empire's fund gets the dead target's land and money only
+  in proportion to its points on it, all of it at `TARGET_REMAINS_POINTS_PER_STAR` points per star the target had when
+  marked. And no payout, of any kind, gives a kingdom more stars than `TARGET_MAX_PAYOUT_STARS_SHARE` of its own land.
+  What either holds back leaves the game, as a dead kingdom's land did before targets. Considered and not taken: a
+  flat cut (it hits an empire that besieged a kingdom for days as hard as the opportunist), a minimum time a target
+  must be held (it adds little once the share follows points), and land never going to the fund (it removes the
+  reason to finish a starving kingdom).
 
 ## Rejected
 - **Reading the targets document on every attack, spy operation and strike by an empire member:** one more read per

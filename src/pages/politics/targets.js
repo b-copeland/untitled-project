@@ -244,6 +244,7 @@ function TargetCard({ target, targets, data, send, loading, open }) {
                 { label: "Spoils fund", value: `${displayNumber(target.fund?.stars)} stars, ${displayNumber(target.fund?.money)} money` },
                 { label: "Fund share of attacks", value: displayPercent(target.fund_share || 0) },
                 { label: "Your points", value: `${displayNumber(target.my_points)} (${displayPercent(target.my_share || 0)})` },
+                { label: "Its land and money if it dies", value: `${displayPercent(target.remains_share || 0)} to the fund` },
                 { label: "Intel shared", value: Object.keys(target.intel || {}).join(", ") || "None" },
             ]} />
             {target.at_war === false ? (
@@ -333,13 +334,14 @@ function History({ targets }) {
                 { header: "Ended", align: "left", cell: (row) => dateText(row.ended_at) },
                 { header: "Outcome", align: "left", cell: (row) => OUTCOMES[row.reason] || "Removed" },
                 { header: "Paid out", cell: (row) => `${displayNumber(paid(row, "stars"))} stars, ${displayNumber(paid(row, "money"))} money` },
+                { header: "Left the game", cell: (row) => `${displayNumber(row.lost?.stars)} stars, ${displayNumber(row.lost?.money)} money` },
                 {
                     header: "Top participants", align: "left",
                     cell: (row) => (row.participants || []).slice(0, 3).map((participant) => participant.name).join(", ") || "Nobody",
                 },
             ]}
         >
-            {rows.length ? null : <tr><td colSpan={6} style={{ textAlign: "left" }}>No target has ended yet.</td></tr>}
+            {rows.length ? null : <tr><td colSpan={7} style={{ textAlign: "left" }}>No target has ended yet.</td></tr>}
         </GameTable>
     );
 }
@@ -390,6 +392,7 @@ export default function Targets(props) {
                 { label: "Targets", value: `${list.length} of ${targets.max_targets}` },
                 { label: "Your role", value: role },
                 { label: "Funds paid out at most every", value: `${targets.payout_cooldown_hours} hours` },
+                { label: "Most stars one payout gives a kingdom", value: `${displayPercent(targets.max_payout_stars_share || 0)} of its land` },
             ]} />
             <Tabs id="targets-tabs" defaultActiveKey="targets" justify fill variant="tabs">
                 <Tab eventKey="targets" title={`Targets (${list.length})`}>

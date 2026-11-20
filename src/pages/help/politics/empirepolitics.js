@@ -57,13 +57,22 @@ function EmpirePolitics(props) {
                     to the attacker; the attack forecast shows how much;
                 </li>
                 <li>every star missiles destroy goes into the spoils fund;</li>
-                <li>if it dies, its remaining stars and money go into the spoils fund and the target ends.</li>
+                <li>
+                    if it dies, its remaining stars and money go into the spoils fund, in the share the Empire has
+                    earned, and the target ends. The share grows with the Empire's points on the target: all of it
+                    once the Empire has {config.TARGET_REMAINS_POINTS_PER_STAR} points for every star the target had
+                    when it was marked. Finishing off a kingdom you barely touched earns little of its land. The tab
+                    shows the share so far.
+                </li>
             </ul>
             <p>
                 Leadership pays the spoils fund out to everyone who earned points on the target, in proportion to their
                 points, at most once
                 every {((config.TARGET_PAYOUT_COOLDOWN_EPOCHS || 0) * (config.BASE_EPOCH_SECONDS || 0)) / 3600} hours.
-                Points last as long as the target. When a target ends, because leadership removes it, because it dies,
+                No kingdom receives more stars from one payout
+                than {displayPercent(config.TARGET_MAX_PAYOUT_STARS_SHARE || 0)} of its own land. Stars over that, and
+                the part of a dead target's land and money the Empire had not earned, leave the game. Points last as
+                long as the target. When a target ends, because leadership removes it, because it dies,
                 or because the war ends (a surrender), whatever is left in its fund is paid out at once; with nobody to pay, it is lost. Ended targets
                 stay in the History tab.
             </p>

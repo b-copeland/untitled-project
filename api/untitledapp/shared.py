@@ -353,6 +353,10 @@ GAME_CONFIG = {
     "TARGET_MAX_POINTS_MULTIPLIER": 5.0,  # leadership can scale each action's points from 0 up to this many times
     "TARGET_PAYOUT_COOLDOWN_EPOCHS": 1,  # a target's fund can be paid out at most once this often
     "TARGET_HISTORY_LENGTH": 20,  # ended targets kept in the empire's history
+    # A dead target's land and money go into the fund in proportion to the empire's points on it, all of it once it has
+    # this many points for every star the target had when it was marked; the rest leaves the game.
+    "TARGET_REMAINS_POINTS_PER_STAR": 0.5,
+    "TARGET_MAX_PAYOUT_STARS_SHARE": 0.10,  # the most stars one payout gives a kingdom, as a share of its own land
 
     "NETWORTH_VALUES": {
         "stars": 25,

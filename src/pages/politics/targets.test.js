@@ -27,13 +27,14 @@ const target = {
         { kd_id: "2", name: "Member", points: 30, share: 0.75, paid: { stars: 0, money: 0 } },
         { kd_id: "1", name: "Emperor", points: 10, share: 0.25, paid: { stars: 0, money: 0 } },
     ],
-    intel: { military: "2099-01-01T00:00:00+00:00" },
+    intel: { military: "2099-01-01T00:00:00+00:00" }, remains_share: 0.4,
     next_payout_at: null, payout_problem: null,
 };
 
 const targets = (overrides = {}) => ({
     empire: "e1", is_emperor: false, can_manage: false, delegates: [], max_delegates: 3, max_targets: 2,
     actions, default_fund_share: 0.1, max_fund_share: 0.5, max_multiplier: 5, payout_cooldown_hours: 0.5,
+    max_payout_stars_share: 0.1,
     at_war_with: ["e2"],
     targets: [target], history: [], ...overrides,
 });
@@ -90,6 +91,8 @@ test("a member sees the target, its fund and the participants, but no leadership
     expect(screen.getByText("Target (1:3)")).toBeTruthy();
     expect(screen.getByText("12 stars, 3,400 money")).toBeTruthy();
     expect(screen.getByText("10 (25.0%)")).toBeTruthy();
+    expect(screen.getByText("40.0% to the fund")).toBeTruthy();
+    expect(screen.getByText("10.0% of its land")).toBeTruthy();
     expect(screen.getByRole("cell", { name: "Member" })).toBeTruthy();
     expect(screen.queryByText("Pay out the fund")).toBeNull();
     expect(screen.queryByText("Manage")).toBeNull();

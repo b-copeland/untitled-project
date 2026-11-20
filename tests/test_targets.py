@@ -94,7 +94,7 @@ def test_only_marked_actions_earn_points_but_the_fund_always_fills():
 
 def test_ending_a_target_pays_everything_out_and_keeps_it_in_the_history():
     document = uat.normalize({"targets": {TARGET: _entry(points={"1": 1, "2": 3}, fund={"stars": 10, "money": 100})}})
-    shares = uat.end(document, TARGET, "removed", KD_ID, NOW, extra_fund={"stars": 2, "money": 0})
+    shares = uat.end(document, TARGET, "removed", KD_ID, NOW, remains={"stars": 2, "money": 0})
     assert shares == {"1": {"stars": 3, "money": 25}, "2": {"stars": 9, "money": 75}}
     assert document["targets"] == {}
     record = document["history"][0]
@@ -103,6 +103,33 @@ def test_ending_a_target_pays_everything_out_and_keeps_it_in_the_history():
     document = uat.normalize({"targets": {TARGET: _entry(fund={"stars": 10, "money": 100})}})
     assert uat.end(document, TARGET, "killed", None, NOW) == {}
     assert document["history"][0]["lost"] == {"stars": 10, "money": 100}
+
+
+def test_no_payout_gives_a_kingdom_more_stars_than_its_cap_and_the_rest_leaves_the_game():
+    assert uat.star_cap(1000) == int(1000 * uas.GAME_CONFIG["TARGET_MAX_PAYOUT_STARS_SHARE"])
+    shares, over = uat.capped({"1": {"stars": 50, "money": 10}, "2": {"stars": 5, "money": 0}}, {"1": 20, "2": 20})
+    assert shares == {"1": {"stars": 20, "money": 10}, "2": {"stars": 5, "money": 0}} and over == 30
+    # A participant with a cap of nothing (dead) gets no stars; with no stars and no money, nothing at all.
+    assert uat.capped({"1": {"stars": 5, "money": 0}}, {"1": 0}) == ({}, 5)
+    entry = _entry(points={"1": 1, "2": 1}, fund={"stars": 100, "money": 0})
+    shares = uat.pay_out(entry, NOW, caps={"1": 20, "2": 100})
+    assert shares == {"1": {"stars": 20, "money": 0}, "2": {"stars": 50, "money": 0}}
+    assert entry["fund"] == {"stars": 0, "money": 0} and entry["lost"] == {"stars": 30, "money": 0}  # not shared out
+
+
+def test_a_dead_targets_land_and_money_go_to_the_fund_in_the_share_the_empire_earned():
+    needed = uas.GAME_CONFIG["TARGET_REMAINS_POINTS_PER_STAR"] * 1000
+    entry = _entry(stars_at_start=1000, points={"1": needed / 10})
+    assert uat.remains_share(entry) == pytest.approx(0.1)
+    assert uat.remains_share(_entry(stars_at_start=1000, points={"1": needed * 3})) == 1.0
+    document = uat.normalize({"targets": {TARGET: entry}})
+    shares = uat.end(document, TARGET, "killed", None, NOW, remains={"stars": 500, "money": 10_000})
+    assert shares == {"1": {"stars": 50, "money": 1000}}
+    assert document["history"][0]["lost"] == {"stars": 450, "money": 9000}
+    # The caps hold for a death's payout too.
+    document = uat.normalize({"targets": {TARGET: _entry(stars_at_start=1000, points={"1": needed})}})
+    shares = uat.end(document, TARGET, "killed", None, NOW, remains={"stars": 500, "money": 0}, caps={"1": 30})
+    assert shares == {"1": {"stars": 30, "money": 0}} and document["history"][0]["lost"]["stars"] == 470
 
 
 def test_bad_actions_and_fund_shares_are_refused():
@@ -359,42 +386,54 @@ def _with_fund(points, fund, last_payout=None):
 
 def test_a_payout_credits_participants_in_proportion_to_their_points(app, client, jwt1, jwt2):
     _set_up_empire()
-    _with_fund({KD_ID: 1, MEMBER: 3}, {"stars": 100, "money": 1000})
+    _with_fund({KD_ID: 1, MEMBER: 3}, {"stars": 40, "money": 1000})
     stars1, stars2 = _get(f"/kingdom/{KD_ID}")["stars"], _get(f"/kingdom/{MEMBER}")["stars"]
 
     assert client.post(f"/api/empiretargets/{TARGET}/payout", headers=_auth(jwt2)).status_code == 400  # not leadership
     response = client.post(f"/api/empiretargets/{TARGET}/payout", headers=_auth(jwt1))
 
     assert response.status_code == 200, response.get_json()
-    assert _get(f"/kingdom/{KD_ID}")["stars"] == stars1 + 25
-    assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + 75
+    assert _get(f"/kingdom/{KD_ID}")["stars"] == stars1 + 10
+    assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + 30
     entry = _targets()["targets"][TARGET]
     assert entry["fund"] == {"stars": 0, "money": 0}
-    assert entry["paid"][MEMBER] == {"stars": 75, "money": 750}
+    assert entry["paid"][MEMBER] == {"stars": 30, "money": 750}
     assert entry["points"] == {KD_ID: 1, MEMBER: 3}  # points last for the whole target
+
+
+def test_a_payout_holds_each_kingdom_to_its_cap(app, client, jwt1):
+    _set_up_empire()
+    _with_fund({MEMBER: 1}, {"stars": 100, "money": 0})
+    stars2 = _get(f"/kingdom/{MEMBER}")["stars"]
+
+    assert client.post(f"/api/empiretargets/{TARGET}/payout", headers=_auth(jwt1)).status_code == 200
+
+    assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + uat.star_cap(stars2)
+    entry = _targets()["targets"][TARGET]
+    assert entry["fund"]["stars"] == 0 and entry["lost"]["stars"] == 100 - uat.star_cap(stars2)
 
 
 @pytest.mark.parametrize("repeat", range(2))
 def test_racing_payouts_pay_out_once(app, client, jwt1, repeat):
     _set_up_empire()
-    _with_fund({KD_ID: 1, MEMBER: 1}, {"stars": 100, "money": 0})
+    _with_fund({KD_ID: 1, MEMBER: 1}, {"stars": 40, "money": 0})
     stars2 = _get(f"/kingdom/{MEMBER}")["stars"]
 
     responses = _run_together(app, 6, lambda c, i: c.post(f"/api/empiretargets/{TARGET}/payout", headers=_auth(jwt1)))
 
     assert sorted(r.status_code for r in responses) == [200] + [400] * 5, [r.get_json() for r in responses]
-    assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + 50
+    assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + 20
 
 
 def test_removing_a_target_pays_out_its_fund_and_keeps_it_in_the_history(app, client, jwt1):
     _set_up_empire()
-    _with_fund({MEMBER: 1}, {"stars": 40, "money": 0}, last_payout=datetime.datetime.now(datetime.timezone.utc).isoformat())
+    _with_fund({MEMBER: 1}, {"stars": 20, "money": 0}, last_payout=datetime.datetime.now(datetime.timezone.utc).isoformat())
     stars2 = _get(f"/kingdom/{MEMBER}")["stars"]
 
     response = client.post(f"/api/empiretargets/{TARGET}/remove", headers=_auth(jwt1))
 
     assert response.status_code == 200, response.get_json()
-    assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + 40  # the cooldown does not hold back the final payout
+    assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + 20  # the cooldown does not hold back the final payout
     document = _targets()
     assert document["targets"] == {} and document["history"][0]["reason"] == "removed"
     assert _get("/empires")["empires"]["e1"]["targets"] == []
@@ -417,6 +456,32 @@ def test_killing_a_target_puts_its_remains_in_the_fund_and_ends_it(app, client, 
     assert record["reason"] == "killed"
     assert record["paid"][KD_ID]["money"] > 0
     assert _get("/empires")["empires"]["e1"]["targets"] == []
+
+
+def test_marking_a_target_remembers_its_land(app, client, jwt1):
+    _set_up_empire()
+    _add(client, jwt=jwt1)
+    assert _targets()["targets"][TARGET]["stars_at_start"] == _get(f"/kingdom/{TARGET}")["stars"]
+
+
+def test_a_kill_on_a_target_barely_touched_earns_little_of_its_land(app, client, jwt1):
+    # Kingdom 1 has 3000 stars, so its cap (300) does not hold back the 100 it earned.
+    _set_up_empire(target_overrides={"status": "Dead", "stars": 2000, "money": 0}, attacker_overrides={"stars": 3000})
+    needed = uas.GAME_CONFIG["TARGET_REMAINS_POINTS_PER_STAR"] * 2000
+    entry = uat.new_target(TARGET, {"missiles": 1.0}, 0.1, KD_ID, NOW, stars=2000)
+    entry["points"] = {KD_ID: needed / 20}  # 5% of the effort
+    _create_item("empire_targets_e1", {"targets": {TARGET: entry}})
+    empires = _get("/empires")
+    empires["empires"]["e1"]["targets"] = [TARGET]
+    _create_item("empires", {"empires": empires["empires"]})
+    stars1 = _get(f"/kingdom/{KD_ID}")["stars"]
+
+    with app.test_request_context():
+        uat.on_kingdom_death(TARGET, killer=KD_ID)
+
+    assert _get(f"/kingdom/{KD_ID}")["stars"] == stars1 + 100  # 5% of 2000
+    assert _targets()["history"][0]["lost"]["stars"] == 1900
+    assert _get(f"/kingdom/{TARGET}")["stars"] == 0  # all of it was taken off the dead kingdom, earned or not
 
 
 def test_a_death_with_no_empire_target_takes_nothing(app, client):

@@ -158,8 +158,8 @@ the `empires` document the action has in hand), and a surrender ends every targe
 | Key | Holds |
 |---|---|
 | `delegates` | The kingdoms the emperor named to manage targets with them, at most `TARGET_MAX_DELEGATES` |
-| `targets` | Target kingdom to `{target, actions, fund_share, created_at, created_by, points, fund, paid, last_payout, intel}`. `actions`: each marked action (a key of `TARGET_ACTIONS`) to its points multiplier. `points` and `paid` (`{stars, money}`) per participant. `fund`: `{stars, money}`. `last_payout`: when the fund was last paid out, or null. `intel`: category to when the empire's shared intel on the target ends |
-| `history` | The newest `TARGET_HISTORY_LENGTH` ended targets, newest first: `{target, actions, fund_share, created_at, ended_at, reason, ended_by, points, paid, lost}`; `reason` is `removed`, `killed` or `war_ended`, `lost` what was left unpaid (rounding, or everything with nobody to pay) |
+| `targets` | Target kingdom to `{target, stars_at_start, actions, fund_share, created_at, created_by, points, fund, paid, last_payout, intel, lost}`. `stars_at_start`: its land when it was marked, which the points that earn its land and money at its death are measured against. `lost` (missing until something is): `{stars, money}` that left the game instead of being paid, over the star caps. `actions`: each marked action (a key of `TARGET_ACTIONS`) to its points multiplier. `points` and `paid` (`{stars, money}`) per participant. `fund`: `{stars, money}`. `last_payout`: when the fund was last paid out, or null. `intel`: category to when the empire's shared intel on the target ends |
+| `history` | The newest `TARGET_HISTORY_LENGTH` ended targets, newest first: `{target, actions, fund_share, created_at, ended_at, reason, ended_by, points, paid, lost}`; `reason` is `removed`, `killed` or `war_ended`, `lost` everything that left the game instead of being paid (over the star caps, the unearned part of a dead target's land and money, rounding, or the whole fund with nobody to pay) |
 
 ## The kingdom document
 

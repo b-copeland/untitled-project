@@ -15,7 +15,12 @@ While a kingdom is a target:
   (``points_for``);
 * a share of each successful attack's stars and money (``fund_share``) goes into the target's spoils fund instead of
   to the attacker, and every star missiles destroy goes into it;
-* if it dies, its remaining stars and money go into the fund and the target ends.
+* if it dies, its remaining stars and money go into the fund, in the share the empire has earned (``remains_share``:
+  its points against ``TARGET_REMAINS_POINTS_PER_STAR`` for each star the target had when it was marked), and the
+  target ends.
+
+No participant receives more stars from one payout than ``TARGET_MAX_PAYOUT_STARS_SHARE`` of their own land
+(``star_cap``). What a cap holds back, and the unearned part of a dead target's land and money, leave the game.
 
 All of that holds only while the two empires are at war: an action on a target whose kingdom is no longer in an empire
 at war with this one (its galaxy left, say) counts for nothing, and when the war ends (a surrender) every target in the
@@ -86,9 +91,11 @@ def written(document):
     return {field: document[field] for field in FIELDS}
 
 
-def new_target(target, actions, fund_share, by, now):
+def new_target(target, actions, fund_share, by, now, stars=0):
     return {
         "target": str(target),
+        # Its land when it was marked: what the points that earn its land and money at its death are measured against.
+        "stars_at_start": stars,
         "actions": dict(actions),
         "fund_share": fund_share,
         "created_at": now.isoformat(),
@@ -184,9 +191,48 @@ def payout_shares(points, fund):
     return shares
 
 
+def star_cap(stars):
+    """The most stars a kingdom of ``stars`` receives from one payout: ``TARGET_MAX_PAYOUT_STARS_SHARE`` of its land."""
+    return math.floor(max(stars, 0) * uas.GAME_CONFIG["TARGET_MAX_PAYOUT_STARS_SHARE"])
+
+
+def capped(shares, caps):
+    """
+    ``(shares, stars over the caps)``: no participant gets more stars than ``caps[kd_id]`` (see ``star_cap``). The stars
+    over a cap leave the game; they are not shared out among the others.
+    """
+    kept, over = {}, 0
+    for kd_id, part in shares.items():
+        stars = min(part["stars"], max(caps.get(kd_id, part["stars"]), 0))
+        over += part["stars"] - stars
+        if stars or part["money"]:
+            kept[kd_id] = {"stars": stars, "money": part["money"]}
+    return kept, over
+
+
+def remains_share(entry, total_points=None):
+    """
+    The share of a dead target's land and money that goes into its empire's fund: in proportion to the points the
+    empire earned on it, against ``TARGET_REMAINS_POINTS_PER_STAR`` points for every star it had when it was marked,
+    up to all of it. So an empire that marks a dying kingdom and lands only the last blow gets little.
+    """
+    if total_points is None:
+        total_points = sum(value for value in entry["points"].values() if value > 0)
+    needed = uas.GAME_CONFIG["TARGET_REMAINS_POINTS_PER_STAR"] * max(entry.get("stars_at_start") or 0, 1)
+    return min(max(total_points, 0) / needed, 1.0)
+
+
 def _take(fund, shares):
     """The fund once ``shares`` are paid out of it."""
     return {key: fund.get(key, 0) - sum(part[key] for part in shares.values()) for key in ("stars", "money")}
+
+
+def _add_lost(entry, stars=0, money=0):
+    """Count what left the game instead of being paid: stars over a cap, or the part of a dead target's land and money
+    the empire had not earned."""
+    lost = entry.setdefault("lost", {"stars": 0, "money": 0})
+    lost["stars"] = lost.get("stars", 0) + stars
+    lost["money"] = lost.get("money", 0) + money
 
 
 def _add_paid(entry, shares):
@@ -216,25 +262,40 @@ def payout_problem(entry, now):
     return None
 
 
-def pay_out(entry, now):
-    """Pay the fund out to the participants. Returns the shares paid; changes ``entry``."""
+def pay_out(entry, now, caps=None):
+    """
+    Pay the fund out to the participants, each held to their cap (``caps``: kingdom to the most stars it takes, see
+    ``star_cap``; None for no caps). Returns the shares paid; changes ``entry``. The whole share comes out of the fund,
+    and the stars over a cap leave the game.
+    """
     shares = payout_shares(entry["points"], entry["fund"])
     entry["fund"] = _take(entry["fund"], shares)
+    shares, over = capped(shares, caps or {})
+    _add_lost(entry, stars=over)
     _add_paid(entry, shares)
     entry["last_payout"] = now.isoformat()
     return shares
 
 
-def end(document, target, reason, by, now, extra_fund=None):
+def end(document, target, reason, by, now, remains=None, caps=None):
     """
-    End ``target``: add ``extra_fund`` (a dead kingdom's remains), pay out the whole fund to the participants, and move
-    the target to the history. Returns the shares paid. Changes ``document``.
+    End ``target``: add the empire's earned share (``remains_share``) of ``remains`` (a dead target's land and money,
+    ``{stars, money}``), pay out the whole fund to the participants held to their caps, and move the target to the
+    history. What is not earned, over a cap, or left by rounding leaves the game. Returns the shares paid. Changes
+    ``document``.
     """
     entry = document["targets"].pop(target)
-    for key, amount in (extra_fund or {}).items():
-        entry["fund"][key] = entry["fund"].get(key, 0) + amount
+    if remains:
+        share = remains_share(entry)
+        earned = {key: math.floor(max(remains.get(key, 0), 0) * share) for key in ("stars", "money")}
+        _add_lost(entry, stars=remains.get("stars", 0) - earned["stars"], money=remains.get("money", 0) - earned["money"])
+        for key, amount in earned.items():
+            entry["fund"][key] = entry["fund"].get(key, 0) + amount
     shares = payout_shares(entry["points"], entry["fund"])
-    lost = _take(entry["fund"], shares)
+    leftover = _take(entry["fund"], shares)
+    shares, over = capped(shares, caps or {})
+    _add_lost(entry, stars=leftover["stars"] + over, money=leftover["money"])
+    lost = entry["lost"]
     _add_paid(entry, shares)
     record = {
         "target": target,
@@ -246,7 +307,8 @@ def end(document, target, reason, by, now, extra_fund=None):
         "ended_by": by,
         "points": entry["points"],
         "paid": entry["paid"],
-        # Rounding leaves a little behind; with no participants, all of it.
+        # What left the game: stars over the caps, the unearned part of a dead target's land and money, what rounding
+        # leaves, and with no participants, the whole fund.
         "lost": lost,
     }
     document["history"] = ([record] + document["history"])[:uas.GAME_CONFIG["TARGET_HISTORY_LENGTH"]]
@@ -351,6 +413,9 @@ def view(document, kd_id, empire, is_emperor, names, galaxy_of, max_targets, now
             "created_at": entry["created_at"],
             "created_by": entry.get("created_by"),
             "points_total": total,
+            # How much of its land and money would go into the fund if it died now.
+            "remains_share": remains_share(entry, total),
+            "lost": entry.get("lost", {"stars": 0, "money": 0}),
             "my_points": entry["points"].get(kd_id, 0),
             "my_share": entry["points"].get(kd_id, 0) / total if total > 0 else 0,
             "participants": participants(entry["points"], entry["paid"]),
@@ -374,6 +439,7 @@ def view(document, kd_id, empire, is_emperor, names, galaxy_of, max_targets, now
         "default_fund_share": uas.GAME_CONFIG["TARGET_DEFAULT_FUND_SHARE"],
         "max_fund_share": uas.GAME_CONFIG["TARGET_MAX_FUND_SHARE"],
         "max_multiplier": uas.GAME_CONFIG["TARGET_MAX_POINTS_MULTIPLIER"],
+        "max_payout_stars_share": uas.GAME_CONFIG["TARGET_MAX_PAYOUT_STARS_SHARE"],
         "payout_cooldown_hours": uas.GAME_CONFIG["TARGET_PAYOUT_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 3600,
         "targets": targets,
         "history": history,
@@ -484,6 +550,30 @@ def _credit(kd_id, part, message, time_now):
         _news(kd_id, message, time_now)
         _send(kd_id, message, update=("kingdom", "empiretargets", "news"))
     return credited
+
+
+def _caps_for(points):
+    """Each participant's star cap (``star_cap``), from their kingdom as it is now: one read per participant, cached so a
+    retried decision does not read again. A dead participant gets nothing (their share leaves the game)."""
+    cache = {}
+    for kd_id, value in points.items():
+        if value <= 0 or kd_id in cache:
+            continue
+        kd = occ.read(f'/kingdom/{kd_id}')
+        dead = str(kd.get("status", "")).lower() == "dead"
+        cache[kd_id] = 0 if dead else star_cap(kd.get("stars", 0))
+    return cache
+
+
+def _caps_reader():
+    """``caps(points)``: the caps of these participants, each kingdom read once however often it is asked for."""
+    read = {}
+
+    def caps(points):
+        missing = {kd: value for kd, value in points.items() if kd not in read}
+        read.update(_caps_for(missing))
+        return {kd: read[kd] for kd in points if kd in read}
+    return caps
 
 
 def _pay(shares, target_name, time_now, final=False):
@@ -604,7 +694,7 @@ def on_kingdom_death(kd_id, killer=None):
     parts[first]["money"] += remains["money"] - sum(part["money"] for part in parts.values())
     for empire in empires:
         try:
-            _end_target(empire, kd_id, "killed", None, extra_fund=parts[empire])
+            _end_target(empire, kd_id, "killed", None, remains=parts[empire])
         except (occ.Rejected, occ.Busy):
             # Removed by leadership at the same moment (it was paid out then), or too busy: the attack or strike that
             # killed the kingdom has already happened and must not fail now. That empire's part of the remains is lost.
@@ -630,9 +720,10 @@ def end_war(empire_a, empire_b):
                     pass  # removed meanwhile, or too busy: leadership can still remove it
 
 
-def _end_target(empire, target, reason, by, extra_fund=None, check=None):
+def _end_target(empire, target, reason, by, remains=None, check=None):
     """End a target (``check(document)`` may refuse), pay out its fund, and take it out of the hint."""
     time_now = _now()
+    caps = _caps_reader()
 
     def decide(document):
         document = normalize(document)
@@ -640,7 +731,8 @@ def _end_target(empire, target, reason, by, extra_fund=None, check=None):
             raise occ.Rejected("That kingdom is not a target")
         if check is not None:
             check(document)
-        shares = end(document, target, reason, by, time_now, extra_fund)
+        shares = end(document, target, reason, by, time_now, remains=remains,
+                     caps=caps(document["targets"][target]["points"]))
         return written(document), shares
 
     shares = occ.update(_path(empire), decide)
@@ -722,7 +814,8 @@ def add_target(kd_id, target, actions_value, fund_share_value):
         return {"message": "You are not in an empire"}, 400
     names = uag._get_kingdoms()
     known = target in names
-    alive = known and str(uag._get_kd_info(target).get("status", "")).lower() != "dead"
+    target_info = uag._get_kd_info(target) if known else {}
+    alive = known and str(target_info.get("status", "")).lower() != "dead"
     members = set(_empire_kingdoms(empire, empires_info, galaxy_info))
     max_targets = len(empires_info["empires"][empire]["galaxies"])
     empires_inverted, _, _, _ = uag._get_empires_inverted()
@@ -736,7 +829,8 @@ def add_target(kd_id, target, actions_value, fund_share_value):
         problem = target_problem(document, target, members, max_targets, alive, known, target_empire, war)
         if problem:
             raise occ.Rejected(problem)
-        document["targets"][target] = new_target(target, actions, fund_share, kd_id, now)
+        document["targets"][target] = new_target(target, actions, fund_share, kd_id, now,
+                                                 stars=math.floor(target_info.get("stars", 0)))
         return written(document), None
 
     try:
@@ -825,6 +919,7 @@ def pay_out_target(kd_id, target):
     if empire is None:
         return {"message": "You are not in an empire"}, 400
     now = _now()
+    caps = _caps_reader()
 
     def decide(document):
         document = normalize(document)
@@ -835,7 +930,7 @@ def pay_out_target(kd_id, target):
         problem = payout_problem(entry, now)
         if problem:
             raise occ.Rejected(problem)
-        return written(document), pay_out(entry, now)
+        return written(document), pay_out(entry, now, caps=caps(entry["points"]))
 
     try:
         shares = occ.update(_path(empire), decide)
