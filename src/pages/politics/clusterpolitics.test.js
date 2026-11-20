@@ -35,6 +35,7 @@ const data = (overrides = {}) => ({
     empires: { 0: { name: "The Empire" } },
     galaxypolitics: { leader: "7" },
     kingdomid: { kd_id: "7" },
+    state: { game_config: { BASE_EPOCH_SECONDS: 1800 } },
     ...overrides,
 });
 
@@ -52,7 +53,10 @@ test("the benefits show their level, their change and their votes", () => {
     render(<ClusterPolitics data={data()} loading={{}} updateData={jest.fn()} />);
     const rowOf = (name) => screen.getAllByText(name).find((element) => element.tagName === "STRONG").closest("tr");
     expect(within(rowOf("Cheaper Units")).getByText("1.00% of 5%")).toBeTruthy();
-    expect(within(rowOf("Cheaper Units")).getByText("-0.025%")).toBeTruthy();
+    // Per hour, not per epoch: the server's -0.00025 per half-hour epoch is -0.05% an hour of the max.
+    expect(within(rowOf("Cheaper Units")).getByText("-0.050%")).toBeTruthy();
+    expect(screen.getByText("Per hour")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/epoch/i);
     expect(within(rowOf("Cheaper Settling")).getByText("Holding")).toBeTruthy();
     expect(screen.getByText("Cheaper Units", { selector: "dd" })).toBeTruthy();  // your galaxy votes for it
 });

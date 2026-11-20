@@ -28,8 +28,10 @@ what needs doing, and what is worth doing next.** Every page should answer its p
    themselves. Use the game's terms from the glossary in [game-design.md](game-design.md#glossary), the same everywhere.
 8. **Works at phone width.** No page wider than the screen: wide tables scroll inside `table-scroll`, panels stack.
    Check at about 375 px wide.
-9. **One way to do each thing.** Use the shared components below rather than a hand-written table, input or toast.
-10. **Every rule change updates its help page** (`src/pages/help/`), in the same pull request.
+9. **Real time, not epochs.** Players never see the word "epoch": rates are per hour and durations are in hours or
+   minutes, converted from `BASE_EPOCH_SECONDS`. This holds for pages, help topics and server-sent descriptions.
+10. **One way to do each thing.** Use the shared components below rather than a hand-written table, input or toast.
+11. **Every rule change updates its help page** (`src/pages/help/`), in the same pull request.
 
 ## Components
 

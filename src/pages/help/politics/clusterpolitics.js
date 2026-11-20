@@ -3,6 +3,9 @@ import 'bootstrap/dist/css/bootstrap.css';
 
 const percent = (fraction, digits = 1) => (fraction != null ? `${(fraction * 100).toFixed(digits)}%` : "");
 
+// The game works in epochs; players read hours.
+const perHour = (perEpoch, epochSeconds) => (perEpoch != null && epochSeconds ? (perEpoch * 3600) / epochSeconds : null);
+
 function ClusterPolitics(props) {
     const yourElementRef = useRef(null);
 
@@ -10,7 +13,7 @@ function ClusterPolitics(props) {
         if (Object.keys(props.state).length > 0 && props.scrollTarget === "clusterpolitics") {
             yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [props.state]);
+    }, [props.state, props.scrollTarget]);
 
     const config = props.state.game_config || {};
     const benefits = props.state.cluster_benefits || {};
@@ -25,10 +28,10 @@ function ClusterPolitics(props) {
             </p>
             <p>
                 Each galaxy's leader casts the galaxy's one vote for a benefit, which every kingdom in the cluster gets.
-                The leader can change or withdraw the vote at any time. Every epoch, each vote builds its benefit up by
-                {" "}{percent(config.CLUSTER_VOTE_RATE)} of the benefit's maximum (shared out so that a whole cluster
+                The leader can change or withdraw the vote at any time. Every hour, each vote builds its benefit up by
+                {" "}{percent(perHour(config.CLUSTER_VOTE_RATE, config.BASE_EPOCH_SECONDS))} of the benefit's maximum (shared out so that a whole cluster
                 voting together builds as fast whatever its size), and every benefit fades by
-                {" "}{percent(config.CLUSTER_DECAY_RATE)} of its maximum, whether anyone votes for it or not. A benefit
+                {" "}{percent(perHour(config.CLUSTER_DECAY_RATE, config.BASE_EPOCH_SECONDS))} of its maximum, whether anyone votes for it or not. A benefit
                 nobody keeps up fades away, and one that only some galaxies vote for may only hold steady.
             </p>
             <p>
@@ -52,6 +55,11 @@ function ClusterPolitics(props) {
                 The Cluster Politics page shows each benefit now, how fast it is changing, and how the galaxies of the
                 cluster are voting. Prices on the Settle and Military pages, and drone production, already include the
                 cluster's benefits.
+            </p>
+            <p>
+                The Universe page shows every galaxy as a bubble inside a bigger one: its cluster (coloured by empire)
+                or its empire (coloured by cluster). Galaxies are sized by their kingdoms still alive or their
+                networth. Your galaxy has a white ring. Point at or tap a galaxy to see it, or switch to the table.
             </p>
         </div>
     );
