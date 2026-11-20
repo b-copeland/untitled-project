@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import ProgressBar from 'react-bootstrap/ProgressBar';
@@ -25,6 +25,24 @@ const change = (fraction) => {
     if (!fraction || Math.abs(fraction) < 1e-9) return "Holding";
     return `${fraction > 0 ? "+" : "-"}${percent(Math.abs(fraction), 3)}`;
 };
+
+/** A wait in real time, rounded up to the minute: "2 h 5 min", "40 min". */
+export function waitText(milliseconds) {
+    const minutes = Math.max(1, Math.ceil(milliseconds / 60000));
+    const hours = Math.floor(minutes / 60);
+    return [hours ? `${hours} h` : "", minutes % 60 ? `${minutes % 60} min` : ""].filter(Boolean).join(" ");
+}
+
+/** How long until ``unlocksAt`` (an ISO time or null), re-read every 30 seconds; null once it has passed. */
+export function useWait(unlocksAt) {
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+        const timer = setInterval(() => setNow(Date.now()), 30000);
+        return () => clearInterval(timer);
+    }, []);
+    const left = unlocksAt ? Date.parse(unlocksAt) - now : 0;
+    return left > 0 ? left : null;
+}
 
 /** The benefits in the game's order (the server sends ``order``, since the object's keys arrive sorted). */
 export const benefitsOf = (cluster) => (cluster.order || Object.keys(cluster.benefits || {}))
@@ -85,20 +103,29 @@ export const leadsGalaxy = (data) => {
 function VoteForm({ cluster, isLeader, loading, send }) {
     const mine = (cluster.galaxies || []).find((galaxy) => galaxy.id === cluster.galaxy) || {};
     const [choice, setChoice] = useState(mine.vote || "");
+    const wait = useWait(cluster.vote_unlocks_at);
+    const locked = wait !== null ? `Your galaxy changed its vote recently. It can change again in ${waitText(wait)}.` : null;
+    const rule = cluster.vote_cooldown_hours ? `Once changed, a galaxy's vote stays for ${cluster.vote_cooldown_hours} hours.` : null;
     if (!isLeader) {
-        return <p className="mb-0">Only your galaxy leader casts your galaxy's vote. Vote for a leader on the Galaxy Politics page.</p>;
+        return (
+            <>
+                <p className="mb-0">Only your galaxy leader casts your galaxy's vote. Vote for a leader on the Galaxy Politics page.</p>
+                {locked ? <p className="planner-hint-line">{locked}</p> : null}
+            </>
+        );
     }
     const unchanged = (choice || null) === (mine.vote || null);
     return (
         <Form className="cluster-vote-form" onSubmit={(event) => { event.preventDefault(); send(choice || null); }}>
             <Form.Label htmlFor="cluster-vote-select">Your galaxy votes for</Form.Label>
-            <Form.Select id="cluster-vote-select" value={choice} onChange={(event) => setChoice(event.target.value)}>
+            <Form.Select id="cluster-vote-select" value={choice} disabled={Boolean(locked)} onChange={(event) => setChoice(event.target.value)}>
                 <option value="">No vote</option>
                 {benefitsOf(cluster).map((benefit) => <option key={benefit.key} value={benefit.key}>{benefit.name}</option>)}
             </Form.Select>
-            <SubmitButton loading={loading} blocked={unchanged ? "That is already your galaxy's vote" : null}>
+            <SubmitButton loading={loading} blocked={locked || (unchanged ? "That is already your galaxy's vote" : null)}>
                 {choice ? "Vote" : "Withdraw vote"}
             </SubmitButton>
+            {locked ? <p className="planner-why">{locked}</p> : rule ? <p className="planner-hint-line">{rule}</p> : null}
         </Form>
     );
 }
@@ -133,7 +160,6 @@ function ClusterPolitics(props) {
                 <Stats items={[
                     { label: "Cluster", value: cluster.cluster },
                     { label: "Galaxies", value: (cluster.galaxies || []).length },
-                    { label: "In one empire", value: percent(cluster.alignment, 0) },
                     { label: "Your galaxy votes for", value: myVote ? myVote.name : "Nothing" },
                 ]} />
                 <Tabs id="cluster-tabs" defaultActiveKey="benefits" justify fill variant="tabs">
