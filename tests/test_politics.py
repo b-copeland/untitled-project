@@ -199,6 +199,21 @@ def test_leaving_an_empire_removes_the_galaxy_and_hands_over_the_leadership(app,
     assert _get("/empire/e1/politics")["leader"] == "1:2"
 
 
+def test_a_galaxy_can_not_leave_its_empire_during_a_war(app, client, jwt1):
+    _at_war()
+    response = client.post("/api/leaveempire", headers=_auth(jwt1))
+    assert response.status_code == 400 and "at war" in response.get_json()["message"]
+    assert _get("/empires")["empires"]["e1"]["galaxies"] == ["1:1"]
+
+
+def test_a_war_declared_as_the_galaxy_leaves_still_holds_it(app):
+    _at_war()
+    with app.test_request_context():
+        with pytest.raises(uap.occ.Rejected):
+            uap._change_empire_galaxies("e1", remove="1:1", leave_check=uap._refuse_leaving)
+    assert _get("/empires")["empires"]["e1"]["galaxies"] == ["1:1"]
+
+
 def _two_empires():
     _set_up_kingdom(money=0)
     _create_item("galaxies", {"galaxies": {"1:1": [KD_ID], "1:2": ["2"]}})
