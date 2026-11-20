@@ -87,14 +87,17 @@ def _size_check(galaxy):
     return check
 
 
-def _change_empire_galaxies(empire_id, add=None, remove=None, check=None):
+def _change_empire_galaxies(empire_id, add=None, remove=None, check=None, leave_check=None):
     """
     Add a galaxy to an empire, or take one out, on the empires document as it is right now (not the copy read at the
     start of the request, which would overwrite changes made since). ``check`` is called with the empire's galaxies as
-    they are now, before ``add`` joins them, and may raise ``occ.Rejected``. Returns the empire's galaxies afterwards.
+    they are now, before ``add`` joins them, and ``leave_check`` with the empire as it is now, before ``remove`` leaves
+    it; either may raise ``occ.Rejected``. Returns the empire's galaxies afterwards.
     """
     def change(empires_document):
         empire = empires_document["empires"][empire_id]
+        if remove is not None and leave_check is not None:
+            leave_check(empire)
         galaxies = [galaxy for galaxy in empire["galaxies"] if galaxy != remove]
         if add is not None and any(
             add in other["galaxies"] for other_id, other in empires_document["empires"].items() if other_id != empire_id
@@ -559,11 +562,28 @@ def accept_galaxy_request(target_galaxy):
     payload, status = admit_galaxy_to_empire(flask_praetorian.current_user().kd_id, target_galaxy)
     return flask.jsonify(payload), status
 
-def _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics):
-    
+def _leave_problem(empire):
+    """Why a galaxy can not leave ``empire`` (its entry in the empires document) now, or None. A galaxy can not walk out
+    of a war: it stays until the war ends, which only a surrender does."""
+    if empire.get("war"):
+        return "You can not leave your Empire while it is at war. A war ends when one side surrenders"
+    return None
+
+
+def _refuse_leaving(empire):
+    problem = _leave_problem(empire)
+    if problem:
+        raise occ.Rejected(problem)
+
+
+def _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics, empire=None):
+
     if kd_galaxy_politics["leader"] != kd_id:
         return False, "You are not the leader of the your galaxy"
-    
+    problem = _leave_problem(empire or {})
+    if problem:
+        return False, problem
+
     return True, ""
 
 @bp.route('/api/leaveempire', methods=['POST'])
@@ -580,13 +600,22 @@ def leave_empire():
     kd_empire = empires_inverted.get(kd_id)
 
     
+    if kd_empire is None:
+        return flask.jsonify({"message": "Your galaxy is not in an Empire"}), 400
     empire_politics = uag._get_empire_politics(kd_empire)
 
-    valid_leave, message = _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics)
+    valid_leave, message = _validate_leave_empire(empire_politics, kd_id, kd_galaxy_politics,
+                                                  empires_info["empires"].get(kd_empire))
     if not valid_leave:
         return flask.jsonify({"message": message}), 400
-        
-    remaining_galaxies = _change_empire_galaxies(kd_empire, remove=kd_galaxy_id)
+
+    try:
+        # Checked again on the empires document as it is when the galaxy leaves: a war declared a moment ago holds it.
+        remaining_galaxies = _change_empire_galaxies(kd_empire, remove=kd_galaxy_id, leave_check=_refuse_leaving)
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
 
     if len(remaining_galaxies) > 0 and empire_politics["leader"] == kd_galaxy_id:
         kd_empire_payload = {

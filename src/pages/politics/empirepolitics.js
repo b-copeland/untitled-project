@@ -142,6 +142,11 @@ function Join(props) {
       }).then(r => r.json()).then(r => setResults(results.concat(r)))
       props.updateData(['empirepolitics', 'empires', 'empires_inverted'], [updateFunc])
   }
+  // The server refuses to let a galaxy leave during a war; say so before the button is pressed.
+  const myEmpire = props.data.empires_inverted?.empires_inverted?.[props.data.kingdomid?.kd_id];
+  const leaveBlocked = (props.data.empires?.[myEmpire]?.war || []).length
+    ? "You can not leave your Empire while it is at war. A war ends when one side surrenders."
+    : null;
   const onSubmitLeaveClick = (e)=>{
       const updateFunc = () => authFetch('api/leaveempire', {
           method: 'post',
@@ -413,10 +418,12 @@ function Join(props) {
                     ? <Button className="empire-button" variant="warning" type="submit" disabled>
                         Loading...
                     </Button>
-                    : <Button className="empire-button" variant="warning" type="submit" onClick={onSubmitLeaveClick}>
+                    : <Button className="empire-button" variant="warning" type="submit" onClick={onSubmitLeaveClick}
+                        disabled={Boolean(leaveBlocked)} title={leaveBlocked || undefined}>
                         Leave Empire
                     </Button>
                   }
+                  {leaveBlocked ? <p className="planner-why">{leaveBlocked}</p> : null}
               </div>
           </div>
       }

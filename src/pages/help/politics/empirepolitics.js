@@ -17,7 +17,9 @@ function EmpirePolitics(props) {
             <p>
                 An Empire is a group of galaxies. A galaxy leader can found an Empire, ask to join one, or accept an
                 invitation from one. The leader of the Empire's ruling galaxy invites galaxies and accepts their
-                requests. Empires can denounce, declare war on, make peace with and surrender to other Empires.
+                requests. Empires can denounce, declare war on, make peace with and surrender to other Empires. A galaxy
+                leader can take their galaxy out of its Empire, but not while the Empire is at war: a war ends only
+                when one side surrenders.
             </p>
             <h3>How large an Empire can be</h3>
             <p>
