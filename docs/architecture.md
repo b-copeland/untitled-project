@@ -167,6 +167,7 @@ In game code take `kd_id` from `flask_praetorian.current_user()` and nothing els
 | Attacks, spying, primitives, missiles launched, schedule, pinned | `conquer.py` |
 | The galaxy's intel market: listings, bounties, free shares, exclusions, who earns which cut | `intel.py` |
 | Galaxy, empire and universe politics, votes, war, surrender | `politics.py` |
+| Cluster politics: a galaxy leader's vote, benefit levels, the cluster's empire alignment | `clusters.py` |
 | Read routes (`/api/kingdom`, `/api/structures`, ...) and the calculations they share | `getters.py` |
 | The tick | `refresh.py` (`refresh_data` calls `_refresh_kd` per kingdom) |
 | The end of a round: archive, read-only game | `roundend.py` |

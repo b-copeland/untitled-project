@@ -96,6 +96,24 @@ Built 2026-11-18 ([game-design.md](game-design.md#glossary), `intel.py`).
   review.
 - Bots buy listings and list or share what they spy, but never post or answer bounties.
 
+## Cluster politics
+
+Started 2026-11-19 (issue #157, [decisions/0007](decisions/0007-cluster-politics.md), `clusters.py`). The framework is
+built; the content is not.
+
+- Every number is a placeholder: `CLUSTER_SIZE`, `CLUSTER_REF_SIZE`, `CLUSTER_VOTE_COOLDOWN_EPOCHS` (6, proposed by the maintainer 2026-11-20), `CLUSTER_VOTE_RATE`, `CLUSTER_DECAY_RATE`, and each
+  benefit's `max` and `thresholds` in `CLUSTER_BENEFITS`. The benefits themselves (drone production, unit cost, settle
+  cost) are the issue's examples.
+- `CLUSTER_VOTE_RATE` and `CLUSTER_DECAY_RATE` are fractions of each benefit's max, so every benefit fills at the same
+  relative speed. The issue's example could also be read as absolute percentage points; the maintainer to confirm.
+- The empire coordination bonus is a hook only: the alignment is computed, stored and shown, but
+  `clusters.alignment_multiplier` returns 1.0.
+- Bots do not cast cluster votes.
+- The Universe page colours the first eight empires (or, grouped by empire, clusters) by id and shows the rest in one
+  "other" grey. Its eight colours pass the palette checks for neighbouring colours, not for every pair, so the legend,
+  the names on hover and the table view carry identity too. Selecting a galaxy does not yet open it on the Galaxy page.
+- Neither the Cluster Politics page nor the Universe page has been checked in a browser yet.
+
 ## Bots
 
 See [bots.md](bots.md) for what bots do not do yet and the open questions.

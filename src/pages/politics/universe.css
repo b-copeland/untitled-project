@@ -1,0 +1,124 @@
+/* The Universe page: galaxies as bubbles inside clusters or empires. The app is always dark (index.js). */
+.universe {
+    --universe-surface: #212529;
+    --universe-text-primary: #f0efec;
+    --universe-text-secondary: #c3c2b7;
+    --universe-group-fill: rgba(255, 255, 255, 0.04);
+    --universe-group-stroke: #6c757d;
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.universe .panel {
+    margin-top: 1rem;
+}
+
+.universe-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.universe-svg {
+    display: block;
+    width: 100%;
+    max-width: 640px;
+    height: auto;
+    margin: 0 auto;
+}
+
+.universe-group {
+    fill: var(--universe-group-fill);
+    stroke: var(--universe-group-stroke);
+    stroke-width: 1;
+}
+
+.universe-group-label {
+    fill: var(--universe-text-secondary);
+    font-size: 12px;
+    paint-order: stroke;
+    stroke: var(--universe-surface);
+    stroke-width: 3px;
+}
+
+/* A 2px ring in the surface colour keeps touching galaxies apart. */
+.universe-galaxy circle {
+    stroke: var(--universe-surface);
+    stroke-width: 2;
+    cursor: pointer;
+}
+
+.universe-galaxy circle.universe-no-color {
+    fill: transparent;
+    stroke: var(--universe-group-stroke);
+    stroke-dasharray: 3 2;
+}
+
+.universe-galaxy circle.universe-mine {
+    stroke: var(--universe-text-primary);
+    stroke-width: 3;
+}
+
+.universe-galaxy:focus {
+    outline: none;
+}
+
+.universe-galaxy:focus circle,
+.universe-galaxy:hover circle {
+    stroke: var(--universe-text-primary);
+}
+
+.universe-galaxy-label {
+    fill: var(--universe-text-primary);
+    font-size: 11px;
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--universe-surface);
+    stroke-width: 3px;
+}
+
+.universe-focus {
+    text-align: center;
+    color: var(--universe-text-secondary);
+    min-height: 1.5em;
+    margin-top: 0.5rem;
+}
+
+.universe-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.5rem;
+    color: var(--universe-text-secondary);
+    font-size: 0.9rem;
+}
+
+.universe-swatch {
+    display: inline-block;
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    margin-right: 0.35rem;
+    vertical-align: -0.1rem;
+}
+
+.universe-swatch-none {
+    border: 1px dashed var(--universe-group-stroke);
+}
+
+.universe-swatch-mine {
+    border: 2px solid var(--universe-text-primary);
+}
+
+.universe .table.universe-table {
+    width: 100%;
+    min-width: 0;
+}
+
+.universe-row-mine > td {
+    font-weight: 600;
+}

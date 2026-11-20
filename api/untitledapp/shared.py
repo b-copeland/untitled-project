@@ -199,6 +199,11 @@ def _epoch_seconds():
     return int(value) if value == int(value) else value
 
 
+def per_hour(per_epoch):
+    """A per-epoch amount as the per-hour figure players are shown (they never see epochs), e.g. ``300`` or ``1.5``."""
+    return f"{per_epoch * 3600 / GAME_CONFIG['BASE_EPOCH_SECONDS']:g}"
+
+
 GAME_CONFIG = {
     "BASE_EPOCH_SECONDS": _epoch_seconds(),
 
@@ -332,6 +337,13 @@ GAME_CONFIG = {
     "BASE_TREATIED_COST_INCREASE": 0.2,
     "BASE_FREE_TRADE_INCREASE": 0.1,
     "BASE_ISOLATIONIST_DECREASE": 0.1,
+
+    # Cluster politics (clusters.py). Placeholders: the framework is in, the balance is not.
+    "CLUSTER_SIZE": 5,  # galaxies per cluster when /api/createstate makes them
+    "CLUSTER_REF_SIZE": 5,  # a cluster of this many galaxies gains exactly CLUSTER_VOTE_RATE per vote
+    "CLUSTER_VOTE_COOLDOWN_EPOCHS": 6,  # once a galaxy's vote has changed (cast, switched or withdrawn), it stays this long
+    "CLUSTER_VOTE_RATE": 0.005,  # per galaxy vote per epoch, as a fraction of the benefit's max
+    "CLUSTER_DECAY_RATE": 0.005,  # per epoch, as a fraction of the benefit's max, voted for or not
 
     "NETWORTH_VALUES": {
         "stars": 25,
@@ -501,7 +513,7 @@ PROJECTS = {
         "stars_power": 0,
         "constant": 200000,
         "increase": GAME_CONFIG["MINES_PROJECT_MONEY_PER_MINE"],
-        "desc": f"Each mine produces {GAME_CONFIG['MINES_PROJECT_MONEY_PER_MINE']} more money per epoch",
+        "desc": f"Each mine produces {per_hour(GAME_CONFIG['MINES_PROJECT_MONEY_PER_MINE'])} more money per hour",
         "name": "Mines Bonus",
         "category": "structures",
     },
@@ -517,7 +529,7 @@ PROJECTS = {
         "stars_power": 0,
         "constant": 200000,
         "increase": GAME_CONFIG["DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY"],
-        "desc": f"Each drone factory produces {GAME_CONFIG['DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY']} more drones per epoch",
+        "desc": f"Each drone factory produces {per_hour(GAME_CONFIG['DRONE_FACTORIES_PROJECT_DRONES_PER_FACTORY'])} more drones per hour",
         "name": "Drone Factories Bonus",
         "category": "structures",
     },
@@ -754,7 +766,7 @@ PROJECTS = {
         "stars_power": 0,
         "constant": 1000000,
         "desc": f"Settling costs {GAME_CONFIG['XO_EVOLUTION_SETTLE_COST_REDUCTION']:.0%} less, and each open hangar space "
-                f"earns {GAME_CONFIG['XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE']} money per epoch",
+                f"earns {per_hour(GAME_CONFIG['XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE'])} money per hour",
         "name": "Xo Evolution: Mercenary Hangars",
         "category": "racial",
         "race": "Xo",
@@ -779,9 +791,9 @@ PROJECTS = {
     "fuzi_evolution": {
         "stars_power": 0,
         "constant": 1000000,
-        "desc": f"Each empty missile silo makes {GAME_CONFIG['FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO']} drones, "
-                f"{GAME_CONFIG['FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO']} money and "
-                f"{GAME_CONFIG['FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO']} fuel per epoch, stores "
+        "desc": f"Each empty missile silo makes {per_hour(GAME_CONFIG['FUZI_EVOLUTION_DRONES_PER_EMPTY_SILO'])} drones, "
+                f"{per_hour(GAME_CONFIG['FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO'])} money and "
+                f"{per_hour(GAME_CONFIG['FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO'])} fuel per hour, stores "
                 f"{GAME_CONFIG['FUZI_EVOLUTION_FUEL_STORAGE_PER_EMPTY_SILO']} fuel and houses "
                 f"{GAME_CONFIG['FUZI_EVOLUTION_POP_PER_EMPTY_SILO']} population",
         "name": "Fuzi Evolution: Silo Cities",
@@ -1116,6 +1128,33 @@ GALAXY_POLICIES = {
                 "desc": "You protect your kingdoms through mandatory military enlistment. Your galaxy's recruits are trained 20% faster"
             }
         }
+    },
+}
+
+# What a cluster's galaxy leaders can vote to build up (clusters.py). Each benefit's level runs from 0 to ``max``;
+# ``thresholds`` are ``(level as a fraction of max, how effective votes are from there up)``, so votes add less the
+# higher the level gets. ``effect`` names the hook in the game that reads it (``clusters.modifiers``). Placeholders.
+CLUSTER_BENEFITS = {
+    "drone_production": {
+        "name": "Drone Production",
+        "desc": "Drone factories in the cluster produce more drones",
+        "max": 0.15,
+        "thresholds": [(1 / 3, 0.8), (2 / 3, 0.6)],
+        "effect": "drone_production",
+    },
+    "unit_cost": {
+        "name": "Cheaper Units",
+        "desc": "Military units in the cluster cost less",
+        "max": 0.05,
+        "thresholds": [(0.5, 0.8)],
+        "effect": "unit_cost",
+    },
+    "settle_cost": {
+        "name": "Cheaper Settling",
+        "desc": "Settling new stars in the cluster costs less",
+        "max": 0.10,
+        "thresholds": [(0.5, 0.8)],
+        "effect": "settle_cost",
     },
 }
 

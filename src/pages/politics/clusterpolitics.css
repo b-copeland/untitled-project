@@ -1,0 +1,40 @@
+/* The Cluster page. Tables, panels and stats use the shared styles. */
+.cluster-politics {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.cluster-politics .panel {
+    margin-top: 1rem;
+}
+
+.cluster-politics .table.cluster-table {
+    width: 100%;
+    min-width: 0;
+}
+
+.cluster-politics .cluster-level {
+    min-width: 9rem;
+}
+
+.cluster-politics .cluster-level .progress {
+    height: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.cluster-politics .panel.cluster-form-panel {
+    max-width: 30rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.cluster-vote-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.cluster-row-mine > td {
+    font-weight: 600;
+}

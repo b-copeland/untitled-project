@@ -397,9 +397,16 @@ class World:
         return self.state["state"].get("active_policies") or []
 
     @property
+    def cluster_modifiers(self):
+        """What this kingdom's cluster's benefits are worth now, as the server prices things with them."""
+        return self._lazy("cluster_modifiers", lambda: uag._get_cluster_modifiers(self.kd_id, self.galaxy_of.get(self.kd_id), self.now))
+
+    @property
     def cost_modifier(self):
+        """Unit prices as ``getters._get_units_adjusted_costs`` makes them."""
         return (1.0 - ("Unregulated" in self.active_policies) * uas.GAME_CONFIG["BASE_UNREGULATED_COST_REDUCTION"]
-                + ("Treatied" in self.active_policies) * uas.GAME_CONFIG["BASE_TREATIED_COST_INCREASE"])
+                + ("Treatied" in self.active_policies) * uas.GAME_CONFIG["BASE_TREATIED_COST_INCREASE"]
+                - self.cluster_modifiers.get("unit_cost", 0.0))
 
     # --- lazily read documents
 

@@ -159,9 +159,9 @@ def recruits():
     payload, status = _recruit(flask_praetorian.current_user().kd_id, int(req["recruitsInput"]))
     return flask.jsonify(payload), status
 
-def _get_mobis_cost(mobis_request):
+def _get_mobis_cost(mobis_request, kd_id):
     state = uag._get_state()
-    units_adjusted_costs = uag._get_units_adjusted_costs(state)
+    units_adjusted_costs = uag._get_units_adjusted_costs(state, uag._get_cluster_modifiers(kd_id))
     mobis_cost = sum([
         units_adjusted_costs[k]['cost'] * units_value
         for k, units_value in mobis_request.items()
@@ -236,7 +236,7 @@ def _train_mobis(kd_id, mobis_request):
             datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
         )
 
-        mobis_cost = _get_mobis_cost(mobis_request)
+        mobis_cost = _get_mobis_cost(mobis_request, kd_id)
         valid_mobis = _validate_train_mobis(mobis_request, current_units, kd_info_parse, mobis_cost)
         if not valid_mobis:
             raise occ.Rejected('Please enter valid training values')
@@ -645,8 +645,8 @@ def raze_structures():
     return (flask.jsonify({"message": "Razed structures", "status": "success"}), 200)
 
 
-def _validate_settles(settle_input, kd_info, settle_info, is_expansionist):
-    max_settle, available_settle = uag._get_available_settle(kd_info, settle_info, is_expansionist)
+def _validate_settles(settle_input, kd_info, settle_info, is_expansionist, settle_cost=0.0):
+    max_settle, available_settle = uag._get_available_settle(kd_info, settle_info, is_expansionist, settle_cost)
     if settle_input <= 0:
         return False
     if settle_input > available_settle:
@@ -699,7 +699,8 @@ def _settle(kd_id, settle_input):
         galaxies_inverted, _ = uag._get_galaxies_inverted()
         galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
         is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
-        valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info, is_expansionist)
+        settle_cost = uag._get_cluster_modifiers(kd_id, galaxies_inverted[kd_id])["settle_cost"]
+        valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info, is_expansionist, settle_cost)
         if not valid_settle:
             raise occ.Rejected('Please enter valid settle value')
 
@@ -711,7 +712,7 @@ def _settle(kd_id, settle_input):
         )
         new_settles, min_settle_time = _get_new_settles(kd_info_parse, settle_input, start_time)
 
-        settle_price = uag._get_settle_price(kd_info_parse, is_expansionist)
+        settle_price = uag._get_settle_price(kd_info_parse, is_expansionist, settle_cost)
         new_money = kd_info_parse["money"] - settle_price * settle_input
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["settles"] = min(next_resolve["settles"], min_settle_time)

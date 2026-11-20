@@ -26,6 +26,7 @@ import Primitives from "./conquer/primitives.js";
 import Politics from "./politics/politics.js";
 import EmpirePolitics from "./politics/empirepolitics.js";
 import UniversePolitics from "./politics/universepolitics.js";
+import ClusterPolitics from "./politics/clusterpolitics.js";
 import CreateKingdom from "./other/createkingdom.js";
 import ViewKingdom from "./other/viewkingdom.js";
 import "./help.css";
@@ -36,7 +37,7 @@ const TOPICS = [
     ["Home", [["home", "Status", Home], ["news", "News", News], ["galaxy", "Galaxy", Galaxy], ["message", "Message", Message], ["history", "History", History], ["scores", "Scores", Scores]]],
     ["Build", [["build", "Overview", Build], ["settle", "Settle", Settle], ["structures", "Structures", Structures], ["military", "Military", Military], ["projects", "Projects", Projects], ["buildmissiles", "Build Missiles", BuildMissiles]]],
     ["Conquer", [["conquer", "Overview", Conquer], ["attack", "Attack", Attack], ["spy", "Spy", Spy], ["intel", "Intel", Intel], ["launchmissiles", "Launch Missiles", LaunchMissiles], ["schedule", "Schedule", Schedule], ["primitives", "Primitives", Primitives]]],
-    ["Politics", [["politics", "Galaxy Politics", Politics], ["empirepolitics", "Empire Politics", EmpirePolitics], ["universepolitics", "Universe Politics", UniversePolitics]]],
+    ["Politics", [["politics", "Galaxy Politics", Politics], ["empirepolitics", "Empire Politics", EmpirePolitics], ["clusterpolitics", "Cluster Politics", ClusterPolitics], ["universepolitics", "Universe Politics", UniversePolitics]]],
     ["Other", [["createkingdom", "Create Kingdom", CreateKingdom], ["viewkingdom", "View Kingdom", ViewKingdom]]],
 ];
 const FLAT = TOPICS.flatMap(([, topics]) => topics);

@@ -82,6 +82,7 @@ class StubWorld(brain.World):
             "intel": intel or {"listings": [], "bounties": [], "accepted": [], "cuts": {}, "my_intel": [],
                       "exclusions": [], "history": []},
             "attack_history": attack_history or [],
+            "cluster_modifiers": {},
         }
 
     def target_info(self, target):

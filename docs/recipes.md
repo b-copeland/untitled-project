@@ -149,7 +149,19 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
    same function the action uses.
 5. A test that would fail without the effect, next to the tests of the system it changes, and its help text.
 
-## 10. A new unit, structure or missile
+## 10. A cluster benefit
+
+1. Add it to `CLUSTER_BENEFITS` in `shared.py`: `name`, `desc`, `max` (the benefit at full level, e.g. `0.1` for 10%),
+   `thresholds` (`(level, efficiency)` pairs: from that share of the max up, a vote adds only `efficiency` as much),
+   and `effect`. The vote route, the Cluster page and the help page list benefits from it, so a benefit whose effect
+   already exists (`drone_production`, `unit_cost`, `settle_cost`) needs nothing else. Its numbers are proposals.
+2. **A new effect:** wire it where the rule lives. In a request, read `uag._get_cluster_modifiers(kd_id)[effect]` (one
+   read of the cluster per request, cached). In the refresh, read `context.cluster_modifiers(kd_id, time_update)`
+   (once per cluster per tick) and pass it down. Several benefits may share an effect; their values add up.
+3. Forecasts and pages must show what the action charges: use the same function for both (recipe 9, step 4).
+4. A test that would fail without the effect (see `tests/test_clusters.py`), and a line in the Cluster help topic.
+
+## 11. A new unit, structure or missile
 
 A unit that needs a project gets `"project"` in `UNITS` (a missile, in `MISSILES`); the routes and pages check it.
 The Military, Attack, Primitives and home pages and the kingdom view list units from `UNITS`.

@@ -10,8 +10,8 @@ you add one.
   and nothing is atomic across two documents.
 - **Per-kingdom documents** are named `<type>_<kd_id>` (`kingdom_7`, `structures_7`, ...). `POST /kingdom` on the function
   app creates all of them empty; Flask then fills them from `INITIAL_KINGDOM_STATE` in `shared.py` through `/createitem`.
-- **Ids are strings.** Kingdom ids are `"0"`, `"1"`, ... assigned in order. Galaxy ids look like `"1:3"`. Empire ids are
-  `"0"`, `"1"`, ...
+- **Ids are strings.** Kingdom ids are `"0"`, `"1"`, ... assigned in order. Galaxy ids are `"<cluster>:<galaxy>"`
+  (`"2:3"` is galaxy 3 of cluster 2), so a galaxy's cluster is the first part of its id. Empire ids are `"0"`, `"1"`, ...
 - **Times are ISO 8601 strings in UTC** (`2026-11-14T08:00:00+00:00`). Compare them as datetimes, not strings, unless both
   come from the same `isoformat()`. `DATE_SENTINEL` (`2099-01-01T00:00:00+00:00`) means "never".
 - **Cosmos adds** `_etag`, `_ts`, `_rid`, `_self`, `_attachments`. `_etag` is the version used for conditional writes. The
@@ -23,7 +23,7 @@ Read the handler in `funcapp/function_app.py` before relying on one, but these a
 
 | Pattern | Routes | What the body does |
 |---|---|---|
-| **Shallow merge** | `PATCH /kingdom/<id>`, `/kingdoms`, `/scores`, `/empires`, `/galaxy/<id>/politics`, `/empire/<id>/politics`, `/universepolitics`, `/galaxy/<id>/intel`; `/updatestate` (merges into the inner `state` object) | `{**document, **body}`. Top-level keys in the body replace the stored ones **entirely**. Sending `{"next_resolve": {"structures": t}}` replaces the whole `next_resolve` object with one key. Send the full nested object. |
+| **Shallow merge** | `PATCH /kingdom/<id>`, `/kingdoms`, `/scores`, `/empires`, `/galaxy/<id>/politics`, `/empire/<id>/politics`, `/universepolitics`, `/galaxy/<id>/intel`, `/cluster/<id>`; `/updatestate` (merges into the inner `state` object) | `{**document, **body}`. Top-level keys in the body replace the stored ones **entirely**. Sending `{"next_resolve": {"structures": t}}` replaces the whole `next_resolve` object with one key. Send the full nested object. |
 | **Append or replace** | queues (`/settles`, `/mobis`, `/structures`, `/missiles`, `/engineers`) | `new_<field>` (a list of entries) is appended and the queue folded, see below; `<field>` replaces the list. |
 | | `/siphonsin`, `/siphonsout` | `new_siphons` (one item) is appended; `siphons` replaces the list. |
 | | `/revealed` | `new_revealed` is merged per target kingdom and stat, each stat keeping the later of the stored and the incoming expiry (so shared intel never shortens a reveal); `new_galaxies` is merged; `new_revealed_galaxymates` and `new_revealed_to_galaxymates` are appended. The same names without `new_` replace. |
@@ -63,7 +63,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `kingdoms` | `kingdoms`: kd id to name; `next_id`, the next id to hand out, which survives a round reset so ids are never reused (read with a default of 0) | kingdom creation, `/resetstate` | strict |
 | `galaxies` | `galaxies`: galaxy id to a list of kd ids | the function app only: `POST /galaxy/<id>` (admin) and `POST /kingdom` (kingdom creation) | strict |
 | `empires` | `empires`: empire id to `{name, galaxies, aggression, num_kingdoms, aggression_max, war, peace, denounced, denounced_expires, surprise_war_penalty, surprise_war_penalty_expires}`; `last_update` | politics routes, the refresh (`_resolve_empires`), attacks (aggression) | strict for membership and war, derived for aggregates |
-| `scores` | `points`, `stars`, `networth`, `galaxy_networth` (each keyed by id), `last_update` | the refresh only | derived |
+| `scores` | `points`, `stars`, `networth`, `galaxy_networth` (each keyed by id), `galaxy_kingdoms_alive` (galaxy to the number of its kingdoms the refresh scored, so neither dead nor never set up; missing until the first tick that wrote it), `last_update` | the refresh only | derived |
 | `universe_votes` | `votes`: policy, option, kd id to votes | `/api/votes`, `/api/universepolitics/policies`, elections | strict |
 | `universe_news` | `news`: list | elections, politics | eventual |
 | `accounts` | `accounts`: the last copy of the SQLite users, from before they moved to `user_` documents; the migration reads it | nothing any more | a frozen backup, to be removed ([status.md](status.md#parallelism-gaps)) |
@@ -71,6 +71,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `galaxy_votes_<galaxy>` | `votes` (`policy_1`, `policy_2`, `leader`), `vote_changed` (vote kind to kingdom to when that kingdom last changed that vote; read with a default, since kingdoms that never changed one have no entry; a change holds for `BASE_GALAXY_VOTE_COOLDOWN_EPOCHS`), `active_policies`, `leader`, `policy_1_winner`, `policy_2_winner`, `empire_invitations`, `empire_join_requests` | galaxy politics routes, empire routes | strict |
 | `empire_politics_<empire>` | `empire_invitations`, `empire_join_requests`, `surrender_offers_sent`, `surrender_offers_received`, `surrender_requests_sent`, `surrender_requests_received`, `leader` | empire politics routes | strict |
 | `galaxy_intel_<galaxy>` | The galaxy's intel market, see [below](#the-intel-market). `GET /galaxy/<id>/intel` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `intel.py` (every intel action) | strict: every change is decided on it with `occ.update` |
+| `cluster_<cluster>` | The cluster's politics, see [below](#cluster-politics). `GET /cluster/<id>` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `clusters.py`: a galaxy leader's vote, and the refresh when the cluster's empire alignment changes | strict: every change is decided on it with `occ.update` |
 | `empire_news_<empire>` | `news`: list | nothing yet: it is created empty and read, but never written | eventual |
 
 ## Per-kingdom documents
@@ -128,6 +129,21 @@ it is read and dropped whenever it is next written. Cuts are fractions.
 
 Ids are never parsed: every entry carries its own fields. An action that gives intel then appends it to the receiver's
 `revealed` (keeping the later expiry) and lowers their `next_resolve.revealed`, so the refresh expires it on time.
+
+### Cluster politics
+
+`cluster_<cluster>` is the one decision point of a cluster's politics (`clusters.py`). Its members are the galaxies
+whose ids start with `<cluster>:`, from the `galaxies` document, so it does not list them. Levels are not advanced on a
+tick: anyone reading the document advances them from `last_update` to now (`clusters.advance`), and every write stores
+the advanced levels with its own time.
+
+| Key | Holds |
+|---|---|
+| `votes` | Galaxy id to the key of the benefit (in `CLUSTER_BENEFITS`) its leader voted for. A galaxy with no vote is absent |
+| `vote_changed` | Galaxy id to when its vote last changed (cast, switched or withdrawn). The vote can not change again for `CLUSTER_VOTE_COOLDOWN_EPOCHS` |
+| `levels` | Benefit key to its level from 0 to 1 (a fraction of the benefit's `max`), as of `last_update` |
+| `alignment` | The share of the cluster's galaxies in its largest empire, as of `last_update`. The refresh stores it when it changes |
+| `last_update` | When `levels` were last advanced |
 
 ## The kingdom document
 

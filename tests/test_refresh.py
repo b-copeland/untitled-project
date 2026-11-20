@@ -70,6 +70,17 @@ class FakeSession:
         return [path for m, path, _ in self.calls if m == method]
 
 
+def _context(state):
+    """
+    A refresh context that already holds the galaxies, as a tick has after its first kingdom: they and the cluster
+    documents are read once per tick, not per kingdom, so the per-kingdom call counts below leave them out. Kingdom 1
+    is in no galaxy here, so its cluster benefits are none.
+    """
+    context = refresh._RefreshContext(state)
+    context._galaxies_inverted, context._galaxies = {}, {}
+    return context
+
+
 @pytest.fixture
 def session(monkeypatch):
     fake = FakeSession()
@@ -457,7 +468,7 @@ def refresh_one(app, session, monkeypatch):
         session.kingdom = doc
         monkeypatch.setattr(refresh, "_kingdom_with_income", lambda kd, bonuses, st, now, *effects: dict(kd))
         with app.app_context():
-            scores = refresh._refresh_kd(1, state, NOW, False, refresh._RefreshContext(state))
+            scores = refresh._refresh_kd(1, state, NOW, False, _context(state))
         return scores, session
 
     return run
@@ -502,6 +513,23 @@ def test_auto_rob_that_does_not_rob_causes_no_extra_read(refresh_one, monkeypatc
     assert session.paths("GET") == ["/kingdom/1"]
 
 
+# --- _resolve_scores ------------------------------------------------------------------------------------------------
+
+
+def test_scores_count_each_galaxys_kingdoms_still_alive(app, session):
+    session.docs["/scores"] = {"points": {}, "stars": {}, "networth": {}, "galaxy_networth": {},
+                               "last_update": NOW.isoformat(), "_etag": '"s0"'}
+    context = refresh._RefreshContext(state={})
+    context._galaxies_inverted = {"1": "1:1", "2": "1:1", "3": "1:2"}
+    # Kingdom 2 is dead: the refresh scores a dead kingdom (0, 0).
+    scores = {"stars": {"1": 10, "2": 0, "3": 5}, "networth": {"1": 100, "2": 0, "3": 50}}
+    with app.app_context():
+        refresh._resolve_scores(scores, NOW, context)
+    written = session.docs["/scores"]
+    assert written["galaxy_kingdoms_alive"] == {"1:1": 1, "1:2": 1}
+    assert written["galaxy_networth"] == {"1:1": 100, "1:2": 50}
+
+
 # --- refresh_data: one bad kingdom ----------------------------------------------------------------------------------
 
 
@@ -533,6 +561,7 @@ def test_one_failing_kingdom_does_not_stop_the_rest_and_keeps_its_old_score(app,
     monkeypatch.setattr(refresh, "_refresh_kd", fake_refresh_kd)
     monkeypatch.setattr(refresh, "_resolve_scores", lambda scores, now, context=None: resolved.update(scores=scores))
     monkeypatch.setattr(refresh, "_resolve_empires", lambda scores, now: None)
+    monkeypatch.setattr(refresh, "_resolve_clusters", lambda empires, now, context: None)
 
     response = client.get("/api/refreshdata", headers={"Refresh-Secret": "secret"})
 
@@ -565,7 +594,7 @@ def _refresh(app, monkeypatch, when=NOW):
     state = {"state": {}}
     monkeypatch.setattr(refresh, "_kingdom_with_income", lambda kd, bonuses, st, now, *effects: dict(kd))
     with app.app_context():
-        return refresh._refresh_kd(1, state, when, False, refresh._RefreshContext(state))
+        return refresh._refresh_kd(1, state, when, False, _context(state))
 
 
 def _kingdom_writes(session):
