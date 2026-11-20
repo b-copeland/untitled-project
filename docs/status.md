@@ -109,10 +109,10 @@ built; the content is not.
 - The empire coordination bonus is a hook only: the alignment is computed, stored and shown, but
   `clusters.alignment_multiplier` returns 1.0.
 - Bots do not cast cluster votes.
-- The Universe page colours the first eight empires (or, grouped by empire, clusters) by id and shows the rest in one
+- The Map page (under Politics) colours the first eight empires (or, grouped by empire, clusters) by id and shows the rest in one
   "other" grey. Its eight colours pass the palette checks for neighbouring colours, not for every pair, so the legend,
   the names on hover and the table view carry identity too. Selecting a galaxy does not yet open it on the Galaxy page.
-- Neither the Cluster Politics page nor the Universe page has been checked in a browser yet.
+- Neither the Cluster page nor the Map page under Politics has been checked in a browser yet.
 
 ## Bots
 

@@ -55,12 +55,12 @@ function ClusterPolitics(props) {
                 })}
             </ul>
             <p>
-                The Cluster Politics page shows each benefit now, how fast it is changing, and how the galaxies of the
+                The Cluster page shows each benefit now, how fast it is changing, and how the galaxies of the
                 cluster are voting. Prices on the Settle and Military pages, and drone production, already include the
                 cluster's benefits.
             </p>
             <p>
-                The Universe page shows every galaxy as a bubble inside a bigger one: its cluster (coloured by empire)
+                The Map page shows every galaxy as a bubble inside a bigger one: its cluster (coloured by empire)
                 or its empire (coloured by cluster). Galaxies are sized by their kingdoms still alive or their
                 networth. Your galaxy has a white ring. Point at or tap a galaxy to see it, or switch to the table.
             </p>

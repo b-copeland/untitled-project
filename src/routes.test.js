@@ -70,3 +70,10 @@ test("the navigation for a player with no kingdom yet offers only making one, an
     expect(screen.queryByText("Build")).toBeNull();
     expect(screen.queryByText("Status")).toBeNull();
 });
+
+test("Shields and Spending are Home pages, and the Politics pages do not repeat the section's name", () => {
+    const labels = (title) => sections.find((section) => section.title === title).pages.map((page) => page.label);
+
+    expect(labels("Home").slice(0, 3)).toEqual(["Status", "Shields", "Spending"]);
+    expect(labels("Politics")).toEqual(["Galaxy", "Empire", "Cluster", "Universe", "Map"]);
+});

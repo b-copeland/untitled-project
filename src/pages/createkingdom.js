@@ -336,7 +336,7 @@ function CreateKingdom(props) {
                             <ul>{autoBuilderSummary(preset).map((line) => <li key={line}>{line}</li>)}</ul>
                             <p>
                                 That keeps your kingdom growing while you are away, but it spends and acts without asking. Left off, nothing
-                                happens until you decide. You can change your mind at any time: auto spending on the Status page, and
+                                happens until you decide. You can change your mind at any time: auto spending on the Spending page, and
                                 {preset.autoAttack || preset.autoRob ? " auto attack and robbing on the Primitives page" : " the rest of the plan on the Build pages"}.
                             </p>
                         </>

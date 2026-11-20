@@ -11,7 +11,7 @@ import { displayNumber } from "../../format";
 import "./universe.css";
 
 /*
- * The Universe page: every galaxy as a bubble inside a bigger one, grouped either by cluster (and coloured by empire)
+ * The Map page (under Politics): every galaxy as a bubble inside a bigger one, grouped either by cluster (and coloured by empire)
  * or by empire (and coloured by cluster), sized by its kingdoms still alive or its networth. Everything on it is
  * public: the galaxies, the empires, and each galaxy's networth and kingdoms alive from the scores.
  */

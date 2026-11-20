@@ -14,7 +14,7 @@ function UniversePolitics(props) {
         <div id="universepolitics" ref={yourElementRef} className="help-section">
             <h2>Politics - Universe</h2>
             <p>
-                The Universe Politics page allows you periodically participate in universal elections. 
+                The Universe page under Politics allows you periodically participate in universal elections. 
                 The election period lasts for {props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_ELECTION_LENGTH_MULTIPLIER / 3600} hours, 
                 while the results of the election are active 
                 for {props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_ELECTION_RESULTS_DURATION_MULTIPLIER / 3600} hours.

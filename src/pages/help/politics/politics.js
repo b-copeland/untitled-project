@@ -14,7 +14,7 @@ function Politics(props) {
         <div id="politics" ref={yourElementRef} className="help-section">
             <h2>Politics - Galaxy</h2>
             <p>
-                The Politics page allows you to interact with your galaxy's politics. The 
+                The Galaxy page under Politics allows you to interact with your galaxy's politics. The 
                 Galaxy Leader vote currently does nothing.
             </p>
             <p>

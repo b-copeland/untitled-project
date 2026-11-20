@@ -1,0 +1,18 @@
+.spending {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%
+}
+
+@media (min-width: 756px) {
+    .spending-inputs {
+        width: 60%;
+    }
+}
+.spending-input-pct {
+    width: 10%
+}
+.spending-title {
+    width: 60%;
+}
