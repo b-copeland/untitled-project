@@ -22,11 +22,11 @@ function ago(date, now = Date.now()) {
 }
 
 /** A card on the dashboard: a title that links to where you act on it, then a few numbers and lines. */
-function Card({ title, to, onOpen, children }) {
+function Card({ title, to, className = "", children }) {
     return (
-        <section className="overview-card">
+        <section className={`overview-card ${className}`.trim()}>
             <h3 className="overview-card-title">
-                {to ? <Link to={to}>{title}</Link> : onOpen ? <button type="button" className="link-button" onClick={onOpen}>{title}</button> : title}
+                {to ? <Link to={to}>{title}</Link> : title}
             </h3>
             {children}
         </section>
@@ -34,11 +34,11 @@ function Card({ title, to, onOpen, children }) {
 }
 
 /**
- * The Status page's first tab: the four questions a returning player asks (is my economy healthy, am I safe and what
- * is out, am I growing, is anyone after me), each a card that links to where to act. Built only from data the other
- * tabs already load.
+ * The Status page's first tab: the advisors' notes on what may need fixing, then the four questions a returning player
+ * asks (is my economy healthy, am I safe and what is out, am I growing, is anyone after me), each a card that links to
+ * where to act. Built only from data the other tabs already load.
  */
-export function Overview({ data, openTab }) {
+export function Overview({ data }) {
     const kingdom = data.kingdom || {};
     const mobis = data.mobis || {};
     const structures = data.structures || {};
@@ -68,9 +68,18 @@ export function Overview({ data, openTab }) {
     const shields = kingdom.shields || {};
     const latest = [...(data.news || [])].sort((a, b) => Date.parse(b.time) - Date.parse(a.time))[0];
 
+    // Advisors: narrative advice on problems the player may want to fix. None are written yet.
+    const advice = [];
+
     return (
         <div className="overview">
-            <Card title="Economy" onOpen={() => openTab("spending")}>
+            <Card title="Advisors" className="overview-advisors">
+                {advice.length > 0
+                    ? <ul className="overview-advice">{advice.map((line) => <li key={line}>{line}</li>)}</ul>
+                    : <p className="overview-line overview-muted">Your advisors have nothing to report.</p>}
+            </Card>
+
+            <Card title="Economy" to="/shields">
                 <Stats items={[
                     { label: "Money", value: displayNumber(kingdom.money), tone: kingdom.money < 0 ? "bad" : undefined },
                     { label: "Income / h", value: signed(perHour(kingdom.income?.money?.net)) },

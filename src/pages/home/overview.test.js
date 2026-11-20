@@ -1,6 +1,6 @@
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { Overview } from "./overview";
 
 const data = (kingdom = {}) => ({
@@ -19,7 +19,7 @@ const data = (kingdom = {}) => ({
     news: [{ time: new Date(Date.now() - 3 * 3.6e6).toISOString(), news: "You were attacked by Delta" }],
     state: { game_config: { BASE_EPOCH_SECONDS: 1800 } },
 });
-const show = (d, openTab = jest.fn()) => render(<MemoryRouter><Overview data={d} openTab={openTab} /></MemoryRouter>);
+const show = (d) => render(<MemoryRouter><Overview data={d} /></MemoryRouter>);
 
 test("the four cards answer the questions a returning player asks", () => {
     show(data());
@@ -33,11 +33,16 @@ test("the four cards answer the questions a returning player asks", () => {
     expect(screen.getByText(/You were attacked by Delta/)).toBeTruthy();
 });
 
-test("the economy card opens the spending tab", () => {
-    const openTab = jest.fn();
-    show(data(), openTab);
-    fireEvent.click(screen.getByRole("button", { name: "Economy" }));
-    expect(openTab).toHaveBeenCalledWith("spending");
+test("the economy card links to the Shields & Spending page", () => {
+    show(data());
+    expect(screen.getByRole("link", { name: "Economy" }).getAttribute("href")).toBe("/shields");
+});
+
+test("an Advisors box comes first, empty until advice is written", () => {
+    show(data());
+    const titles = screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
+    expect(titles[0]).toBe("Advisors");
+    expect(screen.getByText("Your advisors have nothing to report.")).toBeTruthy();
 });
 
 test("nothing before the kingdom has loaded", () => {

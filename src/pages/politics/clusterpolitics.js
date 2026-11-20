@@ -109,7 +109,7 @@ function VoteForm({ cluster, isLeader, loading, send }) {
     if (!isLeader) {
         return (
             <>
-                <p className="mb-0">Only your galaxy leader casts your galaxy's vote. Vote for a leader on the Galaxy Politics page.</p>
+                <p className="mb-0">Only your galaxy leader casts your galaxy's vote. Vote for a leader on the Galaxy page under Politics.</p>
                 {locked ? <p className="planner-hint-line">{locked}</p> : null}
             </>
         );
