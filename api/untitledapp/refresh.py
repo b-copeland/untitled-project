@@ -15,6 +15,7 @@ from flask_sock import Sock, ConnectionClosed
 import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.build as uab
+import untitledapp.clusters as uacl
 import untitledapp.conquer as uac
 import untitledapp.getters as uag
 import untitledapp.shared as uas
@@ -34,13 +35,27 @@ class _RefreshContext:
     def __init__(self, state):
         self.state = state
         self._galaxies_inverted = None
+        self._galaxies = None
         self._galaxy_politics = {}
+        self._clusters = {}
 
     @property
     def galaxies_inverted(self):
         if self._galaxies_inverted is None:
-            self._galaxies_inverted, _ = uag._get_galaxies_inverted()
+            self._galaxies_inverted, self._galaxies = uag._get_galaxies_inverted()
         return self._galaxies_inverted
+
+    @property
+    def galaxies(self):
+        if self._galaxies is None:
+            self._galaxies_inverted, self._galaxies = uag._get_galaxies_inverted()
+        return self._galaxies
+
+    def cluster_document(self, cluster_id):
+        """The cluster's stored document (with its ``_etag``), read once per tick."""
+        if cluster_id not in self._clusters:
+            self._clusters[cluster_id] = uacl._read(cluster_id)
+        return self._clusters[cluster_id]
 
     def galaxy_politics(self, kd_id, galaxy_id):
         if galaxy_id not in self._galaxy_politics:
@@ -1556,14 +1571,23 @@ def _resolve_empires(
         return {
             "empires": empires_info["empires"],
             "last_update": time_update.isoformat(),
-        }, news_items
+        }, (news_items, empires_info["empires"])
 
-    for news_payload in occ.update('/empires', decide):
+    news_items, empires = occ.update('/empires', decide)
+    for news_payload in news_items:
         REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(news_payload)
         )
+    return empires
+
+
+def _resolve_clusters(empires, time_update, context):
+    """Store each cluster's empire alignment where it changed (``clusters.sync``). Writes nothing otherwise."""
+    galaxies = context.galaxies
+    documents = {cluster_id: context.cluster_document(cluster_id) for cluster_id in uacl.clusters(galaxies)}
+    uacl.sync(galaxies, empires, time_update, documents)
 
 def _cursor(kd_info, category):
     """The time up to which a queue has been credited to this kingdom (see _not_yet_credited), or None."""
@@ -1815,7 +1839,11 @@ def refresh_data():
         },
     }
     _resolve_scores(kd_scores_split, time_update, context)
-    _resolve_empires(kd_scores_split, time_update)
+    empires = _resolve_empires(kd_scores_split, time_update)
+    try:
+        _resolve_clusters(empires, time_update, context)
+    except Exception:
+        app.logger.exception("Refresh failed to resolve clusters")
 
     if round_ending:
         uare.end_round(state, reason="The round reached its end time")

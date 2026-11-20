@@ -124,7 +124,8 @@ in the repo. If you rebuild the environment, recreate it. Two things to keep in 
 1. Deploy, and make sure `/api/refreshdata` is being called.
 2. Sign in as `admin` and open `/admin`.
 3. Create the galaxies (`/api/createstate`) and set the game start time (`/api/updatestate`). Players can create
-   kingdoms before the start time.
+   kingdoms before the start time. Galaxies are dealt in order into clusters of "Galaxies per Cluster" (`cluster_size`,
+   `CLUSTER_SIZE` if left empty), which can not be changed later in the round.
 4. `/api/resetstate` returns the game to its initial state (it keeps accounts, state, galaxies, empires, scores and
    universe news/votes, and clears the rest).
 

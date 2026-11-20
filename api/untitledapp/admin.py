@@ -5,9 +5,15 @@ import flask
 import flask_praetorian
 
 import untitledapp.misc as uam
+import untitledapp.shared as uas
 from untitledapp import guard, User, REQUESTS_SESSION
 
 bp = flask.Blueprint("admin", __name__)
+
+
+def galaxy_ids(num_galaxies, cluster_size):
+    """The ids of ``num_galaxies`` galaxies dealt in order into clusters of ``cluster_size``: ``cluster:galaxy``."""
+    return [f"{i // cluster_size + 1}:{i % cluster_size + 1}" for i in range(num_galaxies)]
 
 @bp.route('/api/adminlogin', methods=['POST'])
 def admin_login():
@@ -72,7 +78,8 @@ def update_state():
 @flask_praetorian.roles_required('admin')
 def create_state():
     """
-    Create galaxies
+    Create galaxies, dealt in order into clusters of ``cluster_size`` (default ``CLUSTER_SIZE``): with 5, galaxies 1 to
+    5 are ``1:1`` to ``1:5``, the next five ``2:1`` to ``2:5``, and so on. The last cluster may be smaller.
     """
     app = flask.current_app
     req = flask.request.get_json(force=True)
@@ -80,9 +87,11 @@ def create_state():
     num_galaxies = int(req["num_galaxies"])
     max_galaxy_size = int(req["max_galaxy_size"])
     avg_size_new_galaxy = int(req["avg_size_new_galaxy"])
+    cluster_size = int(req.get("cluster_size") or uas.GAME_CONFIG["CLUSTER_SIZE"])
+    if cluster_size < 1:
+        return flask.jsonify({"message": "cluster_size must be at least 1"}), 400
 
-    for i in range(0, num_galaxies):
-        galaxy_id = f"1:{i + 1}"
+    for galaxy_id in galaxy_ids(num_galaxies, cluster_size):
         uam._create_galaxy(galaxy_id)
     
     update_response = REQUESTS_SESSION.patch(
