@@ -58,6 +58,7 @@ import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.politics as uap
 import untitledapp.shared as uas
+import untitledapp.targets as uat
 
 LOG_SIZE = 40
 SCHEDULE_LIMIT = 10  # what the game allows
@@ -102,6 +103,8 @@ HOMES_SPARE = 1.15          # TUNE: homes kept over what the recruits and engine
 ENGINEERS_PER_STAR = None   # TUNE: the most engineers a kingdom keeps per star (None: as many as the workshops hold)
 WAR_MARGIN = 1.3            # TUNE: how much more defense a kingdom whose empire is at war keeps
 BOMBER_KEEP = 1.5           # TUNE: epochs of income a bomber keeps as money for missiles
+TARGET_SHARE = 0.5          # TUNE: the share of attacks, spy attempts and missile strikes a bot puts on its empire's
+                            # targets, when it is equipped to (a beatable target, a fair chance)
 SUICIDE_TEAM = 8            # TUNE: how many kingdoms' worth of burning a bot counts on when it burns a leader's fuel
 STALL_EPOCHS = 24
 STALL_GROWTH = 0.02
@@ -434,6 +437,24 @@ class World:
     @property
     def my_empire(self):
         return self.empires[2].get(self.my_galaxy)
+
+    @property
+    def empire_targets(self):
+        """The empire's targets, as the Targets tab shows them to a member: kingdom to the actions it is marked for.
+        Read only when the empire has any."""
+        def read():
+            mine = self.my_empire
+            if mine is None or not self.empires[1].get(mine, {}).get("targets"):
+                return {}
+            document = uat.normalize(occ.read(uat._path(mine)))
+            return {kd: dict(entry["actions"]) for kd, entry in document["targets"].items()}
+        return self._lazy("empire_targets", read)
+
+    def marked_for(self, *actions):
+        """The empire's targets marked for any of ``actions``, while their empire is at war with the bot's (only then do
+        actions on them count)."""
+        return [kd for kd, marked in self.empire_targets.items()
+                if any(action in marked for action in actions) and self.relation(kd)[0]]
 
     @property
     def scores(self):
@@ -1079,6 +1100,10 @@ def plan_intel(world, personality, style, memory, rng, want_military=False):
     lacking = [kd for kd in known if world.seconds_left(kd, category) <= window and fails.get(kd, 0) < SPY_FAILS]
     if not lacking:
         return []
+    # Intel on an empire target is shared with the whole empire and earns points, so about half goes there.
+    marked = [kd for kd in lacking if kd in world.marked_for("intel")]
+    if marked and rng.random() < TARGET_SHARE:
+        lacking = marked
     mine = max(world.me.get("drones") or 0, 1)
     leaders = world.leaders(3) if world.phase == "late" else []
 
@@ -1146,38 +1171,13 @@ def _army_timeline(world):
     return timeline
 
 
-def plan_attack(world, personality, style, memory, rng):
+def _best_strike(world, personality, pool, known, leaders, timeline, max_wait, window, buffer, grudges, late, me):
     """
-    A strike on a kingdom, if one pays. Of the kingdoms the bot has military intel on, find those its army can beat
-    (now, or once generals on their way home are back) with the buffer it asks for, and value each by how many times
-    more stars it gives than the same offense sent at primitives; enemies at war, grudges and (late) the leaders count
-    for more. A bot that hits only kingdoms takes the best; one that hits both takes it only if it beats primitives.
-    Late in the round, a bot may also send a losing attack at a leader to wear its defense down for the next one.
-    With nothing to hit, it goes looking for military intel.
+    ``(best, chip)`` among the kingdoms of ``pool``: the best strike the army can win (edge, target, wait, generals,
+    offense, defense), and late in the round a leader worth wearing down (target, offense, defense, generals, wait).
     """
-    army_style = style.get("army", "none")
-    late = world.phase == "late"
-    if army_style not in ("players", "both") and not (late and army_style == "primitives"):
-        return []
-    strike = memory.get("strike")
-    if strike and _utc(strike["time"]) > world.now:
-        return []  # one at a time
-    me = world.me
-    if strategy.raw_offense(strategy.all_units(me)) <= 0:
-        return []
-    buffer = _between(rng, personality.attack_buffer) + memory.get("buffer_extra", 0.0)
-    window = EPOCH  # the intel must outlast the wait
-    candidates = world.revealed_with("military", at_least=window)
-    known = world.known_stars()
-    leaders = world.leaders(3) if late else []
-    timeline = _army_timeline(world)
-    # Late in the round the whole army may be gathered for one strike; before that, a bot that also farms primitives
-    # only waits a little.
-    max_wait = (personality.strike_wait if army_style == "both" and not late else 24.0) * EPOCH
-    grudges = memory.get("grudges", {})
-
     best, chip = None, None
-    for target in sorted(candidates, key=lambda kd: -known.get(kd, (0, 0))[0])[:6]:
+    for target in sorted(pool, key=lambda kd: -known.get(kd, (0, 0))[0])[:6]:
         info = world.target_info(target)
         if str(info.get("status", "")).lower() == "dead":
             continue
@@ -1212,9 +1212,52 @@ def plan_attack(world, personality, style, memory, rng):
                     offense = world.offense_with(_sendable(world, units, 0.5), min(generals, 4), target)
                     if offense >= personality.chip_ratio * defense and (chip is None or defense < chip[2]):
                         chip = (target, offense, defense, min(generals, 4), wait)
+    return best, chip
 
-    threshold = 0.0 if army_style == "players" else personality.player_edge
-    if best and best[0] >= threshold and army_style in ("players", "both"):
+
+def plan_attack(world, personality, style, memory, rng):
+    """
+    A strike on a kingdom, if one pays. Of the kingdoms the bot has military intel on, find those its army can beat
+    (now, or once generals on their way home are back) with the buffer it asks for, and value each by how many times
+    more stars it gives than the same offense sent at primitives; enemies at war, grudges and (late) the leaders count
+    for more. A bot that hits only kingdoms takes the best; one that hits both takes it only if it beats primitives.
+    Late in the round, a bot may also send a losing attack at a leader to wear its defense down for the next one.
+    With nothing to hit, it goes looking for military intel.
+    """
+    army_style = style.get("army", "none")
+    late = world.phase == "late"
+    if army_style not in ("players", "both") and not (late and army_style == "primitives"):
+        return []
+    strike = memory.get("strike")
+    if strike and _utc(strike["time"]) > world.now:
+        return []  # one at a time
+    me = world.me
+    if strategy.raw_offense(strategy.all_units(me)) <= 0:
+        return []
+    buffer = _between(rng, personality.attack_buffer) + memory.get("buffer_extra", 0.0)
+    window = EPOCH  # the intel must outlast the wait
+    candidates = world.revealed_with("military", at_least=window)
+    known = world.known_stars()
+    leaders = world.leaders(3) if late else []
+    timeline = _army_timeline(world)
+    # Late in the round the whole army may be gathered for one strike; before that, a bot that also farms primitives
+    # only waits a little.
+    max_wait = (personality.strike_wait if army_style == "both" and not late else 24.0) * EPOCH
+    grudges = memory.get("grudges", {})
+
+    # About half the strikes go to the empire's targets marked for attacks, if one can be beaten: it earns points on
+    # top of the spoils, so it is taken whatever primitives would give.
+    marked = [kd for kd in candidates if kd in world.marked_for("successful_attacks")]
+    focus = bool(marked) and rng.random() < TARGET_SHARE
+    for pool in ([marked, candidates] if focus else [candidates]):
+        best, chip = _best_strike(world, personality, pool, known, leaders, timeline, max_wait, window, buffer,
+                                  grudges, late, me)
+        if best:
+            break
+    on_target = focus and best is not None and best[1] in marked
+
+    threshold = 0.0 if army_style == "players" or on_target else personality.player_edge
+    if best and best[0] >= threshold and (army_style in ("players", "both") or on_target):
         edge, target, wait, count, offense, defense = best
         return [Decision("attack", {
             "target": target, "generals": count, "prefer_autofill": True, "autofill_buffer": buffer,
@@ -1264,8 +1307,21 @@ def plan_drones(world, personality, style, memory, rng):
         ok, tried = memory.get("siphon_record", {}).get(kd, (0.0, 0.0))
         return (forecast * SIPHON_PRIOR + ok) / (SIPHON_PRIOR + tried)
 
+    # About half the sabotage goes to the empire's targets marked for it, when the chance is fair.
+    operations = {"kidnap": "kidnappopulation", "bomb_homes": "bombhomes", "sabotage_fuel_plants": "sabotagefuelplants"}
+    targeted = False
+    marked = [kd for kd in world.marked_for(*operations) if kd in known]
+    if marked and rng.random() < TARGET_SHARE:
+        target = rng.choice(marked)
+        if chance_against(target, drones * 0.6) >= 0.2:
+            chosen = rng.choice([operation for action, operation in operations.items() if action in world.empire_targets[target]])
+            decisions.append(Decision("aggressivespy", {
+                "target": target, "operation": chosen, "attempts": min(2, attempts), "drones_pct": 60.0, "shielded": False,
+            }, f"{chosen} against the empire target {world.names[target]}"))
+            targeted = True
+
     # Sabotage a leader.
-    if rng.random() < _by_phase(personality.sabotage_chance, world.phase):
+    if not targeted and rng.random() < _by_phase(personality.sabotage_chance, world.phase):
         leaders = [kd for kd in world.leaders(3) if kd in known]
         if leaders:
             target = rng.choice(leaders)
@@ -1380,6 +1436,9 @@ def plan_missiles(world, personality, style, memory, rng):
         grudges = memory.get("grudges", {})
         outsiders = set(world.outsiders())
         targets = [kd for kd in sorted(grudges, key=grudges.get, reverse=True) if kd in outsiders][:1] or world.leaders(1)
+        marked = [kd for kd in world.marked_for("missiles") if kd in outsiders]
+        if marked and rng.random() < TARGET_SHARE:
+            targets = [rng.choice(marked)]
         if targets:
             share = _between(rng, personality.missiles_share)
             options = {kind: int(math.ceil(stock.get(kind, 0) * share)) for kind in ("planet_busters", "star_busters", "galaxy_busters")}

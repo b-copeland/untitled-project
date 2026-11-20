@@ -96,6 +96,30 @@ Built 2026-11-18 ([game-design.md](game-design.md#glossary), `intel.py`).
   review.
 - Bots buy listings and list or share what they spy, but never post or answer bounties.
 
+## Empire targets
+
+Built 2026-11-20 (issue #56, [decisions/0008](decisions/0008-empire-targets.md), `targets.py`). The framework is in; the
+balance is not.
+
+- Every number is a placeholder: `TARGET_MAX_DELEGATES` (3), `TARGET_DEFAULT_FUND_SHARE` (10%, from the issue),
+  `TARGET_MAX_FUND_SHARE` (50%), `TARGET_MAX_POINTS_MULTIPLIER` (5), `TARGET_REMARK_COOLDOWN_EPOCHS` (24, from the maintainer),
+  `TARGET_HISTORY_LENGTH` (20), `TARGET_REMAINS_POINTS_PER_STAR` (0.5), `TARGET_MAX_PAYOUT_STARS_SHARE` (10%, from the
+  maintainer), and the points each measure earns in `TARGET_ACTIONS`.
+- A dead target's land and money count only in the share its empire earned, and no payout gives a kingdom more than its
+  star cap (the maintainer, 2026-11-20, against an empire marking a kingdom dying of starvation and taking its land with
+  one blow). What either holds back leaves the game.
+- Targets exist only in a war (the maintainer, 2026-11-20): a surrender ends them. A target whose galaxy leaves the
+  enemy empire mid-war is not ended automatically; it counts for nothing until leadership removes it.
+- Funds are paid out only when a target ends (the maintainer, 2026-11-20: the issue's payouts at any time, once an
+  epoch, would let small payouts pass the star cap). Removing and re-marking a kingdom every
+  `TARGET_REMARK_COOLDOWN_EPOCHS` is still a slow way to pay out more often.
+- Points last for the whole target. A participant who is dead when it ends loses their share.
+- Intel copied to the empire from a target can be listed or shared on a member's galaxy intel market like intel they
+  took themselves.
+- Bots act on their empire's targets (about half their strikes, sabotage, intel and missiles, `TARGET_SHARE`) but never
+  mark targets, name delegates or pay funds out.
+- The Targets tab has not been checked in a browser yet.
+
 ## Cluster politics
 
 Started 2026-11-19 (issue #157, [decisions/0007](decisions/0007-cluster-politics.md), `clusters.py`). The framework is

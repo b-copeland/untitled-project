@@ -37,6 +37,21 @@ export function checkPercent(value, { max = 100 } = {}) {
     return null;
 }
 
+/** A number from 0 to ``max``, decimals allowed (a multiplier, say). */
+export function checkDecimal(value, { max } = {}) {
+    if (isEmpty(value)) {
+        return null;
+    }
+    const text = String(value).trim();
+    if (!/^\d+(\.\d+)?$/.test(text)) {
+        return "Enter a number, such as 1.5";
+    }
+    if (max !== undefined && parseFloat(text) > max) {
+        return `At most ${max}`;
+    }
+    return null;
+}
+
 /** The numbers in these fields must add up to no more than ``max``. Returns an error for the group, or null. */
 export function checkTotal(values, { max, noun = "" }) {
     const total = Object.values(values).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);

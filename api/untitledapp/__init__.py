@@ -178,6 +178,7 @@ def create_app(config_class='config.Config'):
     import untitledapp.politics as uap
     import untitledapp.refresh as uar
     import untitledapp.roundend as uare
+    import untitledapp.targets as uat
     app.register_blueprint(uaa.bp)
     app.register_blueprint(uaad.bp)
     app.register_blueprint(uab.bp)
@@ -189,6 +190,7 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uap.bp)
     app.register_blueprint(uar.bp)
     app.register_blueprint(uare.bp)
+    app.register_blueprint(uat.bp)
     app.before_request(uare.frozen_response)  # once the round is over, the game is read only
 
     limiter = Limiter(

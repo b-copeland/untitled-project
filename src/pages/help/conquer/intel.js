@@ -44,7 +44,9 @@ function Intel(props) {
                 kind of intel is paid to whoever provided it, and the cuts add up, to at most
                 {" "}{displayPercent(config.BASE_MAX_TOTAL_SHARE_CUT)} for one kingdom. Once you have taken a kind of intel
                 on a kingdom, you can not take the same kind on it at a lower cut, so nobody can cut the first sharer
-                out by offering it cheaper. Free intel never replaces intel you paid a cut for.
+                out by offering it cheaper. Free intel never replaces intel you paid a cut for. No cut is paid on
+                attacks on your Empire's targets: intel on them is shared with the whole Empire instead (see Empire
+                politics).
             </p>
             <p>
                 Intel a galaxymate gave you can not be passed on. On Your intel you can keep your intel from chosen

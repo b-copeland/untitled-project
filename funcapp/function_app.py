@@ -2271,3 +2271,44 @@ def update_cluster(req: func.HttpRequest) -> func.HttpResponse:
     except CosmosAccessConditionFailedError:
         return func.HttpResponse("Conflict", status_code=412)
     return func.HttpResponse("Cluster updated", status_code=200)
+
+
+# --- empire_targets_<empire>: an empire's war targets ----------------------------------------------------------------
+# One document per empire. Flask owns every field (delegates, targets with their points and spoils funds, history) and
+# decides every change with If-Match, so this layer only reads, creates and merges.
+
+EMPIRE_TARGETS_PREFIX = "empire_targets_"
+
+
+@APP.function_name(name="GetEmpireTargets")
+@APP.route(route="empire/{empire_id}/targets", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_empire_targets(req: func.HttpRequest) -> func.HttpResponse:
+    """The empire's targets document. Created empty (``{"id": ...}``) the first time it is read, so it always exists."""
+    item_id = f"{EMPIRE_TARGETS_PREFIX}{req.route_params.get('empire_id')}"
+    document = _read_or_none(item_id)
+    if document is None:
+        try:
+            document = CONTAINER.create_item({"id": item_id})
+        except CosmosResourceExistsError:  # another request created it first
+            document = CONTAINER.read_item(item=item_id, partition_key=item_id)
+    return _json_response(document)
+
+
+@APP.function_name(name="UpdateEmpireTargets")
+@APP.route(route="empire/{empire_id}/targets", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
+def update_empire_targets(req: func.HttpRequest) -> func.HttpResponse:
+    """Shallow merge into ``empire_targets_<empire>``. Honours If-Match (412): Flask decides every change with it."""
+    item_id = f"{EMPIRE_TARGETS_PREFIX}{req.route_params.get('empire_id')}"
+    body = req.get_json()
+    if not isinstance(body, dict):
+        return func.HttpResponse("The body must be an object", status_code=400)
+    document = _read_or_none(item_id)
+    if document is None:
+        return func.HttpResponse("No such empire targets document", status_code=404)
+    changes = {key: value for key, value in body.items() if key != "id"}
+    try:
+        CONTAINER.replace_item(item_id, {**document, **changes})
+    except CosmosAccessConditionFailedError:
+        return func.HttpResponse("Conflict", status_code=412)
+    return func.HttpResponse("Empire targets updated", status_code=200)

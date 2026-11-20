@@ -15,6 +15,7 @@ import untitledapp.occ as occ
 import untitledapp.getters as uag
 import untitledapp.intel as uai
 import untitledapp.shared as uas
+import untitledapp.targets as uat
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
 
 bp = flask.Blueprint("conquer", __name__)
@@ -365,9 +366,17 @@ def _spoils_forecast(kd_id, target_kd, max_target_kd_info, race, war):
         total_spoils["stars"] = max(total_spoils["stars"], min_stars_gain)
     if not total_spoils:
         return ""
-    cuts = uai.spoils_cuts_for(kd_id, target_kd)
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    empire_target = uat.active_target(empires_inverted.get(kd_id), target_kd, empires_info, empires_inverted)
+    cuts = {} if empire_target else uai.spoils_cuts_for(kd_id, target_kd)
     spoils_values, sharers_spoils = uai.split_spoils(total_spoils, cuts)
+    fund = None
+    if empire_target:
+        spoils_values, fund = uat.fund_split(spoils_values, empire_target["fund_share"])
     message = 'You will gain ' + ', '.join([f"{value} {key}" for key, value in spoils_values.items()]) + '. \n'
+    if fund and (fund["stars"] or fund["money"]):
+        message += (f"{fund['stars']} stars and {fund['money']} money ({empire_target['fund_share']:.0%}) will go into "
+                    "the spoils fund of this empire target. \n")
     if sharers_spoils:
         kingdoms = uag._get_kingdoms()
         for sharer, sharer_spoils in sharers_spoils.items():
@@ -731,8 +740,45 @@ def autofill_attack(target_kd):
     payload, status_code = _autofill_attack(req, kd_id, target_kd)
     return (flask.jsonify(payload), status_code)
 
+def _credit_spoils(spoils):
+    """
+    A ``decide`` that adds spoils (``{"stars": n, "money": n, ..., "funding": {category: n}}``) to a kingdom's latest
+    document, spreading money and funding over auto spending the way attack spoils always have been.
+    """
+    def add(kd):
+        changes = {}
+        funding = dict(kd["funding"])
+        money = kd["money"]
+        for key_spoil, value_spoil in spoils.items():
+            if key_spoil == "funding":
+                for value_funding in value_spoil.values():
+                    if kd["auto_spending_enabled"]:
+                        pct_allocated = sum(kd["auto_spending"].values())
+                        for key_spending, pct_spending in kd["auto_spending"].items():
+                            funding[key_spending] += pct_spending * value_funding
+                        money += value_funding * (1 - pct_allocated)
+                    else:
+                        money += value_funding
+            elif key_spoil == "money":
+                if kd["auto_spending_enabled"]:
+                    pct_allocated = sum(kd["auto_spending"].values())
+                    for key_spending, pct_spending in kd["auto_spending"].items():
+                        funding[key_spending] += pct_spending * value_spoil
+                    money += value_spoil * (1 - pct_allocated)
+                else:
+                    money += value_spoil
+            else:
+                changes[key_spoil] = kd[key_spoil] + value_spoil
+        changes["money"] = money
+        changes["funding"] = funding
+        if "stars" in changes:
+            changes["projects_max_points"] = {**kd["projects_max_points"], **uas.projects_max_points(changes["stars"])}
+        return changes, None
+    return add
+
+
 def _attack(req, kd_id, target_kd):
-    
+
     app = flask.current_app
     attacker_raw_values = req["attackerValues"]
 
@@ -741,9 +787,6 @@ def _attack(req, kd_id, target_kd):
     attacker_galaxy = galaxies_inverted[kd_id]
     defender_galaxy = galaxies_inverted[target_kd]
 
-    # Intel on this target the attacker took from galaxymates earns each sharer their cut of the spoils (each category
-    # its own cut, added up); the attacker gets the rest. The same split as the forecast (_spoils_forecast).
-    cuts = uai.spoils_cuts_for(kd_id, target_kd)
     try:
         # What follows is the attack in three committed steps, so that two attacks (or an attack and the defender's own
         # actions) can overlap without losing each other's changes. See docs/concurrency.md.
@@ -768,6 +811,12 @@ def _attack(req, kd_id, target_kd):
         galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
         is_warlike = "Warlike" in galaxy_policies["active_policies"]
         n_generals = int(attacker_raw_values["generals"])
+        # On one of the attacker's empire's targets, intel cuts do not apply and a share of the spoils goes into the
+        # target's spoils fund. Elsewhere, intel on this target the attacker took from galaxymates earns each sharer
+        # their cut of the spoils (each category its own cut, added up); the attacker gets the rest. The same split as
+        # the forecast (_spoils_forecast).
+        empire_target = uat.active_target(attacker_empire, target_kd, empires_info, empires_inverted)
+        cuts = {} if empire_target else uai.spoils_cuts_for(kd_id, target_kd)
 
         def depart(kd):
             current_bonuses = uas.project_bonuses(kd)
@@ -893,6 +942,11 @@ def _attack(req, kd_id, target_kd):
                     for key_funding, value_funding in target_doc["funding"].items()
                 }
                 spoils_values, sharers_spoils = uai.split_spoils(total_spoils, cuts)
+                # What the target loses: the attacker's part (before the fund takes its share) and the sharers' cuts.
+                taken = spoils_values
+                fund = None
+                if empire_target:
+                    spoils_values, fund = uat.fund_split(spoils_values, empire_target["fund_share"])
                 units_destroyed = sum(defender_losses.values())
                 attack_status = "success"
                 attacker_message = (
@@ -900,6 +954,8 @@ def _attack(req, kd_id, target_kd):
                     + ', '.join([f"{value} {key}" for key, value in spoils_values.items() if key != "funding"])
                     + f', {sum(spoils_values["funding"].values())} funding'
                     + f" and destroyed {units_destroyed} units."
+                    + (f" {fund['stars']} stars and {fund['money']} money went into the target's spoils fund."
+                       if fund and (fund["stars"] or fund["money"]) else "")
                     + " You have lost "
                     + ', '.join([f"{value} {uas.PRETTY_NAMES.get(key, key)}" for key, value in attacker_losses.items()])
                 )
@@ -913,13 +969,13 @@ def _attack(req, kd_id, target_kd):
                 # Everything taken from the target, including the sharers' cuts.
                 for key_spoil in ("stars", "population", "money", "fuel"):
                     target_new[key_spoil] = (
-                        target_doc[key_spoil] - spoils_values[key_spoil]
+                        target_doc[key_spoil] - taken[key_spoil]
                         - sum(spoils.get(key_spoil, 0) for spoils in sharers_spoils.values())
                     )
                 target_new["funding"] = {
                     key_funding: (
                         value_funding
-                        - spoils_values["funding"].get(key_funding, 0)
+                        - taken["funding"].get(key_funding, 0)
                         - sum(spoils.get("funding", {}).get(key_funding, 0) for spoils in sharers_spoils.values())
                     )
                     for key_funding, value_funding in target_doc["funding"].items()
@@ -938,7 +994,9 @@ def _attack(req, kd_id, target_kd):
                 total_spoils = {}
                 spoils_values = {}
                 sharers_spoils = {}
+                fund = None
             outcome.update({
+                "fund": fund,
                 "status": attack_status,
                 "attacker_message": attacker_message,
                 "defender_message": defender_message,
@@ -950,38 +1008,7 @@ def _attack(req, kd_id, target_kd):
             })
             return target_new, outcome
 
-        def credit(spoils):
-            """Add spoils to a kingdom's latest document, spreading money over auto spending the way it always has."""
-            def add(kd):
-                changes = {}
-                funding = dict(kd["funding"])
-                money = kd["money"]
-                for key_spoil, value_spoil in spoils.items():
-                    if key_spoil == "funding":
-                        for value_funding in value_spoil.values():
-                            if kd["auto_spending_enabled"]:
-                                pct_allocated = sum(kd["auto_spending"].values())
-                                for key_spending, pct_spending in kd["auto_spending"].items():
-                                    funding[key_spending] += pct_spending * value_funding
-                                money += value_funding * (1 - pct_allocated)
-                            else:
-                                money += value_funding
-                    elif key_spoil == "money":
-                        if kd["auto_spending_enabled"]:
-                            pct_allocated = sum(kd["auto_spending"].values())
-                            for key_spending, pct_spending in kd["auto_spending"].items():
-                                funding[key_spending] += pct_spending * value_spoil
-                            money += value_spoil * (1 - pct_allocated)
-                        else:
-                            money += value_spoil
-                    else:
-                        changes[key_spoil] = kd[key_spoil] + value_spoil
-                changes["money"] = money
-                changes["funding"] = funding
-                if "stars" in changes:
-                    changes["projects_max_points"] = {**kd["projects_max_points"], **uas.projects_max_points(changes["stars"])}
-                return changes, None
-            return add
+        credit = _credit_spoils
 
         def give_back_units(kd):
             """Undo the departure if the target turned out to be gone, so the units are not stuck out forever."""
@@ -1016,10 +1043,22 @@ def _attack(req, kd_id, target_kd):
         target_kd_info["name"] = outcome["target_name"]
         kd_info_parse["name"] = departure["name"]
 
+        fund = outcome["fund"]
+        if empire_target:
+            # Points for the attack if the target is marked for it, and the fund's share. If the target ended
+            # meanwhile, the share goes back to the attacker.
+            if attack_status == "success":
+                action, measures = "successful_attacks", {"stars": total_spoils.get("stars", 0)}
+            else:
+                action, measures = "failed_attacks", {"units": sum(outcome["defender_losses"].values())}
+            recorded = uat.record_action(attacker_empire, target_kd, kd_id, action, measures, fund=fund, entry=empire_target)
+            if not recorded and fund:
+                spoils_values = {**spoils_values, "stars": spoils_values["stars"] + fund["stars"],
+                                 "money": spoils_values["money"] + fund["money"]}
         if spoils_values:
             occ.update(f'/kingdom/{kd_id}', credit(spoils_values))
         if outcome["target_dead"]:
-            uam._mark_kingdom_death(target_kd)
+            uam._mark_kingdom_death(target_kd, killer=kd_id)
         sharer_names = {}
         for sharer, sharer_spoils_values in sharers_spoils.items():
             if not any(value for key, value in sharer_spoils_values.items() if key != "funding") \
@@ -2020,9 +2059,23 @@ def _spy(req, kd_id, target_kd):
             for category in uas.REVEAL_OPERATION_STATS[operation]:
                 uai._share(kd_id, target_kd, category, req.get("cut") or 0)
 
-        empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+        empires_inverted, empires_info, _, empire_galaxy_info = uag._get_empires_inverted()
         attacker_empire = empires_inverted.get(kd_id)
         defender_empire = empires_inverted.get(target_kd)
+
+        if success and attacker_empire is not None and uat.counts(empires_info, attacker_empire, target_kd, empires_inverted):
+            # On one of the empire's targets: intel goes to the whole empire (with points for what was new), and
+            # sabotage earns points for the damage done.
+            if operation in uas.REVEAL_OPERATIONS and revealed_until:
+                uat.share_intel(attacker_empire, target_kd, kd_id, uas.REVEAL_OPERATION_STATS[operation], revealed_until,
+                                empires_info, empire_galaxy_info)
+            damage_done = {
+                "kidnappopulation": ("kidnap", {"population": kidnap_damage or 0}),
+                "bombhomes": ("bomb_homes", {"homes": homes_damage or 0}),
+                "sabotagefuelplants": ("sabotage_fuel_plants", {"fuel_plants": fuel_plant_damage or 0}),
+            }.get(operation)
+            if damage_done and any(damage_done[1].values()):
+                uat.record_action(attacker_empire, target_kd, kd_id, damage_done[0], damage_done[1])
 
         if (
             attacker_empire is not None
@@ -2661,19 +2714,31 @@ def _launch_missiles(req, kd_id, target_kd):
             }
             if target_stars <= 0 or target_pop <= 0:
                 changes["status"] = "Dead"
-            return changes, (damage, changes)
+            # What was really destroyed (a strike can not take more than there is), for an empire target's points.
+            destroyed = {
+                "stars": target["stars"] - changes["stars"],
+                "population": min(damage["pop_damage"], max(target["population"], 0)),
+                "fuel": damage["fuel_damage"],
+            }
+            return changes, (damage, changes, destroyed)
 
         def give_back_missiles(kd):
             return {"missiles": {k: v + attacker_missiles.get(k, 0) for k, v in kd["missiles"].items()}}, None
 
         occ.update(f'/kingdom/{kd_id}', launch, document=kd_info_parse)
         try:
-            missile_damage, defender_patch_payload = occ.update(f'/kingdom/{target_kd}', strike, document=max_target_kd_info)
+            missile_damage, defender_patch_payload, destroyed = occ.update(f'/kingdom/{target_kd}', strike, document=max_target_kd_info)
         except BaseException:
             occ.update(f'/kingdom/{kd_id}', give_back_missiles)
             raise
+        empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+        attacker_empire = empires_inverted.get(kd_id)
+        if uat.counts(empires_info, attacker_empire, target_kd, empires_inverted):
+            # On one of the empire's targets, every star the missiles destroy goes into its spoils fund.
+            uat.record_action(attacker_empire, target_kd, kd_id, "missiles", destroyed,
+                              fund={"stars": destroyed["stars"], "money": 0})
         if defender_patch_payload.get("status") == "Dead":
-            uam._mark_kingdom_death(target_kd)
+            uam._mark_kingdom_death(target_kd, killer=kd_id)
         kd_patch_payload = {
             "missiles": {
                 k: v - attacker_missiles.get(k, 0)

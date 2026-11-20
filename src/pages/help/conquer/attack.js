@@ -69,6 +69,10 @@ function Attack(props) {
                 <li>Strength reduction when out of fuel - {displayPercent(props.state.game_config?.BASE_FUELLESS_STRENGTH_REDUCTION)}</li>
                 <li>Minimum stars gain - {props.state.game_config?.BASE_ATTACK_MIN_STARS_GAIN}</li>
             </ul>
+            <p>
+                On one of your Empire's targets, part of a win's stars and money goes into the target's spoils fund
+                instead, and intel cuts are not paid; the forecast says how much. See Empire politics.
+            </p>
         </div>
     )
 }

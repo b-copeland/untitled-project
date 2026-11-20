@@ -635,8 +635,14 @@ def clear_notifs():
     
     return "Cleared", 200
 
-def _mark_kingdom_death(kd_id):
-    """Record the death on the kingdom's user (one query: deaths are rare) and tell their open socket, if any."""
+def _mark_kingdom_death(kd_id, killer=None):
+    """
+    Record the death on the kingdom's user (one query: deaths are rare) and tell their open socket, if any. If an empire
+    targets the kingdom, its remains go into the target's spoils fund (``killer``, if known, decides whose).
+    """
+    import untitledapp.targets as uat  # targets reaches misc through conquer
+
+    uat.on_kingdom_death(kd_id, killer=killer)
     death_date = datetime.datetime.now(datetime.timezone.utc).isoformat()
     for user in User.by_kd_id(kd_id):
         user.save(kd_death_date=death_date)
