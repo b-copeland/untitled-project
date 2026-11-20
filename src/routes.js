@@ -29,6 +29,7 @@ import Primitives from "./pages/conquer/primitives.js";
 import GalaxyPolitics from "./pages/politics/galaxypolitics.js";
 import EmpirePolitics from "./pages/politics/empirepolitics.js";
 import UniversePolitics from "./pages/politics/universepolitics.js";
+import ClusterPolitics from "./pages/politics/clusterpolitics.js";
 import Help from "./pages/help/help.js";
 
 /*
@@ -93,6 +94,7 @@ export const sections = [
     pages: [
       { path: "/galaxypolitics", label: "Galaxy Politics", component: GalaxyPolitics },
       { path: "/empirepolitics", label: "Empire Politics", component: EmpirePolitics },
+      { path: "/clusterpolitics", label: "Cluster Politics", component: ClusterPolitics },
       { path: "/universepolitics", label: "Universe Politics", component: UniversePolitics },
     ],
   },

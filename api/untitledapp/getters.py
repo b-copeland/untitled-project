@@ -62,11 +62,13 @@ def get_state():
         "aggro_operations": uas.AGGRO_OPERATIONS,
         "reveal_operations": uas.REVEAL_OPERATIONS,
         "operation_projects": uas.OPERATION_PROJECTS,
+        "cluster_benefits": uas.CLUSTER_BENEFITS,
         # The objects above reach the browser with their keys sorted; this is the order the game lists them in.
         "order": {
             "units": list(uas.UNITS),
             "projects": list(uas.PROJECTS),
             "project_categories": list(uas.PROJECT_CATEGORIES),
+            "cluster_benefits": list(uas.CLUSTER_BENEFITS),
         },
         "operations_replaced_by_project": uas.OPERATIONS_REPLACED_BY_PROJECT,
         "game_config": uas.GAME_CONFIG,
