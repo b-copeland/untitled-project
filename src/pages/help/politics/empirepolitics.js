@@ -28,6 +28,44 @@ function EmpirePolitics(props) {
                 checked when a galaxy joins: an Empire that grows past it afterwards keeps its galaxies, but takes in no
                 more until it is back under.
             </p>
+            <h3>Targets</h3>
+            <p>
+                The emperor (the leader of the Empire's ruling galaxy) marks kingdoms outside the Empire as targets, for
+                every member to take apart together. The emperor can name up to {config.TARGET_MAX_DELEGATES} delegates
+                to manage targets with them. An Empire can have one target for each galaxy in it. Targets are on the
+                Targets tab of the Empire page, which only the Empire's members see.
+            </p>
+            <p>
+                Each target is marked for one or more actions: intel, kidnaps, bombing homes, sabotaging fuel plants,
+                missiles, failed attacks and successful attacks. A member who takes a marked action on the target earns
+                points for it, by the damage done: kidnapping twice the civilians earns twice the points. Successful
+                attacks earn points by the stars taken, failed attacks by the defending units destroyed, and intel for
+                each kind of intel the Empire did not already have on the target. Leadership can scale each action's
+                points, and the tab shows what each earns.
+            </p>
+            <p>
+                While a kingdom is a target:
+            </p>
+            <ul>
+                <li>intel any member takes on it is shared with the whole Empire straight away;</li>
+                <li>intel cuts from your galaxy's intel market do not apply to attacks on it;</li>
+                <li>
+                    a share of every successful attack's stars and money (
+                    {displayPercent(config.TARGET_DEFAULT_FUND_SHARE || 0)} unless leadership changes it, up
+                    to {displayPercent(config.TARGET_MAX_FUND_SHARE || 0)}) goes into the target's spoils fund instead of
+                    to the attacker; the attack forecast shows how much;
+                </li>
+                <li>every star missiles destroy goes into the spoils fund;</li>
+                <li>if it dies, its remaining stars and money go into the spoils fund and the target ends.</li>
+            </ul>
+            <p>
+                Leadership pays the spoils fund out to everyone who earned points on the target, in proportion to their
+                points, at most once
+                every {((config.TARGET_PAYOUT_COOLDOWN_EPOCHS || 0) * (config.BASE_EPOCH_SECONDS || 0)) / 3600} hours.
+                Points last as long as the target. When a target ends, because leadership removes it or because it
+                dies, whatever is left in its fund is paid out at once; with nobody to pay, it is lost. Ended targets
+                stay in the History tab.
+            </p>
         </div>
     )
 }

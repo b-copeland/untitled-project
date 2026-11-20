@@ -177,6 +177,11 @@ hidden state.
   kingdom with more drones than its stars suggest, a thief for example, is tried less and less, without anybody being
   named as a thief.
 
+- **Empire targets** (`TARGET_SHARE`). About half of a bot's strikes, sabotage, intel and missile strikes go to its
+  empire's targets marked for them, when it is equipped to: a target its army can beat (taken whatever primitives
+  would give, since it also earns points), a fair chance for sabotage. A target it can not beat is left for the best
+  one it can. The roll is only made when there is a marked target, so rounds without targets play as before.
+
 ### Politics
 
 - **Galaxy policies** by playstyle (`Personality.galaxy_votes`), and a **leader**: whoever the others back, and with no
@@ -358,6 +363,7 @@ Not changed: these are balance and rules, which are the maintainer's call.
 ### Not yet
 
 - Surrender, peace and leaving an empire.
+- Marking empire targets, naming delegates and paying out spoils funds (bots only act on targets players set).
 - Messages, pinning, razing structures (a shrunken kingdom would raze mines for hangars before disbanding).
 - A fifth archetype for the Fuzi (the missile race).
 - Reacting to what the galaxy's news says about galaxymates being attacked.

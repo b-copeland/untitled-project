@@ -1,0 +1,834 @@
+"""
+Empire targets: kingdoms an empire's leadership marks for its members to take apart, and the spoils fund that rewards
+everyone who took part.
+
+The emperor (the leader of the empire's ruling galaxy) and up to ``TARGET_MAX_DELEGATES`` kingdoms the emperor names
+(the delegates) manage the targets. An empire has at most one target per galaxy in it. Each target is marked for one or
+more actions (``TARGET_ACTIONS`` in shared.py: intel, kidnaps, bombing homes, sabotaging fuel plants, missiles, failed
+and successful attacks), each with a points multiplier leadership sets.
+
+While a kingdom is a target:
+
+* every intel operation an empire member wins on it is copied to every kingdom in the empire;
+* intel cuts from the galaxy's intel market do not apply to attacks on it;
+* a member who takes a marked action earns participation points on it, in proportion to the damage done
+  (``points_for``);
+* a share of each successful attack's stars and money (``fund_share``) goes into the target's spoils fund instead of
+  to the attacker, and every star missiles destroy goes into it;
+* if it dies, its remaining stars and money go into the fund and the target ends.
+
+Leadership pays the fund out, at most once every ``TARGET_PAYOUT_COOLDOWN_EPOCHS``, to the participants in proportion
+to their points. Points last for the whole life of the target. Ending a target (removing it, or its death) pays out
+what is left straight away; with no participants it is lost. Ended targets go into the empire's history.
+
+Everything lives in one document per empire, ``empire_targets_<empire>``, which is the decision point of every change
+here (``occ.update``). Its fields, each read with a default since the function app creates it as ``{"id"}``:
+
+* ``delegates``: the kingdoms the emperor named.
+* ``targets``: target kingdom to ``{target, actions, fund_share, created_at, created_by, points, fund, paid,
+  last_payout, intel}``: ``actions`` maps each marked action to its points multiplier; ``points`` and ``paid`` are per
+  participant; ``fund`` is ``{stars, money}``; ``intel`` is category to when the empire's intel on the target ends.
+* ``history``: the newest ``TARGET_HISTORY_LENGTH`` ended targets, newest first.
+
+The ``empires`` document carries a hint, ``targets`` (a list of kingdom ids) on each empire, so an attack, spy operation
+or missile strike knows without another read whether its target is one. It is a superset of the targets: a target is
+added to it before the targets document and taken out after, so a crash between the two costs at most a wasted read.
+``/api/empires`` leaves it out, so nobody outside the empire learns who it targets.
+"""
+import copy
+import datetime
+import json
+import math
+
+import flask
+import flask_praetorian
+from flask_sock import ConnectionClosed
+
+import untitledapp.getters as uag
+import untitledapp.occ as occ
+import untitledapp.shared as uas
+from untitledapp import REQUESTS_SESSION, SOCK_HANDLERS, alive_required
+
+bp = flask.Blueprint("targets", __name__)
+
+ACTIONS = list(uas.TARGET_ACTIONS)
+FIELDS = ("delegates", "targets", "history")
+_EPSILON = 1e-9
+
+
+# --- pure rules: plain dicts in, plain values out -----------------------------------------------------------------
+
+def _utc(value):
+    if isinstance(value, datetime.datetime):
+        return value.astimezone(datetime.timezone.utc)
+    parsed = datetime.datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed.astimezone(datetime.timezone.utc)
+
+
+def normalize(document):
+    """The document's fields, each with its default, as a private copy."""
+    document = document or {}
+    return {
+        "delegates": [str(kd) for kd in (document.get("delegates") or [])],
+        "targets": copy.deepcopy(document.get("targets") or {}),
+        "history": copy.deepcopy(document.get("history") or []),
+    }
+
+
+def written(document):
+    return {field: document[field] for field in FIELDS}
+
+
+def new_target(target, actions, fund_share, by, now):
+    return {
+        "target": str(target),
+        "actions": dict(actions),
+        "fund_share": fund_share,
+        "created_at": now.isoformat(),
+        "created_by": by,
+        "points": {},
+        "fund": {"stars": 0, "money": 0},
+        "paid": {},
+        "last_payout": None,
+        "intel": {},
+    }
+
+
+def parse_actions(value):
+    """
+    The actions a request marks, as ``{action: multiplier}``. ``value`` maps action keys to multipliers (a number, or
+    ``true`` for 1). Raises ValueError for an unknown action, a multiplier out of range, or no action at all.
+    """
+    if not isinstance(value, dict):
+        raise ValueError("Choose the actions to mark the target for")
+    maximum = uas.GAME_CONFIG["TARGET_MAX_POINTS_MULTIPLIER"]
+    actions = {}
+    for key, multiplier in value.items():
+        if key not in uas.TARGET_ACTIONS:
+            raise ValueError(f"Unknown action: {key}")
+        if multiplier is True:
+            multiplier = 1.0
+        if multiplier is False or multiplier is None:
+            continue
+        try:
+            multiplier = float(multiplier)
+        except (TypeError, ValueError):
+            raise ValueError(f"The points multiplier for {uas.TARGET_ACTIONS[key]['name']} must be a number")
+        if multiplier != multiplier or multiplier < 0 or multiplier > maximum + _EPSILON:
+            raise ValueError(f"Points multipliers go from 0 to {maximum:g}")
+        actions[key] = multiplier
+    if not actions:
+        raise ValueError("Mark the target for at least one action")
+    return actions
+
+
+def parse_fund_share(value):
+    """A fund share sent as a percent, as a fraction. Missing means the default."""
+    if value is None or value == "":
+        return uas.GAME_CONFIG["TARGET_DEFAULT_FUND_SHARE"]
+    share = float(value) / 100
+    maximum = uas.GAME_CONFIG["TARGET_MAX_FUND_SHARE"]
+    if share != share or share < 0 or share > maximum + _EPSILON:
+        raise ValueError(f"The spoils fund share goes from 0% to {maximum:.0%}")
+    return share
+
+
+def points_for(action, measures, multiplier=1.0):
+    """The points ``measures`` of damage (``{measure: amount}``) earn for ``action`` at ``multiplier``."""
+    rates = uas.TARGET_ACTIONS[action]["points"]
+    return sum(max(measures.get(measure, 0), 0) * rate for measure, rate in rates.items()) * multiplier
+
+
+def fund_split(spoils, share):
+    """
+    ``(attacker_spoils, fund)`` from an attacker's spoils (``{"stars": n, ..., "funding": {category: n}}``): the fund
+    takes ``share`` of the stars, of the money and of each funding category, rounded down, and holds the money and
+    funding together as money. Population and fuel stay with the attacker.
+    """
+    attacker = copy.deepcopy(spoils)
+    fund = {"stars": 0, "money": 0}
+    if share <= 0:
+        return attacker, fund
+    for key in ("stars", "money"):
+        if key not in spoils:
+            continue
+        taken = math.floor(max(spoils[key], 0) * share)
+        attacker[key] = spoils.get(key, 0) - taken
+        fund[key] += taken
+    for category, amount in (spoils.get("funding") or {}).items():
+        taken = math.floor(max(amount, 0) * share)
+        attacker["funding"][category] = amount - taken
+        fund["money"] += taken
+    return attacker, fund
+
+
+def payout_shares(points, fund):
+    """Each participant's part of ``fund`` (``{stars, money}``), in proportion to ``points``, rounded down."""
+    total = sum(value for value in points.values() if value > 0)
+    if total <= 0:
+        return {}
+    shares = {}
+    for kd_id, value in points.items():
+        if value <= 0:
+            continue
+        part = {key: math.floor(fund.get(key, 0) * value / total) for key in ("stars", "money")}
+        if part["stars"] or part["money"]:
+            shares[kd_id] = part
+    return shares
+
+
+def _take(fund, shares):
+    """The fund once ``shares`` are paid out of it."""
+    return {key: fund.get(key, 0) - sum(part[key] for part in shares.values()) for key in ("stars", "money")}
+
+
+def _add_paid(entry, shares):
+    for kd_id, part in shares.items():
+        paid = entry["paid"].setdefault(kd_id, {"stars": 0, "money": 0})
+        for key in ("stars", "money"):
+            paid[key] += part[key]
+
+
+def next_payout_at(entry):
+    """When the target's fund can next be paid out, or None if it can now (nothing paid out yet)."""
+    if not entry.get("last_payout"):
+        return None
+    seconds = uas.GAME_CONFIG["TARGET_PAYOUT_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+    return _utc(entry["last_payout"]) + datetime.timedelta(seconds=seconds)
+
+
+def payout_problem(entry, now):
+    """Why the target's fund can not be paid out now, or None if it can."""
+    unlocks = next_payout_at(entry)
+    if unlocks is not None and unlocks > now:
+        return f"This fund was paid out recently. It can be paid out again in {uas.wait_text(unlocks - now)}"
+    if not (entry["fund"].get("stars") or entry["fund"].get("money")):
+        return "The spoils fund is empty"
+    if not payout_shares(entry["points"], entry["fund"]):
+        return "Nobody has earned points on this target yet"
+    return None
+
+
+def pay_out(entry, now):
+    """Pay the fund out to the participants. Returns the shares paid; changes ``entry``."""
+    shares = payout_shares(entry["points"], entry["fund"])
+    entry["fund"] = _take(entry["fund"], shares)
+    _add_paid(entry, shares)
+    entry["last_payout"] = now.isoformat()
+    return shares
+
+
+def end(document, target, reason, by, now, extra_fund=None):
+    """
+    End ``target``: add ``extra_fund`` (a dead kingdom's remains), pay out the whole fund to the participants, and move
+    the target to the history. Returns the shares paid. Changes ``document``.
+    """
+    entry = document["targets"].pop(target)
+    for key, amount in (extra_fund or {}).items():
+        entry["fund"][key] = entry["fund"].get(key, 0) + amount
+    shares = payout_shares(entry["points"], entry["fund"])
+    lost = _take(entry["fund"], shares)
+    _add_paid(entry, shares)
+    record = {
+        "target": target,
+        "actions": entry["actions"],
+        "fund_share": entry["fund_share"],
+        "created_at": entry["created_at"],
+        "ended_at": now.isoformat(),
+        "reason": reason,
+        "ended_by": by,
+        "points": entry["points"],
+        "paid": entry["paid"],
+        # Rounding leaves a little behind; with no participants, all of it.
+        "lost": lost,
+    }
+    document["history"] = ([record] + document["history"])[:uas.GAME_CONFIG["TARGET_HISTORY_LENGTH"]]
+    return shares
+
+
+def record_damage(entry, action, measures, fund, kd_id):
+    """
+    Add what one action did to the target: points for ``kd_id`` if the target is marked for ``action`` (None for
+    none), and ``fund`` to the spoils fund. Returns the points earned.
+    """
+    earned = 0.0
+    if action is not None and action in entry["actions"]:
+        earned = points_for(action, measures, entry["actions"][action])
+        if earned > 0:
+            entry["points"][kd_id] = entry["points"].get(kd_id, 0) + earned
+    for key, amount in (fund or {}).items():
+        entry["fund"][key] = entry["fund"].get(key, 0) + amount
+    return earned
+
+
+def record_intel(entry, categories, until, kd_id, now):
+    """
+    Note that the empire has ``categories`` of intel on the target until ``until``. Points (if the target is marked for
+    intel) only for the categories it did not have, so spying for what is already known earns nothing. Returns
+    ``(points earned, the categories that were new)``.
+    """
+    new = [category for category in categories
+           if entry["intel"].get(category) is None or _utc(entry["intel"][category]) <= now]
+    for category in categories:
+        stored = entry["intel"].get(category)
+        if stored is None or _utc(until) > _utc(stored):
+            entry["intel"][category] = until.isoformat() if isinstance(until, datetime.datetime) else until
+    earned = record_damage(entry, "intel", {"categories": len(new)}, None, kd_id)
+    return earned, new
+
+
+def target_problem(document, target, empire_kingdoms, max_targets, alive, known):
+    """Why ``target`` can not be added as a new target, or None if it can."""
+    if not known:
+        return "There is no such kingdom"
+    if target in empire_kingdoms:
+        return "You can not target a kingdom in your own empire"
+    if not alive:
+        return "That kingdom is dead"
+    if target in document["targets"]:
+        return "That kingdom is already a target"
+    if len(document["targets"]) >= max_targets:
+        return f"Your empire can have at most {max_targets} target(s): one per galaxy in it"
+    return None
+
+
+def catalog():
+    """The actions, as the pages show them: name, description, and the points each measure earns."""
+    return [{
+        "key": key,
+        "name": action["name"],
+        "desc": action["desc"],
+        "points": [{"measure": measure, "name": uas.TARGET_MEASURE_NAMES.get(measure, measure), "points": rate}
+                   for measure, rate in action["points"].items()],
+    } for key, action in uas.TARGET_ACTIONS.items()]
+
+
+def view(document, kd_id, empire, is_emperor, names, galaxy_of, max_targets, now):
+    """What ``kd_id`` sees of its empire's targets. Every member sees everything: it is the empire's own business."""
+    document = normalize(document)
+    name = lambda kd: names.get(kd, f"Kingdom {kd}")  # noqa: E731
+    can_manage = is_emperor or kd_id in document["delegates"]
+
+    def participants(points, paid):
+        total = sum(value for value in points.values() if value > 0)
+        kingdoms = sorted(set(points) | set(paid), key=lambda kd: -points.get(kd, 0))
+        return [{
+            "kd_id": kd, "name": name(kd), "points": points.get(kd, 0),
+            "share": points.get(kd, 0) / total if total > 0 else 0,
+            "paid": paid.get(kd, {"stars": 0, "money": 0}),
+        } for kd in kingdoms]
+
+    targets = []
+    for target, entry in sorted(document["targets"].items(), key=lambda item: item[1]["created_at"]):
+        unlocks = next_payout_at(entry)
+        total = sum(value for value in entry["points"].values() if value > 0)
+        targets.append({
+            "target": target,
+            "name": name(target),
+            "galaxy": galaxy_of.get(target),
+            "actions": entry["actions"],
+            "fund_share": entry["fund_share"],
+            "fund": entry["fund"],
+            "created_at": entry["created_at"],
+            "created_by": entry.get("created_by"),
+            "points_total": total,
+            "my_points": entry["points"].get(kd_id, 0),
+            "my_share": entry["points"].get(kd_id, 0) / total if total > 0 else 0,
+            "participants": participants(entry["points"], entry["paid"]),
+            "intel": {category: until for category, until in entry["intel"].items() if _utc(until) > now},
+            "next_payout_at": unlocks.isoformat() if unlocks and unlocks > now else None,
+            "payout_problem": payout_problem(entry, now),
+        })
+    history = [{
+        **record,
+        "name": name(record["target"]),
+        "participants": participants(record.get("points", {}), record.get("paid", {})),
+    } for record in document["history"]]
+    return {
+        "empire": empire,
+        "is_emperor": is_emperor,
+        "can_manage": can_manage,
+        "delegates": [{"kd_id": kd, "name": name(kd)} for kd in document["delegates"]],
+        "max_delegates": uas.GAME_CONFIG["TARGET_MAX_DELEGATES"],
+        "max_targets": max_targets,
+        "actions": catalog(),
+        "default_fund_share": uas.GAME_CONFIG["TARGET_DEFAULT_FUND_SHARE"],
+        "max_fund_share": uas.GAME_CONFIG["TARGET_MAX_FUND_SHARE"],
+        "max_multiplier": uas.GAME_CONFIG["TARGET_MAX_POINTS_MULTIPLIER"],
+        "payout_cooldown_hours": uas.GAME_CONFIG["TARGET_PAYOUT_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 3600,
+        "targets": targets,
+        "history": history,
+    }
+
+
+# --- reading and writing --------------------------------------------------------------------------------------------
+
+def _now():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _path(empire):
+    return f"/empire/{empire}/targets"
+
+
+def _send(kd_id, message, status="info", update=("empiretargets",)):
+    try:
+        SOCK_HANDLERS[kd_id].send(json.dumps({
+            "message": message, "status": status, "category": "Targets", "delay": 15000, "update": list(update),
+        }))
+    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
+        pass
+
+
+def _news(kd_id, message, time_now):
+    import untitledapp.misc as uam  # misc imports this module
+
+    app = flask.current_app
+    REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/news',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps({"time": time_now.isoformat(), "from": "", "news": message, "kind": "targets"}),
+    )
+    uam._add_notifs(kd_id, ["news_kingdom"])
+
+
+def hinted(empires_info, empire, target):
+    """Whether the empires document says ``empire`` may be targeting ``target`` (the hint is a superset)."""
+    if empire is None:
+        return False
+    return str(target) in (empires_info.get("empires", {}).get(empire, {}).get("targets") or [])
+
+
+def empires_targeting(empires_info, target):
+    """The empires whose hint lists ``target``."""
+    return [empire for empire, info in empires_info.get("empires", {}).items() if str(target) in (info.get("targets") or [])]
+
+
+def _change_hint(empire, add=None, remove=None):
+    def change(empires_document):
+        info = empires_document["empires"].get(empire)
+        if info is None:
+            return None, None
+        current = list(info.get("targets") or [])
+        hint = [kd for kd in current if kd != remove]
+        if add is not None and add not in hint:
+            hint.append(add)
+        if hint == current:
+            return None, None
+        info["targets"] = hint
+        return {"empires": empires_document["empires"]}, None
+
+    occ.update('/empires', change)
+
+
+def active_target(empire, target, empires_info):
+    """The target's entry in ``empire``'s targets, or None. One read, and only when the hint says it may be one."""
+    if not hinted(empires_info, empire, target):
+        return None
+    return normalize(occ.read(_path(empire)))["targets"].get(str(target))
+
+
+def _empire_kingdoms(empire, empires_info, galaxy_info):
+    return [kd for galaxy in empires_info["empires"].get(empire, {}).get("galaxies", []) for kd in galaxy_info.get(galaxy, [])]
+
+
+def _credit(kd_id, part, message, time_now):
+    """Pay a participant's part of a fund: stars, and money spread over auto spending like any spoils."""
+    import untitledapp.conquer as uac  # conquer imports this module
+
+    add = uac._credit_spoils({"stars": part["stars"], "money": part["money"]})
+
+    def decide(kd):
+        if str(kd.get("status", "")).lower() == "dead":
+            return None, False
+        return add(kd)[0], True
+
+    try:
+        credited = occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Busy:
+        credited = False
+    if credited:
+        _news(kd_id, message, time_now)
+        _send(kd_id, message, update=("kingdom", "empiretargets", "news"))
+    return credited
+
+
+def _pay(shares, target_name, time_now, final=False):
+    for kd_id, part in shares.items():
+        what = f"{part['stars']} stars and {part['money']} money"
+        if final:
+            message = f"The target {target_name} has ended. You received {what} from its spoils fund."
+        else:
+            message = f"You received {what} from the spoils fund of the target {target_name}."
+        _credit(kd_id, part, message, time_now)
+
+
+def record_action(empire, target, kd_id, action, measures, fund=None, entry=None):
+    """
+    Record what ``kd_id`` did to ``target``: points for ``action`` (None: no points, only ``fund``), and ``fund`` into
+    the spoils fund. Returns True if the target was still there to take it, so a caller that took a fund share from an
+    attacker can give it back if the target ended meanwhile. ``entry`` is the target as the caller read it: if the
+    action earns nothing and there is no fund, nothing is written.
+    """
+    if entry is not None and not fund and (action is None or action not in entry["actions"]):
+        return True
+    target = str(target)
+
+    def decide(document):
+        document = normalize(document)
+        current = document["targets"].get(target)
+        if current is None:
+            return None, False
+        earned = record_damage(current, action, measures, fund, kd_id)
+        if earned <= 0 and not any((fund or {}).values()):
+            return None, True
+        return written(document), True
+
+    try:
+        return occ.update(_path(empire), decide)
+    except occ.Busy:
+        return False
+
+
+def share_intel(empire, target, kd_id, categories, until, empires_info, galaxy_info):
+    """
+    An intel operation by ``kd_id`` on a target: note the intel on the target (earning points for what was new), and
+    copy the reveal to every other kingdom in the empire. Returns the points earned.
+    """
+    import untitledapp.conquer as uac  # conquer imports this module
+
+    target = str(target)
+    now = _now()
+
+    def decide(document):
+        document = normalize(document)
+        current = document["targets"].get(target)
+        if current is None:
+            return None, None
+        earned, _ = record_intel(current, categories, until, kd_id, now)
+        return written(document), earned
+
+    try:
+        earned = occ.update(_path(empire), decide)
+    except occ.Busy:
+        earned = 0
+    if earned is None:
+        return 0
+    app = flask.current_app
+    until_iso = until.isoformat() if isinstance(until, datetime.datetime) else until
+    names = uag._get_kingdoms()
+    for member in _empire_kingdoms(empire, empires_info, galaxy_info):
+        if member == kd_id:
+            continue
+        REQUESTS_SESSION.patch(
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{member}/revealed',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+            data=json.dumps({"new_revealed": {target: {category: until_iso for category in categories}}}),
+        )
+        uac._lower_timer(member, "revealed", until_iso)
+        _send(member, f"{names.get(kd_id, kd_id)} took {', '.join(categories)} intel on the empire target "
+                      f"{names.get(target, target)}: it is shared with you", update=("revealed",))
+    return earned
+
+
+def on_kingdom_death(kd_id, killer=None):
+    """
+    A kingdom died. If any empire targets it, its remaining stars and money (funding counted as money) go into the
+    spoils fund, and the target ends with a final payout. The remains go to the killer's empire if it targets the
+    kingdom, otherwise they are split evenly between the empires that do. Taking the remains zeroes them on the dead
+    kingdom first, so they are only ever taken once.
+    """
+    kd_id = str(kd_id)
+    empires_info = uag._get_empire_info()
+    empires = empires_targeting(empires_info, kd_id)
+    if not empires:
+        return
+    if killer is not None:
+        empires_inverted, _, _, _ = uag._get_empires_inverted()
+        killer_empire = empires_inverted.get(str(killer))
+        if killer_empire in empires:
+            empires = [killer_empire]
+
+    def take(kd):
+        if str(kd.get("status", "")).lower() != "dead":
+            return None, {"stars": 0, "money": 0}
+        stars = max(math.floor(kd.get("stars", 0)), 0)
+        money = max(math.floor(kd.get("money", 0)), 0) + sum(max(math.floor(v), 0) for v in (kd.get("funding") or {}).values())
+        if not stars and not money:
+            return None, {"stars": 0, "money": 0}
+        return {
+            "stars": 0, "money": 0, "funding": {key: 0 for key in (kd.get("funding") or {})},
+        }, {"stars": stars, "money": money}
+
+    try:
+        remains = occ.update(f'/kingdom/{kd_id}', take)
+    except occ.Busy:
+        remains = {"stars": 0, "money": 0}
+    parts = {empire: {"stars": remains["stars"] // len(empires), "money": remains["money"] // len(empires)}
+             for empire in empires}
+    first = empires[0]
+    parts[first]["stars"] += remains["stars"] - sum(part["stars"] for part in parts.values())
+    parts[first]["money"] += remains["money"] - sum(part["money"] for part in parts.values())
+    for empire in empires:
+        try:
+            _end_target(empire, kd_id, "killed", None, extra_fund=parts[empire])
+        except (occ.Rejected, occ.Busy):
+            # Removed by leadership at the same moment (it was paid out then), or too busy: the attack or strike that
+            # killed the kingdom has already happened and must not fail now. That empire's part of the remains is lost.
+            pass
+
+
+def _end_target(empire, target, reason, by, extra_fund=None, check=None):
+    """End a target (``check(document)`` may refuse), pay out its fund, and take it out of the hint."""
+    time_now = _now()
+
+    def decide(document):
+        document = normalize(document)
+        if target not in document["targets"]:
+            raise occ.Rejected("That kingdom is not a target")
+        if check is not None:
+            check(document)
+        shares = end(document, target, reason, by, time_now, extra_fund)
+        return written(document), shares
+
+    shares = occ.update(_path(empire), decide)
+    _change_hint(empire, remove=target)
+    names = uag._get_kingdoms()
+    _pay(shares, names.get(target, target), time_now, final=True)
+    return shares
+
+
+# --- the routes ------------------------------------------------------------------------------------------------------
+
+def _context(kd_id):
+    """``(empire, is emperor, empires document, galaxy of each kingdom, kingdoms of each galaxy)`` for ``kd_id``."""
+    empires_inverted, empires_info, _, galaxy_info = uag._get_empires_inverted()
+    galaxies_inverted, _ = uag._get_galaxies_inverted()
+    empire = empires_inverted.get(kd_id)
+    is_emperor = False
+    if empire is not None:
+        ruling = uag._get_empire_politics(empire).get("leader")
+        galaxy = galaxies_inverted.get(kd_id)
+        if ruling is not None and ruling == galaxy:
+            galaxy_politics, _ = uag._get_galaxy_politics(kd_id, galaxy)
+            is_emperor = galaxy_politics.get("leader") == kd_id
+    return empire, is_emperor, empires_info, galaxies_inverted, galaxy_info
+
+
+def _must_manage(is_emperor, kd_id):
+    def check(document):
+        if not (is_emperor or kd_id in document["delegates"]):
+            raise occ.Rejected("Only the emperor and their delegates can manage the empire's targets")
+    return check
+
+
+def _answer(payload, status=200):
+    return flask.jsonify(payload), status
+
+
+def _refusal(rejection):
+    return _answer({"message": rejection.message}, rejection.status)
+
+
+def _body():
+    body = flask.request.get_json(force=True, silent=True)
+    return body if isinstance(body, dict) else {}
+
+
+def view_for(kd_id):
+    empire, is_emperor, empires_info, galaxies_inverted, _ = _context(kd_id)
+    if empire is None:
+        return {"empire": None, "targets": [], "history": [], "can_manage": False, "is_emperor": False,
+                "actions": catalog()}
+    document = occ.read(_path(empire))
+    max_targets = len(empires_info["empires"][empire]["galaxies"])
+    return view(document, kd_id, empire, is_emperor, uag._get_kingdoms(), galaxies_inverted, max_targets, _now())
+
+
+@bp.route('/api/empiretargets', methods=['GET'])
+@flask_praetorian.auth_required
+def empire_targets():
+    return _answer(view_for(flask_praetorian.current_user().kd_id))
+
+
+def add_target(kd_id, target, actions_value, fund_share_value):
+    """Mark ``target`` as one of the empire's targets. Returns ``(payload, status)``. The route and the bots both use it."""
+    target = str(target)
+    try:
+        actions = parse_actions(actions_value)
+        fund_share = parse_fund_share(fund_share_value)
+    except (TypeError, ValueError) as error:
+        return {"message": str(error)}, 400
+    empire, is_emperor, empires_info, _, galaxy_info = _context(kd_id)
+    if empire is None:
+        return {"message": "You are not in an empire"}, 400
+    names = uag._get_kingdoms()
+    known = target in names
+    alive = known and str(uag._get_kd_info(target).get("status", "")).lower() != "dead"
+    members = set(_empire_kingdoms(empire, empires_info, galaxy_info))
+    max_targets = len(empires_info["empires"][empire]["galaxies"])
+    now = _now()
+
+    def decide(document):
+        document = normalize(document)
+        _must_manage(is_emperor, kd_id)(document)
+        problem = target_problem(document, target, members, max_targets, alive, known)
+        if problem:
+            raise occ.Rejected(problem)
+        document["targets"][target] = new_target(target, actions, fund_share, kd_id, now)
+        return written(document), None
+
+    try:
+        # Checked once before the hint is touched, so a refusal usually leaves it alone; then the hint first, so that
+        # it always lists at least the real targets, and the decision on the document as it is when it lands.
+        document = occ.read(_path(empire))
+        decide(document)
+        _change_hint(empire, add=target)
+        occ.update(_path(empire), decide, document=document)
+    except occ.Rejected as rejection:
+        return {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return {"message": "Server is busy"}, 400
+    for member in members:
+        if member != kd_id:
+            _send(member, f"{names.get(kd_id, kd_id)} marked {names.get(target, target)} as an empire target")
+    return {"message": f"{names.get(target, target)} is now a target", "status": "success"}, 200
+
+
+@bp.route('/api/empiretargets/add', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def add_target_route():
+    body = _body()
+    payload, status = add_target(flask_praetorian.current_user().kd_id, body.get("target"), body.get("actions"),
+                                 body.get("fund_share"))
+    return _answer(payload, status)
+
+
+@bp.route('/api/empiretargets/<target>/update', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def update_target_route(target):
+    kd_id = flask_praetorian.current_user().kd_id
+    body = _body()
+    try:
+        actions = parse_actions(body.get("actions"))
+        fund_share = parse_fund_share(body.get("fund_share"))
+    except (TypeError, ValueError) as error:
+        return _answer({"message": str(error)}, 400)
+    empire, is_emperor, _, _, _ = _context(kd_id)
+    if empire is None:
+        return _answer({"message": "You are not in an empire"}, 400)
+
+    def decide(document):
+        document = normalize(document)
+        _must_manage(is_emperor, kd_id)(document)
+        entry = document["targets"].get(str(target))
+        if entry is None:
+            raise occ.Rejected("That kingdom is not a target")
+        entry["actions"] = actions
+        entry["fund_share"] = fund_share
+        return written(document), None
+
+    try:
+        occ.update(_path(empire), decide)
+    except occ.Rejected as rejection:
+        return _refusal(rejection)
+    except occ.Busy:
+        return _answer({"message": "Server is busy"}, 400)
+    return _answer({"message": "Target updated", "status": "success"})
+
+
+@bp.route('/api/empiretargets/<target>/remove', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def remove_target_route(target):
+    kd_id = flask_praetorian.current_user().kd_id
+    empire, is_emperor, _, _, _ = _context(kd_id)
+    if empire is None:
+        return _answer({"message": "You are not in an empire"}, 400)
+    try:
+        shares = _end_target(empire, str(target), "removed", kd_id, check=_must_manage(is_emperor, kd_id))
+    except occ.Rejected as rejection:
+        return _refusal(rejection)
+    except occ.Busy:
+        return _answer({"message": "Server is busy"}, 400)
+    paid = f", paying out its fund to {len(shares)} participant(s)" if shares else ""
+    return _answer({"message": f"Target removed{paid}", "status": "success"})
+
+
+def pay_out_target(kd_id, target):
+    """Pay out a target's fund. Returns ``(payload, status)``. The route and the bots both use it."""
+    target = str(target)
+    empire, is_emperor, _, _, _ = _context(kd_id)
+    if empire is None:
+        return {"message": "You are not in an empire"}, 400
+    now = _now()
+
+    def decide(document):
+        document = normalize(document)
+        _must_manage(is_emperor, kd_id)(document)
+        entry = document["targets"].get(target)
+        if entry is None:
+            raise occ.Rejected("That kingdom is not a target")
+        problem = payout_problem(entry, now)
+        if problem:
+            raise occ.Rejected(problem)
+        return written(document), pay_out(entry, now)
+
+    try:
+        shares = occ.update(_path(empire), decide)
+    except occ.Rejected as rejection:
+        return {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return {"message": "Server is busy"}, 400
+    _pay(shares, uag._get_kingdoms().get(target, target), now)
+    stars = sum(part["stars"] for part in shares.values())
+    money = sum(part["money"] for part in shares.values())
+    return {"message": f"Paid out {stars} stars and {money} money to {len(shares)} participant(s)",
+            "status": "success"}, 200
+
+
+@bp.route('/api/empiretargets/<target>/payout', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def payout_route(target):
+    payload, status = pay_out_target(flask_praetorian.current_user().kd_id, target)
+    return _answer(payload, status)
+
+
+@bp.route('/api/empiretargets/delegates', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def delegates_route():
+    kd_id = flask_praetorian.current_user().kd_id
+    body = _body()
+    delegates = body.get("delegates")
+    if not isinstance(delegates, list) or not all(isinstance(kd, (str, int)) for kd in delegates):
+        return _answer({"message": "Send the delegates as a list of kingdoms"}, 400)
+    delegates = list(dict.fromkeys(str(kd) for kd in delegates))
+    maximum = uas.GAME_CONFIG["TARGET_MAX_DELEGATES"]
+    if len(delegates) > maximum:
+        return _answer({"message": f"You can name at most {maximum} delegate(s)"}, 400)
+    empire, is_emperor, empires_info, _, galaxy_info = _context(kd_id)
+    if empire is None:
+        return _answer({"message": "You are not in an empire"}, 400)
+    if not is_emperor:
+        return _answer({"message": "Only the emperor can name delegates"}, 400)
+    members = set(_empire_kingdoms(empire, empires_info, galaxy_info))
+    outside = [kd for kd in delegates if kd not in members]
+    if outside:
+        return _answer({"message": "Delegates must be kingdoms in your empire"}, 400)
+
+    def decide(document):
+        document = normalize(document)
+        document["delegates"] = delegates
+        return written(document), None
+
+    try:
+        occ.update(_path(empire), decide)
+    except occ.Busy:
+        return _answer({"message": "Server is busy"}, 400)
+    return _answer({"message": "Delegates saved", "status": "success"})

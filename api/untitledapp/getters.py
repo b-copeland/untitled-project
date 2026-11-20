@@ -280,7 +280,12 @@ def _get_empires_inverted():
 # @flask_praetorian.roles_required('verified')
 def empires():
     empires = _get_empire_info()
-    return (flask.jsonify(empires["empires"]), 200)
+    # Each empire's ``targets`` (targets.py) is its own business: nobody else, the targets least of all, sees them.
+    payload = {
+        empire_id: {key: value for key, value in info.items() if key != "targets"}
+        for empire_id, info in empires["empires"].items()
+    }
+    return (flask.jsonify(payload), 200)
 
 @bp.route('/api/empires_inverted')
 @flask_praetorian.auth_required

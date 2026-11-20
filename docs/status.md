@@ -96,6 +96,22 @@ Built 2026-11-18 ([game-design.md](game-design.md#glossary), `intel.py`).
   review.
 - Bots buy listings and list or share what they spy, but never post or answer bounties.
 
+## Empire targets
+
+Built 2026-11-20 (issue #56, [decisions/0008](decisions/0008-empire-targets.md), `targets.py`). The framework is in; the
+balance is not.
+
+- Every number is a placeholder: `TARGET_MAX_DELEGATES` (3), `TARGET_DEFAULT_FUND_SHARE` (10%, from the issue),
+  `TARGET_MAX_FUND_SHARE` (50%), `TARGET_MAX_POINTS_MULTIPLIER` (5), `TARGET_PAYOUT_COOLDOWN_EPOCHS` (1, from the issue),
+  `TARGET_HISTORY_LENGTH` (20), and the points each measure earns in `TARGET_ACTIONS`.
+- Points last for the whole target, so every payout is shared by everyone who ever took part. A participant who is
+  dead at a payout loses their share.
+- Intel copied to the empire from a target can be listed or shared on a member's galaxy intel market like intel they
+  took themselves.
+- Bots act on their empire's targets (about half their strikes, sabotage, intel and missiles, `TARGET_SHARE`) but never
+  mark targets, name delegates or pay funds out.
+- The Targets tab has not been checked in a browser yet.
+
 ## Cluster politics
 
 Started 2026-11-19 (issue #157, [decisions/0007](decisions/0007-cluster-politics.md), `clusters.py`). The framework is

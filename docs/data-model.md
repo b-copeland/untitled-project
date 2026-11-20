@@ -23,7 +23,7 @@ Read the handler in `funcapp/function_app.py` before relying on one, but these a
 
 | Pattern | Routes | What the body does |
 |---|---|---|
-| **Shallow merge** | `PATCH /kingdom/<id>`, `/kingdoms`, `/scores`, `/empires`, `/galaxy/<id>/politics`, `/empire/<id>/politics`, `/universepolitics`, `/galaxy/<id>/intel`, `/cluster/<id>`; `/updatestate` (merges into the inner `state` object) | `{**document, **body}`. Top-level keys in the body replace the stored ones **entirely**. Sending `{"next_resolve": {"structures": t}}` replaces the whole `next_resolve` object with one key. Send the full nested object. |
+| **Shallow merge** | `PATCH /kingdom/<id>`, `/kingdoms`, `/scores`, `/empires`, `/galaxy/<id>/politics`, `/empire/<id>/politics`, `/universepolitics`, `/galaxy/<id>/intel`, `/cluster/<id>`, `/empire/<id>/targets`; `/updatestate` (merges into the inner `state` object) | `{**document, **body}`. Top-level keys in the body replace the stored ones **entirely**. Sending `{"next_resolve": {"structures": t}}` replaces the whole `next_resolve` object with one key. Send the full nested object. |
 | **Append or replace** | queues (`/settles`, `/mobis`, `/structures`, `/missiles`, `/engineers`) | `new_<field>` (a list of entries) is appended and the queue folded, see below; `<field>` replaces the list. |
 | | `/siphonsin`, `/siphonsout` | `new_siphons` (one item) is appended; `siphons` replaces the list. |
 | | `/revealed` | `new_revealed` is merged per target kingdom and stat, each stat keeping the later of the stored and the incoming expiry (so shared intel never shortens a reveal); `new_galaxies` is merged; `new_revealed_galaxymates` and `new_revealed_to_galaxymates` are appended. The same names without `new_` replace. |
@@ -62,7 +62,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `archive_<n>` | One finished round: `number`, `ended_at`, `reason`, `game_start`, `game_end`, `scores`, `galaxies`, `kingdoms` (kd id to `{name, galaxy, race, status, stars, networth, bot}`), `ranking`. Kept by `/resetstate` | `roundend.end_round`, once per round | strict (written once) |
 | `kingdoms` | `kingdoms`: kd id to name; `next_id`, the next id to hand out, which survives a round reset so ids are never reused (read with a default of 0) | kingdom creation, `/resetstate` | strict |
 | `galaxies` | `galaxies`: galaxy id to a list of kd ids | the function app only: `POST /galaxy/<id>` (admin) and `POST /kingdom` (kingdom creation) | strict |
-| `empires` | `empires`: empire id to `{name, galaxies, aggression, num_kingdoms, aggression_max, war, peace, denounced, denounced_expires, surprise_war_penalty, surprise_war_penalty_expires}`; `last_update` | politics routes, the refresh (`_resolve_empires`), attacks (aggression) | strict for membership and war, derived for aggregates |
+| `empires` | `empires`: empire id to `{name, galaxies, aggression, num_kingdoms, aggression_max, war, peace, denounced, denounced_expires, surprise_war_penalty, surprise_war_penalty_expires, targets}`; `last_update`. `targets` (missing on empires that never had one) is the hint of [empire targets](#empire-targets): a superset of the empire's target kingdoms, left out of `/api/empires` | politics routes, the refresh (`_resolve_empires`), attacks (aggression), `targets.py` (the hint) | strict for membership and war, derived for aggregates |
 | `scores` | `points`, `stars`, `networth`, `galaxy_networth` (each keyed by id), `galaxy_kingdoms_alive` (galaxy to the number of its kingdoms the refresh scored, so neither dead nor never set up; missing until the first tick that wrote it), `last_update` | the refresh only | derived |
 | `universe_votes` | `votes`: policy, option, kd id to votes | `/api/votes`, `/api/universepolitics/policies`, elections | strict |
 | `universe_news` | `news`: list | elections, politics | eventual |
@@ -72,6 +72,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `empire_politics_<empire>` | `empire_invitations`, `empire_join_requests`, `surrender_offers_sent`, `surrender_offers_received`, `surrender_requests_sent`, `surrender_requests_received`, `leader` | empire politics routes | strict |
 | `galaxy_intel_<galaxy>` | The galaxy's intel market, see [below](#the-intel-market). `GET /galaxy/<id>/intel` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `intel.py` (every intel action) | strict: every change is decided on it with `occ.update` |
 | `cluster_<cluster>` | The cluster's politics, see [below](#cluster-politics). `GET /cluster/<id>` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `clusters.py`: a galaxy leader's vote, and the refresh when the cluster's empire alignment changes | strict: every change is decided on it with `occ.update` |
+| `empire_targets_<empire>` | The empire's targets, see [below](#empire-targets). `GET /empire/<id>/targets` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `targets.py`: leadership's routes, and every attack, spy operation and missile strike on a target | strict: every change is decided on it with `occ.update` |
 | `empire_news_<empire>` | `news`: list | nothing yet: it is created empty and read, but never written | eventual |
 
 ## Per-kingdom documents
@@ -82,7 +83,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `settles_<id>`, `mobis_<id>`, `structures_<id>`, `missiles_<id>`, `engineers_<id>` | Build queues: a list of queue entries under the same name | strict-ish: appended by actions, trimmed by the refresh |
 | `siphons_out_<id>` | `siphons_out`: the siphons running on this kingdom, see [below](#siphons) | eventual: appended by Siphon Funds, settled by the refresh |
 | `siphons_in_<id>` | `siphons_in`: payments to this kingdom from its siphons, waiting for its next refresh | eventual: appended by the target's refresh, cleared by this kingdom's |
-| `news_<id>` | `news`: list of `{time, from, to, news, kind}` (`kind` is `attack`, `spy`, `missiles`, `intel` or missing on old items) | eventual |
+| `news_<id>` | `news`: list of `{time, from, to, news, kind}` (`kind` is `attack`, `spy`, `missiles`, `intel`, `targets` or missing on old items) | eventual |
 | `revealed_<id>` | `revealed`: kd id to stat to expiry time; `galaxies`: galaxy id to expiry; `revealed_galaxymates`, `revealed_to_galaxymates` | eventual. The kingdom's `next_resolve.revealed` timer is lowered to the soonest expiry (`_lower_timer` in `conquer.py`) so the refresh expires them on time. |
 | `pinned_<id>` | `pinned`: list of kd ids | eventual |
 | `spy_history_<id>`, `attack_history_<id>`, `missile_history_<id>` | Lists of past operations | eventual |
@@ -144,6 +145,19 @@ the advanced levels with its own time.
 | `levels` | Benefit key to its level from 0 to 1 (a fraction of the benefit's `max`), as of `last_update` |
 | `alignment` | The share of the cluster's galaxies in its largest empire, as of `last_update`. The refresh stores it when it changes |
 | `last_update` | When `levels` were last advanced |
+
+### Empire targets
+
+`empire_targets_<empire>` is the one decision point of an empire's targets (`targets.py`). Each empire in the `empires`
+document also carries `targets`, a list of kingdom ids, so an action knows whether its target may be one without
+reading this document: a kingdom is added to that list before it is added here, and taken out after it is removed
+here, so the list is never short of a real target ([decisions/0008](decisions/0008-empire-targets.md)).
+
+| Key | Holds |
+|---|---|
+| `delegates` | The kingdoms the emperor named to manage targets with them, at most `TARGET_MAX_DELEGATES` |
+| `targets` | Target kingdom to `{target, actions, fund_share, created_at, created_by, points, fund, paid, last_payout, intel}`. `actions`: each marked action (a key of `TARGET_ACTIONS`) to its points multiplier. `points` and `paid` (`{stars, money}`) per participant. `fund`: `{stars, money}`. `last_payout`: when the fund was last paid out, or null. `intel`: category to when the empire's shared intel on the target ends |
+| `history` | The newest `TARGET_HISTORY_LENGTH` ended targets, newest first: `{target, actions, fund_share, created_at, ended_at, reason, ended_by, points, paid, lost}`; `reason` is `removed` or `killed`, `lost` what was left unpaid (rounding, or everything with nobody to pay) |
 
 ## The kingdom document
 
