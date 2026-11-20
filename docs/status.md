@@ -93,7 +93,7 @@ Built 2026-11-18 ([game-design.md](game-design.md#glossary), `intel.py`).
 Started 2026-11-19 (issue #157, [decisions/0007](decisions/0007-cluster-politics.md), `clusters.py`). The framework is
 built; the content is not.
 
-- Every number is a placeholder: `CLUSTER_SIZE`, `CLUSTER_REF_SIZE`, `CLUSTER_VOTE_RATE`, `CLUSTER_DECAY_RATE`, and each
+- Every number is a placeholder: `CLUSTER_SIZE`, `CLUSTER_REF_SIZE`, `CLUSTER_VOTE_COOLDOWN_EPOCHS` (6, proposed by the maintainer 2026-11-20), `CLUSTER_VOTE_RATE`, `CLUSTER_DECAY_RATE`, and each
   benefit's `max` and `thresholds` in `CLUSTER_BENEFITS`. The benefits themselves (drone production, unit cost, settle
   cost) are the issue's examples.
 - `CLUSTER_VOTE_RATE` and `CLUSTER_DECAY_RATE` are fractions of each benefit's max, so every benefit fills at the same

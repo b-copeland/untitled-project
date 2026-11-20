@@ -140,6 +140,7 @@ the advanced levels with its own time.
 | Key | Holds |
 |---|---|
 | `votes` | Galaxy id to the key of the benefit (in `CLUSTER_BENEFITS`) its leader voted for. A galaxy with no vote is absent |
+| `vote_changed` | Galaxy id to when its vote last changed (cast, switched or withdrawn). The vote can not change again for `CLUSTER_VOTE_COOLDOWN_EPOCHS` |
 | `levels` | Benefit key to its level from 0 to 1 (a fraction of the benefit's `max`), as of `last_update` |
 | `alignment` | The share of the cluster's galaxies in its largest empire, as of `last_update`. The refresh stores it when it changes |
 | `last_update` | When `levels` were last advanced |

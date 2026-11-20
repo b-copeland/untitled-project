@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import ClusterPolitics, { benefitsOf, leadsGalaxy } from "./clusterpolitics";
+import ClusterPolitics, { benefitsOf, leadsGalaxy, waitText } from "./clusterpolitics";
 import { authFetch } from "../../auth";
 
 jest.mock("../../components/header", () => () => null);
@@ -43,6 +43,12 @@ test("benefits are listed in the game's order", () => {
     expect(benefitsOf(cluster).map((benefit) => benefit.key)).toEqual(["drone_production", "unit_cost", "settle_cost"]);
 });
 
+test("the page does not show the empire alignment, which has no effect yet", () => {
+    render(<ClusterPolitics data={data()} loading={{}} updateData={jest.fn()} />);
+    expect(screen.queryByText("In one empire")).toBeNull();
+    expect(screen.getByText("Galaxies", { selector: "dt" })).toBeTruthy();
+});
+
 test("only the galaxy leader leads", () => {
     expect(leadsGalaxy(data())).toBe(true);
     expect(leadsGalaxy(data({ kingdomid: { kd_id: "8" } }))).toBe(false);
@@ -80,6 +86,37 @@ test("a leader can withdraw the vote", () => {
     fireEvent.change(screen.getByLabelText("Your galaxy votes for"), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Withdraw vote" }));
     expect(authFetch).toHaveBeenCalledWith("api/cluster/vote", expect.objectContaining({ body: JSON.stringify({ benefit: null }) }));
+});
+
+const lockedData = (ms, overrides = {}) => data({
+    cluster: { ...cluster, vote_cooldown_hours: 3, vote_unlocks_at: new Date(Date.now() + ms).toISOString() }, ...overrides,
+});
+
+test("waits are in hours and minutes, rounded up", () => {
+    expect(waitText(2 * 3600000 + 5 * 60000)).toBe("2 h 5 min");
+    expect(waitText(40 * 60000 - 1000)).toBe("40 min");
+    expect(waitText(3 * 3600000)).toBe("3 h");
+    expect(waitText(100)).toBe("1 min");
+});
+
+test("a leader whose galaxy changed its vote recently is told when it can change again", () => {
+    render(<ClusterPolitics data={lockedData(2 * 3600000 + 4 * 60000 + 30000)} loading={{}} updateData={jest.fn()} />);
+    expect(screen.getAllByText(/can change again in 2 h 5 min/).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Your galaxy votes for").disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: /Vote|Withdraw vote/ }));  // blocked: nothing is sent
+    expect(authFetch).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toMatch(/epoch/i);
+});
+
+test("an open vote states the cooldown that follows a change", () => {
+    render(<ClusterPolitics data={data({ cluster: { ...cluster, vote_cooldown_hours: 3, vote_unlocks_at: null } })} loading={{}} updateData={jest.fn()} />);
+    expect(screen.getByText("Once changed, a galaxy's vote stays for 3 hours.")).toBeTruthy();
+    expect(screen.getByLabelText("Your galaxy votes for").disabled).toBe(false);
+});
+
+test("anyone else is told who votes, and when the vote can change", () => {
+    render(<ClusterPolitics data={lockedData(3600000, { kingdomid: { kd_id: "8" } })} loading={{}} updateData={jest.fn()} />);
+    expect(screen.getByText(/can change again in 1 h/)).toBeTruthy();
 });
 
 test("anyone else is told who votes", () => {

@@ -1,6 +1,7 @@
 """Cluster politics (clusters.py): the level math, the leader's vote, the read view and the refresh's alignment sync."""
 import copy
 import datetime
+import re
 
 import pytest
 
@@ -169,12 +170,66 @@ def test_an_unknown_benefit_is_refused(app, client, jwt1):
     assert response.status_code == 400
 
 
-def test_a_vote_can_be_withdrawn(app, client, jwt1):
+def _vote(client, jwt, benefit):
+    return client.post("/api/cluster/vote", json={"benefit": benefit}, headers=_auth(jwt))
+
+
+def _clock(monkeypatch, hours_from_now=0.0):
+    """Moves the vote routes' clock forward, so a cooldown can pass without waiting."""
+    start = datetime.datetime.now(datetime.timezone.utc)
+    monkeypatch.setattr(clusters, "_now", lambda: start + datetime.timedelta(hours=hours_from_now))
+
+
+def test_a_vote_can_be_withdrawn(app, client, jwt1, monkeypatch):
     _cluster_of_two_galaxies()
-    client.post("/api/cluster/vote", json={"benefit": "unit_cost"}, headers=_auth(jwt1))
-    response = client.post("/api/cluster/vote", json={"benefit": None}, headers=_auth(jwt1))
+    _vote(client, jwt1, "unit_cost")
+    _clock(monkeypatch, 4)  # past the cooldown
+    response = _vote(client, jwt1, None)
     assert response.status_code == 200
     assert _get("/cluster/1")["votes"] == {}
+
+
+def test_a_changed_vote_is_locked_for_the_cooldown(app, client, jwt1, monkeypatch):
+    _cluster_of_two_galaxies()
+    cooldown_hours = uas.GAME_CONFIG["CLUSTER_VOTE_COOLDOWN_EPOCHS"] * EPOCH / 3600
+    assert _vote(client, jwt1, "unit_cost").status_code == 200  # the first vote is free
+    _clock(monkeypatch, 1)
+    for benefit in ("settle_cost", None):  # switching and withdrawing are changes too
+        refused = _vote(client, jwt1, benefit)
+        assert refused.status_code == 400, refused.get_json()
+        message = refused.get_json()["message"]
+        assert re.search(r"can change again in (2 hours|1 hour 59 minutes)\.", message), message
+        assert "epoch" not in message.lower()
+    assert _get("/cluster/1")["votes"] == {"1:1": "unit_cost"}
+    view = client.get("/api/cluster", headers=_auth(jwt1)).get_json()
+    assert view["vote_unlocks_at"] is not None
+    assert view["vote_cooldown_hours"] == cooldown_hours
+
+    _clock(monkeypatch, cooldown_hours + 0.01)
+    assert _vote(client, jwt1, "settle_cost").status_code == 200
+    assert _get("/cluster/1")["votes"] == {"1:1": "settle_cost"}
+    _clock(monkeypatch, cooldown_hours + 0.02)  # and that change starts the cooldown again
+    assert _vote(client, jwt1, "unit_cost").status_code == 400
+
+
+def test_the_same_vote_again_changes_nothing_and_starts_no_cooldown(app, client, jwt1, monkeypatch):
+    _cluster_of_two_galaxies()
+    assert _vote(client, jwt1, None).status_code == 200  # no vote to withdraw
+    assert "vote_changed" not in _get("/cluster/1") or _get("/cluster/1")["vote_changed"] == {}
+    assert _vote(client, jwt1, "unit_cost").status_code == 200
+    stamp = _get("/cluster/1")["vote_changed"]["1:1"]
+    _clock(monkeypatch, 1)
+    assert _vote(client, jwt1, "unit_cost").status_code == 200  # still unit_cost: allowed, and not a new change
+    assert _get("/cluster/1")["vote_changed"]["1:1"] == stamp
+
+
+def test_each_galaxy_has_its_own_cooldown(app, client, jwt1, jwt2):
+    _cluster_of_two_galaxies()
+    assert _vote(client, jwt1, "unit_cost").status_code == 200
+    assert _vote(client, jwt2, "settle_cost").status_code == 200
+    assert _vote(client, jwt1, "settle_cost").status_code == 400
+    view = client.get("/api/cluster", headers=_auth(jwt2)).get_json()
+    assert view["galaxy"] == "1:2" and view["vote_unlocks_at"] is not None
 
 
 def test_two_leaders_voting_at_the_same_moment_are_both_counted(app, client, jwt1, jwt2):

@@ -23,6 +23,8 @@ One document per cluster, ``cluster_<cluster>``, the decision point of every wri
 default, since the function app creates it as ``{"id"}``):
 
 * ``votes``: galaxy id to benefit key.
+* ``vote_changed``: galaxy id to when its vote last changed (cast, switched or withdrawn). The vote can not change
+  again for ``CLUSTER_VOTE_COOLDOWN_EPOCHS``, so a leader can not flip it to chase whatever is ahead.
 * ``levels``: benefit key to level (0 to 1), as of ``last_update``.
 * ``alignment``: the alignment as of ``last_update``.
 * ``last_update``: when ``levels`` were last advanced.
@@ -179,10 +181,29 @@ def normalize(document):
     levels = document.get("levels") or {}
     return {
         "votes": {galaxy: key for galaxy, key in (document.get("votes") or {}).items() if key in uas.CLUSTER_BENEFITS},
+        "vote_changed": dict(document.get("vote_changed") or {}),
         "levels": {key: float(levels.get(key, 0.0)) for key in uas.CLUSTER_BENEFITS},
         "alignment": float(document.get("alignment") or 0.0),
         "last_update": document.get("last_update"),
     }
+
+
+def vote_unlocks_at(cluster, galaxy, now):
+    """When ``galaxy``'s vote can change again, or None if it can now (it never changed, or the cooldown is over)."""
+    changed = cluster["vote_changed"].get(galaxy)
+    if not changed:
+        return None
+    unlocks = _utc(changed) + datetime.timedelta(
+        seconds=uas.GAME_CONFIG["CLUSTER_VOTE_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"])
+    return unlocks if unlocks > now else None
+
+
+def _wait_text(delta):
+    """A wait in real time, rounded up to the minute: "2 hours 5 minutes", "40 minutes"."""
+    minutes = max(1, -(-int(delta.total_seconds()) // 60))
+    hours, minutes = divmod(minutes, 60)
+    parts = ([f"{hours} hour{'s' if hours != 1 else ''}"] if hours else []) + ([f"{minutes} minute{'s' if minutes != 1 else ''}"] if minutes else [])
+    return " ".join(parts)
 
 
 def tally(votes, member_galaxies):
@@ -251,6 +272,9 @@ def view(cluster, cluster_id, member_galaxies, galaxies, galaxy_empires, my_gala
             }
             for galaxy in member_galaxies
         ],
+        "vote_cooldown_hours": uas.GAME_CONFIG["CLUSTER_VOTE_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 3600,
+        "vote_unlocks_at": (lambda unlocks: unlocks.isoformat() if unlocks else None)(
+            vote_unlocks_at(cluster, my_galaxy, _utc(cluster["last_update"]))),
         "benefits": benefits,
         "order": list(uas.CLUSTER_BENEFITS),  # the benefits reach the browser with their keys sorted
         "alignment": cluster["alignment"],
@@ -271,7 +295,7 @@ def _path(cluster_id):
 
 
 def _written(cluster):
-    return {field: cluster[field] for field in ("votes", "levels", "alignment", "last_update")}
+    return {field: cluster[field] for field in ("votes", "vote_changed", "levels", "alignment", "last_update")}
 
 
 def _galaxy_empires():
@@ -314,10 +338,16 @@ def vote(kd_id, benefit):
 
     def decide(document):
         cluster = advance(document, member_galaxies, now)
+        if cluster["votes"].get(my_galaxy) == benefit:
+            return _written(cluster), None  # nothing changes, so nothing starts the cooldown
+        unlocks = vote_unlocks_at(cluster, my_galaxy, now)
+        if unlocks:
+            raise occ.Rejected(f"Your galaxy changed its vote recently. It can change again in {_wait_text(unlocks - now)}.")
         if benefit is None:
             cluster["votes"].pop(my_galaxy, None)
         else:
             cluster["votes"][my_galaxy] = benefit
+        cluster["vote_changed"][my_galaxy] = now.isoformat()
         return _written(cluster), None
 
     try:
