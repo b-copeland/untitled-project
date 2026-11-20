@@ -7,7 +7,8 @@ import SignUp from "./pages/signup.js";
 import { ForgotAccount, ResetPassword, VerifyEmail } from "./pages/recovery.js";
 import CreateKingdom from "./pages/createkingdom.js";
 import StatusContent from "./pages/home/status.js";
-import ShieldsAndSpending from "./pages/home/shields.js";
+import Shields from "./pages/home/shields.js";
+import Spending from "./pages/home/spending.js";
 import NewsContent from "./pages/home/news.js";
 import Galaxy from "./pages/galaxy.js";
 import Message from "./pages/message.js";
@@ -53,7 +54,8 @@ export const sections = [
     notifs: ["news_kingdom", "news_galaxy", "messages"],
     pages: [
       { path: "/status", label: "Status", component: StatusContent },
-      { path: "/shields", label: "Shields & Spending", component: ShieldsAndSpending },
+      { path: "/shields", label: "Shields", component: Shields },
+      { path: "/spending", label: "Spending", component: Spending },
       { path: "/news", label: "News", component: NewsContent, notifs: ["news_kingdom", "news_galaxy"] },
       {
         path: "/galaxy", label: "Galaxy", component: Galaxy,

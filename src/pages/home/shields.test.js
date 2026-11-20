@@ -1,7 +1,7 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import ShieldsAndSpending from "./shields";
+import { render, screen } from "@testing-library/react";
+import ShieldsPage from "./shields";
+import SpendingPage from "./spending";
 
 jest.mock("../../components/header", () => ({ __esModule: true, default: () => null }));
 jest.mock("../../components/helpbutton", () => ({ __esModule: true, default: () => null }));
@@ -12,18 +12,14 @@ const data = {
     shields: { desc: { military: { max: 0.2, cost: 0.01 } } },
 };
 
-test("shields and spending are separate tabs, opening on shields", () => {
-    render(<MemoryRouter><ShieldsAndSpending data={data} loading={{}} updateData={jest.fn()} /></MemoryRouter>);
-
-    expect(screen.getByRole("tab", { name: "Shields" }).getAttribute("aria-selected")).toBe("true");
+test("the Shields page shows the shields and not auto spending", () => {
+    render(<ShieldsPage data={data} loading={{}} updateData={jest.fn()} />);
     expect(screen.getByText("Spy Radar")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("tab", { name: "Spending" }));
-    expect(screen.getByRole("tab", { name: "Spending" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByText("Update Auto Spending:")).toBeTruthy();
+    expect(screen.queryByText("Update Auto Spending:")).toBeNull();
 });
 
-test("a link to #spending opens on the Spending tab", () => {
-    render(<MemoryRouter initialEntries={["/shields#spending"]}><ShieldsAndSpending data={data} loading={{}} updateData={jest.fn()} /></MemoryRouter>);
-    expect(screen.getByRole("tab", { name: "Spending" }).getAttribute("aria-selected")).toBe("true");
+test("the Spending page shows auto spending and not the shields", () => {
+    render(<SpendingPage data={data} loading={{}} updateData={jest.fn()} />);
+    expect(screen.getByText("Update Auto Spending:")).toBeTruthy();
+    expect(screen.queryByText("Spy Radar")).toBeNull();
 });

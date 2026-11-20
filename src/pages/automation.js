@@ -29,7 +29,7 @@ export function automations(kingdom) {
             enabled: !!kingdom.auto_spending_enabled,
             what: "Spends your funding on settling, structures, military and engineers, towards the targets you set.",
             summary: spendingSummary(kingdom.auto_spending),
-            links: [["/shields#spending", "Spending split"], ["/structures", "Structure targets"], ["/military", "Unit targets"]],
+            links: [["/spending", "Spending split"], ["/structures", "Structure targets"], ["/military", "Unit targets"]],
         },
         {
             key: "projects", title: "Engineers on projects", path: "api/projects/target",

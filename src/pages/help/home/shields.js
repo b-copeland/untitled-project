@@ -13,10 +13,9 @@ function Shields(props) {
     }, [props.state]);
     return (
         <div id="shields" ref={yourElementRef} className="help-section">
-            <h2>Shields & Spending</h2>
-            <h4>Shields</h4>
+            <h2>Shields</h2>
             <p>
-                The Shields tab allows you to update your shields usage. Shields consume power to provide some benefits. 
+                The Shields page allows you to update your shields usage. Shields consume power to provide some benefits. 
             </p>
             <Table className="shields-table" striped bordered hover size="sm">
                 <thead>
@@ -54,23 +53,6 @@ function Shields(props) {
                     </tr>
                 </tbody>
             </Table>
-            <h4>Auto spending</h4>
-            <p>
-                The Spending tab allows you to update your auto-spending allocation or enable auto-spending. With auto-spending enabled, 
-                the game automatically spends your money to build your kingdom.
-            </p>
-            <p>
-                When auto-spending is enabled, money from your income, attacks, or robs is allocated to funding in the percentages you've chosen. 
-                You can view your current funding by category on the "Build" page.
-            </p>
-            <p>
-                Every {(props.state.game_config?.BASE_AUTO_SPENDING_TIME_MULTIPLIER || 0) * (props.state.game_config?.BASE_EPOCH_SECONDS || 0)} seconds 
-                the game engine will spend any available funding to the extent that it is able. In order for the auto-spender to build structures or units, their respective allocations
-                must first be set in the "Allocation" tab of the "Structures" and "Military" pages.
-            </p>
-            <p>
-                When auto-spending is disabled, all reserved funding is released back into money to be spent as you wish.
-            </p>
         </div>
     )
 }

@@ -6,6 +6,7 @@ import Form from 'react-bootstrap/Form';
 import Guide from "./guide.js";
 import Home from "./home/home.js";
 import Shields from "./home/shields.js";
+import Spending from "./home/spending.js";
 import News from "./home/news.js";
 import Galaxy from "./home/galaxy.js";
 import Message from "./home/message.js";
@@ -35,7 +36,7 @@ import "./help.css";
 // Every topic, in the order of the game's own navigation: [id, label, component]. Each page's help section is one topic.
 const TOPICS = [
     ["Start here", [["guide", "Guide", Guide]]],
-    ["Home", [["home", "Status", Home], ["shields", "Shields & Spending", Shields], ["news", "News", News], ["galaxy", "Galaxy", Galaxy], ["message", "Message", Message], ["history", "History", History], ["scores", "Scores", Scores]]],
+    ["Home", [["home", "Status", Home], ["shields", "Shields", Shields], ["spending", "Spending", Spending], ["news", "News", News], ["galaxy", "Galaxy", Galaxy], ["message", "Message", Message], ["history", "History", History], ["scores", "Scores", Scores]]],
     ["Build", [["build", "Overview", Build], ["settle", "Settle", Settle], ["structures", "Structures", Structures], ["military", "Military", Military], ["projects", "Projects", Projects], ["buildmissiles", "Build Missiles", BuildMissiles]]],
     ["Conquer", [["conquer", "Overview", Conquer], ["attack", "Attack", Attack], ["spy", "Spy", Spy], ["intel", "Intel", Intel], ["launchmissiles", "Launch Missiles", LaunchMissiles], ["schedule", "Schedule", Schedule], ["primitives", "Primitives", Primitives]]],
     ["Politics", [["politics", "Galaxy", Politics], ["empirepolitics", "Empire", EmpirePolitics], ["clusterpolitics", "Cluster", ClusterPolitics], ["universepolitics", "Universe", UniversePolitics]]],
