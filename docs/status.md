@@ -96,6 +96,18 @@ Built 2026-11-18 ([game-design.md](game-design.md#glossary), `intel.py`).
   review.
 - Bots buy listings and list or share what they spy, but never post or answer bounties.
 
+## Last-known intel
+
+Built 2026-11-20 (issue #27, `lastknown.py`, [decisions/0009](decisions/0009-last-known-intel.md)).
+
+- The function app's `/kingdom/<id>/lastknown` routes must be published before the web app; until then the display
+  routes still work (a failed read counts as no snapshots) but nothing is recorded.
+- Kingdoms that leave a galaxy, and reveals that end with the round, leave no snapshot. Only expiry and Unshare do.
+- The Conquer page's Revealed table lists kingdoms with intel now; one known only from a snapshot shows in Pinned and
+  on the Galaxy page, not there.
+- Bots do not use snapshots; they decide from what is revealed now.
+- `LAST_KNOWN_FRESH_EPOCHS` (12) and `LAST_KNOWN_AGING_EPOCHS` (24) are the maintainer's numbers from the issue.
+
 ## Cluster politics
 
 Started 2026-11-19 (issue #157, [decisions/0007](decisions/0007-cluster-politics.md), `clusters.py`). The framework is

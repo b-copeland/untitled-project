@@ -11,6 +11,7 @@ from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.shared as uas
 import untitledapp.getters as uag
+import untitledapp.lastknown as uala
 import untitledapp.occ as occ
 from untitledapp import User, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
 from untitledapp.users import issue_tokens
@@ -581,10 +582,14 @@ def unshare_kd(share_to):
             return {"revealed_to_galaxymates": [i for i in revealed["revealed_to_galaxymates"] if i != share_to]}, None
 
         def stop_receiving(revealed):
-            return {"revealed_galaxymates": [i for i in revealed["revealed_galaxymates"] if i != kd_id]}, None
+            was_receiving = kd_id in revealed["revealed_galaxymates"]
+            return {"revealed_galaxymates": [i for i in revealed["revealed_galaxymates"] if i != kd_id]}, was_receiving
 
         occ.update(f'/kingdom/{kd_id}/revealed', stop_sharing)
-        occ.update(f'/kingdom/{share_to}/revealed', stop_receiving)
+        if occ.update(f'/kingdom/{share_to}/revealed', stop_receiving):
+            # They saw everything about this kingdom until now: that is what they last knew of it.
+            ended = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            uala.record(share_to, {str(kd_id): uala.snapshot(uag._get_kd_info(kd_id), list(uas.REVEAL_FIELDS), ended)})
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
     return (flask.jsonify("Updated"), 200)

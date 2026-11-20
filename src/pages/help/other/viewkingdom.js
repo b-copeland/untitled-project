@@ -27,8 +27,28 @@ function ViewKingdom(props) {
                 If you open View Kingdom for a galaxymate who has shared their kingdom information with you, you will be able to see 
                 all their information.
             </p>
+            <LastKnownHelp state={props.state} />
         </div>
     )
+}
+
+/** How last-known intel is shown, with the ages in hours from the game's thresholds. Also used by the Galaxy topic. */
+export function LastKnownHelp({ state }) {
+    const config = state?.game_config || {};
+    const hours = (epochs) => Math.round((epochs || 0) * (config.BASE_EPOCH_SECONDS || 0) / 3600);
+    const fresh = hours(config.LAST_KNOWN_FRESH_EPOCHS);
+    const aging = hours(config.LAST_KNOWN_AGING_EPOCHS);
+    return (
+        <p>
+            When intel on a kingdom ends, you keep what it last showed. Wherever that kingdom is shown and the intel is
+            not active any more, those last-known values fill in, coloured by how long ago the intel ended:{" "}
+            <span className="last-known last-known-fresh">yellow</span> under {fresh} hours,{" "}
+            <span className="last-known last-known-aging">orange</span> under {aging} hours and{" "}
+            <span className="last-known last-known-stale">red</span> after that. Hover over a value to see its age.
+            Active intel always replaces them. A galaxymate who stops sharing with you leaves you their whole kingdom as
+            it was then.
+        </p>
+    );
 }
 
 export default ViewKingdom;

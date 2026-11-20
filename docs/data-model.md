@@ -27,6 +27,7 @@ Read the handler in `funcapp/function_app.py` before relying on one, but these a
 | **Append or replace** | queues (`/settles`, `/mobis`, `/structures`, `/missiles`, `/engineers`) | `new_<field>` (a list of entries) is appended and the queue folded, see below; `<field>` replaces the list. |
 | | `/siphonsin`, `/siphonsout` | `new_siphons` (one item) is appended; `siphons` replaces the list. |
 | | `/revealed` | `new_revealed` is merged per target kingdom and stat, each stat keeping the later of the stored and the incoming expiry (so shared intel never shortens a reveal); `new_galaxies` is merged; `new_revealed_galaxymates` and `new_revealed_to_galaxymates` are appended. The same names without `new_` replace. |
+| | `/kingdom/<id>/lastknown` | `new_known` (target to category to `{ended, values}`) is merged per target and category, each keeping the entry that ended later, so writes land in any order and a repeat changes nothing. The first write creates the document; a read of a kingdom with none answers `known: {}` without writing. |
 | **Prepend** | `/kingdom/<id>/news`, `/galaxy/<id>/news`, `/kingdom/<id>/messages` | The body is the item, or a list of items; newest first. Messages keep the newest 100. |
 | | `/universenews` | The same, but the body is `{"news": item or list}`. |
 | | `/spyhistory`, `/attackhistory`, `/missilehistory` | The body is one item. |
@@ -84,6 +85,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `siphons_in_<id>` | `siphons_in`: payments to this kingdom from its siphons, waiting for its next refresh | eventual: appended by the target's refresh, cleared by this kingdom's |
 | `news_<id>` | `news`: list of `{time, from, to, news, kind}` (`kind` is `attack`, `spy`, `missiles`, `intel` or missing on old items) | eventual |
 | `revealed_<id>` | `revealed`: kd id to stat to expiry time; `galaxies`: galaxy id to expiry; `revealed_galaxymates`, `revealed_to_galaxymates` | eventual. The kingdom's `next_resolve.revealed` timer is lowered to the soonest expiry (`_lower_timer` in `conquer.py`) so the refresh expires them on time. |
+| `lastknown_<id>` | `known`: kd id to reveal category to `{ended, values}`: what that intel showed when it ended (the category's fields from `REVEAL_FIELDS`, projects without their zero entries and without the bonuses, which are worked out when read). Only kingdoms that have had intel end have one. See `lastknown.py` and [decisions/0009](decisions/0009-last-known-intel.md) | eventual: merged by the refresh when reveals expire, and by Unshare |
 | `pinned_<id>` | `pinned`: list of kd ids | eventual |
 | `spy_history_<id>`, `attack_history_<id>`, `missile_history_<id>` | Lists of past operations | eventual |
 | `messages_<id>` | `messages`: list | eventual |

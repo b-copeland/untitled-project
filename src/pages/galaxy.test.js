@@ -72,3 +72,20 @@ test("kingdoms in another galaxy have an Intel action; galaxymates do not", asyn
     await waitFor(() => expect(screen.getByText("Delta")).toBeTruthy());
     expect(screen.getAllByRole("button", { name: "Intel: share, buy or ask for it" })).toHaveLength(1);
 });
+
+test("where intel has ended, the cards show what it last showed, coloured by its age", async () => {
+    narrow(true);
+    const ended = new Date(Date.now() - 30 * 3.6e6).toISOString();
+    const withSnapshot = { ...galaxyInfo, 3: { ...galaxyInfo[3], last_known: {
+        military: { ended, values: { units: { attack: 10 }, generals_out: [], military_estimate: { offense: 777, defense: 333 } } },
+        stats: { ended, values: { stars: 250, networth: 4000 } },
+    } } };
+    authFetch.mockImplementation(() => Promise.resolve({ json: () => Promise.resolve(withSnapshot) }));
+    show();
+    await waitFor(() => expect(screen.getByText("Echo")).toBeTruthy());
+    expect(screen.getByText("≤ 777").className).toContain("last-known-stale");
+    expect(screen.getByText("250").getAttribute("title")).toBe("Last known, 30h ago");
+    expect(screen.getByText("military 30h ago")).toBeTruthy();
+    // Delta's live values are plain.
+    expect(screen.getByText("≤ 9,000").className || "").not.toContain("last-known");
+});

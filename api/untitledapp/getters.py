@@ -10,6 +10,7 @@ from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.shared as uas
 from untitledapp import request_cache
+import untitledapp.lastknown as uala
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
 
 bp = flask.Blueprint("getters", __name__)
@@ -797,20 +798,15 @@ def _get_kd_info(kd_id):
     return kd_info_parse
 
 
-def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inverted=None):
+def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inverted=None, last_known=None):
+    """
+    Another kingdom as ``kd_id`` sees it: the fields of what ``revealed_info`` reveals now. With ``last_known`` (the
+    caller's last-known intel, ``lastknown.read``), also ``last_known``: the snapshots of the categories not revealed
+    now. ``max=True`` returns the whole kingdom, for server-side calculations only.
+    """
     app = flask.current_app
     if galaxies_inverted == None:
         galaxies_inverted, _ = _get_galaxies_inverted()
-    always_allowed_keys = {"name", "race", "status", "coordinate"}
-    allowed_keys = {
-        "stats": ["stars", "networth"],
-        "kingdom": ["stars", "fuel", "population", "networth", "money", "missiles"],
-        "military": ["units", "generals_available", "generals_out"],
-        "structures": ["structures"],
-        "shields": ["shields"],
-        "projects": ["projects_points", "projects_max_points", "projects_assigned", "completed_projects"],
-        "drones": ["drones", "spy_attempts"],
-    }
     kd_info = REQUESTS_SESSION.get(
         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{other_kd_id}',
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
@@ -826,30 +822,15 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
     if other_kd_id in revealed_info["revealed_galaxymates"]:
         return kd_info_parse
     
-    revealed_categories = revealed_info["revealed"].get(other_kd_id, {}).keys()
-    kingdom_info_keys = always_allowed_keys
-    for revealed_category in revealed_categories:
-        kingdom_info_keys = kingdom_info_keys.union(allowed_keys[revealed_category])
-
+    revealed_categories = set(revealed_info["revealed"].get(other_kd_id, {}).keys())
     if galaxies_inverted[other_kd_id] == galaxies_inverted[kd_id]:
-        kingdom_info_keys = kingdom_info_keys.union(allowed_keys["stats"])
+        revealed_categories.add("stats")
 
-    kd_info_parse_allowed = {
-        k: v
-        for k, v in kd_info_parse.items()
-        if k in kingdom_info_keys
-    }
-    if "projects_points" in kd_info_parse_allowed:
-        # A kingdom with no stars left (a dead one) has no project caps: project_bonus gives it no bonuses.
-        kd_info_parse_allowed["max_bonuses"] = uas.max_project_bonuses()
-        kd_info_parse_allowed["current_bonuses"] = uas.project_bonuses(kd_info_parse_allowed)
-        kd_info_parse_allowed["engineers"] = kd_info_parse["units"]["engineers"]
-        try:
-            kd_info_parse_allowed["units"]["engineers"] = kd_info_parse["units"]["engineers"]
-        except KeyError:
-            kd_info_parse_allowed["units"] = {
-                "engineers": kd_info_parse["units"]["engineers"]
-            }
+    kd_info_parse_allowed = uas.revealed_fields(kd_info_parse, revealed_categories)
+    if last_known is not None:
+        snapshots = uala.visible(last_known.get(str(other_kd_id)), revealed_categories)
+        if snapshots:
+            kd_info_parse_allowed["last_known"] = snapshots
     return kd_info_parse_allowed
 
 
@@ -861,7 +842,7 @@ def max_kingdom(other_kd_id):
     
 
     revealed_info = _get_revealed(kd_id)
-    max_kd_info = _get_max_kd_info(other_kd_id, kd_id, revealed_info)
+    max_kd_info = _get_max_kd_info(other_kd_id, kd_id, revealed_info, last_known=uala.read(kd_id))
 
     return (flask.jsonify(max_kd_info), 200)
 
@@ -1261,15 +1242,24 @@ def _military_estimate(info):
 def _get_max_kingdoms(kd_id, kingdoms):
     revealed_info = _get_revealed(kd_id)
     galaxies_inverted, _ = _get_galaxies_inverted()
+    last_known = uala.read(kd_id)
 
     payload = {
-        other_kd_id: _get_max_kd_info(other_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted)
+        other_kd_id: _get_max_kd_info(other_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted,
+                                      last_known=last_known)
         for other_kd_id in kingdoms
     }
     for info in payload.values():
-        estimate = _military_estimate(info)
+        # Only from the army (military intel): projects intel reveals the engineers alone, which says nothing of it.
+        estimate = _military_estimate(info) if "generals_out" in info else None
         if estimate is not None:
             info["military_estimate"] = estimate
+        known_military = info.get("last_known", {}).get("military")
+        if known_military is not None:
+            # The estimate from the army as it was last seen, for the pages to show where the army is not revealed now.
+            estimate = _military_estimate({**known_military["values"], "race": info.get("race")})
+            if estimate is not None:
+                known_military["values"]["military_estimate"] = estimate
     return payload
 
 @bp.route('/api/kingdomsinfo', methods=['POST'])

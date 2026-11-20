@@ -285,6 +285,10 @@ GAME_CONFIG = {
     "BASE_MAX_TOTAL_SHARE_CUT": 0.30,
     # The longest an intel bounty (a request on the galaxy's board) can stay up, in epochs.
     "BASE_INTEL_BOUNTY_MAX_EPOCHS": 48,
+    # How old last-known intel (what was seen when a reveal ended) is shown as: fresh under the first, aging under the
+    # second, stale after. The pages colour it yellow, orange and red.
+    "LAST_KNOWN_FRESH_EPOCHS": 12,
+    "LAST_KNOWN_AGING_EPOCHS": 24,
 
     "BASE_DRONES_SIPHON_PER_DRONE": 8, 
     "BASE_DRONES_SIPHON_TIME_MULTIPLIER": 12, 
@@ -925,6 +929,45 @@ REVEAL_OPERATIONS = [
 # What each intel operation reveals: its name without "spy", except Full Infiltration, which reveals everything.
 REVEAL_OPERATION_STATS = {operation: [operation.replace("spy", "")] for operation in REVEAL_OPERATIONS}
 REVEAL_OPERATION_STATS["spyall"] = ["kingdom", "military", "shields", "projects", "structures", "drones"]
+# The kingdom fields each kind of intel reveals (``revealed_fields``). Name, race, status and coordinate are public.
+PUBLIC_KINGDOM_FIELDS = ("name", "race", "status", "coordinate")
+REVEAL_FIELDS = {
+    "stats": ["stars", "networth"],
+    "kingdom": ["stars", "fuel", "population", "networth", "money", "missiles"],
+    "military": ["units", "generals_available", "generals_out"],
+    "structures": ["structures"],
+    "shields": ["shields"],
+    "projects": ["projects_points", "projects_max_points", "projects_assigned", "completed_projects"],
+    "drones": ["drones", "spy_attempts"],
+}
+
+
+def revealed_fields(kd_info, categories, public=True, derived=True):
+    """
+    What of ``kd_info`` the intel ``categories`` reveal, as another kingdom sees it: the fields of each category (with
+    the engineers when projects are revealed) and the public fields unless ``public`` is false. ``derived`` adds what
+    is worked out from them (``with_project_bonuses``); last-known snapshots leave it out and add it when read.
+    """
+    keys = set(PUBLIC_KINGDOM_FIELDS) if public else set()
+    for category in categories:
+        keys.update(REVEAL_FIELDS[category])
+    shown = {key: value for key, value in kd_info.items() if key in keys}
+    if "projects_points" in shown:
+        shown["units"] = {**shown.get("units", {}), "engineers": kd_info["units"]["engineers"]}
+        if derived:
+            with_project_bonuses(shown)
+    return shown
+
+
+def with_project_bonuses(shown):
+    """Add, in place, the project bonuses and engineers worked out from revealed projects, and return ``shown``."""
+    # A kingdom with no stars left (a dead one) has no project caps: project_bonus gives it no bonuses.
+    shown["max_bonuses"] = max_project_bonuses()
+    shown["current_bonuses"] = project_bonuses(shown)
+    shown["engineers"] = shown.get("units", {}).get("engineers", 0)
+    return shown
+
+
 # Operations that need a project first.
 OPERATION_PROJECTS = {"spyall": "vult_evolution"}
 # Operations a project makes obsolete: the pages stop offering them once it is done (the server still accepts them, so

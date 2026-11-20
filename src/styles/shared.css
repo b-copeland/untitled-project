@@ -144,3 +144,28 @@
 .amount-input-cap-button { background: none; border: 0; padding: 0; cursor: pointer; color: var(--bs-link-color, #0d6efd); }
 .amount-input-cap-button:hover:not(:disabled) { text-decoration: underline; }
 .amount-input-cap-button:disabled { color: var(--bs-secondary-color, #6c757d); cursor: default; }
+
+/* --- Last-known intel (components/lastknown.js) ----------------------------------------------------------------- */
+/* A value from intel that has ended, by how long ago: yellow, then orange, then red. */
+
+.last-known {
+  border-radius: 3px;
+  color: #212529; /* dark on the light tints, also in the dark-themed tables */
+  padding: 0 3px;
+}
+.last-known-fresh {
+  background-color: #fff3b0;
+}
+.last-known-aging {
+  background-color: #ffd8a8;
+}
+.last-known-stale {
+  background-color: #ffc9c9;
+}
+.last-known-note {
+  border-radius: 4px;
+  color: #212529;
+  font-size: 0.85em;
+  margin: var(--space-tight) 0;
+  padding: 2px 8px;
+}
