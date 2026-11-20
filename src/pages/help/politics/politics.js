@@ -22,6 +22,12 @@ function Politics(props) {
                 doctrines. You can only vote for one policy within each doctrine. The active policy will 
                 change when it has more votes than the other policy in the doctrine.
             </p>
+            <p>
+                Once you change a vote (the leader, or either doctrine), it stays for
+                {" "}{(props.state.game_config?.BASE_GALAXY_VOTE_COOLDOWN_EPOCHS * props.state.game_config?.BASE_EPOCH_SECONDS / 3600) || "a few"} hours,
+                and the page says when you can change it again. Your first vote, and voting for what you already vote for,
+                start no wait.
+            </p>
         </div>
     )
 }

@@ -41,7 +41,7 @@ building.
 |---|---|
 | Universe | Everyone in the round. Universe politics: policies voted on by all players; votes are bought with money. |
 | Empire | A group of galaxies. Empire politics: invitations, join requests, war, peace, denouncing, surrender. A galaxy can not join if the empire would then hold more than `EMPIRE_MAX_KINGDOMS_SHARE` of the kingdoms or `EMPIRE_MAX_NETWORTH_SHARE` of the networth (two galaxies always may). |
-| Galaxy | A team of kingdoms (the design notes call it a sector). Has a leader and galaxy policies chosen by vote. Ids look like `1:3`. |
+| Galaxy | A team of kingdoms (the design notes call it a sector). Has a leader and galaxy policies chosen by vote; a kingdom's changed vote holds for `BASE_GALAXY_VOTE_COOLDOWN_EPOCHS`. Ids look like `1:3`. |
 | Kingdom | One player's state. Ids are strings of integers (`"7"`). |
 | Epoch | The unit of game time, `BASE_EPOCH_SECONDS` (30 minutes). Durations are written as multiples of it. |
 | Stars | Land. Most costs and capacities scale with stars. |

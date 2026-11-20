@@ -9,6 +9,15 @@ import "./galaxypolitics.css";
 import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { useWait, lockedVoteText } from "../../components/wait";
+
+/** The sentence under a vote: why it is locked and until when, or (unless ``lockedOnly``) how long a change holds. */
+function VoteRule({ data, wait, lockedOnly = false }) {
+    const locked = lockedVoteText(wait);
+    if (locked) return <p className="vote-locked">{locked}</p>;
+    const hours = data.galaxypolitics?.vote_cooldown_hours;
+    return hours && !lockedOnly ? <p className="vote-rule text-muted">Once you change a vote, it stays for {hours} hours.</p> : null;
+}
 
 function GalaxyPolitics(props) {
     const [key, setKey] = useState('leader');
@@ -44,6 +53,7 @@ function GalaxyPolitics(props) {
 
 function GalaxyPoliticsLeader(props) {
     const [selected, setSelected] = useState(props.initialKd || undefined);
+    const leaderWait = useWait(props.data.galaxypolitics?.vote_unlocks_at?.leader);
     const kdFullLabel = (kdId) => {
         if (kdId != undefined) {
             return props.data.kingdoms[kdId] + " (" + props.data.galaxies_inverted[kdId] + ")"
@@ -55,7 +65,7 @@ function GalaxyPoliticsLeader(props) {
         setSelected(selectedOption.value);
     };
     const onClickVote = () => {
-        if (selected != undefined) {
+        if (selected != undefined && leaderWait === null) {
             const opts = {
                 "selected": selected,
             };
@@ -143,12 +153,14 @@ function GalaxyPoliticsLeader(props) {
                 />
             </form>
             <h3>You are currently voting for: {currentLeaderVoteLabel}</h3>
+            <VoteRule data={props.data} wait={leaderWait} />
             {
                 props.loading.galaxypolitics
                 ? <Button className="galaxy-leader-button" variant="primary" type="submit" disabled>
                     Loading...
                 </Button>
-                : <Button className="galaxy-leader-button" variant="primary" type="submit" onClick={onClickVote}>
+                : <Button className="galaxy-leader-button" variant="primary" type="submit" onClick={onClickVote}
+                    disabled={leaderWait !== null} title={lockedVoteText(leaderWait) || undefined}>
                     Vote
                 </Button>
             }
@@ -169,6 +181,7 @@ function GalaxyPoliticsLeader(props) {
 }
 
 function GalaxyPoliticsPolicies(props) {
+    const policyWait = { policy_1: useWait(props.data.galaxypolitics?.vote_unlocks_at?.policy_1), policy_2: useWait(props.data.galaxypolitics?.vote_unlocks_at?.policy_2) };
     const onClickVotePolicy1Option1 = () => {
         const opts = {
             "policy": "policy_1",
@@ -231,8 +244,11 @@ function GalaxyPoliticsPolicies(props) {
     return (
         <div className="galaxy-policies">
             <h2>Galaxy Policies</h2>
+            {props.data.galaxypolitics?.vote_cooldown_hours
+                ? <p className="vote-rule text-muted">Once you change a vote, it stays for {props.data.galaxypolitics.vote_cooldown_hours} hours.</p> : null}
             <div className="galaxy-policy">
                 <h3>{props.data.galaxypolitics.desc?.policy_1?.name || "Policy 1"}</h3>
+                <VoteRule data={props.data} wait={policyWait.policy_1} lockedOnly />
                 <div className="galaxy-policy-options">
                     <div className={(policy1Winner === "1") ? "text-box galaxy-policy-card galaxy-policy-winner" : "text-box galaxy-policy-card"}>
                         <span>{props.data.galaxypolitics.desc?.policy_1?.options["1"].name || "Option 1"}</span>
@@ -250,7 +266,8 @@ function GalaxyPoliticsPolicies(props) {
                                 variant="primary"
                                 type="submit"
                                 onClick={onClickVotePolicy1Option1}
-                                disabled={(props.data.galaxypolitics.votes?.policy_1[props.data.kingdomid.kd_id] === "1")}
+                                disabled={(props.data.galaxypolitics.votes?.policy_1[props.data.kingdomid.kd_id] === "1") || policyWait.policy_1 !== null}
+                                title={lockedVoteText(policyWait.policy_1) || undefined}
                             >
                                 {(props.data.galaxypolitics.votes?.policy_1[props.data.kingdomid.kd_id] === "1") ? "Already Voting" : "Vote"}
                             </Button>
@@ -272,7 +289,8 @@ function GalaxyPoliticsPolicies(props) {
                                 variant="primary"
                                 type="submit"
                                 onClick={onClickVotePolicy1Option2}
-                                disabled={(props.data.galaxypolitics.votes?.policy_1[props.data.kingdomid.kd_id] === "2")}
+                                disabled={(props.data.galaxypolitics.votes?.policy_1[props.data.kingdomid.kd_id] === "2") || policyWait.policy_1 !== null}
+                                title={lockedVoteText(policyWait.policy_1) || undefined}
                             >
                                 {(props.data.galaxypolitics.votes?.policy_1[props.data.kingdomid.kd_id] === "2") ? "Already Voting" : "Vote"}
                             </Button>
@@ -282,6 +300,7 @@ function GalaxyPoliticsPolicies(props) {
             </div>
             <div className="galaxy-policy">
                 <h3>{props.data.galaxypolitics.desc?.policy_2?.name || "Policy 2"}</h3>
+                <VoteRule data={props.data} wait={policyWait.policy_2} lockedOnly />
                 <div className="galaxy-policy-options">
                     <div className={(policy2Winner === "1") ? "text-box galaxy-policy-card galaxy-policy-winner" : "text-box galaxy-policy-card"}>
                         <span>{props.data.galaxypolitics.desc?.policy_2?.options["1"].name || "Option 1"}</span>
@@ -299,7 +318,8 @@ function GalaxyPoliticsPolicies(props) {
                                 variant="primary"
                                 type="submit"
                                 onClick={onClickVotePolicy2Option1}
-                                disabled={(props.data.galaxypolitics.votes?.policy_2[props.data.kingdomid.kd_id] === "1")}
+                                disabled={(props.data.galaxypolitics.votes?.policy_2[props.data.kingdomid.kd_id] === "1") || policyWait.policy_2 !== null}
+                                title={lockedVoteText(policyWait.policy_2) || undefined}
                             >
                                 {(props.data.galaxypolitics.votes?.policy_2[props.data.kingdomid.kd_id] === "1") ? "Already Voting" : "Vote"}
                             </Button>
@@ -321,7 +341,8 @@ function GalaxyPoliticsPolicies(props) {
                                 variant="primary"
                                 type="submit"
                                 onClick={onClickVotePolicy2Option2}
-                                disabled={(props.data.galaxypolitics.votes?.policy_2[props.data.kingdomid.kd_id] === "2")}
+                                disabled={(props.data.galaxypolitics.votes?.policy_2[props.data.kingdomid.kd_id] === "2") || policyWait.policy_2 !== null}
+                                title={lockedVoteText(policyWait.policy_2) || undefined}
                             >
                                 {(props.data.galaxypolitics.votes?.policy_2[props.data.kingdomid.kd_id] === "2") ? "Already Voting" : "Vote"}
                             </Button>

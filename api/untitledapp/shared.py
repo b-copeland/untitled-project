@@ -1,3 +1,4 @@
+import datetime
 import math
 import os
 import random
@@ -316,7 +317,8 @@ GAME_CONFIG = {
     "BASE_MISSILES_SHIELDS_MAX": 1.0, 
     "BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT": 0.005, 
 
-    "BASE_VOTES_COST": 10000, 
+    "BASE_VOTES_COST": 10000,
+    "BASE_GALAXY_VOTE_COOLDOWN_EPOCHS": 6,  # once a kingdom has changed one of its galaxy votes, that vote stays this long 
     "BASE_ELECTION_LENGTH_MULTIPLIER": 24, 
     "BASE_ELECTION_RESULTS_DURATION_MULTIPLIER": 24 * 6, 
 
@@ -1192,3 +1194,29 @@ SURRENDER_OPTIONS = {
         0.1,
     ]
 }
+
+
+def galaxy_vote_unlocks_at(galaxy_votes, kind, kd_id, now):
+    """
+    When ``kd_id`` can change its vote of ``kind`` (``leader``, ``policy_1`` or ``policy_2``) in the galaxy politics
+    document ``galaxy_votes`` again, or None if it can now: it has never changed it, or the cooldown is over. The first
+    vote is free; every change after it starts the wait.
+    """
+    changed = ((galaxy_votes.get("vote_changed") or {}).get(kind) or {}).get(kd_id)
+    if not changed:
+        return None
+    changed_at = datetime.datetime.fromisoformat(changed)
+    if changed_at.tzinfo is None:
+        changed_at = changed_at.replace(tzinfo=datetime.timezone.utc)
+    unlocks = changed_at + datetime.timedelta(
+        seconds=GAME_CONFIG["BASE_GALAXY_VOTE_COOLDOWN_EPOCHS"] * GAME_CONFIG["BASE_EPOCH_SECONDS"])
+    return unlocks if unlocks > now else None
+
+
+def wait_text(delta):
+    """A wait in real time, rounded up to the minute: "2 hours 5 minutes", "40 minutes"."""
+    minutes = max(1, -(-int(delta.total_seconds()) // 60))
+    hours, minutes = divmod(minutes, 60)
+    parts = ([f"{hours} hour{'s' if hours != 1 else ''}"] if hours else []) + (
+        [f"{minutes} minute{'s' if minutes != 1 else ''}"] if minutes else [])
+    return " ".join(parts)

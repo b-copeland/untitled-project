@@ -885,7 +885,7 @@ def plan_politics(world, personality, style, memory, rng):
     politics = world.galaxy_politics
     votes = politics.get("votes", {})
     for policy, option in personality.galaxy_votes.items():
-        if votes.get(policy, {}).get(world.kd_id) != option:
+        if votes.get(policy, {}).get(world.kd_id) != option and not uas.galaxy_vote_unlocks_at(politics, policy, world.kd_id, world.now):
             decisions.append(Decision("vote_galaxy", {"policy": policy, "option": option},
                                       f"vote {uas.GALAXY_POLICIES[policy]['options'][option]['name']} in the galaxy"))
 
@@ -902,7 +902,7 @@ def plan_politics(world, personality, style, memory, rng):
         # A galaxy needs one leader more than it needs the best one: back whoever the others back, and only with no
         # votes to go by, the strongest. (Everybody voting for today's strongest splits the vote and elects nobody.)
         best = max(members, key=lambda kd: (tally.get(kd, 0), networth.get(kd, 0), -int(kd) if kd.isdigit() else 0))
-        if cast.get(world.kd_id) != best:
+        if cast.get(world.kd_id) != best and not uas.galaxy_vote_unlocks_at(politics, "leader", world.kd_id, world.now):
             decisions.append(Decision("vote_leader", {"selected": best}, f"vote {world.names.get(best, best)} for galaxy leader"))
 
     if politics.get("leader") == world.kd_id:

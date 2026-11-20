@@ -342,6 +342,19 @@ def test_it_votes_for_its_policies_and_backs_the_candidate_the_others_back():
     assert decision.kind == "vote_leader" and decision.options == {"selected": "8"}
 
 
+def test_it_does_not_try_to_change_a_vote_that_is_locked():
+    world = StubWorld(stats={"2": (900, 400_000)},
+                      politics={"votes": {"policy_1": {"1": "2"}, "policy_2": {}, "leader": {}}})
+    changed = {kind: {world.kd_id: world.now.isoformat()} for kind in ("policy_2", "leader")}
+    world.galaxy_politics["vote_changed"] = changed
+    # It has voted both (and changed them just now) and wants to change both, but must wait.
+    world.galaxy_politics["votes"] = {"policy_1": {"1": "2"}, "policy_2": {world.kd_id: "1"}, "leader": {world.kd_id: "7"}}
+    assert brain.plan_politics(world, ATTACKER, style(), {}, random.Random(1)) == []
+    # Once the wait is over, it changes them.
+    world.now = world.now + datetime.timedelta(hours=24)
+    assert [d.kind for d in brain.plan_politics(world, ATTACKER, style(), {}, random.Random(1))] == ["vote_galaxy", "vote_leader"]
+
+
 def test_in_an_election_it_buys_votes_once_and_casts_them_as_the_universe_page_does():
     world = StubWorld(me={"money": 400_000, "votes": 2}, state={"election_end": until(6)},
                       politics={"votes": {"policy_1": {"1": "2"}, "policy_2": {"1": "2"}, "leader": {"1": "1"}}})

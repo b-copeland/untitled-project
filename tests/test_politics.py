@@ -1,6 +1,11 @@
 """Galaxy and empire politics, including players acting at the same moment."""
+import datetime
+import re
+
 import pytest
 
+import untitledapp.politics as uap
+import untitledapp.shared as uas
 from tests.test_attack import _in_threads
 from tests.test_concurrency import KD_ID, _create_item, _get, _run_together, _set_up_kingdom  # noqa: F401
 
@@ -55,6 +60,81 @@ def test_galaxy_policy_votes_from_two_players_are_both_kept_and_the_winner_is_se
     votes = _get("/galaxy/1:1/politics")
     assert votes["votes"]["policy_1"] == {KD_ID: "1", "2": "1"}
     assert votes["policy_1_winner"] == "1" and "Expansionist" in votes["active_policies"]
+
+
+def _clock(monkeypatch, hours_from_now=0.0):
+    """Moves the vote routes' clock forward, so a cooldown can pass without waiting."""
+    start = datetime.datetime.now(datetime.timezone.utc)
+    monkeypatch.setattr(uap, "_now", lambda: start + datetime.timedelta(hours=hours_from_now))
+
+
+def _cooldown_hours():
+    return uas.GAME_CONFIG["BASE_GALAXY_VOTE_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 3600
+
+
+def _policy_vote(client, token, option, policy="policy_1"):
+    return client.post("/api/galaxypolitics/policies", json={"policy": policy, "option": option}, headers=_auth(token))
+
+
+def _leader_vote(client, token, selected):
+    return client.post("/api/galaxypolitics/leader", json={"selected": selected}, headers=_auth(token))
+
+
+def test_a_changed_policy_vote_is_locked_for_the_cooldown(app, client, jwt1, monkeypatch):
+    _two_player_galaxy()
+    assert _policy_vote(client, jwt1, "option_1").status_code == 200  # the first vote is free
+    _clock(monkeypatch, 1)
+    refused = _policy_vote(client, jwt1, "option_2")
+    assert refused.status_code == 400, refused.get_json()
+    assert re.search(r"can change it again in (2 hours|1 hour 59 minutes)\.", refused.get_json()["message"])
+    assert "epoch" not in refused.get_json()["message"].lower()
+    assert _get("/galaxy/1:1/politics")["votes"]["policy_1"] == {KD_ID: "1"}
+
+    _clock(monkeypatch, _cooldown_hours() + 0.01)
+    assert _policy_vote(client, jwt1, "option_2").status_code == 200
+    assert _get("/galaxy/1:1/politics")["votes"]["policy_1"] == {KD_ID: "2"}
+    _clock(monkeypatch, _cooldown_hours() + 0.02)  # that change started the wait again
+    assert _policy_vote(client, jwt1, "option_1").status_code == 400
+
+
+def test_each_vote_and_each_kingdom_has_its_own_cooldown(app, client, jwt1, jwt2):
+    _two_player_galaxy()
+    assert _policy_vote(client, jwt1, "option_1").status_code == 200
+    assert _policy_vote(client, jwt1, "option_2").status_code == 400
+    assert _policy_vote(client, jwt1, "option_1", policy="policy_2").status_code == 200  # another vote of the same kingdom
+    assert _policy_vote(client, jwt2, "option_2").status_code == 200  # another kingdom
+    assert _leader_vote(client, jwt1, KD_ID).status_code == 200
+    assert _leader_vote(client, jwt1, "2").status_code == 400
+    assert _get("/galaxy/1:1/politics")["votes"]["leader"] == {KD_ID: KD_ID}
+
+
+def test_voting_what_it_already_is_changes_nothing_and_starts_no_wait(app, client, jwt1, monkeypatch):
+    _two_player_galaxy()
+    assert _leader_vote(client, jwt1, KD_ID).status_code == 200
+    stamp = _get("/galaxy/1:1/politics")["vote_changed"]["leader"][KD_ID]
+    _clock(monkeypatch, 1)
+    assert _leader_vote(client, jwt1, KD_ID).status_code == 200
+    assert _get("/galaxy/1:1/politics")["vote_changed"]["leader"][KD_ID] == stamp
+
+
+def test_a_changed_leader_vote_is_locked_too(app, client, jwt1, monkeypatch):
+    _two_player_galaxy()
+    assert _leader_vote(client, jwt1, KD_ID).status_code == 200
+    refused = _leader_vote(client, jwt1, "2")
+    assert refused.status_code == 400 and "changed this vote recently" in refused.get_json()["message"]
+    _clock(monkeypatch, _cooldown_hours() + 0.01)
+    assert _leader_vote(client, jwt1, "2").status_code == 200
+
+
+def test_the_page_is_told_when_each_vote_can_change(app, client, jwt1):
+    _two_player_galaxy()
+    first = client.get("/api/galaxypolitics", headers=_auth(jwt1)).get_json()
+    assert first["vote_unlocks_at"] == {"leader": None, "policy_1": None, "policy_2": None}
+    assert first["vote_cooldown_hours"] == _cooldown_hours()
+    _policy_vote(client, jwt1, "option_1")
+    later = client.get("/api/galaxypolitics", headers=_auth(jwt1)).get_json()
+    assert later["vote_unlocks_at"]["policy_1"] is not None
+    assert later["vote_unlocks_at"]["policy_2"] is None and later["vote_unlocks_at"]["leader"] is None
 
 
 def test_join_requests_from_two_galaxies_to_one_empire_are_both_recorded(app, client, jwt1, jwt2):

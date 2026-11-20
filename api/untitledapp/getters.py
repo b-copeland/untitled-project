@@ -1260,9 +1260,14 @@ def galaxy_politics():
     kd_id = flask_praetorian.current_user().kd_id
     
     galaxy_votes, _ = _get_galaxy_politics(kd_id)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    unlocks = {kind: uas.galaxy_vote_unlocks_at(galaxy_votes, kind, kd_id, now) for kind in ("leader", "policy_1", "policy_2")}
     payload = {
         **galaxy_votes,
         "desc": uas.GALAXY_POLICIES,
+        # When this kingdom can change each of its votes again (null: now), and how long a change holds.
+        "vote_unlocks_at": {kind: unlock.isoformat() if unlock else None for kind, unlock in unlocks.items()},
+        "vote_cooldown_hours": uas.GAME_CONFIG["BASE_GALAXY_VOTE_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 3600,
     }
     return (flask.jsonify(payload), 200)
 
