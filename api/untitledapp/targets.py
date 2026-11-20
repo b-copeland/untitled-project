@@ -3,8 +3,8 @@ Empire targets: kingdoms an empire's leadership marks for its members to take ap
 everyone who took part.
 
 The emperor (the leader of the empire's ruling galaxy) and up to ``TARGET_MAX_DELEGATES`` kingdoms the emperor names
-(the delegates) manage the targets. An empire has at most one target per galaxy in it. Each target is marked for one or
-more actions (``TARGET_ACTIONS`` in shared.py: intel, kidnaps, bombing homes, sabotaging fuel plants, missiles, failed
+(the delegates) manage the targets. A target must be a kingdom of an empire this empire is at war with, and an empire has
+at most one target per galaxy in it. Each target is marked for one or more actions (``TARGET_ACTIONS`` in shared.py: intel, kidnaps, bombing homes, sabotaging fuel plants, missiles, failed
 and successful attacks), each with a points multiplier leadership sets.
 
 While a kingdom is a target:
@@ -17,8 +17,13 @@ While a kingdom is a target:
   to the attacker, and every star missiles destroy goes into it;
 * if it dies, its remaining stars and money go into the fund and the target ends.
 
+All of that holds only while the two empires are at war: an action on a target whose kingdom is no longer in an empire
+at war with this one (its galaxy left, say) counts for nothing, and when the war ends (a surrender) every target in the
+other empire ends with its final payout (``end_war``).
+
 Leadership pays the fund out, at most once every ``TARGET_PAYOUT_COOLDOWN_EPOCHS``, to the participants in proportion
-to their points. Points last for the whole life of the target. Ending a target (removing it, or its death) pays out
+to their points. Points last for the whole life of the target. Ending a target (removing it, its death, or the end of
+the war) pays out
 what is left straight away; with no participants it is lost. Ended targets go into the empire's history.
 
 Everything lives in one document per empire, ``empire_targets_<empire>``, which is the decision point of every change
@@ -279,14 +284,21 @@ def record_intel(entry, categories, until, kd_id, now):
     return earned, new
 
 
-def target_problem(document, target, empire_kingdoms, max_targets, alive, known):
-    """Why ``target`` can not be added as a new target, or None if it can."""
+def target_problem(document, target, empire_kingdoms, max_targets, alive, known, target_empire=None, at_war=False):
+    """
+    Why ``target`` can not be added as a new target, or None if it can. ``target_empire`` is the target's empire (None:
+    it is in none), ``at_war`` whether this empire is at war with it.
+    """
     if not known:
         return "There is no such kingdom"
     if target in empire_kingdoms:
         return "You can not target a kingdom in your own empire"
     if not alive:
         return "That kingdom is dead"
+    if target_empire is None:
+        return "Only kingdoms of an empire you are at war with can be targets, and that kingdom is in no empire"
+    if not at_war:
+        return "Only kingdoms of an empire you are at war with can be targets"
     if target in document["targets"]:
         return "That kingdom is already a target"
     if len(document["targets"]) >= max_targets:
@@ -305,8 +317,12 @@ def catalog():
     } for key, action in uas.TARGET_ACTIONS.items()]
 
 
-def view(document, kd_id, empire, is_emperor, names, galaxy_of, max_targets, now):
-    """What ``kd_id`` sees of its empire's targets. Every member sees everything: it is the empire's own business."""
+def view(document, kd_id, empire, is_emperor, names, galaxy_of, max_targets, now, war_on=None):
+    """
+    What ``kd_id`` sees of its empire's targets. Every member sees everything: it is the empire's own business.
+    ``war_on`` is the set of target kingdoms whose empire is at war with this one: on the others, actions count for
+    nothing (None: all of them are).
+    """
     document = normalize(document)
     name = lambda kd: names.get(kd, f"Kingdom {kd}")  # noqa: E731
     can_manage = is_emperor or kd_id in document["delegates"]
@@ -328,6 +344,7 @@ def view(document, kd_id, empire, is_emperor, names, galaxy_of, max_targets, now
             "target": target,
             "name": name(target),
             "galaxy": galaxy_of.get(target),
+            "at_war": war_on is None or target in war_on,
             "actions": entry["actions"],
             "fund_share": entry["fund_share"],
             "fund": entry["fund"],
@@ -401,6 +418,19 @@ def hinted(empires_info, empire, target):
     return str(target) in (empires_info.get("empires", {}).get(empire, {}).get("targets") or [])
 
 
+def at_war(empires_info, empire, other):
+    """Whether ``empire`` is at war with ``other`` (an empire id, or None for no empire)."""
+    if empire is None or other is None:
+        return False
+    return other in (empires_info.get("empires", {}).get(empire, {}).get("war") or [])
+
+
+def counts(empires_info, empire, target, empires_inverted):
+    """Whether an action by ``empire`` on ``target`` can count for one of its targets: the hint lists it, and the two
+    empires are at war. Needs no read: the caller has the empires document in hand."""
+    return hinted(empires_info, empire, target) and at_war(empires_info, empire, empires_inverted.get(str(target)))
+
+
 def empires_targeting(empires_info, target):
     """The empires whose hint lists ``target``."""
     return [empire for empire, info in empires_info.get("empires", {}).items() if str(target) in (info.get("targets") or [])]
@@ -423,9 +453,10 @@ def _change_hint(empire, add=None, remove=None):
     occ.update('/empires', change)
 
 
-def active_target(empire, target, empires_info):
-    """The target's entry in ``empire``'s targets, or None. One read, and only when the hint says it may be one."""
-    if not hinted(empires_info, empire, target):
+def active_target(empire, target, empires_info, empires_inverted):
+    """The target's entry in ``empire``'s targets while the two empires are at war, or None. One read, and only when the
+    hint says it may be one."""
+    if not counts(empires_info, empire, target, empires_inverted):
         return None
     return normalize(occ.read(_path(empire)))["targets"].get(str(target))
 
@@ -541,12 +572,12 @@ def on_kingdom_death(kd_id, killer=None):
     kingdom first, so they are only ever taken once.
     """
     kd_id = str(kd_id)
-    empires_info = uag._get_empire_info()
-    empires = empires_targeting(empires_info, kd_id)
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    empires = [empire for empire in empires_targeting(empires_info, kd_id)
+               if at_war(empires_info, empire, empires_inverted.get(kd_id))]
     if not empires:
         return
     if killer is not None:
-        empires_inverted, _, _, _ = uag._get_empires_inverted()
         killer_empire = empires_inverted.get(str(killer))
         if killer_empire in empires:
             empires = [killer_empire]
@@ -578,6 +609,25 @@ def on_kingdom_death(kd_id, killer=None):
             # Removed by leadership at the same moment (it was paid out then), or too busy: the attack or strike that
             # killed the kingdom has already happened and must not fail now. That empire's part of the remains is lost.
             pass
+
+
+def end_war(empire_a, empire_b):
+    """
+    The war between two empires ended: each one's targets in the other end, paying out their funds. Called after the
+    empires document no longer lists the war. Kingdoms whose galaxy has since left the enemy empire are ended too,
+    since their targets can no longer count.
+    """
+    empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
+    for empire, other in ((empire_a, empire_b), (empire_b, empire_a)):
+        if not (empires_info.get("empires", {}).get(empire, {}).get("targets")):
+            continue
+        document = normalize(occ.read(_path(empire)))
+        for target in list(document["targets"]):
+            if empires_inverted.get(target) == other or not at_war(empires_info, empire, empires_inverted.get(target)):
+                try:
+                    _end_target(empire, target, "war_ended", None)
+                except (occ.Rejected, occ.Busy):
+                    pass  # removed meanwhile, or too busy: leadership can still remove it
 
 
 def _end_target(empire, target, reason, by, extra_fund=None, check=None):
@@ -644,7 +694,13 @@ def view_for(kd_id):
                 "actions": catalog()}
     document = occ.read(_path(empire))
     max_targets = len(empires_info["empires"][empire]["galaxies"])
-    return view(document, kd_id, empire, is_emperor, uag._get_kingdoms(), galaxies_inverted, max_targets, _now())
+    empires_inverted, _, _, _ = uag._get_empires_inverted()
+    war_on = {target for target in normalize(document)["targets"]
+              if at_war(empires_info, empire, empires_inverted.get(target))}
+    payload = view(document, kd_id, empire, is_emperor, uag._get_kingdoms(), galaxies_inverted, max_targets, _now(),
+                   war_on=war_on)
+    payload["at_war_with"] = list(empires_info["empires"][empire].get("war") or [])
+    return payload
 
 
 @bp.route('/api/empiretargets', methods=['GET'])
@@ -669,12 +725,15 @@ def add_target(kd_id, target, actions_value, fund_share_value):
     alive = known and str(uag._get_kd_info(target).get("status", "")).lower() != "dead"
     members = set(_empire_kingdoms(empire, empires_info, galaxy_info))
     max_targets = len(empires_info["empires"][empire]["galaxies"])
+    empires_inverted, _, _, _ = uag._get_empires_inverted()
+    target_empire = empires_inverted.get(target)
+    war = at_war(empires_info, empire, target_empire)
     now = _now()
 
     def decide(document):
         document = normalize(document)
         _must_manage(is_emperor, kd_id)(document)
-        problem = target_problem(document, target, members, max_targets, alive, known)
+        problem = target_problem(document, target, members, max_targets, alive, known, target_empire, war)
         if problem:
             raise occ.Rejected(problem)
         document["targets"][target] = new_target(target, actions, fund_share, kd_id, now)

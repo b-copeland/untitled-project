@@ -104,6 +104,8 @@ balance is not.
 - Every number is a placeholder: `TARGET_MAX_DELEGATES` (3), `TARGET_DEFAULT_FUND_SHARE` (10%, from the issue),
   `TARGET_MAX_FUND_SHARE` (50%), `TARGET_MAX_POINTS_MULTIPLIER` (5), `TARGET_PAYOUT_COOLDOWN_EPOCHS` (1, from the issue),
   `TARGET_HISTORY_LENGTH` (20), and the points each measure earns in `TARGET_ACTIONS`.
+- Targets exist only in a war (the maintainer, 2026-11-20): a surrender ends them. A target whose galaxy leaves the
+  enemy empire mid-war is not ended automatically; it counts for nothing until leadership removes it.
 - Points last for the whole target, so every payout is shared by everyone who ever took part. A participant who is
   dead at a payout loses their share.
 - Intel copied to the empire from a target can be listed or shared on a member's galaxy intel market like intel they

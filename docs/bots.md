@@ -178,7 +178,7 @@ hidden state.
   named as a thief.
 
 - **Empire targets** (`TARGET_SHARE`). About half of a bot's strikes, sabotage, intel and missile strikes go to its
-  empire's targets marked for them, when it is equipped to: a target its army can beat (taken whatever primitives
+  empire's targets marked for them (only targets in an empire it is at war with: nothing else counts), when it is equipped to: a target its army can beat (taken whatever primitives
   would give, since it also earns points), a fair chance for sabotage. A target it can not beat is left for the best
   one it can. The roll is only made when there is a marked target, so rounds without targets play as before.
 

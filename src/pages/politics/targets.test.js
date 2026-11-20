@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import Targets, { actionButtons, empireKingdoms, pointsText, targetFormErrors } from "./targets";
+import Targets, { actionButtons, empireKingdoms, pointsText, targetFormErrors, warKingdoms } from "./targets";
 import { authFetch } from "../../auth";
 
 jest.mock("../../auth", () => ({ authFetch: jest.fn() }));
@@ -19,7 +19,7 @@ const actions = [
 ];
 
 const target = {
-    target: "5", name: "Target", galaxy: "1:3",
+    target: "5", name: "Target", galaxy: "1:3", at_war: true,
     actions: { kidnap: 2, successful_attacks: 1, failed_attacks: 1 },
     fund_share: 0.1, fund: { stars: 12, money: 3400 },
     points_total: 40, my_points: 10, my_share: 0.25,
@@ -34,15 +34,16 @@ const target = {
 const targets = (overrides = {}) => ({
     empire: "e1", is_emperor: false, can_manage: false, delegates: [], max_delegates: 3, max_targets: 2,
     actions, default_fund_share: 0.1, max_fund_share: 0.5, max_multiplier: 5, payout_cooldown_hours: 0.5,
+    at_war_with: ["e2"],
     targets: [target], history: [], ...overrides,
 });
 
 const data = (overrides = {}) => ({
     empiretargets: targets(),
     kingdomid: { kd_id: "1" },
-    kingdoms: { 1: "Emperor", 2: "Member", 5: "Target", 6: "Other" },
-    galaxies_inverted: { 1: "1:1", 2: "1:2", 5: "1:3", 6: "1:3" },
-    empires_inverted: { empires_inverted: { 1: "e1", 2: "e1" } },
+    kingdoms: { 1: "Emperor", 2: "Member", 5: "Target", 6: "Other", 7: "Neutral" },
+    galaxies_inverted: { 1: "1:1", 2: "1:2", 5: "1:3", 6: "1:3", 7: "1:4" },
+    empires_inverted: { empires_inverted: { 1: "e1", 2: "e1", 5: "e2", 6: "e2", 7: "e3" } },
     ...overrides,
 });
 
@@ -57,6 +58,23 @@ test("both kinds of attack open one Attack button, and sabotage opens Spy on its
 
 test("the empire's kingdoms come from the empires list", () => {
     expect(empireKingdoms(data(), "e1")).toEqual(["1", "2"]);
+});
+
+test("only kingdoms of an empire at war with yours can be targeted", () => {
+    expect(warKingdoms(data(), targets())).toEqual(["5", "6"]);
+    expect(warKingdoms(data(), targets({ at_war_with: [] }))).toEqual([]);
+});
+
+test("a target out of war says nothing done to it counts", () => {
+    render(<Targets data={data({ empiretargets: targets({ targets: [{ ...target, at_war: false }] }) })} loading={{}} updateData={jest.fn()} />);
+    expect(screen.getByText(/not at war with this kingdom's empire/)).toBeTruthy();
+});
+
+test("without a war, no target can be marked", () => {
+    render(<Targets data={data({ empiretargets: targets({ can_manage: true, at_war_with: [], targets: [] }) })}
+        loading={{}} updateData={jest.fn()} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Manage" }));
+    expect(screen.getByRole("button", { name: "Mark as a target" }).title).toMatch(/not at war/);
 });
 
 test("the form says why it would be refused", () => {
@@ -114,9 +132,10 @@ test("the emperor marks a new target with the actions chosen", () => {
     const submit = within(form).getByRole("button", { name: "Mark as a target" });
     expect(submit.title).toBe("Choose a kingdom to target");
     expect(screen.getByText("Delegates")).toBeTruthy();
-    // The empire's own kingdoms are not offered.
+    // Only kingdoms of an empire at war with yours are offered: not your own, not a neutral one.
     fireEvent.keyDown(within(form).getByLabelText("Kingdom"), { key: "ArrowDown" });
     expect(screen.queryByText("Member (1:2)")).toBeNull();
+    expect(screen.queryByText("Neutral (1:4)")).toBeNull();
     fireEvent.click(screen.getByText("Other (1:3)"));
     expect(submit.title).toMatch(/at least one action/);
     fireEvent.click(within(form).getByLabelText("Kidnaps"));

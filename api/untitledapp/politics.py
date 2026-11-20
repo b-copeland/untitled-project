@@ -14,6 +14,7 @@ import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.getters as uag
 import untitledapp.shared as uas
+import untitledapp.targets as uat
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
 
 bp = flask.Blueprint("politics", __name__)
@@ -1022,6 +1023,8 @@ def _surrender(
         return {"empires": empires}, None
 
     occ.update('/empires', make_peace)
+    # Targets exist only in war: each side's targets in the other end now, with their final payouts.
+    uat.end_war(winning_empire, losing_empire)
 
 @bp.route('/api/empire/<target_empire>/acceptsurrenderoffer', methods=['POST'])
 @flask_praetorian.auth_required

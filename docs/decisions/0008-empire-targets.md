@@ -8,7 +8,7 @@ participation points for marked actions, scaled by the damage done; a share of a
 destroy and a dead target's remains go into a spoils fund that leadership pays out in proportion to points. Intel on a
 target is shared with the whole empire, and intel cuts do not apply to it. The maintainer chose (2026-11-20): the emperor
 names delegates who manage targets with them; intel is copied to each member; the fund holds stars and money (funding
-counts as money); ending a target pays out what is left at once.
+counts as money); ending a target pays out what is left at once. Then (2026-11-20): targets exist only in a war.
 
 Every attack, spy operation and missile strike now has to know whether its target is one of the attacker's empire's
 targets, and writes and function app calls cost request units on a free tier shared with production
@@ -23,6 +23,11 @@ targets, and writes and function app calls cost request units on a free tier sha
   operation and strike already has in hand (the empires document is read once per request). Only when the hint lists
   the target is the targets document read. The hint is kept a superset: a target is added to it before the targets
   document, and removed after. `/api/empires` leaves it out.
+- **Only in a war.** A target must be a kingdom of an empire at war with this one when it is added, and an action
+  counts for it only while the two empires are still at war: a check on the `empires` document the action already
+  has, so it costs nothing. War ends only with a surrender (`politics._surrender`), which then ends every target
+  either side had in the other, with its final payout (`reason` `war_ended`). A target whose galaxy leaves the
+  enemy empire stays listed but counts for nothing; the tab says so, and leadership can remove it.
 - **Points and fund are written after the action lands,** as one conditional write to the targets document. If the
   target ended in between, an attack's fund share goes back to the attacker.
 - **The emperor check reads other documents** (the empire's ruling galaxy, that galaxy's leader) before the decision;
@@ -38,6 +43,8 @@ targets, and writes and function app calls cost request units on a free tier sha
   tick, and points and funds would make it grow and be written on every action against a target.
 - **Merging target intel into each member's reveals when they are read:** one write per operation instead of one per
   member, but an extra read on every route that filters by reveals (Attack, Spy, Galaxy, the kingdom view).
+- **Leaving targets in place after a war** (dormant until the next one): a fund could then wait a long time for its
+  payout, and the next war may be with someone else.
 - **Points per payout period** (reset at each payout): a target's death would then pay only the last period's
   participants. Points last for the whole target.
 

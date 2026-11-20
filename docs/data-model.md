@@ -151,13 +151,15 @@ the advanced levels with its own time.
 `empire_targets_<empire>` is the one decision point of an empire's targets (`targets.py`). Each empire in the `empires`
 document also carries `targets`, a list of kingdom ids, so an action knows whether its target may be one without
 reading this document: a kingdom is added to that list before it is added here, and taken out after it is removed
-here, so the list is never short of a real target ([decisions/0008](decisions/0008-empire-targets.md)).
+here, so the list is never short of a real target ([decisions/0008](decisions/0008-empire-targets.md)). A target is
+only added while the two empires are at war, an action counts for it only while they still are (checked against
+the `empires` document the action has in hand), and a surrender ends every target either side had in the other.
 
 | Key | Holds |
 |---|---|
 | `delegates` | The kingdoms the emperor named to manage targets with them, at most `TARGET_MAX_DELEGATES` |
 | `targets` | Target kingdom to `{target, actions, fund_share, created_at, created_by, points, fund, paid, last_payout, intel}`. `actions`: each marked action (a key of `TARGET_ACTIONS`) to its points multiplier. `points` and `paid` (`{stars, money}`) per participant. `fund`: `{stars, money}`. `last_payout`: when the fund was last paid out, or null. `intel`: category to when the empire's shared intel on the target ends |
-| `history` | The newest `TARGET_HISTORY_LENGTH` ended targets, newest first: `{target, actions, fund_share, created_at, ended_at, reason, ended_by, points, paid, lost}`; `reason` is `removed` or `killed`, `lost` what was left unpaid (rounding, or everything with nobody to pay) |
+| `history` | The newest `TARGET_HISTORY_LENGTH` ended targets, newest first: `{target, actions, fund_share, created_at, ended_at, reason, ended_by, points, paid, lost}`; `reason` is `removed`, `killed` or `war_ended`, `lost` what was left unpaid (rounding, or everything with nobody to pay) |
 
 ## The kingdom document
 

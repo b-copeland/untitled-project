@@ -30,8 +30,9 @@ function EmpirePolitics(props) {
             </p>
             <h3>Targets</h3>
             <p>
-                The emperor (the leader of the Empire's ruling galaxy) marks kingdoms outside the Empire as targets, for
-                every member to take apart together. The emperor can name up to {config.TARGET_MAX_DELEGATES} delegates
+                In a war, the emperor (the leader of the Empire's ruling galaxy) marks kingdoms of the enemy Empire as
+                targets, for every member to take apart together. Only kingdoms of an Empire yours is at war with can
+                be targets. The emperor can name up to {config.TARGET_MAX_DELEGATES} delegates
                 to manage targets with them. An Empire can have one target for each galaxy in it. Targets are on the
                 Targets tab of the Empire page, which only the Empire's members see.
             </p>
@@ -44,7 +45,7 @@ function EmpirePolitics(props) {
                 points, and the tab shows what each earns.
             </p>
             <p>
-                While a kingdom is a target:
+                While a kingdom is a target, and only while the war lasts:
             </p>
             <ul>
                 <li>intel any member takes on it is shared with the whole Empire straight away;</li>
@@ -62,8 +63,8 @@ function EmpirePolitics(props) {
                 Leadership pays the spoils fund out to everyone who earned points on the target, in proportion to their
                 points, at most once
                 every {((config.TARGET_PAYOUT_COOLDOWN_EPOCHS || 0) * (config.BASE_EPOCH_SECONDS || 0)) / 3600} hours.
-                Points last as long as the target. When a target ends, because leadership removes it or because it
-                dies, whatever is left in its fund is paid out at once; with nobody to pay, it is lost. Ended targets
+                Points last as long as the target. When a target ends, because leadership removes it, because it dies,
+                or because the war ends (a surrender), whatever is left in its fund is paid out at once; with nobody to pay, it is lost. Ended targets
                 stay in the History tab.
             </p>
         </div>

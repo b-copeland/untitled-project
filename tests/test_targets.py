@@ -2,7 +2,7 @@
 Empire targets (api/untitledapp/targets.py): marking targets, participation points, the spoils fund and its payouts.
 
 Empire "e1" is galaxies "1:1" (kingdom 1, ``jwt1``, the emperor) and "1:2" (kingdom 2, ``jwt2``). The target, 5, is in
-galaxy "1:3", outside the empire.
+galaxy "1:3", the empire "e2", which "e1" is at war with.
 """
 import datetime
 
@@ -119,7 +119,7 @@ def test_bad_actions_and_fund_shares_are_refused():
 
 # --- the routes ------------------------------------------------------------------------------------------------------
 
-def _set_up_empire(target_overrides=None, attacker_overrides=None, galaxies=2):
+def _set_up_empire(target_overrides=None, attacker_overrides=None, galaxies=2, war=True, surrender_offer=False):
     _set_up_kingdom(money=1_000_000, units={**UNITS, "attack": 1000}, **(attacker_overrides or {}))
     _set_up_kingdom(money=1_000_000, kd_id=MEMBER)
     target = {"money": 1_000_000, "units": {**UNITS, "defense": 10}}
@@ -131,10 +131,19 @@ def _set_up_empire(target_overrides=None, attacker_overrides=None, galaxies=2):
     for galaxy, leader in (("1:1", KD_ID), ("1:2", MEMBER), ("1:3", TARGET), ("1:4", "")):
         _create_item(f"galaxy_votes_{galaxy}", _galaxy_politics(leader=leader))
         _create_item(f"galaxy_news_{galaxy}", {"news": []})
-    empire = {"name": "One", "galaxies": empire_galaxies, "war": [], "peace": {}, "denounced": "", "aggression": {},
-              "aggression_max": 100, "surprise_war_penalty": False}
-    _create_item("empires", {"empires": {"e1": empire}})
-    _create_item("empire_politics_e1", _empire_politics("1:1"))
+    empire = {"war": [], "peace": {}, "denounced": "", "aggression": {}, "aggression_max": 100, "surprise_war_penalty": False}
+    # The enemy: the target's galaxy, and with a one-galaxy e1, the member's galaxy too.
+    enemy_galaxies = ["1:3"] + ([] if galaxies >= 2 else ["1:2"])
+    _create_item("empires", {"empires": {
+        "e1": {**empire, "name": "One", "galaxies": empire_galaxies, "war": ["e2"] if war else []},
+        "e2": {**empire, "name": "Two", "galaxies": enemy_galaxies, "war": ["e1"] if war else []},
+    }})
+    surrender_lists = {"surrender_offers_sent": [], "surrender_offers_received": [],
+                       "surrender_requests_sent": [], "surrender_requests_received": []}
+    offers = [{"empire": "e2", "type": "stars", "value": 0}] if surrender_offer else []
+    _create_item("empire_politics_e1", _empire_politics("1:1", **{**surrender_lists, "surrender_offers_received": offers}))
+    _create_item("empire_politics_e2", _empire_politics("1:3", **surrender_lists))
+    _create_item("universe_news", {"news": []})
 
 
 def _add(client, token=None, target=TARGET, actions=None, fund_share=10, jwt=None):
@@ -188,6 +197,48 @@ def test_an_empire_has_at_most_one_target_per_galaxy_and_never_its_own_kingdoms(
     assert "already" in _add(client, jwt=jwt1).get_json()["message"]
     assert "at most 1" in _add(client, jwt=jwt1, target=MEMBER).get_json()["message"]
     assert "no such" in _add(client, jwt=jwt1, target="99").get_json()["message"].lower()
+
+
+def test_only_a_kingdom_of_an_empire_at_war_with_yours_can_be_targeted(app, client, jwt1):
+    _set_up_empire(war=False)
+    assert "at war" in _add(client, jwt=jwt1).get_json()["message"]
+    _set_up_empire()
+    _set_up_kingdom(money=0, kd_id="6")
+    galaxies = _get("/galaxies")["galaxies"]
+    _create_item("galaxies", {"galaxies": {**galaxies, "1:1": [KD_ID], "1:2": [MEMBER], "1:3": [TARGET], "1:5": ["6"]}})
+    _create_item("kingdoms", {"kingdoms": {KD_ID: "Emperor", MEMBER: "Member", TARGET: "Target", "6": "Loner"}})
+    assert "no empire" in _add(client, jwt=jwt1, target="6").get_json()["message"]
+    assert _add(client, jwt=jwt1).status_code == 200
+
+
+def test_actions_on_a_target_count_only_while_the_war_lasts(app, client, jwt1):
+    _set_up_empire(war=False)
+    _with_fund({}, {"stars": 0, "money": 0})  # a target left from a war that is over (or whose galaxy moved)
+    attacker0, target0 = _get(f"/kingdom/{KD_ID}"), _get(f"/kingdom/{TARGET}")
+
+    assert _attack(client, jwt1).get_json()["status"] == "success"
+
+    entry = _targets()["targets"][TARGET]
+    assert entry["points"] == {} and entry["fund"] == {"stars": 0, "money": 0}
+    taken = target0["stars"] - _get(f"/kingdom/{TARGET}")["stars"]
+    assert _get(f"/kingdom/{KD_ID}")["stars"] - attacker0["stars"] == taken  # nothing held back for a fund
+    view = client.get("/api/empiretargets", headers=_auth(jwt1)).get_json()
+    assert view["targets"][0]["at_war"] is False and view["at_war_with"] == []
+
+
+def test_the_end_of_the_war_ends_its_targets_and_pays_them_out(app, client, jwt1):
+    _set_up_empire(surrender_offer=True)
+    _with_fund({MEMBER: 1}, {"stars": 30, "money": 0})
+    stars2 = _get(f"/kingdom/{MEMBER}")["stars"]
+
+    response = client.post("/api/empire/e2/acceptsurrenderoffer", json={"type": "stars", "value": 0}, headers=_auth(jwt1))
+
+    assert response.status_code == 200, response.get_json()
+    assert _get("/empires")["empires"]["e1"]["war"] == []
+    document = _targets()
+    assert document["targets"] == {} and document["history"][0]["reason"] == "war_ended"
+    assert _get(f"/kingdom/{MEMBER}")["stars"] == stars2 + 30
+    assert _get("/empires")["empires"]["e1"]["targets"] == []
 
 
 def test_a_dead_kingdom_can_not_be_targeted(app, client, jwt1):

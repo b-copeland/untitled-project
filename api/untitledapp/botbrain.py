@@ -451,8 +451,10 @@ class World:
         return self._lazy("empire_targets", read)
 
     def marked_for(self, *actions):
-        """The empire's targets marked for any of ``actions``."""
-        return [kd for kd, marked in self.empire_targets.items() if any(action in marked for action in actions)]
+        """The empire's targets marked for any of ``actions``, while their empire is at war with the bot's (only then do
+        actions on them count)."""
+        return [kd for kd, marked in self.empire_targets.items()
+                if any(action in marked for action in actions) and self.relation(kd)[0]]
 
     @property
     def scores(self):

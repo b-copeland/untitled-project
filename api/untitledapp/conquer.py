@@ -367,7 +367,7 @@ def _spoils_forecast(kd_id, target_kd, max_target_kd_info, race, war):
     if not total_spoils:
         return ""
     empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
-    empire_target = uat.active_target(empires_inverted.get(kd_id), target_kd, empires_info)
+    empire_target = uat.active_target(empires_inverted.get(kd_id), target_kd, empires_info, empires_inverted)
     cuts = {} if empire_target else uai.spoils_cuts_for(kd_id, target_kd)
     spoils_values, sharers_spoils = uai.split_spoils(total_spoils, cuts)
     fund = None
@@ -815,7 +815,7 @@ def _attack(req, kd_id, target_kd):
         # target's spoils fund. Elsewhere, intel on this target the attacker took from galaxymates earns each sharer
         # their cut of the spoils (each category its own cut, added up); the attacker gets the rest. The same split as
         # the forecast (_spoils_forecast).
-        empire_target = uat.active_target(attacker_empire, target_kd, empires_info)
+        empire_target = uat.active_target(attacker_empire, target_kd, empires_info, empires_inverted)
         cuts = {} if empire_target else uai.spoils_cuts_for(kd_id, target_kd)
 
         def depart(kd):
@@ -2063,7 +2063,7 @@ def _spy(req, kd_id, target_kd):
         attacker_empire = empires_inverted.get(kd_id)
         defender_empire = empires_inverted.get(target_kd)
 
-        if success and attacker_empire is not None and uat.hinted(empires_info, attacker_empire, target_kd):
+        if success and attacker_empire is not None and uat.counts(empires_info, attacker_empire, target_kd, empires_inverted):
             # On one of the empire's targets: intel goes to the whole empire (with points for what was new), and
             # sabotage earns points for the damage done.
             if operation in uas.REVEAL_OPERATIONS and revealed_until:
@@ -2733,7 +2733,7 @@ def _launch_missiles(req, kd_id, target_kd):
             raise
         empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
         attacker_empire = empires_inverted.get(kd_id)
-        if uat.hinted(empires_info, attacker_empire, target_kd):
+        if uat.counts(empires_info, attacker_empire, target_kd, empires_inverted):
             # On one of the empire's targets, every star the missiles destroy goes into its spoils fund.
             uat.record_action(attacker_empire, target_kd, kd_id, "missiles", destroyed,
                               fund={"stars": destroyed["stars"], "money": 0})

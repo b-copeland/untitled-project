@@ -20,7 +20,8 @@ import LaunchMissiles from "../conquer/launchmissiles.js";
 import "./targets.css";
 
 /*
- * The empire's targets (api/untitledapp/targets.py), on the Empire page under Politics. Every member sees the targets,
+ * The empire's targets (api/untitledapp/targets.py), on the Empire page under Politics. A target is a kingdom of an empire
+ * yours is at war with, and actions on it count only while that war lasts. Every member sees the targets,
  * what each is marked for, its spoils fund and who has earned what; the emperor and their delegates also add, change,
  * pay out and remove targets, and the emperor names the delegates. Points, funds and limits all come from the server
  * (`data.empiretargets`).
@@ -30,6 +31,14 @@ const myKd = (data) => String(data.kingdomid?.kd_id ?? data.kingdom?.kdId ?? "")
 const kdName = (data, kdId) => data.kingdoms?.[kdId] || `Kingdom ${kdId}`;
 const kdLabel = (data, kdId) => `${kdName(data, kdId)} (${data.galaxies_inverted?.[kdId] || "?"})`;
 const dateText = (iso) => (iso ? new Date(iso).toLocaleString() : "");
+
+/** The kingdoms that can be targeted: in an empire yours is at war with (``targets.at_war_with``). */
+export const warKingdoms = (data, targets) => {
+    const enemies = (targets.at_war_with || []).map(String);
+    return Object.entries(data.empires_inverted?.empires_inverted || {})
+        .filter(([, kdEmpire]) => enemies.includes(String(kdEmpire)))
+        .map(([kdId]) => String(kdId));
+};
 
 /** The kingdoms in the player's empire. */
 export const empireKingdoms = (data, empire) =>
@@ -152,13 +161,15 @@ function AddTarget({ data, targets, members, send, loading }) {
     const [target, setTarget] = useState(undefined);
     const [form, setForm] = useState(() => formFor(null, targets));
     const taken = new Set((targets.targets || []).map((item) => String(item.target)));
-    const options = Object.keys(data.kingdoms || {})
-        .filter((kdId) => !members.includes(String(kdId)) && !taken.has(String(kdId)))
-        .map((kdId) => ({ value: String(kdId), label: kdLabel(data, kdId) }));
+    const options = warKingdoms(data, targets)
+        .filter((kdId) => !members.includes(kdId) && !taken.has(kdId))
+        .map((kdId) => ({ value: kdId, label: kdLabel(data, kdId) }));
     const errors = targetFormErrors(form, targets);
+    const noWar = (targets.at_war_with || []).length ? null
+        : "Your empire is not at war. Only kingdoms of an empire you are at war with can be targets";
     const full = (targets.targets || []).length >= (targets.max_targets || 0)
         ? `Your empire can have at most ${targets.max_targets} target(s): one per galaxy in it` : null;
-    const blocked = full || (target ? null : "Choose a kingdom to target") || firstError(errors);
+    const blocked = noWar || full || (target ? null : "Choose a kingdom to target") || firstError(errors);
     const submit = (event) => {
         event.preventDefault();
         send("add", { target, actions: actionsBody(form), fund_share: form.fund_share }, () => setTarget(undefined));
@@ -169,7 +180,7 @@ function AddTarget({ data, targets, members, send, loading }) {
             <Picker id="targets-new-target" options={options} value={target} onChange={setTarget} placeholder="Choose a kingdom" />
             <TargetFields form={form} setForm={setForm} targets={targets} errors={errors} idPrefix="targets-new" />
             <SubmitButton loading={loading} blocked={blocked}>Mark as a target</SubmitButton>
-            {blocked && target ? <p className="planner-why">{blocked}</p> : null}
+            {blocked && (target || noWar) ? <p className="planner-why">{blocked}</p> : null}
         </Form>
     );
 }
@@ -235,6 +246,12 @@ function TargetCard({ target, targets, data, send, loading, open }) {
                 { label: "Your points", value: `${displayNumber(target.my_points)} (${displayPercent(target.my_share || 0)})` },
                 { label: "Intel shared", value: Object.keys(target.intel || {}).join(", ") || "None" },
             ]} />
+            {target.at_war === false ? (
+                <p className="planner-why">
+                    Your empire is not at war with this kingdom's empire, so nothing done to it counts. Remove it to pay
+                    out its fund.
+                </p>
+            ) : null}
             <ul className="targets-marked">
                 {Object.entries(target.actions || {}).map(([key, multiplier]) => (
                     <li key={key}><strong>{catalog[key]?.name || key}</strong>: {pointsText(catalog[key], multiplier)}</li>
@@ -300,6 +317,8 @@ function Delegates({ data, targets, members, send, loading }) {
     );
 }
 
+const OUTCOMES = { killed: "Destroyed", removed: "Removed", war_ended: "War ended" };
+
 function History({ targets }) {
     const catalog = Object.fromEntries((targets.actions || []).map((action) => [action.key, action]));
     const rows = (targets.history || []).map((record, index) => ({ ...record, key: `${record.target}-${record.ended_at}-${index}` }));
@@ -312,7 +331,7 @@ function History({ targets }) {
                 { header: "Target", align: "left", cell: (row) => row.name },
                 { header: "Marked for", align: "left", cell: (row) => Object.keys(row.actions || {}).map((key) => catalog[key]?.name || key).join(", ") },
                 { header: "Ended", align: "left", cell: (row) => dateText(row.ended_at) },
-                { header: "Outcome", align: "left", cell: (row) => (row.reason === "killed" ? "Destroyed" : "Removed") },
+                { header: "Outcome", align: "left", cell: (row) => OUTCOMES[row.reason] || "Removed" },
                 { header: "Paid out", cell: (row) => `${displayNumber(paid(row, "stars"))} stars, ${displayNumber(paid(row, "money"))} money` },
                 {
                     header: "Top participants", align: "left",
@@ -383,7 +402,7 @@ export default function Targets(props) {
                 {targets.can_manage ? (
                     <Tab eventKey="manage" title="Manage">
                         <Panel title="Mark a new target"
-                            hint="Members earn points for the actions you mark, by the damage they do. Successful attacks put the fund share of their stars and money into the target's spoils fund, missiles every star they destroy, and the target's death its remaining stars and money.">
+                            hint="Targets are kingdoms of empires you are at war with; when the war ends, so do they, paying out their funds. Members earn points for the actions you mark, by the damage they do. Successful attacks put the fund share of their stars and money into the target's spoils fund, missiles every star they destroy, and the target's death its remaining stars and money.">
                             <AddTarget data={props.data} targets={targets} members={members} send={send} loading={loading} />
                         </Panel>
                         {targets.is_emperor ? (

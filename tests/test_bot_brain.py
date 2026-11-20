@@ -516,11 +516,15 @@ def test_it_attacks_the_kingdom_that_pays_best_and_never_one_it_would_lose_to():
     assert "primitives" in decision.why
 
 
+# The bot's empire (g1) at war with the empire of g2 and g3: targets count only in a war.
+AT_WAR = {"e1": {"galaxies": ["g1"], "war": ["e2"]}, "e2": {"galaxies": ["g2", "g3"], "war": ["e1"]}}
+
+
 def test_about_half_the_strikes_go_to_an_empire_target_it_can_beat():
-    def world(targets):
+    def world(targets, empires=AT_WAR):
         return StubWorld(
             revealed=INTEL_ON_ALL, stats={"3": (2000, 150_000), "4": (5000, 900_000), "5": (2500, 200_000)},
-            info={"3": military(1500), "4": military(60_000), "5": military(1500)}, targets=targets,
+            info={"3": military(1500), "4": military(60_000), "5": military(1500)}, targets=targets, empires=empires,
         )
     marked = {"3": {"successful_attacks": 1.0}}
     # The roll that sends it at a target (below TARGET_SHARE), and the one that does not.
@@ -533,6 +537,10 @@ def test_about_half_the_strikes_go_to_an_empire_target_it_can_beat():
     assert decision.options["target"] == "5"
     # Marked only for something else: no attack goes there because of it.
     (decision,) = brain.plan_attack(world({"3": {"kidnap": 1.0}}), ATTACKER, style(army="both"), {}, ChanceOf(0.0))
+    assert decision.options["target"] == "5"
+    # Out of war, a target counts for nothing.
+    peace = {"e1": {"galaxies": ["g1"], "war": []}, "e2": {"galaxies": ["g2", "g3"], "war": []}}
+    (decision,) = brain.plan_attack(world(marked, peace), ATTACKER, style(army="both"), {}, ChanceOf(0.0))
     assert decision.options["target"] == "5"
 
 
@@ -709,14 +717,15 @@ def test_a_bomber_fills_its_silos_with_the_best_missile_it_can_and_fires_at_whoe
 
 def test_missiles_go_to_an_empire_target_marked_for_them_about_half_the_time():
     armed = {"missiles": {"planet_busters": 20, "star_busters": 0, "galaxy_busters": 0}}
-    world = StubWorld(me=armed, stats={"4": (9000, 2_000_000), "3": (500, 30_000)}, targets={"6": {"missiles": 1.0}})
+    world = StubWorld(me=armed, stats={"4": (9000, 2_000_000), "3": (500, 30_000)}, targets={"6": {"missiles": 1.0}},
+                      empires=AT_WAR)
     assert brain.plan_missiles(world, ATTACKER, style(), {}, ChanceOf(0.0))[-1].options["target"] == "6"
     assert brain.plan_missiles(world, ATTACKER, style(), {}, ChanceOf(0.9))[-1].options["target"] == "4"
 
 
 def test_a_thief_kidnaps_on_an_empire_target_when_the_chance_is_fair():
     world = StubWorld(day=9, stats={"3": (1000, 50_000)}, me={"drones": 50_000, "spy_attempts": 5},
-                      targets={"3": {"kidnap": 1.0}})
+                      targets={"3": {"kidnap": 1.0}}, empires=AT_WAR)
     decisions = brain.plan_drones(world, THIEF, style(drones="primitives"), {}, ChanceOf(0.0))
     assert [(d.options["target"], d.options["operation"]) for d in decisions if d.kind == "aggressivespy"][:1] == [
         ("3", "kidnappopulation")]
