@@ -1,8 +1,11 @@
 import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
 import Form from 'react-bootstrap/Form';
 import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
+import Tab from 'react-bootstrap/Tab';
+import Tabs from 'react-bootstrap/Tabs';
 import { authFetch } from "../../auth";
 import { displayPercent } from "../../format";
 import Header from "../../components/header";
@@ -11,20 +14,23 @@ import { ResultToasts } from "../../components/results";
 import "./status.css";
 import "./shields.css";
 
-/** The Shields & Spending page: the shields the kingdom pays fuel for, and how auto spending splits its money. */
+/** The Shields & Spending page: a Shields tab (what the kingdom pays fuel for) and a Spending tab (how auto spending splits its money).
+ * A link to /shields#spending opens on the Spending tab. */
 function ShieldsAndSpending(props) {
+    const location = useLocation();
+    const [key, setKey] = useState(location.hash === "#spending" ? "spending" : "shields");
+
     return (
         <>
             <Header data={props.data} />
-            <div className="shields-spending">
-                <section>
-                    <h2>Shields</h2>
+            <Tabs id="shields-spending-tabs" activeKey={key} onSelect={(k) => setKey(k)} justify fill variant="tabs">
+                <Tab eventKey="shields" title="Shields">
                     <Shields data={props.data} loading={props.loading} updateData={props.updateData} />
-                </section>
-                <section>
+                </Tab>
+                <Tab eventKey="spending" title="Spending">
                     <Spending kingdom={props.data.kingdom} loading={props.loading} updateData={props.updateData} />
-                </section>
-            </div>
+                </Tab>
+            </Tabs>
             <HelpButton scrollTarget={"shields"} />
         </>
     );

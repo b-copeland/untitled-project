@@ -16,7 +16,7 @@ function Shields(props) {
             <h2>Shields & Spending</h2>
             <h4>Shields</h4>
             <p>
-                The shields section allows you to update your shields usage. Shields consume power to provide some benefits. 
+                The Shields tab allows you to update your shields usage. Shields consume power to provide some benefits. 
             </p>
             <Table className="shields-table" striped bordered hover size="sm">
                 <thead>
@@ -56,7 +56,7 @@ function Shields(props) {
             </Table>
             <h4>Auto spending</h4>
             <p>
-                The auto spending section allows you to update your auto-spending allocation or enable auto-spending. With auto-spending enabled, 
+                The Spending tab allows you to update your auto-spending allocation or enable auto-spending. With auto-spending enabled, 
                 the game automatically spends your money to build your kingdom.
             </p>
             <p>

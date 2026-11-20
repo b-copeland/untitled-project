@@ -1,11 +1,3 @@
-.shields-spending {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 0 16px;
-    text-align: center;
-}
-
 .shields {
     display: flex;
     flex-direction: column;

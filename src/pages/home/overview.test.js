@@ -33,9 +33,9 @@ test("the four cards answer the questions a returning player asks", () => {
     expect(screen.getByText(/You were attacked by Delta/)).toBeTruthy();
 });
 
-test("the economy card links to the Shields & Spending page", () => {
+test("the economy card links to the Spending tab", () => {
     show(data());
-    expect(screen.getByRole("link", { name: "Economy" }).getAttribute("href")).toBe("/shields");
+    expect(screen.getByRole("link", { name: "Economy" }).getAttribute("href")).toBe("/shields#spending");
 });
 
 test("an Advisors box comes first, empty until advice is written", () => {
