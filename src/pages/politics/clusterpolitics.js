@@ -162,7 +162,7 @@ function ClusterPolitics(props) {
                     { label: "Galaxies", value: (cluster.galaxies || []).length },
                     { label: "Your galaxy votes for", value: myVote ? myVote.name : "Nothing" },
                 ]} />
-                <Tabs id="cluster-tabs" defaultActiveKey="benefits" justify fill variant="tabs">
+                <Tabs id="cluster-tabs" defaultActiveKey="benefits" variant="tabs">
                     <Tab eventKey="benefits" title="Benefits">
                         <Panel title="What the cluster has built up"
                             hint={epochSeconds

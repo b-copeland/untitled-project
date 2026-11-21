@@ -1,38 +1,13 @@
 .engineers {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: 5px;
-}
-
-.engineers-box {
-    margin: 5px;
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-@media (min-width: 756px) {
-    .engineers-box {
-        width: 50%;
-        min-width: 450px;
-    }
-}
-.engineers-input-group {
-    width: 75%;
-    margin: 5px;
-}
-
-.engineers-button {
-    width: 30%;
-    margin: 5px;
 }
 
 .projects {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    width: 100%;
 }
 
 .projects-assign-form {
@@ -58,12 +33,6 @@
     }
 }
 
-@media (min-width: 756px) {
-    .projects-box {
-        width: 50%;
-        min-width: 450px;
-    }
-}
 
 .projects-table {
     /* width: 80%; */
@@ -120,8 +89,6 @@
         max-height: 32px;
     }
 }
-.amount-field { width: 100%; max-width: 320px; margin: 8px auto; display: flex; flex-direction: column; gap: 4px; }
-.amount-field .amount-input { margin-left: 0; max-width: none; }
 
 .projects-category { width: 100%; margin-top: 12px; }
 .projects-category-title { text-align: left; margin: 4px 5px; }

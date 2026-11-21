@@ -1,8 +1,6 @@
 /* The Intel page and the per-kingdom intel panel. Tables, panels and pickers use the shared styles. */
 .intel-market {
     width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
 }
 
 .intel-market .panel,
@@ -10,12 +8,10 @@
     margin-top: 1rem;
 }
 
-/* The forms are narrower than the tables: their panel is as wide as the form, in the middle of the page. */
+/* The forms are narrower than the tables: their panel is as wide as the form, on the page's left edge. */
 .intel-market .panel.intel-form-panel,
 .kingdom-intel .panel.intel-form-panel {
     max-width: 40rem;
-    margin-left: auto;
-    margin-right: auto;
 }
 
 /* The tables fill their panel, rather than the half a page other tables take on a wide screen. */

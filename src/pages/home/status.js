@@ -25,8 +25,6 @@ function StatusContent(props) {
         id="controlled-tab-example"
         activeKey={key}
         onSelect={(k) => setKey(k)}
-        justify
-        fill
         variant="tabs"
       >
         <Tab eventKey="overview" title="Overview">
@@ -371,7 +369,7 @@ function Military(props) {
         <div className="status-kingdom-content">
             <div className="col-center-card army-info">
                 <h2>Armies</h2>
-                <Table striped bordered hover className="army-table" size="sm">
+                <Table hover className="army-table" size="sm">
                     <thead>
                         <tr>
                         <th colSpan={2}></th>
@@ -400,7 +398,7 @@ function Military(props) {
                         ))}
                     </tbody>
                 </Table>
-                <Table striped bordered hover className="army-table" size="sm">
+                <Table hover className="army-table" size="sm">
                     <thead>
                         <tr>
                         <th colSpan={2}></th>
@@ -439,7 +437,7 @@ function Military(props) {
             </div>
             <div className="col-center-card mobi-info">
                 <h2>Mobilization</h2>
-                <Table striped bordered hover className="mobis-table" size="sm">
+                <Table hover className="mobis-table" size="sm">
                     <thead>
                         <tr>
                         <th style={{textAlign: "right"}}></th>
@@ -463,7 +461,7 @@ function Military(props) {
                         ))}
                     </tbody>
                 </Table>
-                <Table striped bordered hover className="mobis-table" size="sm">
+                <Table hover className="mobis-table" size="sm">
                     <thead>
                         <tr>
                         <th style={{textAlign: "right"}}></th>
@@ -509,7 +507,7 @@ function Structures(props) {
         <div className="col-center structures-status">
             <h2>Structures</h2>
             <div className="structures-info">
-                <Table striped bordered hover className="structures-status-table" size="sm">
+                <Table hover className="structures-status-table" size="sm">
                     <thead>
                         <tr>
                         <th style={{textAlign: "right"}}></th>

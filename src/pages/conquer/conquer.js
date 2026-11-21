@@ -55,8 +55,6 @@ function ConquerContent(props) {
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="revealed"
-        justify
-        fill
         variant="tabs"
         onSelect={(k) => handleNotifsSelect(k)}
       >
@@ -381,7 +379,8 @@ function Revealed(props) {
                 <Column field="coordinate_distance" header="Distance" sortable /*filter*/ style={{ width: "10%" , textAlign:"right"}}/>
                 <Column field="actions" header="Actions" style={{ minWidth: '110px', width: "30%" }}/>
             </DataTable>
-            <Table className="box-loose revealed-galaxy-table" striped bordered hover>
+            <div className="table-scroll">
+            <Table className="revealed-galaxy-table" hover>
                 <thead>
                     <tr>
                         <th>Remaining</th>
@@ -393,6 +392,7 @@ function Revealed(props) {
                     {revealedGalaxyRows}
                 </tbody>
             </Table>
+            </div>
         </div>
     )
 }
@@ -606,7 +606,8 @@ function Pinned(props) {
                     </Button>
                 </Modal.Footer>
             </Modal>
-            <Table className="table-small pinned-table" striped bordered hover size="sm">
+            <div className="table-scroll">
+            <Table className="table-small pinned-table" hover size="sm">
                 <thead>
                     <tr>
                         <th>Remaining</th>
@@ -621,6 +622,7 @@ function Pinned(props) {
                     {revealedRows}
                 </tbody>
             </Table>
+            </div>
         </div>
     )
 }

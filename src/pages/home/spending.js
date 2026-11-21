@@ -7,6 +7,7 @@ import { authFetch } from "../../auth";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
+import { Panel, FieldRow, Stats } from "../../components/planner";
 import "./status.css";
 import "./spending.css";
 
@@ -79,113 +80,84 @@ function Spending(props) {
         setEngineersInput('');
     }
     return (
-        <div className="spending">
+        <div className="spending panel-grid">
             <ResultToasts title="Auto Spending Results" results={results} setResults={setResults} />
-            <h2>Update Auto Spending:</h2>
-            <Form>
-                <Form.Check 
-                    type="switch"
-                    id="enable-auto-spending-switch"
-                    label="Enable"
-                    defaultChecked={enabled}
-                    onChange={handleEnabledChange}
-                    disabled={props.loading.kingdom}
-                />
-            </Form>
-            <div className="col-center-full spending-inputs">
-                <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-settle-percent" className="spending-title">
-                        Settle (Current: {spendingInfo.settle * 100}%)
-                    </InputGroup.Text>
-                    <NumberControl
-                        id="settle-percent"
-                        aria-describedby="basic-addon3" 
-                        onChange={handleSettleInput}
-                        value={settleInput} 
-                        placeholder={spendingInfo.settle * 100}
-                        autoComplete="off"
+            <Panel title="Auto spending">
+                <Form>
+                    <Form.Check
+                        type="switch"
+                        id="enable-auto-spending-switch"
+                        label="Enable"
+                        defaultChecked={enabled}
+                        onChange={handleEnabledChange}
+                        disabled={props.loading.kingdom}
                     />
-                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
-                        %
-                    </InputGroup.Text>
-                </InputGroup>
-                <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-structures-percent" className="spending-title">
-                        Structures (Current: {spendingInfo.structures * 100}%)
-                    </InputGroup.Text>
-                    <NumberControl
-                        id="structures-percent"
-                        aria-describedby="basic-addon3" 
-                        onChange={handleStructuresInput}
-                        value={structuresInput} 
-                        placeholder={spendingInfo.structures * 100}
-                        autoComplete="off"
-                    />
-                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
-                        %
-                    </InputGroup.Text>
-                </InputGroup>
-                <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-military-percent" className="spending-title">
-                        Military (Current: {spendingInfo.military * 100}%)
-                    </InputGroup.Text>
-                    <NumberControl
-                        id="military-percent"
-                        aria-describedby="basic-addon3" 
-                        onChange={handleMilitaryInput}
-                        value={militaryInput} 
-                        placeholder={spendingInfo.military * 100}
-                        autoComplete="off"
-                    />
-                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
-                        %
-                    </InputGroup.Text>
-                </InputGroup>
-                <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-engineers-percent" className="spending-title">
-                        Engineers (Current: {spendingInfo.engineers * 100}%)
-                    </InputGroup.Text>
-                    <NumberControl
-                        id="engineers-percent"
-                        aria-describedby="basic-addon3" 
-                        onChange={handleEngineersInput}
-                        value={engineersInput} 
-                        placeholder={spendingInfo.engineers * 100}
-                        autoComplete="off"
-                    />
-                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
-                        %
-                    </InputGroup.Text>
-                </InputGroup>
-                {props.loading.kingdom
-                ? <Button className="spending-button" variant="primary" type="submit" disabled>
-                    Loading...
-                </Button>
-                : <Button className="spending-button" variant="primary" type="submit" onClick={onSubmitClick}>
-                    Submit
-                </Button>
-                }
-            </div>
-            <div className="text-box kingdom-card">
-                <h4>Auto Spending Funding</h4>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Settle</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.funding?.settle || 0).toLocaleString()}</span>
+                </Form>
+                <FieldRow label="Settle" hint={`Now ${spendingInfo.settle * 100}%`} htmlFor="settle-percent">
+                    <InputGroup size="sm" className="spending-input">
+                        <NumberControl
+                            id="settle-percent"
+                            onChange={handleSettleInput}
+                            value={settleInput}
+                            placeholder={spendingInfo.settle * 100}
+                            autoComplete="off"
+                        />
+                        <InputGroup.Text>%</InputGroup.Text>
+                    </InputGroup>
+                </FieldRow>
+                <FieldRow label="Structures" hint={`Now ${spendingInfo.structures * 100}%`} htmlFor="structures-percent">
+                    <InputGroup size="sm" className="spending-input">
+                        <NumberControl
+                            id="structures-percent"
+                            onChange={handleStructuresInput}
+                            value={structuresInput}
+                            placeholder={spendingInfo.structures * 100}
+                            autoComplete="off"
+                        />
+                        <InputGroup.Text>%</InputGroup.Text>
+                    </InputGroup>
+                </FieldRow>
+                <FieldRow label="Military" hint={`Now ${spendingInfo.military * 100}%`} htmlFor="military-percent">
+                    <InputGroup size="sm" className="spending-input">
+                        <NumberControl
+                            id="military-percent"
+                            onChange={handleMilitaryInput}
+                            value={militaryInput}
+                            placeholder={spendingInfo.military * 100}
+                            autoComplete="off"
+                        />
+                        <InputGroup.Text>%</InputGroup.Text>
+                    </InputGroup>
+                </FieldRow>
+                <FieldRow label="Engineers" hint={`Now ${spendingInfo.engineers * 100}%`} htmlFor="engineers-percent">
+                    <InputGroup size="sm" className="spending-input">
+                        <NumberControl
+                            id="engineers-percent"
+                            onChange={handleEngineersInput}
+                            value={engineersInput}
+                            placeholder={spendingInfo.engineers * 100}
+                            autoComplete="off"
+                        />
+                        <InputGroup.Text>%</InputGroup.Text>
+                    </InputGroup>
+                </FieldRow>
+                <div className="form-actions spending-actions">
+                    {props.loading.kingdom
+                    ? <Button className="spending-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="spending-button" variant="primary" type="submit" onClick={onSubmitClick}>
+                        Submit
+                    </Button>
+                    }
                 </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Structures</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.funding?.structures || 0).toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Military</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.funding?.military || 0).toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Engineers</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.funding?.engineers || 0).toLocaleString()}</span>
-                </div>
-            </div>
+            </Panel>
+            <Panel title="Auto spending funding">
+                <Stats items={["settle", "structures", "military", "engineers"].map((key) => ({
+                    label: key.charAt(0).toUpperCase() + key.slice(1),
+                    value: Math.floor(props.kingdom.funding?.[key] || 0).toLocaleString(),
+                }))} />
+            </Panel>
         </div>
     )
 }

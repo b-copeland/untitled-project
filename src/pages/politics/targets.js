@@ -390,7 +390,7 @@ export default function Targets(props) {
                 { label: "Funds paid out", value: "When the target ends" },
                 { label: "Most stars a kingdom gets from a target", value: `${displayPercent(targets.max_payout_stars_share || 0)} of its land` },
             ]} />
-            <Tabs id="targets-tabs" defaultActiveKey="targets" justify fill variant="tabs">
+            <Tabs id="targets-tabs" defaultActiveKey="targets" variant="tabs">
                 <Tab eventKey="targets" title={`Targets (${list.length})`}>
                     {list.length ? list.map((target) => (
                         <TargetCard key={target.target} target={target} targets={targets} data={props.data}

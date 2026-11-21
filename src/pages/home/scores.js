@@ -50,7 +50,7 @@ function Scores(props) {
     return (
         <>
             <Header data={data} />
-            <Tabs id="controlled-tab-example" defaultActiveKey="points" justify fill variant="tabs">
+            <Tabs id="controlled-tab-example" defaultActiveKey="points" variant="tabs">
                 <Tab eventKey="points" title="Points">
                     <Leaderboard rows={data.scores?.points || []} valueHeader="Points" formatValue={decimals} {...shared} />
                 </Tab>

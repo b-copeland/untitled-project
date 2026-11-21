@@ -486,7 +486,7 @@ export function KingdomModal({ show, onHide, target, tab = "kingdom", ...props }
             <Modal.Body>
                 <ResultToasts title="Intel" results={results} setResults={setResults} />
                 {withIntel ? (
-                    <Tabs id="kingdom-modal-tabs" activeKey={active} onSelect={(key) => setActive(key)} justify className="kingdom-modal-tabs">
+                    <Tabs id="kingdom-modal-tabs" activeKey={active} onSelect={(key) => setActive(key)} className="kingdom-modal-tabs">
                         <Tab eventKey="kingdom" title="Kingdom info">{view}</Tab>
                         <Tab eventKey="intel" title="Intel market">
                             <KingdomIntel {...props} target={target} ask={ask} onView={() => setActive("kingdom")} />
@@ -558,7 +558,7 @@ function IntelMarket(props) {
                 <ResultToasts title="Intel" results={results} setResults={setResults} />
                 <KingdomModal show={opened.show} onHide={() => setOpened({ ...opened, show: false })} target={opened.target} tab={opened.tab}
                     data={props.data} loading={props.loading} updateData={props.updateData} />
-                <Tabs id="intel-tabs" defaultActiveKey="bounties" justify fill variant="tabs">
+                <Tabs id="intel-tabs" defaultActiveKey="bounties" variant="tabs">
                     <Tab eventKey="bounties" title={`Bounties (${intel.bounties.length})`}>
                         <Panel title="Open bounties"><BountiesTable {...shared} /></Panel>
                         <Panel title="Ask the galaxy for intel" className="intel-form-panel"><BountyForm {...shared} /></Panel>

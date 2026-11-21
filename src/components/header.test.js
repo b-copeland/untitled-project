@@ -8,9 +8,12 @@ const { authFetch } = require("../auth");
 // Create React App resets mocks between tests, so the answer is set before each.
 beforeEach(() => authFetch.mockImplementation(() => Promise.resolve({ json: () => Promise.resolve("2026-01-01T12:00:00Z") })));
 
+// A header item by what it reads: its label, then its value ("Fuel 0").
+const item = (text) => screen.getByText((_, element) => element?.classList?.contains("header-item") && element.textContent === text);
+
 // The tooltip a header item shows when pointed at.
 const tipOf = (text) => {
-    fireEvent.mouseOver(screen.getByText(text));
+    fireEvent.mouseOver(item(text));
     const tips = screen.getAllByRole("tooltip");
     return tips[tips.length - 1].textContent;  // the one just opened (a closing one may still be fading out)
 };
@@ -19,16 +22,15 @@ const kingdom = { stars: 1234, fuel: 5000.7, population: 99.9, money: 1000000, n
 
 test("it shows the numbers a player checks on every page", () => {
     render(<Header data={{ kingdom }} />);
-    ["Stars: 1,234", "Fuel: 5,000", "Pop: 99", "Money: 1,000,000", "Networth: 77", "Spy Attempts: 4", "Generals: 2"]
-        .forEach((text) => expect(screen.getByText(text)).toBeTruthy());
+    ["Stars 1,234", "Fuel 5,000", "Pop 99", "Money 1,000,000", "Networth 77", "Spy Attempts 4", "Generals 2"]
+        .forEach((text) => expect(item(text)).toBeTruthy());
 });
 
 test("running out of fuel is flagged, with the reason", () => {
     render(<Header data={{ kingdom: { ...kingdom, fuel: 0 } }} />);
-    const item = screen.getByText("Fuel: 0").closest(".header-item");
-    expect(item.className).toMatch(/header-alert/);
-    expect(tipOf("Fuel: 0")).toMatch(/penalty/);
-    expect(screen.getByText("Money: 1,000,000").closest(".header-item").className).not.toMatch(/header-alert/);
+    expect(item("Fuel 0").className).toMatch(/header-alert/);
+    expect(tipOf("Fuel 0")).toMatch(/penalty/);
+    expect(item("Money 1,000,000").className).not.toMatch(/header-alert/);
 });
 
 test("nothing is shown before the kingdom has loaded", () => {
@@ -39,8 +41,8 @@ test("nothing is shown before the kingdom has loaded", () => {
 test("fuel and money carry their net rate per hour in a tooltip, and when a falling stock runs out", () => {
     const withIncome = { ...kingdom, fuel: 1000, income: { fuel: { net: -250 }, money: { net: 600 } } };
     render(<Header data={{ kingdom: withIncome, state: { game_config: { BASE_EPOCH_SECONDS: 1800 } } }} />);
-    expect(tipOf("Fuel: 1,000")).toBe("-500 fuel per hour; runs out in about 2.0 h");
-    expect(tipOf("Money: 1,000,000")).toBe("+1,200 income per hour");
+    expect(tipOf("Fuel 1,000")).toBe("-500 fuel per hour; runs out in about 2.0 h");
+    expect(tipOf("Money 1,000,000")).toBe("+1,200 income per hour");
 });
 
 test("once the round is over, every page says so", () => {

@@ -40,37 +40,37 @@ function Settle(props) {
         <Header data={props.data} />
         <div className="settle">
             <ResultToasts title="Settle Results" results={settleResults} setResults={setSettleResults} />
-            <div className="settle-input">
-                <div className="text-box settle-box">
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Settle Time</span>
-                        <span className="text-box-item-value">{(settleInfo.settle_time || 0) / 3600}h</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Settle Cost</span>
-                        <span className="text-box-item-value">{settleInfo.settle_price?.toLocaleString()}</span>
-                    </div>
-                    <br />
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Maximum New Settlements</span>
-                        <span className="text-box-item-value">{settleInfo.max_available_settle?.toLocaleString()}</span>
-                    </div>
-                    <div className="text-box-item">
-                        <span className="text-box-item-title">Available New Settlements</span>
-                        <span className="text-box-item-value">{settleInfo.current_available_settle?.toLocaleString()}</span>
-                    </div>
+            <div className="text-box text-box-stats settle-box">
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Settle Time</span>
+                    <span className="text-box-item-value">{(settleInfo.settle_time || 0) / 3600}h</span>
                 </div>
-                <div className="settle-amount">
-                    <label htmlFor="settle-input">Stars to settle</label>
-                    <AmountInput name="settle" id="settle-input" label="Stars to settle" value={settleInput}
-                        onChange={(e) => setSettleInput(e.target.value)} error={inputError} max={maxSettle} />
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Settle Cost</span>
+                    <span className="text-box-item-value">{settleInfo.settle_price?.toLocaleString()}</span>
                 </div>
-                <SubmitButton loading={props.loading.settle} blocked={blocked} className="settle-button" onClick={onSubmitClick}>
-                    Settle
-                </SubmitButton>
-                {settleInput !== "" && !inputError
-                    ? <h3>Settle Cost: {((parseInt(settleInput, 10) || 0) * settleInfo.settle_price).toLocaleString()}</h3>
-                    : null}
+                <br />
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Maximum New Settlements</span>
+                    <span className="text-box-item-value">{settleInfo.max_available_settle?.toLocaleString()}</span>
+                </div>
+                <div className="text-box-item">
+                    <span className="text-box-item-title">Available New Settlements</span>
+                    <span className="text-box-item-value">{settleInfo.current_available_settle?.toLocaleString()}</span>
+                </div>
+                <div className="summary-form">
+                    <div className="settle-amount">
+                        <label htmlFor="settle-input">Stars to settle</label>
+                        <AmountInput name="settle" id="settle-input" label="Stars to settle" value={settleInput}
+                            onChange={(e) => setSettleInput(e.target.value)} error={inputError} max={maxSettle} />
+                    </div>
+                    <SubmitButton loading={props.loading.settle} blocked={blocked} className="settle-button" onClick={onSubmitClick}>
+                        Settle
+                    </SubmitButton>
+                    {settleInput !== "" && !inputError
+                        ? <span className="text-muted">Settle Cost: {((parseInt(settleInput, 10) || 0) * settleInfo.settle_price).toLocaleString()}</span>
+                        : null}
+                    </div>
             </div>
             <HelpButton scrollTarget={"settle"}/>
         </div>

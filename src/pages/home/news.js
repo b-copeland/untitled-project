@@ -98,8 +98,6 @@ function NewsContent(props) {
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="kingdom"
-        justify
-        fill
         variant="tabs"
         onSelect={(k) => handleNotifsSelect(k)}
       >
@@ -250,7 +248,7 @@ function Empire(props) {
     );
     return (
         <div className="kingdom">
-            <Table striped bordered hover>
+            <Table hover>
                 <thead>
                     <tr>
                     <th>Time</th>
@@ -281,7 +279,7 @@ function Universe(props) {
     );
     return (
         <div className="kingdom">
-            <Table striped bordered hover>
+            <Table hover>
                 <thead>
                     <tr>
                     <th>Time</th>

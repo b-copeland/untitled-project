@@ -29,7 +29,7 @@ function Clock({ interval }) {
         }
     }, interval);
 
-    return <span>Time: {date.toLocaleTimeString()}</span>;
+    return <><span className="header-label">Time</span> <span className="header-value">{date.toLocaleTimeString()}</span></>;
 }
 
 /**
@@ -86,7 +86,7 @@ function Header(props) {
                     const note = [warn ? why : null, rate].filter(Boolean).join(". ");
                     const item = (
                         <div className={"header-item" + (warn ? " header-alert" : "")} tabIndex={note ? 0 : undefined}>
-                            <span>{label}: {value(kingdom)}</span>
+                            <span className="header-label">{label}</span> <span className="header-value">{value(kingdom)}</span>
                         </div>
                     );
                     // A Bootstrap tooltip rather than a title attribute: it appears at once, and on tap or keyboard focus.

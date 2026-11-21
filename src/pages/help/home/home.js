@@ -28,7 +28,7 @@ function Home(props) {
                 current game config.
             </p>
             <p>Networth is calculated by summing the values below</p>
-            <Table striped bordered hover>
+            <Table hover>
                 <thead>
                     <tr>
                         <th>Item</th>

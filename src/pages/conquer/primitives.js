@@ -25,7 +25,7 @@ function Primitives(props) {
             <Header data={props.data} />
             <div className="planner primitives">
                 <h2>Primitives</h2>
-                <Tabs id="primitives-tabs" defaultActiveKey="attack" justify fill variant="tabs">
+                <Tabs id="primitives-tabs" defaultActiveKey="attack" variant="tabs">
                     <Tab eventKey="attack" title="Attack">
                         <AttackPrimitives loading={props.loading} updateData={props.updateData} data={props.data} />
                     </Tab>

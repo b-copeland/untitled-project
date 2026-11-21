@@ -21,7 +21,7 @@ import Header from "../components/header";
 import HelpButton from "../components/helpbutton";
 import { IconButton } from "../components/iconbutton";
 import { withLastKnown, Known } from "../components/lastknown";
-import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsShareFill, BsClipboardData } from "react-icons/bs";
+import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsShareFill, BsClipboardData, BsChevronLeft, BsChevronRight } from "react-icons/bs";
 import { GiCrossedSwords } from "react-icons/gi";
 
 function getTimeString(date) {
@@ -389,7 +389,7 @@ function Galaxy(props) {
             {
                 loading
                 ? <div className="galaxy-nav-container">
-                    <span className="galaxy-nav-arrow-disabled">{'<<'}</span>
+                    <IconButton icon={BsChevronLeft} label="Previous galaxy" disabled />
                     <div className="box-tight galaxy-nav-input">
                         <InputGroup className="galaxy-nav-input-form">
                             <InputGroup.Text id="cluster">Cluster</InputGroup.Text>
@@ -414,10 +414,10 @@ function Galaxy(props) {
                             />
                         </InputGroup>
                     </div>
-                    <span className="galaxy-nav-arrow-disabled" >{'>>'}</span>
+                    <IconButton icon={BsChevronRight} label="Next galaxy" disabled />
                 </div>
                 : <div className="galaxy-nav-container">
-                    <span className="galaxy-nav-arrow" onClick={moveLeft}>{'<<'}</span>
+                    <IconButton icon={BsChevronLeft} label="Previous galaxy" onClick={moveLeft} />
                     <div className="box-tight galaxy-nav-input">
                         <InputGroup className="galaxy-nav-input-form">
                             <InputGroup.Text id="cluster">Cluster</InputGroup.Text>
@@ -440,7 +440,7 @@ function Galaxy(props) {
                             />
                         </InputGroup>
                     </div>
-                    <span className="galaxy-nav-arrow" onClick={moveRight}>{'>>'}</span>
+                    <IconButton icon={BsChevronRight} label="Next galaxy" onClick={moveRight} />
                 </div>
             }
             
@@ -452,7 +452,7 @@ function Galaxy(props) {
                 ? <NonexistentGalaxy />
                 : view === "cards"
                 ? <div className="galaxy-cards">{galaxyCards}</div>
-                : <div className="table-scroll"><Table striped bordered hover className="galaxies-table" size="sm" >
+                : <div className="table-scroll"><Table hover className="galaxies-table" size="sm" >
                     <thead>
                         <tr>
                         <th>Kingdom</th>

@@ -51,8 +51,6 @@ function ProjectsContent(props) {
         <Tabs
           id="controlled-tab-example"
           defaultActiveKey="train"
-          justify
-          fill
           variant="tabs"
         >
           <Tab eventKey="train" title="Train">
@@ -105,7 +103,7 @@ function Train(props) {
     return (
         <div className="engineers">
             <ResultToasts title="Structures Results" results={engineersResult} setResults={setEngineersResult} />
-            <div className="text-box engineers-box">
+            <div className="text-box text-box-stats engineers-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Training Time</span>
                     <span className="text-box-item-value">12h</span>
@@ -138,24 +136,26 @@ function Train(props) {
                     <span className="text-box-item-title">Available New Engineers</span>
                     <span className="text-box-item-value">{props.engineersInfo.current_available_engineers?.toLocaleString()}</span>
                 </div>
-                <div className="amount-field">
-                    <label htmlFor="engineers-input">New engineers</label>
-                    <AmountInput name="engineers" id="engineers-input" label="New engineers" value={engineersInput}
-                        onChange={handleEngineersInput} max={maxEngineers} />
+                <div className="summary-form">
+                    <div className="amount-field">
+                        <label htmlFor="engineers-input">New engineers</label>
+                        <AmountInput name="engineers" id="engineers-input" label="New engineers" value={engineersInput}
+                            onChange={handleEngineersInput} max={maxEngineers} />
+                    </div>
+                    {props.loading.engineers
+                    ? <Button className="engineers-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="engineers-button" variant="primary" type="submit" onClick={onSubmitClick}>
+                        Train
+                    </Button>
+                    }
+                    {
+                        trainCosts !== 0
+                        ? <span className="text-muted">Engineers Cost: {trainCosts.toLocaleString()}</span>
+                        : null
+                    }
                 </div>
-                {props.loading.engineers
-                ? <Button className="engineers-button" variant="primary" type="submit" disabled>
-                    Loading...
-                </Button>
-                : <Button className="engineers-button" variant="primary" type="submit" onClick={onSubmitClick}>
-                    Train
-                </Button>
-                }
-                {
-                    trainCosts !== 0
-                    ? <h3>Engineers Cost: {trainCosts.toLocaleString()}</h3>
-                    : null
-                }
             </div>
         </div>
     )
@@ -354,7 +354,7 @@ function Assign(props) {
     return (
         <div className="projects">
             <ResultToasts title="Projects Results" results={assignResult} setResults={setAssignResult} />
-            <div className="text-box box-tight projects-box">
+            <div className="text-box text-box-stats projects-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Total Engineers</span>
                     <span className="text-box-item-value">{props.engineersInfo.current_engineers?.toLocaleString()}</span>
@@ -366,7 +366,7 @@ function Assign(props) {
             </div>
             <ProjectSections state={props.state} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
                 inputHeaders={["Assign", "Add", "Remove"]} inputs={inputs} />
-            <div className="projects-buttons">
+            <div className="form-actions projects-buttons">
                 <Button className="projects-button" variant="primary" type="submit" onClick={onAssignClick} disabled={props.loading.projects}>
                     {props.loading.projects ? "Loading..." : "Assign"}
                 </Button>
@@ -378,9 +378,9 @@ function Assign(props) {
                 </Button>
                 {
                     engineersAssigned !== 0
-                    ? <h3>Unassigned Engineers: {(props.engineersInfo.current_engineers - engineersAssigned).toLocaleString()}</h3>
+                    ? <span className="text-muted">Unassigned Engineers: {(props.engineersInfo.current_engineers - engineersAssigned).toLocaleString()}</span>
                     : engineersAdded !== 0
-                        ? <h3>Unassigned Engineers: {(props.projectsInfo.available_engineers - engineersAdded).toLocaleString()}</h3>
+                        ? <span className="text-muted">Unassigned Engineers: {(props.projectsInfo.available_engineers - engineersAdded).toLocaleString()}</span>
                         : null
                 }
             </div>
@@ -421,9 +421,7 @@ function Allocate(props) {
     return (
         <div className="projects">
             <ResultToasts title="Projects Results" results={assignResult} setResults={setAssignResult} />
-            <div className="text-box box-tight projects-box">
-                <span>Choose the target allocation of assigned engineers that you would like the auto-spender to assign towards</span>
-            </div>
+            <p className="page-note">Choose the target allocation of assigned engineers that you would like the auto-spender to assign towards</p>
             <Form>
                 <Form.Check
                     type="switch"
@@ -436,7 +434,7 @@ function Allocate(props) {
             </Form>
             <ProjectSections state={props.state} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
                 inputHeaders={["Current Allocation", "New Allocation"]} inputs={inputs} />
-            <div className="projects-buttons">
+            <div className="form-actions projects-buttons">
                 <Button className="auto-projects-button" variant="primary" type="submit" onClick={onSubmitClick} disabled={props.loading.kingdom}>
                     {props.loading.kingdom ? "Loading..." : "Update"}
                 </Button>

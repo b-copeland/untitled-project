@@ -26,6 +26,7 @@
     .nav-canvas {
         position: sticky; top: 0; align-self: flex-start;
         flex: 0 0 260px; width: 260px; height: 100vh; overflow-y: auto;
-        border-right: 1px solid var(--bs-border-color);
+        border-right: 1px solid var(--border-subtle);
+        background: var(--surface);
     }
 }

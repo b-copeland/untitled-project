@@ -72,7 +72,7 @@ function Projects(props) {
                 The Allocate page allows you to set the target allocation of engineers across all projects. When enabled, engineers will be 
                 automatically assigned to projects at the percentages you have chosen during each game update.
             </p>
-            <Table striped bordered hover>
+            <Table hover>
                 <thead>
                     <tr>
                         <th>Project</th>

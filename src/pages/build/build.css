@@ -1,13 +1,8 @@
 .queue-page {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: 5px;
+    width: 100%;
 }
-
-
-@media (min-width: 768px) {
-    .queue-accordion {
-        width: 50%;
-    }
+.queue-accordion {
+    width: 100%;
 }

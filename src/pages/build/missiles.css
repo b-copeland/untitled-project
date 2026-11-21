@@ -1,25 +1,15 @@
-
-
 .missiles {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    width: 100%;
 }
-
 
 .missiles-table {
     width: 100%;
-    margin: 5px;
-    font-size: 9px;
+    font-size: var(--table-font-size);
 }
 @media (min-width: 756px) {
     .missiles-table {
-        width: 50%;
-        min-width: 500px;
-        font-size: 16px;
+        font-size: var(--table-font-size-wide);
     }
-}
-
-.missiles-button {
-    margin: 5px;
 }

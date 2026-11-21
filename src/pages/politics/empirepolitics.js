@@ -43,8 +43,6 @@ function EmpirePolitics(props) {
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="join"
-        justify
-        fill
         variant="tabs"
       >
         <Tab eventKey="join" title="Join">
@@ -306,7 +304,7 @@ function Join(props) {
               </div>
               <div className="empire-membership-table">
                 <h3>Empire Invitations</h3>
-                <Table striped bordered hover className="galaxy-leader-table">
+                <Table hover className="galaxy-leader-table">
                     <thead>
                         <tr>
                             <th>Empire</th>
@@ -320,7 +318,7 @@ function Join(props) {
               </div>
               <div className="empire-membership-table">
                 <h3>Empire Join Requests</h3>
-                <Table striped bordered hover className="galaxy-leader-table">
+                <Table hover className="galaxy-leader-table">
                     <thead>
                         <tr>
                             <th>Empire</th>
@@ -385,7 +383,7 @@ function Join(props) {
               </div>
               <div className="empire-membership-table">
                 <h3>Empire Join Requests</h3>
-                <Table striped bordered hover className="galaxy-leader-table">
+                <Table hover className="galaxy-leader-table">
                     <thead>
                         <tr>
                             <th>Galaxy</th>
@@ -399,7 +397,7 @@ function Join(props) {
               </div>
               <div className="empire-membership-table">
                 <h3>Empire Invitations</h3>
-                <Table striped bordered hover className="galaxy-leader-table">
+                <Table hover className="galaxy-leader-table">
                     <thead>
                         <tr>
                             <th>Galaxy</th>
@@ -770,7 +768,7 @@ function Status(props) {
             </div>
             <div className="col-center empire-statuses">
                 <h3>Empire Statuses</h3>
-                <Table striped bordered hover size="sm" className="galaxy-leader-table">
+                <Table hover size="sm" className="galaxy-leader-table">
                     <thead>
                         <tr>
                             <th>Empire</th>
@@ -916,7 +914,7 @@ function Status(props) {
                 <h5>Surrender Requests Sent</h5>
                 {
                     (props.data.empirepolitics.surrender_requests_sent || []).length > 0 
-                    ? <Table striped bordered hover className="galaxy-leader-table">
+                    ? <Table hover className="galaxy-leader-table">
                         <thead>
                             <tr>
                                 <th>Empire</th>
@@ -936,7 +934,7 @@ function Status(props) {
                 <h5>Surrender Offers Received</h5>
                 {
                     (props.data.empirepolitics.surrender_offers_received || []).length > 0 
-                    ? <Table striped bordered hover className="galaxy-leader-table">
+                    ? <Table hover className="galaxy-leader-table">
                         <thead>
                             <tr>
                                 <th>Empire</th>
@@ -1083,7 +1081,7 @@ function Status(props) {
                 <h5>Surrender Offers Sent</h5>
                 {
                     (props.data.empirepolitics.surrender_offers_sent || []).length > 0 
-                    ? <Table striped bordered hover className="galaxy-leader-table">
+                    ? <Table hover className="galaxy-leader-table">
                         <thead>
                             <tr>
                                 <th>Empire</th>
@@ -1103,7 +1101,7 @@ function Status(props) {
                 <h5>Surrender Requests Received</h5>
                 {
                     (props.data.empirepolitics.surrender_requests_received || []).length > 0 
-                    ? <Table striped bordered hover className="galaxy-leader-table">
+                    ? <Table hover className="galaxy-leader-table">
                         <thead>
                             <tr>
                                 <th>Empire</th>

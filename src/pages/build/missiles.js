@@ -104,15 +104,14 @@ function Missiles(props) {
                     className="missiles-table" columns={columns} rows={MISSILES} rowKey={({ key }) => key}
                     rowClassName={(missile) => (locked(missile) ? "disabled-table-row" : undefined)}
                 />
-                <SubmitButton loading={props.loading.missiles} blocked={blocked} className="missiles-button" onClick={onSubmitClick}>
-                    Build
-                </SubmitButton>
-                {cost !== 0
-                    ? <div>
-                        <h3>Missiles Cost: {cost.toLocaleString()}</h3>
-                        <h3>Missiles Fuel Cost: {fuelCost.toLocaleString()}</h3>
-                    </div>
-                    : null}
+                <div className="form-actions">
+                    {cost !== 0
+                        ? <span className="text-muted">Cost {cost.toLocaleString()} · fuel {fuelCost.toLocaleString()}</span>
+                        : null}
+                    <SubmitButton loading={props.loading.missiles} blocked={blocked} className="missiles-button" onClick={onSubmitClick}>
+                        Build
+                    </SubmitButton>
+                </div>
                 <HelpButton scrollTarget={"buildmissiles"}/>
             </div>
         </>

@@ -67,7 +67,7 @@ function Military(props) {
                 elite units pack more strength into each hangar space, so the same hangars hold a stronger army and
                 more of your land can go to homes and mines, but each point of their strength costs more money.
             </p>
-            <Table className="specialists-table" striped bordered hover size="sm">
+            <Table className="specialists-table" hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Unit</th>
