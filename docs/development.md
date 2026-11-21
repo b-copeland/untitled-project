@@ -253,6 +253,21 @@ To watch it in the browser, `npm start` and log in at `/admin` with the `admin` 
 **Watch the round** lists every kingdom (stars, networth, points, galaxy, empire), refreshed every 30 seconds if asked,
 and clicking one shows all of it, its bot's decisions and memory, and its news.
 
+### A lived-in round to look at, beside your own
+
+`python scripts/demo_round.py --apply` plays a bot round in-process on a clock that starts a few days ago and ends
+now, gives `user1` (password `user1`) the kingdom with the most last-known intel, and writes it into the emulator
+container `demo` (`--container` for another). Your own container is not touched: it refuses the one
+`local.settings.json` names unless `--replace`. To play it beside your usual stack, run a second one on other ports:
+
+1. A copy of the repository (a git worktree) with its own `funcapp/local.settings.json` whose
+   `COSMOS_CONTAINER_NAME` is the demo container, and a copy of `api/.flaskenv`.
+2. `func host start --port 7072` in its `funcapp/`.
+3. `flask run -p 8001` in its `api/`, with `AZURE_FUNCTION_ENDPOINT=http://localhost:7072/api` set (it wins over
+   `.flaskenv`).
+4. `npm start` with `PORT=3001` and `API_PORT=8001` (`src/setupProxy.js` sends `/api` to that port).
+5. Optionally `python scripts/refresh_loop.py --url http://localhost:8001` so the bots play on and intel keeps ending.
+
 ## Troubleshooting
 
 | Symptom | Cause and fix |
