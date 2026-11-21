@@ -619,6 +619,11 @@ def _get_units_adjusted_costs(state, cluster_modifiers=None):
 
     return units_desc
 
+def _queue_total(queue):
+    """How many items a queue holds in all: every count of every entry (an entry is its `time` and counts)."""
+    return int(sum(value for entry in queue for key, value in entry.items() if key != "time"))
+
+
 def _get_mobis_queue(kd_id):
     app = flask.current_app
     mobis_info = REQUESTS_SESSION.get(
@@ -653,6 +658,7 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policie
         key=lambda queue: queue["time"],
     )[:10]
     len_queue = len(mobis_info_parse)
+    total_queue = _queue_total(mobis_info_parse)
 
     if galaxy_policies is None:
         galaxy_policies, _ = _get_galaxy_politics(kd_id)
@@ -677,6 +683,7 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policie
         'units_desc': uas.units_for(kd_info_parse, units_adjusted_costs),
         'top_queue': top_queue,
         'len_queue': len_queue,
+        'total_queue': total_queue,
         'is_conscription': is_conscription,
         }
     return payload
@@ -756,6 +763,7 @@ def _get_structures_info(kd_id, kd_info=None, structures_queue=None, state=None)
         key=lambda queue: queue["time"],
     )[:10]
     len_queue = len(building_structures)
+    total_queue = _queue_total(building_structures)
 
     current_price = _get_structure_price(kd_info_parse)
     current_structures = kd_info_parse["structures"]
@@ -778,6 +786,7 @@ def _get_structures_info(kd_id, kd_info=None, structures_queue=None, state=None)
         "current_available_structures": current_available_structures,
         "top_queue": top_queue,
         "len_queue": len_queue,
+        "total_queue": total_queue,
     }
     return payload
 
@@ -929,6 +938,7 @@ def _get_settle(kd_id, kd_info=None, settle_queue=None, galaxy_policies=None, cl
         key=lambda queue: queue["time"],
     )[:10]
     len_queue = len(settle_info)
+    total_queue = _queue_total(settle_info)
 
     if galaxy_policies is None:
         galaxy_policies, _ = _get_galaxy_politics(kd_id)
@@ -955,6 +965,7 @@ def _get_settle(kd_id, kd_info=None, settle_queue=None, galaxy_policies=None, cl
         "current_available_settle": available_settle,
         "top_queue": top_queue,
         "len_queue": len_queue,
+        "total_queue": total_queue,
     }
     return payload
 
@@ -1039,6 +1050,7 @@ def missiles():
         key=lambda queue: queue["time"],
     )[:10]
     len_queue = len(missiles_info)
+    total_queue = _queue_total(missiles_info)
     missiles_building = _get_missiles_building(missiles_info)
 
     current_missiles = kd_info_parse["missiles"]
@@ -1058,6 +1070,7 @@ def missiles():
         "desc": uas.MISSILES,
         "top_queue": top_queue,
         "len_queue": len_queue,
+        "total_queue": total_queue,
         "cost_modifier": cost_modifier,
     }
 
@@ -1119,6 +1132,7 @@ def _get_engineers(kd_id, kd_info=None, engineers_queue=None):
         key=lambda queue: queue["time"],
     )[:10]
     len_queue = len(engineers_info)
+    total_queue = _queue_total(engineers_info)
 
     payload = {
         'engineers_price': uas.GAME_CONFIG["BASE_ENGINEER_COST"],
@@ -1130,6 +1144,7 @@ def _get_engineers(kd_id, kd_info=None, engineers_queue=None):
         'engineers_building': engineers_building,
         "top_queue": top_queue,
         "len_queue": len_queue,
+        "total_queue": total_queue,
         }
     return payload
 
