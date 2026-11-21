@@ -7,7 +7,7 @@ import Tabs from "react-bootstrap/Tabs";
 import { BsXLg } from "react-icons/bs";
 import { authFetch } from "../../auth";
 import { GameTable } from "../../components/gametable";
-import { SubmitButton } from "../../components/forms";
+import { NumberControl, SubmitButton } from "../../components/forms";
 import { IconButton } from "../../components/iconbutton";
 import { Panel, Picker, Stats } from "../../components/planner";
 import { ResultToasts, safeJson } from "../../components/results";
@@ -128,7 +128,7 @@ function TargetFields({ form, setForm, targets, errors, idPrefix }) {
                         header: "Points x", className: "targets-multiplier",
                         cell: (row) => (
                             <>
-                                <Form.Control size="sm" inputMode="decimal" aria-label={`${row.name} points multiplier`}
+                                <NumberControl size="sm" inputMode="decimal" aria-label={`${row.name} points multiplier`}
                                     value={form.actions[row.key]?.multiplier ?? ""} disabled={!form.actions[row.key]?.on}
                                     isInvalid={Boolean(errors[row.key])}
                                     onChange={(event) => setAction(row.key, { multiplier: event.target.value })} />
@@ -145,7 +145,7 @@ function TargetFields({ form, setForm, targets, errors, idPrefix }) {
             <Form.Group className="targets-fund-share">
                 <Form.Label htmlFor={`${idPrefix}-fund-share`}>Spoils fund share of successful attacks</Form.Label>
                 <div className="targets-fund-share-input">
-                    <Form.Control id={`${idPrefix}-fund-share`} size="sm" inputMode="decimal" value={form.fund_share}
+                    <NumberControl id={`${idPrefix}-fund-share`} size="sm" inputMode="decimal" value={form.fund_share}
                         isInvalid={Boolean(errors.fund_share)}
                         onChange={(event) => setForm((previous) => ({ ...previous, fund_share: event.target.value }))} />
                     <span>%</span>

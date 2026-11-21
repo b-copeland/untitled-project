@@ -172,3 +172,61 @@ def test_a_reveal_shared_from_the_spy_page_is_listed_for_a_cut_or_given_free(app
     market = _get("/galaxy/1/intel")
     assert bool(market.get("listings")) is listed
     assert (TARGET_ID in _get("/kingdom/3/revealed")["revealed"]) is not listed
+
+
+def _revealed(kd_id, revealed=None, galaxymates=None):
+    import untitledapp.shared as uas
+    _create_item(f"revealed_{kd_id}", {**uas.INITIAL_KINGDOM_STATE["revealed"], "revealed": revealed or {},
+                                      "revealed_galaxymates": galaxymates or []})
+
+
+FUTURE = "2999-01-01T00:00:00+00:00"
+PAST = "2000-01-01T00:00:00+00:00"
+
+
+@pytest.mark.parametrize("operation,revealed,galaxymates", [
+    ("spymilitary", {"military": FUTURE}, []),                        # spied, or received from a galaxymate
+    ("spymilitary", {}, [TARGET_ID]),                                 # the target shares its whole kingdom
+    ("spyall", {c: FUTURE for c in ("kingdom", "military", "shields", "projects", "structures", "drones")}, []),
+], ids=["own-or-received", "shared-kingdom", "full-infiltration-all-known"])
+def test_a_reveal_of_what_is_already_revealed_is_refused_before_anything_is_spent(app, client, jwt1, operation, revealed, galaxymates):
+    """#155: nothing to see, so no drones or attempt spent, and no way to launder received intel into your own."""
+    _set_up_two_kingdoms(target_overrides={"completed_projects": []})
+    if operation == "spyall":
+        _create_item(f"kingdom_{KD_ID}", {**_get(f"/kingdom/{KD_ID}"), "completed_projects": ["vult_evolution"]})
+    _revealed(KD_ID, {TARGET_ID: revealed}, galaxymates)
+    before = _get(f"/kingdom/{KD_ID}")
+
+    response = _spy(client, jwt1, operation=operation)
+
+    assert response.status_code == 400
+    assert response.get_json()["message"].startswith("You already have their ")
+    after = _get(f"/kingdom/{KD_ID}")
+    assert (after["drones"], after["spy_attempts"]) == (before["drones"], before["spy_attempts"])
+    assert _get(f"/kingdom/{KD_ID}/spyhistory")["spy_history"] == []
+
+
+@pytest.mark.parametrize("operation,revealed", [
+    ("spymilitary", {"military": PAST}),            # ended, the refresh has not cleared it yet
+    ("spymilitary", {"shields": FUTURE}),           # another category
+], ids=["ended", "other-category"])
+def test_a_reveal_of_something_not_revealed_now_goes_ahead(app, client, jwt1, operation, revealed):
+    _set_up_two_kingdoms()
+    _revealed(KD_ID, {TARGET_ID: revealed})
+    before = _get(f"/kingdom/{KD_ID}")
+
+    response = _spy(client, jwt1, operation=operation)
+
+    assert response.status_code == 200, response.get_json()
+    assert _get(f"/kingdom/{KD_ID}")["spy_attempts"] == before["spy_attempts"] - 1
+
+
+def test_full_infiltration_goes_ahead_while_any_of_its_categories_is_not_revealed():
+    import datetime
+    import untitledapp.conquer as conquer
+    now = datetime.datetime.now(datetime.timezone.utc)
+    some = {"revealed": {"2": {"military": FUTURE, "shields": FUTURE}}, "revealed_galaxymates": []}
+    assert conquer._already_revealed_problem(some, "2", "spyall", now) is None
+    assert conquer._already_revealed_problem(some, "2", "spymilitary", now) == "You already have their military revealed"
+    assert conquer._already_revealed_problem(some, 2, "spymilitary", now) is not None  # an int id from a schedule
+    assert conquer._already_revealed_problem(some, "2", "siphonfunds", now) is None

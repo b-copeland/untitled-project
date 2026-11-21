@@ -96,6 +96,16 @@ Built 2026-11-18 ([game-design.md](game-design.md#glossary), `intel.py`).
   review.
 - Bots buy listings and list or share what they spy, but never post or answer bounties.
 
+## Empire war and peace
+
+Found while writing the Empire help (issue #59, 2026-11-20). Not changed: each is a rule question for the maintainer.
+
+- `DENOUNCE_COOLDOWN_MULTIPLIER` is defined but nothing reads it: an empire can denounce again as soon as its
+  denouncement ends.
+- Every war an empire declares sets the surprise-war penalty on it; only a war reached by aggression has none.
+- Peace stops a declared war but not a war by aggression: the refresh starts one whenever the meter passes the limit,
+  peace or not (a surrender resets the meter to zero, so it takes fresh attacks).
+
 ## Empire targets
 
 Built 2026-11-20 (issue #56, [decisions/0008](decisions/0008-empire-targets.md), `targets.py`). The framework is in; the

@@ -5,6 +5,10 @@ import 'bootstrap/dist/css/bootstrap.css';
 function EmpirePolitics(props) {
     const yourElementRef = useRef(null);
     const config = props.state.game_config || {};
+    const epochSeconds = config.BASE_EPOCH_SECONDS || 0;
+    const hours = (multiplier) => Math.round(((multiplier || 0) * epochSeconds) / 3600 * 10) / 10;
+    const perHour = (perEpoch) => (epochSeconds > 0 ? Math.round(((perEpoch || 0) * 3600) / epochSeconds * 100) / 100 : 0);
+    const starShares = (props.state.surrender_options?.stars || []).filter((share) => share > 0).map((share) => displayPercent(share));
 
     useEffect(() => {
       if (Object.keys(props.state).length > 0 && props.scrollTarget === "empirepolitics") {
@@ -21,6 +25,53 @@ function EmpirePolitics(props) {
                 leader can take their galaxy out of its Empire, but not while the Empire is at war: a war ends only
                 when one side surrenders.
             </p>
+            <h3>Aggression, war and peace</h3>
+            <p>
+                Only the leader of the Empire's ruling galaxy can denounce, declare war, and offer, ask for or accept a
+                surrender. The Empire page shows your Empire's wars, peace, aggression and denouncement, and when each
+                ends.
+            </p>
+            <ul>
+                <li>
+                    <b>Aggression.</b> Each attack by one of your kingdoms on a kingdom of another Empire adds
+                    {" "}{config.AGGRO_PER_ATTACK} to your Empire's aggression towards that Empire, and each aggressive
+                    spy operation adds {config.AGGRO_PER_AGGRO_SPY}. Aggression falls by
+                    {" "}{perHour(config.AGGRO_METER_DECAY_PER_KD_PER_EPOCH)} per hour for each kingdom in your Empire.
+                    When it passes {config.AGGRO_METER_PER_KD} for each kingdom in your Empire, the two Empires go to
+                    war on their own (war by aggression).
+                </li>
+                <li>
+                    <b>Denouncing.</b> Your Empire can denounce one Empire at a time, for
+                    {" "}{hours(config.DENOUNCE_DURATION_MULTIPLIER)} hours. It raises your aggression towards them by
+                    {" "}{displayPercent(config.DENOUNCE_AGGRO_METER_INCREASE || 0)} of the point where war starts, and
+                    your kingdoms attack theirs with {displayPercent(config.DENOUNCE_OFFENSE_BONUS || 0)} more offense
+                    (not added to the war bonus).
+                </li>
+                <li>
+                    <b>War.</b> Between Empires at war, attacks have {displayPercent(config.WAR_OFFENSE_INCREASE || 0)} more
+                    offense and take {displayPercent(config.WAR_GAINS_INCREASE || 0)} more, and both sides lose
+                    {" "}{displayPercent(config.WAR_LOSSES_INCREASE || 0)} more units. Targets (below) exist only in a war.
+                </li>
+                <li>
+                    <b>Surprise war.</b> Declaring war yourself, rather than reaching it by aggression, is a surprise
+                    war. For {hours(config.SURPRISE_WAR_PENALTY_MULTIPLIER)} hours afterwards, every kingdom whose Empire is
+                    not at war with yours (and every kingdom in no Empire) attacks your kingdoms with {displayPercent(config.SURPRISE_WAR_PENALTY_OFFENSE_INCREASE || 0)}
+                    {" "}more offense.
+                </li>
+                <li>
+                    <b>Surrender.</b> Either side can offer to surrender, or ask the other side to. The terms are a
+                    share of stars{starShares.length > 0 ? ` (${starShares.join(" or ")}, or none)` : ""}: when the other
+                    side accepts, every kingdom of the losing Empire gives up that share of its stars, split evenly
+                    between the kingdoms of the winning Empire. The war ends, both aggressions go back to zero, and the
+                    targets end with their payouts.
+                </li>
+                <li>
+                    <b>Peace.</b> A surrender is followed by {hours(config.PEACE_DURATION_MULTIPLIER)} hours of peace,
+                    during which neither Empire can declare war on the other. Kingdoms defend against attacks from the
+                    other Empire with {displayPercent(config.PEACE_DEFENSE_BONUS || 0)} more defense, and its spy
+                    operations succeed {displayPercent(config.PEACE_PROBE_DEFENSE_BONUS || 0)} less often.
+                </li>
+            </ul>
             <h3>How large an Empire can be</h3>
             <p>
                 A galaxy can not join an Empire if the Empire would then have more

@@ -40,7 +40,7 @@ what needs doing, and what is worth doing next.** Every page should answer its p
 | A table | `GameTable` with column definitions, not hand-written `<tr>`s | `src/components/gametable.js` |
 | Form state | `useFormValues` | `src/components/forms.js` |
 | Choosing an amount | `AmountInput`: a slider with the chosen number on the left and the most possible on the right; give it `max` (what is left now) and `soloMax` (most if nothing else were chosen) so the slider never changes length. Add `box` for a number box and Max button on planner pages. | `src/components/forms.js` |
-| A plain number field | `NumberField` (shows `error` under the box) | `src/components/forms.js` |
+| A plain number field | `NumberField` (shows `error` under the box). Any other number box is a `NumberControl`, never a bare `Form.Control`: it takes the commas out of "1,000,000" before `onChange`, as `NumberField` and `AmountInput` do. | `src/components/forms.js` |
 | The send button | `SubmitButton` with `blocked` set to the reason, or null | `src/components/forms.js` |
 | Results of an action | `ResultToasts` | `src/components/results.js` |
 | A planning page (Attack, Spy, Primitives, Schedule, Launch Missiles) | `Panel`, `FieldRow`, `Stats`, `VersusBar`, `Picker`, status tags, `useServerForecast` (asks again 700 ms after the last change, drops answers that were overtaken) | `src/components/planner.js` |

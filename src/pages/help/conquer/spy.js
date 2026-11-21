@@ -21,7 +21,7 @@ function Spy(props) {
         "spyprojects": `Reveals projects information`,
         "spydrones": `Reveals drones and spy attempts`,
         "spyall": `Reveals everything the other intel operations do, at once. Only for Vult kingdoms with the Vult Evolution project, which then use it in place of the other intel operations`,
-        "siphonfunds": `Steals up to ${props.state.game_config?.BASE_DRONES_SIPHON_PER_DRONE} money per drone, paid evenly over the next ${siphonDurationHours} hours. A kingdom loses at most ${siphonMax} of its income to all siphons together. When the siphons on it would take more, the oldest siphon is reduced first, then the next oldest, until they fit, and the newer ones pay in full. A reduced siphon stays reduced for the rest of its time, and what it could not take is lost.`,
+        "siphonfunds": `Steals up to ${props.state.game_config?.BASE_DRONES_SIPHON_PER_DRONE} money per drone, paid evenly over the next ${siphonDurationHours} hours. A kingdom loses at most ${siphonMax} of its income to all siphons together. When the siphons on it would take more, the oldest siphon is reduced first, then the next oldest, until they fit, and the newer ones pay in full. A reduced siphon stays reduced for the rest of its time, and what it could not take is lost. If the siphoning kingdom dies, its siphons end.`,
         "bombhomes": `Destroys 1 home per ${props.state.game_config?.BASE_DRONES_PER_HOME_DAMAGE} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_HOME_DAMAGE)} of the target's homes.`,
         "sabotagefuelplants": `Destroys 1 fuel plant per ${props.state.game_config?.BASE_DRONES_PER_FUEL_PLANT_DAMAGE} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_FUEL_PLANT_DAMAGE)} of the target's fuel plants.`,
         "kidnappopulation": `Kidnaps 1 population per ${props.state.game_config?.BASE_DRONES_PER_KIDNAP} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_KIDNAP_DAMAGE)} of the target's population. ${displayPercent(props.state.game_config?.BASE_KIDNAP_RETURN_RATE)} of the kidnapped populaton returns to your kingdom.`,
@@ -63,6 +63,12 @@ function Spy(props) {
             <p>
                 Aggressive operations do less damage to a kingdom with the Counter-Intelligence project. The forecast
                 only counts it if the target's projects are revealed to you.
+            </p>
+            <p>
+                An intel operation is refused, before any drones or spy attempt are spent, when everything it would
+                reveal is already revealed to you: by your own spying, by intel you received from a galaxymate, or by a
+                galaxymate sharing their kingdom. Full Infiltration goes ahead while any of what it reveals is not.
+                Once a reveal ends you can spy for it again.
             </p>
             <p>
                 If you fail an aggressive spy operation, or your target's spy radar catches you, your drones will be revealed to the target

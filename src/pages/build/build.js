@@ -109,7 +109,7 @@ function Build(props) {
         </div>
         <Accordion defaultActiveKey={['0']} alwaysOpen className="box-loose queue-accordion">
             <Accordion.Item eventKey="0">
-                <Accordion.Header>Settle Queue ({props.data.settle.len_queue || 0})</Accordion.Header>
+                <Accordion.Header>Settle Queue ({(props.data.settle.total_queue || 0).toLocaleString()})</Accordion.Header>
                 <Accordion.Body>
                     {
                         settleData.length > 0
@@ -129,7 +129,7 @@ function Build(props) {
                 </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="1">
-                <Accordion.Header>Structures Queue ({props.data.structures.len_queue || 0})</Accordion.Header>
+                <Accordion.Header>Structures Queue ({(props.data.structures.total_queue || 0).toLocaleString()})</Accordion.Header>
                 <Accordion.Body>
                     {
                         structuresData.length > 0
@@ -149,7 +149,7 @@ function Build(props) {
                 </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="2">
-                <Accordion.Header>Units Queue ({props.data.mobis.len_queue || 0})</Accordion.Header>
+                <Accordion.Header>Units Queue ({(props.data.mobis.total_queue || 0).toLocaleString()})</Accordion.Header>
                 <Accordion.Body>
                     {
                         unitsData.length > 0
@@ -169,7 +169,7 @@ function Build(props) {
                 </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="3">
-                <Accordion.Header>Engineers Queue ({props.data.engineers.len_queue || 0})</Accordion.Header>
+                <Accordion.Header>Engineers Queue ({(props.data.engineers.total_queue || 0).toLocaleString()})</Accordion.Header>
                 <Accordion.Body>
                     {
                         engineersData.length > 0
@@ -189,7 +189,7 @@ function Build(props) {
                 </Accordion.Body>
             </Accordion.Item>
             <Accordion.Item eventKey="4">
-            <Accordion.Header>Missiles Queue ({props.data.missiles.len_queue || 0})</Accordion.Header>
+            <Accordion.Header>Missiles Queue ({(props.data.missiles.total_queue || 0).toLocaleString()})</Accordion.Header>
             <Accordion.Body>
                 {
                     missilesData.length > 0

@@ -8,7 +8,7 @@ import "./launchmissiles.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
-import { AmountInput, useFormValues } from "../../components/forms";
+import { AmountInput, NumberControl, useFormValues } from "../../components/forms";
 import { Panel, FieldRow, Stats, Picker, useServerForecast } from "../../components/planner";
 import { checkPercent } from "../../validation";
 import { displayNumber } from "../../format";
@@ -87,7 +87,7 @@ function LaunchMissiles(props) {
                             {shieldsKnown
                                 ? <span className="known-value">{Math.round(targetKdInfo.shields.missiles * 100)}%</span>
                                 : <div className="attack-buffer">
-                                    <input id="missile-shields" className="form-control form-control-sm" inputMode="decimal" placeholder="unknown"
+                                    <NumberControl id="missile-shields" size="sm" inputMode="decimal" placeholder="unknown"
                                         autoComplete="off" value={shields} onChange={(e) => setShields(e.target.value)} />
                                     <span>%</span>
                                 </div>}

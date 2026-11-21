@@ -11,9 +11,9 @@ import "./spy.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
-import { AmountInput } from "../../components/forms";
+import { AmountInput, NumberControl } from "../../components/forms";
 import { Panel, FieldRow, Stats, Picker, useServerForecast, clockUntil } from "../../components/planner";
-import { checkPercent } from "../../validation";
+import { alreadyRevealed, checkPercent } from "../../validation";
 import { TargetIntel } from "./intel.js";
 
 const initialDefenderValues = { drones: "", stars: "", shields: "" };
@@ -119,6 +119,9 @@ function Spy(props) {
     if (sendingDrones < 1) problems.push("Send at least 1 drone");
     if (sendingDrones > maxDrones) problems.push(`You only have ${whole(maxDrones)} drones`);
     if ((kingdom.spy_attempts || 0) < 1) problems.push("You have no spy attempts left");
+    const revealedProblem = alreadyRevealed(props.data.state.reveal_operation_stats?.[operation],
+        (props.data.revealed?.revealed || {})[selected], (props.data.revealed?.revealed_galaxymates || []).includes(selected));
+    if (revealedProblem) problems.push(revealedProblem);
     const cutError = sharesResult && share ? checkPercent(cut, { max: (props.data.state.game_config?.BASE_MAX_SHARE_CUT || 0) * 100 }) : null;
     if (cutError) problems.push(cutError);
     const blocked = problems[0];
@@ -169,7 +172,7 @@ function Spy(props) {
                             </FieldRow>
                             {share ? <FieldRow label="Your cut" hint={`Of their spoils from each win, at most ${(props.data.state.game_config?.BASE_MAX_SHARE_CUT || 0) * 100}%; blank is free`} htmlFor="spy-cut">
                                 <div className="attack-buffer">
-                                    <Form.Control id="spy-cut" name="cut" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
+                                    <NumberControl id="spy-cut" name="cut" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
                                         value={cut} onChange={(e) => setCut(e.target.value)} isInvalid={Boolean(cutError)} />
                                     <span>%</span>
                                 </div>
@@ -181,15 +184,15 @@ function Spy(props) {
                 <Panel className="area-know" title="3. What you know about them">
                     <FieldRow label="Drones" status={statusOf(dronesKnown, "drones")} htmlFor="spy-def-drones">
                         {dronesKnown ? <span className="known-value">{whole(targetKdInfo.drones)}</span>
-                            : <Form.Control id="spy-def-drones" size="sm" inputMode="numeric" placeholder="unknown" autoComplete="off" value={defenderValues.drones} onChange={setDefender("drones")} />}
+                            : <NumberControl id="spy-def-drones" size="sm" inputMode="numeric" placeholder="unknown" autoComplete="off" value={defenderValues.drones} onChange={setDefender("drones")} />}
                     </FieldRow>
                     <FieldRow label="Stars" status={statusOf(starsKnown, "stars")} htmlFor="spy-def-stars">
                         {starsKnown ? <span className="known-value">{whole(targetKdInfo.stars)}</span>
-                            : <Form.Control id="spy-def-stars" size="sm" inputMode="numeric" placeholder="unknown" autoComplete="off" value={defenderValues.stars} onChange={setDefender("stars")} />}
+                            : <NumberControl id="spy-def-stars" size="sm" inputMode="numeric" placeholder="unknown" autoComplete="off" value={defenderValues.stars} onChange={setDefender("stars")} />}
                     </FieldRow>
                     <FieldRow label="Spy shields" status={statusOf(shieldsKnown, "shields")} htmlFor="spy-def-shields">
                         {shieldsKnown ? <span className="known-value">{Math.round(targetKdInfo.shields.spy * 100)}%</span>
-                            : <div className="attack-buffer"><Form.Control id="spy-def-shields" size="sm" inputMode="decimal" placeholder="unknown" autoComplete="off" value={defenderValues.shields} onChange={setDefender("shields")} /><span>%</span></div>}
+                            : <div className="attack-buffer"><NumberControl id="spy-def-shields" size="sm" inputMode="decimal" placeholder="unknown" autoComplete="off" value={defenderValues.shields} onChange={setDefender("shields")} /><span>%</span></div>}
                     </FieldRow>
                 </Panel>
 

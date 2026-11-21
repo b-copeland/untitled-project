@@ -42,7 +42,9 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
   `AZURE_FUNCTION_ENDPOINT`. Never inside a loop over kingdoms if a list can be read once.
 - No locks. Every change to a document is conditional (`occ.update`) or commutative (an append or merge the function
   app applies to the newest version).
-- Times: `datetime.datetime.now(datetime.timezone.utc)`, stored with `.isoformat()`.
+- Times: `datetime.datetime.now(datetime.timezone.utc)`, stored with `.isoformat()`. Compare, sort and take the min or
+  max of stored times through `uas.utc(...)` (or `uas.is_after` for a cursor that may be empty), never as strings:
+  "Z" and "+00:00", or a missing fraction of a second, make string order differ from time order.
 
 ## The refresh
 

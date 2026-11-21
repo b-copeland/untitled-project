@@ -17,7 +17,7 @@ the component catalog are in [docs/ux.md](../docs/ux.md); read it before changin
 - **Check before sending:** `validation.js` mirrors the server's limits so a form can say why it would fail, as a red
   message under the field and as `SubmitButton`'s `blocked` tooltip. The server still decides. Politics forms are not
   converted yet.
-- **Tables:** `GameTable` from column definitions. **Forms:** `useFormValues`, `AmountInput`, `NumberField`,
+- **Tables:** `GameTable` from column definitions. **Forms:** `useFormValues`, `AmountInput`, `NumberField`, `NumberControl` (any other number box: it takes out commas),
   `SubmitButton` (`components/forms.js`). **Results:** `ResultToasts`. **Numbers:** `format.js`. **Icons:**
   `react-icons` through `IconButton`.
 - **Amounts:** `AmountInput` is a slider with the chosen number on its left and the most possible on its right; give it

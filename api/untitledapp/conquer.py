@@ -129,7 +129,7 @@ def _lower_timer(kd_id, field, when):
     """
     def lower(kd):
         next_resolve = kd["next_resolve"]
-        if when >= next_resolve[field]:
+        if uas.utc(when) >= uas.utc(next_resolve[field]):
             return None, None
         next_resolve[field] = when
         return {"next_resolve": next_resolve}, None
@@ -1509,6 +1509,23 @@ def _validate_spy_request(
     
     return True, ""
 
+def _already_revealed_problem(revealed_info, target_kd, operation, now):
+    """
+    Why ``operation`` is refused on ``target_kd``: everything it would reveal is revealed to the spier already (their
+    own spying, intel received from a galaxymate, or a galaxymate sharing their kingdom). None if it is not a reveal
+    operation or would show something new. Full Infiltration is allowed while any of its categories is not revealed.
+    """
+    stats = uas.REVEAL_OPERATION_STATS.get(operation)
+    if not stats:
+        return None
+    target_kd = str(target_kd)
+    if target_kd not in revealed_info.get("revealed_galaxymates", []):
+        held = revealed_info.get("revealed", {}).get(target_kd, {})
+        if any(stat not in held or uas.utc(held[stat]) <= now for stat in stats):
+            return None
+    return f"You already have their {', '.join(stats)} revealed"
+
+
 def _validate_auto_attack_settings(req_settings):
     """Confirm that spending request is valid"""
 
@@ -1781,7 +1798,12 @@ def _spy(req, kd_id, target_kd):
         locked = _operation_locked(kd_info_parse, operation)
         if locked:
             return kd_info_parse, {"message": locked}, 400, False
-        
+        if operation in uas.REVEAL_OPERATIONS:
+            # Refused before anything is spent: spying again would cost drones and an attempt to see nothing new.
+            known = _already_revealed_problem(uag._get_revealed(kd_id), target_kd, operation, datetime.datetime.now(datetime.timezone.utc))
+            if known:
+                return kd_info_parse, {"message": known}, 400, False
+
         max_target_kd_info = uag._get_kd_info(target_kd)
         if max_target_kd_info["status"].lower() == "dead":
             return kd_info_parse, {"message": "You can't spy this kingdom because they are dead!"}, 400, False
@@ -1990,7 +2012,7 @@ def _spy(req, kd_id, target_kd):
             def reveal_timer(target):
                 # The sooner of the stored and the new time, so the order of overlapping operations does not matter.
                 target_next_resolve = target["next_resolve"]
-                if revealed_until >= target_next_resolve["revealed"]:
+                if uas.utc(revealed_until) >= uas.utc(target_next_resolve["revealed"]):
                     return None, None
                 target_next_resolve["revealed"] = revealed_until
                 return {"next_resolve": target_next_resolve}, None
@@ -2483,14 +2505,14 @@ def add_schedule():
     
 
     schedule_type = req.get("type")
-    schedule_time = datetime.datetime.fromisoformat(req["time"].replace('Z', '+00:00')).isoformat()
+    schedule_time = uas.utc(req["time"]).isoformat()
     schedule_options = req.get("options", {})
     schedule_id = str(uuid.uuid4())
 
     def decide(kd_info):
         state = uag._get_state()
 
-        if schedule_time < state["state"]["game_start"] or schedule_time > state["state"]["game_end"]:
+        if uas.utc(schedule_time) < uas.utc(state["state"]["game_start"]) or uas.utc(schedule_time) > uas.utc(state["state"]["game_end"]):
             raise occ.Rejected("Scheduled time occurs outside of game duration")
 
         if len(kd_info["schedule"]) >= 10:
@@ -2514,7 +2536,7 @@ def add_schedule():
 
         schedule_payload = kd_info["schedule"]
         schedule_payload.append(new_schedule)
-        schedule_payload_sorted = sorted(schedule_payload, key=lambda item: item["time"])
+        schedule_payload_sorted = sorted(schedule_payload, key=lambda item: uas.utc(item["time"]))
 
         return {"schedule": schedule_payload_sorted}, None
 

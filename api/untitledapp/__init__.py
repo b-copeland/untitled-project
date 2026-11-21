@@ -80,7 +80,7 @@ def start_required(f):
             return stale
         state = uag._get_state()
         time_now = datetime.datetime.now(datetime.timezone.utc)
-        if time_now.isoformat() < state["state"]["game_start"]:
+        if time_now < uas.utc(state["state"]["game_start"]):
             return flask.jsonify({"message": "The game has not yet started!"}), 400
         return f(*args, **kwargs)
     return decorated_function
@@ -93,12 +93,13 @@ def before_start_required(f):
             return stale
         state = uag._get_state()
         time_now = datetime.datetime.now(datetime.timezone.utc)
-        if time_now.isoformat() > state["state"]["game_start"]:
+        if time_now > uas.utc(state["state"]["game_start"]):
             return flask.jsonify({"message": "The game has already started!"}), 400
         return f(*args, **kwargs)
     return decorated_function
 
 import untitledapp.getters as uag
+import untitledapp.shared as uas
 
 def _custom_limit_key_func():
     try:

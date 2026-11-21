@@ -219,6 +219,11 @@ def _calc_structures_losses(
     
 _SIPHON_ROUNDING = 1e-6  # money per epoch below which a cut siphon counts as cut to nothing
 
+def _is_dead(kd_info):
+    """A kingdom that is dead, or no longer exists (``None``)."""
+    return kd_info is None or str(kd_info.get("status", "")).lower() == "dead"
+
+
 def _siphon_expiry(siphon):
     return datetime.datetime.fromisoformat(siphon["time"]).astimezone(datetime.timezone.utc)
 
@@ -280,9 +285,12 @@ def _resolve_siphons(
     time_update,
     epoch_elapsed,
     effects=None,
+    is_dead=None,
 ):
     """
-    Work out what is siphoned from and to this kingdom this tick (the amounts are ``_settle_siphons``). Paying the
+    Work out what is siphoned from and to this kingdom this tick (the amounts are ``_settle_siphons``). A siphon whose
+    siphoner is dead (``is_dead(kd_id)``) ends: it pays nothing, does not count towards the cap, and is taken off the
+    list. Paying the
     siphoners and updating the two lists are effects, run after the kingdom has been written (see ``_defer``), because
     the tick is worked out again if that write conflicts and they must not be done twice. They are applied to the lists
     as they are then, so siphons added meanwhile are kept.
@@ -293,7 +301,9 @@ def _resolve_siphons(
     siphons_out = uag._get_siphons_out(kd_id)
     siphons_in = uag._get_siphons_in(kd_id)
 
-    paid, keep_siphons = _settle_siphons(siphons_out, gross_income, time_update, epoch_elapsed)
+    dead = {siphon["from"] for siphon in siphons_out if is_dead is not None and is_dead(siphon["from"])}
+    live = [siphon for siphon in siphons_out if siphon["from"] not in dead]
+    paid, keep_siphons = _settle_siphons(live, gross_income, time_update, epoch_elapsed)
     payments = [
         (siphon["from"], {
             "new_siphons": {
@@ -370,8 +380,10 @@ def _kingdom_with_income(
     effects=None,
     mobis_queue=None,
     cluster_modifiers=None,
+    is_dead=None,
 ):
-    """``cluster_modifiers`` are the kingdom's cluster's benefits (``_RefreshContext.cluster_modifiers``); none if None."""
+    """``cluster_modifiers`` are the kingdom's cluster's benefits (``_RefreshContext.cluster_modifiers``); none if None.
+    ``is_dead(kd_id)`` says whether a siphoner is dead, so its siphons end (``_resolve_siphons``)."""
     cluster_modifiers = cluster_modifiers or {}
     time_last_income =datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_now - time_last_income).total_seconds()
@@ -406,6 +418,7 @@ def _kingdom_with_income(
         time_now,
         epoch_elapsed,
         effects,
+        is_dead,
     )
     income["money"]["net"] = (income["money"]["gross"] + income["money"]["siphons_in"] - income["money"]["siphons_out"])
     new_income = income["money"]["net"] * epoch_elapsed
@@ -650,8 +663,7 @@ def _pending_queue(kd_id, category, cursor, pending):
     return pending[category]
 
 
-def _utc(time_str):
-    return datetime.datetime.fromisoformat(time_str).astimezone(datetime.timezone.utc)
+_utc = uas.utc  # compare times as datetimes, never as strings
 
 
 def _resolve_revealed(kd_id, time_update, ended_intel=None):
@@ -1800,7 +1812,8 @@ def _refresh_kd_in(kd_id, state, time_update, update_history, context):
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
         # The mobis still to come, if this tick has read them (None: the population step reads them itself).
         new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update, effects, pending.get("mobis"),
-                                           context.cluster_modifiers(kd_id, time_update))
+                                           context.cluster_modifiers(kd_id, time_update),
+                                           lambda siphoner: _is_dead(context.kingdom(siphoner)))
         kd_payload = json.dumps(new_kd_info, default=str)
         write_headers = {'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         if etag:
@@ -1859,15 +1872,15 @@ def refresh_data():
         return ("Not Authorized", 401)
     
     state = uag._get_state()
-    time_now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    if time_now < state["state"]["game_start"]:
+    time_now = datetime.datetime.now(datetime.timezone.utc)
+    if time_now < _utc(state["state"]["game_start"]):
         return ("Not started", 200)
     if uare.is_over(state):
         return ("Round over", 200)  # the engine is stopped: nothing advances, bots included
     round_ending = uare.is_due(state, datetime.datetime.now(datetime.timezone.utc))  # this tick is the last one
-    if time_now > state["state"]["election_end"] and state["state"]["election_end"] != "":
+    if state["state"]["election_end"] != "" and time_now > _utc(state["state"]["election_end"]):
         state = _resolve_election(state)
-    elif time_now > state["state"]["election_start"] and state["state"]["election_end"] == "":
+    elif state["state"]["election_end"] == "" and state["state"]["election_start"] != "" and time_now > _utc(state["state"]["election_start"]):
         state = _begin_election(state)
 
     kingdoms = uag._get_kingdoms()

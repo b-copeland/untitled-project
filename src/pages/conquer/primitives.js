@@ -12,7 +12,7 @@ import "./primitives.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
-import { AmountInput } from "../../components/forms";
+import { AmountInput, NumberControl } from "../../components/forms";
 import { Panel, FieldRow, UnitStat, Stats, useServerForecast } from "../../components/planner";
 import { displayPercent } from "../../format";
 
@@ -156,11 +156,11 @@ function AttackPrimitives(props) {
             <AutoPanel title="Automatic attacks" hint="Send part of your army at the primitives on its own, whenever it is ready."
                 enabled={kingdom.auto_attack_enabled || false} onToggle={toggleAuto} disabled={props.loading.kingdom} onSave={saveAuto}>
                 <FieldRow label="Attackers to send" hint={`Now ${percentOf(settings.pure)}%`} htmlFor="pure-percent">
-                    <div className="attack-buffer"><Form.Control id="pure-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoPure}
+                    <div className="attack-buffer"><NumberControl id="pure-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoPure}
                         placeholder={String(percentOf(settings.pure) || 0)} onChange={(e) => setAutoPure(e.target.value)} /><span>%</span></div>
                 </FieldRow>
                 <FieldRow label="Flexers to send" hint={`Now ${percentOf(settings.flex)}%`} htmlFor="flex-percent">
-                    <div className="attack-buffer"><Form.Control id="flex-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoFlex}
+                    <div className="attack-buffer"><NumberControl id="flex-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoFlex}
                         placeholder={String(percentOf(settings.flex) || 0)} onChange={(e) => setAutoFlex(e.target.value)} /><span>%</span></div>
                 </FieldRow>
             </AutoPanel>
@@ -235,11 +235,11 @@ function RobPrimitives(props) {
                 disabled={props.loading.kingdom}
                 onSave={() => post('api/robprimitives/auto', { drones: autoDrones, keep: autoKeep, shielded: autoShield })}>
                 <FieldRow label="Drones to send" hint={`Now ${percentOf(settings.drones)}%`} htmlFor="drones-percent">
-                    <div className="attack-buffer"><Form.Control id="drones-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoDrones}
+                    <div className="attack-buffer"><NumberControl id="drones-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoDrones}
                         placeholder={String(percentOf(settings.drones) || 0)} onChange={(e) => setAutoDrones(e.target.value)} /><span>%</span></div>
                 </FieldRow>
                 <FieldRow label="Spy attempts to keep" hint={`Now ${settings.keep ?? 0}`} htmlFor="keep-attempts">
-                    <Form.Control id="keep-attempts" size="sm" inputMode="numeric" autoComplete="off" value={autoKeep}
+                    <NumberControl id="keep-attempts" size="sm" inputMode="numeric" autoComplete="off" value={autoKeep}
                         placeholder={String(settings.keep || 0)} onChange={(e) => setAutoKeep(e.target.value)} />
                 </FieldRow>
                 <FieldRow label="Shield automatic robs">

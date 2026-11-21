@@ -79,12 +79,13 @@ class Recorder:
             for kd_id, kd in kingdoms.items() if kd.get("race")}])
         for kd_id, kd in kingdoms.items():
             for entry in (kd.get("bot") or {}).get("log", []):
-                if entry.get("time", "") > self.seen.get(kd_id, ""):
+                if self.sim.uas.is_after(entry.get("time", ""), self.seen.get(kd_id, "")):
                     self.decisions[kd_id].append([self.day(entry.get("time")), entry.get("kind"), entry.get("why"),
                                                   entry.get("outcome")])
             log = (kd.get("bot") or {}).get("log", [])
             if log:
-                self.seen[kd_id] = max(self.seen.get(kd_id, ""), max(entry.get("time", "") for entry in log))
+                times = [entry["time"] for entry in log if entry.get("time")] + ([self.seen[kd_id]] if self.seen.get(kd_id) else [])
+                self.seen[kd_id] = max(times, key=self.sim.uas.utc, default="")
         empires = {eid: {"name": e.get("name"), "galaxies": e.get("galaxies", []), "war": e.get("war", [])}
                    for eid, e in self.sim.doc("empires").get("empires", {}).items()}
         if not self.empires or self.empires[-1][1] != empires:

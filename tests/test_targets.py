@@ -353,8 +353,9 @@ def test_intel_on_a_target_is_shared_with_the_empire_and_earns_points_once(app, 
     first = entry["points"][KD_ID]
     assert first == pytest.approx(uas.TARGET_ACTIONS["intel"]["points"]["categories"])
     assert "military" in entry["intel"]
-    # Spying for the same intel again earns nothing.
-    assert _spy(client, jwt1, "spymilitary").get_json()["status"] == "success"
+    # Spying for the same intel again is refused while it is revealed (#155), so it earns nothing.
+    again = _spy(client, jwt1, "spymilitary")
+    assert again.status_code == 400 and again.get_json()["message"] == "You already have their military revealed"
     assert _targets()["targets"][TARGET]["points"][KD_ID] == pytest.approx(first)
 
 

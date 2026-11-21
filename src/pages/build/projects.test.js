@@ -91,3 +91,14 @@ test("the (i) button opens the project's description", async () => {
     fireEvent.click(screen.getAllByRole("button", { name: "About Money Bonus" })[0]);
     expect(await screen.findByRole("tooltip")).toHaveTextContent("More money");
 });
+
+test("when a tick moves the kingdom's project points, the page refetches its bonuses; otherwise it does not", () => {
+    const updateData = jest.fn();
+    const { rerender } = render(<ProjectsContent data={data({ projects_points: { money_bonus: 50 } })} loading={{}} updateData={updateData} />);
+    expect(updateData).not.toHaveBeenCalled();
+    rerender(<ProjectsContent data={data({ projects_points: { money_bonus: 50 } })} loading={{}} updateData={updateData} />);
+    expect(updateData).not.toHaveBeenCalled();
+    rerender(<ProjectsContent data={data({ projects_points: { money_bonus: 51.5 } })} loading={{}} updateData={updateData} />);
+    expect(updateData).toHaveBeenCalledTimes(1);
+    expect(updateData).toHaveBeenCalledWith(["projects"]);
+});

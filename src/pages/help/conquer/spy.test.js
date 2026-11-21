@@ -16,5 +16,6 @@ test("the siphon description gives the payout and the cap from the game config",
     expect(text).toContain("8 money per drone, paid evenly over the next 6 hours");
     expect(text).toContain("15.0%");
     expect(text).toContain("the oldest siphon is reduced first");
+    expect(text).toContain("If the siphoning kingdom dies, its siphons end.");
     expect(text).not.toContain("proportional");
 });

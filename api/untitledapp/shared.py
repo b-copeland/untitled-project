@@ -996,6 +996,30 @@ AGGRO_OPERATIONS = [
 
 DATE_SENTINEL = "2099-01-01T00:00:00+00:00"
 
+
+def utc(value):
+    """
+    A time as an aware UTC datetime, from a datetime or an ISO 8601 string ("Z" and a time without a zone both mean
+    UTC). Compare, sort and take the min or max of times through this, never as strings: two strings for the same
+    instant can differ ("+00:00" or "Z", with or without microseconds, another zone), so string order is not time order.
+    """
+    if isinstance(value, datetime.datetime):
+        parsed = value
+    else:
+        text = value.strip()
+        parsed = datetime.datetime.fromisoformat(text[:-1] + "+00:00" if text.endswith(("Z", "z")) else text)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed.astimezone(datetime.timezone.utc)
+
+
+def is_after(time, since):
+    """True if ``time`` is later than ``since``. An empty or missing ``since`` is the start of time; an empty ``time``
+    is never after anything. For cursors such as "the news seen so far"."""
+    if not time:
+        return False
+    return not since or utc(time) > utc(since)
+
 INITIAL_KINGDOM_STARS = 300
 # What a new kingdom starts with: some points in the first continuous projects, and engineers spread over them.
 INITIAL_PROJECT_POINTS = {

@@ -57,7 +57,7 @@ building.
 | Generals | Lead attacks. An attack sends some, and they return after a delay that grows with distance (`coordinate`). |
 | Drones | Used for spying and robbing primitives. |
 | Spy attempts | A limited, regenerating allowance of spy operations. |
-| Reveal | Spying that shows part of another kingdom for a time (`REVEAL_OPERATIONS`). What is revealed decides what the API shows you. |
+| Reveal | Spying that shows part of another kingdom for a time (`REVEAL_OPERATIONS`). What is revealed decides what the API shows you. A reveal operation is refused, before anything is spent, while everything it would reveal is revealed to you already, however you got it (`conquer._already_revealed_problem`): spying again would show nothing new, and would turn received intel into your own. |
 | Last-known intel | What a reveal showed when it ended, kept by the kingdom that had it (`lastknown.py`). The pages show it where nothing is revealed now, coloured by age (`LAST_KNOWN_FRESH_EPOCHS`, `LAST_KNOWN_AGING_EPOCHS`); active intel always wins. |
 | Aggressive spying | Siphon funds, bomb homes, sabotage fuel plants, kidnap population, suicide drones (`AGGRO_OPERATIONS`). |
 | Siphon | Taking money from another kingdom's income at a steady rate for a time: the drones sent times `BASE_DRONES_SIPHON_PER_DRONE`, paid evenly over `BASE_DRONES_SIPHON_TIME_MULTIPLIER` epochs. A kingdom loses at most `BASE_MAX_SIPHON` of its gross income per epoch to all siphons together. Over that cap the oldest siphons are cut first and newer ones pay in full, and a cut is permanent. |
@@ -69,7 +69,7 @@ building.
 | Schedule | Actions queued to run at a future time by the refresh (attacks, spying, missiles). |
 | Networth | A weighted sum of a kingdom's assets (`NETWORTH_VALUES`). |
 | Points | Score earned over time by the top 10 kingdoms by networth (`NETWORTH_POINTS`). |
-| Aggression | An empire's counter of attacks and aggressive spying; feeds denouncing and war. |
+| Aggression | An empire's meter towards each other empire: raised by its kingdoms' attacks (`AGGRO_PER_ATTACK`) and aggressive spying (`AGGRO_PER_AGGRO_SPY`) on that empire and by denouncing it, falling every epoch by `AGGRO_METER_DECAY_PER_KD_PER_EPOCH` per kingdom. Past `AGGRO_METER_PER_KD` per kingdom the two empires are at war (war by aggression, with no surprise-war penalty); a surrender resets it. |
 | Bots | Computer-run kingdoms using the same rules as players. See [bots.md](bots.md). |
 
 ## How time works

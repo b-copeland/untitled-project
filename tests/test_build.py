@@ -44,3 +44,23 @@ def test_engineers_can_not_be_disbanded():
     assert app_build._validate_disband(kd_info, {"engineers": 1}) == (False, "You can't disband engineers")
     assert app_build._validate_disband(kd_info, {"attack": 3, "engineers": 1}) == (False, "You can't disband engineers")
     assert app_build._validate_disband(kd_info, {"attack": 3}) == (True, "")
+
+def test_queue_total_counts_every_item_not_every_entry():
+    import untitledapp.getters as getters
+    assert getters._queue_total([]) == 0
+    assert getters._queue_total([{"time": "t1", "homes": 3, "mines": 2}, {"time": "t2", "amount": 4.0}]) == 9
+
+
+def test_queue_pages_show_the_total_number_of_items(app, client, jwt1):
+    """The parenthesis on the Build page is the items in the queue: two builds of 3 and 2 homes are 5, not 2."""
+    from tests.test_concurrency import _set_up_kingdom
+    _set_up_kingdom(money=10**7)
+    headers = {"Authorization": f"Bearer {jwt1}"}
+    for count in (3, 2):
+        response = client.post("/api/structures", json={"homes": count}, headers=headers)
+        assert response.status_code == 200, response.get_json()
+    structures = client.get("/api/structures", headers=headers).get_json()
+    assert structures["total_queue"] == 5
+    assert structures["len_queue"] >= 2
+    for path in ("/api/settle", "/api/mobis", "/api/engineers", "/api/missiles"):
+        assert client.get(path, headers=headers).get_json()["total_queue"] == 0, path
