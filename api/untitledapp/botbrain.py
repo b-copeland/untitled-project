@@ -349,8 +349,7 @@ class Decision:
     at: float = None     # seconds from now at which it must run, if the time matters (a strike)
 
 
-def _utc(text):
-    return datetime.datetime.fromisoformat(text).astimezone(datetime.timezone.utc)
+_utc = uas.utc  # compare times as datetimes, never as strings
 
 
 # ------------------------------------------------------------------------------------------------ what a bot can see
@@ -590,7 +589,7 @@ def react(world, memory):
     raise the missile shields; spies it caught raise the spy shields. Returns notes for the log.
     """
     seen = memory.get("seen_news", "")
-    fresh = [item for item in world.news if item.get("time", "") > seen]
+    fresh = [item for item in world.news if uas.is_after(item.get("time", ""), seen)]
     notes = []
     grudges = memory.setdefault("grudges", {})
     for item in fresh:
@@ -611,7 +610,7 @@ def react(world, memory):
             if sender:
                 grudges[sender] = grudges.get(sender, 0) + 0.5
     if fresh:
-        memory["seen_news"] = max(item.get("time", "") for item in fresh)
+        memory["seen_news"] = max((item["time"] for item in fresh), key=_utc)
     # Caution wears off: a tenth of the extra defense wanted goes with every think that passes quietly.
     if not notes and memory.get("defense_boost", 1.0) > 1.0:
         memory["defense_boost"] = round(max(1.0, 1.0 + (memory["defense_boost"] - 1.0) * 0.97), 3)
@@ -1162,7 +1161,7 @@ def _army_timeline(world):
     units = {unit: me["units"].get(unit, 0) for unit in ("attack", "flex", "big_flex")}
     generals = me.get("generals_available", 0)
     timeline = [(0.0, dict(units), generals)]
-    for general in sorted(me.get("generals_out", []), key=lambda g: g["return_time"]):
+    for general in sorted(me.get("generals_out", []), key=lambda g: _utc(g["return_time"])):
         for unit in units:
             units[unit] += general.get(unit, 0)
         generals += 1
@@ -1458,7 +1457,7 @@ def learn(world, personality, style, memory):
     strike = memory.get("strike")
     if strike and _utc(strike["time"]) <= world.now:
         since = strike.get("planned", "")
-        results = [entry for entry in world.attack_history if entry.get("to") == strike["target"] and entry.get("time", "") >= since]
+        results = [entry for entry in world.attack_history if entry.get("to") == strike["target"] and (not since or (entry.get("time") and _utc(entry["time"]) >= _utc(since)))]
         if results:
             won = str(results[-1].get("news", "")).startswith("Success")
             extra = memory.get("buffer_extra", 0.0)
@@ -1498,13 +1497,13 @@ def note_siphons(world, memory):
     seen = memory.get("siphons_seen", "")
     record = memory.setdefault("siphon_record", {})
     fresh = [entry for entry in world.spy_history
-             if entry.get("operation") == "Siphon Funds" and entry.get("time", "") > seen and entry.get("to")]
+             if entry.get("operation") == "Siphon Funds" and uas.is_after(entry.get("time", ""), seen) and entry.get("to")]
     for entry in fresh:
         ok, tried = record.get(entry["to"], (0.0, 0.0))
         won = not str(entry.get("news", "")).startswith("Failure")
         record[entry["to"]] = [round(ok * SIPHON_MEMORY + won, 3), round(tried * SIPHON_MEMORY + 1, 3)]
     if fresh:
-        memory["siphons_seen"] = max(entry["time"] for entry in fresh)
+        memory["siphons_seen"] = max((entry["time"] for entry in fresh), key=_utc)
 
 
 def note_threat(world, memory):
@@ -1740,7 +1739,7 @@ def _write(kd_id, settings, scheduled, personality, style, memory, rng, now, log
                     new_memory.setdefault("siphons", {})[decision.options["target"]] = until.isoformat()
             else:
                 refused.append((decision, message))
-        schedule.sort(key=lambda item: item["time"])
+        schedule.sort(key=lambda item: _utc(item["time"]))
         bot = dict(kd_info.get("bot", {}))
         bot["next_think"] = next_think_time(personality, rng, now).isoformat()
         bot["style"] = style

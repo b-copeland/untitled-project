@@ -655,7 +655,7 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policie
 
     top_queue = sorted(
         mobis_info_parse,
-        key=lambda queue: queue["time"],
+        key=lambda queue: uas.utc(queue["time"]),
     )[:10]
     len_queue = len(mobis_info_parse)
     total_queue = _queue_total(mobis_info_parse)
@@ -760,7 +760,7 @@ def _get_structures_info(kd_id, kd_info=None, structures_queue=None, state=None)
 
     top_queue = sorted(
         building_structures,
-        key=lambda queue: queue["time"],
+        key=lambda queue: uas.utc(queue["time"]),
     )[:10]
     len_queue = len(building_structures)
     total_queue = _queue_total(building_structures)
@@ -935,7 +935,7 @@ def _get_settle(kd_id, kd_info=None, settle_queue=None, galaxy_policies=None, cl
 
     top_queue = sorted(
         settle_info,
-        key=lambda queue: queue["time"],
+        key=lambda queue: uas.utc(queue["time"]),
     )[:10]
     len_queue = len(settle_info)
     total_queue = _queue_total(settle_info)
@@ -1047,7 +1047,7 @@ def missiles():
     missiles_info = _get_missiles_info(kd_id)
     top_queue = sorted(
         missiles_info,
-        key=lambda queue: queue["time"],
+        key=lambda queue: uas.utc(queue["time"]),
     )[:10]
     len_queue = len(missiles_info)
     total_queue = _queue_total(missiles_info)
@@ -1129,7 +1129,7 @@ def _get_engineers(kd_id, kd_info=None, engineers_queue=None):
     max_available_engineers, current_available_engineers = _calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
     top_queue = sorted(
         engineers_info,
-        key=lambda queue: queue["time"],
+        key=lambda queue: uas.utc(queue["time"]),
     )[:10]
     len_queue = len(engineers_info)
     total_queue = _queue_total(engineers_info)

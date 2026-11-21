@@ -129,7 +129,7 @@ def _lower_timer(kd_id, field, when):
     """
     def lower(kd):
         next_resolve = kd["next_resolve"]
-        if when >= next_resolve[field]:
+        if uas.utc(when) >= uas.utc(next_resolve[field]):
             return None, None
         next_resolve[field] = when
         return {"next_resolve": next_resolve}, None
@@ -1990,7 +1990,7 @@ def _spy(req, kd_id, target_kd):
             def reveal_timer(target):
                 # The sooner of the stored and the new time, so the order of overlapping operations does not matter.
                 target_next_resolve = target["next_resolve"]
-                if revealed_until >= target_next_resolve["revealed"]:
+                if uas.utc(revealed_until) >= uas.utc(target_next_resolve["revealed"]):
                     return None, None
                 target_next_resolve["revealed"] = revealed_until
                 return {"next_resolve": target_next_resolve}, None
@@ -2483,14 +2483,14 @@ def add_schedule():
     
 
     schedule_type = req.get("type")
-    schedule_time = datetime.datetime.fromisoformat(req["time"].replace('Z', '+00:00')).isoformat()
+    schedule_time = uas.utc(req["time"]).isoformat()
     schedule_options = req.get("options", {})
     schedule_id = str(uuid.uuid4())
 
     def decide(kd_info):
         state = uag._get_state()
 
-        if schedule_time < state["state"]["game_start"] or schedule_time > state["state"]["game_end"]:
+        if uas.utc(schedule_time) < uas.utc(state["state"]["game_start"]) or uas.utc(schedule_time) > uas.utc(state["state"]["game_end"]):
             raise occ.Rejected("Scheduled time occurs outside of game duration")
 
         if len(kd_info["schedule"]) >= 10:
@@ -2514,7 +2514,7 @@ def add_schedule():
 
         schedule_payload = kd_info["schedule"]
         schedule_payload.append(new_schedule)
-        schedule_payload_sorted = sorted(schedule_payload, key=lambda item: item["time"])
+        schedule_payload_sorted = sorted(schedule_payload, key=lambda item: uas.utc(item["time"]))
 
         return {"schedule": schedule_payload_sorted}, None
 

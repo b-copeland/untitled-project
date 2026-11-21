@@ -650,8 +650,7 @@ def _pending_queue(kd_id, category, cursor, pending):
     return pending[category]
 
 
-def _utc(time_str):
-    return datetime.datetime.fromisoformat(time_str).astimezone(datetime.timezone.utc)
+_utc = uas.utc  # compare times as datetimes, never as strings
 
 
 def _resolve_revealed(kd_id, time_update, ended_intel=None):
@@ -1859,15 +1858,15 @@ def refresh_data():
         return ("Not Authorized", 401)
     
     state = uag._get_state()
-    time_now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    if time_now < state["state"]["game_start"]:
+    time_now = datetime.datetime.now(datetime.timezone.utc)
+    if time_now < _utc(state["state"]["game_start"]):
         return ("Not started", 200)
     if uare.is_over(state):
         return ("Round over", 200)  # the engine is stopped: nothing advances, bots included
     round_ending = uare.is_due(state, datetime.datetime.now(datetime.timezone.utc))  # this tick is the last one
-    if time_now > state["state"]["election_end"] and state["state"]["election_end"] != "":
+    if state["state"]["election_end"] != "" and time_now > _utc(state["state"]["election_end"]):
         state = _resolve_election(state)
-    elif time_now > state["state"]["election_start"] and state["state"]["election_end"] == "":
+    elif state["state"]["election_end"] == "" and state["state"]["election_start"] != "" and time_now > _utc(state["state"]["election_start"]):
         state = _begin_election(state)
 
     kingdoms = uag._get_kingdoms()

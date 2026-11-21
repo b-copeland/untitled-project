@@ -64,13 +64,7 @@ _EPSILON = 1e-9
 
 # --- pure rules: plain dicts in, plain values out -----------------------------------------------------------------
 
-def _utc(value):
-    if isinstance(value, datetime.datetime):
-        return value.astimezone(datetime.timezone.utc)
-    parsed = datetime.datetime.fromisoformat(value)
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
-    return parsed.astimezone(datetime.timezone.utc)
+_utc = uas.utc  # compare times as datetimes, never as strings
 
 
 def listing_id(seller, target, category):
@@ -287,7 +281,7 @@ def view(market, kd_id, revealed, now, members=()):
                 "listing": listing["id"] if listing else None,
                 "cut": listing["cut"] if listing else None,
             })
-    by_time = lambda item: item["time"]  # noqa: E731
+    by_time = lambda item: _utc(item["time"])  # noqa: E731
     return {
         "listings": sorted(listings, key=by_time),
         "bounties": sorted(bounties, key=by_time),

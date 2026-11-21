@@ -46,13 +46,7 @@ _EPSILON = 1e-12
 
 # --- pure rules: plain values in, plain values out ----------------------------------------------------------------
 
-def _utc(value):
-    if isinstance(value, datetime.datetime):
-        return value.astimezone(datetime.timezone.utc)
-    parsed = datetime.datetime.fromisoformat(value)
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
-    return parsed.astimezone(datetime.timezone.utc)
+_utc = uas.utc  # compare times as datetimes, never as strings
 
 
 def cluster_of(galaxy_id):
