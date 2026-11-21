@@ -50,7 +50,8 @@ building.
 | Settling | Buying new stars; they arrive over time through the `settles` queue. |
 | Structures | Built on stars: homes, mines, fuel plants, hangars, drone factories, missile silos, workshops. |
 | Recruits | Population drafted for the army; trained into units. |
-| Units | `attack`, `defense`, `flex`, plus units unlocked by projects (`heavy_` and `elite_` attackers and defenders, `big_flex`), and `recruits` and `engineers`. Stats in `UNITS`. |
+| Units | `attack`, `defense`, `flex`, plus units unlocked by projects (`heavy_` and `elite_` attackers and defenders, `big_flex`, and the playstyle units at the end of each line: `solar_` and `self_destruct_` attackers and defenders, `warp_big_flex`, `compact_big_flex`), and `recruits` and `engineers`. Stats in `UNITS`. A playstyle unit's trait (less fuel, more losses for the other side, all home with the first general, less hangar space) belongs to that unit, not to the kingdom. |
+| Upgrade | Turning units at home into the next unit of their line (`UNITS[...]["upgrades_from"]`), one tier at a time and never across lines, for the difference in price (`upgrade_cost`). The units leave at once and arrive as the new unit through the `mobis` queue. `/api/mobis/upgrade`. |
 | Mobis | Units being trained (mobilizations); the `mobis` queue. |
 | Engineers | Work on projects, earning project points. |
 | Projects | Engineers earn points in them. Continuous projects give a bonus that grows with points up to a maximum, and need more points as stars grow; one-time projects unlock something, or give a fixed bonus, once done. A project can require other projects first, or belong to one race (`PROJECTS` in `shared.py`). |

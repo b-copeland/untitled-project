@@ -62,6 +62,53 @@ UNITS = {
         'fuel': 1,
         'hangar_capacity': 1,
     },
+    # Playstyle units, unlocked by projects: as strong as the best unit of their line and dearer, each with a trait.
+    # The traits that are numbers come from GAME_CONFIG, below it.
+    'solar_attack': {
+        'offense': 7,
+        'defense': 0,
+        'cost': 600,
+        'fuel': 1,  # less SOLAR_FUEL_REDUCTION
+        'hangar_capacity': 1,
+    },
+    'self_destruct_attack': {
+        'offense': 7,
+        'defense': 0,
+        'cost': 600,
+        'fuel': 1,
+        'hangar_capacity': 1,
+        'self_destruct': True,  # see self_destruct_share
+    },
+    'solar_defense': {
+        'offense': 0,
+        'defense': 7,
+        'cost': 690,
+        'fuel': 1,  # less SOLAR_FUEL_REDUCTION
+        'hangar_capacity': 1,
+    },
+    'self_destruct_defense': {
+        'offense': 0,
+        'defense': 7,
+        'cost': 690,
+        'fuel': 1,
+        'hangar_capacity': 1,
+        'self_destruct': True,
+    },
+    'warp_big_flex': {
+        'offense': 10,
+        'defense': 10,
+        'cost': 1450,
+        'fuel': 2,
+        'hangar_capacity': 2,
+        'warp': True,  # all go with the general who returns first (conquer._split_across_generals)
+    },
+    'compact_big_flex': {
+        'offense': 10,
+        'defense': 10,
+        'cost': 1450,
+        'fuel': 2,
+        'hangar_capacity': 2,  # COMPACT_FLEX_HANGAR_CAPACITY
+    },
     'recruits': {
         'offense': 0,
         'defense': 1,
@@ -78,18 +125,38 @@ UNITS = {
 
 # The order pages list units in: attackers, defenders, flexers, then recruits and engineers.
 UNITS = {key: UNITS[key] for key in (
-    "attack", "heavy_attack", "elite_attack",
-    "defense", "heavy_defense", "elite_defense",
-    "flex", "big_flex",
+    "attack", "heavy_attack", "elite_attack", "solar_attack", "self_destruct_attack",
+    "defense", "heavy_defense", "elite_defense", "solar_defense", "self_destruct_defense",
+    "flex", "big_flex", "warp_big_flex", "compact_big_flex",
     "recruits", "engineers",
 )}
 
-# A unit with "project" can only be trained once that project is completed.
+# A unit with "project" can only be trained, or upgraded to, once that project is completed.
 UNITS["big_flex"]["project"] = "big_flexers"
 UNITS["heavy_attack"]["project"] = "heavy_attackers"
 UNITS["elite_attack"]["project"] = "elite_attackers"
 UNITS["heavy_defense"]["project"] = "heavy_defenders"
 UNITS["elite_defense"]["project"] = "elite_defenders"
+UNITS["solar_attack"]["project"] = "solar_attackers"
+UNITS["self_destruct_attack"]["project"] = "self_destructing_attackers"
+UNITS["solar_defense"]["project"] = "solar_defenders"
+UNITS["self_destruct_defense"]["project"] = "self_destructing_defenders"
+UNITS["warp_big_flex"]["project"] = "warp_speed"
+UNITS["compact_big_flex"]["project"] = "compact_flexers"
+
+# A unit with "upgrades_from" can also be made from units of that kind at home, one tier at a time, for the difference
+# in cost (upgrade_cost). Upgrades only go up a line: never back down, never across to another line or playstyle.
+UNITS["heavy_attack"]["upgrades_from"] = "attack"
+UNITS["elite_attack"]["upgrades_from"] = "heavy_attack"
+UNITS["solar_attack"]["upgrades_from"] = "elite_attack"
+UNITS["self_destruct_attack"]["upgrades_from"] = "elite_attack"
+UNITS["heavy_defense"]["upgrades_from"] = "defense"
+UNITS["elite_defense"]["upgrades_from"] = "heavy_defense"
+UNITS["solar_defense"]["upgrades_from"] = "elite_defense"
+UNITS["self_destruct_defense"]["upgrades_from"] = "elite_defense"
+UNITS["warp_big_flex"]["upgrades_from"] = "big_flex"
+UNITS["compact_big_flex"]["upgrades_from"] = "big_flex"
+UPGRADABLE_UNITS = [key for key, unit in UNITS.items() if "upgrades_from" in unit]
 
 # Units by role: offense only, defense only. Projects and race rules that name "pure" attackers or defenders use these.
 PURE_ATTACK_UNITS = [key for key, unit in UNITS.items() if unit["offense"] > 0 and unit["defense"] == 0]
@@ -101,33 +168,44 @@ PURE_DEFENSE_UNITS = [
 TRAINABLE_UNITS = [key for key in UNITS if key not in ("recruits", "engineers")]
 
 
-def unit_fuel(kd_info, unit):
-    """Fuel one ``unit`` of this kingdom uses per epoch, after its projects."""
-    fuel = UNITS[unit]["fuel"]
-    if unit in PURE_ATTACK_UNITS and has_project(kd_info, "solar_attackers"):
-        fuel *= 1 - GAME_CONFIG["SOLAR_FUEL_REDUCTION"]
-    if unit in PURE_DEFENSE_UNITS and has_project(kd_info, "solar_defenders"):
-        fuel *= 1 - GAME_CONFIG["SOLAR_FUEL_REDUCTION"]
-    return fuel
-
-
 def unit_hangar_space(kd_info, unit):
     """Hangar space one ``unit`` of this kingdom takes, after its projects."""
     space = UNITS[unit]["hangar_capacity"]
-    if unit == "big_flex" and has_project(kd_info, "compact_flexers"):
-        space = GAME_CONFIG["COMPACT_FLEX_HANGAR_CAPACITY"]
     if unit in PURE_ATTACK_UNITS and has_project(kd_info, "gaian_evolution"):
         space *= GAME_CONFIG["GAIAN_EVOLUTION_ATTACK_HANGAR_MULTIPLIER"]
     return space
 
 
 def units_for(kd_info, units_desc=None):
-    """``UNITS`` (or ``units_desc``, e.g. with costs adjusted) with this kingdom's fuel and hangar space per unit."""
+    """``UNITS`` (or ``units_desc``, e.g. with costs adjusted) with this kingdom's hangar space per unit, and for each
+    unit that can be upgraded to, what one upgrade costs at those prices (``upgrade_cost``)."""
     units_desc = units_desc if units_desc is not None else UNITS
     return {
-        key: {**unit, "fuel": unit_fuel(kd_info, key), "hangar_capacity": unit_hangar_space(kd_info, key)}
+        key: {
+            **unit,
+            "hangar_capacity": unit_hangar_space(kd_info, key),
+            **({"upgrade_cost": upgrade_cost(units_desc, key)} if "upgrades_from" in unit else {}),
+        }
         for key, unit in units_desc.items()
     }
+
+
+def upgrade_cost(units_desc, unit):
+    """What upgrading one unit to ``unit`` costs: its price less the price of the unit it is made from. ``units_desc``
+    is ``UNITS`` with the prices the kingdom pays (``getters._get_units_adjusted_costs``)."""
+    return units_desc[unit]["cost"] - units_desc[UNITS[unit]["upgrades_from"]]["cost"]
+
+
+def self_destruct_share(units, stat):
+    """The share of these units' raw ``stat`` ("offense" or "defense") that comes from self-destructing units, which is
+    how much of ``SELF_DESTRUCT_LOSSES_INCREASE`` they add to the other side's losses. Zero if they have none."""
+    total = sum(UNITS[key][stat] * count for key, count in units.items() if key in UNITS)
+    if total <= 0:
+        return 0.0
+    destructing = sum(
+        UNITS[key][stat] * count for key, count in units.items() if UNITS.get(key, {}).get("self_destruct")
+    )
+    return destructing / total
 
 
 def unit_locked(kd_info, unit):
@@ -142,7 +220,11 @@ AUTOFILL_PRIORITY = [
     "attack",
     "heavy_attack",
     "elite_attack",
+    "solar_attack",
+    "self_destruct_attack",
     "big_flex",
+    "warp_big_flex",
+    "compact_big_flex",
     "flex",
 ]
 
@@ -369,11 +451,17 @@ GAME_CONFIG = {
         "attack": 7,
         "heavy_attack": 8,
         "elite_attack": 9,
+        "solar_attack": 10,  # proposal
+        "self_destruct_attack": 10,  # proposal
         "defense": 8,
         "heavy_defense": 9,
         "elite_defense": 11,
+        "solar_defense": 12,  # proposal
+        "self_destruct_defense": 12,  # proposal
         "flex": 10,
         "big_flex": 20,
+        "warp_big_flex": 22,  # proposal
+        "compact_big_flex": 22,  # proposal
         "recruits": 2,
         "engineers": 18,
     },
@@ -450,10 +538,12 @@ GAME_CONFIG = {
     "CASUALTIES_PROJECT_REDUCTION": 0.25,
     "SPY_PROTECTION_PROJECT_REDUCTION": 0.25,
 
-    # Playstyle projects, unlocked by the best unit of each kind (proposals).
-    "SOLAR_FUEL_REDUCTION": 0.5,  # solar_attackers / solar_defenders: pure units of that kind use this much less fuel
-    "SELF_DESTRUCT_LOSSES_INCREASE": 0.5,  # self_destructing_*: the other side's unit losses are this much higher
-    "COMPACT_FLEX_HANGAR_CAPACITY": 1,  # compact_flexers: hangar space one big flexer takes
+    # Playstyle units, each unlocked by its project.
+    "SOLAR_FUEL_REDUCTION": 0.5,  # solar attackers and defenders use this much less fuel than the unit they come from
+    # Self-destructing units raise the other side's unit losses by up to this much, scaled by their share of the
+    # strength on their side of the battle (the attack's offense, or the defense at home): self_destruct_share.
+    "SELF_DESTRUCT_LOSSES_INCREASE": 0.5,
+    "COMPACT_FLEX_HANGAR_CAPACITY": 1,  # hangar space one compact big flexer takes
 
     # Racial capstones.
     "GAIAN_CAPSTONE_SETTLE_TIME_REDUCTION": 0.50,
@@ -476,6 +566,11 @@ GAME_CONFIG = {
     "FUZI_EVOLUTION_FUEL_STORAGE_PER_EMPTY_SILO": 500,
     "FUZI_EVOLUTION_POP_PER_EMPTY_SILO": 25,
 }
+
+# The playstyle units' traits that are numbers in GAME_CONFIG.
+UNITS["solar_attack"]["fuel"] *= 1 - GAME_CONFIG["SOLAR_FUEL_REDUCTION"]
+UNITS["solar_defense"]["fuel"] *= 1 - GAME_CONFIG["SOLAR_FUEL_REDUCTION"]
+UNITS["compact_big_flex"]["hangar_capacity"] = GAME_CONFIG["COMPACT_FLEX_HANGAR_CAPACITY"]
 
 GAME_FUNCS = {
     "BASE_SETTLE_COST": lambda stars: math.floor((stars ** GAME_CONFIG["BASE_SETTLE_STARS_POWER"]) * GAME_CONFIG["BASE_SETTLE_COST_CONSTANT"]), 
@@ -684,7 +779,7 @@ PROJECTS = {
     "solar_attackers": {
         "stars_power": 0,
         "constant": 500000,
-        "desc": f"Pure attackers use {GAME_CONFIG['SOLAR_FUEL_REDUCTION']:.0%} less fuel",
+        "desc": f"Unlocks the Solar Attacker unit (7 offense, {GAME_CONFIG['SOLAR_FUEL_REDUCTION']:.0%} less fuel)",
         "name": "Solar Attackers",
         "category": "military",
         "requires": ["elite_attackers"],
@@ -692,7 +787,8 @@ PROJECTS = {
     "self_destructing_attackers": {
         "stars_power": 0,
         "constant": 500000,
-        "desc": f"When you attack a kingdom, its units take {GAME_CONFIG['SELF_DESTRUCT_LOSSES_INCREASE']:.0%} more losses",
+        "desc": f"Unlocks the Self-Destructing Attacker unit (7 offense): kingdoms it attacks lose up to "
+                f"{GAME_CONFIG['SELF_DESTRUCT_LOSSES_INCREASE']:.0%} more units, by its share of the attack's offense",
         "name": "Self-Destructing Attackers",
         "category": "military",
         "requires": ["elite_attackers"],
@@ -700,7 +796,7 @@ PROJECTS = {
     "solar_defenders": {
         "stars_power": 0,
         "constant": 600000,
-        "desc": f"Pure defenders use {GAME_CONFIG['SOLAR_FUEL_REDUCTION']:.0%} less fuel",
+        "desc": f"Unlocks the Solar Defender unit (7 defense, {GAME_CONFIG['SOLAR_FUEL_REDUCTION']:.0%} less fuel)",
         "name": "Solar Defenders",
         "category": "military",
         "requires": ["elite_defenders"],
@@ -708,7 +804,8 @@ PROJECTS = {
     "self_destructing_defenders": {
         "stars_power": 0,
         "constant": 600000,
-        "desc": f"Kingdoms that attack you take {GAME_CONFIG['SELF_DESTRUCT_LOSSES_INCREASE']:.0%} more unit losses",
+        "desc": f"Unlocks the Self-Destructing Defender unit (7 defense): kingdoms that attack you lose up to "
+                f"{GAME_CONFIG['SELF_DESTRUCT_LOSSES_INCREASE']:.0%} more units, by its share of your defense",
         "name": "Self-Destructing Defenders",
         "category": "military",
         "requires": ["elite_defenders"],
@@ -716,7 +813,8 @@ PROJECTS = {
     "warp_speed": {
         "stars_power": 0,
         "constant": 800000,
-        "desc": "Big flexers sent on an attack all come home with the first general to return",
+        "desc": "Unlocks the Warp Speed Big Flexer unit (10 / 10): sent on an attack, they all come home with the "
+                "first general to return",
         "name": "Warp Speed",
         "category": "military",
         "requires": ["big_flexers"],
@@ -724,7 +822,8 @@ PROJECTS = {
     "compact_flexers": {
         "stars_power": 0,
         "constant": 800000,
-        "desc": f"Big flexers take {GAME_CONFIG['COMPACT_FLEX_HANGAR_CAPACITY']} hangar space each",
+        "desc": f"Unlocks the Compact Big Flexer unit (10 / 10), which takes "
+                f"{GAME_CONFIG['COMPACT_FLEX_HANGAR_CAPACITY']} hangar space",
         "name": "Compact Flexers",
         "category": "military",
         "requires": ["big_flexers"],
@@ -1336,6 +1435,12 @@ PRETTY_NAMES = {
     "elite_attack": "Elite Attackers",
     "heavy_defense": "Heavy Defenders",
     "elite_defense": "Elite Defenders",
+    "solar_attack": "Solar Attackers",
+    "self_destruct_attack": "Self-Destructing Attackers",
+    "solar_defense": "Solar Defenders",
+    "self_destruct_defense": "Self-Destructing Defenders",
+    "warp_big_flex": "Warp Speed Big Flexers",
+    "compact_big_flex": "Compact Big Flexers",
     "engineers": "Engineers",
     "homes": "Homes",
     "mines": "Mines",

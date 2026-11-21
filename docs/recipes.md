@@ -164,6 +164,9 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
 ## 11. A new unit, structure or missile
 
 A unit that needs a project gets `"project"` in `UNITS` (a missile, in `MISSILES`); the routes and pages check it.
+A unit that can be upgraded to gets `"upgrades_from"` (the unit one tier below it in its line); the Upgrade page and
+`/api/mobis/upgrade` pick it up, and `upgrade_cost` prices it. A trait of one unit is a key on that unit (such as
+`"self_destruct"` or `"warp"`), read where the rule lives, not a check of the kingdom's projects.
 The Military, Attack, Primitives and home pages and the kingdom view list units from `UNITS`.
 
 This touches many places; search for an existing name (for example `drone_factories`) across `api/`, `src/` and
