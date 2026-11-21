@@ -25,9 +25,6 @@ function Galaxy(props) {
                 When kingdoms have stats revealed, you can press the "View" button to see information about that kingdom. Additionally, 
                 there are various buttons to interact with each kingdom.
             </p>
-            <p>
-                The cards also list, under Last known, each kind of intel on a kingdom that has ended and how long ago.
-            </p>
             <LastKnownHelp state={props.state} />
             <p>
                 When viewing your own galaxy, you can press the "Share" button to share your kingdom's details with a galaxymate. 

@@ -146,26 +146,28 @@
 .amount-input-cap-button:disabled { color: var(--bs-secondary-color, #6c757d); cursor: default; }
 
 /* --- Last-known intel (components/lastknown.js) ----------------------------------------------------------------- */
-/* A value from intel that has ended, by how long ago: yellow, then orange, then red. */
+/* A value from intel that has ended, by how long ago: yellow, then orange, then red. The colour is on the text only,
+   with a faint dotted underline that says there is a tooltip (its age). Tuned for the dark theme. */
 
 .last-known {
-  border-radius: 3px;
-  color: #212529; /* dark on the light tints, also in the dark-themed tables */
-  padding: 0 3px;
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 .last-known-fresh {
-  background-color: #fff3b0;
+  color: #e9c46a;
+  text-decoration-color: rgba(233, 196, 106, 0.45);
 }
 .last-known-aging {
-  background-color: #ffd8a8;
+  color: #f4a261;
+  text-decoration-color: rgba(244, 162, 97, 0.45);
 }
 .last-known-stale {
-  background-color: #ffc9c9;
+  color: #ef6f6c;
+  text-decoration-color: rgba(239, 111, 108, 0.45);
 }
 .last-known-note {
-  border-radius: 4px;
-  color: #212529;
   font-size: 0.85em;
   margin: var(--space-tight) 0;
-  padding: 2px 8px;
+  text-decoration: none;
 }

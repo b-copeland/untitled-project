@@ -20,7 +20,7 @@ import { IntelModal, KingdomModal, tradable } from "./conquer/intel.js";
 import Header from "../components/header";
 import HelpButton from "../components/helpbutton";
 import { IconButton } from "../components/iconbutton";
-import { withLastKnown, Known, ago } from "../components/lastknown";
+import { withLastKnown, Known } from "../components/lastknown";
 import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsShareFill, BsClipboardData } from "react-icons/bs";
 import { GiCrossedSwords } from "react-icons/gi";
 
@@ -243,9 +243,6 @@ function Galaxy(props) {
         // A galaxymate who shares with you is known in full, with no timer.
         intel: (props.data.revealed?.revealed_galaxymates || []).includes(kdId) ? "shared with you"
             : Object.entries(props.data.revealed?.revealed?.[kdId] || {}).map(([what, until]) => `${what} ${timeLeft(until)}`).join(", "),
-        // What ended intel last showed, and how long ago each ended, e.g. "drones 5h ago".
-        lastKnown: Object.entries(known[kdId].categories).map(([what, ended]) =>
-            <Known key={what} ended={ended} gameConfig={gameConfig}>{`${what} ${ago(ended)}`}</Known>),
     });
     const galaxyCards = Object.keys(galaxyInfo).map((kdId) => {
         const facts = kingdomFacts(kdId);
@@ -270,7 +267,6 @@ function Galaxy(props) {
                     </div>
                     <div><dt>Status</dt><dd>{facts.status || "?"}</dd></div>
                     <div><dt>Intel</dt><dd>{facts.intel || "none"}</dd></div>
-                    {facts.lastKnown.length ? <div><dt>Last known</dt><dd className="galaxy-card-last-known">{facts.lastKnown}</dd></div> : null}
                 </dl>
                 <div className="galaxy-actions">
                     {kingdomActions(kdId).map((action) => <IconButton key={action.label} {...action} />)}

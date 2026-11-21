@@ -85,7 +85,7 @@ test("where intel has ended, the cards show what it last showed, coloured by its
     await waitFor(() => expect(screen.getByText("Echo")).toBeTruthy());
     expect(screen.getByText("≤ 777").className).toContain("last-known-stale");
     expect(screen.getByText("250").getAttribute("title")).toBe("Last known, 30h ago");
-    expect(screen.getByText("military 30h ago")).toBeTruthy();
+    expect(screen.queryByText(/Last known/)).toBeNull();   // no section of its own: the values are coloured
     // Delta's live values are plain.
     expect(screen.getByText("≤ 9,000").className || "").not.toContain("last-known");
 });

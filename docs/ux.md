@@ -57,7 +57,7 @@ for a planner page.
 
 - Stock Bootstrap in dark mode. Hierarchy comes from type size and muted labels, not borders.
 - Colour means state: red is a problem, green is done, amber is a guess that matters or something needing a decision.
-  One scale is different: last-known intel is tinted yellow, orange, then red as it ages (`Known` in
+  One scale is different: last-known intel is written in yellow, orange, then red as it ages (`Known` in
   `src/components/lastknown.js`), with its age in the tooltip.
 - One spacing scale and one table style, from `shared.css`.
 
