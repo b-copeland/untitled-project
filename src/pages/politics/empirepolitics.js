@@ -14,6 +14,7 @@ import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
+import Targets from "./targets.js";
 
 
 function getTimeString(date) {
@@ -1125,12 +1126,6 @@ function Status(props) {
 }
 
 function Politics(props) {
-    return (
-        <h3>Coming Soon</h3>
-    )
-}
-
-function Targets(props) {
     return (
         <h3>Coming Soon</h3>
     )

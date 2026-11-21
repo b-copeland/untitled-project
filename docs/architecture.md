@@ -20,7 +20,7 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
 ```
 
 - **Flask owns the rules.** Every decision (can you afford it, does the attack win, what does the player see) is made in
-  `api/untitledapp/`. Blueprints: `account`, `admin`, `build`, `conquer`, `getters`, `intel`, `misc`, `politics`, `refresh`.
+  `api/untitledapp/`. Blueprints: `account`, `admin`, `build`, `conquer`, `getters`, `intel`, `misc`, `politics`, `refresh`, `targets`.
 - **The function app owns storage, nothing else.** Each route reads or writes one Cosmos document. It does no game
   logic. Its `update_*` handlers merge or append into the newest version of the document (see [data-model.md](data-model.md)).
 - **Identity is in Cosmos, through the function app.** Each user is a `user_<id>` document (login, roles, `kd_id`), read
@@ -168,6 +168,7 @@ In game code take `kd_id` from `flask_praetorian.current_user()` and nothing els
 | The galaxy's intel market: listings, bounties, free shares, exclusions, who earns which cut | `intel.py` |
 | Galaxy, empire and universe politics, votes, war, surrender | `politics.py` |
 | Cluster politics: a galaxy leader's vote, benefit levels, the cluster's empire alignment | `clusters.py` |
+| Empire targets: marking targets, delegates, participation points, the spoils fund and its payouts | `targets.py` |
 | Read routes (`/api/kingdom`, `/api/structures`, ...) and the calculations they share | `getters.py` |
 | Last-known intel: snapshots of ended reveals, and which to show with a kingdom | `lastknown.py` (the fields each reveal shows: `REVEAL_FIELDS` in `shared.py`) |
 | The tick | `refresh.py` (`refresh_data` calls `_refresh_kd` per kingdom) |

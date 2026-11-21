@@ -349,6 +349,19 @@ GAME_CONFIG = {
     "CLUSTER_VOTE_RATE": 0.005,  # per galaxy vote per epoch, as a fraction of the benefit's max
     "CLUSTER_DECAY_RATE": 0.005,  # per epoch, as a fraction of the benefit's max, voted for or not
 
+    # Empire targets (targets.py). Placeholders: the framework is in, the balance is not. The points each kind of damage
+    # earns are in TARGET_ACTIONS.
+    "TARGET_MAX_DELEGATES": 3,  # kingdoms the emperor can name to manage the empire's targets with them
+    "TARGET_DEFAULT_FUND_SHARE": 0.10,  # of a successful attack's stars and money on a target, into its spoils fund
+    "TARGET_MAX_FUND_SHARE": 0.50,  # the most leadership can set the fund share to
+    "TARGET_MAX_POINTS_MULTIPLIER": 5.0,  # leadership can scale each action's points from 0 up to this many times
+    "TARGET_HISTORY_LENGTH": 20,  # ended targets kept in the empire's history
+    "TARGET_REMARK_COOLDOWN_EPOCHS": 24,  # a kingdom removed as a target can be marked again by that empire after this
+    # A dead target's land and money go into the fund in proportion to the empire's points on it, all of it once it has
+    # this many points for every star the target had when it was marked; the rest leaves the game.
+    "TARGET_REMAINS_POINTS_PER_STAR": 0.5,
+    "TARGET_MAX_PAYOUT_STARS_SHARE": 0.10,  # the most stars one payout gives a kingdom, as a share of its own land
+
     "NETWORTH_VALUES": {
         "stars": 25,
         "structures": 25,
@@ -1199,6 +1212,52 @@ CLUSTER_BENEFITS = {
         "thresholds": [(0.5, 0.8)],
         "effect": "settle_cost",
     },
+}
+
+# What an empire can mark a target for (targets.py), and the participation points each one earns. ``points`` maps each
+# measure of the damage done to the points one unit of it earns, so a bigger blow earns more: kidnapping 1000
+# civilians earns twice what 500 do. Leadership scales each action's points per target with a multiplier. Placeholders.
+TARGET_ACTIONS = {
+    "intel": {
+        "name": "Intel",
+        "desc": "Successful intel operations. Only intel the empire does not already have on the target earns points",
+        "points": {"categories": 10},
+    },
+    "kidnap": {
+        "name": "Kidnaps",
+        "desc": "Kidnap Population",
+        "points": {"population": 0.01},
+    },
+    "bomb_homes": {
+        "name": "Bomb Homes",
+        "desc": "Bomb Homes",
+        "points": {"homes": 1},
+    },
+    "sabotage_fuel_plants": {
+        "name": "Sabotage Fuel Plants",
+        "desc": "Sabotage Fuel Plants",
+        "points": {"fuel_plants": 1},
+    },
+    "missiles": {
+        "name": "Missiles",
+        "desc": "Missiles launched at the target. The stars they destroy go into the spoils fund",
+        "points": {"stars": 1, "population": 0.01, "fuel": 0.001},
+    },
+    "failed_attacks": {
+        "name": "Failed Attacks",
+        "desc": "Attacks that lost, by the defending units they destroyed",
+        "points": {"units": 0.1},
+    },
+    "successful_attacks": {
+        "name": "Successful Attacks",
+        "desc": "Attacks that won, by the stars they took",
+        "points": {"stars": 1},
+    },
+}
+# The words for each measure on the pages.
+TARGET_MEASURE_NAMES = {
+    "categories": "kind of intel", "population": "civilian", "homes": "home", "fuel_plants": "fuel plant",
+    "stars": "star", "fuel": "fuel", "units": "unit destroyed",
 }
 
 UNIVERSE_POLICIES = {

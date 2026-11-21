@@ -514,7 +514,8 @@ def _kingdom_with_income(
 
     if new_kd_info["population"] <= 0:
         new_kd_info["status"] = "Dead"
-        uam._mark_kingdom_death(kd_info_parse["kdId"])
+        # After the kingdom is written: an empire target's death takes the remains off the dead kingdom's document.
+        _defer(effects, lambda kd_id=kd_info_parse["kdId"]: uam._mark_kingdom_death(kd_id))
     if structures_to_reduce:
         new_kd_info["structures"] = {
             k: v - structures_to_reduce.get(k, 0)
