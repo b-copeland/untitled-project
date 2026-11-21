@@ -65,6 +65,12 @@ function Spy(props) {
                 only counts it if the target's projects are revealed to you.
             </p>
             <p>
+                An intel operation is refused, before any drones or spy attempt are spent, when everything it would
+                reveal is already revealed to you: by your own spying, by intel you received from a galaxymate, or by a
+                galaxymate sharing their kingdom. Full Infiltration goes ahead while any of what it reveals is not.
+                Once a reveal ends you can spy for it again.
+            </p>
+            <p>
                 If you fail an aggressive spy operation, or your target's spy radar catches you, your drones will be revealed to the target
                 for {props.state.game_config?.BASE_REVEAL_DURATION_MULTIPLIER * props.state.game_config?.BASE_EPOCH_SECONDS / 3600} hours.
             </p>

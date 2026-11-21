@@ -77,3 +77,16 @@ export function firstError(...errors) {
     }
     return null;
 }
+
+/**
+ * Why a reveal operation would be refused (the server's ``_already_revealed_problem``): everything it reveals
+ * (``reveals``, from ``state.reveal_operation_stats``) is revealed on the target now, or the target shares its whole
+ * kingdom with you. ``revealed`` is the target's entry in ``data.revealed.revealed``. Null if it would show something.
+ */
+export function alreadyRevealed(reveals, revealed = {}, sharesKingdom = false, now = Date.now()) {
+    if (!reveals || reveals.length === 0) {
+        return null;
+    }
+    const known = sharesKingdom || reveals.every((category) => revealed[category] && new Date(revealed[category]).getTime() > now);
+    return known ? `You already have their ${reveals.join(", ")} revealed` : null;
+}

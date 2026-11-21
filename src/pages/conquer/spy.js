@@ -13,7 +13,7 @@ import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput, NumberControl } from "../../components/forms";
 import { Panel, FieldRow, Stats, Picker, useServerForecast, clockUntil } from "../../components/planner";
-import { checkPercent } from "../../validation";
+import { alreadyRevealed, checkPercent } from "../../validation";
 import { TargetIntel } from "./intel.js";
 
 const initialDefenderValues = { drones: "", stars: "", shields: "" };
@@ -119,6 +119,9 @@ function Spy(props) {
     if (sendingDrones < 1) problems.push("Send at least 1 drone");
     if (sendingDrones > maxDrones) problems.push(`You only have ${whole(maxDrones)} drones`);
     if ((kingdom.spy_attempts || 0) < 1) problems.push("You have no spy attempts left");
+    const revealedProblem = alreadyRevealed(props.data.state.reveal_operation_stats?.[operation],
+        (props.data.revealed?.revealed || {})[selected], (props.data.revealed?.revealed_galaxymates || []).includes(selected));
+    if (revealedProblem) problems.push(revealedProblem);
     const cutError = sharesResult && share ? checkPercent(cut, { max: (props.data.state.game_config?.BASE_MAX_SHARE_CUT || 0) * 100 }) : null;
     if (cutError) problems.push(cutError);
     const blocked = problems[0];

@@ -62,6 +62,7 @@ def get_state():
         "primitives_rob_per_drone": primitives_rob_per_drone,
         "aggro_operations": uas.AGGRO_OPERATIONS,
         "reveal_operations": uas.REVEAL_OPERATIONS,
+        "reveal_operation_stats": uas.REVEAL_OPERATION_STATS,  # what each reveals, for the Spy page's refusal
         "operation_projects": uas.OPERATION_PROJECTS,
         "cluster_benefits": uas.CLUSTER_BENEFITS,
         # The objects above reach the browser with their keys sorted; this is the order the game lists them in.

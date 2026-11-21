@@ -1,4 +1,4 @@
-import { anyFilled, checkCount, checkPercent, checkTotal, firstError } from "./validation";
+import { alreadyRevealed, anyFilled, checkCount, checkPercent, checkTotal, firstError } from "./validation";
 
 describe("checkCount", () => {
     test("empty means none and is fine", () => {
@@ -50,4 +50,19 @@ test("firstError finds the first message among values, objects and nulls", () =>
     expect(firstError(null, { a: null, b: "bad" }, "later")).toBe("bad");
     expect(firstError({ a: null }, null)).toBeNull();
     expect(firstError("only")).toBe("only");
+});
+
+describe("alreadyRevealed", () => {
+    const now = Date.parse("2026-11-20T12:00:00Z");
+    const later = "2026-11-20T13:00:00+00:00";
+    const earlier = "2026-11-20T11:00:00+00:00";
+    test("refused when everything it reveals is revealed now, or the kingdom is shared", () => {
+        expect(alreadyRevealed(["military"], { military: later }, false, now)).toBe("You already have their military revealed");
+        expect(alreadyRevealed(["military"], {}, true, now)).toBe("You already have their military revealed");
+    });
+    test("allowed when something is not revealed, or has ended, or it is not a reveal", () => {
+        expect(alreadyRevealed(["military"], { military: earlier }, false, now)).toBeNull();
+        expect(alreadyRevealed(["military", "shields"], { military: later }, false, now)).toBeNull();
+        expect(alreadyRevealed(undefined, { military: later }, false, now)).toBeNull();
+    });
 });
