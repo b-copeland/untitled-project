@@ -69,7 +69,7 @@ building.
 | Schedule | Actions queued to run at a future time by the refresh (attacks, spying, missiles). |
 | Networth | A weighted sum of a kingdom's assets (`NETWORTH_VALUES`). |
 | Points | Score earned over time by the top 10 kingdoms by networth (`NETWORTH_POINTS`). |
-| Aggression | An empire's counter of attacks and aggressive spying; feeds denouncing and war. |
+| Aggression | An empire's meter towards each other empire: raised by its kingdoms' attacks (`AGGRO_PER_ATTACK`) and aggressive spying (`AGGRO_PER_AGGRO_SPY`) on that empire and by denouncing it, falling every epoch by `AGGRO_METER_DECAY_PER_KD_PER_EPOCH` per kingdom. Past `AGGRO_METER_PER_KD` per kingdom the two empires are at war (war by aggression, with no surprise-war penalty); a surrender resets it. |
 | Bots | Computer-run kingdoms using the same rules as players. See [bots.md](bots.md). |
 
 ## How time works
