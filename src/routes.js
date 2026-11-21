@@ -34,6 +34,8 @@ import UniversePolitics from "./pages/politics/universepolitics.js";
 import ClusterPolitics from "./pages/politics/clusterpolitics.js";
 import Universe from "./pages/politics/universe.js";
 import Help from "./pages/help/help.js";
+import KingdomPage from "./pages/kingdom.js";
+import { kingdomLabel } from "./components/kingdomlink";
 
 /*
  * Every page of the app, in one place. Both the router (App.js) and the side navigation (components/navbar.js) read
@@ -106,6 +108,17 @@ export const sections = [
   },
 ];
 
+/*
+ * Game pages that are not in the navigation: they are opened from links on other pages. ``section`` is the name over
+ * their title; ``title(data, params)`` gives the title when it depends on the page's address.
+ */
+export const linkedPages = [
+  {
+    path: "/kingdom/:kdid", label: "Kingdom", section: "Kingdom", component: KingdomPage,
+    title: (data, params) => kingdomLabel(data, params.kdid),
+  },
+];
+
 export const publicRoutes = [
   { path: "/", component: Landing, props: ({ logged }) => ({ logged }) },
   { path: "/login", component: Login, props: ({ logged }) => ({ logged }) },
@@ -127,7 +140,10 @@ export const createKingdomRoute = {
 // The paths of one section's pages.
 export const sectionPaths = (section) => section.pages.map((page) => page.path);
 
-export const gamePages = sections.flatMap((section) => section.pages);
+export const gamePages = [
+  ...sections.flatMap((section) => section.pages.map((page) => ({ section: section.title, ...page }))),
+  ...linkedPages,
+];
 
 /** The props a game page gets: the shared ones, plus whatever the page asked for. */
 export const propsFor = (route, context) => ({

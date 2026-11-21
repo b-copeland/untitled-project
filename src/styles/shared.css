@@ -39,38 +39,64 @@ body { background: var(--bs-body-bg); }
    width, stacked on a phone: */
 .panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 1rem; width: 100%; align-items: start; }
 
-/* A page's own title, when it has one. */
-.page-title { font-size: 1.5rem; font-weight: 600; margin: 0.25rem 0 1rem; text-align: left; width: 100%; }
+/* The page head (components/pagehead.js): the section name, or the way back, over the page title. */
+.page-head { width: 100%; margin: 0 0 1rem; text-align: left; }
+.page-crumbs {
+  color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.page-crumbs a { text-decoration: none; }
+.page-crumbs a:hover { text-decoration: underline; }
+.page-title { font-size: 1.5rem; font-weight: 600; margin: 0.1rem 0 0; }
 
-/* --- Tabs: underlined, left-aligned, sideways-scrolling on a phone rather than wrapping ------------------------ */
+/* A kingdom name that links to its page (components/kingdomlink.js): link coloured, underlined on hover. */
+.kingdom-link { color: var(--bs-link-color); text-decoration: none; }
+.kingdom-link:hover { color: var(--bs-link-hover-color); text-decoration: underline; }
+
+/* --- Tabs: a segmented control - a track of buttons, the chosen one filled - left-aligned, scrolling sideways on a
+   phone rather than wrapping. Pages written with `justify fill` stretched each tab across the page; tabs keep their own
+   width now. */
 
 .nav-tabs {
   --bs-nav-tabs-border-width: 0;
+  display: inline-flex;
   flex-wrap: nowrap;
+  max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
   gap: 0.25rem;
   margin: 0 0 1rem;
-  border-bottom: 1px solid var(--bs-border-color);
+  padding: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--bs-border-color);
+  border-radius: calc(var(--radius) - 0.125rem);
 }
 .nav-tabs::-webkit-scrollbar { display: none; }
-/* Pages written with `justify fill` stretched each tab across the page; tabs keep their own width now. */
 .nav-tabs .nav-item { flex: 0 0 auto; }
 .nav-tabs .nav-link {
-  margin-bottom: -1px;
-  padding: 0.6rem 0.9rem;
+  margin: 0;
+  padding: 0.4rem 0.9rem;
   border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
+  border-radius: 0.5rem;
   background: none;
-  color: var(--bs-secondary-color);
+  color: var(--bs-body-color);
   font-weight: 500;
   white-space: nowrap;
 }
 .nav-tabs .nav-link:hover,
-.nav-tabs .nav-link:focus { color: var(--bs-body-color); border-bottom-color: var(--bs-border-color); isolation: auto; }
+.nav-tabs .nav-link:focus-visible { background: var(--surface-raised); color: var(--bs-emphasis-color); isolation: auto; }
 .nav-tabs .nav-link.active,
-.nav-tabs .nav-item.show .nav-link { color: var(--bs-emphasis-color); background: none; border-bottom-color: var(--bs-primary); }
+.nav-tabs .nav-item.show .nav-link {
+  background: rgba(var(--bs-primary-rgb), 0.18);
+  color: var(--bs-emphasis-color);
+  box-shadow: inset 0 0 0 1px rgba(var(--bs-primary-rgb), 0.55);
+  font-weight: 600;
+}
+/* A tab bar is a block of its own, so what follows starts below it. */
+.nav-tabs + .tab-content { clear: both; }
 
 /* --- Accordions (queues on Build): the same card as a section --------------------------------------------------- */
 
@@ -322,3 +348,16 @@ body { background: var(--bs-body-bg); }
 
 /* A line of plain text that introduces a table or form, above it. */
 .page-note { width: 100%; margin: 0 0 0.75rem; color: var(--bs-secondary-color); text-align: left; }
+
+/* A tab whose action destroys something (Structures > Raze, Military > Disband): soft orange, so it is not chosen by
+   mistake. */
+.nav-tabs .nav-link.tab-warning { color: var(--bs-warning-text-emphasis); }
+.nav-tabs .nav-link.tab-warning:hover { background: rgba(var(--bs-warning-rgb), 0.12); }
+.nav-tabs .nav-link.tab-warning.active {
+  background: rgba(var(--bs-warning-rgb), 0.18);
+  color: var(--bs-warning-text-emphasis);
+  box-shadow: inset 0 0 0 1px rgba(var(--bs-warning-rgb), 0.6);
+}
+/* What a warning tab shows: its cards edged in the same orange. */
+.warning-zone .table-scroll,
+.warning-zone .text-box { border-color: rgba(var(--bs-warning-rgb), 0.35); }

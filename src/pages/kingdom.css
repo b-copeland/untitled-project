@@ -1,0 +1,14 @@
+.kingdom-page {
+    width: 100%;
+}
+.kingdom-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0 0 1rem;
+}
+.kingdom-page-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}

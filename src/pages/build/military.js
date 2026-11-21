@@ -6,10 +6,8 @@ import InputGroup from 'react-bootstrap/InputGroup';
 import { AmountInput, NumberControl, SubmitButton } from "../../components/forms";
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
-import ButtonGroup from 'react-bootstrap/ButtonGroup';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import "./military.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
@@ -46,14 +44,13 @@ function MilitaryContent(props) {
     const kdInfo = props.data.kingdom;
     const mobisInfo = props.data.mobis;
     if (Object.keys(mobisInfo || {}).length === 0 || Object.keys(kdInfo || {}).length === 0) {
-        return <Header data={props.data} />;
+        return null;
     }
     const units = trainableUnits(mobisInfo, props.data.state);
     const used = mobisInfo.current_hangar_capacity || 0;
     const room = mobisInfo.max_hangar_capacity || 0;
     return (
     <>
-        <Header data={props.data} />
         <div className="military">
             <Recruits kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/>
             <div className="military-capacity" title="Units take hangar space. Once the hangars are full, more units cannot be trained.">
@@ -63,11 +60,13 @@ function MilitaryContent(props) {
                 </div>
                 <ProgressBar now={room > 0 ? Math.min((used / room) * 100, 100) : 0} variant={room > 0 && used / room > 0.9 ? "danger" : "info"} />
             </div>
-            <ButtonGroup className="military-modes" aria-label="What to do with units">
+            {/* Shown as tabs (styles/shared.css); Disband is marked as the one that loses something. */}
+            <div className="nav nav-tabs military-modes" role="group" aria-label="What to do with units">
                 {MODES.map(({ key, label }) => (
-                    <Button key={key} variant={mode === key ? "primary" : "outline-secondary"} aria-pressed={mode === key} onClick={() => setMode(key)}>{label}</Button>
+                    <button key={key} type="button" aria-pressed={mode === key} onClick={() => setMode(key)}
+                        className={"nav-link" + (mode === key ? " active" : "") + (key === "disband" ? " tab-warning" : "")}>{label}</button>
                 ))}
-            </ButtonGroup>
+            </div>
             {mode === "train" ? <Specialists units={units} kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/> : null}
             {mode === "allocate" ? <Allocate units={units} kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/> : null}
             {mode === "disband" ? <Disband units={units} kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData} state={props.data.state}/> : null}
@@ -318,7 +317,7 @@ function Disband(props) {
     const rows = [{ key: "recruits", label: prettyNames.recruits || "Recruits" }, ...props.units].filter(({ key }) => key in units);
     const chosen = Object.values(input).reduce((sum, value) => sum + (parseInt(value) || 0), 0);
     return (
-        <div className="specialists">
+        <div className="specialists warning-zone">
             <ResultToasts title="Disband Results" results={results} setResults={setResults} />
             <p className="military-note">Disbanded units go back to your population, and you get {displayPercent(props.state?.game_config?.BASE_DISBAND_COST_RETURN || 0)} of their training cost back.</p>
             <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} units={rows} lastHeader="To Disband"

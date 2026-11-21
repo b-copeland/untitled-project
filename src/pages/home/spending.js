@@ -4,7 +4,6 @@ import { NumberControl } from "../../components/forms";
 import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import { authFetch } from "../../auth";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { Panel, FieldRow, Stats } from "../../components/planner";
@@ -15,7 +14,6 @@ import "./spending.css";
 function SpendingPage(props) {
     return (
         <>
-            <Header data={props.data} />
             <Spending kingdom={props.data.kingdom} loading={props.loading} updateData={props.updateData} />
             <HelpButton scrollTarget={"spending"} />
         </>

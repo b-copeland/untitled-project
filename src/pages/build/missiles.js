@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./missiles.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
@@ -97,7 +96,6 @@ function Missiles(props) {
 
     return (
         <>
-            <Header data={props.data} />
             <div className="missiles">
                 <ResultToasts title="Missiles Results" results={results} setResults={setResults} />
                 <GameTable

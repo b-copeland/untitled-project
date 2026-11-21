@@ -4,7 +4,6 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Accordion from 'react-bootstrap/Accordion';
 import Table from 'react-bootstrap/Table';
 import "./build.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { Panel, Stats } from "../../components/planner";
 
@@ -86,7 +85,6 @@ function Build(props) {
     )
     return (
     <>
-    <Header data={props.data} />
     <div className="queue-page">
         <Panel title="Auto spending funding">
             <Stats items={["settle", "structures", "military", "engineers"].map((key) => ({

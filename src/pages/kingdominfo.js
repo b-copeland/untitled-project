@@ -68,80 +68,62 @@ function KingdomContent(props) {
 /** ``value`` as shown for the field at ``path``: coloured when it comes from last-known intel. */
 const shown = (known, path, value) => <Known ended={known?.endedOf(path)} gameConfig={known?.gameConfig}>{value}</Known>;
 
-function Kingdom(props) {
-    const k = (path, value) => shown(props.known, path, value);
+/** One label and value; a value not known shows a muted "?". */
+function Fact({ label, children }) {
+    const blank = children === undefined || children === null || children === "";
     return (
-        <div className="status-kingdom-content">
-            <div className="text-box kingdom-card">
-                <h4>{props.kingdoms[props.kdId] || ""} ({props.galaxies_inverted[props.kdId] || ""})</h4>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Name</span>
-                    <span className="text-box-item-value">{props.kingdoms[props.kdId] || ""}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Race</span>
-                    <span className="text-box-item-value">{props.kingdom?.race}</span>
-                </div>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Networth</span>
-                    <span className="text-box-item-value">{k("networth", props.kingdom?.networth?.toLocaleString())}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Stars</span>
-                    <span className="text-box-item-value">{k("stars", props.kingdom?.stars?.toLocaleString())}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Population</span>
-                    <span className="text-box-item-value">{k("population", props.kingdom?.population != undefined ? Math.floor(props.kingdom?.population).toLocaleString() : null)}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Fuel</span>
-                    <span className="text-box-item-value">{k("fuel", props.kingdom?.fuel != undefined ? Math.floor(props.kingdom?.fuel).toLocaleString() : null)}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Money</span>
-                    <span className="text-box-item-value">{k("money", props.kingdom?.money != undefined ? Math.floor(props.kingdom?.money).toLocaleString() : null)}</span>
-                </div>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Engineers</span>
-                    <span className="text-box-item-value">{k("units.engineers", props.kingdom?.units?.engineers?.toLocaleString())}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value">{k("drones", props.kingdom?.drones != undefined ? Math.floor(props.kingdom?.drones).toLocaleString() : null)}{props.actions?.("drones", true)}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Spy Attempts</span>
-                    <span className="text-box-item-value">{k("spy_attempts", props.kingdom?.spy_attempts?.toLocaleString())}</span>
-                </div>
-                <br />
-                {inOrder(Object.keys(props.state?.units || props.kingdom?.units || {}), props.state?.order?.units)
-                    .filter((key) => key !== "engineers" && (!props.state?.units?.[key]?.project || props.kingdom?.units?.[key]))
-                    .map((key) => (
-                        <div className="text-box-item" key={key}>
-                            <span className="text-box-item-title">{props.state?.pretty_names?.[key] || key}</span>
-                            <span className="text-box-item-value">{k(`units.${key}`, props.kingdom?.units?.[key]?.toLocaleString())}</span>
-                        </div>
-                    ))}
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Planet Busters</span>
-                    <span className="text-box-item-value">{k("missiles.planet_busters", props.kingdom?.missiles?.planet_busters?.toLocaleString())}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Star Busters</span>
-                    <span className="text-box-item-value">{k("missiles.star_busters", props.kingdom?.missiles?.star_busters?.toLocaleString())}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Galaxy Busters</span>
-                    <span className="text-box-item-value">{k("missiles.galaxy_busters", props.kingdom?.missiles?.galaxy_busters?.toLocaleString())}</span>
-                </div>
-            </div>
+        <div className="text-box-item">
+            <span className="text-box-item-title">{label}</span>
+            <span className="text-box-item-value">{blank ? <span className="kd-unknown" title="Not revealed">?</span> : children}</span>
         </div>
-    )
+    );
+}
+
+/** A titled card of facts. */
+function FactCard({ title, children }) {
+    return (
+        <div className="text-box kingdom-card kd-card">
+            <h3>{title}</h3>
+            {children}
+        </div>
+    );
+}
+
+function Kingdom(props) {
+    const kd = props.kingdom || {};
+    const has = (value) => value !== undefined && value !== null;
+    const whole = (path, value) => (has(value) ? shown(props.known, path, Math.floor(value).toLocaleString()) : null);
+    const units = inOrder(Object.keys(props.state?.units || kd.units || {}), props.state?.order?.units)
+        .filter((key) => key !== "engineers" && (!props.state?.units?.[key]?.project || kd.units?.[key]));
+    return (
+        <div className="status-kingdom-content kd-facts">
+            <FactCard title="Kingdom">
+                <Fact label="Race">{kd.race}</Fact>
+                <Fact label="Networth">{whole("networth", kd.networth)}</Fact>
+                <Fact label="Stars">{whole("stars", kd.stars)}</Fact>
+            </FactCard>
+            <FactCard title="Economy">
+                <Fact label="Population">{whole("population", kd.population)}</Fact>
+                <Fact label="Fuel">{whole("fuel", kd.fuel)}</Fact>
+                <Fact label="Money">{whole("money", kd.money)}</Fact>
+            </FactCard>
+            <FactCard title="Operations">
+                <Fact label="Engineers">{whole("units.engineers", kd.units?.engineers)}</Fact>
+                <Fact label="Drones">{has(kd.drones) ? <>{whole("drones", kd.drones)}{props.actions?.("drones", true)}</> : props.actions?.("drones", true)}</Fact>
+                <Fact label="Spy attempts">{whole("spy_attempts", kd.spy_attempts)}</Fact>
+            </FactCard>
+            <FactCard title="Army">
+                {units.map((key) => (
+                    <Fact key={key} label={props.state?.pretty_names?.[key] || key}>{whole(`units.${key}`, kd.units?.[key])}</Fact>
+                ))}
+            </FactCard>
+            <FactCard title="Missiles">
+                <Fact label="Planet Busters">{whole("missiles.planet_busters", kd.missiles?.planet_busters)}</Fact>
+                <Fact label="Star Busters">{whole("missiles.star_busters", kd.missiles?.star_busters)}</Fact>
+                <Fact label="Galaxy Busters">{whole("missiles.galaxy_busters", kd.missiles?.galaxy_busters)}</Fact>
+            </FactCard>
+        </div>
+    );
 }
 
 function getTimeString(date) {
@@ -166,7 +148,7 @@ function Military(props) {
     const generalsEnded = props.known?.endedOf("generals_out");
     return (
         <div className="military">
-            <h2>Armies</h2>
+            <div className="table-scroll">
             <Table hover className="army-table" size="sm">
                 <thead>
                     <tr>
@@ -195,6 +177,7 @@ function Military(props) {
                     ))}
                 </tbody>
             </Table>
+            </div>
         </div>
     )
 }
@@ -203,7 +186,8 @@ function Structures(props) {
     return (
         
         <div className="kingdom-structures-info">
-            <Table hover>
+            <div className="table-scroll kd-narrow">
+            <Table hover size="sm">
                 <thead>
                     <tr>
                     <th style={{textAlign: "left"}}>Structure</th>
@@ -249,6 +233,7 @@ function Structures(props) {
                     </tr>
                 </tbody>
             </Table>
+            </div>
         </div>
     )
 }
@@ -256,7 +241,7 @@ function Structures(props) {
 function Projects(props) {
     const kingdom = props.kingdom || {};
     if (kingdom.projects_assigned === undefined) {
-        return <div className="projects"><h3>Not Revealed!</h3></div>;
+        return <p className="kd-not-revealed">Not revealed. Spy on their projects to see them.</p>;
     }
     const projects = props.state?.projects || Object.fromEntries(Object.keys(kingdom.projects_points || {}).map((key) => [key, { name: key }]));
     const completed = kingdom.completed_projects || [];
@@ -270,9 +255,11 @@ function Projects(props) {
         ? "Completed"
         : displayPercent(Math.min((kingdom.projects_points?.[key] || 0) / (kingdom.projects_max_points?.[key] || 1), 1)));
     const table = (title, list, lastHeader, last) => (
+        <div className="panel kd-projects">
+        <h3 className="panel-title">{title}</h3>
+        <div className="table-scroll">
         <Table className="projects-table" hover size="sm">
             <thead>
-                <tr><th colSpan={4}>{title}</th></tr>
                 <tr>
                     <th style={{textAlign: "left"}}>Project</th>
                     <th className="assigned-col" style={{textAlign: "right"}}>Assigned</th>
@@ -291,9 +278,11 @@ function Projects(props) {
                 ))}
             </tbody>
         </Table>
+        </div>
+        </div>
     );
     return (
-        <div className="projects">
+        <div className="projects kd-projects-grid">
             {table("Continuous Projects", continuous, "Bonus",
                 (key) => `${displayPercent(kingdom.current_bonuses?.[key] || 0)} / ${displayPercent(kingdom.max_bonuses?.[key] || 0)}`)}
             {table("One-Time Projects", oneTime, "% Completed", done)}
@@ -307,7 +296,7 @@ function Shields(props) {
         <div className="shields">
             {
                 props.kingdom?.shields?.military != undefined
-                ? <Table className="shields-table" hover size="sm">
+                ? <div className="table-scroll kd-narrow"><Table className="shields-table" hover size="sm">
                     <thead>
                         <tr>
                             <th style={{textAlign: "left"}}>Shield</th>
@@ -347,8 +336,8 @@ function Shields(props) {
                             <td style={{textAlign: "right"}}>{Math.floor(props.shields?.desc?.missiles?.max * props.shields?.desc?.missiles?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
                         </tr>
                     </tbody>
-                </Table>
-                : <h3>Not Revealed!</h3>
+                </Table></div>
+                : <p className="kd-not-revealed">Not revealed. Spy on their shields to see them.</p>
             }
         </div>
     )

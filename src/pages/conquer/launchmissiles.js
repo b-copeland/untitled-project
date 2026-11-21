@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Alert from 'react-bootstrap/Alert';
 import "./launchmissiles.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput, NumberControl, useFormValues } from "../../components/forms";
@@ -22,7 +22,10 @@ const MISSILES = [
 const noneYet = Object.fromEntries(MISSILES.map(({ key }) => [key, ""]));
 
 function LaunchMissiles(props) {
-    const [selected, setSelected] = useState(props.initialKd || undefined);
+    // The target comes as a prop, or with the link here (/launchmissiles?target=12).
+    const [query] = useSearchParams();
+    const initialKd = props.initialKd ?? query.get("target") ?? undefined;
+    const [selected, setSelected] = useState(initialKd || undefined);
     const [targetKdInfo, setTargetKdInfo] = useState({});
     const [results, setResults] = useState([]);
     const [shields, setShields] = useState("");
@@ -31,7 +34,7 @@ function LaunchMissiles(props) {
 
     const loadTarget = (kdId) => authFetch("api/kingdom/" + kdId).then(safeJson).then(setTargetKdInfo);
     useEffect(() => {
-        if (props.initialKd !== undefined) loadTarget(props.initialKd);
+        if (initialKd !== undefined) loadTarget(initialKd);
     }, []);
     const onPickTarget = (kdId) => { setSelected(kdId); setTargetKdInfo({}); loadTarget(kdId); };
 
@@ -73,10 +76,8 @@ function LaunchMissiles(props) {
 
     return (
         <>
-            <Header data={props.data} />
             <div className="planner wide launch-missiles">
                 <ResultToasts title="Missile Results" results={results} setResults={setResults} bg="primary" />
-                <h2>Missiles</h2>
                 <div className="wide-layout missiles-layout">
                     <Panel title="1. Target">
                         <FieldRow label="Target" htmlFor="missile-target">
@@ -96,18 +97,19 @@ function LaunchMissiles(props) {
                         <TargetIntel target={selected} data={props.data} loading={props.loading} updateData={props.updateData} />
                     </Panel>
 
+                    {selected !== undefined ? <>
                     <Panel title="2. Missiles to send">
                         {MISSILES.map(({ key, label }) => (
                             <FieldRow key={key} label={label}
                                 tip={`Damages ${desc[key]?.stars_damage || 0} stars, ${desc[key]?.fuel_damage || 0} fuel and ${desc[key]?.pop_damage || 0} population each (before shields)`}
                                 htmlFor={`${key}-input`}>
-                                <AmountInput box name={key} label={label} value={form.values[key]} onChange={form.onChange}
+                                <AmountInput name={key} label={label} value={form.values[key]} onChange={form.onChange}
                                     max={have[key] || 0} error={fieldError(key)} />
                             </FieldRow>
                         ))}
                     </Panel>
 
-                    <Panel title="3. Forecast">
+                    <Panel title="3. Forecast and launch">
                         {total < 1 ? <p className="planner-why">Choose some missiles to see what they would do.</p> : null}
                         {total > 0 && forecast.damage ? <>
                             <Stats items={[
@@ -121,14 +123,14 @@ function LaunchMissiles(props) {
                         {total > 0 && !shieldsKnown && shields === "" ? <Alert variant="secondary">
                             Their shields are not revealed and not entered, so this assumes none.
                         </Alert> : null}
+                        <div className="planner-send">
+                            <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => setConfirming(true)}>
+                                Launch missiles
+                            </Button>
+                            {blocked ? <div className="planner-why">{blocked}</div> : null}
+                        </div>
                     </Panel>
-
-                    <Panel title="4. Launch">
-                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => setConfirming(true)}>
-                            Launch missiles
-                        </Button>
-                        {blocked ? <div className="planner-why">{blocked}</div> : null}
-                    </Panel>
+                    </> : null}
                 </div>
 
                 <Modal show={confirming} onHide={() => setConfirming(false)} animation={false}>

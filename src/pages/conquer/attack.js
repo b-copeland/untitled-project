@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { inOrder, entriesInOrder } from "../../order";
 import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -7,7 +8,6 @@ import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Alert from 'react-bootstrap/Alert';
 import "./attack.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput, NumberControl } from "../../components/forms";
@@ -51,10 +51,13 @@ export function attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) {
 }
 
 function Attack(props) {
+    // The target comes as a prop, or with the link here (/attack?target=12: the Kingdom and Galaxy pages).
+    const [query] = useSearchParams();
+    const initialKd = props.initialKd ?? query.get("target") ?? undefined;
     const [defenderValues, setDefenderValues] = useState(noDefender);
     const [attackerValues, setAttackerValues] = useState(noAttacker);
     const [edited, setEdited] = useState({});            // which of their numbers the player has changed from the starting estimate
-    const [selected, setSelected] = useState(props.initialKd || undefined);
+    const [selected, setSelected] = useState(initialKd || undefined);
     const [targetKdInfo, setTargetKdInfo] = useState({});
     const [context, setContext] = useState(null);         // revealed flags, an estimate, your own defense
     const [loadingTarget, setLoadingTarget] = useState(false);
@@ -129,8 +132,8 @@ function Attack(props) {
         suggest(kdId, defender, noAttacker);
     };
     useEffect(() => {
-        if (props.initialKd !== undefined) {
-            loadTarget(props.initialKd);
+        if (initialKd !== undefined) {
+            loadTarget(initialKd);
         }
     }, []);
 
@@ -181,10 +184,8 @@ function Attack(props) {
 
     return (
         <>
-            <Header data={props.data} />
             <div className="planner wide attack">
                 <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} />
-                <h2>Attack</h2>
                 <div className="wide-layout attack-layout">
 
                 <Panel className="area-target" title="1. Choose a target">
@@ -236,12 +237,12 @@ function Attack(props) {
                             // A unit that needs a project is shown once you have some.
                             (!unitsDesc[key]?.project || myUnits[key] > 0 || attackerValues[key])
                                 ? <FieldRow key={key} label={name} stat={<UnitStat kind="offense" value={unitsDesc[key]?.offense} />} htmlFor={"att-" + key}>
-                                    <AmountInput box name={key} id={"att-" + key} label={name} value={attackerValues[key] || ""} onChange={onAttacker} max={myUnits[key] || 0} />
+                                    <AmountInput name={key} id={"att-" + key} label={name} value={attackerValues[key] || ""} onChange={onAttacker} max={myUnits[key] || 0} />
                                 </FieldRow>
                                 : null
                         ))}
                         <FieldRow label="Generals" htmlFor="att-generals">
-                            <AmountInput box name="generals" id="att-generals" label="Generals" value={attackerValues.generals} onChange={onAttacker} max={kingdom.generals_available || 0} />
+                            <AmountInput name="generals" id="att-generals" label="Generals" value={attackerValues.generals} onChange={onAttacker} max={kingdom.generals_available || 0} />
                         </FieldRow>
                         <FieldRow label="Suggestion margin" hint="Extra offense a suggestion adds" htmlFor="att-buffer">
                             <div className="attack-buffer">
@@ -260,7 +261,7 @@ function Attack(props) {
                     </Panel>
                 </> : null}
 
-                {context ? <Panel className="area-forecast" title="4. Forecast">
+                {context ? <Panel className="area-forecast" title="4. Forecast and send">
                     {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
                     {hasForecast ? <>
                         <div className={"planner-verdict " + (wins ? "good" : "bad")}>
@@ -286,15 +287,14 @@ function Attack(props) {
                             </tbody>
                         </table>
                     </> : null}
+                    <div className="planner-send">
+                        <Button variant={wins || !hasForecast ? "primary" : "danger"} size="lg" disabled={Boolean(blocked) || props.loading.kingdom}
+                            title={blocked} onClick={() => (attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) ? setConfirming(true) : send())}>
+                            Send attack
+                        </Button>
+                        {blocked ? <div className="planner-why">{blocked}</div> : null}
+                    </div>
                 </Panel> : null}
-
-                <Panel className="area-send" title="5. Send">
-                    <Button variant={wins || !hasForecast ? "primary" : "danger"} size="lg" disabled={Boolean(blocked) || props.loading.kingdom}
-                        title={blocked} onClick={() => (attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) ? setConfirming(true) : send())}>
-                        Send attack
-                    </Button>
-                    {blocked ? <div className="planner-why">{blocked}</div> : null}
-                </Panel>
 
                 </div>
 

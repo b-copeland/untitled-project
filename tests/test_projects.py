@@ -218,3 +218,12 @@ def test_the_refresh_completes_a_unit_project_once_its_points_are_reached(app):
     new = kingdoms.income(app, kd, epochs=1)
     assert "heavy_attackers" in new["completed_projects"]
     assert new["projects_assigned"]["heavy_attackers"] == 0
+
+
+def test_a_projects_target_can_be_lowered_to_zero_and_an_empty_box_keeps_its_target(app, client, jwt1):
+    _set_up_kingdom(0, race="Xo", projects_target={**{key: 0 for key in uas.PROJECTS}, "money_bonus": 0.5, "pop_bonus": 0.25})
+    response = _post(client, jwt1, "/api/projects/target", {"targets": {"money_bonus": 0, "pop_bonus": ""}})
+    assert response.status_code == 200, response.get_json()
+    targets = _get("/kingdom/1")["projects_target"]
+    assert targets["money_bonus"] == 0
+    assert targets["pop_bonus"] == 0.25

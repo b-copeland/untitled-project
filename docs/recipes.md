@@ -121,8 +121,11 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
 3. Validate each field with `src/validation.js`, set `SubmitButton`'s `blocked` to the first error, and send with
    `updateData([changed keys], [request])`.
 4. A help topic in `src/pages/help/` and a `HelpButton` pointing to it.
-5. A Jest test next to the page. Mock `components/header` and `components/helpbutton`; set mock implementations in
-   `beforeEach`.
+5. A Jest test next to the page. Mock `components/helpbutton`; set mock implementations in `beforeEach`. A page with
+   links (`KingdomLink`, `useFromHere`) renders inside a `MemoryRouter`.
+
+The header strip and the title come from App.js (`label` in `routes.js`, or `title` for a page whose title depends on
+its address); a page linked to rather than listed goes in `linkedPages`.
 6. Look at it at desktop and phone width.
 
 ## 8. A game number

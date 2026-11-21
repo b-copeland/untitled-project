@@ -7,9 +7,9 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import "./galaxypolitics.css";
 import Select from 'react-select';
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { Panel } from "../../components/planner";
+import { KingdomLink } from "../../components/kingdomlink";
 import { useWait, lockedVoteText } from "../../components/wait";
 
 /** The sentence under a vote: why it is locked and until when, or (unless ``lockedOnly``) how long a change holds. */
@@ -25,7 +25,6 @@ function GalaxyPolitics(props) {
 
     return (
     <>
-      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="leader"
@@ -101,7 +100,7 @@ function GalaxyPoliticsLeader(props) {
     
     const galaxyLeaderRows = Object.keys(galaxyLeaderVotes).map((leaderId) =>
         <tr key={leaderId}>
-            <td>{kdFullLabel(leaderId)}</td>
+            <td><KingdomLink kdId={leaderId} data={props.data}>{kdFullLabel(leaderId)}</KingdomLink></td>
             <td>{galaxyLeaderVotes[leaderId]}</td>
             <td>{leaderId === props.data.galaxypolitics.leader ? "X" : ""}</td>
         </tr>

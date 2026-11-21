@@ -4,17 +4,13 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
-import Modal from 'react-bootstrap/Modal';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./conquer.css";
-import Galaxy from "../galaxy.js";
-import Attack from "./attack.js";
-import Spy from "./spy.js";
-import LaunchMissiles from "./launchmissiles.js";
-import { IntelModal, KingdomModal, tradable } from "./intel.js";
-import Message from "../message.js";
-import Header from "../../components/header";
+import { useNavigate } from "react-router-dom";
+import { tradable } from "./intel.js";
+import { KingdomLink, kingdomPath, targetPath } from "../../components/kingdomlink";
+import { useFromHere } from "../../components/pagehead";
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { FilterMatchMode } from 'primereact/api';
@@ -51,7 +47,6 @@ function ConquerContent(props) {
     }
     return (
     <>
-        <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="revealed"
@@ -102,15 +97,10 @@ function getTimeString(date) {
 
 function Revealed(props) {
     const [maxKdInfo, setMaxKdInfo] = useState({});
-    const [showView, setShowView] = useState(false);
-    const [showAttack, setShowAttack] = useState(false);
-    const [showSpy, setShowSpy] = useState(false);
-    const [showMissile, setShowMissile] = useState(false);
-    const [showMessage, setShowMessage] = useState(false);
-    const [showIntel, setShowIntel] = useState(false);
-    const [showGalaxy, setShowGalaxy] = useState(false);
-    const [galaxyToShow, setGalaxyToShow] = useState('');
-    const [kdToShow, setKdToShow] = useState();
+    const navigate = useNavigate();
+    const fromHere = useFromHere();
+    // The kingdom, the planners and the galaxy are pages of their own, opened on this row; they link back here.
+    const go = (path) => navigate(path, { state: fromHere });
     const [filters, setFilters] = useState({
         remaining: { value: null, matchMode: FilterMatchMode.CONTAINS },
         kingdom: { value: null, matchMode: FilterMatchMode.CONTAINS },
@@ -189,6 +179,7 @@ function Revealed(props) {
     const revealedPrimeRows = Object.keys(props.revealed.revealed).map((kdId) => {
         const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
         return {
+            "kdId": kdId,
             "remaining": getRemainingSpans(kdId, props.revealed.revealed),
             "kingdom": props.kingdoms[kdId] || "",
             "galaxy": (
@@ -202,25 +193,25 @@ function Revealed(props) {
             "starsEnded": withLastKnown(maxKdInfo[kdId]).endedOf("stars"),
             "coordinate_distance": calcCoordinateDistance(maxKdInfo[kdId]?.coordinate || 0, props.data.kingdom?.coordinate || 0).toString().padStart(2, '0') + ' (' + (maxKdInfo[kdId]?.coordinate || 0).toString().padStart(2, '0') + ')',
             "actions": <>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowView(true)}}>
+                <ActionButton onClick={() => go(kingdomPath(kdId))}>
                     View
                 </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
+                <ActionButton onClick={() => go(targetPath("/attack", kdId))}>
                     Attack
                 </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
+                <ActionButton onClick={() => go(targetPath("/spy", kdId))}>
                     Spy
                 </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
+                <ActionButton onClick={() => go(targetPath("/launchmissiles", kdId))}>
                     Missile
                 </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); {setKdToShow(kdId); setShowMessage(true)}}}>
+                <ActionButton onClick={() => go(`/message?to=${kdId}`)}>
                     Message
                 </ActionButton>
-                {tradable(props.data, kdId) ? <ActionButton onClick={() => {setKdToShow(kdId); setShowIntel(true)}}>
+                {tradable(props.data, kdId) ? <ActionButton onClick={() => go(kingdomPath(kdId, "intel"))}>
                     Intel
                 </ActionButton> : null}
-                <ActionButton onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
+                <ActionButton onClick={() => go("/galaxy?galaxy=" + encodeURIComponent(props.galaxies_inverted[kdId] || ""))}>
                     Galaxy
                 </ActionButton>
                 {
@@ -249,100 +240,6 @@ function Revealed(props) {
     return (
         <div className="revealed">
             <ResultToasts title="Reveal Results" results={results} setResults={setResults} />
-            <KingdomModal show={showView} onHide={() => setShowView(false)} target={kdToShow} tab="kingdom"
-                data={props.data} loading={props.loading} updateData={props.updateData} />
-            <Modal
-                show={showAttack}
-                onHide={() => setShowAttack(false)}
-                animation={false}
-                dialogClassName="attack-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Attack</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Attack data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowAttack(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showSpy}
-                onHide={() => setShowSpy(false)}
-                animation={false}
-                dialogClassName="spy-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Spy</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Spy data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowSpy(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showMissile}
-                onHide={() => setShowMissile(false)}
-                animation={false}
-                dialogClassName="missile-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Missile</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <LaunchMissiles data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowMissile(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showMessage}
-                onHide={() => setShowMessage(false)}
-                animation={false}
-                dialogClassName="message-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Message</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Message data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowMessage(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <IntelModal show={showIntel} onHide={() => setShowIntel(false)} target={kdToShow}
-                data={props.data} loading={props.loading} updateData={props.updateData} />
-            <Modal
-                show={showGalaxy}
-                onHide={() => setShowGalaxy(false)}
-                animation={false}
-                dialogClassName="galaxy-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>View Galaxy</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Galaxy data={props.data} loading={props.loading} updateData={props.updateData} initialGalaxyId={galaxyToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowGalaxy(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
            {
                 props.loading.revealed
                 ? <Button className="reveal-random-galaxy-button" variant="primary" type="submit" disabled>
@@ -366,11 +263,11 @@ function Revealed(props) {
                 filterDisplay="row"
                 // style={{ minWidth: '100%'}}
                 header={"Revealed Kingdoms"}
-                showGridlines={true}
                 scrollable
                 
             >
-                <Column field="kingdom" header="Kingdom" filter frozen showFilterMenu={false} style={{ width: "15%" }}/>
+                <Column field="kingdom" header="Kingdom" filter frozen showFilterMenu={false} style={{ width: "15%" }}
+                    body={(row) => <KingdomLink kdId={row.kdId} data={props.data}>{row.kingdom}</KingdomLink>}/>
                 <Column field="remaining" header="Remaining" style={{ width: "15%" }}/>
                 <Column field="galaxy" header="Galaxy" sortable filter showFilterMenu={false} style={{ width: "15%" }}/>
                 {/* <Column field="empire" header="Empire" sortable showFilterMenu={false} filter style={{ width: '10%' }}/> */}
@@ -399,15 +296,10 @@ function Revealed(props) {
 
 function Pinned(props) {
     const [maxKdInfo, setMaxKdInfo] = useState({});
-    const [showView, setShowView] = useState(false);
-    const [showAttack, setShowAttack] = useState(false);
-    const [showSpy, setShowSpy] = useState(false);
-    const [showMissile, setShowMissile] = useState(false);
-    const [showMessage, setShowMessage] = useState(false);
-    const [showIntel, setShowIntel] = useState(false);
-    const [showGalaxy, setShowGalaxy] = useState(false);
-    const [galaxyToShow, setGalaxyToShow] = useState('');
-    const [kdToShow, setKdToShow] = useState();
+    const navigate = useNavigate();
+    const fromHere = useFromHere();
+    // The kingdom, the planners and the galaxy are pages of their own, opened on this row; they link back here.
+    const go = (path) => navigate(path, { state: fromHere });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -467,30 +359,30 @@ function Pinned(props) {
         )
         return <tr key={kdId}>
             <td>{getRemainingSpans(kdId, props.revealed.revealed)}</td>
-            <td>{props.kingdoms[kdId] || ""}</td>
+            <td><KingdomLink kdId={kdId} data={props.data}>{props.kingdoms[kdId] || ""}</KingdomLink></td>
             <td>{galaxyEmpire}</td>
             <td>{shownKnown(kdId, "stars")}</td>
             <td>{shownKnown(kdId, "networth")}</td>
             <td>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowView(true)}}>
+                <ActionButton onClick={() => go(kingdomPath(kdId))}>
                     View
                 </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowAttack(true)}}>
+                <ActionButton onClick={() => go(targetPath("/attack", kdId))}>
                     Attack
                 </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowSpy(true)}}>
+                <ActionButton onClick={() => go(targetPath("/spy", kdId))}>
                     Spy
                 </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowMissile(true)}}>
+                <ActionButton onClick={() => go(targetPath("/launchmissiles", kdId))}>
                     Missile
                 </ActionButton>
-                <ActionButton onClick={() => {setKdToShow(kdId); setShowMessage(true)}}>
+                <ActionButton onClick={() => go(`/message?to=${kdId}`)}>
                     Message
                 </ActionButton>
-                {tradable(props.data, kdId) ? <ActionButton onClick={() => {setKdToShow(kdId); setShowIntel(true)}}>
+                {tradable(props.data, kdId) ? <ActionButton onClick={() => go(kingdomPath(kdId, "intel"))}>
                     Intel
                 </ActionButton> : null}
-                <ActionButton onClick={() => {setGalaxyToShow(props.galaxies_inverted[kdId] || ""); setShowGalaxy(true);}}>
+                <ActionButton onClick={() => go("/galaxy?galaxy=" + encodeURIComponent(props.galaxies_inverted[kdId] || ""))}>
                     Galaxy
                 </ActionButton>
                 {
@@ -512,100 +404,6 @@ function Pinned(props) {
     );
     return (
         <div className="revealed">
-            <KingdomModal show={showView} onHide={() => setShowView(false)} target={kdToShow} tab="kingdom"
-                data={props.data} loading={props.loading} updateData={props.updateData} />
-            <Modal
-                show={showAttack}
-                onHide={() => setShowAttack(false)}
-                animation={false}
-                dialogClassName="attack-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Attack</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Attack data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowAttack(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showSpy}
-                onHide={() => setShowSpy(false)}
-                animation={false}
-                dialogClassName="spy-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Spy</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Spy data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowSpy(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showMissile}
-                onHide={() => setShowMissile(false)}
-                animation={false}
-                dialogClassName="missile-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Missile</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <LaunchMissiles data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowMissile(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showMessage}
-                onHide={() => setShowMessage(false)}
-                animation={false}
-                dialogClassName="message-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Message</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Message data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowMessage(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <IntelModal show={showIntel} onHide={() => setShowIntel(false)} target={kdToShow}
-                data={props.data} loading={props.loading} updateData={props.updateData} />
-            <Modal
-                show={showGalaxy}
-                onHide={() => setShowGalaxy(false)}
-                animation={false}
-                dialogClassName="galaxy-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>View Galaxy</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Galaxy data={props.data} loading={props.loading} updateData={props.updateData} initialGalaxyId={galaxyToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowGalaxy(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
             <div className="table-scroll">
             <Table className="table-small pinned-table" hover size="sm">
                 <thead>

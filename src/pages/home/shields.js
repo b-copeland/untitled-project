@@ -6,7 +6,6 @@ import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import { authFetch } from "../../auth";
 import { displayPercent } from "../../format";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import "./status.css";
@@ -16,7 +15,6 @@ import "./shields.css";
 function ShieldsPage(props) {
     return (
         <>
-            <Header data={props.data} />
             <Shields data={props.data} loading={props.loading} updateData={props.updateData} />
             <HelpButton scrollTarget={"shields"} />
         </>

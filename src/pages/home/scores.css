@@ -1,16 +1,24 @@
-.scores-table {
-    max-width: 500px;
+/* The four leaderboards side by side (two per row on a wide screen), each a card. */
+.scores.panel-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
 }
 .scores-rank {
-    text-align: center;
-    margin: 6px 0;
+    margin: 0 0 0.5rem;
+    color: var(--bs-secondary-color);
+}
+.scores-more {
+    padding: 0.5rem 0 0;
 }
 
 /* Your own row, and your galaxymates', in the leaderboards. */
 .scores-table tr.scores-you > td {
-    background-color: rgba(13, 110, 253, 0.35);
-    font-weight: bold;
+    background-color: rgba(var(--bs-primary-rgb), 0.28);
+    font-weight: 600;
 }
 .scores-table tr.scores-mate > td {
-    background-color: rgba(13, 110, 253, 0.12);
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+}
+/* Your row, shown under the top ten: a gap above it says rows were skipped. */
+.scores-table tr.scores-gap > td {
+    border-top: 2px dashed var(--bs-border-color);
 }
