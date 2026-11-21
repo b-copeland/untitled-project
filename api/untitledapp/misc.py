@@ -509,7 +509,8 @@ def spending():
         req_spending = {
             key: float(value or 0) / 100
             for key, value in req.items()
-            if (value or 0) != 0
+            # A share of 0 is a share like any other; an empty box keeps the current share. Only known categories.
+            if key in kd_info_parse['auto_spending'] and value not in ("", None)
         }
 
         current_spending = kd_info_parse['auto_spending']

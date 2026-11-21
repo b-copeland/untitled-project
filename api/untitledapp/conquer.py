@@ -1543,6 +1543,11 @@ def _validate_auto_attack_settings(req_settings):
     return True, ""
 
 
+def _given(value, current):
+    """A setting from a request: an empty box (or none) keeps ``current``; 0 is a value like any other."""
+    return current if value in ("", None) else value
+
+
 @bp.route('/api/attackprimitives/auto', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -1565,8 +1570,8 @@ def auto_attack_primitives():
         def change_settings(kd_info_parse):
             current_settings = kd_info_parse['auto_attack_settings']
             req_settings = {
-                "pure": float(req.get("pure") or (current_settings.get("pure", 0) * 100)) / 100,
-                "flex": float(req.get("flex") or (current_settings.get("flex", 0) * 100)) / 100,
+                "pure": float(_given(req.get("pure"), current_settings.get("pure", 0) * 100)) / 100,
+                "flex": float(_given(req.get("flex"), current_settings.get("flex", 0) * 100)) / 100,
             }
             new_settings = {**current_settings, **req_settings}
             valid_settings, message = _validate_auto_attack_settings(new_settings)
@@ -2283,8 +2288,8 @@ def auto_rob_primitives():
         def change_settings(kd_info_parse):
             current_settings = kd_info_parse['auto_rob_settings']
             req_settings = {
-                "drones": float(req.get("drones") or (current_settings.get("drones", 0) * 100)) / 100,
-                "keep": int(req.get("keep") or current_settings.get("keep", 0)),
+                "drones": float(_given(req.get("drones"), current_settings.get("drones", 0) * 100)) / 100,
+                "keep": int(_given(req.get("keep"), current_settings.get("keep", 0))),
                 "shielded": bool(req.get("shielded", current_settings.get("shielded", False))),
             }
             new_settings = {**current_settings, **req_settings}

@@ -16,24 +16,8 @@
   --radius: 0.75rem;
 }
 
-/* --- Theme: a darker page with raised sections ---------------------------------------------------------------- */
-/* Sections are told apart by a surface a step lighter than the page and a faint edge, not by heavy lines. The
-   `:root[...]` selector outranks Bootstrap's own `[data-bs-theme=dark]` whatever order the stylesheets load in. */
-
-:root[data-bs-theme=dark] {
-  --bs-body-bg: #111418;
-  --bs-body-bg-rgb: 17, 20, 24;
-  --bs-secondary-bg: #222830;
-  --bs-tertiary-bg: #1b2026;
-  --bs-tertiary-bg-rgb: 27, 32, 38;
-  --bs-border-color: #2e353e;
-  --bs-border-color-translucent: rgba(255, 255, 255, 0.08);
-  --surface: #181c21;
-  --surface-raised: #1f242a;
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --row-divider: rgba(255, 255, 255, 0.06);
-}
-body { background: var(--bs-body-bg); }
+/* Colours come from the theme (styles/themes.css): --surface for a card, --border-subtle for its edge, --row-divider
+   between rows, --hover-tint under the pointer, --accent for the chosen and the primary. */
 
 /* A section of a page is a Panel (components/planner.js): a titled card on the page. Panels side by side from tablet
    width, stacked on a phone: */
@@ -159,8 +143,8 @@ body { background: var(--bs-body-bg); }
   --bs-table-bg: transparent;
   --bs-table-striped-bg: transparent;
   --bs-table-border-color: var(--row-divider, var(--bs-border-color));
-  --bs-table-hover-bg: rgba(255, 255, 255, 0.035);
-  --bs-table-active-bg: rgba(255, 255, 255, 0.05);
+  --bs-table-hover-bg: var(--hover-tint);
+  --bs-table-active-bg: var(--hover-tint);
   margin-bottom: 0;
 }
 .table > :not(caption) > * > * { padding: 0.5rem 0.625rem; }
@@ -259,12 +243,12 @@ body { background: var(--bs-body-bg); }
 .amount-input-track { display: flex; align-items: center; gap: 8px; }
 .amount-input-cap { flex: 0 0 auto; min-width: 2.5ch; text-align: right; font-size: 0.8em; color: var(--bs-secondary-color, #6c757d); }
 .amount-input-slider { margin: 0; flex: 1 1 auto; min-width: 0; }
-/* Three tones: dark blue up to what is chosen (--val), light blue for what is still free to choose, grey for what the other boxes have used up (--avail). Both are set inline. */
+/* Three tones: the accent up to what is chosen (--val), a pale accent for what is still free to choose, the theme's secondary background for what the other sliders have used up (--avail). Both are set inline. */
 .amount-input-slider::-webkit-slider-runnable-track {
-  background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--avail, 100%), var(--bs-gray-400, #ced4da) var(--avail, 100%), var(--bs-gray-400, #ced4da) 100%);
+  background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--avail, 100%), var(--bs-secondary-bg) var(--avail, 100%), var(--bs-secondary-bg) 100%);
 }
 .amount-input-slider::-moz-range-track {
-  background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--avail, 100%), var(--bs-gray-400, #ced4da) var(--avail, 100%), var(--bs-gray-400, #ced4da) 100%);
+  background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--avail, 100%), var(--bs-secondary-bg) var(--avail, 100%), var(--bs-secondary-bg) 100%);
 }
 .amount-input-error { color: var(--bs-danger, #dc3545); font-size: 0.8em; text-align: right; }
 .table > :not(caption) > * > * { vertical-align: middle; }
@@ -282,7 +266,7 @@ body { background: var(--bs-body-bg); }
 
 /* --- Last-known intel (components/lastknown.js) ----------------------------------------------------------------- */
 /* A value from intel that has ended, by how long ago: yellow, then orange, then red. The colour is on the text only,
-   with a faint dotted underline that says there is a tooltip (its age). Tuned for the dark theme. */
+   with a faint dotted underline that says there is a tooltip (its age). The colours are the theme's (--known-*). */
 
 .last-known {
   text-decoration: underline dotted;
@@ -290,16 +274,16 @@ body { background: var(--bs-body-bg); }
   text-underline-offset: 3px;
 }
 .last-known-fresh {
-  color: #e9c46a;
-  text-decoration-color: rgba(233, 196, 106, 0.45);
+  color: var(--known-fresh);
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
 }
 .last-known-aging {
-  color: #f4a261;
-  text-decoration-color: rgba(244, 162, 97, 0.45);
+  color: var(--known-aging);
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
 }
 .last-known-stale {
-  color: #ef6f6c;
-  text-decoration-color: rgba(239, 111, 108, 0.45);
+  color: var(--known-stale);
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
 }
 .last-known-note {
   font-size: 0.85em;

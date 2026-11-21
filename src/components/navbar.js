@@ -62,6 +62,7 @@ function SideNavbar(props) {
                   ))}
                 </div>
               ))}
+              {sectionLink("/settings", "Settings")}
               {sectionLink("/help", "Help")}
             </> : null}
           </Nav>

@@ -41,7 +41,7 @@ function Admin(props) {
       'username': username,
       'password': password
     }
-    fetch('api/adminlogin', {
+    fetch('/api/adminlogin', {
       method: 'post',
       body: JSON.stringify(opts)
     }).then(r => r.json())

@@ -12,6 +12,7 @@ import "./App.css";
 import { publicRoutes, createKingdomRoute, gamePages, propsFor } from "./routes";
 import Header from "./components/header";
 import { PageContext, PageHead } from "./components/pagehead";
+import { useTheme } from "./theme";
 
 /**
  * A game page in its frame: the header strip, then the page's section and title (or the way back to the page that
@@ -76,6 +77,7 @@ function Content({ logged, session }) {
   const [showNav, setShowNav] = React.useState(false);
   const { data, loading, updateData } = useGameData({ logged });
   const notifications = useNotifications({ logged, session, updateData });
+  useTheme(logged ? data.preferences : null);
   const context = { logged, session, data, loading, updateData };
 
   const renderPage = (route, extraProps) => {

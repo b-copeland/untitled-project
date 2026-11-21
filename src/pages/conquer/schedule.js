@@ -257,7 +257,7 @@ function Add(props) {
     );
 }
 
-function Queue(props) {
+export function Queue(props) {
     const [results, setResults] = useState([]);
     const cancel = (id) => {
         const updateFunc = async () => authFetch('api/schedule/cancel', { method: 'POST', body: JSON.stringify({ id }) })

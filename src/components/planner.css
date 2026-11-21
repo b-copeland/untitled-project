@@ -54,9 +54,9 @@
 
 .status-tag { display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; vertical-align: middle; white-space: nowrap; }
 /* Tinted from the state colours, readable on the dark cards. */
-.tag-revealed { background: rgba(var(--bs-success-rgb), 0.18); color: #75d6a1; }
-.tag-needed { background: rgba(var(--bs-warning-rgb), 0.18); color: #ffd56a; }
-.tag-estimate { background: rgba(var(--bs-info-rgb), 0.18); color: #7fdcf0; }
+.tag-revealed { background: rgba(var(--bs-success-rgb), 0.18); color: var(--bs-success-text-emphasis); }
+.tag-needed { background: rgba(var(--bs-warning-rgb), 0.18); color: var(--bs-warning-text-emphasis); }
+.tag-estimate { background: rgba(var(--bs-info-rgb), 0.18); color: var(--bs-info-text-emphasis); }
 .tag-optional { background: var(--surface-raised); color: var(--bs-secondary-color); }
 .known-value { font-weight: 600; }
 .matchup { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }

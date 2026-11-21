@@ -1,14 +1,19 @@
 import React, { useState } from "react";
 import Form from 'react-bootstrap/Form';
-import { NumberControl } from "../../components/forms";
-import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import { authFetch } from "../../auth";
+import { AmountInput, SubmitButton, useSliders } from "../../components/forms";
 import HelpButton from "../../components/helpbutton";
-import { ResultToasts } from "../../components/results";
+import { ResultToasts, safeJson } from "../../components/results";
 import { Panel, FieldRow, Stats } from "../../components/planner";
-import "./status.css";
 import "./spending.css";
+
+const CATEGORIES = [
+    ["settle", "Settle"],
+    ["structures", "Structures"],
+    ["military", "Military"],
+    ["engineers", "Engineers"],
+];
 
 /** The Spending page: whether auto spending is on, how it splits the kingdom's money, and the funding it holds. */
 function SpendingPage(props) {
@@ -20,144 +25,67 @@ function SpendingPage(props) {
     );
 }
 
-function Spending(props) {
-    const [settleInput, setSettleInput] = useState('');
-    const [structuresInput, setStructuresInput] = useState('');
-    const [militaryInput, setMilitaryInput] = useState('');
-    const [engineersInput, setEngineersInput] = useState('');
-    const [enabled, setEnabled] = useState(props.kingdom.auto_spending_enabled)
+/**
+ * The auto spending switch, a slider per category (the four add up to at most 100%), and the funding each holds.
+ * Update sends all four shares.
+ */
+export function Spending(props) {
+    const spendingInfo = props.kingdom?.auto_spending || {};
+    const current = Object.fromEntries(CATEGORIES.map(([key]) => [key, Math.round((spendingInfo[key] || 0) * 100)]));
+    const sliders = useSliders(current);
     const [results, setResults] = useState([]);
 
-    const spendingInfo = props.kingdom?.auto_spending;
-    if (spendingInfo === undefined) {
-        return null
+    if (props.kingdom?.auto_spending === undefined) {
+        return null;
     }
+    const post = (body) => {
+        const updateFunc = () => authFetch('api/spending', { method: 'post', body: JSON.stringify(body) })
+            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
+        props.updateData(['kingdom'], [updateFunc]);
+    };
+    const total = CATEGORIES.reduce((sum, [key]) => sum + sliders.value(key), 0);
+    const onUpdate = () => {
+        post(sliders.body(CATEGORIES.map(([key]) => key)));
+        sliders.reset();
+    };
 
-    const handleSettleInput = (e) => {
-        setSettleInput(e.target.value)
-    }
-  
-    const handleStructuresInput = (e) => {
-        setStructuresInput(e.target.value)
-    }
-
-    const handleMilitaryInput = (e) => {
-        setMilitaryInput(e.target.value)
-    }
-  
-    const handleEngineersInput = (e) => {
-        setEngineersInput(e.target.value)
-    }
-    const handleEnabledChange = (e) => {
-        let opts = {
-            'enabled': e.target.checked
-        }
-        const updateFunc = () => authFetch('api/spending', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['kingdom'], [updateFunc])
-        setEnabled(e.target.checked)
-    }
-
-    const onSubmitClick = async (e)=>{
-        let opts = {
-            'settle': settleInput === '' ? undefined : settleInput,
-            'structures': structuresInput === '' ? undefined : structuresInput,
-            'military': militaryInput === '' ? undefined : militaryInput,
-            'engineers': engineersInput === '' ? undefined : engineersInput,
-        }
-        const updateFunc = () => authFetch('api/spending', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['kingdom'], [updateFunc])
-        setSettleInput('');
-        setStructuresInput('');
-        setMilitaryInput('');
-        setEngineersInput('');
-    }
     return (
         <div className="spending panel-grid">
-            <ResultToasts title="Auto Spending Results" results={results} setResults={setResults} />
-            <Panel title="Auto spending">
-                <Form>
-                    <Form.Check
-                        type="switch"
-                        id="enable-auto-spending-switch"
-                        label="Enable"
-                        defaultChecked={enabled}
-                        onChange={handleEnabledChange}
-                        disabled={props.loading.kingdom}
-                    />
-                </Form>
-                <FieldRow label="Settle" hint={`Now ${spendingInfo.settle * 100}%`} htmlFor="settle-percent">
-                    <InputGroup size="sm" className="spending-input">
-                        <NumberControl
-                            id="settle-percent"
-                            onChange={handleSettleInput}
-                            value={settleInput}
-                            placeholder={spendingInfo.settle * 100}
-                            autoComplete="off"
-                        />
-                        <InputGroup.Text>%</InputGroup.Text>
-                    </InputGroup>
-                </FieldRow>
-                <FieldRow label="Structures" hint={`Now ${spendingInfo.structures * 100}%`} htmlFor="structures-percent">
-                    <InputGroup size="sm" className="spending-input">
-                        <NumberControl
-                            id="structures-percent"
-                            onChange={handleStructuresInput}
-                            value={structuresInput}
-                            placeholder={spendingInfo.structures * 100}
-                            autoComplete="off"
-                        />
-                        <InputGroup.Text>%</InputGroup.Text>
-                    </InputGroup>
-                </FieldRow>
-                <FieldRow label="Military" hint={`Now ${spendingInfo.military * 100}%`} htmlFor="military-percent">
-                    <InputGroup size="sm" className="spending-input">
-                        <NumberControl
-                            id="military-percent"
-                            onChange={handleMilitaryInput}
-                            value={militaryInput}
-                            placeholder={spendingInfo.military * 100}
-                            autoComplete="off"
-                        />
-                        <InputGroup.Text>%</InputGroup.Text>
-                    </InputGroup>
-                </FieldRow>
-                <FieldRow label="Engineers" hint={`Now ${spendingInfo.engineers * 100}%`} htmlFor="engineers-percent">
-                    <InputGroup size="sm" className="spending-input">
-                        <NumberControl
-                            id="engineers-percent"
-                            onChange={handleEngineersInput}
-                            value={engineersInput}
-                            placeholder={spendingInfo.engineers * 100}
-                            autoComplete="off"
-                        />
-                        <InputGroup.Text>%</InputGroup.Text>
-                    </InputGroup>
-                </FieldRow>
-                <div className="form-actions spending-actions">
-                    {props.loading.kingdom
-                    ? <Button className="spending-button" variant="primary" type="submit" disabled>
-                        Loading...
-                    </Button>
-                    : <Button className="spending-button" variant="primary" type="submit" onClick={onSubmitClick}>
-                        Submit
-                    </Button>
-                    }
+            <ResultToasts title="Auto spending" results={results} setResults={setResults} />
+            <Panel title="Auto spending" hint="While it is on, these shares of the money you make are set aside for each category and spent on it.">
+                <Form.Check
+                    type="switch"
+                    id="enable-auto-spending-switch"
+                    label={props.kingdom.auto_spending_enabled ? "On" : "Off"}
+                    checked={!!props.kingdom.auto_spending_enabled}
+                    onChange={(e) => post({ enabled: e.target.checked })}
+                    disabled={!!props.loading.kingdom}
+                />
+                {CATEGORIES.map(([key, name]) => (
+                    <FieldRow key={key} label={name} hint={`Now ${current[key]}%`} htmlFor={`${key}-percent`}>
+                        <AmountInput name={key} id={`${key}-percent`} label={`${name} share`} suffix="%"
+                            value={String(sliders.value(key))} onChange={sliders.onChange}
+                            max={Math.max(100 - (total - sliders.value(key)), 0)} soloMax={100} />
+                    </FieldRow>
+                ))}
+                <div className="form-actions">
+                    <span className="text-muted">{100 - total}% of income kept as money</span>
+                    {sliders.changed ? <Button variant="link" size="sm" onClick={sliders.reset}>Undo changes</Button> : null}
+                    <SubmitButton loading={props.loading.kingdom} onClick={onUpdate}
+                        blocked={total > 100 ? "The shares add up to more than 100%"
+                            : sliders.changed ? null : "Move a slider to change a share"}>
+                        Update
+                    </SubmitButton>
                 </div>
             </Panel>
-            <Panel title="Auto spending funding">
-                <Stats items={["settle", "structures", "military", "engineers"].map((key) => ({
-                    label: key.charAt(0).toUpperCase() + key.slice(1),
+            <Panel title="Funding set aside">
+                <Stats items={CATEGORIES.map(([key, name]) => ({
+                    label: name,
                     value: Math.floor(props.kingdom.funding?.[key] || 0).toLocaleString(),
                 }))} />
             </Panel>
         </div>
-    )
+    );
 }
 
 export default SpendingPage;

@@ -7,9 +7,10 @@ import "./structures.css"
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
-import { AmountInput, SubmitButton, useFormValues } from "../../components/forms";
+import { AmountInput, SubmitButton, useFormValues, useSliders } from "../../components/forms";
+import Button from "react-bootstrap/Button";
 import { displayPercent } from "../../format";
-import { anyFilled, checkCount, checkPercent, checkTotal, firstError } from "../../validation";
+import { anyFilled, checkCount, checkTotal, firstError } from "../../validation";
 
 const STRUCTURES = [
     ["homes", "Homes"],
@@ -125,40 +126,33 @@ function BuildStructures(props) {
     );
 }
 
-function AllocateStructures(props) {
-    const form = useFormValues(noneYet);
+export function AllocateStructures(props) {
+    const kingdom = props.data.kingdom;
+    const current = Object.fromEntries(STRUCTURES.map(([key]) => [key, (kingdom.structures_target?.[key] || 0) * 100]));
+    const sliders = useSliders(current);
     const [results, setResults, send] = useSubmit('api/structures/target', ['kingdom'], props);
 
-    if (Object.keys(props.data.structures).length === 0 || Object.keys(props.data.kingdom).length === 0) {
+    if (Object.keys(props.data.structures).length === 0 || Object.keys(kingdom).length === 0) {
         return null;
     }
     const info = props.data.structures;
-    const kingdom = props.data.kingdom;
-    const current = kingdom.structures_target || {};
-
-    // What the targets would be after this change: what is typed replaces what is there, the rest stays.
-    const afterChange = Object.fromEntries(STRUCTURES.map(([key]) => [
-        key,
-        form.values[key] !== "" ? form.values[key] : (current[key] || 0) * 100,
-    ]));
-    const fieldErrors = Object.fromEntries(STRUCTURES.map(([key]) => [key, checkPercent(form.values[key])]));
-    const totalError = firstError(fieldErrors) ? null : checkTotal(afterChange, { max: 100 });
-    const blocked = firstError(fieldErrors, totalError ? "Allocation would total more than 100%" : null)
-        || (anyFilled(form.values) ? null : "Enter the new percent for at least one structure");
+    const keys = STRUCTURES.map(([key]) => key);
+    const total = sliders.total(keys);
+    const blocked = total > 100 ? "Allocation would total more than 100%"
+        : sliders.changed ? null : "Move a slider to change a structure's share";
 
     const columns = [
         { header: "Structure", align: "left", cell: ([, label]) => label },
         { header: "% Built", cell: ([key]) => displayPercent((info.current[key] || 0) / kingdom.stars) },
         { header: "# Built", cell: ([key]) => whole(info.current[key]) },
         { header: "# Building", cell: ([key]) => whole(info.hour_24[key]) },
-        { header: "Current Allocation", cell: ([key]) => displayPercent(current[key] || 0) },
+        { header: "Current Allocation", cell: ([key]) => displayPercent(current[key] / 100) },
         {
             header: "New Allocation", className: "structures-form-data",
-            cell: ([key, label]) => <AmountInput name={key} label={label} suffix="%" value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]}
-                soloMax={100} max={Math.max(100 - Object.entries(afterChange).filter(([other]) => other !== key).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0)} />,
+            cell: ([key, label]) => <AmountInput name={key} label={label} suffix="%" value={String(sliders.value(key))} onChange={sliders.onChange}
+                soloMax={100} max={Math.max(100 - (total - sliders.value(key)), 0)} />,
         },
     ];
-    const total = Object.values(afterChange).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
 
     return (
         <div className="structures">
@@ -166,8 +160,9 @@ function AllocateStructures(props) {
             <p className="page-note">Choose the target allocation of structures that you would like the auto-spender to build towards</p>
             <GameTable className="structures-allocation-table" columns={columns} rows={STRUCTURES} rowKey={([key]) => key} />
             <div className="form-actions">
-                <span className={totalError ? "text-danger" : "text-muted"}>Allocation after this change: {total.toFixed(1)}% of 100%</span>
-                <SubmitButton loading={props.loading.kingdom} blocked={blocked} onClick={() => send(form.values, form.reset)}>
+                <span className={total > 100 ? "text-danger" : "text-muted"}>Allocation after this change: {total}% of 100%</span>
+                {sliders.changed ? <Button variant="link" size="sm" onClick={sliders.reset}>Undo changes</Button> : null}
+                <SubmitButton loading={props.loading.kingdom} blocked={blocked} onClick={() => send(sliders.body(keys), sliders.reset)}>
                     Update
                 </SubmitButton>
             </div>

@@ -57,12 +57,6 @@ function EmpirePolitics(props) {
             updateData={props.updateData}
             data={props.data}/>
         </Tab>
-        <Tab eventKey="politics" title="Politics">
-          <Politics
-            loading={props.loading}
-            updateData={props.updateData}
-            data={props.data}/>
-        </Tab>
         <Tab eventKey="targets" title="Targets">
           <Targets
             loading={props.loading}
@@ -792,12 +786,6 @@ function Status(props) {
                 </Panel>
             </div>
         </div>
-    )
-}
-
-function Politics(props) {
-    return (
-        <h3>Coming Soon</h3>
     )
 }
 

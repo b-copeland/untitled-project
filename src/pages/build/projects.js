@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import InputGroup from 'react-bootstrap/InputGroup';
-import { AmountInput, SubmitButton } from "../../components/forms";
+import { AmountInput, SubmitButton, useSliders } from "../../components/forms";
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
@@ -298,49 +298,41 @@ function ProjectTables({ groups, valueHeader, kdInfo, engineersInfo, projectsInf
  * a project left alone keeps what it has. Moving a slider to 0 takes its engineers off.
  */
 function Assign(props) {
-    const blank = blankValues(props.state);
-    const [changes, setChanges] = useState(blank);
+    const current = props.kdInfo.projects_assigned || {};
+    const sliders = useSliders(current);
     const [assignResult, setAssignResult] = useState([]);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setChanges((previous) => ({ ...previous, [name]: value }));
-    };
     if (Object.keys(props.engineersInfo).length === 0 || Object.keys(props.kdInfo).length === 0
         || Object.keys(props.projectsInfo).length === 0) {
         return null;
     }
-    const current = props.kdInfo.projects_assigned || {};
-    const keys = Object.keys(blank);
+    const keys = Object.keys(blankValues(props.state));
     const engineers = Math.floor(props.engineersInfo.current_engineers || 0);
-    // What each project would have: what was typed, else what it has now.
-    const wanted = (key) => (changes[key] !== "" && changes[key] !== undefined ? parseInt(changes[key], 10) || 0 : Math.floor(current[key] || 0));
-    const totalWanted = keys.reduce((sum, key) => sum + wanted(key), 0);
-    const changed = keys.some((key) => wanted(key) !== Math.floor(current[key] || 0));
+    const totalWanted = keys.reduce((sum, key) => sum + sliders.value(key), 0);
     const blocked = totalWanted > engineers ? "More engineers than you have"
-        : changed ? null : "Move a slider to change a project's engineers";
+        : sliders.changed ? null : "Move a slider to change a project's engineers";
 
     const onUpdate = () => {
-        const assign = Object.fromEntries(keys.map((key) => [key, wanted(key)]));
+        const assign = Object.fromEntries(keys.map((key) => [key, sliders.value(key)]));
         const updateFunc = () => authFetch('api/projects', {
             method: 'post',
             body: JSON.stringify({ assign }),
         }).then(r => r.json()).then(r => setAssignResult((previous) => previous.concat(r)));
         props.updateData(['projects', 'kingdom'], [updateFunc]);
-        setChanges(blank);
+        sliders.reset();
     };
     const inputs = (row, isBlocked) => [
         <AmountInput name={row.key} id={`${row.key}-assign-input`} label={`Engineers on ${row.name}`}
-            value={changes[row.key] !== "" ? changes[row.key] : String(Math.floor(current[row.key] || 0))}
-            onChange={handleChange} disabled={isBlocked && !current[row.key]}
-            max={Math.max(engineers - (totalWanted - wanted(row.key)), 0)} soloMax={engineers} />,
+            value={String(sliders.value(row.key))}
+            onChange={sliders.onChange} disabled={isBlocked && !current[row.key]}
+            max={Math.max(engineers - (totalWanted - sliders.value(row.key)), 0)} soloMax={engineers} />,
     ];
     const actions = (
         <div className="form-actions">
             <span className={totalWanted > engineers ? "text-danger" : "text-muted"}>
                 {(engineers - totalWanted).toLocaleString()} of {engineers.toLocaleString()} engineers unassigned
             </span>
-            {changed ? <Button variant="link" size="sm" onClick={() => setChanges(blank)}>Undo changes</Button> : null}
+            {sliders.changed ? <Button variant="link" size="sm" onClick={sliders.reset}>Undo changes</Button> : null}
             <SubmitButton loading={props.loading.projects} blocked={blocked} onClick={onUpdate}>Update</SubmitButton>
         </div>
     );
@@ -363,15 +355,11 @@ function Assign(props) {
     )
 }
 
-function Allocate(props) {
-    const blank = blankValues(props.state);
-    const [assignValues, setAssignValues] = useState(blank);
+export function Allocate(props) {
+    const keys = Object.keys(blankValues(props.state));
+    const sliders = useSliders(Object.fromEntries(keys.map((key) => [key, (props.kdInfo.projects_target?.[key] || 0) * 100])));
     const [assignResult, setAssignResult] = useState([]);
 
-    const handleAssignInputChange = (e) => {
-        const { name, value } = e.target;
-        setAssignValues((previous) => ({ ...previous, [name]: value }));
-    };
     const send = (opts) => {
         const updateFunc = () => authFetch('api/projects/target', {
             method: 'post',
@@ -379,19 +367,22 @@ function Allocate(props) {
         }).then(r => r.json()).then(r => setAssignResult((previous) => previous.concat(r)));
         props.updateData(['kingdom'], [updateFunc]);
     };
-    const onSubmitClick = () => send({ "targets": assignValues });
+    const onSubmitClick = () => { send({ "targets": sliders.body(keys) }); sliders.reset(); };
     const handleEnabledChange = (e) => send({ 'enabled': e.target.checked });
 
     if (Object.keys(props.engineersInfo).length === 0 || Object.keys(props.kdInfo).length === 0
         || Object.keys(props.projectsInfo).length === 0) {
         return null;
     }
-    const maxPercent = (name) => Math.max(100 - Object.entries(assignValues).filter(([other]) => other !== name).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0);
+    const total = sliders.total(keys);
+    const blocked = total > 100 ? "The shares add up to more than 100%"
+        : sliders.changed ? null : "Move a slider to change a project's share";
 
-    const inputs = (row, blocked) => [
+    const inputs = (row, isBlocked) => [
         displayPercent(props.kdInfo.projects_target?.[row.key] || 0),
-        <AmountInput name={row.key} id={`${row.key}-allocate-input`} label={`Allocate to ${row.name}`} value={assignValues[row.key]}
-            onChange={handleAssignInputChange} suffix="%" max={blocked ? 0 : maxPercent(row.key)} soloMax={blocked ? 0 : 100} disabled={blocked} />,
+        <AmountInput name={row.key} id={`${row.key}-allocate-input`} label={`Allocate to ${row.name}`} value={String(sliders.value(row.key))}
+            onChange={sliders.onChange} suffix="%" max={isBlocked ? 0 : Math.max(100 - (total - sliders.value(row.key)), 0)}
+            soloMax={isBlocked ? 0 : 100} disabled={isBlocked} />,
     ];
     return (
         <div className="projects">
@@ -410,9 +401,9 @@ function Allocate(props) {
             <ProjectSections state={props.state} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
                 inputHeaders={["Current Allocation", "New Allocation"]} inputs={inputs} footer={
                     <div className="form-actions projects-buttons">
-                        <Button className="auto-projects-button" variant="primary" type="submit" onClick={onSubmitClick} disabled={props.loading.kingdom}>
-                            {props.loading.kingdom ? "Loading..." : "Update"}
-                        </Button>
+                        <span className={total > 100 ? "text-danger" : "text-muted"}>{total}% of 100%</span>
+                        {sliders.changed ? <Button variant="link" size="sm" onClick={sliders.reset}>Undo changes</Button> : null}
+                        <SubmitButton loading={props.loading.kingdom} blocked={blocked} onClick={onSubmitClick}>Update</SubmitButton>
                     </div>} />
         </div>
     )

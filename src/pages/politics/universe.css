@@ -1,10 +1,10 @@
-/* The Universe page: galaxies as bubbles inside clusters or empires. The app is always dark (index.js). */
+/* The Universe page: galaxies as bubbles inside clusters or empires, in the theme's colours (styles/themes.css). */
 .universe {
-    --universe-surface: #212529;
-    --universe-text-primary: #f0efec;
-    --universe-text-secondary: #c3c2b7;
-    --universe-group-fill: rgba(255, 255, 255, 0.04);
-    --universe-group-stroke: #6c757d;
+    --universe-surface: var(--surface);
+    --universe-text-primary: var(--bs-body-color);
+    --universe-text-secondary: var(--bs-secondary-color);
+    --universe-group-fill: var(--hover-tint);
+    --universe-group-stroke: var(--bs-border-color);
     width: 100%;
     max-width: 760px;
 }

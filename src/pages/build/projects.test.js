@@ -77,6 +77,19 @@ test("Update sends every project's engineers: the one moved, and the others as t
     expect(Object.keys(assign).sort()).toEqual(Object.keys(state.projects).sort());
 });
 
+
+test("a project's engineers can be moved down to 0", () => {
+    const updateData = jest.fn((keys, funcs) => funcs.forEach((f) => f()));
+    render(<ProjectsContent data={data()} loading={{}} updateData={updateData} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assign" }));
+    const slider = document.getElementById("money_bonus-assign-input");
+    expect(slider.value).toBe("2");
+    fireEvent.change(slider, { target: { value: "0" } });
+    expect(slider.value).toBe("0");
+    fireEvent.click(screen.getAllByRole("button", { name: "Update" })[0]);
+    const [, request] = authFetch.mock.calls.find(([url]) => url === "api/projects");
+    expect(JSON.parse(request.body).assign.money_bonus).toBe(0);
+});
 test("continuous projects are in their own section, one-time projects in theirs by category", () => {
     const sections = projectSections(state, data().kingdom, data().projects);
     expect(sections.map((section) => section.key)).toEqual(["continuous", "one-time"]);

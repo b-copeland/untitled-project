@@ -28,7 +28,7 @@ bp = flask.Blueprint("roundend", __name__)
 _STILL_OPEN = (
     "/api/login", "/api/refresh", "/api/signup", "/api/account",
     "/api/adminlogin", "/api/adminrefresh", "/api/admin", "/api/updatestate", "/api/createstate", "/api/resetstate",
-    "/api/clearnotifs",
+    "/api/clearnotifs", "/api/preferences",
 )
 _WRITES = ("POST", "PUT", "PATCH", "DELETE")
 OVER_MESSAGE = "The round is over: the game is read only now."

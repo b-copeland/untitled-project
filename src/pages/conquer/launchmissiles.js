@@ -77,7 +77,7 @@ function LaunchMissiles(props) {
     return (
         <>
             <div className="planner wide launch-missiles">
-                <ResultToasts title="Missile Results" results={results} setResults={setResults} bg="primary" />
+                <ResultToasts title="Missile Results" results={results} setResults={setResults} />
                 <div className="wide-layout missiles-layout">
                     <Panel title="1. Target">
                         <FieldRow label="Target" htmlFor="missile-target">

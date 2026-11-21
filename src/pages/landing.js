@@ -19,7 +19,7 @@ function Landing(props) {
     const [state, setState] = useState({});
 
     useEffect(() => {
-        fetch('api/state', {keepalive: true}).then(r => r.json()).then(r => setState(r)).catch(
+        fetch('/api/state', {keepalive: true}).then(r => r.json()).then(r => setState(r)).catch(
             err => console.log('Failed to fetch state', err)
         );
     }, []);

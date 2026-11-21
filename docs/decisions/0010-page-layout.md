@@ -48,4 +48,5 @@ next began. Each page had grown its own widths and centering, so no two lined up
 
 Most of the change is in `shared.css`, so a new page gets it by using `Panel`, `GameTable`, `Stats` and `form-actions`.
 A few older pages are still laid out by hand inside the column (Empire > Join, Galaxy > Policies); they are aligned and
-carded but not yet converted to Panels. Colours are still the dark theme only; a theme setting is to follow.
+carded but not yet converted to Panels. Colours come from a theme the player picks on the Settings page (`src/styles/themes.css`, saved in their
+`preferences_<id>` document); Gray, a softer dark, replaced near-black as the default after the review.

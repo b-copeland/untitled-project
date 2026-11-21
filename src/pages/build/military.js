@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import InputGroup from 'react-bootstrap/InputGroup';
-import { AmountInput, NumberControl, SubmitButton } from "../../components/forms";
+import { AmountInput, NumberControl, SubmitButton, useSliders } from "../../components/forms";
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import ProgressBar from 'react-bootstrap/ProgressBar';
@@ -316,21 +316,19 @@ function Upgrade(props) {
     );
 }
 
-function Allocate(props) {
+export function Allocate(props) {
     const [results, setResults] = useState([]);
-    const [input, setInput] = useState(blankInput(props.units));
+    const keys = props.units.map(({ key }) => key);
+    const sliders = useSliders(Object.fromEntries(keys.map((key) => [key, (props.kdInfo.units_target?.[key] || 0) * 100])));
     const [maxRecruits, setMaxRecruits] = useState(props.kdInfo.max_recruits ?? "");
     const [recruitsBeforeUnits, setRecruitsBeforeUnits] = useState(props.kdInfo?.recruits_before_units);
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setInput((previous) => ({ ...previous, [name]: value }));
-    };
     const onSubmitClick = () => {
         const updateFunc = () => authFetch('api/mobis/target', {
             method: 'post',
-            body: JSON.stringify({ "max_recruits": maxRecruits, "targets": input }),
+            body: JSON.stringify({ "max_recruits": maxRecruits, "targets": sliders.body(keys) }),
         }).then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
         props.updateData(['kingdom'], [updateFunc]);
+        sliders.reset();
     };
     const handleEnabledChange = (e) => {
         const checked = e.target.checked;
@@ -341,9 +339,8 @@ function Allocate(props) {
         props.updateData(['kingdom'], [updateFunc]);
         setRecruitsBeforeUnits(checked);
     };
-    // A unit's slider can go as far as is left of 100% once the other units' new numbers are counted.
-    const maxAllocate = (unit) => Math.max(100 - Object.entries(input).filter(([other]) => other !== unit).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0);
-    const total = Object.values(input).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+    // A unit's slider can go as far as is left of 100% once the other units' shares are counted.
+    const total = sliders.total(keys);
     const maxRecruitsError = checkCount(maxRecruits);
     const blocked = total > 100 ? "The shares add up to more than 100%" : maxRecruitsError;
     return (
@@ -360,8 +357,11 @@ function Allocate(props) {
             <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} units={props.units} lastHeader="New Share"
                 extra={[{ header: "Share Now", cell: (unit) => displayPercent(props.kdInfo.units_target?.[unit.key] || 0) }]}
                 last={(unit, locked) => <AmountInput name={unit.key} id={`${unit.key}-allocate-input`} label={`${unit.label} share`}
-                    value={input[unit.key]} onChange={handleInputChange} suffix="%" max={maxAllocate(unit.key)} soloMax={100} disabled={locked} />} />
+                    value={String(sliders.value(unit.key))} onChange={sliders.onChange} suffix="%"
+                    max={Math.max(100 - (total - sliders.value(unit.key)), 0)} soloMax={100} disabled={locked && !sliders.value(unit.key)} />} />
             <div className="form-actions">
+                <span className={total > 100 ? "text-danger" : "text-muted"}>{total}% of 100%</span>
+                {sliders.changed ? <Button variant="link" size="sm" onClick={sliders.reset}>Undo changes</Button> : null}
                 <SubmitButton loading={props.loading.kingdom} blocked={blocked} onClick={onSubmitClick} className="specialists-button">Save shares</SubmitButton>
             </div>
         </div>

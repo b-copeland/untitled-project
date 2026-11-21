@@ -45,7 +45,7 @@
 .bubble-row { display: flex; }
 .bubble-row.mine { justify-content: flex-end; }
 .bubble { max-width: 80%; padding: 0.5rem 0.75rem; border-radius: 1rem; background: var(--bs-secondary-bg, #e9ecef); overflow-wrap: anywhere; }
-.bubble-row.mine .bubble { background: var(--bs-primary); color: #fff; border-bottom-right-radius: 0.25rem; }
+.bubble-row.mine .bubble { background: var(--accent); color: var(--accent-contrast); border-bottom-right-radius: 0.25rem; }
 .bubble-row.theirs .bubble { border-bottom-left-radius: 0.25rem; }
 .bubble-text { white-space: pre-wrap; display: block; }
 .bubble time { display: block; margin-top: 0.15rem; font-size: 0.7rem; opacity: 0.7; text-align: right; }

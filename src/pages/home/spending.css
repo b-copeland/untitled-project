@@ -1,7 +1,1 @@
-.spending-input {
-    max-width: 160px;
-    margin-left: auto;
-}
-.spending-actions {
-    margin: 0.5rem 0 0;
-}
+/* Spending uses the shared Panel, FieldRow and form-actions; nothing extra yet. */

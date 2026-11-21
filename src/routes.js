@@ -35,6 +35,7 @@ import ClusterPolitics from "./pages/politics/clusterpolitics.js";
 import Universe from "./pages/politics/universe.js";
 import Help from "./pages/help/help.js";
 import KingdomPage from "./pages/kingdom.js";
+import Settings from "./pages/settings.js";
 import { kingdomLabel } from "./components/kingdomlink";
 
 /*
@@ -109,7 +110,8 @@ export const sections = [
 ];
 
 /*
- * Game pages that are not in the navigation: they are opened from links on other pages. ``section`` is the name over
+ * Game pages that are not in the navigation sections: they are opened from links on other pages (Settings from the link
+ * by Help in the menu). ``section`` is the name over
  * their title; ``title(data, params)`` gives the title when it depends on the page's address.
  */
 export const linkedPages = [
@@ -117,6 +119,7 @@ export const linkedPages = [
     path: "/kingdom/:kdid", label: "Kingdom", section: "Kingdom", component: KingdomPage,
     title: (data, params) => kingdomLabel(data, params.kdid),
   },
+  { path: "/settings", label: "Settings", section: "Account", component: Settings },
 ];
 
 export const publicRoutes = [

@@ -40,9 +40,11 @@ what needs doing, and what is worth doing next.** Every page should answer its p
 | A table | `GameTable` with column definitions, not hand-written `<tr>`s | `src/components/gametable.js` |
 | Form state | `useFormValues` | `src/components/forms.js` |
 | Choosing an amount | `AmountInput`: a slider with the chosen number on the left and the most possible on the right; give it `max` (what is left now) and `soloMax` (most if nothing else were chosen) so the slider never changes length. Your own amounts are sliders only; `box` (a number box and Max) is for figures with no known maximum. | `src/components/forms.js` |
+| Sliders that start at what the kingdom has now (shares, shields, engineers) | `useSliders(current)`: `value(key)` is the moved value or the current one, and a slider moved to 0 stays at 0; `body(keys)` sends only the moved ones (`""` keeps the server's value) | `src/components/forms.js` |
 | A plain number field | `NumberField` (shows `error` under the box). Any other number box is a `NumberControl`, never a bare `Form.Control`: it takes the commas out of "1,000,000" before `onChange`, as `NumberField` and `AmountInput` do. | `src/components/forms.js` |
 | The send button | `SubmitButton` with `blocked` set to the reason, or null | `src/components/forms.js` |
-| Results of an action | `ResultToasts` | `src/components/results.js` |
+| Results of an action | `ResultToasts`: cards in the bottom corner, above the help button. Green ones close themselves after a few seconds, amber ones stay until closed, and with several there is a Close all | `src/components/results.js` |
+| Notifications the server pushes | Nothing to add: App.js shows them in one panel in the top corner, needing-attention first. A notification with `status: "warning"` keeps the panel open until the player closes it | `src/components/notifications.js` |
 | A planning page (Attack, Spy, Primitives, Schedule, Launch Missiles) | `Panel`, `FieldRow`, `Stats`, `VersusBar`, `Picker`, status tags, `useServerForecast` (asks again 700 ms after the last change, drops answers that were overtaken) | `src/components/planner.js` |
 | An icon action | `IconButton` (`react-icons`; the name is the tooltip and the accessible label) | `src/components/iconbutton.js` |
 | Another kingdom's values, with last-known intel where nothing is revealed now | `withLastKnown(info)` gives the kingdom and `endedOf(path)`; show each value in `Known`, and `LastKnownNote` at the top of a section whose intel has ended | `src/components/lastknown.js` |
@@ -59,7 +61,12 @@ for a planner page.
 
 ## Visual language
 
-- Bootstrap in dark mode, with a darker page and raised sections ([decisions/0010](decisions/0010-page-layout.md)).
+- Colour themes, chosen on the Settings page: Gray (the default), Dark, Light, and four from space palettes
+  (`src/styles/themes.css`). **Never write a hex colour in a page's stylesheet**: use the theme tokens (`--surface`,
+  `--surface-raised`, `--border-subtle`, `--row-divider`, `--hover-tint`, `--accent`, `--accent-contrast`, Bootstrap's
+  `--bs-*` colours), or the page will be wrong in some theme, most often Light. Check a new page in Light and one dark
+  theme.
+- A darker page with raised sections ([decisions/0010](decisions/0010-page-layout.md)).
   Hierarchy comes from type size, muted labels and section cards: a card is a step lighter than the page with a faint
   edge, never a heavy line.
 - One content column: everything on a page, tabs included, shares the header strip's edges. A page does not set its

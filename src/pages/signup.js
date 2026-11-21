@@ -37,7 +37,7 @@ function SignUp(props) {
             "email": email,
         };
         setLoading(true);
-        fetch('api/signup', {
+        fetch('/api/signup', {
             method: 'POST',
             body: JSON.stringify(opts)
         }).then(
