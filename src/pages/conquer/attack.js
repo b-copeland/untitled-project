@@ -10,7 +10,7 @@ import "./attack.css";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
-import { AmountInput } from "../../components/forms";
+import { AmountInput, NumberControl } from "../../components/forms";
 import { Panel, FieldRow, UnitStat, Stats, VersusBar, Picker, useServerForecast, clockUntil } from "../../components/planner";
 import { displayPercent } from "../../format";
 import { TargetIntel } from "./intel.js";
@@ -213,20 +213,20 @@ function Attack(props) {
                             <FieldRow key={key} label={name} status={unitStatus(key)} stat={<UnitStat kind="defense" value={unitsDesc[key]?.defense} />} htmlFor={"def-" + key}>
                                 {unitsKnown
                                     ? <span className="known-value">{whole(targetKdInfo.units[key])}</span>
-                                    : <Form.Control id={"def-" + key} name={key} size="sm" inputMode="numeric" placeholder="0" autoComplete="off"
+                                    : <NumberControl id={"def-" + key} name={key} size="sm" inputMode="numeric" placeholder="0" autoComplete="off"
                                         value={defenderValues[key] || ""} onChange={onDefender} />}
                             </FieldRow>
                         ))}
                         <FieldRow label="Military efficiency" status={bonusKnown ? "revealed" : edited.military_bonus ? "estimate" : "needed"} htmlFor="def-military_bonus">
                             {bonusKnown
                                 ? <span className="known-value">{displayPercent(targetKdInfo.current_bonuses.military_bonus)}</span>
-                                : <div className="attack-buffer"><Form.Control id="def-military_bonus" name="military_bonus" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
+                                : <div className="attack-buffer"><NumberControl id="def-military_bonus" name="military_bonus" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
                                     value={defenderValues.military_bonus} onChange={onDefender} /><span>%</span></div>}
                         </FieldRow>
                         <FieldRow label="Shields" status={shieldsKnown ? "revealed" : edited.shields ? "estimate" : "needed"} htmlFor="def-shields">
                             {shieldsKnown
                                 ? <span className="known-value">{displayPercent(targetKdInfo.shields.military)}</span>
-                                : <div className="attack-buffer"><Form.Control id="def-shields" name="shields" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
+                                : <div className="attack-buffer"><NumberControl id="def-shields" name="shields" size="sm" inputMode="decimal" placeholder="0" autoComplete="off"
                                     value={defenderValues.shields} onChange={onDefender} /><span>%</span></div>}
                         </FieldRow>
                     </Panel>
@@ -245,7 +245,7 @@ function Attack(props) {
                         </FieldRow>
                         <FieldRow label="Suggestion margin" hint="Extra offense a suggestion adds" htmlFor="att-buffer">
                             <div className="attack-buffer">
-                                <Form.Control id="att-buffer" name="buffer" size="sm" inputMode="decimal" autoComplete="off" value={attackerValues.buffer} onChange={onAttacker} />
+                                <NumberControl id="att-buffer" name="buffer" size="sm" inputMode="decimal" autoComplete="off" value={attackerValues.buffer} onChange={onAttacker} />
                                 <span>%</span>
                             </div>
                         </FieldRow>

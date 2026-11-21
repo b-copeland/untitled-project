@@ -20,13 +20,27 @@ export function useFormValues(initial = {}) {
     };
 }
 
+/** The text of a number box without its thousands separators, so "1,000" is read as 1000. */
+export const withoutCommas = (text) => (typeof text === "string" ? text.replace(/,/g, "") : text);
+
+/**
+ * ``Form.Control`` for a number. A player can type or paste thousands separators ("1,000,000"): ``onChange`` gets an
+ * event-like ``{target: {name, value}}`` with them taken out, so every form reads and sends plain digits.
+ */
+export function NumberControl({ onChange, inputMode = "decimal", ...props }) {
+    const handle = onChange
+        ? (event) => onChange({ target: { name: event.target.name, value: withoutCommas(event.target.value) } })
+        : undefined;
+    return <Form.Control inputMode={inputMode} {...props} onChange={handle} />;
+}
+
 /**
  * A text input for a number in a table cell or a form, which shows the reason in red under the box when ``error`` is
  * set (so the player sees why before sending). ``suffix`` adds a unit after the box, such as "%".
  */
 export function NumberField({ name, value, onChange, error, suffix, id, placeholder = "0", className = "game-field", disabled = false }) {
     const control = (
-        <Form.Control
+        <NumberControl
             className={className}
             id={id || `${name}-input`}
             name={name}
@@ -34,7 +48,6 @@ export function NumberField({ name, value, onChange, error, suffix, id, placehol
             value={value || ""}
             placeholder={placeholder}
             autoComplete="off"
-            inputMode="decimal"
             isInvalid={Boolean(error)}
             disabled={disabled}
         />
@@ -122,7 +135,7 @@ export function AmountInput({ name, id, value, onChange, max = 0, soloMax, error
     return (
         <div className="amount-input">
             <div className="amount-input-row">
-                <Form.Control
+                <NumberControl
                     className="amount-input-box"
                     id={id || `${name}-input`}
                     name={name}
@@ -131,7 +144,6 @@ export function AmountInput({ name, id, value, onChange, max = 0, soloMax, error
                     onChange={onChange}
                     placeholder="0"
                     autoComplete="off"
-                    inputMode="decimal"
                     isInvalid={Boolean(error)}
                     disabled={disabled}
                 />

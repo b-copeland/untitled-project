@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
+import { NumberControl } from "../../components/forms";
 import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
@@ -212,7 +213,7 @@ function UniversePolitics(props) {
                     <InputGroup.Text id="buy-votes-input-display">
                         Votes
                     </InputGroup.Text>
-                    <Form.Control 
+                    <NumberControl
                         id="buy-votes-input"
                         onChange={handleBuyVotesInput}
                         value={buyVotes || ""} 
@@ -248,7 +249,7 @@ function UniversePolitics(props) {
                             <InputGroup.Text id="cast-votes-input-display">
                                 Votes
                             </InputGroup.Text>
-                            <Form.Control 
+                            <NumberControl
                                 id="cast-votes-policy-1-option-1-input"
                                 onChange={handlePolicy1Option1Input}
                                 value={policy1Option1Votes || ""} 
@@ -283,7 +284,7 @@ function UniversePolitics(props) {
                             <InputGroup.Text id="cast-votes-input-display">
                                 Votes
                             </InputGroup.Text>
-                            <Form.Control 
+                            <NumberControl
                                 id="cast-votes-policy-1-option-2-input"
                                 onChange={handlePolicy1Option2Input}
                                 value={policy1Option2Votes || ""} 
@@ -323,7 +324,7 @@ function UniversePolitics(props) {
                             <InputGroup.Text id="cast-votes-input-display">
                                 Votes
                             </InputGroup.Text>
-                            <Form.Control 
+                            <NumberControl
                                 id="cast-votes-policy-2-option-1-input"
                                 onChange={handlePolicy2Option1Input}
                                 value={policy2Option1Votes || ""} 
@@ -358,7 +359,7 @@ function UniversePolitics(props) {
                             <InputGroup.Text id="cast-votes-input-display">
                                 Votes
                             </InputGroup.Text>
-                            <Form.Control 
+                            <NumberControl
                                 id="cast-votes-policy-2-option-2-input"
                                 onChange={handlePolicy2Option2Input}
                                 value={policy2Option2Votes || ""} 

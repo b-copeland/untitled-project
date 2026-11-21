@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import InputGroup from 'react-bootstrap/InputGroup';
-import { AmountInput, SubmitButton } from "../../components/forms";
+import { AmountInput, NumberControl, SubmitButton } from "../../components/forms";
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import ButtonGroup from 'react-bootstrap/ButtonGroup';
@@ -279,7 +279,7 @@ function Allocate(props) {
                 defaultChecked={recruitsBeforeUnits} onChange={handleEnabledChange} disabled={props.loading.kingdom} />
             <InputGroup className="max-recruits-input-group">
                 <InputGroup.Text id="recruits-input-display">Max Recruits</InputGroup.Text>
-                <Form.Control id="max-recruits-input" aria-label="Max recruits" onChange={(e) => setMaxRecruits(e.target.value)}
+                <NumberControl id="max-recruits-input" inputMode="numeric" aria-label="Max recruits" onChange={(e) => setMaxRecruits(e.target.value)}
                     value={maxRecruits ?? ""} placeholder="0" autoComplete="off" isInvalid={Boolean(maxRecruitsError)} />
             </InputGroup>
             <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} units={props.units} lastHeader="New Share"

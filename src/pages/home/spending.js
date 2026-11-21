@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Form from 'react-bootstrap/Form';
+import { NumberControl } from "../../components/forms";
 import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import { authFetch } from "../../auth";
@@ -96,7 +97,7 @@ function Spending(props) {
                     <InputGroup.Text id="text-settle-percent" className="spending-title">
                         Settle (Current: {spendingInfo.settle * 100}%)
                     </InputGroup.Text>
-                    <Form.Control 
+                    <NumberControl
                         id="settle-percent"
                         aria-describedby="basic-addon3" 
                         onChange={handleSettleInput}
@@ -112,7 +113,7 @@ function Spending(props) {
                     <InputGroup.Text id="text-structures-percent" className="spending-title">
                         Structures (Current: {spendingInfo.structures * 100}%)
                     </InputGroup.Text>
-                    <Form.Control 
+                    <NumberControl
                         id="structures-percent"
                         aria-describedby="basic-addon3" 
                         onChange={handleStructuresInput}
@@ -128,7 +129,7 @@ function Spending(props) {
                     <InputGroup.Text id="text-military-percent" className="spending-title">
                         Military (Current: {spendingInfo.military * 100}%)
                     </InputGroup.Text>
-                    <Form.Control 
+                    <NumberControl
                         id="military-percent"
                         aria-describedby="basic-addon3" 
                         onChange={handleMilitaryInput}
@@ -144,7 +145,7 @@ function Spending(props) {
                     <InputGroup.Text id="text-engineers-percent" className="spending-title">
                         Engineers (Current: {spendingInfo.engineers * 100}%)
                     </InputGroup.Text>
-                    <Form.Control 
+                    <NumberControl
                         id="engineers-percent"
                         aria-describedby="basic-addon3" 
                         onChange={handleEngineersInput}

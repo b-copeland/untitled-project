@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Form from 'react-bootstrap/Form';
+import { NumberControl } from "../../components/forms";
 import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
@@ -72,7 +73,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.military?.max * props.data.shields.desc?.military?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
                             <InputGroup className="mb-3 shields-input-group">
-                                <Form.Control
+                                <NumberControl
                                 className="shields-assign-form"
                                 id="military-input"
                                 onChange={handleInputChange}
@@ -93,7 +94,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.spy?.max * props.data.shields.desc?.spy?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
                             <InputGroup className="mb-3 shields-input-group">
-                                <Form.Control
+                                <NumberControl
                                 className="shields-assign-form"
                                 id="spy-input"
                                 onChange={handleInputChange}
@@ -114,7 +115,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.spy_radar?.max * props.data.shields.desc?.spy_radar?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
                             <InputGroup className="mb-3 shields-input-group">
-                                <Form.Control
+                                <NumberControl
                                 className="shields-assign-form"
                                 id="spy-radar-input"
                                 onChange={handleInputChange}
@@ -135,7 +136,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.missiles?.max * props.data.shields.desc?.missiles?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
                             <InputGroup className="mb-3 shields-input-group">
-                                <Form.Control
+                                <NumberControl
                                 className="shields-assign-form"
                                 id="missiles-input"
                                 onChange={handleInputChange}

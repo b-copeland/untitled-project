@@ -17,6 +17,7 @@ import { ResultToasts, safeJson } from "../../components/results";
 import { GameTable } from "../../components/gametable";
 import { IconButton } from "../../components/iconbutton";
 import { Panel, FieldRow, Picker, clockUntil } from "../../components/planner";
+import { NumberControl } from "../../components/forms";
 import { displayPercent } from "../../format";
 import { checkCount, checkPercent, firstError } from "../../validation";
 
@@ -99,7 +100,7 @@ function Action({ children, problem, onClick, loading, variant = "primary" }) {
 function CutBox({ id, value, onChange, error }) {
     return (
         <span className="intel-cut">
-            <Form.Control id={id} size="sm" inputMode="decimal" placeholder="0" autoComplete="off" aria-label="Cut"
+            <NumberControl id={id} size="sm" inputMode="decimal" placeholder="0" autoComplete="off" aria-label="Cut"
                 value={value} onChange={(e) => onChange(e.target.value)} isInvalid={Boolean(error)} />
             <span>%</span>
         </span>
@@ -271,7 +272,7 @@ export function BountyForm({ target, send, ask, ...props }) {
             </FieldRow>
             <FieldRow label="Stays up for" hint={`Hours, 1 to ${maxHours}; blank for ${maxHours}`} htmlFor="bounty-hours">
                 <span className="intel-cut">
-                    <Form.Control id="bounty-hours" size="sm" inputMode="numeric" placeholder={String(maxHours)} autoComplete="off" className="intel-hours"
+                    <NumberControl id="bounty-hours" size="sm" inputMode="numeric" placeholder={String(maxHours)} autoComplete="off" className="intel-hours"
                         value={hours} onChange={(e) => setHours(e.target.value)} isInvalid={Boolean(hoursError)} />
                     <span>hours</span>
                 </span>
