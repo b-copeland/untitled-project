@@ -14,6 +14,7 @@ the other docs; they are not instructions themselves. Read one before arguing to
 | [0007](0007-cluster-politics.md) | Cluster politics: one document per cluster, levels computed on read, membership from the galaxy id |
 | [0008](0008-empire-targets.md) | Empire targets: one document per empire, and a hint on the empires document so actions know a target without a read |
 | [0009](0009-last-known-intel.md) | Last-known intel: one document per kingdom, snapshotted after the tick from the kingdoms it already read |
+| [0010](0010-page-layout.md) | Page layout: one content column, sections as cards, borderless tables, underlined left-aligned tabs |
 
 To add one: copy the shape below into the next number, and link it from this table.
 

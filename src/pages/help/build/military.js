@@ -84,7 +84,7 @@ function Military(props) {
                 one playstyle unit to the other. The units leave at once and come back as the new unit through training,
                 taking as long as training does, and do not fight while they upgrade.
             </p>
-            <Table className="specialists-table" striped bordered hover size="sm">
+            <Table className="specialists-table" hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Unit</th>

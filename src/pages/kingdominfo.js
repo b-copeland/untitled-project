@@ -32,8 +32,6 @@ function KingdomContent(props) {
         <Tabs
             id="controlled-tab-example"
             defaultActiveKey="kingdom"
-            justify
-            fill
             variant="tabs"
         >
             <Tab eventKey="kingdom" title="Kingdom">
@@ -169,7 +167,7 @@ function Military(props) {
     return (
         <div className="military">
             <h2>Armies</h2>
-            <Table striped bordered hover className="army-table" size="sm">
+            <Table hover className="army-table" size="sm">
                 <thead>
                     <tr>
                     <th colSpan={2}></th>
@@ -205,7 +203,7 @@ function Structures(props) {
     return (
         
         <div className="kingdom-structures-info">
-            <Table striped bordered hover>
+            <Table hover>
                 <thead>
                     <tr>
                     <th style={{textAlign: "left"}}>Structure</th>
@@ -272,7 +270,7 @@ function Projects(props) {
         ? "Completed"
         : displayPercent(Math.min((kingdom.projects_points?.[key] || 0) / (kingdom.projects_max_points?.[key] || 1), 1)));
     const table = (title, list, lastHeader, last) => (
-        <Table className="projects-table" striped bordered hover size="sm">
+        <Table className="projects-table" hover size="sm">
             <thead>
                 <tr><th colSpan={4}>{title}</th></tr>
                 <tr>
@@ -309,7 +307,7 @@ function Shields(props) {
         <div className="shields">
             {
                 props.kingdom?.shields?.military != undefined
-                ? <Table className="shields-table" striped bordered hover size="sm">
+                ? <Table className="shields-table" hover size="sm">
                     <thead>
                         <tr>
                             <th style={{textAlign: "left"}}>Shield</th>

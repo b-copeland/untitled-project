@@ -53,7 +53,8 @@ function Shields(props) {
         <div className="shields">
         <div className="shields-content">
             <ResultToasts title="Shields Results" results={results} setResults={setResults} />
-            <Table className="shields-table" striped bordered hover size="sm">
+            <div className="table-scroll">
+            <Table className="shields-table" hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Shield</th>
@@ -61,7 +62,7 @@ function Shields(props) {
                         <th style={{textAlign: "right"}}>Max %</th>
                         <th style={{textAlign: "right"}}>Current Power Cost</th>
                         <th style={{textAlign: "right"}}>Max Power Cost</th>
-                        <td style={{textAlign: "right"}}>Input</td>
+                        <th style={{textAlign: "right"}}>New %</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -72,7 +73,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.kingdom.shields?.military * props.data.shields.desc?.military?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.military?.max * props.data.shields.desc?.military?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
-                            <InputGroup className="mb-3 shields-input-group">
+                            <InputGroup size="sm" className="shields-input-group">
                                 <NumberControl
                                 className="shields-assign-form"
                                 id="military-input"
@@ -93,7 +94,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.kingdom.shields?.spy * props.data.shields.desc?.spy?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.spy?.max * props.data.shields.desc?.spy?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
-                            <InputGroup className="mb-3 shields-input-group">
+                            <InputGroup size="sm" className="shields-input-group">
                                 <NumberControl
                                 className="shields-assign-form"
                                 id="spy-input"
@@ -114,7 +115,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.kingdom.shields?.spy_radar * props.data.shields.desc?.spy_radar?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.spy_radar?.max * props.data.shields.desc?.spy_radar?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
-                            <InputGroup className="mb-3 shields-input-group">
+                            <InputGroup size="sm" className="shields-input-group">
                                 <NumberControl
                                 className="shields-assign-form"
                                 id="spy-radar-input"
@@ -135,7 +136,7 @@ function Shields(props) {
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.kingdom.shields?.missiles * props.data.shields.desc?.missiles?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td style={{textAlign: "right"}}>{Math.floor(props.data.shields.desc?.missiles?.max * props.data.shields.desc?.missiles?.cost * props.data.kingdom.stars * 100 || 0).toLocaleString()}</td>
                         <td>
-                            <InputGroup className="mb-3 shields-input-group">
+                            <InputGroup size="sm" className="shields-input-group">
                                 <NumberControl
                                 className="shields-assign-form"
                                 id="missiles-input"
@@ -151,6 +152,8 @@ function Shields(props) {
                     </tr>
                 </tbody>
             </Table>
+            </div>
+            <div className="form-actions">
             {props.loading.kingdom
             ? <Button className="shields-button" variant="primary" type="submit" disabled>
                 Loading...
@@ -159,6 +162,7 @@ function Shields(props) {
                 Update
             </Button>
             }
+            </div>
         </div>
         </div>
     )

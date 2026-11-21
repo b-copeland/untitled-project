@@ -62,8 +62,6 @@ function HistoryContent(props) {
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="attack"
-        justify
-        fill
         variant="tabs"
       >
         <Tab eventKey="attack" title="Attack">

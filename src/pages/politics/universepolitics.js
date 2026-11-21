@@ -231,7 +231,7 @@ function UniversePolitics(props) {
                 }
                 {
                     buyVotes !== ""
-                    ? <h3>Votes Cost: {calcVotesCosts(buyVotes).toLocaleString()}</h3>
+                    ? <span className="text-muted">Votes Cost: {calcVotesCosts(buyVotes).toLocaleString()}</span>
                     : null
                 }   
             </div>

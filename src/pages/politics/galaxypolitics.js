@@ -9,6 +9,7 @@ import "./galaxypolitics.css";
 import Select from 'react-select';
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { Panel } from "../../components/planner";
 import { useWait, lockedVoteText } from "../../components/wait";
 
 /** The sentence under a vote: why it is locked and until when, or (unless ``lockedOnly``) how long a change holds. */
@@ -28,8 +29,6 @@ function GalaxyPolitics(props) {
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="leader"
-        justify
-        fill
         variant="tabs"
       >
         <Tab eventKey="leader" title="Leader">
@@ -108,7 +107,8 @@ function GalaxyPoliticsLeader(props) {
         </tr>
     );
     return (
-        <div className="galaxy-politics">
+        <div className="galaxy-politics panel-grid">
+            <Panel title="Your vote">
             <form className="galaxy-leader-form">
                 <label id="aria-label" htmlFor="aria-example-input">
                     Select a galaxy leader
@@ -152,7 +152,7 @@ function GalaxyPoliticsLeader(props) {
                     }}
                 />
             </form>
-            <h3>You are currently voting for: {currentLeaderVoteLabel}</h3>
+            <p className="galaxy-leader-current">You are currently voting for: <strong>{currentLeaderVoteLabel}</strong></p>
             <VoteRule data={props.data} wait={leaderWait} />
             {
                 props.loading.galaxypolitics
@@ -164,7 +164,9 @@ function GalaxyPoliticsLeader(props) {
                     Vote
                 </Button>
             }
-            <Table striped bordered hover className="galaxy-leader-table">
+            </Panel>
+            <Panel title="Votes">
+            <Table hover className="galaxy-leader-table">
                 <thead>
                     <tr>
                         <th>Kingdom</th>
@@ -176,6 +178,7 @@ function GalaxyPoliticsLeader(props) {
                     {galaxyLeaderRows}
                 </tbody>
             </Table>
+            </Panel>
         </div>
     )
 }

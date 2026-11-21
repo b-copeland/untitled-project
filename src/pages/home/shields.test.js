@@ -20,6 +20,6 @@ test("the Shields page shows the shields and not auto spending", () => {
 
 test("the Spending page shows auto spending and not the shields", () => {
     render(<SpendingPage data={data} loading={{}} updateData={jest.fn()} />);
-    expect(screen.getByText("Update Auto Spending:")).toBeTruthy();
+    expect(screen.getByText("Auto spending")).toBeTruthy();
     expect(screen.queryByText("Spy Radar")).toBeNull();
 });

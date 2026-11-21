@@ -17,7 +17,7 @@ function Shields(props) {
             <p>
                 The Shields page allows you to update your shields usage. Shields consume power to provide some benefits. 
             </p>
-            <Table className="shields-table" striped bordered hover size="sm">
+            <Table className="shields-table" hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Shield</th>

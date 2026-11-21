@@ -142,7 +142,7 @@ function Recruits(props) {
     return (
         <div className="recruits">
             <ResultToasts title="Recruits Results" results={recruitsResults} setResults={setRecruitsResults} />
-            <div className="text-box recruits-box">
+            <div className="text-box text-box-stats recruits-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Recruit Time</span>
                     <span className="text-box-item-value">{(props.mobisInfo.recruit_time / 3600).toFixed(1)}h</span>
@@ -169,24 +169,26 @@ function Recruits(props) {
                     <span className="text-box-item-title">Available New Recruits</span>
                     <span className="text-box-item-value">{props.mobisInfo.current_available_recruits?.toLocaleString()}</span>
                 </div>
-                <div className="amount-field">
-                    <label htmlFor="recruits-input">New recruits</label>
-                    <AmountInput name="recruits" id="recruits-input" label="New recruits" value={recruitsInput}
-                        onChange={handleRecruitsInput} max={maxRecruitsNow} />
+                <div className="summary-form">
+                    <div className="amount-field">
+                        <label htmlFor="recruits-input">New recruits</label>
+                        <AmountInput name="recruits" id="recruits-input" label="New recruits" value={recruitsInput}
+                            onChange={handleRecruitsInput} max={maxRecruitsNow} />
+                    </div>
+                    {props.loading.mobis
+                    ? <Button className="recruits-button" variant="primary" type="submit" disabled>
+                        Loading...
+                    </Button>
+                    : <Button className="recruits-button" variant="primary" type="submit" onClick={onSubmitClick}>
+                        Recruit
+                    </Button>
+                    }
+                    {
+                        recruitsInput !== ""
+                        ? <span className="text-muted">Recruits Cost: {(parseInt(recruitsInput) * props.mobisInfo.recruit_price).toLocaleString()}</span>
+                        : null
+                    }
                 </div>
-                {props.loading.mobis
-                ? <Button className="recruits-button" variant="primary" type="submit" disabled>
-                    Loading...
-                </Button>
-                : <Button className="recruits-button" variant="primary" type="submit" onClick={onSubmitClick}>
-                    Recruit
-                </Button>
-                }
-                {
-                    recruitsInput !== ""
-                    ? <h3>Recruits Cost: {(parseInt(recruitsInput) * props.mobisInfo.recruit_price).toLocaleString()}</h3>
-                    : null
-                }
             </div>
         </div>
         )
@@ -234,11 +236,13 @@ function Specialists(props) {
             <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} units={props.units} lastHeader="To Train"
                 last={(unit, locked) => <AmountInput name={unit.key} id={`${unit.key}-train-input`} label={`${unit.label} to train`}
                     value={input[unit.key]} onChange={handleInputChange} max={maxTrain(unit.key)} soloMax={soloTrain(unit.key)} disabled={locked} />} />
-            <div className="military-summary">
-                <span>Cost: {cost.toLocaleString()}</span>
-                <span>Recruits left: {(recruits - recruitsUsed).toLocaleString()}</span>
+            <div className="form-actions">
+                <span className="military-summary text-muted">
+                    <span>Cost: {cost.toLocaleString()}</span>
+                    <span>Recruits left: {(recruits - recruitsUsed).toLocaleString()}</span>
+                </span>
+                <SubmitButton loading={props.loading.mobis} blocked={blocked} onClick={onSubmitClick} className="specialists-button">Train units</SubmitButton>
             </div>
-            <SubmitButton loading={props.loading.mobis} blocked={blocked} onClick={onSubmitClick} className="specialists-button">Train units</SubmitButton>
         </div>
     );
 }
@@ -358,7 +362,9 @@ function Allocate(props) {
                 extra={[{ header: "Share Now", cell: (unit) => displayPercent(props.kdInfo.units_target?.[unit.key] || 0) }]}
                 last={(unit, locked) => <AmountInput name={unit.key} id={`${unit.key}-allocate-input`} label={`${unit.label} share`}
                     value={input[unit.key]} onChange={handleInputChange} suffix="%" max={maxAllocate(unit.key)} soloMax={100} disabled={locked} />} />
-            <SubmitButton loading={props.loading.kingdom} blocked={blocked} onClick={onSubmitClick} className="specialists-button">Save shares</SubmitButton>
+            <div className="form-actions">
+                <SubmitButton loading={props.loading.kingdom} blocked={blocked} onClick={onSubmitClick} className="specialists-button">Save shares</SubmitButton>
+            </div>
         </div>
     );
 }
@@ -390,8 +396,10 @@ function Disband(props) {
             <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} units={rows} lastHeader="To Disband"
                 last={(unit) => <AmountInput name={unit.key} id={`disband-${unit.key}`} label={`${unit.label} to disband`}
                     value={input[unit.key]} onChange={handleInputChange} max={Math.floor(units[unit.key] || 0)} />} />
-            <SubmitButton loading={props.loading.kingdom} blocked={chosen < 1 ? "Choose some units to disband" : null}
-                onClick={onSubmitClick} variant="warning" className="specialists-button">Disband units</SubmitButton>
+            <div className="form-actions">
+                <SubmitButton loading={props.loading.kingdom} blocked={chosen < 1 ? "Choose some units to disband" : null}
+                    onClick={onSubmitClick} variant="warning" className="specialists-button">Disband units</SubmitButton>
+            </div>
         </div>
     );
 }

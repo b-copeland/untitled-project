@@ -22,7 +22,7 @@ function Schedule(props) {
             <Header data={props.data} />
             <div className="planner schedule">
                 <h2>Schedule</h2>
-                <Tabs id="schedule-tabs" defaultActiveKey="add" justify fill variant="tabs">
+                <Tabs id="schedule-tabs" defaultActiveKey="add" variant="tabs">
                     <Tab eventKey="add" title="Add">
                         <Add loading={props.loading} updateData={props.updateData} data={props.data} />
                     </Tab>
