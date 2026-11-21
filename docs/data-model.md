@@ -113,7 +113,10 @@ more than its `siphon`. If the rates together exceed `BASE_MAX_SIPHON` of the ta
 soonest to end first. It then writes each siphon's lowered `siphon` and `rate` back, and drops siphons that have ended
 or have nothing left. Each payment is appended to the siphoner's `siphons_in` as `{from, siphon, time,
 remaining_siphon}`: `from` is the target, `siphon` the money paid, and `time` and `remaining_siphon` say when the
-siphon ends and what it still has to take. The siphoner's next refresh credits the payments and clears them.
+siphon ends and what it still has to take. The siphoner's next refresh credits the payments and clears them. A siphon
+whose siphoner is dead (or no longer exists) ends at the target's next tick: it pays nothing, does not count towards
+the cap, and is dropped. The refresh knows the siphoner's status from the kingdoms it has already refreshed that tick,
+or reads it once.
 
 ### The intel market
 
