@@ -19,3 +19,14 @@
 .buy-votes-button {
     min-width: 120px;
 }
+.universe-votes-label {
+    margin: 0.25rem 0 0;
+    color: var(--bs-secondary-color);
+    font-size: 0.875rem;
+}
+.universe-votes-box .amount-input,
+.galaxy-policy-card .amount-input {
+    width: 100%;
+    max-width: 320px;
+    margin-left: 0;
+}

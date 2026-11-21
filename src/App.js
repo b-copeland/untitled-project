@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 
 import { useAuth, logout } from "./auth";
 import { useGameData, initGlobalData } from "./data/gameData";
@@ -9,7 +9,27 @@ import Button from 'react-bootstrap/Button';
 import { FiMenu } from "react-icons/fi";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css";
-import { sections, publicRoutes, createKingdomRoute, propsFor } from "./routes";
+import { publicRoutes, createKingdomRoute, gamePages, propsFor } from "./routes";
+import Header from "./components/header";
+import { PageContext, PageHead } from "./components/pagehead";
+
+/**
+ * A game page in its frame: the header strip, then the page's section and title (or the way back to the page that
+ * linked here), then the page. Links on the page learn where they are from PageContext.
+ */
+function GamePage({ route, context }) {
+  const location = useLocation();
+  const params = useParams();
+  const title = route.title ? route.title(context.data, params) : route.label;
+  const Page = route.component;
+  return (
+    <PageContext.Provider value={{ path: location.pathname + location.search, label: title }}>
+      <Header data={context.data} />
+      <PageHead section={route.section} title={title} />
+      <Page {...propsFor(route, context)} />
+    </PageContext.Provider>
+  );
+}
 
 /**
  * Wraps the pages that need a player: a signed-in one (otherwise to the login page) who has made a kingdom (otherwise
@@ -85,8 +105,8 @@ function Content({ logged, session }) {
                   {renderPage(createKingdomRoute, createKingdomRoute.props(context))}
                 </NewKingdomRoute>}/>
               <Route element={<ProtectedRoute logged={logged} session={session} kingdomid={data.kingdomid}/>}>
-                {sections.flatMap((section) => section.pages).map((route) => (
-                  <Route key={route.path} path={route.path} element={renderPage(route, propsFor(route, context))}/>
+                {gamePages.map((route) => (
+                  <Route key={route.path} path={route.path} element={<GamePage route={route} context={context}/>}/>
                 ))}
               </Route>
             </Routes>

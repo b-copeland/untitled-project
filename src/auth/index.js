@@ -13,9 +13,18 @@ const { useAuth, authFetch: tokenAuthFetch, login, logout, getSession, getSessio
     expirationThresholdMillisec: 1000 * 3600
 });
 
-/** authFetch, but a 401 (a token from an earlier round, or one the server no longer accepts) signs the player out. */
-const authFetch = async (...args) => {
-    const response = await tokenAuthFetch(...args);
+/**
+ * "api/x" from the site's root, wherever the page is: pages written "api/..." would otherwise ask for
+ * /kingdom/api/x on a page like /kingdom/12. A full URL or a path from the root is left alone.
+ */
+export const fromRoot = (url) => (typeof url === "string" && !/^([a-z][a-z0-9+.-]*:|\/)/i.test(url) ? "/" + url : url);
+
+/**
+ * authFetch, asking from the site's root, and a 401 (a token from an earlier round, or one the server no longer
+ * accepts) signs the player out.
+ */
+const authFetch = async (url, ...rest) => {
+    const response = await tokenAuthFetch(fromRoot(url), ...rest);
     if (response.status === 401) logout();
     return response;
 };

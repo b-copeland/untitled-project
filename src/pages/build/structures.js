@@ -4,7 +4,6 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import "./structures.css"
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
@@ -30,11 +29,10 @@ function Structures(props) {
     const shared = { loading: props.loading, updateData: props.updateData, data: props.data };
     return (
         <>
-            <Header data={props.data} />
             <Tabs id="controlled-tab-example" defaultActiveKey="build" variant="tabs">
                 <Tab eventKey="build" title="Build"><BuildStructures {...shared} /></Tab>
                 <Tab eventKey="allocate" title="Allocate"><AllocateStructures {...shared} /></Tab>
-                <Tab eventKey="raze" title="Raze"><RazeStructures {...shared} /></Tab>
+                <Tab eventKey="raze" title="Raze" tabClassName="tab-warning"><RazeStructures {...shared} /></Tab>
             </Tabs>
             <HelpButton scrollTarget={"structures"}/>
         </>
@@ -200,7 +198,7 @@ function RazeStructures(props) {
     ];
 
     return (
-        <div className="structures structures-raze">
+        <div className="structures structures-raze warning-zone">
             <p className="page-note">Raze structures to destroy them and receive {displayPercent(props.data.state.game_config?.BASE_STRUCTURES_RAZE_RETURN || 0)} of the current build cost back</p>
             <ResultToasts title="Raze Results" results={results} setResults={setResults} />
             <GameTable className="structures-table" columns={columns} rows={keys} rowKey={(key) => key} />

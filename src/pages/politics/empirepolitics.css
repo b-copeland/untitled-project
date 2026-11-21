@@ -64,3 +64,25 @@
     width: 100%;
     border-width: 2px;
 }
+/* The Status tab: relations and the two sides of surrender, as cards. */
+.empire-status {
+    width: 100%;
+}
+.empire-subhead {
+    margin: 1.25rem 0 0.5rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.empire-none {
+    margin: 0;
+}
+.empire-actions {
+    margin: 0.75rem 0 0;
+}
+/* Offering your own surrender loses something: its card is edged in red. */
+.panel.empire-surrender {
+    border-color: rgba(var(--bs-danger-rgb), 0.35);
+}

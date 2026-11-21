@@ -325,10 +325,12 @@ def allocate_mobis():
                 message = "Recruits will be trained after units during auto spending"
             return {'recruits_before_units': recruits_before_units}, message
 
+        # A box left empty keeps its target; one set to 0 takes it out of the allocation (it used to be skipped, so a
+        # target could never be lowered to 0).
         req_targets = {
             key: float(value or 0) / 100
             for key, value in req.get("targets", {}).items()
-            if (value or 0) != 0
+            if value not in ("", None)
         }
 
         current_targets = kd_info_parse['units_target']
@@ -657,10 +659,12 @@ def allocate_structures():
     kd_id = flask_praetorian.current_user().kd_id
     
     def decide(kd_info_parse):
+        # A box left empty keeps its target; one set to 0 takes it out of the allocation (it used to be skipped, so a
+        # target could never be lowered to 0).
         req_targets = {
             key: float(value or 0) / 100
             for key, value in req.items()
-            if (value or 0) != 0
+            if value not in ("", None)
         }
 
         current_targets = kd_info_parse['structures_target']
@@ -1088,10 +1092,12 @@ def allocate_projects():
                 message = "Auto assigning engineers disabled"
             return {'auto_assign_projects': req["enabled"]}, message
 
+        # A box left empty keeps its target; one set to 0 takes it out of the allocation (it used to be skipped, so a
+        # target could never be lowered to 0).
         req_targets = {
             key: float(value or 0) / 100
             for key, value in req.get("targets", {}).items()
-            if (value or 0) != 0
+            if value not in ("", None)
         }
 
         current_targets = kd_info_parse['projects_target']

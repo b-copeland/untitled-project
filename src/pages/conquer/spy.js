@@ -4,11 +4,10 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import Alert from 'react-bootstrap/Alert';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import "./spy.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput, NumberControl } from "../../components/forms";
@@ -59,13 +58,14 @@ export function spyNeedsConfirmation({ hasForecast, guessing, chance }) {
 }
 
 function Spy(props) {
-    // A target and operation come as props (the dialogs on Conquer and Galaxy) or with the link here (Attempt, on an
-    // intel bounty: the operation that would reveal the intel asked for).
+    // A target and operation come as props, or with the link here: /spy?target=12&op=spymilitary (the Kingdom and
+    // Galaxy pages, and Attempt on an intel bounty: the operation that would reveal the intel asked for).
     const arrived = useLocation().state || {};
-    const initialKd = props.initialKd ?? arrived.kdId;
+    const [query] = useSearchParams();
+    const initialKd = props.initialKd ?? query.get("target") ?? arrived.kdId;
     const [defenderValues, setDefenderValues] = useState(initialDefenderValues);
     const [selected, setSelected] = useState(initialKd || undefined);
-    const [operation, setOperation] = useState(props.initialOperation ?? arrived.operation ?? "");
+    const [operation, setOperation] = useState(props.initialOperation ?? query.get("op") ?? arrived.operation ?? "");
     const [targetKdInfo, setTargetKdInfo] = useState({});
     const [results, setResults] = useState([]);
     const [drones, setDrones] = useState("");
@@ -136,10 +136,8 @@ function Spy(props) {
 
     return (
         <>
-            <Header data={props.data} />
             <div className="planner wide spy">
                 <ResultToasts title="Spy Results" results={results} setResults={setResults} />
-                <h2>Spy</h2>
 
                 <div className="wide-layout spy-layout">
                     <Panel className="area-target" title="1. Target and operation">
@@ -158,9 +156,10 @@ function Spy(props) {
                             onAttempt={(kdId, op) => setOperation(op)} />
                     </Panel>
 
+                    {selected !== undefined ? <>
                     <Panel className="area-drones" title="2. Your drones">
                         <FieldRow label="Drones to send" hint={`${kingdom.spy_attempts ?? 0} spy attempts left`} htmlFor="spy-drones">
-                            <AmountInput box name="drones" id="spy-drones" label="Drones to send" value={drones}
+                            <AmountInput name="drones" id="spy-drones" label="Drones to send" value={drones}
                                 onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
                         </FieldRow>
                         <FieldRow label="Shield the drones" hint="Protects them if the operation fails">
@@ -196,7 +195,7 @@ function Spy(props) {
                     </FieldRow>
                 </Panel>
 
-                <Panel className="area-forecast" title="4. Forecast">
+                <Panel className="area-forecast" title="4. Forecast and send">
                     {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
                     {hasForecast ? <>
                         {guessing
@@ -216,14 +215,14 @@ function Spy(props) {
                         ]} />
                         <div className="planner-notes">{forecast.message}</div>
                     </> : null}
+                    <div className="planner-send">
+                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance }) ? setConfirming(true) : send())}>
+                            Send spies
+                        </Button>
+                        {blocked ? <div className="planner-why">{blocked}</div> : null}
+                    </div>
                 </Panel>
-
-                <Panel className="area-send" title="5. Send">
-                    <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance }) ? setConfirming(true) : send())}>
-                        Send spies
-                    </Button>
-                    {blocked ? <div className="planner-why">{blocked}</div> : null}
-                </Panel>
+                    </> : null}
 
                 </div>
 

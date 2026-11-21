@@ -5,7 +5,6 @@ import ProgressBar from 'react-bootstrap/ProgressBar';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import { authFetch } from "../../auth";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { GameTable } from "../../components/gametable";
 import { SubmitButton } from "../../components/forms";
@@ -140,7 +139,6 @@ function ClusterPolitics(props) {
     if (!cluster.benefits) {
         return (
             <>
-                <Header data={props.data} />
                 <p className="cluster-politics">{cluster.message || "Your cluster could not be loaded."}</p>
             </>
         );
@@ -154,7 +152,6 @@ function ClusterPolitics(props) {
     const myVote = benefitsOf(cluster).find((benefit) => benefit.key === mine.vote);
     return (
         <>
-            <Header data={props.data} />
             <div className="cluster-politics">
                 <ResultToasts title="Cluster" results={results} setResults={setResults} />
                 <Stats items={[

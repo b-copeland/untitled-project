@@ -11,8 +11,8 @@ import Table from 'react-bootstrap/Table';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./status.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { KingdomLink } from "../../components/kingdomlink";
 import Overview from "./overview";
 
 function StatusContent(props) {
@@ -20,7 +20,6 @@ function StatusContent(props) {
 
     return (
     <>
-      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         activeKey={key}
@@ -138,7 +137,7 @@ function Status(props) {
         props.kingdom.siphons?.length > 0
         ? props.kingdom.siphons?.map((siphon, iter) =>
             <div className="text-box-item" key={"siphonsin_" + iter}>
-                <span className="text-box-item-title">&nbsp;&nbsp;{kdFullLabel(siphon.from)}</span>
+                <span className="text-box-item-title">&nbsp;&nbsp;<KingdomLink kdId={siphon.from}>{kdFullLabel(siphon.from)}</KingdomLink></span>
                 <span className="text-box-item-value">{Math.floor(siphon.remaining_siphon).toLocaleString()} ({getTimeString(new Date(siphon.time))})</span>
             </div>
         )

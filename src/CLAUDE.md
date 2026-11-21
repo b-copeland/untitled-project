@@ -21,7 +21,12 @@ the component catalog are in [docs/ux.md](../docs/ux.md); read it before changin
   `SubmitButton` (`components/forms.js`). **Results:** `ResultToasts`. **Numbers:** `format.js`. **Icons:**
   `react-icons` through `IconButton`.
 - **Amounts:** `AmountInput` is a slider with the chosen number on its left and the most possible on its right; give it
-  `max` and `soloMax`. `box` adds a number box and Max for the planner pages.
+  `max` and `soloMax`. Your own units, drones and missiles are sliders only; `box` adds a number box and Max for a
+  figure with no known maximum.
+- **Frame and links:** App.js renders the header strip and the page title (`components/pagehead.js`); pages do not.
+  Planners and a kingdom's details are pages, not dialogs: link with `KingdomLink`, `kingdomPath` and `targetPath`
+  (`components/kingdomlink.js`), passing `useFromHere()` as the link's state so the next page can link back. Dialogs
+  are for short confirmations.
 - **Planner pages** (Attack, Spy, Primitives, Schedule, Launch Missiles): `Panel`, `FieldRow`, `Stats`,
   `VersusBar`, `Picker` from `components/planner.js`, a forecast that follows the inputs, and a confirmation only for
   the troublesome cases.

@@ -8,7 +8,6 @@ import Tabs from 'react-bootstrap/Tabs';
 import Alert from 'react-bootstrap/Alert';
 import { GiCrossedSwords, GiSpaceship, GiMagnifyingGlass, GiNinjaHeroicStance, GiMissileLauncher } from "react-icons/gi";
 import "./schedule.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
@@ -19,9 +18,7 @@ import { availableOperations } from "./spy";
 function Schedule(props) {
     return (
         <>
-            <Header data={props.data} />
             <div className="planner schedule">
-                <h2>Schedule</h2>
                 <Tabs id="schedule-tabs" defaultActiveKey="add" variant="tabs">
                     <Tab eventKey="add" title="Add">
                         <Add loading={props.loading} updateData={props.updateData} data={props.data} />
@@ -149,7 +146,7 @@ function Add(props) {
 
     const percentRow = (name, label, hint) => (
         <FieldRow label={label} hint={hint} htmlFor={"sched-" + name}>
-            <AmountInput box name={name} id={"sched-" + name} label={label} suffix="%" value={options[name]} onChange={onText} max={100} />
+            <AmountInput name={name} id={"sched-" + name} label={label} suffix="%" value={options[name]} onChange={onText} max={100} />
         </FieldRow>
     );
     const targetRow = (
@@ -159,7 +156,7 @@ function Add(props) {
     );
     const generalsRow = (
         <FieldRow label="Generals" hint="1 to 4" htmlFor="sched-generals">
-            <AmountInput box name="generals" id="sched-generals" label="Generals" value={options.generals} onChange={onText} max={4} />
+            <AmountInput name="generals" id="sched-generals" label="Generals" value={options.generals} onChange={onText} max={4} />
         </FieldRow>
     );
 
@@ -221,14 +218,14 @@ function Add(props) {
                             </FieldRow>
                             {kind === "intelspy" ? <>
                                 <FieldRow label="Max tries" hint="Retries if it fails, 1 to 10" htmlFor="sched-max_tries">
-                                    <AmountInput box name="max_tries" id="sched-max_tries" label="Max tries" value={options.max_tries} onChange={onText} max={10} />
+                                    <AmountInput name="max_tries" id="sched-max_tries" label="Max tries" value={options.max_tries} onChange={onText} max={10} />
                                 </FieldRow>
                                 <FieldRow label="Share with your galaxy" hint="Free: every galaxymate gets it at once">
                                     <Form.Check type="switch" id="sched-share" checked={Boolean(options.share_to_galaxy)} onChange={(e) => set("share_to_galaxy", e.target.checked)} />
                                 </FieldRow>
                             </> : (
                                 <FieldRow label="Attempts" hint="1 to 10" htmlFor="sched-attempts">
-                                    <AmountInput box name="attempts" id="sched-attempts" label="Attempts" value={options.attempts} onChange={onText} max={10} />
+                                    <AmountInput name="attempts" id="sched-attempts" label="Attempts" value={options.attempts} onChange={onText} max={10} />
                                 </FieldRow>
                             )}
                         </> : null}
@@ -236,7 +233,7 @@ function Add(props) {
                             {targetRow}
                             {[["planet_busters", "Planet busters"], ["star_busters", "Star busters"], ["galaxy_busters", "Galaxy busters"]].map(([name, label]) => (
                                 <FieldRow key={name} label={label} hint={`${(props.data.missiles?.current?.[name] || 0).toLocaleString()} built now`} htmlFor={"sched-" + name}>
-                                    <AmountInput box name={name} id={"sched-" + name} label={label} value={options[name]} onChange={onText}
+                                    <AmountInput name={name} id={"sched-" + name} label={label} value={options[name]} onChange={onText}
                                         max={Math.max(props.data.missiles?.capacity || 0, props.data.missiles?.current?.[name] || 0)} />
                                 </FieldRow>
                             ))}

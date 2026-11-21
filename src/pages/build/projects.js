@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import InputGroup from 'react-bootstrap/InputGroup';
-import { AmountInput } from "../../components/forms";
+import { AmountInput, SubmitButton } from "../../components/forms";
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
@@ -14,7 +14,6 @@ import Tabs from 'react-bootstrap/Tabs';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./projects.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
@@ -47,7 +46,6 @@ function ProjectsContent(props) {
     useProjectsFollowKingdom(kdInfo, props.updateData);
     return (
     <>
-        <Header data={props.data} />
         <Tabs
           id="controlled-tab-example"
           defaultActiveKey="train"
@@ -253,20 +251,23 @@ function ProjectName({ row }) {
     );
 }
 
-/** Each section of ``projectSections`` under its heading, its groups drawn by ``ProjectTables``. */
-function ProjectSections({ state, kdInfo, projectsInfo, ...tableProps }) {
+/**
+ * Each section of ``projectSections`` under its heading, its groups drawn by ``ProjectTables``. ``footer`` (the
+ * form's buttons) is repeated after each table, so a long page never needs scrolling back to send.
+ */
+function ProjectSections({ state, kdInfo, projectsInfo, footer, ...tableProps }) {
     return projectSections(state, kdInfo, projectsInfo).map((section) => (
         <div className="projects-section" key={section.key}>
             <h4 className="projects-section-title">{section.title}</h4>
             <small className="projects-section-note">{section.note}</small>
             <ProjectTables groups={section.groups} valueHeader={section.valueHeader} kdInfo={kdInfo}
-                projectsInfo={projectsInfo} {...tableProps} />
+                projectsInfo={projectsInfo} footer={footer} {...tableProps} />
         </div>
     ));
 }
 
 /** One table per category. ``inputs(row)`` gives the cells after the shared ones; ``inputHeaders`` their headers. */
-function ProjectTables({ groups, valueHeader, kdInfo, engineersInfo, projectsInfo, inputHeaders, inputs }) {
+function ProjectTables({ groups, valueHeader, kdInfo, engineersInfo, projectsInfo, inputHeaders, inputs, footer }) {
     return groups.map(({ category, title, rows }) => {
         const blocked = (row) => Boolean(row.locked) || (row.oneTime && row.completed);
         const columns = [
@@ -285,105 +286,79 @@ function ProjectTables({ groups, valueHeader, kdInfo, engineersInfo, projectsInf
                 {title ? <h5 className="projects-category-title">{title}</h5> : null}
                 <GameTable className="game-table projects-table" columns={columns} rows={rows}
                     rowClassName={(row) => (row.oneTime && row.completed ? "disabled-table-row" : undefined)} />
+                {footer}
             </div>
         );
     });
 }
 
+/**
+ * Engineers on projects, set directly: each project's slider starts at what it has now and runs to all your engineers,
+ * less what the others are set to. Update sends every project's number (the server's "assign" replaces them all), so
+ * a project left alone keeps what it has. Moving a slider to 0 takes its engineers off.
+ */
 function Assign(props) {
     const blank = blankValues(props.state);
-    const [assignValues, setAssignValues] = useState(blank);
-    const [addValues, setAddValues] = useState(blank);
+    const [changes, setChanges] = useState(blank);
     const [assignResult, setAssignResult] = useState([]);
 
-    const handleAssignInputChange = (e) => {
+    const handleChange = (e) => {
         const { name, value } = e.target;
-        setAssignValues((previous) => ({ ...previous, [name]: value }));
+        setChanges((previous) => ({ ...previous, [name]: value }));
     };
-    const handleAddInputChange = (e) => {
-        const { name, value } = e.target;
-        setAddValues((previous) => ({ ...previous, [name]: value }));
-    };
-    const send = (opts) => {
-        const updateFunc = () => authFetch('api/projects', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => setAssignResult((previous) => previous.concat(r)));
-        props.updateData(['projects', 'kingdom'], [updateFunc]);
-    };
-    const filled = (values) => Object.fromEntries(Object.entries(values).filter(([, value]) => value !== ""));
-
-    const onAssignClick = () => {
-        const assignOpts = filled(assignValues);
-        if (Object.keys(assignOpts).length > 0) {
-            send({ "assign": assignOpts });
-        }
-        setAssignValues(blank);
-    };
-    const onAddClick = () => {
-        const addOpts = filled(addValues);
-        if (Object.keys(addOpts).length > 0) {
-            send({ "add": addOpts });
-        }
-        setAddValues(blank);
-    };
-    const OnClearAllClick = () => send({ "clear": Object.keys(blank) });
-    const OnClearClick = (e) => send({ "clear": [e.target.name] });
-
     if (Object.keys(props.engineersInfo).length === 0 || Object.keys(props.kdInfo).length === 0
         || Object.keys(props.projectsInfo).length === 0) {
         return null;
     }
-    const total = (values) => Object.values(values).reduce((sum, value) => sum + (parseInt(value || 0) || 0), 0);
-    const free = Math.floor(props.projectsInfo.available_engineers || 0);
-    // How many engineers one box can take: the free ones, less what the other boxes of the same column already ask for.
-    const maxEngineersFor = (values, name) => Math.max(free - (total(values) - (parseInt(values[name] || 0) || 0)), 0);
-    const engineersAssigned = total(assignValues);
-    const engineersAdded = total(addValues);
+    const current = props.kdInfo.projects_assigned || {};
+    const keys = Object.keys(blank);
+    const engineers = Math.floor(props.engineersInfo.current_engineers || 0);
+    // What each project would have: what was typed, else what it has now.
+    const wanted = (key) => (changes[key] !== "" && changes[key] !== undefined ? parseInt(changes[key], 10) || 0 : Math.floor(current[key] || 0));
+    const totalWanted = keys.reduce((sum, key) => sum + wanted(key), 0);
+    const changed = keys.some((key) => wanted(key) !== Math.floor(current[key] || 0));
+    const blocked = totalWanted > engineers ? "More engineers than you have"
+        : changed ? null : "Move a slider to change a project's engineers";
 
-    const inputs = (row, blocked) => [
-        <AmountInput name={row.key} id={`${row.key}-assign-input`} label={`Assign to ${row.name}`} value={assignValues[row.key]}
-            onChange={handleAssignInputChange} max={blocked ? 0 : maxEngineersFor(assignValues, row.key)} soloMax={blocked ? 0 : free} disabled={blocked} />,
-        <AmountInput name={row.key} id={`${row.key}-add-input`} label={`Add to ${row.name}`} value={addValues[row.key]}
-            onChange={handleAddInputChange} max={blocked ? 0 : maxEngineersFor(addValues, row.key)} soloMax={blocked ? 0 : free} disabled={blocked} />,
-        <Button className="remove-button" name={row.key} variant="primary" type="submit" onClick={OnClearClick}
-            disabled={props.loading.projects || (props.kdInfo.projects_assigned?.[row.key] || 0) === 0}>
-            {props.loading.projects ? "Loading..." : "Remove"}
-        </Button>,
+    const onUpdate = () => {
+        const assign = Object.fromEntries(keys.map((key) => [key, wanted(key)]));
+        const updateFunc = () => authFetch('api/projects', {
+            method: 'post',
+            body: JSON.stringify({ assign }),
+        }).then(r => r.json()).then(r => setAssignResult((previous) => previous.concat(r)));
+        props.updateData(['projects', 'kingdom'], [updateFunc]);
+        setChanges(blank);
+    };
+    const inputs = (row, isBlocked) => [
+        <AmountInput name={row.key} id={`${row.key}-assign-input`} label={`Engineers on ${row.name}`}
+            value={changes[row.key] !== "" ? changes[row.key] : String(Math.floor(current[row.key] || 0))}
+            onChange={handleChange} disabled={isBlocked && !current[row.key]}
+            max={Math.max(engineers - (totalWanted - wanted(row.key)), 0)} soloMax={engineers} />,
     ];
+    const actions = (
+        <div className="form-actions">
+            <span className={totalWanted > engineers ? "text-danger" : "text-muted"}>
+                {(engineers - totalWanted).toLocaleString()} of {engineers.toLocaleString()} engineers unassigned
+            </span>
+            {changed ? <Button variant="link" size="sm" onClick={() => setChanges(blank)}>Undo changes</Button> : null}
+            <SubmitButton loading={props.loading.projects} blocked={blocked} onClick={onUpdate}>Update</SubmitButton>
+        </div>
+    );
     return (
         <div className="projects">
             <ResultToasts title="Projects Results" results={assignResult} setResults={setAssignResult} />
             <div className="text-box text-box-stats projects-box">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Total Engineers</span>
-                    <span className="text-box-item-value">{props.engineersInfo.current_engineers?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{engineers.toLocaleString()}</span>
                 </div>
                 <div className="text-box-item">
-                    <span className="text-box-item-title">Available Engineers</span>
-                    <span className="text-box-item-value">{props.projectsInfo.available_engineers?.toLocaleString()}</span>
+                    <span className="text-box-item-title">Unassigned now</span>
+                    <span className="text-box-item-value">{Math.floor(props.projectsInfo.available_engineers || 0).toLocaleString()}</span>
                 </div>
             </div>
             <ProjectSections state={props.state} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
-                inputHeaders={["Assign", "Add", "Remove"]} inputs={inputs} />
-            <div className="form-actions projects-buttons">
-                <Button className="projects-button" variant="primary" type="submit" onClick={onAssignClick} disabled={props.loading.projects}>
-                    {props.loading.projects ? "Loading..." : "Assign"}
-                </Button>
-                <Button className="projects-button" variant="primary" type="submit" onClick={onAddClick} disabled={props.loading.projects}>
-                    {props.loading.projects ? "Loading..." : "Add"}
-                </Button>
-                <Button className="projects-button" variant="primary" type="submit" onClick={OnClearAllClick} disabled={props.loading.projects}>
-                    {props.loading.projects ? "Loading..." : "Remove All"}
-                </Button>
-                {
-                    engineersAssigned !== 0
-                    ? <span className="text-muted">Unassigned Engineers: {(props.engineersInfo.current_engineers - engineersAssigned).toLocaleString()}</span>
-                    : engineersAdded !== 0
-                        ? <span className="text-muted">Unassigned Engineers: {(props.projectsInfo.available_engineers - engineersAdded).toLocaleString()}</span>
-                        : null
-                }
-            </div>
+                inputHeaders={["Engineers"]} inputs={inputs} footer={actions} />
         </div>
     )
 }
@@ -433,12 +408,12 @@ function Allocate(props) {
                 />
             </Form>
             <ProjectSections state={props.state} kdInfo={props.kdInfo} engineersInfo={props.engineersInfo} projectsInfo={props.projectsInfo}
-                inputHeaders={["Current Allocation", "New Allocation"]} inputs={inputs} />
-            <div className="form-actions projects-buttons">
-                <Button className="auto-projects-button" variant="primary" type="submit" onClick={onSubmitClick} disabled={props.loading.kingdom}>
-                    {props.loading.kingdom ? "Loading..." : "Update"}
-                </Button>
-            </div>
+                inputHeaders={["Current Allocation", "New Allocation"]} inputs={inputs} footer={
+                    <div className="form-actions projects-buttons">
+                        <Button className="auto-projects-button" variant="primary" type="submit" onClick={onSubmitClick} disabled={props.loading.kingdom}>
+                            {props.loading.kingdom ? "Loading..." : "Update"}
+                        </Button>
+                    </div>} />
         </div>
     )
 }

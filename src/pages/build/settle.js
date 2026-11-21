@@ -7,7 +7,6 @@ import Button from 'react-bootstrap/Button';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./settle.css"
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { AmountInput, SubmitButton } from "../../components/forms";
@@ -37,7 +36,6 @@ function Settle(props) {
 
     return (
         <>
-        <Header data={props.data} />
         <div className="settle">
             <ResultToasts title="Settle Results" results={settleResults} setResults={setSettleResults} />
             <div className="text-box text-box-stats settle-box">

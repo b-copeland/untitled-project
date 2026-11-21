@@ -4,7 +4,7 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Table from 'react-bootstrap/Table';
 import "./news.css"
-import Header from "../../components/header";
+import { KingdomLink } from "../../components/kingdomlink";
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { FilterMatchMode } from 'primereact/api';
@@ -94,7 +94,6 @@ function NewsContent(props) {
     const galaxyMap = props.data.galaxies_inverted;
     return (
     <>
-      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="kingdom"
@@ -147,6 +146,7 @@ function Kingdom(props) {
                 "day": getNiceTimeString(newsItem.time),
                 "time_since": getHoursSince(newsItem.time),
                 "from": (newsItem.from != "") ? props.kdNames[newsItem.from] + ' (' + props.galaxyMap[newsItem.from] + ')' : "",
+                "fromId": newsItem.from,
                 "news": newsItem.news,
                 "kind": NEWS_KINDS[newsItem.kind] || "",
             }
@@ -173,7 +173,7 @@ function Kingdom(props) {
                 <Column field="kind" header="Type" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
                 <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '45%' }}/>
                 {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.fromId}>{row.from}</KingdomLink>}/>
                 <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '15%' }}/>
             </DataTable>
         </div>
@@ -200,7 +200,9 @@ function Galaxy(props) {
                 "day": getNiceTimeString(newsItem.time),
                 "time_since": getHoursSince(newsItem.time),
                 "from": (newsItem.from != "") ? props.kdNames[newsItem.from] + ' (' + props.galaxyMap[newsItem.from] + ')' : "",
+                "fromId": newsItem.from,
                 "to": (newsItem.to != "") ? props.kdNames[newsItem.to] + ' (' + props.galaxyMap[newsItem.to] + ')' : "",
+                "toId": newsItem.to,
                 "news": newsItem.news,
                 "kind": NEWS_KINDS[newsItem.kind] || "",
             }
@@ -225,8 +227,8 @@ function Galaxy(props) {
                 <Column field="kind" header="Type" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
                 <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '35%' }}/>
                 {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '10%' }} body={(row) => <KingdomLink kdId={row.fromId}>{row.from}</KingdomLink>}/>
+                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '10%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
                 <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
             </DataTable>
         </div>
