@@ -8,16 +8,24 @@ import Tabs from 'react-bootstrap/Tabs';
 import Table from 'react-bootstrap/Table';
 import "./kingdominfo.css";
 import HelpButton from "../components/helpbutton";
+import { Known, LastKnownNote } from "../components/lastknown";
 
 
 /**
  * Another kingdom's details, as far as they are revealed. ``intelActions(category, inline)`` (optional, from
  * conquer/intel.js) gives what you can do about each kind of intel on it: shown at the top of the tab that kind of intel
  * fills, and next to the single value it reveals (drones).
+ *
+ * Values from last-known intel (``data.endedOf`` and ``data.lastKnown``, from components/lastknown.js) are coloured by
+ * how old they are, and a tab whose intel has ended says so at its top.
  */
 function KingdomContent(props) {
     const [key, setKey] = useState('kingdom');
     const actions = props.intelActions || (() => null);
+    const gameConfig = props.data.state?.game_config;
+    const endedOf = props.data.endedOf || (() => undefined);
+    const known = { endedOf, gameConfig };
+    const note = (category) => <LastKnownNote ended={props.data.lastKnown?.[category]} gameConfig={gameConfig} />;
 
     return (
         <>
@@ -30,23 +38,28 @@ function KingdomContent(props) {
         >
             <Tab eventKey="kingdom" title="Kingdom">
             {actions("kingdom")}
-            <Kingdom kingdom={props.data.kingdom} state={props.data.state} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} kdId={props.data.kdId} actions={actions}/>
+            {note("kingdom")}
+            <Kingdom kingdom={props.data.kingdom} state={props.data.state} kingdoms={props.data.kingdoms} galaxies_inverted={props.data.galaxies_inverted} kdId={props.data.kdId} actions={actions} known={known}/>
             </Tab>
             <Tab eventKey="military" title="Military">
             {actions("military")}
-            <Military kingdom={props.data.kingdom} state={props.data.state} />
+            {note("military")}
+            <Military kingdom={props.data.kingdom} state={props.data.state} known={known} />
             </Tab>
             <Tab eventKey="structures" title="Structures">
             {actions("structures")}
-            <Structures kingdom={props.data.kingdom}/>
+            {note("structures")}
+            <Structures kingdom={props.data.kingdom} known={known}/>
             </Tab>
             <Tab eventKey="projects" title="Projects">
             {actions("projects")}
-            <Projects kingdom={props.data.kingdom} state={props.data.state}/>
+            {note("projects")}
+            <Projects kingdom={props.data.kingdom} state={props.data.state} known={known}/>
             </Tab>
             <Tab eventKey="shields" title="Shields">
             {actions("shields")}
-            <Shields kingdom={props.data.kingdom} shields={props.data.shields}/>
+            {note("shields")}
+            <Shields kingdom={props.data.kingdom} shields={props.data.shields} known={known}/>
             </Tab>
         </Tabs>
         <HelpButton scrollTarget={"viewkingdom"}/>
@@ -54,8 +67,11 @@ function KingdomContent(props) {
     );
 }
 
+/** ``value`` as shown for the field at ``path``: coloured when it comes from last-known intel. */
+const shown = (known, path, value) => <Known ended={known?.endedOf(path)} gameConfig={known?.gameConfig}>{value}</Known>;
+
 function Kingdom(props) {
-    
+    const k = (path, value) => shown(props.known, path, value);
     return (
         <div className="status-kingdom-content">
             <div className="text-box kingdom-card">
@@ -72,36 +88,36 @@ function Kingdom(props) {
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Networth</span>
-                    <span className="text-box-item-value">{props.kingdom?.networth?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{k("networth", props.kingdom?.networth?.toLocaleString())}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Stars</span>
-                    <span className="text-box-item-value">{props.kingdom?.stars?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{k("stars", props.kingdom?.stars?.toLocaleString())}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Population</span>
-                    <span className="text-box-item-value">{props.kingdom?.population != undefined ? Math.floor(props.kingdom?.population).toLocaleString() : null}</span>
+                    <span className="text-box-item-value">{k("population", props.kingdom?.population != undefined ? Math.floor(props.kingdom?.population).toLocaleString() : null)}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Fuel</span>
-                    <span className="text-box-item-value">{props.kingdom?.fuel != undefined ? Math.floor(props.kingdom?.fuel).toLocaleString() : null}</span>
+                    <span className="text-box-item-value">{k("fuel", props.kingdom?.fuel != undefined ? Math.floor(props.kingdom?.fuel).toLocaleString() : null)}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Money</span>
-                    <span className="text-box-item-value">{props.kingdom?.money != undefined ? Math.floor(props.kingdom?.money).toLocaleString() : null}</span>
+                    <span className="text-box-item-value">{k("money", props.kingdom?.money != undefined ? Math.floor(props.kingdom?.money).toLocaleString() : null)}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Engineers</span>
-                    <span className="text-box-item-value">{props.kingdom?.units?.engineers?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{k("units.engineers", props.kingdom?.units?.engineers?.toLocaleString())}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Drones</span>
-                    <span className="text-box-item-value">{props.kingdom?.drones != undefined ? Math.floor(props.kingdom?.drones).toLocaleString() : null}{props.actions?.("drones", true)}</span>
+                    <span className="text-box-item-value">{k("drones", props.kingdom?.drones != undefined ? Math.floor(props.kingdom?.drones).toLocaleString() : null)}{props.actions?.("drones", true)}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Spy Attempts</span>
-                    <span className="text-box-item-value">{props.kingdom?.spy_attempts?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{k("spy_attempts", props.kingdom?.spy_attempts?.toLocaleString())}</span>
                 </div>
                 <br />
                 {inOrder(Object.keys(props.state?.units || props.kingdom?.units || {}), props.state?.order?.units)
@@ -109,21 +125,21 @@ function Kingdom(props) {
                     .map((key) => (
                         <div className="text-box-item" key={key}>
                             <span className="text-box-item-title">{props.state?.pretty_names?.[key] || key}</span>
-                            <span className="text-box-item-value">{props.kingdom?.units?.[key]?.toLocaleString()}</span>
+                            <span className="text-box-item-value">{k(`units.${key}`, props.kingdom?.units?.[key]?.toLocaleString())}</span>
                         </div>
                     ))}
                 <br />
                 <div className="text-box-item">
                     <span className="text-box-item-title">Planet Busters</span>
-                    <span className="text-box-item-value">{props.kingdom?.missiles?.planet_busters?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{k("missiles.planet_busters", props.kingdom?.missiles?.planet_busters?.toLocaleString())}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Star Busters</span>
-                    <span className="text-box-item-value">{props.kingdom?.missiles?.star_busters?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{k("missiles.star_busters", props.kingdom?.missiles?.star_busters?.toLocaleString())}</span>
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Galaxy Busters</span>
-                    <span className="text-box-item-value">{props.kingdom?.missiles?.galaxy_busters?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{k("missiles.galaxy_busters", props.kingdom?.missiles?.galaxy_busters?.toLocaleString())}</span>
                 </div>
             </div>
         </div>
@@ -148,6 +164,8 @@ function Military(props) {
     const unitKeys = inOrder(Object.keys(props.state?.units || units || {}), props.state?.order?.units).filter((key) => key !== "engineers");
     const label = (key) => props.state?.pretty_names?.[key] || key;
     const count = (value) => (value ? value.toLocaleString() : null);
+    // Generals out are part of the military snapshot as a whole.
+    const generalsEnded = props.known?.endedOf("generals_out");
     return (
         <div className="military">
             <h2>Armies</h2>
@@ -171,9 +189,9 @@ function Military(props) {
                     {unitKeys.map((key) => (
                         <tr key={key}>
                             <td style={{textAlign: "left"}}>{label(key)}</td>
-                            <td style={{textAlign: "right"}}>{count(units?.[key])}</td>
+                            <td style={{textAlign: "right"}}>{shown(props.known, `units.${key}`, count(units?.[key]))}</td>
                             {generals.length
-                                ? generals.map((general, index) => <td key={index} style={{textAlign: "right"}}>{count(general[key])}</td>)
+                                ? generals.map((general, index) => <td key={index} style={{textAlign: "right"}}><Known ended={generalsEnded} gameConfig={props.known?.gameConfig}>{count(general[key])}</Known></td>)
                                 : <td />}
                         </tr>
                     ))}
@@ -198,37 +216,37 @@ function Structures(props) {
                 <tbody>
                     <tr>
                         <td style={{textAlign: "left"}}>Homes</td>
-                        <td style={{textAlign: "right"}}>{structures?.homes?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{shown(props.known, "structures.homes", structures?.homes?.toLocaleString() || null)}</td>
                         <td style={{textAlign: "right"}}>{structures?.homes != undefined ? displayPercent((structures?.homes || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Mines</td>
-                        <td style={{textAlign: "right"}}>{structures?.mines?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{shown(props.known, "structures.mines", structures?.mines?.toLocaleString() || null)}</td>
                         <td style={{textAlign: "right"}}>{structures?.mines != undefined ? displayPercent((structures?.mines || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Fuel Plants</td>
-                        <td style={{textAlign: "right"}}>{structures?.fuel_plants?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{shown(props.known, "structures.fuel_plants", structures?.fuel_plants?.toLocaleString() || null)}</td>
                         <td style={{textAlign: "right"}}>{structures?.fuel_plants != undefined ? displayPercent((structures?.fuel_plants || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Hangars</td>
-                        <td style={{textAlign: "right"}}>{structures?.hangars?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{shown(props.known, "structures.hangars", structures?.hangars?.toLocaleString() || null)}</td>
                         <td style={{textAlign: "right"}}>{structures?.hangars != undefined ? displayPercent((structures?.hangars || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Drone Factories</td>
-                        <td style={{textAlign: "right"}}>{structures?.drone_factories?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{shown(props.known, "structures.drone_factories", structures?.drone_factories?.toLocaleString() || null)}</td>
                         <td style={{textAlign: "right"}}>{structures?.drone_factories != undefined ? displayPercent((structures?.drone_factories || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Missile Silos</td>
-                        <td style={{textAlign: "right"}}>{structures?.missile_silos?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{shown(props.known, "structures.missile_silos", structures?.missile_silos?.toLocaleString() || null)}</td>
                         <td style={{textAlign: "right"}}>{structures?.missile_silos != undefined ? displayPercent((structures?.missile_silos || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                     <tr>
                         <td style={{textAlign: "left"}}>Workshops</td>
-                        <td style={{textAlign: "right"}}>{structures?.workshops?.toLocaleString() || null}</td>
+                        <td style={{textAlign: "right"}}>{shown(props.known, "structures.workshops", structures?.workshops?.toLocaleString() || null)}</td>
                         <td style={{textAlign: "right"}}>{structures?.workshops != undefined ? displayPercent((structures?.workshops || 0) / (props.kingdom?.stars || 1)) : null}</td>
                     </tr>
                 </tbody>
@@ -269,7 +287,7 @@ function Projects(props) {
                     <tr key={row.key} className={completed.indexOf(row.key) >= 0 ? "disabled-table-row" : undefined}>
                         <td style={{textAlign: "left"}}>{row.name}</td>
                         <td className="assigned-col" style={{textAlign: "right"}}>{(kingdom.projects_assigned?.[row.key] || 0).toLocaleString()}</td>
-                        <td style={{textAlign: "right"}}>{points(row.key)}</td>
+                        <td style={{textAlign: "right"}}>{shown(props.known, `projects_points.${row.key}`, points(row.key))}</td>
                         <td style={{textAlign: "right"}}>{last(row.key)}</td>
                     </tr>
                 ))}
@@ -304,28 +322,28 @@ function Shields(props) {
                     <tbody>
                         <tr>
                             <td style={{textAlign: "left"}}>Military</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(props.kingdom?.shields?.military || 0)}</td>
+                            <td style={{textAlign: "right"}}>{shown(props.known, "shields.military", displayPercent(props.kingdom?.shields?.military || 0))}</td>
                             <td style={{textAlign: "right"}}>{displayPercent(props.shields?.desc?.military?.max || 0)}</td>
                             <td style={{textAlign: "right"}}>{Math.floor(props.kingdom?.shields?.military * props.shields?.desc?.military?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{Math.floor(props.shields?.desc?.military?.max * props.shields?.desc?.military?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
                         </tr>
                         <tr>
                             <td style={{textAlign: "left"}}>Spy</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(props.kingdom?.shields?.spy || 0)}</td>
+                            <td style={{textAlign: "right"}}>{shown(props.known, "shields.spy", displayPercent(props.kingdom?.shields?.spy || 0))}</td>
                             <td style={{textAlign: "right"}}>{displayPercent(props.shields?.desc?.spy?.max || 0)}</td>
                             <td style={{textAlign: "right"}}>{Math.floor(props.kingdom?.shields?.spy * props.shields?.desc?.spy?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{Math.floor(props.shields?.desc?.spy?.max * props.shields?.desc?.spy?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
                         </tr>
                         <tr>
                             <td style={{textAlign: "left"}}>Spy Radar</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(props.kingdom?.shields?.spy_radar || 0)}</td>
+                            <td style={{textAlign: "right"}}>{shown(props.known, "shields.spy_radar", displayPercent(props.kingdom?.shields?.spy_radar || 0))}</td>
                             <td style={{textAlign: "right"}}>{displayPercent(props.shields?.desc?.spy_radar?.max || 0)}</td>
                             <td style={{textAlign: "right"}}>{Math.floor(props.kingdom?.shields?.spy_radar * props.shields?.desc?.spy_radar?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{Math.floor(props.shields?.desc?.spy_radar?.max * props.shields?.desc?.spy_radar?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
                         </tr>
                         <tr>
                             <td style={{textAlign: "left"}}>Missiles</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(props.kingdom?.shields?.missiles || 0)}</td>
+                            <td style={{textAlign: "right"}}>{shown(props.known, "shields.missiles", displayPercent(props.kingdom?.shields?.missiles || 0))}</td>
                             <td style={{textAlign: "right"}}>{displayPercent(props.shields?.desc?.missiles?.max || 0)}</td>
                             <td style={{textAlign: "right"}}>{Math.floor(props.kingdom?.shields?.missiles * props.shields?.desc?.missiles?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>
                             <td style={{textAlign: "right"}}>{Math.floor(props.shields?.desc?.missiles?.max * props.shields?.desc?.missiles?.cost * props.kingdom?.stars * 100 || 0).toLocaleString()}</td>

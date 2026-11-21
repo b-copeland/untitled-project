@@ -45,6 +45,7 @@ what needs doing, and what is worth doing next.** Every page should answer its p
 | Results of an action | `ResultToasts` | `src/components/results.js` |
 | A planning page (Attack, Spy, Primitives, Schedule, Launch Missiles) | `Panel`, `FieldRow`, `Stats`, `VersusBar`, `Picker`, status tags, `useServerForecast` (asks again 700 ms after the last change, drops answers that were overtaken) | `src/components/planner.js` |
 | An icon action | `IconButton` (`react-icons`; the name is the tooltip and the accessible label) | `src/components/iconbutton.js` |
+| Another kingdom's values, with last-known intel where nothing is revealed now | `withLastKnown(info)` gives the kingdom and `endedOf(path)`; show each value in `Known`, and `LastKnownNote` at the top of a section whose intel has ended | `src/components/lastknown.js` |
 | Formatting numbers and percents | `src/format.js` | |
 | Page header and help | `Header`, `HelpButton` with the page's help topic | `src/components/` |
 | Layout classes and colour tokens | `col-center`, `box-tight`, `game-table`, `table-scroll`, ... Check here before writing a new rule. | `src/styles/shared.css` |
@@ -56,6 +57,8 @@ for a planner page.
 
 - Stock Bootstrap in dark mode. Hierarchy comes from type size and muted labels, not borders.
 - Colour means state: red is a problem, green is done, amber is a guess that matters or something needing a decision.
+  One scale is different: last-known intel is written in yellow, orange, then red as it ages (`Known` in
+  `src/components/lastknown.js`), with its age in the tooltip.
 - One spacing scale and one table style, from `shared.css`.
 
 ## Building and checking a page

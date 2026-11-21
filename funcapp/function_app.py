@@ -2312,3 +2312,70 @@ def update_empire_targets(req: func.HttpRequest) -> func.HttpResponse:
     except CosmosAccessConditionFailedError:
         return func.HttpResponse("Conflict", status_code=412)
     return func.HttpResponse("Empire targets updated", status_code=200)
+
+
+# --- lastknown_<kd_id>: what a kingdom last saw of others --------------------------------------------------------
+# One document per kingdom: ``known`` maps a target kingdom to a reveal category to ``{"ended": <iso>, "values": {...}}``,
+# the target's revealed fields as they were when that intel ended. Flask decides what goes in; this layer reads it and
+# merges into it. Old kingdoms have no document: a read answers it empty without writing, and the first merge creates it.
+
+LAST_KNOWN_PREFIX = "lastknown_"
+
+
+@APP.function_name(name="GetLastKnown")
+@APP.route(route="kingdom/{kdId:int}/lastknown", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_last_known(req: func.HttpRequest) -> func.HttpResponse:
+    """The kingdom's last-known intel, or ``{"id": ..., "known": {}}`` if it has none yet (nothing is written)."""
+    item_id = f"{LAST_KNOWN_PREFIX}{req.route_params.get('kdId')}"
+    document = _read_or_none(item_id)
+    if document is None:
+        document = {"id": item_id}
+    return _json_response({**document, "known": document.get("known", {})})
+
+
+@APP.function_name(name="UpdateLastKnown")
+@APP.route(route="kingdom/{kdId:int}/lastknown", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
+def update_last_known(req: func.HttpRequest) -> func.HttpResponse:
+    """
+    Body ``{"new_known": {target: {category: {"ended": <iso>, "values": {...}}}}}``. Each category of each target keeps
+    the entry that ended later, stored or incoming, so the merge gives the same result in any order and a repeated
+    write changes nothing. Creates the document on the first write.
+    """
+    item_id = f"{LAST_KNOWN_PREFIX}{req.route_params.get('kdId')}"
+    body = req.get_json()
+    new_known = body.get("new_known") if isinstance(body, dict) else None
+    if not isinstance(new_known, dict) or not all(
+        isinstance(categories, dict)
+        and all(isinstance(entry, dict) and isinstance(entry.get("ended"), str) for entry in categories.values())
+        for categories in new_known.values()
+    ):
+        return func.HttpResponse("new_known must map targets to categories to {ended, values}", status_code=400)
+
+    document = _read_or_none(item_id)
+    try:
+        if document is None:
+            try:
+                CONTAINER.create_item({"id": item_id, "known": _merge_known({}, new_known)})
+                return func.HttpResponse("Last known updated", status_code=200)
+            except CosmosResourceExistsError:  # another request created it first: merge into that one
+                document = CONTAINER.read_item(item=item_id, partition_key=item_id)
+        CONTAINER.replace_item(item_id, {**document, "known": _merge_known(document.get("known", {}), new_known)})
+    except CosmosAccessConditionFailedError:
+        # retry_on_conflict has noted the conflict: it runs this again on the newer document
+        return func.HttpResponse("Conflict", status_code=412)
+    return func.HttpResponse("Last known updated", status_code=200)
+
+
+def _merge_known(known, new_known):
+    """``known`` with each incoming entry in place of the stored one for its target and category, unless the stored
+    one ended later."""
+    merged = dict(known)
+    for target, categories in new_known.items():
+        target_known = dict(merged.get(str(target), {}))
+        for category, entry in categories.items():
+            stored = target_known.get(category)
+            if stored is None or _later(stored.get("ended"), entry["ended"]) != stored.get("ended"):
+                target_known[category] = entry
+        merged[str(target)] = target_known
+    return merged

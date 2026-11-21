@@ -18,6 +18,7 @@ import untitledapp.build as uab
 import untitledapp.clusters as uacl
 import untitledapp.conquer as uac
 import untitledapp.getters as uag
+import untitledapp.lastknown as uala
 import untitledapp.shared as uas
 import untitledapp.botbrain as botbrain
 import untitledapp.roundend as uare
@@ -38,6 +39,21 @@ class _RefreshContext:
         self._galaxies = None
         self._galaxy_politics = {}
         self._clusters = {}
+        # Reveals that ended this tick, as (holder, target, category, ended), and each kingdom as the tick left it:
+        # last-known intel is snapshotted from these once every kingdom is done (_record_ended_intel), so it costs
+        # no reads for kingdoms the tick has refreshed. Both survive a kingdom's retried attempts.
+        self.ended_intel = []
+        self.kingdoms = {}
+
+    def kingdom(self, kd_id):
+        """``kd_id`` as this tick left it, or read now if the tick has not had it (None if it does not exist)."""
+        kd_id = str(kd_id)
+        if kd_id not in self.kingdoms:
+            try:
+                self.kingdoms[kd_id] = uag._get_kd_info(kd_id)
+            except (KeyError, ValueError):
+                self.kingdoms[kd_id] = None
+        return self.kingdoms[kd_id]
 
     @property
     def galaxies_inverted(self):
@@ -638,12 +654,16 @@ def _utc(time_str):
     return datetime.datetime.fromisoformat(time_str).astimezone(datetime.timezone.utc)
 
 
-def _resolve_revealed(kd_id, time_update):
-    """Forget what has stopped being revealed, working from the document as it is when the write lands."""
+def _resolve_revealed(kd_id, time_update, ended_intel=None):
+    """
+    Forget what has stopped being revealed, working from the document as it is when the write lands. Each reveal of a
+    kingdom that ended is added to ``ended_intel`` as ``(kd_id, target, category, ended)``, for last-known intel.
+    """
     def expire(revealed_info):
         keep_revealed = collections.defaultdict(dict)
         keep_galaxies = {}
         next_resolve = _utc(uas.DATE_SENTINEL)
+        ended = []
 
         for revealed_kd_id, revealed_dict in revealed_info["revealed"].items():
             for revealed_stat, time_str in revealed_dict.items():
@@ -651,6 +671,8 @@ def _resolve_revealed(kd_id, time_update):
                 if time > time_update:
                     next_resolve = min(time, next_resolve)
                     keep_revealed[revealed_kd_id][revealed_stat] = time_str
+                else:
+                    ended.append((kd_id, revealed_kd_id, revealed_stat, time_str))
 
         for galaxy_id, time_str in revealed_info["galaxies"].items():
             time = _utc(time_str)
@@ -658,9 +680,24 @@ def _resolve_revealed(kd_id, time_update):
                 keep_galaxies[galaxy_id] = time_str
                 next_resolve = min(time, next_resolve)
 
-        return {"revealed": keep_revealed, "galaxies": keep_galaxies}, next_resolve
+        return {"revealed": keep_revealed, "galaxies": keep_galaxies}, (next_resolve, ended)
 
-    return occ.update(f'/kingdom/{kd_id}/revealed', expire)
+    next_resolve, ended = occ.update(f'/kingdom/{kd_id}/revealed', expire)
+    if ended_intel is not None:
+        ended_intel.extend(ended)
+    return next_resolve
+
+
+def _record_ended_intel(context):
+    """Snapshot what the reveals that ended this tick showed, into each holder's last-known intel. Never stops the
+    tick: a failure loses only those snapshots."""
+    if not context.ended_intel:
+        return
+    try:
+        uala.record_ended(context.ended_intel, context.kingdom)
+    except Exception:
+        flask.current_app.logger.exception("Refresh failed to record last-known intel")
+    context.ended_intel = []
 
 
 def _resolve_generals(kd_info_parse, time_update):
@@ -1617,9 +1654,19 @@ def _cursor(kd_info, category):
 
 
 def _refresh_kd(kd_id, state, time_update, update_history, context=None):
-    app = flask.current_app
-    if context is None:
+    """Refresh one kingdom. Without ``context`` (a kingdom refreshed on its own) it also records the last-known intel
+    its ended reveals leave; ``refresh_data`` does that once for every kingdom instead."""
+    own_context = context is None
+    if own_context:
         context = _RefreshContext(state)
+    scores = _refresh_kd_in(kd_id, state, time_update, update_history, context)
+    if own_context:
+        _record_ended_intel(context)
+    return scores
+
+
+def _refresh_kd_in(kd_id, state, time_update, update_history, context):
+    app = flask.current_app
 
 
     # The kingdom is written only if it is still the version this tick started from. If something else changed it
@@ -1635,6 +1682,7 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
         )
         kd_info_parse = json.loads(kd_info.text)
         etag = kd_info_parse.get("_etag")
+        context.kingdoms[str(kd_id)] = kd_info_parse
         if kd_info_parse["status"].lower() == "dead":
             return (0, 0)
         if not kd_info_parse.get("race"):
@@ -1687,6 +1735,7 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
             next_resolves["revealed"] = _resolve_revealed(
                 kd_id,
                 time_update,
+                context.ended_intel,
             )
         
         if "shared" in categories_to_resolve:
@@ -1789,6 +1838,7 @@ def _refresh_kd(kd_id, state, time_update, update_history, context=None):
         # read above is what the score and history should use.
         botbrain.maybe_think(new_kd_info, time_update, state)
 
+    context.kingdoms[str(kd_id)] = new_kd_info
     score_stars = new_kd_info["stars"]
     score_networth = new_kd_info["networth"]
 
@@ -1862,6 +1912,7 @@ def refresh_data():
             for kd_id, items in kd_scores.items() 
         },
     }
+    _record_ended_intel(context)
     _resolve_scores(kd_scores_split, time_update, context)
     empires = _resolve_empires(kd_scores_split, time_update)
     try:

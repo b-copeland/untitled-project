@@ -13,6 +13,7 @@ the other docs; they are not instructions themselves. Read one before arguing to
 | [0006](0006-bots-plan-by-rules.md) | Bots plan by rules a player could follow, computed from the game's own formulas |
 | [0007](0007-cluster-politics.md) | Cluster politics: one document per cluster, levels computed on read, membership from the galaxy id |
 | [0008](0008-empire-targets.md) | Empire targets: one document per empire, and a hint on the empires document so actions know a target without a read |
+| [0009](0009-last-known-intel.md) | Last-known intel: one document per kingdom, snapshotted after the tick from the kingdoms it already read |
 
 To add one: copy the shape below into the next number, and link it from this table.
 

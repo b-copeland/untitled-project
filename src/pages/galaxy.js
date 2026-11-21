@@ -20,6 +20,7 @@ import { IntelModal, KingdomModal, tradable } from "./conquer/intel.js";
 import Header from "../components/header";
 import HelpButton from "../components/helpbutton";
 import { IconButton } from "../components/iconbutton";
+import { withLastKnown, Known } from "../components/lastknown";
 import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsShareFill, BsClipboardData } from "react-icons/bs";
 import { GiCrossedSwords } from "react-icons/gi";
 
@@ -206,11 +207,18 @@ function Galaxy(props) {
                 : []),
         ];
     };
+    const gameConfig = props.data.state?.game_config;
+    // Each kingdom with what ended intel last showed where nothing is revealed now (components/lastknown.js).
+    const known = Object.fromEntries(Object.keys(galaxyInfo).map((kdId) => [kdId, withLastKnown(galaxyInfo[kdId])]));
+    // Unknown stays undefined, so the cards can say "?".
+    const shown = (kdId, path, value) => (value === undefined || value === ""
+        ? value
+        : <Known ended={known[kdId].endedOf(path)} gameConfig={gameConfig}>{value}</Known>);
     const galaxyRows = Object.keys(galaxyInfo).map((kdId) =>
         <tr key={kdId}>
             <td>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</td>
             <td>{galaxyInfo[kdId].race || ""}</td>
-            <td style={{textAlign: "right"}}>{galaxyInfo[kdId].stars?.toLocaleString() || ""}</td>
+            <td style={{textAlign: "right"}}>{shown(kdId, "stars", known[kdId].kingdom.stars?.toLocaleString() || "")}</td>
             {/* <td style={{textAlign: "right"}}>{galaxyInfo[kdId].networth != undefined ? Math.floor(galaxyInfo[kdId].networth).toLocaleString() : ""}</td>
             <td style={{textAlign: "right"}}>{galaxyInfo[kdId].aggression || ""}</td> */}
             <td style={{textAlign: "right"}}>{calcCoordinateDistance(galaxyInfo[kdId].coordinate || 0, props.data.kingdom.coordinate || 0).toString().padStart(2, '0') + ' (' + (galaxyInfo[kdId].coordinate || 0).toString().padStart(2, '0') + ')'}</td>
@@ -223,12 +231,14 @@ function Galaxy(props) {
     const kingdomFacts = (kdId) => ({
         name: galaxyInfo[kdId].name || props.data.kingdoms[kdId] || "",
         race: galaxyInfo[kdId].race || "",
-        stars: galaxyInfo[kdId].stars?.toLocaleString() || "",
+        stars: shown(kdId, "stars", known[kdId].kingdom.stars?.toLocaleString()),
         distance: calcCoordinateDistance(galaxyInfo[kdId].coordinate || 0, props.data.kingdom.coordinate || 0).toString().padStart(2, '0') + ' (' + (galaxyInfo[kdId].coordinate || 0).toString().padStart(2, '0') + ')',
         status: galaxyInfo[kdId].status,
-        networth: galaxyInfo[kdId].networth !== undefined ? Math.floor(galaxyInfo[kdId].networth).toLocaleString() : "",
-        offense: galaxyInfo[kdId].military_estimate?.offense?.toLocaleString(),
-        defense: galaxyInfo[kdId].military_estimate?.defense?.toLocaleString(),
+        networth: shown(kdId, "networth", known[kdId].kingdom.networth !== undefined ? Math.floor(known[kdId].kingdom.networth).toLocaleString() : undefined),
+        offense: known[kdId].kingdom.military_estimate?.offense !== undefined
+            ? shown(kdId, "military_estimate.offense", `≤ ${known[kdId].kingdom.military_estimate.offense.toLocaleString()}`) : undefined,
+        defense: known[kdId].kingdom.military_estimate?.defense !== undefined
+            ? shown(kdId, "military_estimate.defense", `≤ ${known[kdId].kingdom.military_estimate.defense.toLocaleString()}`) : undefined,
         // What is revealed about them and for how long, e.g. "military 3h, kingdom 40m".
         // A galaxymate who shares with you is known in full, with no timer.
         intel: (props.data.revealed?.revealed_galaxymates || []).includes(kdId) ? "shared with you"
@@ -246,14 +256,14 @@ function Galaxy(props) {
                 </div>
                 <dl className="galaxy-card-facts">
                     <div><dt>Race</dt><dd>{facts.race || "?"}</dd></div>
-                    <div><dt>Stars</dt><dd>{facts.stars || "?"}</dd></div>
-                    <div><dt>Networth</dt><dd>{facts.networth || "?"}</dd></div>
+                    <div><dt>Stars</dt><dd>{facts.stars ?? "?"}</dd></div>
+                    <div><dt>Networth</dt><dd>{facts.networth ?? "?"}</dd></div>
                     <div><dt>Distance</dt><dd>{facts.distance}</dd></div>
                     <div title="The most their army could be worth, with the largest bonuses and shields there can be">
-                        <dt>Offense</dt><dd>{facts.offense !== undefined ? `≤ ${facts.offense}` : "?"}</dd>
+                        <dt>Offense</dt><dd>{facts.offense ?? "?"}</dd>
                     </div>
                     <div title="The most their army could be worth, with the largest bonuses and shields there can be">
-                        <dt>Defense</dt><dd>{facts.defense !== undefined ? `≤ ${facts.defense}` : "?"}</dd>
+                        <dt>Defense</dt><dd>{facts.defense ?? "?"}</dd>
                     </div>
                     <div><dt>Status</dt><dd>{facts.status || "?"}</dd></div>
                     <div><dt>Intel</dt><dd>{facts.intel || "none"}</dd></div>

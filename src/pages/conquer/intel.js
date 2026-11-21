@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { BsEye, BsClipboardData } from "react-icons/bs";
 import "./intel.css";
 import Kingdom from "../kingdominfo.js";
+import { withLastKnown } from "../../components/lastknown";
 import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
@@ -349,8 +350,8 @@ export function ExclusionsForm({ send, ...props }) {
 }
 
 /**
- * One kingdom's details, as far as you have revealed them (the server filters them). It asks again when your reveals
- * of it change (a purchase, a free share, a spy). ``actions`` is passed on as the view's ``intelActions``.
+ * One kingdom's details, as far as you have revealed them (the server filters them), with what your ended intel last
+ * showed where nothing is revealed now. It asks again when your reveals of it change (a purchase, a free share, a spy). ``actions`` is passed on as the view's ``intelActions``.
  */
 export function KingdomView({ kdId, data, actions }) {
     const [info, setInfo] = useState(undefined);
@@ -363,8 +364,10 @@ export function KingdomView({ kdId, data, actions }) {
     if (info === undefined) {
         return <h3>Loading...</h3>;
     }
+    // Where intel has ended, what it last showed fills in, marked by how old it is.
+    const { kingdom, endedOf, categories } = withLastKnown(info);
     return <Kingdom intelActions={actions}
-        data={{ kingdom: info, kingdoms: data.kingdoms, galaxies_inverted: data.galaxies_inverted, shields: data.shields, state: data.state, kdId }} />;
+        data={{ kingdom, endedOf, lastKnown: categories, kingdoms: data.kingdoms, galaxies_inverted: data.galaxies_inverted, shields: data.shields, state: data.state, kdId }} />;
 }
 
 /**

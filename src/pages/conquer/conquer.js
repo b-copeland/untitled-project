@@ -28,6 +28,7 @@ import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngl
 import { GiCrossedSwords } from "react-icons/gi";
 
 import { ResultToasts } from "../../components/results";
+import { withLastKnown, Known } from "../../components/lastknown";
 
 // The action buttons in the tables here are icons, as on the Galaxy page: the word the button used to show is its tooltip.
 const ICONS = {
@@ -162,7 +163,9 @@ function Revealed(props) {
         props.updateData(['pinned'], [updateFunc])
     }
     const formatStars = (rowData) => {
-        return rowData.stars !== null ? rowData.stars.toLocaleString() : null
+        return rowData.stars !== null
+            ? <Known ended={rowData.starsEnded} gameConfig={props.data.state?.game_config}>{rowData.stars.toLocaleString()}</Known>
+            : null
     }
     const formatScore = (rowData) => {
         return rowData.networth !== null ? rowData.networth.toLocaleString() : null
@@ -196,7 +199,9 @@ function Revealed(props) {
                 : props.galaxies_inverted[kdId] || ""
             ),
             // "empire": props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name || "",
-            "stars": maxKdInfo[kdId]?.stars || null,
+            // Live, or what ended intel last showed (components/lastknown.js).
+            "stars": withLastKnown(maxKdInfo[kdId]).kingdom.stars || null,
+            "starsEnded": withLastKnown(maxKdInfo[kdId]).endedOf("stars"),
             "coordinate_distance": calcCoordinateDistance(maxKdInfo[kdId]?.coordinate || 0, props.data.kingdom?.coordinate || 0).toString().padStart(2, '0') + ' (' + (maxKdInfo[kdId]?.coordinate || 0).toString().padStart(2, '0') + ')',
             "actions": <>
                 <ActionButton onClick={() => {setKdToShow(kdId); setShowView(true)}}>
@@ -446,6 +451,13 @@ function Pinned(props) {
         )
         return remainingSpans;
     }
+    // A pinned kingdom's stars and networth: live, or what ended intel last showed (components/lastknown.js).
+    const shownKnown = (kdId, field) => {
+        const { kingdom, endedOf } = withLastKnown(maxKdInfo[kdId]);
+        return kingdom[field] !== undefined
+            ? <Known ended={endedOf(field)} gameConfig={props.data?.state?.game_config}>{Math.floor(kingdom[field]).toLocaleString()}</Known>
+            : "";
+    };
     const revealedRows = props.pinned.map((kdId) => {
         const empireName = props.empires[props.empires_inverted?.empires_inverted[kdId]]?.name;
         const galaxyEmpire = (
@@ -457,8 +469,8 @@ function Pinned(props) {
             <td>{getRemainingSpans(kdId, props.revealed.revealed)}</td>
             <td>{props.kingdoms[kdId] || ""}</td>
             <td>{galaxyEmpire}</td>
-            <td>{maxKdInfo[kdId]?.stars || ""}</td>
-            <td>{maxKdInfo[kdId]?.networth || ""}</td>
+            <td>{shownKnown(kdId, "stars")}</td>
+            <td>{shownKnown(kdId, "networth")}</td>
             <td>
                 <ActionButton onClick={() => {setKdToShow(kdId); setShowView(true)}}>
                     View
