@@ -5,13 +5,13 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
-import Modal from 'react-bootstrap/Modal';
 import { useNavigate } from "react-router-dom";
 import { BsEye, BsClipboardData } from "react-icons/bs";
 import "./intel.css";
 import Kingdom from "../kingdominfo.js";
 import { withLastKnown } from "../../components/lastknown";
-import Header from "../../components/header";
+import { useFromHere } from "../../components/pagehead";
+import { KingdomLink, kingdomPath, targetPath } from "../../components/kingdomlink";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { GameTable } from "../../components/gametable";
@@ -27,7 +27,7 @@ import { checkCount, checkPercent, firstError } from "../../validation";
  * comes with ``problem``, the reason this kingdom could not take it, or null.
  *
  * The pieces take an optional ``target`` so the same tables and forms can show one kingdom's intel (KingdomIntel),
- * wherever a kingdom is shown. With ``onView(kdId, tab)`` the tables offer to open a row's kingdom (KingdomModal, on
+ * wherever a kingdom is shown. With ``onView(kdId, tab)`` the tables offer to open a row's kingdom (the Kingdom page, on
  * its "kingdom" or "intel" tab); with ``onAttempt(kdId, operation)`` a bounty you have no intel for offers the spy
  * operation that would get it (by default the Spy page, opened with that target and operation).
  *
@@ -68,8 +68,9 @@ function ViewButton({ onView, kdId }) {
 function AttemptButton({ target, category, onAttempt, loading, label = "Attempt",
     title = `You have no ${category} intel on them: spy for it, then fulfil the bounty` }) {
     const navigate = useNavigate();
+    const fromHere = useFromHere();
     const operation = "spy" + category;
-    const attempt = onAttempt || ((kdId, op) => navigate("/spy", { state: { kdId: String(kdId), operation: op } }));
+    const attempt = onAttempt || ((kdId, op) => navigate(targetPath("/spy", kdId, { op }), { state: fromHere }));
     return (
         <Button size="sm" variant="outline-primary" className="intel-action" disabled={loading}
             title={title}
@@ -134,7 +135,7 @@ export function YourIntelTable({ target, send, onView, ...props }) {
         return <p className="planner-hint-line">{target === undefined ? "You have no intel of your own to share." : "You have no intel of your own on this kingdom."}</p>;
     }
     const columns = [
-        ...(target === undefined ? [{ header: "Kingdom", align: "left", cell: (row) => kdLabel(props.data, row.target) }] : []),
+        ...(target === undefined ? [{ header: "Kingdom", align: "left", cell: (row) => <KingdomLink kdId={row.target} data={props.data} /> }] : []),
         { header: "Intel", align: "left", cell: (row) => row.category },
         { header: "Ends in", cell: (row) => clockUntil(row.time) },
         {
@@ -169,7 +170,7 @@ export function ListingsTable({ target, send, onView, ...props }) {
     const me = myKd(props.data);
     const columns = [
         { header: "Seller", align: "left", cell: (row) => kdName(props.data, row.seller) },
-        ...(target === undefined ? [{ header: "Kingdom", align: "left", cell: (row) => kdLabel(props.data, row.target) }] : []),
+        ...(target === undefined ? [{ header: "Kingdom", align: "left", cell: (row) => <KingdomLink kdId={row.target} data={props.data} /> }] : []),
         {
             header: "Intel", align: "left", cell: (row) => <>{row.category}{taken(intel, row.target, row.category)
                 ? <span className="status-tag tag-optional" title="You already have this intel from a galaxymate">taken</span> : null}</>,
@@ -204,7 +205,7 @@ export function BountiesTable({ target, send, onView, onAttempt, ...props }) {
     const me = myKd(props.data);
     const columns = [
         { header: "Asked by", align: "left", cell: (row) => kdName(props.data, row.requester) },
-        ...(target === undefined ? [{ header: "Kingdom", align: "left", cell: (row) => kdLabel(props.data, row.target) }] : []),
+        ...(target === undefined ? [{ header: "Kingdom", align: "left", cell: (row) => <KingdomLink kdId={row.target} data={props.data} /> }] : []),
         { header: "Intel", align: "left", cell: (row) => row.category },
         { header: "Cut", cell: (row) => displayPercent(row.cut) },
         { header: "Ends in", cell: (row) => clockUntil(row.time) },
@@ -293,7 +294,7 @@ export function AcceptedTable({ target, ...props }) {
         return <p className="planner-hint-line">You have taken no intel from galaxymates{target === undefined ? "" : " on this kingdom"}.</p>;
     }
     const columns = [
-        ...(target === undefined ? [{ header: "Kingdom", align: "left", cell: (row) => kdLabel(props.data, row.target) }] : []),
+        ...(target === undefined ? [{ header: "Kingdom", align: "left", cell: (row) => <KingdomLink kdId={row.target} data={props.data} /> }] : []),
         { header: "Intel", align: "left", cell: (row) => row.category },
         { header: "From", align: "left", cell: (row) => kdName(props.data, row.sharer) },
         { header: "Cut", cell: (row) => (row.cut > 0 ? displayPercent(row.cut) : "free") },
@@ -317,7 +318,7 @@ export function HistoryTable({ kinds, ...props }) {
                 : row.kind === "purchase" ? `${kdName(props.data, row.to)} bought from ${kdName(props.data, row.from)}`
                 : `${kdName(props.data, row.from)} answered ${kdName(props.data, row.to)}`),
         },
-        { header: "Kingdom", align: "left", cell: (row) => kdLabel(props.data, row.target) },
+        { header: "Kingdom", align: "left", cell: (row) => <KingdomLink kdId={row.target} data={props.data} /> },
         { header: "Intel", align: "left", cell: (row) => row.category },
         { header: "Cut", cell: (row) => (row.cut > 0 ? displayPercent(row.cut) : "free") },
     ];
@@ -421,7 +422,7 @@ const intelActionsFor = (props) => (category, inline) => <IntelActions {...props
 
 /** Everything about one kingdom's intel: yours to share, what is on the market, bounties, and asking for more. */
 /**
- * Everything about one kingdom's intel. ``onView`` switches to the kingdom's info (KingdomModal's other tab); without
+ * Everything about one kingdom's intel. ``onView`` switches to the kingdom's info (KingdomTabs' other tab); without
  * it the info opens here. ``ask`` fills in the bounty form (see BountyForm).
  */
 export function KingdomIntel({ onView, ask: askedFor, ...props }) {
@@ -460,48 +461,35 @@ export function tradable(data, kdId) {
 }
 
 /**
- * One kingdom in a dialog, on two tabs: its info (the View dialogs) and its intel (KingdomIntel), opened on ``tab``.
- * Asking the galaxy from the info moves to the intel with the bounty form filled in; View kingdom on the intel moves
- * back. A kingdom whose intel can not be traded (yours, a galaxymate's) shows only its info.
+ * One kingdom on two tabs: its info and its intel (KingdomIntel), opened on ``tab`` (the Kingdom page). Asking the
+ * galaxy from the info moves to the intel with the bounty form filled in; View kingdom on the intel moves back. A
+ * kingdom whose intel can not be traded (yours, a galaxymate's) shows only its info.
  */
-export function KingdomModal({ show, onHide, target, tab = "kingdom", ...props }) {
+export function KingdomTabs({ target, tab = "kingdom", ...props }) {
     const [active, setActive] = useState(tab);
     const [ask, setAsk] = useState(null);
     const [results, setResults] = useState([]);
     const send = useIntelAction(props, setResults);
     useEffect(() => {
-        if (show) {
-            setActive(tab);
-            setAsk(null);
-        }
-    }, [show, target, tab]);
+        setActive(tab);
+        setAsk(null);
+    }, [target, tab]);
     const withIntel = tradable(props.data, target);
     const onAsk = (category) => { setAsk({ category, key: Date.now() }); setActive("intel"); };
-    const view = target !== undefined
-        ? <KingdomView kdId={target} data={props.data} actions={withIntel ? intelActionsFor({ ...props, target, send, onAsk }) : undefined} />
-        : null;
+    const view = <KingdomView kdId={target} data={props.data} actions={withIntel ? intelActionsFor({ ...props, target, send, onAsk }) : undefined} />;
     return (
-        <Modal show={show} onHide={onHide} animation={false} dialogClassName="intel-modal">
-            <Modal.Header closeButton><Modal.Title>{target !== undefined ? kdLabel(props.data, target) : ""}</Modal.Title></Modal.Header>
-            <Modal.Body>
-                <ResultToasts title="Intel" results={results} setResults={setResults} />
-                {withIntel ? (
-                    <Tabs id="kingdom-modal-tabs" activeKey={active} onSelect={(key) => setActive(key)} justify className="kingdom-modal-tabs">
-                        <Tab eventKey="kingdom" title="Kingdom info">{view}</Tab>
-                        <Tab eventKey="intel" title="Intel market">
-                            <KingdomIntel {...props} target={target} ask={ask} onView={() => setActive("kingdom")} />
-                        </Tab>
-                    </Tabs>
-                ) : view}
-            </Modal.Body>
-            <Modal.Footer><Button variant="secondary" onClick={onHide}>Close</Button></Modal.Footer>
-        </Modal>
+        <>
+            <ResultToasts title="Intel" results={results} setResults={setResults} />
+            {withIntel ? (
+                <Tabs id="kingdom-tabs" activeKey={active} onSelect={(key) => setActive(key)} className="kingdom-tabs">
+                    <Tab eventKey="kingdom" title="Kingdom info">{view}</Tab>
+                    <Tab eventKey="intel" title="Intel market">
+                        <KingdomIntel {...props} target={target} ask={ask} onView={() => setActive("kingdom")} />
+                    </Tab>
+                </Tabs>
+            ) : view}
+        </>
     );
-}
-
-/** KingdomModal opened on the kingdom's intel, for the tables that list kingdoms. */
-export function IntelModal(props) {
-    return <KingdomModal {...props} tab="intel" />;
 }
 
 /**
@@ -537,9 +525,10 @@ export function TargetIntel({ target, ...props }) {
 
 function IntelMarket(props) {
     const [results, setResults] = useState([]);
-    const [opened, setOpened] = useState({ show: false });
+    const navigate = useNavigate();
+    const fromHere = useFromHere();
     const send = useIntelAction(props, setResults);
-    const shared = { ...props, send, onView: (target, tab) => setOpened({ show: true, target, tab }) };
+    const shared = { ...props, send, onView: (target, tab) => navigate(kingdomPath(target, tab === "kingdom" ? undefined : tab), { state: fromHere }) };
     const notifs = parseInt(props.data.notifs?.shared || 0, 10);
     const { updateData } = props;
     useEffect(() => {
@@ -553,12 +542,9 @@ function IntelMarket(props) {
     const intel = intelOf(props.data);
     return (
         <>
-            <Header data={props.data} />
             <div className="intel-market">
                 <ResultToasts title="Intel" results={results} setResults={setResults} />
-                <KingdomModal show={opened.show} onHide={() => setOpened({ ...opened, show: false })} target={opened.target} tab={opened.tab}
-                    data={props.data} loading={props.loading} updateData={props.updateData} />
-                <Tabs id="intel-tabs" defaultActiveKey="bounties" justify fill variant="tabs">
+                <Tabs id="intel-tabs" defaultActiveKey="bounties" variant="tabs">
                     <Tab eventKey="bounties" title={`Bounties (${intel.bounties.length})`}>
                         <Panel title="Open bounties"><BountiesTable {...shared} /></Panel>
                         <Panel title="Ask the galaxy for intel" className="intel-form-panel"><BountyForm {...shared} /></Panel>

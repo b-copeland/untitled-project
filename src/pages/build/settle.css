@@ -1,42 +1,8 @@
 .settle {
     display: flex;
     flex-direction: column;
-    align-items: center;
-}
-
-.settle-input {
-    border: 2px solid var(--bs-border-color);
-    padding: 5px;
-    margin: 5px;
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
 }
 
-@media (min-width: 756px) {
-    .settle-input {
-        width: 45%;
-    }
-}
-
-.settle-input-group {
-    width: 75%;
-    margin: 5px;
-}
-
-@media (min-width: 756px) {
-    .settle-input-group {
-        width: 75%;
-    }
-}
-.settle-button {
-    margin: 5px;
-}
-
-.settle-box {
-    border: none;
-    width: 95%;
-}
-.settle-amount { width: 100%; max-width: 320px; margin: 8px; display: flex; flex-direction: column; gap: 4px; }
+.settle-amount { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 4px; }
 .settle-amount .amount-input { margin-left: 0; max-width: none; }

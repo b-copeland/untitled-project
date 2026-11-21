@@ -1,31 +1,60 @@
 .kingdom {
     display: flex;
     flex-direction: column;
-    justify-items: center;
-    align-items: center;
     width: 100%;
 }
 
+/* PrimeReact DataTables (News, Conquer): the same card and rows as a GameTable. */
+.p-datatable {
+    width: 100%;
+    margin: 0 0 1rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
 .p-datatable-table {
-    font-size: 9px;
+    font-size: var(--table-font-size);
 }
 .p-datatable-tbody {
     width: 100%;
 }
 @media (min-width: 756px) {
     .p-datatable-table {
-        font-size: 16px;
+        font-size: var(--table-font-size-wide);
     }
 }
 
-.p-datatable-tbody tr {
-    background: var(--bs-body-bg) !important
+.p-datatable .p-datatable-header,
+.p-datatable-tbody tr,
+.p-datatable-thead > tr,
+.p-datatable-thead th,
+.p-paginator {
+    background: transparent !important;
+}
+.p-datatable .p-datatable-header {
+    border: 0 !important;
+    padding: 0.5rem 0.625rem !important;
+    text-align: left;
+    font-size: 1.05rem;
+    font-weight: 600;
 }
 .p-datatable-thead th {
-    background: var(--bs-body-bg) !important
+    color: var(--bs-secondary-color) !important;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-width: 0 0 1px 0 !important;
+    border-color: var(--bs-border-color) !important;
+}
+.p-datatable-tbody > tr > td {
+    border-width: 0 0 1px 0 !important;
+    border-color: var(--row-divider) !important;
 }
 .p-paginator {
-    background: var(--bs-body-bg) !important
+    border: 0 !important;
 }
 .p-column-filter-menu-button {
     background: var(--bs-secondary-bg) !important

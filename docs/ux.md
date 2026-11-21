@@ -39,7 +39,7 @@ what needs doing, and what is worth doing next.** Every page should answer its p
 |---|---|---|
 | A table | `GameTable` with column definitions, not hand-written `<tr>`s | `src/components/gametable.js` |
 | Form state | `useFormValues` | `src/components/forms.js` |
-| Choosing an amount | `AmountInput`: a slider with the chosen number on the left and the most possible on the right; give it `max` (what is left now) and `soloMax` (most if nothing else were chosen) so the slider never changes length. Add `box` for a number box and Max button on planner pages. | `src/components/forms.js` |
+| Choosing an amount | `AmountInput`: a slider with the chosen number on the left and the most possible on the right; give it `max` (what is left now) and `soloMax` (most if nothing else were chosen) so the slider never changes length. Your own amounts are sliders only; `box` (a number box and Max) is for figures with no known maximum. | `src/components/forms.js` |
 | A plain number field | `NumberField` (shows `error` under the box). Any other number box is a `NumberControl`, never a bare `Form.Control`: it takes the commas out of "1,000,000" before `onChange`, as `NumberField` and `AmountInput` do. | `src/components/forms.js` |
 | The send button | `SubmitButton` with `blocked` set to the reason, or null | `src/components/forms.js` |
 | Results of an action | `ResultToasts` | `src/components/results.js` |
@@ -47,15 +47,26 @@ what needs doing, and what is worth doing next.** Every page should answer its p
 | An icon action | `IconButton` (`react-icons`; the name is the tooltip and the accessible label) | `src/components/iconbutton.js` |
 | Another kingdom's values, with last-known intel where nothing is revealed now | `withLastKnown(info)` gives the kingdom and `endedOf(path)`; show each value in `Known`, and `LastKnownNote` at the top of a section whose intel has ended | `src/components/lastknown.js` |
 | Formatting numbers and percents | `src/format.js` | |
-| Page header and help | `Header`, `HelpButton` with the page's help topic | `src/components/` |
-| Layout classes and colour tokens | `col-center`, `box-tight`, `game-table`, `table-scroll`, ... Check here before writing a new rule. | `src/styles/shared.css` |
+| Page header and help | Nothing to add: App.js puts the header strip, the section name and the title (`PageHead`, from the route's `label` or `title`) over every game page, with a link back when another page sent the player there. Each page adds its `HelpButton`. | `src/components/pagehead.js` |
+| A kingdom's name | `KingdomLink`: links to the kingdom's page (`/kingdom/:id`), which says where the player came from. Links that leave a page pass `useFromHere()` as their `state`. Attack, Spy and Launch Missiles open on `?target=`. | `src/components/kingdomlink.js` |
+| A section of any page | `Panel` (a titled card); `panel-grid` for several side by side | `src/components/planner.js`, `src/styles/shared.css` |
+| A summary of numbers | `Stats` inside a Panel, or `text-box text-box-stats` with `text-box-item`s (a slider and button under them go in `summary-form`) | `src/components/planner.js`, `src/styles/shared.css` |
+| The button under a form or table | `form-actions` (right-aligned, with any running total as muted text before the button) | `src/styles/shared.css` |
+| Layout classes and colour tokens | `--surface`, `--border-subtle`, `--radius`, `page-note`, `game-table`, `table-scroll`, ... Check here before writing a new rule. | `src/styles/shared.css` |
 
 [src/pages/build/structures.js](../src/pages/build/structures.js) is the model for a form page; `src/pages/conquer/attack.js`
 for a planner page.
 
 ## Visual language
 
-- Stock Bootstrap in dark mode. Hierarchy comes from type size and muted labels, not borders.
+- Bootstrap in dark mode, with a darker page and raised sections ([decisions/0010](decisions/0010-page-layout.md)).
+  Hierarchy comes from type size, muted labels and section cards: a card is a step lighter than the page with a faint
+  edge, never a heavy line.
+- One content column: everything on a page, tabs included, shares the header strip's edges. A page does not set its
+  own max-width and center it.
+- Tabs are a segmented control, left-aligned (no `justify` or `fill`); a tab that destroys something (Raze, Disband) is
+  `tabClassName="tab-warning"` and its content `warning-zone`. Tables are borderless rows (no `bordered` or
+  `striped`) inside a card. The action under a form sits on the right, in `form-actions`.
 - Colour means state: red is a problem, green is done, amber is a guess that matters or something needing a decision.
   One scale is different: last-known intel is written in yellow, orange, then red as it ages (`Known` in
   `src/components/lastknown.js`), with its age in the tooltip.

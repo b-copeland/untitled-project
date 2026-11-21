@@ -1,8 +1,6 @@
 /* The Cluster page. Tables, panels and stats use the shared styles. */
 .cluster-politics {
     width: 100%;
-    max-width: 1000px;
-    margin: 0 auto;
 }
 
 .cluster-politics .panel {

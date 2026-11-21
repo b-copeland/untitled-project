@@ -42,7 +42,7 @@ function CreateKingdom(props) {
                 Custom lets you spend the starting unit points and stars yourself. You must use all of both. The numbers under
                 the choices update as you change them.
             </p>
-            <Table striped bordered hover size="sm" className="races-table">
+            <Table hover size="sm" className="races-table">
                 <thead>
                     <tr>
                         <th>Race</th>

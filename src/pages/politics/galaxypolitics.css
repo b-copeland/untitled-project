@@ -1,58 +1,62 @@
 .galaxy-politics {
-    min-height: 480px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    width: 100%;
 }
-
+.galaxy-leader-form label {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: var(--bs-secondary-color);
+}
+.galaxy-leader-select {
+    max-width: 360px;
+}
+.galaxy-leader-current {
+    margin: 0.75rem 0 0.25rem;
+}
 .galaxy-leader-button {
-    margin: 10px;
-    width: 25%;
-    max-width: 150px;
+    margin: 0.5rem 0 0;
+    min-width: 120px;
 }
 
-
-@media (min-width: 756px) {
-    .galaxy-leader-table {
-        width: 40%;
-        min-width: 400px;
-    }
-}
-
+/* Policies (Galaxy > Policies, and Universe politics): each policy a heading over its options, as cards side by side. */
 .galaxy-policies {
-    min-height: 480px;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    width: 100%;
 }
 .galaxy-policy {
-    width: 90%;
-    margin: 20px;
+    width: 100%;
+    margin: 0 0 1.5rem;
+    text-align: left;
+}
+.galaxy-policy h3 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem;
 }
 .galaxy-policy-options {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0 1rem;
+    align-items: stretch;
 }
 .galaxy-policy-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    padding: 15px;
+    align-items: flex-start;
 }
-@media (min-width: 756px) {
-    .galaxy-policy-card {
-        width: 48%;
-        min-width: 350px;
-    }
+.galaxy-policy-card > span:first-child {
+    font-weight: 600;
+    font-size: 1.05rem;
+}
+.galaxy-policy-card > br {
+    display: none;
+}
+.galaxy-policy-card > span,
+.galaxy-policy-card > div {
+    margin-bottom: 0.5rem;
 }
 .galaxy-policy-button {
-    width: 50%;
-    margin: 10px;
+    margin: auto 0 0;
 }
 .galaxy-policy-winner {
-    border: 5px solid var(--bs-primary);
+    border-color: var(--bs-primary);
+    box-shadow: inset 0 0 0 1px var(--bs-primary);
 }

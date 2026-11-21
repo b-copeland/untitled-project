@@ -7,8 +7,9 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import "./galaxypolitics.css";
 import Select from 'react-select';
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { Panel } from "../../components/planner";
+import { KingdomLink } from "../../components/kingdomlink";
 import { useWait, lockedVoteText } from "../../components/wait";
 
 /** The sentence under a vote: why it is locked and until when, or (unless ``lockedOnly``) how long a change holds. */
@@ -24,12 +25,9 @@ function GalaxyPolitics(props) {
 
     return (
     <>
-      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="leader"
-        justify
-        fill
         variant="tabs"
       >
         <Tab eventKey="leader" title="Leader">
@@ -102,13 +100,14 @@ function GalaxyPoliticsLeader(props) {
     
     const galaxyLeaderRows = Object.keys(galaxyLeaderVotes).map((leaderId) =>
         <tr key={leaderId}>
-            <td>{kdFullLabel(leaderId)}</td>
+            <td><KingdomLink kdId={leaderId} data={props.data}>{kdFullLabel(leaderId)}</KingdomLink></td>
             <td>{galaxyLeaderVotes[leaderId]}</td>
             <td>{leaderId === props.data.galaxypolitics.leader ? "X" : ""}</td>
         </tr>
     );
     return (
-        <div className="galaxy-politics">
+        <div className="galaxy-politics panel-grid">
+            <Panel title="Your vote">
             <form className="galaxy-leader-form">
                 <label id="aria-label" htmlFor="aria-example-input">
                     Select a galaxy leader
@@ -152,7 +151,7 @@ function GalaxyPoliticsLeader(props) {
                     }}
                 />
             </form>
-            <h3>You are currently voting for: {currentLeaderVoteLabel}</h3>
+            <p className="galaxy-leader-current">You are currently voting for: <strong>{currentLeaderVoteLabel}</strong></p>
             <VoteRule data={props.data} wait={leaderWait} />
             {
                 props.loading.galaxypolitics
@@ -164,7 +163,9 @@ function GalaxyPoliticsLeader(props) {
                     Vote
                 </Button>
             }
-            <Table striped bordered hover className="galaxy-leader-table">
+            </Panel>
+            <Panel title="Votes">
+            <Table hover className="galaxy-leader-table">
                 <thead>
                     <tr>
                         <th>Kingdom</th>
@@ -176,6 +177,7 @@ function GalaxyPoliticsLeader(props) {
                     {galaxyLeaderRows}
                 </tbody>
             </Table>
+            </Panel>
         </div>
     )
 }

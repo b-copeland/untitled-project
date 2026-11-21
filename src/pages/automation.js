@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import Form from "react-bootstrap/Form";
 import { authFetch } from "../auth";
-import Header from "../components/header";
 import { ResultToasts, safeJson } from "../components/results";
 import { displayPercent } from "../format";
 import "./automation.css";
@@ -82,13 +81,12 @@ function Automation(props) {
 
     return (
         <>
-            <Header data={props.data} />
             <div className="automation">
-                <h2>Automation</h2>
                 <p className="automation-lead">
                     {active} of {switches.length} automatic features are on. Turn them on or off here; each
                     links to the page where its settings live.
                 </p>
+                <div className="automation-items">
                 {items.map((item) => (
                     <section className="automation-item" key={item.key} aria-label={item.title}>
                         <div className="automation-head">
@@ -108,6 +106,7 @@ function Automation(props) {
                         </p>
                     </section>
                 ))}
+                </div>
             </div>
             <ResultToasts title="Automation" results={results} setResults={setResults} />
         </>

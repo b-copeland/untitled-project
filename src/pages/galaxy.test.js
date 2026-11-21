@@ -7,10 +7,6 @@ import { authFetch } from "../auth";
 jest.mock("../components/header", () => () => null);
 jest.mock("../components/helpbutton", () => () => null);
 jest.mock("./kingdominfo.js", () => () => null);
-jest.mock("./conquer/attack.js", () => () => null);
-jest.mock("./conquer/spy.js", () => () => null);
-jest.mock("./conquer/launchmissiles.js", () => () => null);
-jest.mock("./message.js", () => () => null);
 jest.mock("../auth", () => ({ authFetch: jest.fn() }));
 
 const galaxyInfo = {
@@ -45,12 +41,11 @@ test("a phone-sized screen starts on cards, with the army ceiling and how fresh 
     expect(screen.getAllByText("?").length).toBeGreaterThan(3);
 });
 
-test("the kingdom's name on a card opens its view", async () => {
+test("the kingdom's name on a card links to its page", async () => {
     narrow(true);
     show();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Delta" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Delta" }));
-    expect(await screen.findByText("Delta (1:1)")).toBeTruthy();   // the kingdom dialog's title
+    await waitFor(() => expect(screen.getByRole("link", { name: "Delta" })).toBeTruthy());
+    expect(screen.getByRole("link", { name: "Delta" }).getAttribute("href")).toMatch(/^\/kingdom\/\d+$/);
 });
 
 test("a wide screen starts on the table, and the choice is remembered", async () => {

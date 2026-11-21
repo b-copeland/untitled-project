@@ -9,7 +9,6 @@ import Tabs from 'react-bootstrap/Tabs';
 import Modal from 'react-bootstrap/Modal';
 import Alert from 'react-bootstrap/Alert';
 import "./primitives.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput, NumberControl } from "../../components/forms";
@@ -22,10 +21,9 @@ const percentOf = (fraction) => (fraction === undefined || fraction === null ? "
 function Primitives(props) {
     return (
         <>
-            <Header data={props.data} />
             <div className="planner primitives">
                 <h2>Primitives</h2>
-                <Tabs id="primitives-tabs" defaultActiveKey="attack" justify fill variant="tabs">
+                <Tabs id="primitives-tabs" defaultActiveKey="attack" variant="tabs">
                     <Tab eventKey="attack" title="Attack">
                         <AttackPrimitives loading={props.loading} updateData={props.updateData} data={props.data} />
                     </Tab>
@@ -124,12 +122,12 @@ function AttackPrimitives(props) {
                     {ATTACK_UNITS.map(([key, name]) => (
                         (!unitsDesc[key]?.project || myUnits[key] > 0 || attackerValues[key])
                             ? <FieldRow key={key} label={name} stat={<UnitStat kind="offense" value={unitsDesc[key]?.offense} />} htmlFor={"prim-" + key}>
-                                <AmountInput box name={key} id={"prim-" + key} label={name} value={attackerValues[key] || ""} onChange={onChange} max={myUnits[key] || 0} />
+                                <AmountInput name={key} id={"prim-" + key} label={name} value={attackerValues[key] || ""} onChange={onChange} max={myUnits[key] || 0} />
                             </FieldRow>
                             : null
                     ))}
                     <FieldRow label="Generals" htmlFor="prim-generals">
-                        <AmountInput box name="generals" id="prim-generals" label="Generals" value={attackerValues.generals} onChange={onChange} max={kingdom.generals_available || 0} />
+                        <AmountInput name="generals" id="prim-generals" label="Generals" value={attackerValues.generals} onChange={onChange} max={kingdom.generals_available || 0} />
                     </FieldRow>
                 </Panel>
                 <Panel title="Forecast" hint={hasForecast ? undefined : "Choose some units to see how it would go."}>
@@ -215,7 +213,7 @@ function RobPrimitives(props) {
             <div className="planner-grid">
                 <Panel title="Your drones" hint={`You have ${whole(maxDrones)} drones and ${kingdom.spy_attempts ?? 0} spy attempts.`}>
                     <FieldRow label="Drones to send" htmlFor="rob-drones">
-                        <AmountInput box name="drones" id="rob-drones" label="Drones to send" value={drones} onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
+                        <AmountInput name="drones" id="rob-drones" label="Drones to send" value={drones} onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
                     </FieldRow>
                     <FieldRow label="Shield the drones" hint="Protects them if the rob fails">
                         <Form.Check type="switch" id="shield-drones-switch" checked={shieldDrones} onChange={(e) => setShieldDrones(e.target.checked)} />
