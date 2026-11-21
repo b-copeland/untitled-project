@@ -1,5 +1,5 @@
 import { displayPercent } from "../../format";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import InputGroup from 'react-bootstrap/InputGroup';
@@ -20,10 +20,31 @@ import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
 import { inOrder, entriesInOrder } from "../../order";
 
+/**
+ * Project points grow on every tick and trained engineers arrive, which the kingdom poll sees, but the bonuses, free
+ * engineers and locks on this page come from ``api/projects``. Refetch it when the kingdom's project fields change,
+ * only while this page is open, so it costs nothing elsewhere (one request a tick at most).
+ */
+function useProjectsFollowKingdom(kdInfo, updateData) {
+    const signature = kdInfo.projects_points === undefined ? null : JSON.stringify([
+        kdInfo.projects_points, kdInfo.projects_assigned, kdInfo.completed_projects, kdInfo.units?.engineers, kdInfo.stars,
+    ]);
+    const last = useRef(signature);
+    useEffect(() => {
+        if (signature !== null && last.current !== null && signature !== last.current) {
+            updateData(["projects"]);
+        }
+        if (signature !== null) {
+            last.current = signature;
+        }
+    }, [signature, updateData]);
+}
+
 function ProjectsContent(props) {
     const kdInfo = props.data.kingdom;
     const engineersInfo = props.data.engineers;
     const projectsInfo = props.data.projects;
+    useProjectsFollowKingdom(kdInfo, props.updateData);
     return (
     <>
         <Header data={props.data} />
