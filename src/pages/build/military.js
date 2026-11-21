@@ -33,13 +33,14 @@ export function trainableUnits(mobisInfo, state) {
 const blankInput = (units) => Object.fromEntries(units.map(({ key }) => [key, ""]));
 const MODES = [
     { key: "train", label: "Train" },
+    { key: "upgrade", label: "Upgrade" },
     { key: "allocate", label: "Allocate" },
     { key: "disband", label: "Disband" },
 ];
 
 /**
- * Recruits at the top, then one units table. The switch (Train / Allocate / Disband) changes only the last column and
- * the button, so the table stays the same while you move between them.
+ * Recruits at the top, then one units table. The switch (Train / Upgrade / Allocate / Disband) changes only the last
+ * columns and the button, so the table stays the same while you move between them.
  */
 function MilitaryContent(props) {
     const [mode, setMode] = useState("train");
@@ -69,6 +70,7 @@ function MilitaryContent(props) {
                 ))}
             </ButtonGroup>
             {mode === "train" ? <Specialists units={units} kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/> : null}
+            {mode === "upgrade" ? <Upgrade units={units} kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData} state={props.data.state}/> : null}
             {mode === "allocate" ? <Allocate units={units} kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/> : null}
             {mode === "disband" ? <Disband units={units} kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData} state={props.data.state}/> : null}
         </div>
@@ -237,6 +239,76 @@ function Specialists(props) {
                 <span>Recruits left: {(recruits - recruitsUsed).toLocaleString()}</span>
             </div>
             <SubmitButton loading={props.loading.mobis} blocked={blocked} onClick={onSubmitClick} className="specialists-button">Train units</SubmitButton>
+        </div>
+    );
+}
+
+/**
+ * The units that can be made from others, each from the one below it in its line. Upgrading takes units at home, so
+ * the most for one unit is what is at home of the unit it comes from (less what the other rows already take from it)
+ * and what the money covers. The cost of each upgrade is the server's.
+ */
+export function upgradeLimits(units, desc, home, money, input) {
+    const count = (key) => parseInt(input[key] || 0) || 0;
+    const cost = units.reduce((total, { key }) => total + count(key) * (desc[key]?.upgrade_cost || 0), 0);
+    const taken = (source) => units.reduce((total, { key }) => total + (desc[key]?.upgrades_from === source ? count(key) : 0), 0);
+    const max = (key) => {
+        const source = desc[key]?.upgrades_from;
+        const each = desc[key]?.upgrade_cost || 0;
+        const sourceLeft = Math.floor(home[source] || 0) - (taken(source) - count(key));
+        const moneyLeft = each > 0 ? Math.floor((money - (cost - count(key) * each)) / each) : Infinity;
+        return Math.max(Math.min(sourceLeft, moneyLeft), 0);
+    };
+    const soloMax = (key) => {
+        const each = desc[key]?.upgrade_cost || 0;
+        return Math.max(Math.min(Math.floor(home[desc[key]?.upgrades_from] || 0), each > 0 ? Math.floor(money / each) : Infinity), 0);
+    };
+    const short = Object.keys(desc).filter((key) => taken(key) > Math.floor(home[key] || 0));
+    return { cost, max, soloMax, short, chosen: units.reduce((total, { key }) => total + count(key), 0) };
+}
+
+function Upgrade(props) {
+    const rows = props.units.filter(({ key }) => props.mobisInfo.units_desc?.[key]?.upgrades_from);
+    const [results, setResults] = useState([]);
+    const [input, setInput] = useState(blankInput(rows));
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setInput((previous) => ({ ...previous, [name]: value }));
+    };
+    const desc = props.mobisInfo.units_desc;
+    const home = props.kdInfo.units || {};
+    const money = props.kdInfo.money || 0;
+    const names = props.state?.pretty_names || {};
+    const limits = upgradeLimits(rows, desc, home, money, input);
+    const blocked = limits.chosen < 1 ? "Choose some units to upgrade"
+        : limits.short.length > 0 ? `You have ${Math.floor(home[limits.short[0]] || 0).toLocaleString()} ${names[limits.short[0]] || limits.short[0]} at home`
+        : limits.cost > money ? `Costs ${Math.ceil(limits.cost).toLocaleString()}, you have ${Math.floor(money).toLocaleString()}` : null;
+    const onSubmitClick = () => {
+        const updateFunc = () => authFetch('api/mobis/upgrade', {
+            method: 'post',
+            body: JSON.stringify({ "input": input }),
+        }).then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+        props.updateData(['mobis', 'kingdom'], [updateFunc]);
+        setInput(blankInput(rows));
+    };
+    return (
+        <div className="specialists">
+            <ResultToasts title="Upgrade Results" results={results} setResults={setResults} />
+            <p className="military-note">
+                Upgrade units at home to the next unit of their line, one step at a time, for the difference in cost.
+                They train like new units and do not fight until they are done.
+            </p>
+            <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} units={rows} lastHeader="To Upgrade"
+                extra={[
+                    { header: "From", align: "left", cell: (unit) => `${names[desc[unit.key].upgrades_from] || desc[unit.key].upgrades_from} (${Math.floor(home[desc[unit.key].upgrades_from] || 0).toLocaleString()} at home)` },
+                    { header: "Upgrade Cost", cell: (unit) => Math.ceil(desc[unit.key].upgrade_cost || 0).toLocaleString() },
+                ]}
+                last={(unit, locked) => <AmountInput name={unit.key} id={`${unit.key}-upgrade-input`} label={`${unit.label} to upgrade to`}
+                    value={input[unit.key]} onChange={handleInputChange} max={limits.max(unit.key)} soloMax={limits.soloMax(unit.key)} disabled={locked} />} />
+            <div className="military-summary">
+                <span>Cost: {Math.ceil(limits.cost).toLocaleString()}</span>
+            </div>
+            <SubmitButton loading={props.loading.mobis} blocked={blocked} onClick={onSubmitClick} className="specialists-button">Upgrade units</SubmitButton>
         </div>
     );
 }

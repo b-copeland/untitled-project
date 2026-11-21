@@ -412,6 +412,97 @@ def disband_mobis():
     return flask.jsonify(payload), status
 
 
+def _upgrade_problem(upgrade_request, kd_info, units_desc):
+    """Why this upgrade (unit to make: count) can not start, or None. ``units_desc`` has the prices the kingdom pays.
+    Several units can come from the same one (Solar and Self-Destructing Attackers both from Elite Attackers), so what
+    each source gives up is added before it is compared with what is at home."""
+    if not upgrade_request or sum(upgrade_request.values()) == 0:
+        return "Choose some units to upgrade"
+    if any(count < 0 for count in upgrade_request.values()):
+        return "Upgrade counts can not be negative"
+    for unit in upgrade_request:
+        if unit not in uas.UPGRADABLE_UNITS:
+            return f"{uas.PRETTY_NAMES.get(unit, unit)} can not be upgraded to"
+        if upgrade_request[unit] > 0 and uas.unit_locked(kd_info, unit):
+            project = uas.PROJECTS[uas.UNITS[unit]["project"]]["name"]
+            return f"Complete the {project} project to upgrade to {uas.PRETTY_NAMES.get(unit, unit)}"
+    needed = collections.Counter()
+    for unit, count in upgrade_request.items():
+        needed[uas.UNITS[unit]["upgrades_from"]] += count
+    for source, count in needed.items():
+        if count > kd_info["units"].get(source, 0):
+            return f"You have {math.floor(kd_info['units'].get(source, 0)):,} {uas.PRETTY_NAMES.get(source, source)} at home"
+    cost = _upgrade_cost(upgrade_request, units_desc)
+    if cost > kd_info["money"]:
+        return f"Upgrading costs {math.ceil(cost):,}, you have {math.floor(kd_info['money']):,}"
+    return None
+
+
+def _upgrade_cost(upgrade_request, units_desc):
+    return sum(uas.upgrade_cost(units_desc, unit) * count for unit, count in upgrade_request.items())
+
+
+def _upgrade(kd_id, upgrade_request):
+    """Upgrade units of ``kd_id`` at home one tier (unit to make: count). The units it is made from leave at once, the
+    difference in price is paid, and the new units arrive through the mobis queue like trained ones, so they do not
+    fight while upgrading. Returns ``(payload, status_code)``."""
+    app = flask.current_app
+    state = uag._get_state()
+    units_desc = uag._get_units_adjusted_costs(state, uag._get_cluster_modifiers(kd_id))
+    upgrade_request = {unit: count for unit, count in upgrade_request.items() if count != 0}
+
+    def decide(kd_info):
+        problem = _upgrade_problem(upgrade_request, kd_info, units_desc)
+        if problem:
+            raise occ.Rejected(problem)
+        start_time = max(
+            datetime.datetime.now(datetime.timezone.utc),
+            uas.utc(state["state"]["game_start"]),
+        )
+        new_units = dict(kd_info["units"])
+        for unit, count in upgrade_request.items():
+            source = uas.UNITS[unit]["upgrades_from"]
+            new_units[source] = new_units.get(source, 0) - count
+        new_mobis, min_mobis_time = _get_new_mobis(upgrade_request, start_time)
+        next_resolve = kd_info["next_resolve"]
+        next_resolve["mobis"] = min(next_resolve["mobis"], min_mobis_time)
+        return {
+            "money": kd_info["money"] - _upgrade_cost(upgrade_request, units_desc),
+            "units": new_units,
+            "next_resolve": next_resolve,
+        }, new_mobis
+
+    try:
+        new_mobis = occ.update(f'/kingdom/{kd_id}', decide)
+        REQUESTS_SESSION.patch(
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/mobis',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+            data=json.dumps({"new_mobis": new_mobis}),
+        )
+    except occ.Rejected as rejection:
+        return {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return {"message": "Server is busy"}, 400
+    return {"message": "Began upgrading units", "status": "success"}, 200
+
+
+@bp.route('/api/mobis/upgrade', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def upgrade_mobis():
+    req = flask.request.get_json(force=True)
+    try:
+        upgrade_request = {
+            str(unit): int(str(count).replace(",", ""))
+            for unit, count in (req.get("input") or {}).items()
+            if str(count).strip() not in ("", "0")
+        }
+    except (AttributeError, TypeError, ValueError):
+        return flask.jsonify({"message": "Please enter whole numbers of units to upgrade"}), 400
+    payload, status = _upgrade(flask_praetorian.current_user().kd_id, upgrade_request)
+    return flask.jsonify(payload), status
+
+
 def _validate_structures(structures_input, current_available_structures):
     """Confirm that spending request is valid"""
 
