@@ -17,7 +17,7 @@ beforeEach(() => {
 
 const inMs = (ms) => new Date(Date.now() + ms).toISOString();
 
-const option = (key, name, desc, votes = 0, weight = 0) => ({ key, name, desc, votes, weight, effects: {} });
+const option = (key, name, desc, votes = 0) => ({ key, name, desc, votes, effects: {} });
 
 const politics = (overrides = {}) => ({
     votes: { leader: { 1: "1" } },
@@ -25,8 +25,8 @@ const politics = (overrides = {}) => ({
     policies: [
         {
             key: "growth_doctrine", name: "Growth Doctrine", active: "expansionist", my_vote: "expansionist",
-            options: [option("expansionist", "Expansionist", "Settling costs 15% less", 1, 0.75),
-                      option("raiders", "Raiders", "Attacks on primitives gain 20% more stars", 1, 0.25)],
+            options: [option("expansionist", "Expansionist", "Settling costs 15% less", 2),
+                      option("raiders", "Raiders", "Attacks on primitives gain 20% more stars", 1)],
         },
         {
             key: "arsenal", name: "Arsenal", active: null, my_vote: null,
@@ -82,7 +82,7 @@ test("the policies tab shows the round's policies, what is active, and the next 
     expect(pane().getByText("(active)")).toBeTruthy();  // only Expansionist is active
     expect(pane().getByText("Missile shields cost 50% less fuel")).toBeTruthy();
     expect(pane().getByText(/every 6 hours; the next is in 1 h 31 min/)).toBeTruthy();
-    expect(pane().getByText(/Votes: 1\. Share of the time held towards the next tally: 75\.0%/)).toBeTruthy();
+    expect(pane().getByText("Votes: 2")).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/epoch/i);
     // Policy votes never lock: no wait, nothing disabled.
     expect(pane().queryByText(/changed this vote recently/)).toBeNull();

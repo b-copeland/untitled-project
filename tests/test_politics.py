@@ -134,7 +134,7 @@ def test_voting_what_it_already_is_writes_nothing(app, client, jwt1, monkeypatch
     _clock(monkeypatch, 1)
     assert _policy_vote(client, jwt1, "expansionist").status_code == 200
     after = _get("/galaxy/1:1/politics")
-    assert after["policy_updated"] == before["policy_updated"] and after["policy_held"] == before["policy_held"]
+    assert after["policy_updated"] == before["policy_updated"]
 
 
 @pytest.mark.parametrize("body, message", [

@@ -124,7 +124,8 @@ Added 2026-11-22 (issue #168, [decisions/0013](decisions/0013-galaxy-policy-tall
 - Discounts from different sources add up with no floor (only below zero is cut off): settling can be cheaper by
   Expansionist, the cluster, Gaian, Cheaper Exploring and Xo Evolution together.
 - Galaxies of a round made before this keep the options they had by name (Expansionist, Warlike, Intelligence,
-  Conscription, where their policy is in the draw) until a tally decides otherwise; old votes are not carried over.
+  Conscription, where their policy is in the draw) until a tally decides otherwise. Their old votes are carried over
+  by `adhoc/migrate_168_galaxy_policies.py`, to run in production right after the deploy (until then they are lost).
 - A kingdom that dies keeps its policy votes, as it keeps its vote for leader.
 - Bots vote by a fixed list per playstyle; they do not weigh what the galaxy is short of.
 - The Galaxy page has not been checked in a browser.
@@ -199,6 +200,8 @@ built; the content is not.
 - Every number is a placeholder: `CLUSTER_SIZE`, `CLUSTER_REF_SIZE`, `CLUSTER_VOTE_COOLDOWN_EPOCHS` (6, proposed by the maintainer 2026-11-20), `CLUSTER_VOTE_RATE`, `CLUSTER_DECAY_RATE`, `CLUSTER_BENEFITS_PER_ROUND` (7), and each
   benefit's `max` and `thresholds` in `CLUSTER_BENEFITS`. The fourteen benefits are the list the maintainer chose for
   issue #168 (2026-11-22); the ideas cut from it are in the maintainer's politics backlog.
+- A running round plays the first `CLUSTER_BENEFITS_PER_ROUND` benefits; `adhoc/migrate_168_cluster_benefits.py` writes
+  that list into its state after the deploy (2026-11-22).
 - A capacity that fades below what a kingdom has (2026-11-22): nothing is taken away. Over the workshop, silo or
   recruit cap it can train or build no more of that kind; units over the hangar space take room from homes, as they
   already do; over the homes cap population shrinks as it already does; fuel over the storage is cut to it, as when

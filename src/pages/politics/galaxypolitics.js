@@ -11,7 +11,6 @@ import HelpButton from "../../components/helpbutton";
 import { Panel } from "../../components/planner";
 import { KingdomLink } from "../../components/kingdomlink";
 import { useWait, lockedVoteText, waitText } from "../../components/wait";
-import { displayPercent } from "../../format";
 
 /** The sentence under a vote: why it is locked and until when, or (unless ``lockedOnly``) how long a change holds. */
 function VoteRule({ data, wait, lockedOnly = false }) {
@@ -184,9 +183,8 @@ function GalaxyPoliticsLeader(props) {
 }
 
 /**
- * The round's galaxy policies. A vote counts from the moment it is cast, and the policy only changes at a tally: each
- * tally weighs every vote by how long it was held since the last one. The server says what is active, the votes, and
- * how the time held so far is shared.
+ * The round's galaxy policies. A policy only changes at a tally, to the option with the most votes then. The server says
+ * what is active and the votes.
  */
 function GalaxyPoliticsPolicies(props) {
     const politics = props.data.galaxypolitics || {};
@@ -205,9 +203,9 @@ function GalaxyPoliticsPolicies(props) {
             {politics.tally_hours
                 ? <p className="vote-rule text-muted">
                     Policies change only at a tally, every {politics.tally_hours} hours
-                    {tallyWait !== null ? <>; the next is in {waitText(tallyWait)}</> : null}. Each tally counts how long
-                    each vote was held since the last one, so a vote counts from the moment you cast it, and you can
-                    change it whenever you like. A tie keeps the active option.
+                    {tallyWait !== null ? <>; the next is in {waitText(tallyWait)}</> : null}. At each tally the option with
+                    the most votes becomes active, and a tie keeps the active option. You can change your vote whenever
+                    you like.
                 </p>
                 : null}
             {policies.map((policy) => (
@@ -223,7 +221,7 @@ function GalaxyPoliticsPolicies(props) {
                                     <span>{option.name}{active ? <span className="galaxy-policy-active"> (active)</span> : null}</span>
                                     <span>{option.desc}</span>
                                     <span className="text-muted">
-                                        Votes: {option.votes}. Share of the time held towards the next tally: {displayPercent(option.weight || 0)}
+                                        Votes: {option.votes}
                                     </span>
                                     {props.loading.galaxypolitics
                                         ? <Button className="galaxy-policy-button" variant="primary" disabled>Loading...</Button>
