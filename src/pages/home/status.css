@@ -61,3 +61,13 @@
 .toast {
     max-width: 80%;
 }
+
+/* The Structures tab: its table scrolls inside the page on a phone instead of widening it. */
+.structures-status,
+.structures-info {
+    width: 100%;
+    min-width: 0;
+}
+.structures-info {
+    max-width: 40rem;
+}

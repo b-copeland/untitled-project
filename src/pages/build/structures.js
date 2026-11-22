@@ -84,7 +84,7 @@ function BuildStructures(props) {
         { header: "Structure", align: "left", cell: ([, label]) => label },
         { header: "% Built", cell: ([key]) => displayPercent((info.current[key] || 0) / kingdom.stars) },
         { header: "# Built", cell: ([key]) => whole(info.current[key]) },
-        { header: "# Building", cell: ([key]) => whole(info.hour_24[key]) },
+        { header: "# Building", cell: ([key]) => whole(info.queued[key]) },
         {
             header: "To Build", className: "structures-form-data",
             cell: ([key, label]) => <AmountInput name={key} label={label} id={`${key.replace("_", "-")}-input`} value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]} max={maxFor(key)} soloMax={soloMax} />,
@@ -145,7 +145,7 @@ export function AllocateStructures(props) {
         { header: "Structure", align: "left", cell: ([, label]) => label },
         { header: "% Built", cell: ([key]) => displayPercent((info.current[key] || 0) / kingdom.stars) },
         { header: "# Built", cell: ([key]) => whole(info.current[key]) },
-        { header: "# Building", cell: ([key]) => whole(info.hour_24[key]) },
+        { header: "# Building", cell: ([key]) => whole(info.queued[key]) },
         { header: "Current Allocation", cell: ([key]) => displayPercent(current[key] / 100) },
         {
             header: "New Allocation", className: "structures-form-data",

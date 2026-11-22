@@ -60,7 +60,7 @@ export function Overview({ data }) {
 
     // Growth: how many stars have a structure, and what is still being built.
     const built = Object.values(structures.current || {}).reduce((sum, value) => sum + (value || 0), 0);
-    const building = Object.values(structures.hour_24 || {}).reduce((sum, value) => sum + (value || 0), 0);
+    const building = Object.values(structures.queued || {}).reduce((sum, value) => sum + (value || 0), 0);
     const stars = kingdom.stars || 0;
 
     // Threats: siphons on you, your shields, and the latest thing that happened to your kingdom.
