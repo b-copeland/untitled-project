@@ -16,6 +16,7 @@ import flask_praetorian
 import untitledapp.clusters as uacl
 import untitledapp.galaxypolicies as uagp
 import untitledapp.universepolicies as uaup
+import untitledapp.migrations as uamig
 import untitledapp.getters as uag
 import untitledapp.occ as occ
 import untitledapp.shared as uas
@@ -123,6 +124,7 @@ def round_state(settings, rounds_archived, rng=random):
         "galaxy_policies": uagp.draw(rng),
         "cluster_benefits": uacl.draw(rng),
         "ballot": uaup.draw_ballot(rng, first=True),  # the first election's
+        "migrations_done": uamig.all_ids(),  # a new round's documents are made in the current shape
         "game_start": start,
         "game_end": settings["game_end"].isoformat(),
         "election_start": settings["election_start"].isoformat() if settings["election_start"] else "",

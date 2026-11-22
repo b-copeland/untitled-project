@@ -43,8 +43,16 @@ def draw_ballot(rng=random, first=False, previous=()):
 
 
 def ballot_of(state_inner):
-    """The ballot of the coming or open election, from the state's inner object (empty if none is drawn yet)."""
-    return _ordered(key for key in ((state_inner or {}).get("ballot") or []) if key in uas.UNIVERSE_POLICIES)
+    """
+    The ballot of the coming or open election, from the state's inner object. A round from before ballots has none
+    stored: it gets the one its next election would draw (seeded by that election's start, so every reader, the
+    election and the migration that writes it down agree). Empty when no election is planned.
+    """
+    state_inner = state_inner or {}
+    stored = _ordered(key for key in (state_inner.get("ballot") or []) if key in uas.UNIVERSE_POLICIES)
+    if stored or not state_inner.get("election_start"):
+        return stored
+    return draw_ballot(random.Random(state_inner["election_start"]), first=not active_options(state_inner))
 
 
 def active_options(state_inner):

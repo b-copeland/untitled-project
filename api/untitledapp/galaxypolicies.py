@@ -18,8 +18,9 @@ The fields, on the galaxy's politics document ``galaxy_votes_<galaxy>`` (each re
 * ``policy_active``: policy to its active option. A policy with none is absent.
 * ``policy_updated``: the moment the document was last brought up to date (every tally up to it applied).
 
-Galaxies made before this kept their active policies by name in ``active_policies``; those still count, where they
-are in this round's draw, until a tally decides otherwise (``adhoc/migrate_168_galaxy_policies.py`` moves them over).
+Galaxies made before this kept their votes in ``votes.policy_1``/``votes.policy_2`` (by option number) and their
+active options by name in ``active_policies``. Until a galaxy is written in the new shape, both are read as the new
+fields (``LEGACY_VOTES``), so nothing is lost whether a vote or the refresh's migration (``migrations.py``) moves it.
 """
 import datetime
 import math
@@ -62,6 +63,13 @@ def _options(policy):
     return uas.GALAXY_POLICIES[policy]["options"]
 
 
+# Where each old vote goes: old policy, old option number -> (new policy, option).
+LEGACY_VOTES = {
+    "policy_1": {"1": ("growth_doctrine", "expansionist"), "2": ("tempo_doctrine", "warlike")},
+    "policy_2": {"1": ("defense_doctrine", "intelligence"), "2": ("defense_doctrine", "conscription")},
+}
+
+
 def normalize(document, policies):
     """The policy fields of a galaxy's politics document, each with its default, for ``policies``, as a private copy."""
     document = document or {}
@@ -75,13 +83,18 @@ def normalize(document, policies):
         active = {policy: option for policy, option in stored_active.items()
                   if policy in policies and option in _options(policy)}
     else:
-        # A galaxy from before the tally: its active options were stored by name.
+        # A galaxy from before the tally: its active options were stored by name, its votes by option number.
         names = set(document.get("active_policies") or [])
         active = {}
         for policy in policies:
             for option, entry in _options(policy).items():
                 if entry["name"] in names:
                     active[policy] = option
+        for old_policy, by_number in LEGACY_VOTES.items():
+            for kd_id, number in ((document.get("votes") or {}).get(old_policy) or {}).items():
+                policy, option = by_number.get(str(number), (None, None))
+                if policy in votes:
+                    votes[policy].setdefault(kd_id, option)
     return {"votes": votes, "active": active, "updated": document.get("policy_updated")}
 
 

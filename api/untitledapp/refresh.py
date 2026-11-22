@@ -19,6 +19,7 @@ import untitledapp.clusters as uacl
 import untitledapp.conquer as uac
 import untitledapp.galaxypolicies as uagp
 import untitledapp.universepolicies as uaup
+import untitledapp.migrations as uamig
 import untitledapp.getters as uag
 import untitledapp.lastknown as uala
 import untitledapp.shared as uas
@@ -1451,8 +1452,7 @@ def _begin_election(state):
     app = flask.current_app
     election_start = datetime.datetime.fromisoformat(state["state"]["election_start"]).astimezone(datetime.timezone.utc)
     election_end = election_start + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_ELECTION_LENGTH_MULTIPLIER"])
-    ballot = uaup.ballot_of(state["state"]) or uaup.draw_ballot(
-        random.Random(state["state"]["election_start"]), first=not uaup.active_options(state["state"]))
+    ballot = uaup.ballot_of(state["state"])  # stored, or the one a round from before ballots would draw
 
     state_payload = {
         "election_end": election_end.isoformat(),
@@ -1896,6 +1896,8 @@ def refresh_data():
         return ("Not Authorized", 401)
     
     state = uag._get_state()
+    # Data migrations a deploy brought, once, before anything else (migrations.py). Nothing happens when none is due.
+    uamig.run_pending(state, _claim_state)
     time_now = datetime.datetime.now(datetime.timezone.utc)
     if time_now < _utc(state["state"]["game_start"]):
         return ("Not started", 200)

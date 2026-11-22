@@ -19,6 +19,7 @@ the other docs; they are not instructions themselves. Read one before arguing to
 | [0012](0012-one-request-new-round.md) | A new round is one request that pauses the game first and writes the state whole last |
 | [0013](0013-galaxy-policy-tally.md) | Galaxy policies change only at a timed tally of the votes; every policy is a sum of named effects |
 | [0014](0014-universe-ballots.md) | Universe elections have ballots, keep the last result while voting, and break ties at random |
+| [0015](0015-migrations-on-the-tick.md) | Data migrations run on the refresh tick, behind code that reads both shapes |
 
 To add one: copy the shape below into the next number, and link it from this table.
 
