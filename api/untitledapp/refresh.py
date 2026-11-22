@@ -18,6 +18,7 @@ import untitledapp.build as uab
 import untitledapp.clusters as uacl
 import untitledapp.conquer as uac
 import untitledapp.galaxypolicies as uagp
+import untitledapp.migrations as uamig
 import untitledapp.getters as uag
 import untitledapp.lastknown as uala
 import untitledapp.shared as uas
@@ -1907,6 +1908,8 @@ def refresh_data():
         return ("Not Authorized", 401)
     
     state = uag._get_state()
+    # Data migrations a deploy brought, once, before anything else (migrations.py). Nothing happens when none is due.
+    uamig.run_pending(state, _claim_state)
     time_now = datetime.datetime.now(datetime.timezone.utc)
     if time_now < _utc(state["state"]["game_start"]):
         return ("Not started", 200)
