@@ -3,7 +3,6 @@ import Form from "react-bootstrap/Form";
 import { BsPinAngle, BsPinAngleFill } from "react-icons/bs";
 import { FiTrash2 } from "react-icons/fi";
 import { authFetch } from "../auth";
-import HelpButton from "../components/helpbutton";
 import { IconButton } from "../components/iconbutton";
 import { KingdomLink } from "../components/kingdomlink";
 import { Panel } from "../components/planner";
@@ -109,7 +108,6 @@ function GalaxyBoard(props) {
                         ))}
                     </ul>}
             </Panel>
-            <HelpButton scrollTarget={"galaxyboard"} />
         </div>
     );
 }

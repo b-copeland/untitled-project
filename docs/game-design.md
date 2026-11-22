@@ -96,7 +96,7 @@ building.
 | Spying and robbing | `conquer.py` (`/api/spy/<target>`, `/api/calculatespy/<target>`, `/api/robprimitives`) | `BASE_SPY_*`, `BASE_DRONES_*`, `BASE_REVEAL_DURATION_MULTIPLIER` | `src/pages/help/conquer/spy.js` |
 | Intel market | `intel.py` (`/api/intel`, `/api/intel/*`); the cut of the spoils in `conquer._attack` and `_spoils_forecast` | `BASE_MAX_SHARE_CUT`, `BASE_MAX_TOTAL_SHARE_CUT`, `BASE_INTEL_BOUNTY_MAX_EPOCHS` | `src/pages/help/conquer/intel.js` |
 | Last-known intel | `lastknown.py`; recorded by `refresh._resolve_revealed` and `_record_ended_intel`, and by `misc.unshare_kd`; added to responses by `getters._get_max_kd_info`; shown with `src/components/lastknown.js` | `LAST_KNOWN_FRESH_EPOCHS`, `LAST_KNOWN_AGING_EPOCHS`, `REVEAL_FIELDS` | `src/pages/help/other/viewkingdom.js`, `src/pages/help/home/galaxy.js` |
-| Galaxy board | `board.py` (`/api/galaxyboard`, `/api/galaxyboard/*`) | `GALAXY_BOARD_MAX_LENGTH`, `GALAXY_BOARD_KEEP_POSTS` | `src/pages/help/home/galaxyboard.js` |
+| Galaxy board | `board.py` (`/api/galaxyboard`, `/api/galaxyboard/*`) | `GALAXY_BOARD_MAX_LENGTH`, `GALAXY_BOARD_KEEP_POSTS` | `src/pages/help/home/message.js` |
 | Sharing your own kingdom with galaxymates | `misc.py` (`/api/share/<kingdom>`, `/api/unshare/<kingdom>`) | | `src/pages/help/other/viewkingdom.js` |
 | Schedule | `conquer.py` (`/api/schedule`), `refresh._resolve_schedules` | | `src/pages/help/conquer/schedule.js` |
 | Politics | `politics.py`, `refresh._begin_election`, `_resolve_election` | `GALAXY_POLICIES`, `UNIVERSE_POLICIES`, `BASE_VOTES_COST`, `AGGRO_*`, `DENOUNCE_*`, `PEACE_*`, `WAR_*` | `src/pages/help/politics/*.js` |

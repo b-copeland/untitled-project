@@ -11,7 +11,6 @@ import Shields from "./pages/home/shields.js";
 import NewsContent from "./pages/home/news.js";
 import Galaxy from "./pages/galaxy.js";
 import Message from "./pages/message.js";
-import GalaxyBoard from "./pages/galaxyboard.js";
 import Scores from "./pages/home/scores.js";
 import Automation from "./pages/automation.js";
 import History from "./pages/home/history.js";
@@ -63,8 +62,7 @@ export const sections = [
         path: "/galaxy", label: "Galaxy", component: Galaxy,
         props: ({ data }) => ({ initialGalaxyId: data.galaxies_inverted[data.kingdomid.kd_id] }),
       },
-      { path: "/galaxyboard", label: "Galaxy Board", component: GalaxyBoard, notifs: ["galaxy_board"] },
-      { path: "/message", label: "Message", component: Message, notifs: ["messages"] },
+      { path: "/message", label: "Message", component: Message, notifs: ["messages", "galaxy_board"] },
       { path: "/history", label: "History", component: History },
       { path: "/scores", label: "Scores", component: Scores },
       { path: "/automation", label: "Automation", component: Automation },
