@@ -56,18 +56,27 @@ def client(app):
         yield client
 
 
-@pytest.fixture(scope="session")
-def jwt1(client):
-    response = client.post("/api/login", json={"username": "user1", "password": "user1"})
-    token = response.json["accessToken"]
-    return token
+def _session_token(app, client, backend, username):
+    """
+    A login token that lasts the whole session. Session fixtures are made before a test's own setup, so the backend
+    may still hold the last test's game: blank it first, so the token carries the empty round id every test starts
+    with, not a round id a test made (which every later test would refuse as stale, decision 0005).
+    """
+    _empty_backend(app, backend)
+    with app.app_context():
+        untitledapp.seed_testing_users()
+    response = client.post("/api/login", json={"username": username, "password": username})
+    return response.json["accessToken"]
 
 
 @pytest.fixture(scope="session")
-def jwt2(client):
-    response = client.post("/api/login", json={"username": "user2", "password": "user2"})
-    token = response.json["accessToken"]
-    return token
+def jwt1(app, client, backend):
+    return _session_token(app, client, backend, "user1")
+
+
+@pytest.fixture(scope="session")
+def jwt2(app, client, backend):
+    return _session_token(app, client, backend, "user2")
 
 
 @pytest.fixture(autouse=True)

@@ -131,7 +131,9 @@ def test_the_admin_can_end_a_round_early_and_a_reset_opens_the_next_one(app, cli
     assert client.post("/api/admin/endround", headers=headers).status_code == 400  # already over
     assert _get("/state")["state"]["game_over"]
 
-    client.post("/api/resetstate", headers=headers)  # still allowed: it is how the next round starts
+    from tests.test_admin_rounds import new_round_body
+    started = client.post("/api/admin/newround", json=new_round_body(), headers=headers)  # how the next round starts
+    assert started.status_code == 200, started.get_json()
     state = _get("/state")["state"]
     assert not state["game_over"] and state["rounds_archived"] == 1
     assert _archive(app, 1)["number"] == 1

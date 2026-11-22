@@ -22,6 +22,7 @@ This file is the rules and the map. The detail is in `docs/`. Read the doc for y
 | Anything that adds requests, writes or services | [docs/cost.md](docs/cost.md) |
 | What is unfinished or known broken | [docs/status.md](docs/status.md) |
 | Why something is the way it is | [docs/decisions/](docs/decisions/README.md) |
+| The admin page: starting a round, its dates, bots | [docs/admin.md](docs/admin.md) |
 | Running locally, deploying, bots, email | [docs/development.md](docs/development.md), [docs/deployment.md](docs/deployment.md), [docs/bots.md](docs/bots.md), [docs/email.md](docs/email.md) |
 
 `api/`, `funcapp/` and `src/` each have their own `CLAUDE.md` with the rules for that layer.

@@ -141,9 +141,9 @@ Then open <http://localhost:3000>. Sign in as `admin` with your `ADMIN_PASSWORD`
 
 ### Starting from an empty database instead of a copy
 
-If you do not have access to the Azure account, skip step 3. The function app's `/init` route creates the empty core
-documents, and the admin page (`/admin` in the frontend) can then create the galaxies (`/api/createstate`, optionally
-with `cluster_size`, the galaxies per cluster), set the game start time (`/api/updatestate`) and reset a round (`/api/resetstate`).
+If you do not have access to the Azure account, skip step 3. Open the admin page (`/admin` in the frontend) and use
+**Start a new round**: it creates the empty core documents itself, then the galaxies and the round's dates. See
+[admin.md](admin.md).
 
 ## 5. Tests
 
@@ -243,7 +243,7 @@ cd api; flask run -p 8000            # another, same EPOCH_SECONDS
 conda run -n funcapp python scripts/simulate_bots.py --epoch 30 --minutes 10 --bots 24 --galaxies 3
 ```
 
-The script **wipes the local game** (`/api/resetstate`), sets the round's start and end, creates the bots, calls
+The script **wipes the local game** (`/api/admin/newround`), with the round's start and end, creates the bots, calls
 `/api/refreshdata` every few seconds and prints a summary every 30 seconds (top kingdoms, what the bots have decided).
 It refuses to run unless `COSMOS_ENDPOINT` is the local emulator. `--no-reset` keeps the current game and just ticks.
 Afterwards reseed the emulator if you want the copy of the real data back (`seed_cosmos_emulator.py --apply --replace`).

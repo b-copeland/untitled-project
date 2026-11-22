@@ -28,6 +28,8 @@ formulas. Those live in Flask. If a handler needs to know game rules to work, th
   is how uniqueness is enforced, so do not turn them into create-or-merge.
 - Users outlive a round: `reset_state` keeps `user_` and `username_` documents (`is_user_document`), and `delete_all`
   removes them instead of blanking them.
+- `init_state` and `reset_state` share one table of core documents (`_core_documents`) and must work on an empty
+  container, a blanked one and a live game: the admin's new round calls both every time ([docs/admin.md](../docs/admin.md)).
 - The user handlers (end of `function_app.py`) are the model for new ones: no bare `except`, real status codes
   (`404` missing, `400` bad body), and a `CosmosAccessConditionFailedError` caught inside a retried handler so
   `retry_on_conflict` can see it.

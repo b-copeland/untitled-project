@@ -38,7 +38,7 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
   an `archive_<n>` document with the final standings, which a reset keeps (`GET /api/archive`, `/api/archive/<n>`).
   From then on the refresh does nothing (bots included), a `before_request` refuses every write except signing in, the
   account and the admin's tools, and every kingdom's information is public. `POST /api/admin/endround` ends a round
-  early; `/api/resetstate` clears `game_over` for the next one.
+  early; a new round (`/api/admin/newround`, [admin.md](admin.md)) clears `game_over` for the next one.
 - **The frontend** fetches each data key (`kingdom`, `structures`, ...) from its own `/api/<key>` route
   (`src/data/gameData.js`), polls the kingdom every 10 seconds, and refetches what an action changed. Game constants come
   from the server (`data.state.game_config`, `data.state.pretty_names`), not from copies in the browser.

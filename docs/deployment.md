@@ -137,13 +137,13 @@ in the repo. If you rebuild the environment, recreate it. Two things to keep in 
 
 ## Starting a round
 
-1. Deploy, and make sure `/api/refreshdata` is being called.
+1. Deploy (the function app first, if it changed), and make sure `/api/refreshdata` is being called.
 2. Sign in as `admin` and open `/admin`.
-3. Create the galaxies (`/api/createstate`) and set the game start time (`/api/updatestate`). Players can create
-   kingdoms before the start time. Galaxies are dealt in order into clusters of "Galaxies per Cluster" (`cluster_size`,
-   `CLUSTER_SIZE` if left empty), which can not be changed later in the round.
-4. `/api/resetstate` returns the game to its initial state (it keeps accounts, state, galaxies, empires, scores and
-   universe news/votes, and clears the rest).
+3. Fill in **Start a new round** (dates, galaxies, galaxies per cluster, bots) and confirm. This deletes the current
+   round, keeping accounts and archived rounds, and works on an empty container too. Players can make kingdoms before
+   the start time.
+
+What each step does and what to do if one fails: [admin.md](admin.md).
 
 ## Terraform (`iac/`)
 
