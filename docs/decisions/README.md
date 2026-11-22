@@ -16,6 +16,7 @@ the other docs; they are not instructions themselves. Read one before arguing to
 | [0009](0009-last-known-intel.md) | Last-known intel: one document per kingdom, snapshotted after the tick from the kingdoms it already read |
 | [0010](0010-page-layout.md) | Page layout: one content column, sections as cards, borderless tables, segmented left-aligned tabs, pages not dialogs |
 | [0011](0011-preferences-and-themes.md) | Player preferences in their own document; colour themes from tokens |
+| [0012](0012-one-request-new-round.md) | A new round is one request that pauses the game first and writes the state whole last |
 
 To add one: copy the shape below into the next number, and link it from this table.
 

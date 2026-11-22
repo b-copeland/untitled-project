@@ -57,7 +57,9 @@ intel bots, because they compete to sell the same galaxymates intel, and thieves
 crowd each other.
 
 At most 200 per call. Names are `bot_<type>_<n>`. Each goes into the galaxy with the fewest members, like a new player.
-Resetting the round (`/api/resetstate`) clears every account's kingdom, bots included; create them again afterwards.
+`{"total": 100}` asks for that mix. A new round (`/api/admin/newround`, [admin.md](admin.md)) clears every account's
+kingdom, bots included; the admin page's new round form adds bots again straight after. Bot accounts from earlier
+rounds stay, without kingdoms, and new ones are numbered on from them.
 
 ## How a bot plays
 

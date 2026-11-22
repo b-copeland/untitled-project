@@ -59,8 +59,8 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 
 | id | Holds | Written by | Tier |
 |---|---|---|---|
-| `state` | `round` (an id that changes at every round reset; login tokens carry it, and tokens from another round are refused); `state`: `game_start`, `game_end`, `election_start`, `election_end`, `next_history`, `active_policies`, `game_over` (when the round ended, `""` while it runs), `rounds_archived`, galaxy sizing, and whatever the admin page sets | admin routes, the refresh (elections, history time, the end of the round), `/resetstate` (`round`) | strict |
-| `archive_<n>` | One finished round: `number`, `ended_at`, `reason`, `game_start`, `game_end`, `scores`, `galaxies`, `kingdoms` (kd id to `{name, galaxy, race, status, stars, networth, bot}`), `ranking`. Kept by `/resetstate` | `roundend.end_round`, once per round | strict (written once) |
+| `state` | `round` (an id that changes at every round reset; login tokens carry it, and tokens from another round are refused); `state`: `game_start`, `game_end`, `election_start`, `election_end`, `next_history`, `active_policies`, `game_over` (when the round ended or the admin paused it to start a new one, `""` while it runs), `rounds_archived`, `cluster_size` (galaxies per cluster when the round was made). A new round writes the whole inner object (`admin.round_state`), so older rounds may have other keys | `/api/admin/newround` (whole), `/api/admin/round` (dates), the refresh (elections, history time, the end of the round), `/resetstate` (`round`) | strict |
+| `archive_<n>` | One finished round (or one the admin ended to start a new one): `number`, `ended_at`, `reason`, `game_start`, `game_end`, `scores`, `galaxies`, `kingdoms` (kd id to `{name, galaxy, race, status, stars, networth, bot}`), `ranking`. Kept by `/resetstate` | `roundend.end_round`, once per round | strict (written once) |
 | `kingdoms` | `kingdoms`: kd id to name; `next_id`, the next id to hand out, which survives a round reset so ids are never reused (read with a default of 0) | kingdom creation, `/resetstate` | strict |
 | `galaxies` | `galaxies`: galaxy id to a list of kd ids | the function app only: `POST /galaxy/<id>` (admin) and `POST /kingdom` (kingdom creation) | strict |
 | `empires` | `empires`: empire id to `{name, galaxies, aggression, num_kingdoms, aggression_max, war, peace, denounced, denounced_expires, surprise_war_penalty, surprise_war_penalty_expires, targets}`; `last_update`. `targets` (missing on empires that never had one) is the hint of [empire targets](#empire-targets): a superset of the empire's target kingdoms, left out of `/api/empires` | politics routes, the refresh (`_resolve_empires`), attacks (aggression), `targets.py` (the hint) | strict for membership and war, derived for aggregates |
@@ -228,6 +228,6 @@ Users are Cosmos documents too ([decisions/0004](decisions/0004-users-in-cosmos.
 - **Queries:** `GET /users` is one cross-partition query over the user documents, in id order, filtered by any of
   `email`, `kd_id` and `prefix` (of the username). For admin and rare lookups only (round reset, kingdom death, email
   recovery, bot names), never per request or per tick.
-- **Users outlive a round:** `/resetstate` keeps every `user_`, `username_` and `preferences_` document (the admin reset then clears
+- **Users outlive a round:** `/resetstate` keeps every `user_`, `username_` and `preferences_` document (the admin's new round then clears
   their kingdom fields). `/deleteall` (tests) removes them rather than blanking them, so names become free again.
 - **Old documents:** a user document written before a field existed lacks it; `users.FIELDS` holds the defaults.

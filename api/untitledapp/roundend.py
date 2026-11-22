@@ -10,7 +10,7 @@ When ``game_end`` passes (an admin can also end a round early), the refresh fini
 * from then on the refresh does nothing (the game engine is stopped, which includes the bots), every write to the game is
   refused (``frozen_response`` in a ``before_request``), and everything about every kingdom is public.
 
-Nothing here is meant to be undone: ``/api/resetstate`` clears ``game_over`` when the admin starts the next round.
+Nothing here is meant to be undone: ``/api/admin/newround`` clears ``game_over`` when the admin starts the next round.
 """
 import datetime
 import json
@@ -27,7 +27,7 @@ bp = flask.Blueprint("roundend", __name__)
 # Paths that still work when the round is over: signing in and out, the account, and the admin's own tools.
 _STILL_OPEN = (
     "/api/login", "/api/refresh", "/api/signup", "/api/account",
-    "/api/adminlogin", "/api/adminrefresh", "/api/admin", "/api/updatestate", "/api/createstate", "/api/resetstate",
+    "/api/adminlogin", "/api/adminrefresh", "/api/admin",
     "/api/clearnotifs", "/api/preferences",
 )
 _WRITES = ("POST", "PUT", "PATCH", "DELETE")

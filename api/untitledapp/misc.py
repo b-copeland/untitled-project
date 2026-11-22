@@ -339,8 +339,9 @@ def _kingdom_setup_payload(kd_info, unit_choices, structures_choices, race):
         for k, v in kd_info["structures"].items()
     }
     state = uag._get_state()
-    start_time_datetime = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
-    payload["last_income"] = max(state["state"]["game_start"], datetime.datetime.now(datetime.timezone.utc).isoformat())
+    start_time_datetime = uas.utc(state["state"]["game_start"])
+    # A kingdom made before the start earns nothing until the start.
+    payload["last_income"] = max(start_time_datetime, datetime.datetime.now(datetime.timezone.utc)).isoformat()
     payload["next_resolve"] = kd_info["next_resolve"]
     payload["next_resolve"]["spy_attempt"] = (
         max(datetime.datetime.now(datetime.timezone.utc), start_time_datetime)

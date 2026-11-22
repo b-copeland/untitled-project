@@ -30,16 +30,45 @@ CONTAINER = ConditionalContainer(DATABASE.get_container_client(CONTAINER_NAME))
 APP = func.FunctionApp()
 
 ARCHIVE_PREFIX = "archive_"  # finished rounds (api/untitledapp/roundend.py) outlive a reset
-RESET_KEEP_IDS = [
-    "accounts",
-    "state",
-    "kingdoms",
-    "galaxies",
-    "empires",
-    "universe_news",
-    "universe_votes",
-    "scores",
-]
+
+
+def _empty_universe_votes():
+    return {"policy_1": {"option_1": {}, "option_2": {}}, "policy_2": {"option_1": {}, "option_2": {}}}
+
+
+# The global documents every round needs, as an empty round has them. ``/init`` creates any that are missing and
+# ``/resetstate`` writes them back to this shape (keeping what outlives a round), so both work on an empty container,
+# on one ``/deleteall`` has blanked, and on a live game. What goes *inside* ``state`` is Flask's: see
+# api/untitledapp/admin.py, which writes it whole when it starts a round.
+def _core_documents():
+    return {
+        "state": {"state": {}},
+        "kingdoms": {"kingdoms": {}},
+        "galaxies": {"galaxies": {}},
+        "empires": {"empires": {}, "last_update": ""},
+        "universe_news": {"news": []},
+        "universe_votes": {"votes": _empty_universe_votes()},
+        "accounts": {"accounts": []},
+        "scores": {
+            "points": {}, "stars": {}, "networth": {}, "galaxy_networth": {}, "galaxy_kingdoms_alive": {},
+            "last_update": "",
+        },
+    }
+
+
+def _is_blank(document):
+    """True for a document with nothing in it but its id (what ``/deleteall`` leaves) or Cosmos's own fields."""
+    return document is None or all(key == "id" or key.startswith("_") for key in document)
+
+
+def _put(item_id, body):
+    """Write ``{"id": item_id, **body}`` whole, creating the document if it does not exist."""
+    document = {"id": item_id, **body}
+    try:
+        CONTAINER.replace_item(item_id, document)
+    except CosmosResourceNotFoundError:
+        CONTAINER.create_item(document)
+
 
 @APP.function_name(name="DeleteAll")
 @APP.route(route="deleteall", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
@@ -65,72 +94,19 @@ def delete_all(req: func.HttpRequest) -> func.HttpResponse:
 @APP.function_name(name="CreateState")
 @APP.route(route="init", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
 def init_state(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed a create initial game state.')
-
-    try:
-        CONTAINER.create_item(
-            {
-                "id": "state",
-                "state": {},
-                "round": str(uuid.uuid4()),
-            }
-        )
-        CONTAINER.create_item(
-            {
-                "id": "kingdoms",
-                "kingdoms": {},
-            }
-        )
-        CONTAINER.create_item(
-            {
-                "id": "galaxies",
-                "galaxies": {},
-            }
-        )
-        CONTAINER.create_item(
-            {
-                "id": "empires",
-                "empires": {},
-                "last_update": "",
-            }
-        )
-        CONTAINER.create_item(
-            {
-                "id": "universe_news",
-                "news": [],
-            }
-        )
-        CONTAINER.create_item(
-            {
-                "id": "universe_votes",
-                "votes": {},
-            }
-        )
-        CONTAINER.create_item(
-            {
-                "id": "accounts",
-                "accounts": [],
-            }
-        )
-        CONTAINER.create_item(
-            {
-                "id": "scores",
-                "points": {},
-                "stars": {},
-                "networth": {},
-                "galaxy_networth": {},
-                "last_update": "",
-            }
-        )
-        return func.HttpResponse(
-            "Initial state created.",
-            status_code=201,
-        )
-    except:
-        return func.HttpResponse(
-            "Initial state creation encountered an error",
-            status_code=500,
-        )
+    """
+    Create every core document that is missing or blank, empty. Never touches one that has content, so it is safe to
+    call on a live game, and calling it twice is the same as once. Answers 201 with the ids it created.
+    """
+    created = []
+    for item_id, body in _core_documents().items():
+        if not _is_blank(_read_or_none(item_id)):
+            continue
+        if item_id == "state":
+            body = {**body, "round": str(uuid.uuid4())}
+        _put(item_id, body)
+        created.append(item_id)
+    return _json_response({"created": created}, status_code=201)
 
 
 @APP.function_name(name="GetState")
@@ -184,125 +160,45 @@ def update_state(req: func.HttpRequest) -> func.HttpResponse:
 @APP.function_name(name="ResetState")
 @APP.route(route="resetstate", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
 def reset_state(req: func.HttpRequest) -> func.HttpResponse:
-    try:
-        items = CONTAINER.read_all_items()
-        for item in items:
-            if (item["id"] not in RESET_KEEP_IDS and not is_user_document(item["id"])
-                    and not item["id"].startswith(ARCHIVE_PREFIX)):
-                CONTAINER.delete_item(
-                    item=item["id"],
-                    partition_key=item["id"],
-                )
+    """
+    Empty the game for a new round. Every per-round document goes; users, preferences and archived rounds stay; each
+    core document is written back to its empty shape, created if missing. What outlives the round:
 
-        # A new round id: login tokens issued before the reset stop working (decision 0005).
-        round_state = CONTAINER.read_item(item="state", partition_key="state")
-        round_state["round"] = str(uuid.uuid4())
-        CONTAINER.replace_item("state", round_state)
+    * ``state``: its inner ``state`` is kept as it is (Flask writes the new round's settings over it) and ``round``
+      gets a new id, so login tokens from before the reset stop working (decision 0005);
+    * ``kingdoms.next_id``, so a kingdom id is never handed out twice;
+    * the legacy ``accounts`` list, with each account's kingdom cleared.
+    """
+    core = _core_documents()
+    for item in CONTAINER.read_all_items():
+        item_id = item["id"]
+        if item_id in core or is_user_document(item_id) or item_id.startswith(ARCHIVE_PREFIX):
+            continue
+        try:
+            CONTAINER.delete_item(item=item_id, partition_key=item_id)
+        except CosmosResourceNotFoundError:
+            pass  # gone already
 
-        accounts = CONTAINER.read_item(
-            item="accounts",
-            partition_key="accounts"
-        )
-        new_accounts = []
-        for account in accounts["accounts"]:
-            reset_account = account
-            reset_account["kd_id"] = None
-            reset_account["kd_death_date"] = None
-            reset_account["kd_created"] = False
-            new_accounts.append(reset_account)
-        accounts["accounts"] = new_accounts
-        CONTAINER.replace_item(
-            "accounts",
-            accounts,
-        )
-        kingdoms = CONTAINER.read_item(
-            item="kingdoms",
-            partition_key="kingdoms"
-        )
-        kingdoms["next_id"] = max(
-            [kingdoms.get("next_id", 0), len(kingdoms["kingdoms"])] + [int(k) + 1 for k in kingdoms["kingdoms"]]
-        )
-        kingdoms["kingdoms"] = {}
-        CONTAINER.replace_item(
-            "kingdoms",
-            kingdoms,
-        )
+    stored = {item_id: _read_or_none(item_id) or {} for item_id in core}
 
-        galaxies = CONTAINER.read_item(
-            item="galaxies",
-            partition_key="galaxies"
-        )
-        galaxies["galaxies"] = {}
-        CONTAINER.replace_item(
-            "galaxies",
-            galaxies,
-        )
+    state = stored["state"].get("state")
+    core["state"] = {"state": state if isinstance(state, dict) else {}, "round": str(uuid.uuid4())}
 
-        empires = CONTAINER.read_item(
-            item="empires",
-            partition_key="empires"
-        )
-        empires["empires"] = {}
-        empires["last_update"] = ""
-        CONTAINER.replace_item(
-            "empires",
-            empires,
-        )
+    kingdoms = stored["kingdoms"].get("kingdoms") or {}
+    core["kingdoms"]["next_id"] = max(
+        [int(stored["kingdoms"].get("next_id", 0)), len(kingdoms)] + [int(kd_id) + 1 for kd_id in kingdoms]
+    )
 
-        universe_news = CONTAINER.read_item(
-            item="universe_news",
-            partition_key="universe_news"
-        )
-        universe_news["news"] = []
-        CONTAINER.replace_item(
-            "universe_news",
-            universe_news,
-        )
+    core["accounts"]["accounts"] = [
+        {**account, "kd_id": None, "kd_death_date": None, "kd_created": False}
+        for account in stored["accounts"].get("accounts") or []
+    ]
 
-        universe_votes = CONTAINER.read_item(
-            item="universe_votes",
-            partition_key="universe_votes"
-        )
-        universe_votes["votes"] = {
-            "policy_1": {
-                "option_1": {},
-                "option_2": {},
-            },
-            "policy_2": {
-                "option_1": {},
-                "option_2": {},
-            }
-        }
-        CONTAINER.replace_item(
-            "universe_votes",
-            universe_votes,
-        )
+    for item_id, body in core.items():
+        _put(item_id, body)
+    return func.HttpResponse("Reset state", status_code=200)
 
-        scores = CONTAINER.read_item(
-            item="scores",
-            partition_key="scores"
-        )
-        scores["last_update"] = ""
-        scores["points"] = {}
-        scores["stars"] = {}
-        scores["networth"] = {}
-        scores["galaxy_networth"] = {}
 
-        CONTAINER.replace_item(
-            "scores",
-            scores,
-        )
-        return func.HttpResponse(
-            "Reset state",
-            status_code=200,
-        )
-    except Exception as e:
-        logging.warn(str(e))
-        return func.HttpResponse(
-            "Failed to reset state",
-            status_code=500,
-        )
-    
 @APP.function_name(name="GetAccounts")
 @APP.route(route="accounts", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
 def get_accounts(req: func.HttpRequest) -> func.HttpResponse:

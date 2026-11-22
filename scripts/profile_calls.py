@@ -156,7 +156,7 @@ def main():
     random.seed(args.seed)
 
     from tests import fake_backend
-    from untitledapp import create_app, REQUESTS_SESSION
+    from untitledapp import create_app, REQUESTS_SESSION, User
 
     container = fake_backend.FakeContainer(latency=0)
     function_app = fake_backend.load_function_app(container)
@@ -186,20 +186,20 @@ def main():
     endpoint = app.config["AZURE_FUNCTION_ENDPOINT"]
 
     # --- the world ----------------------------------------------------------------------------------------------------
-    REQUESTS_SESSION.post(f"{endpoint}/init")
     admin = {"Authorization": "Bearer " + client.post("/api/adminlogin", json={"username": "admin", "password": "admin"}).json["accessToken"]}
-    client.post("/api/createstate", json={"num_galaxies": args.galaxies, "max_galaxy_size": 50, "avg_size_new_galaxy": 10}, headers=admin)
     now = datetime.datetime.now(datetime.timezone.utc)
-    client.post("/api/updatestate", headers=admin, json={
+    started = client.post("/api/admin/newround", headers=admin, json={
         "game_start": (now - datetime.timedelta(seconds=1)).isoformat(),
         "game_end": (now + datetime.timedelta(days=1)).isoformat(),
-        "election_start": (now + datetime.timedelta(days=1)).isoformat(),
-        "election_end": "",
-        "next_history": now.isoformat(),
+        "election_start": (now + datetime.timedelta(hours=23)).isoformat(),
+        "num_galaxies": args.galaxies,
     })
+    assert started.status_code == 200, started.json
     each = max(1, args.bots // 4)
     created = client.post("/api/admin/bots", json={"explorer": each, "attacker": each, "intel": each, "thief": each}, headers=admin)
     assert created.status_code == 201, created.json
+    with app.app_context():  # a new round frees every kingdom: user1 plays bot kingdom 1, as before
+        User.lookup("user1").save(kd_id="1", kd_created=True)
     player = {"Authorization": "Bearer " + client.post("/api/login", json={"username": "user1", "password": "user1"}).json["accessToken"]}
     refresh_headers = {"Refresh-Secret": os.environ["REFRESH_SECRET"]}
 

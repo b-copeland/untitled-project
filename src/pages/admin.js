@@ -1,284 +1,66 @@
-import React, { useEffect, useState, useRef } from "react";
-import {
-    BrowserRouter as Router,
-    Routes,
-    Route,
-    Navigate,
-    Link,
-    Outlet,
-    useSearchParams,
-    useNavigate,
-    redirect,
-  } from "react-router-dom";
-import {adminAuth} from "../auth";
-import Button from 'react-bootstrap/Button';
-import Form from 'react-bootstrap/Form';
-import Modal from 'react-bootstrap/Modal';
+import React, { useCallback, useState } from "react";
+import Button from "react-bootstrap/Button";
+import Form from "react-bootstrap/Form";
+import { adminAuth } from "../auth";
+import { Panel } from "../components/planner";
+import AdminRound from "./adminround";
 import AdminUniverse from "./adminuniverse";
 
-function Admin(props) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [gameStart, setGameStart] = useState('');
-  const [gameEnd, setGameEnd] = useState('');
-  const [electionStart, setElectionStart] = useState('');
-  const [numGalaxies, setNumGalaxies] = useState('');
-  const [maxGalaxySize, setMaxGalaxySize] = useState('');
-  const [avgSizeNewGalaxy, setAvgSizeNewGalaxy] = useState('');
-  const [clusterSize, setClusterSize] = useState('');
-  const [createMessage, setCreateMessage] = useState('');
-  const [updateMessage, setUpdateMessage] = useState('');
-  const [resetMessage, setResetMessage] = useState('');
-  const [adminLogged, adminSession] = adminAuth.useAuth();
-  const [showCreate, setShowCreate] = useState(false);
-  const [showReset, setShowReset] = useState(false);
-  const [showUpdate, setShowUpdate] = useState(false);
-  const navigate = useNavigate();
+// The admin page: sign in with an account that has the admin role, then run the round and watch it. See docs/admin.md.
+function Admin() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [changes, setChanges] = useState(0);  // the watch list starts again after each admin action
+  const changed = useCallback(() => setChanges((n) => n + 1), []);
+  const [adminLogged] = adminAuth.useAuth();
 
-  const onSubmitClick = (e)=>{
-    e.preventDefault()
-    let opts = {
-      'username': username,
-      'password': password
-    }
-    fetch('/api/adminlogin', {
-      method: 'post',
-      body: JSON.stringify(opts)
-    }).then(r => r.json())
-      .then(session => {
-        if (session.accessToken){
+  const onSubmitLogin = (e) => {
+    e.preventDefault();
+    fetch("/api/adminlogin", {
+      method: "post",
+      body: JSON.stringify({ username, password }),
+    }).then((r) => r.json().catch(() => ({})))
+      .then((session) => {
+        if (session.accessToken) {
           adminAuth.login(session);
-        //   navigate('/status');
-        }
-        else {
-          console.log("Please type in correct username/password")
+          setLoginError("");
+        } else {
+          setLoginError(session.message || "Wrong username or password, or not an admin");
         }
       })
-  }
+      .catch(() => setLoginError("Could not reach the server"));
+  };
 
-  const onSubmitReset = (e) => {
-    adminAuth.authFetch('api/resetstate', {
-        method: 'POST',
-    }).then(r => r.json()).then(r => setResetMessage(r))
-  }
-
-  const onSubmitUpdate = (e) => {
-    let opts = {
-        "game_start": gameStart,
-        "game_end": gameEnd,
-        "election_start": electionStart,
-        "election_end": "",
-        "active_policies": [],
-        "next_history": gameStart,
-    }
-    adminAuth.authFetch('api/updatestate', {
-        method: 'POST',
-        body: JSON.stringify(opts),
-    }).then(r => r.json()).then(r => setUpdateMessage(r))
-  }
-
-  const onSubmitCreate = (e) => {
-    let opts = {
-        "num_galaxies": numGalaxies,
-        "max_galaxy_size": maxGalaxySize,
-        "avg_size_new_galaxy": avgSizeNewGalaxy,
-        "cluster_size": clusterSize || null,
-    }
-    adminAuth.authFetch('api/createstate', {
-        method: 'POST',
-        body: JSON.stringify(opts),
-    }).then(r => r.json()).then(r => setCreateMessage(r))
-  }
-
-
-  const handleUsernameChange = (e) => {
-    setUsername(e.target.value)
-  }
-
-  const handlePasswordChange = (e) => {
-    setPassword(e.target.value)
-  }
-  const handleGameStartChange = (e) => {
-    setGameStart(e.target.value)
-  }
-  const handleGameEndChange = (e) => {
-    setGameEnd(e.target.value)
-  }
-  const handleElectionStartChange = (e) => {
-    setElectionStart(e.target.value)
-  }
-  const handleNumGalaxiesChange = (e) => {
-    setNumGalaxies(e.target.value)
-  }
-  const handleMaxGalaxySizeChange = (e) => {
-    setMaxGalaxySize(e.target.value)
-  }
-  const handleAvgSizeNewGalaxyChange = (e) => {
-    setAvgSizeNewGalaxy(e.target.value)
+  if (!adminLogged) {
+    return (
+      <div className="admin-page">
+        <h2>Admin</h2>
+        <Panel title="Sign in">
+          <Form onSubmit={onSubmitLogin}>
+            <Form.Control className="mb-2" type="text" placeholder="Username" aria-label="Username" autoComplete="username"
+              onChange={(e) => setUsername(e.target.value)} value={username} />
+            <Form.Control className="mb-2" type="password" placeholder="Password" aria-label="Password" autoComplete="current-password"
+              onChange={(e) => setPassword(e.target.value)} value={password} />
+            {loginError ? <p className="text-danger" role="alert">{loginError}</p> : null}
+            <div className="form-actions"><Button type="submit">Sign in</Button></div>
+          </Form>
+        </Panel>
+      </div>
+    );
   }
 
   return (
-    <div>
-        <Modal
-            show={showReset}
-            onHide={() => setShowReset(false)}
-            animation={false}
-            dialogClassName="reset-modal"
-        >
-            <Modal.Header closeButton>
-                <Modal.Title>Reset</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-                <div>
-                    <span>Confirm Reset?</span>
-                    <Button onClick={onSubmitReset}>Reset State</Button>
-                </div>
-            </Modal.Body>
-            <Modal.Footer>
-                <Button variant="secondary" onClick={() => setShowReset(false)}>
-                Close
-                </Button>
-            </Modal.Footer>
-        </Modal>
-        <Modal
-            show={showUpdate}
-            onHide={() => setShowUpdate(false)}
-            animation={false}
-            dialogClassName="update-modal"
-        >
-            <Modal.Header closeButton>
-                <Modal.Title>Update Game State</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-                <div>
-                    <span>Confirm Update?</span>
-                    <Button onClick={onSubmitUpdate}>Update State</Button>
-                </div>
-            </Modal.Body>
-            <Modal.Footer>
-                <Button variant="secondary" onClick={() => setShowUpdate(false)}>
-                Close
-                </Button>
-            </Modal.Footer>
-        </Modal>
-        <Modal
-            show={showCreate}
-            onHide={() => setShowCreate(false)}
-            animation={false}
-            dialogClassName="update-modal"
-        >
-            <Modal.Header closeButton>
-                <Modal.Title>Create Game State</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-                <div>
-                    <span>Confirm Create?</span>
-                    <Button onClick={onSubmitCreate}>Create State</Button>
-                </div>
-            </Modal.Body>
-            <Modal.Footer>
-                <Button variant="secondary" onClick={() => setShowCreate(false)}>
-                Close
-                </Button>
-            </Modal.Footer>
-        </Modal>
-      <h2>Admin</h2>
-      {
-        !adminLogged
-        ? <form action="#">
-        <div>
-          <input type="text" 
-            placeholder="Username" 
-            onChange={handleUsernameChange}
-            value={username} 
-          />
-        </div>
-        <div>
-          <input
-            type="password"
-            placeholder="Password"
-            onChange={handlePasswordChange}
-            value={password}
-          />
-        </div>
-        <button onClick={onSubmitClick} type="submit">
-          Login Now
-        </button>
-      </form>
-      : <div>
-            <h3>Game Start</h3>
-            <Form.Control 
-                className="game-start-form"
-                id="game-start-input"
-                onChange={handleGameStartChange}
-                value={gameStart || ""} 
-                placeholder=""
-            />
-            <h3>Game End</h3>
-            <Form.Control 
-                className="game-end-form"
-                id="game-end-input"
-                onChange={handleGameEndChange}
-                value={gameEnd || ""} 
-                placeholder=""
-            />
-            <h3>Election Start</h3>
-            <Form.Control 
-                className="election-start-form"
-                id="election-start-input"
-                onChange={handleElectionStartChange}
-                value={electionStart || ""} 
-                placeholder=""
-            />
-            <Button onClick={() => {setShowUpdate(true)}}>Update Game State</Button>
-            <h2>{updateMessage}</h2>
-            <br />
-            <h3>Starting Num Galaxies</h3>
-            <Form.Control 
-                className="num-galaxies-form"
-                id="num-galaxies-input"
-                onChange={handleNumGalaxiesChange}
-                value={numGalaxies || ""} 
-                placeholder=""
-            />
-            <h3>Max Galaxy Size</h3>
-            <Form.Control 
-                className="max-galaxy-size-form"
-                id="max-galaxy-size-input"
-                onChange={handleMaxGalaxySizeChange}
-                value={maxGalaxySize || ""} 
-                placeholder=""
-            />
-            <h3>Average Size for New Galaxy</h3>
-            <Form.Control 
-                className="avg-size-new-galaxy-form"
-                id="avg-size-new-galaxy-input"
-                onChange={handleAvgSizeNewGalaxyChange}
-                value={avgSizeNewGalaxy || ""}
-                placeholder=""
-            />
-            <h3>Galaxies per Cluster</h3>
-            <Form.Control
-                className="cluster-size-form"
-                id="cluster-size-input"
-                onChange={(e) => setClusterSize(e.target.value)}
-                value={clusterSize || ""}
-                placeholder="Default"
-            />
-            <Button onClick={() => {setShowCreate(true)}}>Create State</Button>
-            <h2>{createMessage}</h2>
-            <br />
-            <br />
-            <Button onClick={() => {setShowReset(true)}}>Reset State</Button>
-            <h2>{resetMessage}</h2>
-            <br />
-            <Button onClick={() => adminAuth.logout()}>Logout</Button>
-            <hr />
-            <AdminUniverse />
-        </div>
-    }
+    <div className="admin-page">
+      <div className="d-flex justify-content-between align-items-center mb-2">
+        <h2 className="mb-0">Admin</h2>
+        <Button size="sm" variant="secondary" onClick={() => adminAuth.logout()}>Sign out</Button>
+      </div>
+      <AdminRound onChange={changed} />
+      <hr />
+      <AdminUniverse key={changes} />
     </div>
-  )
+  );
 }
 
 export default Admin;

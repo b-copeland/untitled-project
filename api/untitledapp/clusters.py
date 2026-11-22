@@ -2,7 +2,7 @@
 Cluster politics: the galaxies of a cluster vote to build up benefits that every kingdom in the cluster gets.
 
 A **cluster** is the group of galaxies whose ids share a first part: galaxy ``2:7`` is galaxy 7 of cluster 2.
-``/api/createstate`` deals galaxies into clusters of ``CLUSTER_SIZE``, and a galaxy never changes cluster, so a
+``/api/admin/newround`` deals galaxies into clusters of ``CLUSTER_SIZE``, and a galaxy never changes cluster, so a
 kingdom's cluster follows from its galaxy and needs no document of its own.
 
 Each galaxy's leader casts the galaxy's one vote for a benefit in ``shared.CLUSTER_BENEFITS``, or none. Every benefit has

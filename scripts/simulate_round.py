@@ -283,7 +283,6 @@ class Simulation:
                     self.app.logger.removeHandler(handler)
             logging.getLogger().setLevel(logging.CRITICAL)
         self.client = self.app.test_client()
-        endpoint = self.app.config["AZURE_FUNCTION_ENDPOINT"]
 
         import untitledapp.botbrain as botbrain
         import untitledapp.bots as bots
@@ -315,21 +314,19 @@ class Simulation:
         self.clock.install()
         self.start = self.clock.now
 
-        REQUESTS_SESSION.post(f"{endpoint}/init")
         with self.app.app_context():
             untitledapp.seed_testing_users()
         login = self.client.post("/api/adminlogin", json={"username": "admin", "password": "admin"})
         admin = {"Authorization": "Bearer " + login.json["accessToken"]}
-        self.client.post("/api/createstate", headers=admin, json={
-            "num_galaxies": galaxies, "max_galaxy_size": 50, "avg_size_new_galaxy": 10})
         self.end = self.start + datetime.timedelta(days=days)
-        self.client.post("/api/updatestate", headers=admin, json={
+        started = self.client.post("/api/admin/newround", headers=admin, json={
             "game_start": (self.start - datetime.timedelta(seconds=1)).isoformat(),
             "game_end": self.end.isoformat(),
-            "election_start": (self.start + datetime.timedelta(days=election_day)).isoformat(),
-            "election_end": "",
-            "next_history": self.start.isoformat(),
+            # none in a round shorter than the wait for the first election
+            "election_start": (self.start + datetime.timedelta(days=election_day)).isoformat() if election_day < days else "",
+            "num_galaxies": galaxies,
         })
+        assert started.status_code == 200, started.get_data(as_text=True)
         created = self.client.post("/api/admin/bots", json=mix, headers=admin)
         assert created.status_code == 201, created.get_data(as_text=True)
         self.refresh_headers = {"Refresh-Secret": os.environ["REFRESH_SECRET"]}

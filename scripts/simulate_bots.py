@@ -3,7 +3,7 @@
 Needs the local stack running (Cosmos emulator, function app, Flask API), with Flask and the function app started
 with the same ``EPOCH_SECONDS`` as this script's ``--epoch`` (a short epoch makes a round run fast), e.g. 30.
 
-It WIPES the local game (``/api/resetstate``), so it refuses to run unless ``COSMOS_ENDPOINT`` in
+It WIPES the local game (``/api/admin/newround``), so it refuses to run unless ``COSMOS_ENDPOINT`` in
 ``funcapp/local.settings.json`` is the local emulator. Secrets are read from ``api/.flaskenv`` and never printed.
 
     python scripts/simulate_bots.py --epoch 30 --minutes 10 --bots 12
@@ -102,17 +102,14 @@ def main():
     sim.login()
 
     if not args.no_reset:
-        print("reset:", sim.post("/api/resetstate").status_code)
-        r = sim.post("/api/createstate", {"num_galaxies": args.galaxies, "max_galaxy_size": 12, "avg_size_new_galaxy": 6})
-        print("createstate:", r.status_code)
         start = datetime.datetime.now(datetime.timezone.utc)
-        r = sim.post("/api/updatestate", {
+        r = sim.post("/api/admin/newround", {
             "game_start": start.isoformat(),
             "game_end": (start + datetime.timedelta(minutes=args.minutes + 30)).isoformat(),
             "election_start": (start + datetime.timedelta(seconds=args.epoch * 20)).isoformat(),
-            "next_history": (start + datetime.timedelta(seconds=args.epoch)).isoformat(),
+            "num_galaxies": args.galaxies,
         })
-        print("updatestate:", r.status_code)
+        print("new round:", r.status_code, r.text[:200])
         each = max(1, args.bots // 4)
         r = sim.post("/api/admin/bots", {"explorer": each, "attacker": each, "intel": each, "thief": each})
         print("bots:", r.status_code, r.text[:200])

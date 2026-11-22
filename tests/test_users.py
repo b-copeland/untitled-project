@@ -246,16 +246,10 @@ def test_the_refresh_does_not_read_users(app, monkeypatch):
 # --- a round reset keeps users ------------------------------------------------------------------------------------
 
 def test_a_round_reset_keeps_accounts_and_frees_their_kingdoms(app, client):
-    # the global documents /resetstate expects, as /init makes them
-    for doc_id, state in {
-        "accounts": {"accounts": []}, "kingdoms": {"kingdoms": {}}, "galaxies": {"galaxies": {}},
-        "empires": {"empires": {}}, "universe_news": {"news": []}, "universe_votes": {"votes": {}},
-        "scores": {"points": {}, "stars": {}, "networth": {}, "galaxy_networth": {}},
-    }.items():
-        _create_item(doc_id, state)
     _create_item("kingdom_1", {"name": "Gone"})
     admin = _login(client, "admin", "admin").get_json()["accessToken"]
-    assert client.post("/api/resetstate", headers=_auth(admin)).status_code == 200
+    from tests.test_admin_rounds import new_round_body
+    assert client.post("/api/admin/newround", json=new_round_body(), headers=_auth(admin)).status_code == 200
 
     users = {user.username: user for user in _all(app)}
     assert {"admin", "user1", "user2"} <= set(users)
