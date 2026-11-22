@@ -37,7 +37,7 @@ address exists.
 ### To switch real delivery on in Azure
 
 App settings on the web app: `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER` (an address or domain verified in SendGrid) and
-`FRONTEND_URL` (for example `https://untitled-space-game-12k34j134.azurewebsites.net`). Without `FRONTEND_URL`, links use
+`FRONTEND_URL` (in production `https://www.farsteel.com`). Without `FRONTEND_URL`, links use
 the host of the request that triggered the email.
 
 ## Data

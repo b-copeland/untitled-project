@@ -6,7 +6,7 @@ What runs in production, how code gets there, and what is **not** automated yet.
 
 | Piece | Where it runs | How it is deployed |
 |---|---|---|
-| Web app: Flask API plus the built React frontend | Azure App Service (Linux, **Free F1 plan**), app `untitled-space-game-12k34j134` | Automatically, by GitHub Actions on every push to `main` |
+| Web app: Flask API plus the built React frontend | Azure App Service (Linux, **Basic B1 plan**, one instance), app `untitled-space-game-12k34j134`, served at `https://www.farsteel.com` | Automatically, by GitHub Actions on every push to `main` |
 | Function app (`funcapp/`) | Azure Functions, app `usg-funcapp-1345kh132`, Linux Consumption (Y1) plan | Automatically, by the same GitHub Actions workflow, before the web app |
 | Game state | Azure Cosmos DB, one database `dev` with containers `data`, `dev`, `test`, `prod` | Created by hand in the Azure portal |
 | Users | Cosmos documents (`user_<id>`, `username_<key>`, `user_counter`) | Created at sign-up; the `admin` user by the app on first start if missing |
@@ -18,9 +18,9 @@ Read from Azure with a Reader-only identity on 2026-11-10. Re-check before relyi
 
 | Setting | Value | Why it matters |
 |---|---|---|
-| Web app plan | **Free (F1)**, 1 instance, Python 3.10 | The web app can not scale out at all on this plan. Moving to a paid tier is a prerequisite for any scale-out work, not just fixing the locks. |
-| Web app: Always On | **Off** | Microsoft documents that WebJobs on a cron schedule need Always On. On a Free plan the app can be unloaded when idle, and the plan has a daily CPU quota. It is worth checking whether refreshes have been missed. |
-| Web app: WebSockets | Reported **Off** by the config API, yet WebSockets do work in production (observed by the maintainer), so the setting is not what gates them | The app pushes live notifications over `/ws/listen`. **On the Free plan on Linux, Microsoft documents a limit of 5 concurrent WebSocket connections**, and further ones are refused with HTTP 429 ([limits](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits), [Linux FAQ](https://learn.microsoft.com/en-us/troubleshoot/azure/app-service/faqs-app-service-linux-new)). So live notifications likely reach only the first few players online. Other plans allow far more. |
+| Web app plan | **Basic (B1)**, 1 instance, Python 3.10 (moved from Free F1 by the maintainer on 2026-11-21, for the custom domain) | B1 allows up to 3 instances, billed per instance. Keep it at one: the gaps in [status.md](status.md#parallelism-gaps) break with more. |
+| Web app: Always On | **On** (since the move to B1) | Microsoft documents that WebJobs on a cron schedule need Always On. Without it the app can be unloaded when idle and the refresh job stops firing. |
+| Web app: WebSockets | Reported **Off** by the config API, yet WebSockets do work in production (observed by the maintainer), so the setting is not what gates them | The app pushes live notifications over `/ws/listen`. Microsoft documents per-plan limits on concurrent WebSocket connections: 5 on Free, far more on Basic and above ([limits](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits), [Linux FAQ](https://learn.microsoft.com/en-us/troubleshoot/azure/app-service/faqs-app-service-linux-new)). Further connections are refused with HTTP 429. |
 | Function app plan | **Linux Consumption (Y1)**, Python 3.10, no pre-warmed instances | Consumption scales out automatically under load, so several function app instances can run at once today. That is why the version checks in `funcapp/concurrency.py` matter now, even though the web app has one instance. Azure has announced the end of Linux Consumption on 2028-09-30. |
 | Cosmos DB | Session consistency, **one write region (East US)**, free tier, periodic backup | One write region is what makes the version checks a true compare-and-swap. |
 | Cosmos throughput | **1000 RU/s, manual, set on the database** | All four containers, including `prod`, share this one budget. Anything pointed at `dev` or `test` in Azure competes with production. |
@@ -83,7 +83,23 @@ These live in the Azure portal only. Check them before rebuilding the environmen
   in one process are listed in [status.md](status.md#parallelism-gaps).
 - The Python version selected in the portal (3.10 to match CI).
 
-## Function app
+## Custom domain
+
+The game is served at `https://www.farsteel.com`. The domain is registered with Cloudflare, which also hosts its DNS. Set up
+on 2026-11-21:
+
+| Where | Setting | Why |
+|---|---|---|
+| Cloudflare DNS | `CNAME www → untitled-space-game-12k34j134.azurewebsites.net`, **DNS only (grey cloud)** | Azure's managed certificate is issued and renewed only while the name points straight at the app. Turning the Cloudflare proxy on breaks renewal. |
+| Cloudflare DNS | `TXT asuid.www →` the web app's custom domain verification ID | Proves ownership to Azure |
+| Azure web app | Custom domain `www.farsteel.com` with an **App Service Managed Certificate** (SNI), **HTTPS Only** on | Free certificate, renewed by Azure. Needs Basic or above: Free F1 can not bind custom domains. |
+| Cloudflare DNS | `A @ 192.0.2.1`, **proxied (orange cloud)** | A placeholder so Cloudflare receives requests for the bare domain. Nothing is served from that address. |
+| Cloudflare redirect rule "Root to www" | Hostname equals `farsteel.com` → dynamic redirect to `concat("https://www.farsteel.com", http.request.uri.path)`, 301, query string kept | The bare domain has no certificate in Azure, so it redirects to `www` at Cloudflare. |
+| Azure web app setting | `FRONTEND_URL=https://www.farsteel.com` | Base of the links in emails |
+
+The `*.azurewebsites.net` address still works. Nothing in the code depends on the host name: the frontend uses relative
+URLs and builds the notifications socket address from the page's own host.
+
 
 CI publishes `funcapp/` with `Azure/functions-action@v1` (remote build) in the `deploy-funcapp` job, which runs after
 the tests and **before** the web app deploy; if it fails, the web app is not deployed. It needs the GitHub secret
@@ -114,8 +130,8 @@ called regularly (every few seconds to a minute, depending on the game speed).
 which runs `refresh.sh` on the cron `0 * * * * *` (every minute). It is configured in the portal and the script is not
 in the repo. If you rebuild the environment, recreate it. Two things to keep in mind:
 
-- **Always On is off** on the Free plan, and cron-triggered WebJobs need it. If the app is ever unloaded, the job that
-  would wake it can not fire. See "What Azure actually runs".
+- **Always On must stay on**: cron-triggered WebJobs need it. If the app is ever unloaded, the job that would wake it
+  can not fire. See "What Azure actually runs".
 - If the web app is ever scaled out to several instances, check that the job is a singleton: by default a WebJob runs
   on every instance, which would run overlapping refreshes.
 
