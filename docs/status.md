@@ -168,8 +168,8 @@ playstyle projects' effects on whole kingdoms.
 - Upgrading is by hand only: the auto spender trains towards unit targets from recruits but never upgrades, and an
   upgrade can not be scheduled. Tenet 1 wants both; not built yet.
 - Bots neither train nor upgrade to the heavy, elite or playstyle units.
-- The playstyle units' costs (Elite or Big Flexer cost plus about 15%, the maintainer's choice) and their
-  `NETWORTH_VALUES` (marked as proposals) are first numbers.
+- The playstyle units' costs, `NETWORTH_VALUES` and `SELF_DESTRUCT_LOSSES_INCREASE` are the maintainer's first
+  numbers, not yet tested in play.
 
 ## Bots
 

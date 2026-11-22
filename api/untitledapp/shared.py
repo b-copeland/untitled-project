@@ -67,14 +67,14 @@ UNITS = {
     'solar_attack': {
         'offense': 7,
         'defense': 0,
-        'cost': 600,
+        'cost': 650,
         'fuel': 1,  # less SOLAR_FUEL_REDUCTION
         'hangar_capacity': 1,
     },
     'self_destruct_attack': {
         'offense': 7,
         'defense': 0,
-        'cost': 600,
+        'cost': 650,
         'fuel': 1,
         'hangar_capacity': 1,
         'self_destruct': True,  # see self_destruct_share
@@ -82,14 +82,14 @@ UNITS = {
     'solar_defense': {
         'offense': 0,
         'defense': 7,
-        'cost': 690,
+        'cost': 750,
         'fuel': 1,  # less SOLAR_FUEL_REDUCTION
         'hangar_capacity': 1,
     },
     'self_destruct_defense': {
         'offense': 0,
         'defense': 7,
-        'cost': 690,
+        'cost': 750,
         'fuel': 1,
         'hangar_capacity': 1,
         'self_destruct': True,
@@ -97,7 +97,7 @@ UNITS = {
     'warp_big_flex': {
         'offense': 10,
         'defense': 10,
-        'cost': 1450,
+        'cost': 1800,
         'fuel': 2,
         'hangar_capacity': 2,
         'warp': True,  # all go with the general who returns first (conquer._split_across_generals)
@@ -105,7 +105,7 @@ UNITS = {
     'compact_big_flex': {
         'offense': 10,
         'defense': 10,
-        'cost': 1450,
+        'cost': 1600,
         'fuel': 2,
         'hangar_capacity': 2,  # COMPACT_FLEX_HANGAR_CAPACITY
     },
@@ -451,17 +451,17 @@ GAME_CONFIG = {
         "attack": 7,
         "heavy_attack": 8,
         "elite_attack": 9,
-        "solar_attack": 10,  # proposal
-        "self_destruct_attack": 10,  # proposal
+        "solar_attack": 10,
+        "self_destruct_attack": 10,
         "defense": 8,
         "heavy_defense": 9,
         "elite_defense": 11,
-        "solar_defense": 12,  # proposal
-        "self_destruct_defense": 12,  # proposal
+        "solar_defense": 12,
+        "self_destruct_defense": 12,
         "flex": 10,
         "big_flex": 20,
-        "warp_big_flex": 22,  # proposal
-        "compact_big_flex": 22,  # proposal
+        "warp_big_flex": 25,
+        "compact_big_flex": 24,
         "recruits": 2,
         "engineers": 18,
     },
@@ -542,7 +542,7 @@ GAME_CONFIG = {
     "SOLAR_FUEL_REDUCTION": 0.5,  # solar attackers and defenders use this much less fuel than the unit they come from
     # Self-destructing units raise the other side's unit losses by up to this much, scaled by their share of the
     # strength on their side of the battle (the attack's offense, or the defense at home): self_destruct_share.
-    "SELF_DESTRUCT_LOSSES_INCREASE": 0.5,
+    "SELF_DESTRUCT_LOSSES_INCREASE": 0.3,
     "COMPACT_FLEX_HANGAR_CAPACITY": 1,  # hangar space one compact big flexer takes
 
     # Racial capstones.
