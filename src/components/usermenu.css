@@ -1,0 +1,10 @@
+/* The account button (components/usermenu.js): an icon and the username, which is cut short on a phone. */
+.user-menu-toggle { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--bs-body-color); }
+.user-menu-name { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 575.98px) {
+    .user-menu-name { max-width: 7rem; }
+}
+
+/* Desktop: a slim bar over the content column, the button on its right. Phones have it in the top bar instead. */
+.userbar { width: 100%; justify-content: flex-end; padding: 0.75rem 2rem 0; }
+.topbar .user-menu { margin-left: auto; }

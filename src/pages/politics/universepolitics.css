@@ -1,29 +1,32 @@
 .universe-politics {
-    min-height: 480px;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    width: 100%;
+}
+.universe-politics-box > br {
+    display: none;
 }
 .universe-votes-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 90%;
-    padding: 15px;
+    max-width: 420px;
+    align-items: flex-start;
 }
-@media (min-width: 756px) {
-    .universe-votes-box {
-        width: 40%;
-        min-width: 400px;
-    }
+.universe-votes-box > br {
+    display: none;
+}
+.universe-votes-box > * {
+    margin-bottom: 0.5rem;
 }
 .buy-votes-button {
-    width: 50%;
-    margin: 10px;
+    min-width: 120px;
 }
-@media (min-width: 756px) {
-    .universe-votes-box {
-        width: 25%;
-        min-width: 250px;
-    }
+.universe-votes-label {
+    margin: 0.25rem 0 0;
+    color: var(--bs-secondary-color);
+    font-size: 0.875rem;
+}
+.universe-votes-box .amount-input,
+.galaxy-policy-card .amount-input {
+    width: 100%;
+    max-width: 320px;
+    margin-left: 0;
 }

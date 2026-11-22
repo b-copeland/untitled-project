@@ -1,12 +1,24 @@
 import React from "react";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render as renderBare, screen, fireEvent, within } from "@testing-library/react";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import Targets, { actionButtons, empireKingdoms, pointsText, targetFormErrors, warKingdoms } from "./targets";
 import { authFetch } from "../../auth";
 
 jest.mock("../../auth", () => ({ authFetch: jest.fn() }));
-jest.mock("../conquer/attack.js", () => (props) => <div>Attack planner on {props.initialKd}</div>);
-jest.mock("../conquer/spy.js", () => (props) => <div>Spy planner on {props.initialKd} with {props.initialOperation || "no operation"}</div>);
-jest.mock("../conquer/launchmissiles.js", () => (props) => <div>Missile planner on {props.initialKd}</div>);
+
+// The page under a router; the planner pages it opens show the address they were opened at.
+function Opened() {
+    const location = useLocation();
+    return <div>Opened {location.pathname}{location.search}</div>;
+}
+const render = (element) => renderBare(
+    <MemoryRouter initialEntries={["/empirepolitics"]}>
+        <Routes>
+            <Route path="/empirepolitics" element={element} />
+            <Route path="*" element={<Opened />} />
+        </Routes>
+    </MemoryRouter>
+);
 
 beforeEach(() => {
     authFetch.mockImplementation(() => Promise.resolve({ json: () => Promise.resolve({ status: "success", message: "ok" }) }));
@@ -102,7 +114,7 @@ test("a member sees the target, its fund and the participants, but no leadership
 test("an action button opens its planner on the target", () => {
     render(<Targets data={data()} loading={{}} updateData={jest.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Kidnap" }));
-    expect(screen.getByText("Spy planner on 5 with kidnappopulation")).toBeTruthy();
+    expect(screen.getByText("Opened /spy?target=5&op=kidnappopulation")).toBeTruthy();
 });
 
 test("there is no pay out button: removing asks first and says the fund is paid out then", () => {

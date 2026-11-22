@@ -240,7 +240,7 @@ def _token_claims():
 
 class TokenUser:
     """
-    The caller as the login token describes them: id, roles, kingdom id and whether the kingdom was created. It is
+    The caller as the login token describes them: id, username, roles, kingdom id and whether the kingdom was created. It is
     what ``current_user()`` returns for most requests, so a poll does not read the user document. Any other field
     (death date, email, ...) and ``save`` use the document, read once per request.
 
@@ -254,6 +254,8 @@ class TokenUser:
         self.kd_created = bool(claims.get("kc"))
         self.roles = claims.get("rls", "")
         self.round = claims.get("rnd", "")
+        if "un" in claims:  # a token issued before the username was a claim reads it from the document
+            self.username = claims["un"]
 
     @property
     def identity(self):
@@ -294,7 +296,7 @@ def issue_tokens(user, round_id=None):
     guard = flask.current_app.extensions["praetorian"]
     if round_id is None:
         round_id = current_round()
-    claims = {"kd": user.kd_id or "", "kc": bool(user.kd_created), "rnd": round_id}
+    claims = {"kd": user.kd_id or "", "kc": bool(user.kd_created), "rnd": round_id, "un": user.username}
     return {
         "accessToken": guard.encode_jwt_token(user, **claims),
         "refreshToken": guard.encode_jwt_token(user, **claims),

@@ -74,7 +74,7 @@ function Spy(props) {
                 If you fail an aggressive spy operation, or your target's spy radar catches you, your drones will be revealed to the target
                 for {props.state.game_config?.BASE_REVEAL_DURATION_MULTIPLIER * props.state.game_config?.BASE_EPOCH_SECONDS / 3600} hours.
             </p>
-            <Table striped bordered hover>
+            <Table hover>
                 <thead>
                     <tr>
                         <th>Operation</th>

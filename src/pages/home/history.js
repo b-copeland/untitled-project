@@ -5,7 +5,6 @@ import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Table from 'react-bootstrap/Table';
 import "./history.css";
-import Header from "../../components/header";
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { FilterMatchMode } from 'primereact/api';
@@ -16,6 +15,7 @@ import 'bootstrap/dist/css/bootstrap.css';
 import HelpButton from "../../components/helpbutton";
 import Select from 'react-select';
 import {VictoryZoomContainer, VictoryBrushContainer, VictoryChart, VictoryLine, VictoryAxis, VictoryTooltip, VictoryVoronoiContainer} from 'victory';
+import { KingdomLink } from "../../components/kingdomlink";
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -58,12 +58,9 @@ function HistoryContent(props) {
     }
     return (
     <>
-      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         defaultActiveKey="attack"
-        justify
-        fill
         variant="tabs"
       >
         <Tab eventKey="attack" title="Attack">
@@ -101,6 +98,7 @@ function Attack(props) {
                 "day": getNiceTimeString(newsItem.time),
                 "time_since": getHoursSince(newsItem.time),
                 "to": (newsItem.to != "") ? props.kingdoms[newsItem.to] + ' (' + props.galaxies_inverted[newsItem.to] + ')' : "",
+                "toId": newsItem.to,
                 "news": newsItem.news,
             }
         }
@@ -124,7 +122,7 @@ function Attack(props) {
                 <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
                 <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '60%' }}/>
                 {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
                 <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
             </DataTable>
         </div>
@@ -149,6 +147,7 @@ function Spy(props) {
                 "day": getNiceTimeString(newsItem.time),
                 "time_since": getHoursSince(newsItem.time),
                 "to": (newsItem.to != "") ? props.kingdoms[newsItem.to] + ' (' + props.galaxies_inverted[newsItem.to] + ')' : "",
+                "toId": newsItem.to,
                 "operation": newsItem.operation,
                 "news": newsItem.news,
             }
@@ -173,7 +172,7 @@ function Spy(props) {
                 <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
                 <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '45%'}}/>
                 {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
                 <Column field="operation" header="Operation" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
                 <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
             </DataTable>
@@ -198,6 +197,7 @@ function Missiles(props) {
                 "day": getNiceTimeString(newsItem.time),
                 "time_since": getHoursSince(newsItem.time),
                 "to": (newsItem.to != "") ? props.kingdoms[newsItem.to] + ' (' + props.galaxies_inverted[newsItem.to] + ')' : "",
+                "toId": newsItem.to,
                 "news": newsItem.news,
             }
         }
@@ -221,7 +221,7 @@ function Missiles(props) {
                 <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
                 <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '60%' }}/>
                 {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
                 <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
             </DataTable>
         </div>

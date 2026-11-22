@@ -15,9 +15,9 @@ function Shields(props) {
         <div id="shields" ref={yourElementRef} className="help-section">
             <h2>Shields</h2>
             <p>
-                The Shields page allows you to update your shields usage. Shields consume power to provide some benefits. 
+                The Shields page allows you to update your shields usage. Shields burn fuel every hour, for each star and each percent, and the page shows what your shields cost per hour. Move a slider and press Update to change them; you need fuel to change shields.
             </p>
-            <Table className="shields-table" striped bordered hover size="sm">
+            <Table className="shields-table" hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Shield</th>
@@ -48,7 +48,7 @@ function Shields(props) {
                     <tr>
                         <td style={{textAlign: "left"}}>Missiles</td>
                         <td style={{textAlign: "left"}}>Missiles used against you have their damage reduced based on current shields %</td>
-                        <td style={{textAlign: "right"}}>{displayPercent(props.state.game_config?.BASE_MISSILE_SHIELDS_MAX || 0)}</td>
+                        <td style={{textAlign: "right"}}>{displayPercent(props.state.game_config?.BASE_MISSILES_SHIELDS_MAX || 0)}</td>
                         <td style={{textAlign: "right"}}>{props.state.game_config?.BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT || 0}</td>
                     </tr>
                 </tbody>

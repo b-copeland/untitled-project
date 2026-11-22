@@ -1,0 +1,75 @@
+/*
+ * Toasts: the results of the player's own actions (bottom corner, above the help button) and the notifications pushed
+ * by the server (one panel, top corner). Both are cards in the page's colours with a coloured edge for what they say.
+ */
+.game-toasts {
+    position: fixed; right: 16px; z-index: 1070;
+    width: min(380px, calc(100vw - 32px));
+    display: flex; flex-direction: column; gap: 0.5rem;
+}
+.result-toasts { bottom: 76px; align-items: stretch; }  /* the help button is 48px high, 16px from the bottom */
+
+.game-toast,
+.notifications-panel {
+    background: var(--surface-raised);
+    color: var(--bs-body-color);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.game-toast {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    padding: 0.65rem 0.75rem 0.65rem 0.9rem;
+    border-left: 4px solid var(--toast-edge, var(--bs-info));
+    animation: game-toast-in 160ms ease-out;
+}
+.game-toast-success { --toast-edge: var(--bs-success); }
+.game-toast-warning { --toast-edge: var(--bs-warning); }
+.game-toast-text { flex: 1; min-width: 0; }
+.game-toast-title { display: block; font-size: 0.8rem; color: var(--bs-secondary-color); font-weight: 600; }
+.game-toast-message { overflow-wrap: anywhere; white-space: pre-wrap; }
+.game-toast-close { flex: none; font-size: 0.7rem; margin-top: 0.15rem; }
+.game-toasts-clear { align-self: flex-end; }
+
+@keyframes game-toast-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .game-toast { animation: none; }
+}
+
+/* Notifications: one panel that collects them, newest first. */
+.notifications-panel {
+    top: 64px;  /* under the account button (desktop) or the top bar (phone) */
+    max-height: min(70vh, 640px);
+    overflow: hidden;
+    gap: 0;
+    animation: game-toast-in 160ms ease-out;
+}
+.notifications-head {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.6rem 0.75rem 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--row-divider);
+}
+.notifications-count { color: var(--bs-secondary-color); font-size: 0.85rem; margin-right: auto; }
+.notifications-head .btn-close { font-size: 0.7rem; }
+.notifications-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+.notification {
+    padding: 0.55rem 0.75rem 0.55rem 0.9rem;
+    border-left: 4px solid var(--bs-info);
+    border-bottom: 1px solid var(--row-divider);
+}
+.notification:last-child { border-bottom: 0; }
+.notification-warning { border-left-color: var(--bs-warning); }
+.notification-meta { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.78rem; color: var(--bs-secondary-color); }
+.notification-category { font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.notification-warning .notification-category { color: var(--bs-warning-text-emphasis, var(--bs-warning)); }
+.notification-text {
+    cursor: copy;
+    user-select: text;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.notifications-more { align-self: center; margin: 0.25rem 0; }
+.copied { color: var(--bs-success); font-weight: bold; }

@@ -1,15 +1,37 @@
 import React from "react";
-import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 
 import { useAuth, logout } from "./auth";
 import { useGameData, initGlobalData } from "./data/gameData";
 import { useNotifications, Notifications } from "./components/notifications";
 import SideNavbar from "./components/navbar";
+import UserMenu from "./components/usermenu";
 import Button from 'react-bootstrap/Button';
 import { FiMenu } from "react-icons/fi";
 import 'bootstrap/dist/css/bootstrap.css';
 import "./App.css";
-import { sections, publicRoutes, createKingdomRoute, propsFor } from "./routes";
+import { publicRoutes, createKingdomRoute, gamePages, propsFor } from "./routes";
+import Header from "./components/header";
+import { PageContext, PageHead } from "./components/pagehead";
+import { useTheme } from "./theme";
+
+/**
+ * A game page in its frame: the header strip, then the page's section and title (or the way back to the page that
+ * linked here), then the page. Links on the page learn where they are from PageContext.
+ */
+function GamePage({ route, context }) {
+  const location = useLocation();
+  const params = useParams();
+  const title = route.title ? route.title(context.data, params) : route.label;
+  const Page = route.component;
+  return (
+    <PageContext.Provider value={{ path: location.pathname + location.search, label: title }}>
+      <Header data={context.data} />
+      <PageHead section={route.section} title={title} />
+      <Page {...propsFor(route, context)} />
+    </PageContext.Provider>
+  );
+}
 
 /**
  * Wraps the pages that need a player: a signed-in one (otherwise to the login page) who has made a kingdom (otherwise
@@ -56,6 +78,7 @@ function Content({ logged, session }) {
   const [showNav, setShowNav] = React.useState(false);
   const { data, loading, updateData } = useGameData({ logged });
   const notifications = useNotifications({ logged, session, updateData });
+  useTheme(logged ? data.preferences : null);
   const context = { logged, session, data, loading, updateData };
 
   const renderPage = (route, extraProps) => {
@@ -68,14 +91,18 @@ function Content({ logged, session }) {
       <div className="topbar d-lg-none">
         <Button variant="outline-secondary" aria-label="Open menu" onClick={() => setShowNav(true)}><FiMenu /></Button>
         <span className="topbar-title">Untitled Project</span>
+        {logged ? <UserMenu id="user-menu-phone" username={data.preferences?.username} /> : null}
       </div>
 
       <div className="main-body">
         <Notifications {...notifications} />
         <SideNavbar logged={logged} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs} hasKingdom={hasKingdom(data.kingdomid)}/>
         <div className="router">
+          {logged ? <div className="userbar d-none d-lg-flex"><UserMenu username={data.preferences?.username} /></div> : null}
           <div className="router-body">
             <Routes>
+              {/* Spending became a tab of Automation; old links and bookmarks land there. */}
+              <Route path="/spending" element={<Navigate to="/automation?tab=spending" replace />} />
               {publicRoutes.map((route) => (
                 <Route key={route.path} path={route.path}
                   element={renderPage(route, route.props ? route.props(context) : {})}/>
@@ -85,8 +112,8 @@ function Content({ logged, session }) {
                   {renderPage(createKingdomRoute, createKingdomRoute.props(context))}
                 </NewKingdomRoute>}/>
               <Route element={<ProtectedRoute logged={logged} session={session} kingdomid={data.kingdomid}/>}>
-                {sections.flatMap((section) => section.pages).map((route) => (
-                  <Route key={route.path} path={route.path} element={renderPage(route, propsFor(route, context))}/>
+                {gamePages.map((route) => (
+                  <Route key={route.path} path={route.path} element={<GamePage route={route} context={context}/>}/>
                 ))}
               </Route>
             </Routes>

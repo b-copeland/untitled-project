@@ -1,193 +1,78 @@
 import React, { useState } from "react";
 import Form from 'react-bootstrap/Form';
-import { NumberControl } from "../../components/forms";
-import InputGroup from 'react-bootstrap/InputGroup';
 import Button from 'react-bootstrap/Button';
 import { authFetch } from "../../auth";
-import Header from "../../components/header";
-import HelpButton from "../../components/helpbutton";
-import { ResultToasts } from "../../components/results";
-import "./status.css";
+import { AmountInput, SubmitButton, useSliders } from "../../components/forms";
+import { ResultToasts, safeJson } from "../../components/results";
+import { Panel, FieldRow, Stats } from "../../components/planner";
 import "./spending.css";
 
-/** The Spending page: whether auto spending is on, how it splits the kingdom's money, and the funding it holds. */
-function SpendingPage(props) {
-    return (
-        <>
-            <Header data={props.data} />
-            <Spending kingdom={props.data.kingdom} loading={props.loading} updateData={props.updateData} />
-            <HelpButton scrollTarget={"spending"} />
-        </>
-    );
-}
+const CATEGORIES = [
+    ["settle", "Settle"],
+    ["structures", "Structures"],
+    ["military", "Military"],
+    ["engineers", "Engineers"],
+];
 
-function Spending(props) {
-    const [settleInput, setSettleInput] = useState('');
-    const [structuresInput, setStructuresInput] = useState('');
-    const [militaryInput, setMilitaryInput] = useState('');
-    const [engineersInput, setEngineersInput] = useState('');
-    const [enabled, setEnabled] = useState(props.kingdom.auto_spending_enabled)
+/**
+ * Automation's Spending tab (it has no page of its own; /spending redirects there): the auto spending switch, a slider
+ * per category (the four add up to at most 100%), and the funding each holds. Update sends only the moved shares.
+ */
+export function Spending(props) {
+    const spendingInfo = props.kingdom?.auto_spending || {};
+    const current = Object.fromEntries(CATEGORIES.map(([key]) => [key, Math.round((spendingInfo[key] || 0) * 100)]));
+    const sliders = useSliders(current);
     const [results, setResults] = useState([]);
 
-    const spendingInfo = props.kingdom?.auto_spending;
-    if (spendingInfo === undefined) {
-        return null
+    if (props.kingdom?.auto_spending === undefined) {
+        return null;
     }
+    const post = (body) => {
+        const updateFunc = () => authFetch('api/spending', { method: 'post', body: JSON.stringify(body) })
+            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
+        props.updateData(['kingdom'], [updateFunc]);
+    };
+    const total = CATEGORIES.reduce((sum, [key]) => sum + sliders.value(key), 0);
+    const onUpdate = () => {
+        post(sliders.body(CATEGORIES.map(([key]) => key)));
+        sliders.reset();
+    };
 
-    const handleSettleInput = (e) => {
-        setSettleInput(e.target.value)
-    }
-  
-    const handleStructuresInput = (e) => {
-        setStructuresInput(e.target.value)
-    }
-
-    const handleMilitaryInput = (e) => {
-        setMilitaryInput(e.target.value)
-    }
-  
-    const handleEngineersInput = (e) => {
-        setEngineersInput(e.target.value)
-    }
-    const handleEnabledChange = (e) => {
-        let opts = {
-            'enabled': e.target.checked
-        }
-        const updateFunc = () => authFetch('api/spending', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['kingdom'], [updateFunc])
-        setEnabled(e.target.checked)
-    }
-
-    const onSubmitClick = async (e)=>{
-        let opts = {
-            'settle': settleInput === '' ? undefined : settleInput,
-            'structures': structuresInput === '' ? undefined : structuresInput,
-            'military': militaryInput === '' ? undefined : militaryInput,
-            'engineers': engineersInput === '' ? undefined : engineersInput,
-        }
-        const updateFunc = () => authFetch('api/spending', {
-            method: 'post',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['kingdom'], [updateFunc])
-        setSettleInput('');
-        setStructuresInput('');
-        setMilitaryInput('');
-        setEngineersInput('');
-    }
     return (
-        <div className="spending">
-            <ResultToasts title="Auto Spending Results" results={results} setResults={setResults} />
-            <h2>Update Auto Spending:</h2>
-            <Form>
-                <Form.Check 
+        <div className="spending panel-grid">
+            <ResultToasts title="Auto spending" results={results} setResults={setResults} />
+            <Panel title="Auto spending" hint="While it is on, these shares of the money you make are set aside for each category and spent on it.">
+                <Form.Check
                     type="switch"
                     id="enable-auto-spending-switch"
-                    label="Enable"
-                    defaultChecked={enabled}
-                    onChange={handleEnabledChange}
-                    disabled={props.loading.kingdom}
+                    label={props.kingdom.auto_spending_enabled ? "On" : "Off"}
+                    checked={!!props.kingdom.auto_spending_enabled}
+                    onChange={(e) => post({ enabled: e.target.checked })}
+                    disabled={!!props.loading.kingdom}
                 />
-            </Form>
-            <div className="col-center-full spending-inputs">
-                <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-settle-percent" className="spending-title">
-                        Settle (Current: {spendingInfo.settle * 100}%)
-                    </InputGroup.Text>
-                    <NumberControl
-                        id="settle-percent"
-                        aria-describedby="basic-addon3" 
-                        onChange={handleSettleInput}
-                        value={settleInput} 
-                        placeholder={spendingInfo.settle * 100}
-                        autoComplete="off"
-                    />
-                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
-                        %
-                    </InputGroup.Text>
-                </InputGroup>
-                <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-structures-percent" className="spending-title">
-                        Structures (Current: {spendingInfo.structures * 100}%)
-                    </InputGroup.Text>
-                    <NumberControl
-                        id="structures-percent"
-                        aria-describedby="basic-addon3" 
-                        onChange={handleStructuresInput}
-                        value={structuresInput} 
-                        placeholder={spendingInfo.structures * 100}
-                        autoComplete="off"
-                    />
-                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
-                        %
-                    </InputGroup.Text>
-                </InputGroup>
-                <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-military-percent" className="spending-title">
-                        Military (Current: {spendingInfo.military * 100}%)
-                    </InputGroup.Text>
-                    <NumberControl
-                        id="military-percent"
-                        aria-describedby="basic-addon3" 
-                        onChange={handleMilitaryInput}
-                        value={militaryInput} 
-                        placeholder={spendingInfo.military * 100}
-                        autoComplete="off"
-                    />
-                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
-                        %
-                    </InputGroup.Text>
-                </InputGroup>
-                <InputGroup className="mb-3">
-                    <InputGroup.Text id="text-engineers-percent" className="spending-title">
-                        Engineers (Current: {spendingInfo.engineers * 100}%)
-                    </InputGroup.Text>
-                    <NumberControl
-                        id="engineers-percent"
-                        aria-describedby="basic-addon3" 
-                        onChange={handleEngineersInput}
-                        value={engineersInput} 
-                        placeholder={spendingInfo.engineers * 100}
-                        autoComplete="off"
-                    />
-                    <InputGroup.Text id="text-engineers-percent" style={{width: '10%'}}>
-                        %
-                    </InputGroup.Text>
-                </InputGroup>
-                {props.loading.kingdom
-                ? <Button className="spending-button" variant="primary" type="submit" disabled>
-                    Loading...
-                </Button>
-                : <Button className="spending-button" variant="primary" type="submit" onClick={onSubmitClick}>
-                    Submit
-                </Button>
-                }
-            </div>
-            <div className="text-box kingdom-card">
-                <h4>Auto Spending Funding</h4>
-                <br />
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Settle</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.funding?.settle || 0).toLocaleString()}</span>
+                {CATEGORIES.map(([key, name]) => (
+                    <FieldRow key={key} label={name} hint={`Now ${current[key]}%`} htmlFor={`${key}-percent`}>
+                        <AmountInput name={key} id={`${key}-percent`} label={`${name} share`} suffix="%"
+                            value={String(sliders.value(key))} onChange={sliders.onChange}
+                            max={Math.max(100 - (total - sliders.value(key)), 0)} soloMax={100} />
+                    </FieldRow>
+                ))}
+                <div className="form-actions">
+                    <span className="text-muted">{100 - total}% of income kept as money</span>
+                    {sliders.changed ? <Button variant="link" size="sm" onClick={sliders.reset}>Undo changes</Button> : null}
+                    <SubmitButton loading={props.loading.kingdom} onClick={onUpdate}
+                        blocked={total > 100 ? "The shares add up to more than 100%"
+                            : sliders.changed ? null : "Move a slider to change a share"}>
+                        Update
+                    </SubmitButton>
                 </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Structures</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.funding?.structures || 0).toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Military</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.funding?.military || 0).toLocaleString()}</span>
-                </div>
-                <div className="text-box-item">
-                    <span className="text-box-item-title">Engineers</span>
-                    <span className="text-box-item-value">{Math.floor(props.kingdom.funding?.engineers || 0).toLocaleString()}</span>
-                </div>
-            </div>
+            </Panel>
+            <Panel title="Funding set aside">
+                <Stats items={CATEGORIES.map(([key, name]) => ({
+                    label: name,
+                    value: Math.floor(props.kingdom.funding?.[key] || 0).toLocaleString(),
+                }))} />
+            </Panel>
         </div>
-    )
+    );
 }
-
-export default SpendingPage;

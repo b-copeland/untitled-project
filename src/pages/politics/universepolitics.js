@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
-import { NumberControl } from "../../components/forms";
-import InputGroup from 'react-bootstrap/InputGroup';
+import { AmountInput } from "../../components/forms";
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Tab from 'react-bootstrap/Tab';
@@ -12,7 +11,6 @@ import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer'
 import "./universepolitics.css";
 import Select from 'react-select';
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 
@@ -56,7 +54,6 @@ function UniversePolitics(props) {
     if (electionStart > timeNow && props.data.state.state?.active_policies?.length === 0) {
         return (
             <>
-            <Header data={props.data} />
             <div className="universe-politics">
                 <div className="text-box universe-politics-box">
                     <span>The universe democracy elections have not yet begun.</span>
@@ -79,7 +76,6 @@ function UniversePolitics(props) {
         const winningOptionPolicy2 = (winningPolicies.includes(props.data.universepolitics.desc?.policy_2?.options["1"].name)) ? "1" : "2";
         return (
             <>
-            <Header data={props.data} />
             <div className="universe-politics">
                 <div className="text-box universe-politics-box">
                     <span>The universe democracy elections have finished.</span>
@@ -191,10 +187,13 @@ function UniversePolitics(props) {
     const handlePolicy2Option2Input = (e) => {
         setPolicy2Option2Votes(e.target.value);
     }
-    const calcVotesCosts = (input) => parseInt(input) * 10000
+    // The price of a vote is a game number (BASE_VOTES_COST in shared.py).
+    const voteCost = props.data.state.game_config?.BASE_VOTES_COST || 0;
+    const calcVotesCosts = (input) => (parseInt(input, 10) || 0) * voteCost;
+    const unusedVotes = props.data.kingdom.votes || 0;
+    const affordableVotes = voteCost > 0 ? Math.floor(Math.max(props.data.kingdom.money || 0, 0) / voteCost) : 0;
     return (
         <>
-        <Header data={props.data} />
         <div className="universe-politics">
             <ResultToasts title="Votes Result" results={results} setResults={setResults} />
             <div className="text-box universe-politics-box">
@@ -205,22 +204,12 @@ function UniversePolitics(props) {
                 <span>Effects will last for 6 days</span>
             </div>
             <div className="text-box universe-votes-box">
-                <span>You must buy votes to participate in the election. Each vote costs 10,000 money</span>
+                <span>You must buy votes to participate in the election. Each vote costs {voteCost.toLocaleString()} money</span>
                 <br />
                 <span>Unused votes: {props.data.kingdom.votes?.toLocaleString()}</span>
                 <br />
-                <InputGroup className="buy-votes-input-group">
-                    <InputGroup.Text id="buy-votes-input-display">
-                        Votes
-                    </InputGroup.Text>
-                    <NumberControl
-                        id="buy-votes-input"
-                        onChange={handleBuyVotesInput}
-                        value={buyVotes || ""} 
-                        placeholder="0"
-                        autoComplete="off"
-                    />
-                </InputGroup>
+                <label className="universe-votes-label" htmlFor="buy-votes-input">Votes to buy</label>
+                <AmountInput name="votes" id="buy-votes-input" label="Votes to buy" value={buyVotes} onChange={handleBuyVotesInput} max={affordableVotes} />
                 {props.loading.kingdom
                 ? <Button className="buy-votes-button" variant="primary" type="submit" disabled>
                     Loading...
@@ -231,7 +220,7 @@ function UniversePolitics(props) {
                 }
                 {
                     buyVotes !== ""
-                    ? <h3>Votes Cost: {calcVotesCosts(buyVotes).toLocaleString()}</h3>
+                    ? <span className="text-muted">Votes Cost: {calcVotesCosts(buyVotes).toLocaleString()}</span>
                     : null
                 }   
             </div>
@@ -245,18 +234,8 @@ function UniversePolitics(props) {
                         <br />
                         <span>Your Votes: {props.data.universepolitics.policy_1?.option_1 || 0}</span>
                         <br />
-                        <InputGroup className="cast-votes-input-group">
-                            <InputGroup.Text id="cast-votes-input-display">
-                                Votes
-                            </InputGroup.Text>
-                            <NumberControl
-                                id="cast-votes-policy-1-option-1-input"
-                                onChange={handlePolicy1Option1Input}
-                                value={policy1Option1Votes || ""} 
-                                placeholder="0"
-                                autoComplete="off"
-                            />
-                        </InputGroup>
+                        <label className="universe-votes-label" htmlFor="cast-votes-policy-1-option-1-input">Votes to cast</label>
+                        <AmountInput name="votes" id="cast-votes-policy-1-option-1-input" label="Votes to cast" value={policy1Option1Votes} onChange={handlePolicy1Option1Input} max={unusedVotes} />
                         {
                             props.loading.universepolitics
                             ? <Button className="galaxy-policy-button" variant="primary" type="submit" disabled>
@@ -280,18 +259,8 @@ function UniversePolitics(props) {
                         <br />
                         <span>Your Votes: {props.data.universepolitics.policy_1?.option_2 || 0}</span>
                         <br />
-                        <InputGroup className="cast-votes-input-group">
-                            <InputGroup.Text id="cast-votes-input-display">
-                                Votes
-                            </InputGroup.Text>
-                            <NumberControl
-                                id="cast-votes-policy-1-option-2-input"
-                                onChange={handlePolicy1Option2Input}
-                                value={policy1Option2Votes || ""} 
-                                placeholder="0"
-                                autoComplete="off"
-                            />
-                        </InputGroup>
+                        <label className="universe-votes-label" htmlFor="cast-votes-policy-1-option-2-input">Votes to cast</label>
+                        <AmountInput name="votes" id="cast-votes-policy-1-option-2-input" label="Votes to cast" value={policy1Option2Votes} onChange={handlePolicy1Option2Input} max={unusedVotes} />
                         {
                             props.loading.universepolitics
                             ? <Button className="galaxy-policy-button" variant="primary" type="submit" disabled>
@@ -320,18 +289,8 @@ function UniversePolitics(props) {
                         <br />
                         <span>Your Votes: {props.data.universepolitics.policy_2?.option_1 || 0}</span>
                         <br />
-                        <InputGroup className="cast-votes-input-group">
-                            <InputGroup.Text id="cast-votes-input-display">
-                                Votes
-                            </InputGroup.Text>
-                            <NumberControl
-                                id="cast-votes-policy-2-option-1-input"
-                                onChange={handlePolicy2Option1Input}
-                                value={policy2Option1Votes || ""} 
-                                placeholder="0"
-                                autoComplete="off"
-                            />
-                        </InputGroup>
+                        <label className="universe-votes-label" htmlFor="cast-votes-policy-2-option-1-input">Votes to cast</label>
+                        <AmountInput name="votes" id="cast-votes-policy-2-option-1-input" label="Votes to cast" value={policy2Option1Votes} onChange={handlePolicy2Option1Input} max={unusedVotes} />
                         {
                             props.loading.universepolitics
                             ? <Button className="galaxy-policy-button" variant="primary" type="submit" disabled>
@@ -355,18 +314,8 @@ function UniversePolitics(props) {
                         <br />
                         <span>Your Votes: {props.data.universepolitics.policy_2?.option_2 || 0}</span>
                         <br />
-                        <InputGroup className="cast-votes-input-group">
-                            <InputGroup.Text id="cast-votes-input-display">
-                                Votes
-                            </InputGroup.Text>
-                            <NumberControl
-                                id="cast-votes-policy-2-option-2-input"
-                                onChange={handlePolicy2Option2Input}
-                                value={policy2Option2Votes || ""} 
-                                placeholder="0"
-                                autoComplete="off"
-                            />
-                        </InputGroup>
+                        <label className="universe-votes-label" htmlFor="cast-votes-policy-2-option-2-input">Votes to cast</label>
+                        <AmountInput name="votes" id="cast-votes-policy-2-option-2-input" label="Votes to cast" value={policy2Option2Votes} onChange={handlePolicy2Option2Input} max={unusedVotes} />
                         {
                             props.loading.universepolitics
                             ? <Button className="galaxy-policy-button" variant="primary" type="submit" disabled>

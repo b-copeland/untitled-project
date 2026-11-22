@@ -65,15 +65,31 @@ test("a continuous project shows its bonus, a one-time project its progress or t
     expect(document.getElementById("big_flexers-assign-input").disabled).toBe(true);
 });
 
-test("assigning sends only the projects with a number", () => {
+test("Update sends every project's engineers: the one moved, and the others as they are", () => {
     const updateData = jest.fn((keys, funcs) => funcs.forEach((f) => f()));
     render(<ProjectsContent data={data()} loading={{}} updateData={updateData} />);
     fireEvent.click(screen.getByRole("tab", { name: "Assign" }));
     fireEvent.change(document.getElementById("money_bonus-assign-input"), { target: { value: "3" } });
-    fireEvent.click(screen.getByRole("button", { name: "Assign" }));
-    expect(authFetch).toHaveBeenCalledWith("api/projects", expect.objectContaining({ body: JSON.stringify({ assign: { money_bonus: "3" } }) }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Update" })[0]);
+    const [, request] = authFetch.mock.calls.find(([url]) => url === "api/projects");
+    const { assign } = JSON.parse(request.body);
+    expect(assign.money_bonus).toBe(3);
+    expect(Object.keys(assign).sort()).toEqual(Object.keys(state.projects).sort());
 });
 
+
+test("a project's engineers can be moved down to 0", () => {
+    const updateData = jest.fn((keys, funcs) => funcs.forEach((f) => f()));
+    render(<ProjectsContent data={data()} loading={{}} updateData={updateData} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assign" }));
+    const slider = document.getElementById("money_bonus-assign-input");
+    expect(slider.value).toBe("2");
+    fireEvent.change(slider, { target: { value: "0" } });
+    expect(slider.value).toBe("0");
+    fireEvent.click(screen.getAllByRole("button", { name: "Update" })[0]);
+    const [, request] = authFetch.mock.calls.find(([url]) => url === "api/projects");
+    expect(JSON.parse(request.body).assign.money_bonus).toBe(0);
+});
 test("continuous projects are in their own section, one-time projects in theirs by category", () => {
     const sections = projectSections(state, data().kingdom, data().projects);
     expect(sections.map((section) => section.key)).toEqual(["continuous", "one-time"]);

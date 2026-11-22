@@ -12,16 +12,13 @@ import Table from 'react-bootstrap/Table';
 import Modal from 'react-bootstrap/Modal';
 import ButtonGroup from 'react-bootstrap/ButtonGroup';
 import "./galaxy.css";
-import Attack from "./conquer/attack.js";
-import Spy from "./conquer/spy.js";
-import LaunchMissiles from "./conquer/launchmissiles.js";
-import Message from "./message.js";
-import { IntelModal, KingdomModal, tradable } from "./conquer/intel.js";
-import Header from "../components/header";
+import { tradable } from "./conquer/intel.js";
+import { KingdomLink, kingdomPath, targetPath } from "../components/kingdomlink";
+import { useFromHere } from "../components/pagehead";
 import HelpButton from "../components/helpbutton";
 import { IconButton } from "../components/iconbutton";
 import { withLastKnown, Known } from "../components/lastknown";
-import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsShareFill, BsClipboardData } from "react-icons/bs";
+import { BsEye, BsBinoculars, BsRocketTakeoff, BsChatDots, BsPinAngle, BsPinAngleFill, BsShare, BsShareFill, BsClipboardData, BsChevronLeft, BsChevronRight } from "react-icons/bs";
 import { GiCrossedSwords } from "react-icons/gi";
 
 function getTimeString(date) {
@@ -63,13 +60,10 @@ function Galaxy(props) {
     const [clusterInput, setClusterInput] = useState();
     const [galaxyInput, setGalaxyInput] = useState();
     const [loading, setLoading] = useState(false);
-    const [showView, setShowView] = useState(false);
-    const [showAttack, setShowAttack] = useState(false);
-    const [showSpy, setShowSpy] = useState(false);
-    const [showMissile, setShowMissile] = useState(false);
-    const [showMessage, setShowMessage] = useState(false);
     const [showShareInfo, setShowShareInfo] = useState(false);
-    const [showIntel, setShowIntel] = useState(false);
+    const [query] = useSearchParams();
+    const navigate = useNavigate();
+    const fromHere = useFromHere();
     const [kdToShow, setKdToShow] = useState();
 
     const galaxiesArray = Object.keys(props.data.galaxies);
@@ -85,7 +79,9 @@ function Galaxy(props) {
         fetchData();
     }, [galaxyIndex]);
     if ((galaxyIndex === undefined) & galaxiesArray.length > 0) {
-        var newIndex = galaxiesArray.indexOf(props.initialGalaxyId || '1:1');
+        // A galaxy chosen by the link here (/galaxy?galaxy=1:3, from Conquer), else your own.
+        const asked = galaxiesArray.indexOf(query.get("galaxy") || "");
+        var newIndex = asked >= 0 ? asked : galaxiesArray.indexOf(props.initialGalaxyId || '1:1');
         setGalaxyIndex(newIndex);
         setClusterInput(galaxiesArray[newIndex].split(':')[0]);
         setGalaxyInput(galaxiesArray[newIndex].split(':')[1]);
@@ -187,16 +183,18 @@ function Galaxy(props) {
     // What can be done to a kingdom from its row. Pin and share toggle, so the icon and label say what clicking does now.
     const kingdomActions = (kdId) => {
         const open = (show) => () => { setKdToShow(kdId); show(true); };
+        // The kingdom and the planners are pages of their own, opened with this kingdom chosen; they link back here.
+        const go = (path) => () => navigate(path, { state: fromHere });
         const pinned = props.data.pinned.indexOf(kdId) >= 0;
         const inYourGalaxy = props.data.galaxies_inverted[kdId] == props.data.galaxies_inverted[props.data.kingdom.kdId];
         const shared = props.data.revealed.revealed_to_galaxymates?.indexOf(kdId) >= 0;
         return [
-            { icon: BsEye, label: "View", onClick: open(setShowView) },
-            { icon: GiCrossedSwords, label: "Attack", onClick: open(setShowAttack) },
-            { icon: BsBinoculars, label: "Spy", onClick: open(setShowSpy) },
-            { icon: BsRocketTakeoff, label: "Launch missiles", onClick: open(setShowMissile) },
-            { icon: BsChatDots, label: "Message", onClick: open(setShowMessage) },
-            ...(tradable(props.data, kdId) ? [{ icon: BsClipboardData, label: "Intel: share, buy or ask for it", onClick: open(setShowIntel) }] : []),
+            { icon: BsEye, label: "View", onClick: go(kingdomPath(kdId)) },
+            { icon: GiCrossedSwords, label: "Attack", onClick: go(targetPath("/attack", kdId)) },
+            { icon: BsBinoculars, label: "Spy", onClick: go(targetPath("/spy", kdId)) },
+            { icon: BsRocketTakeoff, label: "Launch missiles", onClick: go(targetPath("/launchmissiles", kdId)) },
+            { icon: BsChatDots, label: "Message", onClick: go(`/message?to=${kdId}`) },
+            ...(tradable(props.data, kdId) ? [{ icon: BsClipboardData, label: "Intel: share, buy or ask for it", onClick: go(kingdomPath(kdId, "intel")) }] : []),
             pinned
                 ? { icon: BsPinAngleFill, label: "Unpin", onClick: () => onSubmitUnpin({ target: { name: kdId } }), disabled: props.loading.pinned, active: true }
                 : { icon: BsPinAngle, label: "Pin", onClick: () => onSubmitPin({ target: { name: kdId } }), disabled: props.loading.pinned },
@@ -216,7 +214,7 @@ function Galaxy(props) {
         : <Known ended={known[kdId].endedOf(path)} gameConfig={gameConfig}>{value}</Known>);
     const galaxyRows = Object.keys(galaxyInfo).map((kdId) =>
         <tr key={kdId}>
-            <td>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</td>
+            <td><KingdomLink kdId={kdId} data={props.data}>{galaxyInfo[kdId].name || props.data.kingdoms[kdId] || ""}</KingdomLink></td>
             <td>{galaxyInfo[kdId].race || ""}</td>
             <td style={{textAlign: "right"}}>{shown(kdId, "stars", known[kdId].kingdom.stars?.toLocaleString() || "")}</td>
             {/* <td style={{textAlign: "right"}}>{galaxyInfo[kdId].networth != undefined ? Math.floor(galaxyInfo[kdId].networth).toLocaleString() : ""}</td>
@@ -249,10 +247,7 @@ function Galaxy(props) {
         return (
             <div key={kdId} className="galaxy-card">
                 <div className="galaxy-card-name">
-                    <button type="button" className="galaxy-card-name-button" title="View this kingdom"
-                        onClick={() => { setKdToShow(kdId); setShowView(true); }}>
-                        {facts.name}
-                    </button>
+                    <KingdomLink kdId={kdId} data={props.data}>{facts.name}</KingdomLink>
                 </div>
                 <dl className="galaxy-card-facts">
                     <div><dt>Race</dt><dd>{facts.race || "?"}</dd></div>
@@ -280,84 +275,7 @@ function Galaxy(props) {
     }
     return (
         <>
-        <Header data={props.data} />
         <div className="galaxy">
-            <KingdomModal show={showView} onHide={() => setShowView(false)} target={kdToShow} tab="kingdom"
-                data={props.data} loading={props.loading} updateData={props.updateData} />
-            <Modal
-                show={showAttack}
-                onHide={() => setShowAttack(false)}
-                animation={false}
-                dialogClassName="attack-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Attack</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Attack data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowAttack(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showSpy}
-                onHide={() => setShowSpy(false)}
-                animation={false}
-                dialogClassName="spy-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Spy</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Spy data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowSpy(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showMissile}
-                onHide={() => setShowMissile(false)}
-                animation={false}
-                dialogClassName="missile-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Missile</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <LaunchMissiles data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowMissile(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <Modal
-                show={showMessage}
-                onHide={() => setShowMessage(false)}
-                animation={false}
-                dialogClassName="message-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Message</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <Message data={props.data} loading={props.loading} updateData={props.updateData} initialKd={kdToShow}/>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowMessage(false)}>
-                    Close
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-            <IntelModal show={showIntel} onHide={() => setShowIntel(false)} target={kdToShow}
-                data={props.data} loading={props.loading} updateData={props.updateData} />
             <Modal
                 show={showShareInfo}
                 onHide={() => setShowShareInfo(false)}
@@ -389,7 +307,7 @@ function Galaxy(props) {
             {
                 loading
                 ? <div className="galaxy-nav-container">
-                    <span className="galaxy-nav-arrow-disabled">{'<<'}</span>
+                    <IconButton icon={BsChevronLeft} label="Previous galaxy" disabled />
                     <div className="box-tight galaxy-nav-input">
                         <InputGroup className="galaxy-nav-input-form">
                             <InputGroup.Text id="cluster">Cluster</InputGroup.Text>
@@ -414,10 +332,10 @@ function Galaxy(props) {
                             />
                         </InputGroup>
                     </div>
-                    <span className="galaxy-nav-arrow-disabled" >{'>>'}</span>
+                    <IconButton icon={BsChevronRight} label="Next galaxy" disabled />
                 </div>
                 : <div className="galaxy-nav-container">
-                    <span className="galaxy-nav-arrow" onClick={moveLeft}>{'<<'}</span>
+                    <IconButton icon={BsChevronLeft} label="Previous galaxy" onClick={moveLeft} />
                     <div className="box-tight galaxy-nav-input">
                         <InputGroup className="galaxy-nav-input-form">
                             <InputGroup.Text id="cluster">Cluster</InputGroup.Text>
@@ -440,7 +358,7 @@ function Galaxy(props) {
                             />
                         </InputGroup>
                     </div>
-                    <span className="galaxy-nav-arrow" onClick={moveRight}>{'>>'}</span>
+                    <IconButton icon={BsChevronRight} label="Next galaxy" onClick={moveRight} />
                 </div>
             }
             
@@ -452,7 +370,7 @@ function Galaxy(props) {
                 ? <NonexistentGalaxy />
                 : view === "cards"
                 ? <div className="galaxy-cards">{galaxyCards}</div>
-                : <div className="table-scroll"><Table striped bordered hover className="galaxies-table" size="sm" >
+                : <div className="table-scroll"><Table hover className="galaxies-table" size="sm" >
                     <thead>
                         <tr>
                         <th>Kingdom</th>

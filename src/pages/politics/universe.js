@@ -3,7 +3,6 @@ import 'bootstrap/dist/css/bootstrap.css';
 import ToggleButton from 'react-bootstrap/ToggleButton';
 import ToggleButtonGroup from 'react-bootstrap/ToggleButtonGroup';
 import { hierarchy, pack } from "d3-hierarchy";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { GameTable } from "../../components/gametable";
 import { Panel } from "../../components/planner";
@@ -225,7 +224,6 @@ function Universe(props) {
         : `${rows.length} galaxies in ${clusterCount} ${clusterCount === 1 ? "cluster" : "clusters"}, coloured by empire.`;
     return (
         <>
-            <Header data={props.data} />
             <div className="universe">
                 <Panel title={groupBy === "empire" ? "Galaxies by empire" : "Galaxies by cluster"} hint={hint}>
                     <div className="universe-controls">

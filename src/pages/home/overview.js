@@ -79,7 +79,7 @@ export function Overview({ data }) {
                     : <p className="overview-line overview-muted">Your advisors have nothing to report.</p>}
             </Card>
 
-            <Card title="Economy" to="/spending">
+            <Card title="Economy" to="/automation?tab=spending">
                 <Stats items={[
                     { label: "Money", value: displayNumber(kingdom.money), tone: kingdom.money < 0 ? "bad" : undefined },
                     { label: "Income / h", value: signed(perHour(kingdom.income?.money?.net)) },

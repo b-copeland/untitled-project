@@ -177,6 +177,7 @@ def create_app(config_class='config.Config'):
     import untitledapp.intel as uai
     import untitledapp.misc as uam
     import untitledapp.politics as uap
+    import untitledapp.preferences as uapr
     import untitledapp.refresh as uar
     import untitledapp.roundend as uare
     import untitledapp.targets as uat
@@ -189,6 +190,7 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uag.bp)
     app.register_blueprint(uam.bp)
     app.register_blueprint(uap.bp)
+    app.register_blueprint(uapr.bp)
     app.register_blueprint(uar.bp)
     app.register_blueprint(uare.bp)
     app.register_blueprint(uat.bp)

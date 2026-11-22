@@ -18,7 +18,7 @@ estimated numbers looked the same as known ones.
 | Galaxy page | A Table / Cards switch, remembered per browser, so the whole galaxy can still be seen at a glance | Cards only |
 | News | Keep sortable, filterable tables. News items carry a `kind` (attack, spy, missiles, intel) shown as a Type column. | A single feed with "Show more" (built, then reverted) |
 | Build pages | `AmountInput` is a slider only: the chosen number on its left, the most you can choose on its right (press it to fill in). The auto builder does most building, so speed matters more than precision. | Number box and Max button on every row |
-| Planner pages (Attack, Spy, Primitives, Schedule, Launch Missiles) | Keep the number box and Max (`<AmountInput box>`), because the exact number matters | |
+| Planner pages (Attack, Spy, Primitives, Schedule, Launch Missiles) | Keep the number box and Max (`<AmountInput box>`), because the exact number matters. Superseded by [0010](0010-page-layout.md): your own amounts are sliders only. | |
 | Planner page text | No explanatory subtitles under section titles; tags, labels and the forecast should explain themselves. Text only to report something (an alert, a warning). | |
 | Confirmations | Attack sends straight away when the target's army is revealed and the forecast wins; it asks first when the army is not revealed, there is no forecast, or the forecast loses. Spy asks only when the chance is known and below 40%. | Confirming every send |
 | Scores | "You are ranked 12 of 98." | Also showing the gap to the next kingdom |

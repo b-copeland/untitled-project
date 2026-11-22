@@ -1,182 +1,62 @@
+/* Status page. The card, tab and table styles are shared (styles/shared.css); only the page's own layout is here. Other
+   pages that show a kingdom card (Build, Spending, View Kingdom) import this file too. */
+
 .status {
     display: flex;
     flex-direction: column;
-    align-items: center;
-}
-
-.game-start-card {
-    align-items: center;
+    width: 100%;
 }
 
 .reset-kingdom-button {
-    width: 50%;
-    margin: 10px;
+    align-self: flex-start;
+    margin: 0.5rem 0;
 }
 
+/* The Kingdom tab: its cards side by side where there is room. */
 .status-kingdom-content {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0 1rem;
     width: 100%;
+    align-items: start;
 }
 
 .revealed {
     display: flex;
     flex-direction: column;
-    justify-items: center;
-    align-items: center;
+    width: 100%;
 }
 
 .tab-content {
-    display: inline-block;
-    margin-left: auto;
-    margin-right: auto;
-    text-align: center;
-    width: 100%
-}
-
-.nav-tabs, .nav-pills {
-    text-align:center;
-}
-.nav-tabs > ul {
-    display: flex;
-    flex-direction: row;
-}
-
-.tab-content {
-    padding: 5px;
-    align-items: center;
-    justify-content: center;
-}
-
-.income-box {
-    border: 2px solid black;
-    display: flex;
-    flex-direction: column;
-    width: 45%;
-    margin: 5px;
-    padding: 5px;
-}
-
-.kingdom-card {
-    /* width: 30% */
     width: 100%;
-}
-@media (min-width: 756px) {
-    .kingdom-card {
-        width: 30%;
-        min-width: 300px;
-    }
-}
-
-.income-box {
-    /* width: 30% */
-    width: 100%;
-}
-@media (min-width: 756px) {
-    .income-box {
-        min-width: 300px;
-        width: 30%;
-    }
-}
-
-/* .revealed-box {
-    width: 30%
-} */
-
-.text-box {
-    border: 2px solid var(--bs-border-color);
-    /* width: 45%; */
-    display: flex;
-    flex-direction: column;
-    margin: 5px;
-    padding: 5px;
-}
-
-.text-box-item {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    width: 100%;
-}
-
-.text-box-item-title {
-    width: 55%;
-    float: left;
     text-align: left;
-    margin-left: 5px;
 }
 
-.text-box-item-value {
-    width: 35%;
-    float: right;
-    text-align: right;
-    margin-right: 5px;
+.kingdom-card,
+.income-box {
+    width: 100%;
+}
+.kingdom-card h2,
+.kingdom-card h3,
+.income-box h2,
+.income-box h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem;
 }
 
-/* .revealed-box {
-    border: 2px solid var(--bs-border-color);
-    display: flex;
-    flex-direction: column;
-    width: 60%;
-    margin: 5px;
-    padding: 5px;
-} */
-
-/* .input-group-text {
-    width: 50%
-} */
-
-@media (min-width: 756px) {
-    .army-info {
-        width: 45%;
-    }
-}
-.army-table {
-    font-size: 10px;
-}
-@media (min-width: 756px) {
-    .army-table {
-        font-size: 16px;
-    }
-}
-.mobis-table {
-    font-size: 8px;
-}
-@media (min-width: 756px) {
-    .mobis-table {
-        font-size: 16px;
-    }
-}
-@media (min-width: 756px) {
-    .mobi-info {
-        min-width: 450px;
-        width: 45%;
-    }
-}
-
-.structures-info {
-    width: 100%
-}
-@media (min-width: 756px) {
-    .structures-info {
-        min-width: 550px;
-        width: 70%;
-    }
-}
+.army-table,
+.mobis-table,
 .structures-status-table {
-    font-size: 10px;
+    font-size: var(--table-font-size);
 }
 @media (min-width: 756px) {
+    .army-table,
+    .mobis-table,
     .structures-status-table {
-        font-size: 16px;
+        font-size: var(--table-font-size-wide);
     }
 }
-
-/* .table {
-    width: 95%;
-} */
 
 .toast {
     max-width: 80%;

@@ -39,23 +39,42 @@ what needs doing, and what is worth doing next.** Every page should answer its p
 |---|---|---|
 | A table | `GameTable` with column definitions, not hand-written `<tr>`s | `src/components/gametable.js` |
 | Form state | `useFormValues` | `src/components/forms.js` |
-| Choosing an amount | `AmountInput`: a slider with the chosen number on the left and the most possible on the right; give it `max` (what is left now) and `soloMax` (most if nothing else were chosen) so the slider never changes length. Add `box` for a number box and Max button on planner pages. | `src/components/forms.js` |
+| Choosing an amount | `AmountInput`: a slider with the chosen number on the left and the most possible on the right; give it `max` (what is left now) and `soloMax` (most if nothing else were chosen) so the slider never changes length. Your own amounts are sliders only; `box` (a number box and Max) is for figures with no known maximum. | `src/components/forms.js` |
+| Sliders that start at what the kingdom has now (shares, shields, engineers) | `useSliders(current)`: `value(key)` is the moved value or the current one, and a slider moved to 0 stays at 0; `body(keys)` sends only the moved ones (`""` keeps the server's value) | `src/components/forms.js` |
 | A plain number field | `NumberField` (shows `error` under the box). Any other number box is a `NumberControl`, never a bare `Form.Control`: it takes the commas out of "1,000,000" before `onChange`, as `NumberField` and `AmountInput` do. | `src/components/forms.js` |
 | The send button | `SubmitButton` with `blocked` set to the reason, or null | `src/components/forms.js` |
-| Results of an action | `ResultToasts` | `src/components/results.js` |
+| Results of an action | `ResultToasts`: cards in the bottom corner, above the help button. Green ones close themselves after a few seconds, amber ones stay until closed, and with several there is a Close all | `src/components/results.js` |
+| Notifications the server pushes | Nothing to add: App.js shows them in one panel in the top corner, under the account button, needing-attention first. A notification with `status: "warning"` keeps the panel open until the player closes it | `src/components/notifications.js` |
+| The player's own account (Settings, Logout) | Nothing to add: App.js puts `UserMenu` at the top right, the username on its button; on a phone it is in the top bar. Account pages go in its menu, not the side navigation | `src/components/usermenu.js` |
 | A planning page (Attack, Spy, Primitives, Schedule, Launch Missiles) | `Panel`, `FieldRow`, `Stats`, `VersusBar`, `Picker`, status tags, `useServerForecast` (asks again 700 ms after the last change, drops answers that were overtaken) | `src/components/planner.js` |
 | An icon action | `IconButton` (`react-icons`; the name is the tooltip and the accessible label) | `src/components/iconbutton.js` |
 | Another kingdom's values, with last-known intel where nothing is revealed now | `withLastKnown(info)` gives the kingdom and `endedOf(path)`; show each value in `Known`, and `LastKnownNote` at the top of a section whose intel has ended | `src/components/lastknown.js` |
 | Formatting numbers and percents | `src/format.js` | |
-| Page header and help | `Header`, `HelpButton` with the page's help topic | `src/components/` |
-| Layout classes and colour tokens | `col-center`, `box-tight`, `game-table`, `table-scroll`, ... Check here before writing a new rule. | `src/styles/shared.css` |
+| Page header and help | Nothing to add: App.js puts the header strip, the section name and the title (`PageHead`, from the route's `label` or `title`) over every game page, with a link back when another page sent the player there. Each page adds its `HelpButton`. | `src/components/pagehead.js` |
+| A kingdom's name | `KingdomLink`: links to the kingdom's page (`/kingdom/:id`), which says where the player came from. Links that leave a page pass `useFromHere()` as their `state`. Attack, Spy and Launch Missiles open on `?target=`. | `src/components/kingdomlink.js` |
+| A section of any page | `Panel` (a titled card); `panel-grid` for several side by side | `src/components/planner.js`, `src/styles/shared.css` |
+| A summary of numbers | `Stats` inside a Panel, or `text-box text-box-stats` with `text-box-item`s (a slider and button under them go in `summary-form`) | `src/components/planner.js`, `src/styles/shared.css` |
+| The button under a form or table | `form-actions` (right-aligned, with any running total as muted text before the button) | `src/styles/shared.css` |
+| Layout classes and colour tokens | `--surface`, `--border-subtle`, `--radius`, `page-note`, `game-table`, `table-scroll`, ... Check here before writing a new rule. | `src/styles/shared.css` |
 
 [src/pages/build/structures.js](../src/pages/build/structures.js) is the model for a form page; `src/pages/conquer/attack.js`
 for a planner page.
 
 ## Visual language
 
-- Stock Bootstrap in dark mode. Hierarchy comes from type size and muted labels, not borders.
+- Colour themes, chosen on the Settings page (in the account menu): Gray (the default), Dark, Light, and four from space palettes
+  (`src/styles/themes.css`). **Never write a hex colour in a page's stylesheet**: use the theme tokens (`--surface`,
+  `--surface-raised`, `--border-subtle`, `--row-divider`, `--hover-tint`, `--accent`, `--accent-contrast`, Bootstrap's
+  `--bs-*` colours), or the page will be wrong in some theme, most often Light. Check a new page in Light and one dark
+  theme.
+- A darker page with raised sections ([decisions/0010](decisions/0010-page-layout.md)).
+  Hierarchy comes from type size, muted labels and section cards: a card is a step lighter than the page with a faint
+  edge, never a heavy line.
+- One content column: everything on a page, tabs included, shares the header strip's edges. A page does not set its
+  own max-width and center it.
+- Tabs are a segmented control, left-aligned (no `justify` or `fill`); a tab that destroys something (Raze, Disband) is
+  `tabClassName="tab-warning"` and its content `warning-zone`. Tables are borderless rows (no `bordered` or
+  `striped`) inside a card. The action under a form sits on the right, in `form-actions`.
 - Colour means state: red is a problem, green is done, amber is a guess that matters or something needing a decision.
   One scale is different: last-known intel is written in yellow, orange, then red as it ages (`Known` in
   `src/components/lastknown.js`), with its age in the tooltip.

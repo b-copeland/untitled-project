@@ -1,18 +1,40 @@
 
-.create-empire {
-    margin: 15px;
+/* The Join tab: each block is a card, two side by side where there is room. */
+.join-empire-page {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0 1rem;
+    align-items: start;
+    width: 100%;
+    text-align: left;
 }
-
-.join-empire {
-    margin: 15px;
+.create-empire,
+.join-empire,
+.invite-empire,
+.empire-membership-table,
+.leave-empire {
+    margin: 0 0 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
 }
-
-.invite-empire {
-    margin: 15px;
+.join-empire-page h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem;
+}
+.join-empire-page label {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: var(--bs-secondary-color);
+}
+.leave-empire {
+    border-color: var(--bs-danger-border-subtle);
 }
 
 .empire-button {
-    margin: 10px;
+    margin: 0.75rem 0 0;
 }
 
 .join-empire-select {
@@ -41,4 +63,26 @@
 .light-hr {
     width: 100%;
     border-width: 2px;
+}
+/* The Status tab: relations and the two sides of surrender, as cards. */
+.empire-status {
+    width: 100%;
+}
+.empire-subhead {
+    margin: 1.25rem 0 0.5rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.empire-none {
+    margin: 0;
+}
+.empire-actions {
+    margin: 0.75rem 0 0;
+}
+/* Offering your own surrender loses something: its card is edged in red. */
+.panel.empire-surrender {
+    border-color: rgba(var(--bs-danger-rgb), 0.35);
 }

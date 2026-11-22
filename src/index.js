@@ -1,16 +1,20 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+// Bootstrap first, so the shared styles after it can override it.
+import 'bootstrap/dist/css/bootstrap.css';
 import './index.css';
 import './styles/shared.css';
+import './styles/themes.css';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {App} from './App';
 import { createQueryClient } from './data/gameData';
+import { applyTheme, rememberedTheme } from './theme';
 import * as serviceWorker from './serviceWorker';
 
 const queryClient = createQueryClient();
 const container = document.getElementById('root');
-document.documentElement.setAttribute('data-bs-theme', 'dark');
+applyTheme(rememberedTheme());
 const root = createRoot(container); // createRoot(container!) if you use TypeScript
 
 root.render(

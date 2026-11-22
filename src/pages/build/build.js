@@ -4,8 +4,8 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Accordion from 'react-bootstrap/Accordion';
 import Table from 'react-bootstrap/Table';
 import "./build.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { Panel, Stats } from "../../components/planner";
 
 
 function getTimeString(date) {
@@ -85,29 +85,14 @@ function Build(props) {
     )
     return (
     <>
-    <Header data={props.data} />
     <div className="queue-page">
-        <div className="text-box kingdom-card">
-            <h4>Auto Spending Funding</h4>
-            <br />
-            <div className="text-box-item">
-                <span className="text-box-item-title">Settle</span>
-                <span className="text-box-item-value">{Math.floor(props.data.kingdom.funding?.settle || 0).toLocaleString()}</span>
-            </div>
-            <div className="text-box-item">
-                <span className="text-box-item-title">Structures</span>
-                <span className="text-box-item-value">{Math.floor(props.data.kingdom.funding?.structures || 0).toLocaleString()}</span>
-            </div>
-            <div className="text-box-item">
-                <span className="text-box-item-title">Military</span>
-                <span className="text-box-item-value">{Math.floor(props.data.kingdom.funding?.military || 0).toLocaleString()}</span>
-            </div>
-            <div className="text-box-item">
-                <span className="text-box-item-title">Engineers</span>
-                <span className="text-box-item-value">{Math.floor(props.data.kingdom.funding?.engineers || 0).toLocaleString()}</span>
-            </div>
-        </div>
-        <Accordion defaultActiveKey={['0']} alwaysOpen className="box-loose queue-accordion">
+        <Panel title="Auto spending funding">
+            <Stats items={["settle", "structures", "military", "engineers"].map((key) => ({
+                label: key.charAt(0).toUpperCase() + key.slice(1),
+                value: Math.floor(props.data.kingdom.funding?.[key] || 0).toLocaleString(),
+            }))} />
+        </Panel>
+        <Accordion defaultActiveKey={['0']} alwaysOpen className="queue-accordion">
             <Accordion.Item eventKey="0">
                 <Accordion.Header>Settle Queue ({(props.data.settle.total_queue || 0).toLocaleString()})</Accordion.Header>
                 <Accordion.Body>
