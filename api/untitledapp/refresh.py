@@ -78,10 +78,11 @@ class _RefreshContext:
         """What ``kd_id``'s cluster's benefits are worth at ``time_update`` (zero for a kingdom in no galaxy)."""
         galaxy_id = self.galaxies_inverted.get(kd_id)
         if galaxy_id is None:
-            return uacl.modifiers(uacl.normalize({}))
+            return {}
         cluster_id = uacl.cluster_of(galaxy_id)
         cluster = uacl.advance(self.cluster_document(cluster_id), uacl.members(self.galaxies, cluster_id), time_update)
-        return uacl.modifiers(cluster)
+        state = self.state if self.state is not None else uag._get_state()
+        return uacl.modifiers(cluster, uacl.round_benefits((state or {}).get("state")))
 
     def galaxy_politics(self, kd_id, galaxy_id):
         if galaxy_id not in self._galaxy_politics:
@@ -117,7 +118,7 @@ def _calc_pop_change_per_epoch(
 
     start_time = datetime.datetime.now(datetime.timezone.utc)
     units = uag._calc_units(start_time, current_units, generals_units, mobis_units)
-    max_hangar_capacity, current_hangar_capacity = uag._calc_hangar_capacity(kd_info_parse, units)
+    max_hangar_capacity, current_hangar_capacity = uag._calc_hangar_capacity(kd_info_parse, units, modifiers)
 
     overflow = max(current_hangar_capacity - max_hangar_capacity, 0)
     pop_capacity = math.floor(
@@ -126,13 +127,14 @@ def _calc_pop_change_per_epoch(
         * (
             1
             + uas.project_bonus(kd_info_parse, "pop_bonus")
+            + uas.modifier(modifiers, "homes_capacity")
             - (int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_POP_CAP_REDUCTION"])
             - (int(kd_info_parse["race"] == "Vult") * uas.GAME_CONFIG["VULT_POPULATION_REDUCTION"])
         )
     )
     
     if uas.has_project(kd_info_parse, "fuzi_evolution"):
-        pop_capacity += math.floor(uag._empty_missile_silos(kd_info_parse) * uas.GAME_CONFIG["FUZI_EVOLUTION_POP_PER_EMPTY_SILO"])
+        pop_capacity += math.floor(uag._empty_missile_silos(kd_info_parse, modifiers) * uas.GAME_CONFIG["FUZI_EVOLUTION_POP_PER_EMPTY_SILO"])
 
     pop_capacity_less_overflow = max(pop_capacity - overflow, 0)
 
@@ -161,16 +163,16 @@ def _project_points_multiplier(project, modifiers=None):
     continuous projects (those with a ``max_bonus``) and the one-time ones each have their own effect."""
     entry = uas.PROJECTS.get(project, {})
     effect = "project_points_continuous" if "max_bonus" in entry else "project_points_one_time"
-    return max(1 + uas.modifier(modifiers, effect), 0)
+    return max(1 + uas.modifier(modifiers, effect) + uas.modifier(modifiers, "project_points"), 0)
 
 
-def _open_hangar_money(kd_info_parse, mobis_queue):
+def _open_hangar_money(kd_info_parse, mobis_queue, modifiers=None):
     """Money per epoch from Xo Evolution: for each hangar space not taken by a unit (trained, out, or in training)."""
     if not uas.has_project(kd_info_parse, "xo_evolution"):
         return 0
     start_time = datetime.datetime.now(datetime.timezone.utc)
     units = uag._calc_units(start_time, kd_info_parse["units"], kd_info_parse["generals_out"], mobis_queue or [])
-    max_hangar_capacity, current_hangar_capacity = uag._calc_hangar_capacity(kd_info_parse, units)
+    max_hangar_capacity, current_hangar_capacity = uag._calc_hangar_capacity(kd_info_parse, units, modifiers)
     open_space = max(max_hangar_capacity - current_hangar_capacity, 0)
     return open_space * uas.GAME_CONFIG["XO_EVOLUTION_MONEY_PER_OPEN_HANGAR_SPACE"]
 
@@ -432,8 +434,8 @@ def _kingdom_with_income(
     # Xo Evolution pays for open hangar space; Fuzi Evolution makes money, fuel and drones in empty missile silos.
     if mobis_queue is None and uas.has_project(kd_info_parse, "xo_evolution"):
         mobis_queue = uag._get_mobis_queue(kd_info_parse["kdId"])  # read once, for this and the population below
-    income["money"]["open_hangars"] = _open_hangar_money(kd_info_parse, mobis_queue)
-    empty_silos = uag._empty_missile_silos(kd_info_parse) if uas.has_project(kd_info_parse, "fuzi_evolution") else 0
+    income["money"]["open_hangars"] = _open_hangar_money(kd_info_parse, mobis_queue, modifiers)
+    empty_silos = uag._empty_missile_silos(kd_info_parse, modifiers) if uas.has_project(kd_info_parse, "fuzi_evolution") else 0
     income["money"]["empty_silos"] = empty_silos * uas.GAME_CONFIG["FUZI_EVOLUTION_MONEY_PER_EMPTY_SILO"]
     income["money"]["gross"] = (
         income["money"]["mines"]
@@ -488,6 +490,7 @@ def _kingdom_with_income(
     net_fuel = income["fuel"]["net"] * epoch_elapsed
     max_fuel = (
         math.floor(kd_info_parse["structures"]["fuel_plants"]) * uas.GAME_CONFIG["BASE_FUEL_PLANTS_CAPACITY"]
+        * max(1 + uas.modifier(modifiers, "fuel_storage"), 0)
         + empty_silos * uas.GAME_CONFIG["FUZI_EVOLUTION_FUEL_STORAGE_PER_EMPTY_SILO"]
     )
     min_fuel = uas.GAME_FUNCS["BASE_NEGATIVE_FUEL_CAP"](kd_info_parse["stars"])

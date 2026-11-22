@@ -1,6 +1,7 @@
 """Cluster politics (clusters.py): the level math, the leader's vote, the read view and the refresh's alignment sync."""
 import copy
 import datetime
+import random
 import re
 
 import pytest
@@ -249,14 +250,16 @@ def test_the_view_shows_only_the_callers_own_cluster(app, client, jwt1):
     assert [galaxy["id"] for galaxy in view["galaxies"]] == ["1:1", "1:2"]  # not 2:1
     assert view["galaxies"][0]["vote"] == "unit_cost"
     assert view["benefits"]["unit_cost"]["votes"] == 1
-    assert set(view["benefits"]) == set(uas.CLUSTER_BENEFITS)
+    # A round made before the draw plays the first benefits.
+    assert set(view["benefits"]) == set(list(uas.CLUSTER_BENEFITS)[:uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]])
 
 
 def test_the_view_shows_the_benefits_in_the_games_order_and_their_forecast(app, client, jwt2):
     _cluster_of_two_galaxies()
     view = client.get("/api/cluster", headers=_auth(jwt2)).get_json()
-    assert view["order"] == list(uas.CLUSTER_BENEFITS)
+    assert view["order"] == list(uas.CLUSTER_BENEFITS)[:uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]]
     assert view["benefits"]["unit_cost"]["rate_per_epoch"] == 0  # nothing to lose yet
+    assert view["benefits"]["unit_cost"]["effect_text"] == "Military units cost 5% less"  # at its max
     assert view["galaxy"] == "1:2"
 
 
@@ -368,3 +371,53 @@ def test_sync_twice_at_the_same_moment_changes_it_once(app, config):
         first = _get("/cluster/1")
         clusters.sync(galaxies, empires, _at(4))
     assert _get("/cluster/1")["_etag"] == first["_etag"]
+
+
+# --- the round's draw ------------------------------------------------------------------------------------------------
+
+def test_a_round_draws_its_share_of_the_benefits_in_the_listed_order():
+    drawn = clusters.draw(random.Random(4))
+    assert len(drawn) == len(set(drawn)) == uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]
+    order = list(uas.CLUSTER_BENEFITS)
+    assert drawn == sorted(drawn, key=order.index)
+    assert clusters.draw(random.Random(4)) == drawn
+    assert sorted(clusters.draw(random.Random(1), count=99)) == sorted(uas.CLUSTER_BENEFITS)
+
+
+def test_the_rounds_benefits_come_from_the_state_and_older_rounds_play_the_first_ones():
+    assert clusters.round_benefits({"cluster_benefits": ["pop_growth", "gone"]}) == ["pop_growth"]
+    first = list(uas.CLUSTER_BENEFITS)[:uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]]
+    assert clusters.round_benefits({}) == first and clusters.round_benefits(None) == first
+    assert first[:3] == ["drone_production", "unit_cost", "settle_cost"]  # what older rounds had
+
+
+def test_only_the_rounds_benefits_are_worth_anything():
+    cluster = clusters.normalize({"levels": {"pop_growth": 1.0, "unit_cost": 1.0}})
+    assert clusters.modifiers(cluster, ["pop_growth"]) == pytest.approx({"pop_growth": uas.CLUSTER_BENEFITS["pop_growth"]["max"]})
+
+
+def test_every_benefit_does_something_the_game_knows_and_helps():
+    for key, benefit in uas.CLUSTER_BENEFITS.items():
+        assert benefit["effect"] in uas.EFFECTS, key
+        assert benefit["max"] > 0 and benefit["desc"] and "epoch" not in benefit["desc"].lower(), key
+
+
+def test_a_vote_for_a_benefit_this_round_does_not_play_is_refused(app, client, jwt1):
+    _cluster_of_two_galaxies()
+    state = _get("/state")
+    _create_item("state", {"state": {**state["state"], "cluster_benefits": ["pop_growth", "shield_fuel"]}})
+    refused = client.post("/api/cluster/vote", json={"benefit": "unit_cost"}, headers=_auth(jwt1))
+    assert refused.status_code == 400 and refused.get_json()["message"] == "Cheaper Units is not one of this round's benefits"
+    unknown = client.post("/api/cluster/vote", json={"benefit": "nope"}, headers=_auth(jwt1))
+    assert unknown.status_code == 400 and unknown.get_json()["message"] == "Choose one of this round's benefits"
+    assert client.post("/api/cluster/vote", json={"benefit": "shield_fuel"}, headers=_auth(jwt1)).status_code == 200
+    view = client.get("/api/cluster", headers=_auth(jwt1)).get_json()
+    assert view["order"] == ["pop_growth", "shield_fuel"] and set(view["benefits"]) == {"pop_growth", "shield_fuel"}
+
+
+def test_a_new_round_draws_the_cluster_benefits_it_plays():
+    settings, _ = admin.check_new_round({"game_start": "2030-01-01T00:00:00+00:00", "game_end": "2030-02-01T00:00:00+00:00",
+                                         "num_galaxies": 4}, datetime.datetime(2029, 12, 1, tzinfo=datetime.timezone.utc))
+    state = admin.round_state(settings, rounds_archived=0, rng=random.Random(2))
+    assert len(state["cluster_benefits"]) == uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]
+    assert set(state["cluster_benefits"]) <= set(uas.CLUSTER_BENEFITS)

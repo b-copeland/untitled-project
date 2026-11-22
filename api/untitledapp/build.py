@@ -101,6 +101,7 @@ def _get_new_recruits(recruits_input, modifiers, start_time):
 def _recruit(kd_id, recruits_input):
     """Start training ``recruits_input`` recruits for ``kd_id`` with its money. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
+    modifiers = uag._get_modifiers(kd_id)
     
 
     def decide(kd_info_parse):
@@ -118,16 +119,16 @@ def _recruit(kd_id, recruits_input):
         )
         units = uag._calc_units(start_time, current_units, generals_units, mobis_units)
 
-        max_available_recruits, current_available_recruits = uag._calc_max_recruits(kd_info_parse, units)
+        max_available_recruits, current_available_recruits = uag._calc_max_recruits(kd_info_parse, units, modifiers)
         valid_recruits = _validate_recruits(recruits_input, current_available_recruits)
         if not valid_recruits:
             raise occ.Rejected('Please enter valid recruits value')
 
-        new_recruits, min_recruits_time = _get_new_recruits(recruits_input, uag._get_modifiers(kd_id), start_time)
+        new_recruits, min_recruits_time = _get_new_recruits(recruits_input, modifiers, start_time)
 
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["mobis"] = min(next_resolve["mobis"], min_recruits_time)
-        new_money = kd_info_parse["money"] - uag._recruit_price(kd_info_parse) * recruits_input
+        new_money = kd_info_parse["money"] - uag._recruit_price(kd_info_parse, modifiers) * recruits_input
         return {'money': new_money, 'next_resolve': next_resolve}, new_recruits
 
     try:
@@ -880,7 +881,7 @@ def _build_missiles(kd_id, missiles_request):
         missiles_info = uag._get_missiles_info(kd_id)
         missiles_building = uag._get_missiles_building(missiles_info)
 
-        max_available_missiles = uag._calc_missile_capacity(kd_info_parse)
+        max_available_missiles = uag._calc_missile_capacity(kd_info_parse, modifiers)
 
         valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles, modifiers)
         if not valid_missiles:
@@ -991,7 +992,7 @@ def _train_engineers(kd_id, engineers_input):
     def decide(kd_info_parse):
         engineers_info = uag._get_engineers_queue(kd_id)
         engineers_building = sum([training["amount"] for training in engineers_info])
-        max_workshop_capacity, current_workshop_capacity = uag._calc_workshop_capacity(kd_info_parse, engineers_building)
+        max_workshop_capacity, current_workshop_capacity = uag._calc_workshop_capacity(kd_info_parse, engineers_building, modifiers)
         max_available_engineers, current_available_engineers = uag._calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity, modifiers)
 
         valid_engineers = _validate_engineers(engineers_input, current_available_engineers)

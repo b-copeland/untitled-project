@@ -181,9 +181,14 @@ Built 2026-11-20 (issue #27, `lastknown.py`, [decisions/0009](decisions/0009-las
 Started 2026-11-19 (issue #157, [decisions/0007](decisions/0007-cluster-politics.md), `clusters.py`). The framework is
 built; the content is not.
 
-- Every number is a placeholder: `CLUSTER_SIZE`, `CLUSTER_REF_SIZE`, `CLUSTER_VOTE_COOLDOWN_EPOCHS` (6, proposed by the maintainer 2026-11-20), `CLUSTER_VOTE_RATE`, `CLUSTER_DECAY_RATE`, and each
-  benefit's `max` and `thresholds` in `CLUSTER_BENEFITS`. The benefits themselves (drone production, unit cost, settle
-  cost) are the issue's examples.
+- Every number is a placeholder: `CLUSTER_SIZE`, `CLUSTER_REF_SIZE`, `CLUSTER_VOTE_COOLDOWN_EPOCHS` (6, proposed by the maintainer 2026-11-20), `CLUSTER_VOTE_RATE`, `CLUSTER_DECAY_RATE`, `CLUSTER_BENEFITS_PER_ROUND` (7), and each
+  benefit's `max` and `thresholds` in `CLUSTER_BENEFITS`. The fourteen benefits are the list the maintainer chose for
+  issue #168 (2026-11-22); the ideas cut from it are in the maintainer's politics backlog.
+- A capacity that fades below what a kingdom has (2026-11-22): nothing is taken away. Over the workshop, silo or
+  recruit cap it can train or build no more of that kind; units over the hangar space take room from homes, as they
+  already do; over the homes cap population shrinks as it already does; fuel over the storage is cut to it, as when
+  fuel plants are lost. Bots still plan with the capacities before
+  benefits (`botbrain._silo_capacity`, the recruit cap).
 - `CLUSTER_VOTE_RATE` and `CLUSTER_DECAY_RATE` are fractions of each benefit's max, so every benefit fills at the same
   relative speed. The issue's example could also be read as absolute percentage points; the maintainer to confirm.
 - The empire coordination bonus is a hook only: the alignment is computed, stored and shown, but
