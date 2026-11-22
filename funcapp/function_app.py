@@ -1118,33 +1118,26 @@ def update_news(req: func.HttpRequest) -> func.HttpResponse:
 @APP.route(route="empire/{empireId:int}/news", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
 @retry_on_conflict
 def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed an update empire news request.')  
-    try:  
-        req_body = req.get_json()
-        new_news = req_body["news"]
-        empire_id = str(req.route_params.get('empireId'))
-        item_id = f"empire_{empire_id}"
-        news = CONTAINER.read_item(
-            item=item_id,
-            partition_key=item_id,
-        )
-        if isinstance(new_news, dict):
-            news["news"] = [new_news] + news["news"]
-        else:
-            news["news"] = new_news + news["news"]
-        CONTAINER.replace_item(
-            item_id,
-            news,
-        )
-        return func.HttpResponse(
-            "Empire news updated.",
-            status_code=200,
-        )
-    except:
-        return func.HttpResponse(
-            "The Empire news was not updated",
-            status_code=500,
-        )
+    """Body ``{"news": <line or list of lines, newest first>}``: the lines go in front of ``empire_news_<id>``, which is
+    made when the empire is founded."""
+    try:
+        body = req.get_json()
+    except ValueError:
+        body = None
+    if not isinstance(body, dict) or not isinstance(body.get("news"), (dict, list)):
+        return func.HttpResponse("The body must be {\"news\": a line or a list of lines}", status_code=400)
+    item_id = f"empire_news_{req.route_params.get('empireId')}"
+    news = _read_or_none(item_id)
+    if news is None:
+        return func.HttpResponse("No such empire", status_code=404)
+    new_news = [body["news"]] if isinstance(body["news"], dict) else body["news"]
+    news["news"] = new_news + news.get("news", [])
+    try:
+        CONTAINER.replace_item(item_id, news)
+    except CosmosAccessConditionFailedError:
+        # retry_on_conflict has noted the conflict and runs this again against the newer document
+        return func.HttpResponse("Conflict", status_code=412)
+    return func.HttpResponse("Empire news updated.", status_code=200)
 
 @APP.function_name(name="UpdateUniverseNews")
 @APP.route(route="universenews", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])

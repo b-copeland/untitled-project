@@ -11,6 +11,7 @@ import flask
 import flask_praetorian
 
 import untitledapp.misc as uam
+import untitledapp.news as uan
 import untitledapp.occ as occ
 import untitledapp.getters as uag
 import untitledapp.shared as uas
@@ -301,6 +302,7 @@ def found_empire(kd_id, empire_name):
     if create_empire_response.status_code != 201:
         return {"message": "The Empire could not be created"}, 500
 
+    uan.empire([create_empire_response.text.strip().strip('"')], f"Galaxy {kd_galaxy} founded {empire_name}")
     return {"message": "Empire created", "status": "success"}, 201
 
 
@@ -344,6 +346,7 @@ def ask_to_join_empire(kd_id, target_empire):
 
     _change_list(f'/empire/{target_empire}/politics', "empire_join_requests", add=kd_galaxy)
     _change_list(f'/galaxy/{kd_galaxy}/politics', "empire_join_requests", add=target_empire)
+    uan.empire([target_empire], f"Galaxy {kd_galaxy} asked to join the empire")
     return {"message": "Join request sent", "status": "success"}, 200
 
 
@@ -417,6 +420,7 @@ def join_invited_empire(kd_id, target_empire):
         return {"message": rejection.message}, rejection.status
     except occ.Busy:
         return {"message": "Server is busy"}, 400
+    uan.empire([target_empire], f"Galaxy {kd_galaxy} accepted the invitation and joined the empire")
     return {"message": "Joined Empire", "status": "success"}, 200
 
 
@@ -464,6 +468,7 @@ def invite_galaxy_to_empire(kd_id, target_galaxy):
 
     _change_list(f'/empire/{kd_empire}/politics', "empire_invitations", add=target_galaxy)
     _change_list(f'/galaxy/{target_galaxy}/politics', "empire_invitations", add=kd_empire)
+    uan.empire([kd_empire], f"The empire invited galaxy {target_galaxy} to join")
     return {"message": "Invitation sent", "status": "success"}, 200
 
 
@@ -550,6 +555,7 @@ def admit_galaxy_to_empire(kd_id, target_galaxy):
         return {"message": rejection.message}, rejection.status
     except occ.Busy:
         return {"message": "Server is busy"}, 400
+    uan.empire([kd_empire], f"Galaxy {target_galaxy} joined the empire")
     return {"message": "Galaxy added to Empire", "status": "success"}, 200
 
 
@@ -617,6 +623,7 @@ def leave_empire():
     except occ.Busy:
         return flask.jsonify({"message": "Server is busy"}), 400
 
+    news = f"Galaxy {kd_galaxy_id} left the empire"
     if len(remaining_galaxies) > 0 and empire_politics["leader"] == kd_galaxy_id:
         kd_empire_payload = {
             "leader": random.choice(remaining_galaxies)
@@ -627,6 +634,9 @@ def leave_empire():
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(kd_empire_payload)
         )
+        news += f". Galaxy {kd_empire_payload['leader']} now rules it"
+    if remaining_galaxies:
+        uan.empire([kd_empire], news)
     return flask.jsonify({"message": "Left Empire", "status": "success"}), 200
 
 def _validate_denounce(empire_politics, kd_id, kd_galaxy_politics, kd_galaxy_id, empires_info, target_empire, kd_empire):    
@@ -678,17 +688,8 @@ def denounce_empire(kd_id, target_empire):
 
         news = occ.update('/empires', denounce_empire)
 
-        news_payload = {
-            "news": {
-                "time": time_now.isoformat(),
-                "news": news,
-            }
-        }
-        REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(news_payload)
-        )
+        uan.universe(news, time_now)
+        uan.empire([kd_empire, target_empire], news, time_now)
     except occ.Rejected as rejection:
         return {"message": rejection.message}, rejection.status
     except occ.Busy:
@@ -754,17 +755,8 @@ def declare_war_on(kd_id, target_empire):
 
         news = occ.update('/empires', declare)
 
-        news_payload = {
-            "news": {
-                "time": time_now.isoformat(),
-                "news": news,
-            }
-        }
-        REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(news_payload)
-        )
+        uan.universe(news, time_now)
+        uan.empire([kd_empire, target_empire], news, time_now)
     except occ.Rejected as rejection:
         return {"message": rejection.message}, rejection.status
     except occ.Busy:
@@ -1052,6 +1044,13 @@ def _surrender(
         return {"empires": empires}, None
 
     occ.update('/empires', make_peace)
+    names = {empire: empires_info["empires"].get(empire, {}).get("name", empire) for empire in (winning_empire, losing_empire)}
+    news = f"{names[losing_empire]} surrendered to {names[winning_empire]}"
+    if surrender_type == "stars" and surrender_value:
+        news += f", giving up {surrender_value * 100:g}% of its stars"
+    news += ". The war is over"
+    uan.universe(news, time_now)
+    uan.empire([winning_empire, losing_empire], news, time_now)
     # Targets exist only in war: each side's targets in the other end now, with their final payouts.
     uat.end_war(winning_empire, losing_empire)
 

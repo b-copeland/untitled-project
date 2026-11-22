@@ -29,7 +29,7 @@ Read the handler in `funcapp/function_app.py` before relying on one, but these a
 | | `/revealed` | `new_revealed` is merged per target kingdom and stat, each stat keeping the later of the stored and the incoming expiry (so shared intel never shortens a reveal); `new_galaxies` is merged; `new_revealed_galaxymates` and `new_revealed_to_galaxymates` are appended. The same names without `new_` replace. |
 | | `/kingdom/<id>/lastknown` | `new_known` (target to category to `{ended, values}`) is merged per target and category, each keeping the entry that ended later, so writes land in any order and a repeat changes nothing. The first write creates the document; a read of a kingdom with none answers `known: {}` without writing. |
 | **Prepend** | `/kingdom/<id>/news`, `/galaxy/<id>/news`, `/kingdom/<id>/messages` | The body is the item, or a list of items; newest first. Messages keep the newest 100. |
-| | `/universenews` | The same, but the body is `{"news": item or list}`. |
+| | `/universenews`, `/empire/<id>/news` | The same, but the body is `{"news": item or list}`. Empire news answers `404` for an empire with no `empire_news_<id>` (made when the empire is founded). |
 | | `/spyhistory`, `/attackhistory`, `/missilehistory` | The body is one item. |
 | **Special** | `/notifs` | `add_categories` adds one to each counter named; `clear_categories` zeroes them. |
 | | `/pinned` | `pinned` adds kingdom ids, `unpinned` removes them. |
@@ -43,9 +43,6 @@ Not retried, because they write several documents or create one: `/init`, `/dele
 galaxy with one on `galaxies`), so creations at the same moment get different ids. `POST /kingdom` answers `400` for a
 name already taken (exactly the same name); `POST /empire` answers `409` if the galaxy is already in an empire, and
 both answer `503` if the document stayed too busy to write.
-
-A route that exists but does not work with the current documents, so do not call it: `PATCH /empire/<id>/news`
-([status.md](status.md#code-health)).
 
 Every `update_*` handler is wrapped in `@retry_on_conflict`, so merges and appends land on the newest version and never
 lose each other. A caller that sends `If-Match: <_etag>` gets `412` if the document changed since it read it; `occ.update`
@@ -66,7 +63,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `empires` | `empires`: empire id to `{name, galaxies, aggression, num_kingdoms, aggression_max, war, peace, denounced, denounced_expires, surprise_war_penalty, surprise_war_penalty_expires, targets}`; `last_update`. `targets` (missing on empires that never had one) is the hint of [empire targets](#empire-targets): a superset of the empire's target kingdoms, left out of `/api/empires` | politics routes, the refresh (`_resolve_empires`), attacks (aggression), `targets.py` (the hint) | strict for membership and war, derived for aggregates |
 | `scores` | `points`, `stars`, `networth`, `galaxy_networth` (each keyed by id), `galaxy_kingdoms_alive` (galaxy to the number of its kingdoms the refresh scored, so neither dead nor never set up; missing until the first tick that wrote it), `last_update` | the refresh only | derived |
 | `universe_votes` | `votes`: policy, option, kd id to votes | `/api/votes`, `/api/universepolitics/policies`, elections | strict |
-| `universe_news` | `news`: list | elections, politics | eventual |
+| `universe_news` | `news`: list | elections, politics (denouncements, wars, surrenders), the refresh (wars by aggression), through `news.py` | eventual |
 | `accounts` | `accounts`: the last copy of the SQLite users, from before they moved to `user_` documents; the migration reads it | nothing any more | a frozen backup, to be removed ([status.md](status.md#parallelism-gaps)) |
 | `galaxy_news_<galaxy>` | `news`: list | actions affecting the galaxy | eventual |
 | `galaxy_votes_<galaxy>` | `votes` (`policy_1`, `policy_2`, `leader`), `vote_changed` (vote kind to kingdom to when that kingdom last changed that vote; read with a default, since kingdoms that never changed one have no entry; a change holds for `BASE_GALAXY_VOTE_COOLDOWN_EPOCHS`), `active_policies`, `leader`, `policy_1_winner`, `policy_2_winner`, `empire_invitations`, `empire_join_requests` | galaxy politics routes, empire routes | strict |
@@ -74,7 +71,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `galaxy_intel_<galaxy>` | The galaxy's intel market, see [below](#the-intel-market). `GET /galaxy/<id>/intel` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `intel.py` (every intel action) | strict: every change is decided on it with `occ.update` |
 | `cluster_<cluster>` | The cluster's politics, see [below](#cluster-politics). `GET /cluster/<id>` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `clusters.py`: a galaxy leader's vote, and the refresh when the cluster's empire alignment changes | strict: every change is decided on it with `occ.update` |
 | `empire_targets_<empire>` | The empire's targets, see [below](#empire-targets). `GET /empire/<id>/targets` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `targets.py`: leadership's routes, and every attack, spy operation and missile strike on a target | strict: every change is decided on it with `occ.update` |
-| `empire_news_<empire>` | `news`: list | nothing yet: it is created empty and read, but never written | eventual |
+| `empire_news_<empire>` | `news`: list, newest first. Read only by the empire's members (`/api/empirenews`), so it may name its targets | `news.py`, called by the politics routes (founded, join requests, invitations, joins, leaves, denouncements, wars, surrenders), the refresh (wars by aggression) and `targets.py` (marked, ended and what the fund paid) | eventual |
 
 ## Per-kingdom documents
 
