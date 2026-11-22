@@ -22,14 +22,15 @@
     <ellipse cx="256" cy="256" rx="214" ry="74" fill="none" stroke="#f59e0b" stroke-width="18" opacity="0.55"/>
   </g>
   <!-- Faceted steel star, lit from the top left -->
-  <polygon points="256,256 222,222 256,48" fill="#ffffff"/>
-  <polygon points="256,256 256,48 290,222" fill="#c9d3e0"/>
-  <polygon points="256,256 290,222 424,256" fill="#aebccd"/>
-  <polygon points="256,256 424,256 290,290" fill="#56657a"/>
-  <polygon points="256,256 290,290 256,464" fill="#38435a"/>
-  <polygon points="256,256 256,464 222,290" fill="#7f90a6"/>
-  <polygon points="256,256 222,290 88,256" fill="#5d6d84"/>
-  <polygon points="256,256 88,256 222,222" fill="#e3e9f1"/>
+  <polygon points="256,48 311,201 442,256 311,311 256,464 201,311 70,256 201,201" fill="#0b1020" stroke="#0b1020" stroke-width="20" stroke-linejoin="round"/>
+  <polygon points="256,256 201,201 256,48" fill="#ffffff"/>
+  <polygon points="256,256 256,48 311,201" fill="#c9d3e0"/>
+  <polygon points="256,256 311,201 442,256" fill="#aebccd"/>
+  <polygon points="256,256 442,256 311,311" fill="#56657a"/>
+  <polygon points="256,256 311,311 256,464" fill="#38435a"/>
+  <polygon points="256,256 256,464 201,311" fill="#7f90a6"/>
+  <polygon points="256,256 201,311 70,256" fill="#5d6d84"/>
+  <polygon points="256,256 70,256 201,201" fill="#e3e9f1"/>
   <g transform="rotate(-24 256 256)">
     <path d="M42,256 A214,74 0 0 0 470,256" fill="none" stroke="#f59e0b" stroke-width="18" stroke-linecap="round"/>
   </g>

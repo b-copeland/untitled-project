@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Faceted steel star, lit from the top left, with a thin navy outline for light tabs -->
   <polygon points="256,14 320,192 472,256 320,320 256,498 192,320 40,256 192,192" fill="#0b1020" stroke="#0b1020" stroke-width="24" stroke-linejoin="round"/>
   <polygon points="256,256 192,192 256,14" fill="#ffffff"/>
   <polygon points="256,256 256,14 320,192" fill="#c9d3e0"/>
@@ -8,7 +9,4 @@
   <polygon points="256,256 256,498 192,320" fill="#7f90a6"/>
   <polygon points="256,256 192,320 40,256" fill="#5d6d84"/>
   <polygon points="256,256 40,256 192,192" fill="#e3e9f1"/>
-  <g transform="rotate(-24 256 256)">
-    <path d="M28,256 A228,84 0 0 0 484,256" fill="none" stroke="#f59e0b" stroke-width="40" stroke-linecap="round"/>
-  </g>
 </svg>
