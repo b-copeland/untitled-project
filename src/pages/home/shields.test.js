@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import ShieldsPage from "./shields";
-import SpendingPage from "./spending";
+import { Spending } from "./spending";
 
 jest.mock("../../components/header", () => ({ __esModule: true, default: () => null }));
 jest.mock("../../components/helpbutton", () => ({ __esModule: true, default: () => null }));
@@ -42,14 +42,14 @@ test("the shield sliders start where the shields are, stop at each shield's most
     expect(lastBody()).toEqual({ military: 0, spy: 20, spy_radar: 0, missiles: 0 });
 });
 
-test("the Spending page shows auto spending and not the shields", () => {
-    render(<SpendingPage data={data} loading={{}} updateData={runAll} />);
+test("the Spending tab shows auto spending and not the shields", () => {
+    render(<Spending kingdom={data.kingdom} loading={{}} updateData={runAll} />);
     expect(screen.getByText("Auto spending")).toBeTruthy();
     expect(screen.queryByText("Spy radar")).toBeNull();
 });
 
 test("spending shares start at the current split, together stay within 100%, and only the moved ones are sent", () => {
-    render(<SpendingPage data={data} loading={{}} updateData={runAll} />);
+    render(<Spending kingdom={data.kingdom} loading={{}} updateData={runAll} />);
     expect(slider("Settle share").value).toBe("25");
     fireEvent.change(slider("Settle share"), { target: { value: "60" } });
     expect(slider("Settle share").value).toBe("25");                      // the other three already take 75%

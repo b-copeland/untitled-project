@@ -101,6 +101,8 @@ function Content({ logged, session }) {
           {logged ? <div className="userbar d-none d-lg-flex"><UserMenu username={data.preferences?.username} /></div> : null}
           <div className="router-body">
             <Routes>
+              {/* Spending became a tab of Automation; old links and bookmarks land there. */}
+              <Route path="/spending" element={<Navigate to="/automation?tab=spending" replace />} />
               {publicRoutes.map((route) => (
                 <Route key={route.path} path={route.path}
                   element={renderPage(route, route.props ? route.props(context) : {})}/>

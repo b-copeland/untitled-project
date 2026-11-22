@@ -3,7 +3,6 @@ import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import { authFetch } from "../../auth";
 import { AmountInput, SubmitButton, useSliders } from "../../components/forms";
-import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { Panel, FieldRow, Stats } from "../../components/planner";
 import "./spending.css";
@@ -15,19 +14,9 @@ const CATEGORIES = [
     ["engineers", "Engineers"],
 ];
 
-/** The Spending page: whether auto spending is on, how it splits the kingdom's money, and the funding it holds. */
-function SpendingPage(props) {
-    return (
-        <>
-            <Spending kingdom={props.data.kingdom} loading={props.loading} updateData={props.updateData} />
-            <HelpButton scrollTarget={"spending"} />
-        </>
-    );
-}
-
 /**
- * The auto spending switch, a slider per category (the four add up to at most 100%), and the funding each holds.
- * Update sends all four shares.
+ * Automation's Spending tab (it has no page of its own; /spending redirects there): the auto spending switch, a slider
+ * per category (the four add up to at most 100%), and the funding each holds. Update sends only the moved shares.
  */
 export function Spending(props) {
     const spendingInfo = props.kingdom?.auto_spending || {};
@@ -87,5 +76,3 @@ export function Spending(props) {
         </div>
     );
 }
-
-export default SpendingPage;

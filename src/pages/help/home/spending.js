@@ -13,7 +13,7 @@ function Spending(props) {
         <div id="spending" ref={yourElementRef} className="help-section">
             <h2>Spending</h2>
             <p>
-                The Spending page turns auto-spending on or off and sets how it splits your money: one slider per category, adding up to at most 100%; what is left stays as money. Press Update to save the sliders. With auto-spending enabled, 
+                The Spending tab of the Automation page turns auto-spending on or off and sets how it splits your money: one slider per category, adding up to at most 100%; what is left stays as money. Press Update to save the sliders. With auto-spending enabled, 
                 the game automatically spends your money to build your kingdom.
             </p>
             <p>
