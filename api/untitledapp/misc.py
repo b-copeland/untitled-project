@@ -12,6 +12,7 @@ from flask_sock import Sock, ConnectionClosed
 import untitledapp.shared as uas
 import untitledapp.getters as uag
 import untitledapp.lastknown as uala
+import untitledapp.news as uan
 import untitledapp.occ as occ
 from untitledapp import User, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
 from untitledapp.users import issue_tokens
@@ -173,6 +174,40 @@ def _new_tokens(user_id):
     return issue_tokens(User.get(user_id))
 
 
+def _galaxy_news_for_all(galaxy_id, message, time_now=None, kind="", from_kd="", to_kd=""):
+    """A line in a galaxy's news, unread for every kingdom in it."""
+    galaxies = occ.read('/galaxies')["galaxies"]  # fresh: the request may have just changed the galaxy
+    uan.galaxy(galaxy_id, message, time_now, kind=kind, from_kd=from_kd, to_kd=to_kd)
+    for galaxymate in galaxies.get(galaxy_id, []):
+        _add_notifs(galaxymate, ["news_galaxy"])
+
+
+def _galaxy_of(kd_id):
+    galaxies = occ.read('/galaxies')["galaxies"]
+    return next((galaxy for galaxy, members in galaxies.items() if str(kd_id) in members), None)
+
+
+@uan.best_effort
+def announce_new_kingdom(kd_id, name):
+    """A kingdom was set up: its galaxy's news says so. Players and bots both come through here."""
+    galaxy = _galaxy_of(kd_id)
+    if galaxy is not None:
+        _galaxy_news_for_all(galaxy, f"{name or 'A new kingdom'} joined the galaxy", kind="galaxy", from_kd=str(kd_id))
+
+
+@uan.best_effort
+def _death_news(kd_id, killer=None):
+    """A kingdom died: its galaxy's news says so, and who killed it if anyone did."""
+    galaxy = _galaxy_of(kd_id)
+    if galaxy is None:
+        return
+    names = uag._get_kingdoms()
+    name = names.get(str(kd_id), f"Kingdom {kd_id}")
+    message = f"{name} has died" + (f", killed by {names.get(str(killer), killer)}" if killer is not None else "")
+    _galaxy_news_for_all(galaxy, message, kind="death", from_kd="" if killer is None else str(killer),
+                         to_kd=str(kd_id))
+
+
 def _finish_kingdom(kd_id, plan, user_id):
     """Set a freshly made kingdom up as the plan says, once. Returns the response."""
 
@@ -187,11 +222,12 @@ def _finish_kingdom(kd_id, plan, user_id):
                 datetime.datetime.now(datetime.timezone.utc)
                 + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_AUTO_SPENDING_TIME_MULTIPLIER"])
             ).isoformat()
-        return payload, None
+        return payload, kd_info.get("name", "")
 
     try:
         # The kingdom is only ever set up once: the second of two racing requests finds the race already chosen.
-        occ.update(f"/kingdom/{kd_id}", decide)
+        name = occ.update(f"/kingdom/{kd_id}", decide)
+        announce_new_kingdom(kd_id, name)
 
         User.get(user_id).save(kd_created=True)
     except occ.Rejected as rejection:
@@ -651,6 +687,7 @@ def _mark_kingdom_death(kd_id, killer=None):
 
     uat.on_kingdom_death(kd_id, killer=killer)
     death_date = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    _death_news(kd_id, killer)
     for user in User.by_kd_id(kd_id):
         user.save(kd_death_date=death_date)
     try:

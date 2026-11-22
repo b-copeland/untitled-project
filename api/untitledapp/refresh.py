@@ -1435,6 +1435,8 @@ def _begin_election(state):
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps(universe_politics_payload)
     )
+    uan.best_effort(uan.universe)(f"A universe election has begun. Voting closes in {uas.wait_text(election_end - election_start)}",
+                 election_start)
     return state
 
 def _resolve_election(state):
@@ -1474,6 +1476,8 @@ def _resolve_election(state):
 
     if _claim_state(decide):
         state["state"].update(result["state_payload"])
+        policies = " and ".join(result["state_payload"]["active_policies"])
+        uan.best_effort(uan.universe)(f"The universe election is over. The universe has chosen {policies}", election_end)
     return state
 
 def _resolve_scores(kd_scores, time_update, context=None):

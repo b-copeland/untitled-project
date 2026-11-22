@@ -161,9 +161,11 @@ def cast_leader_vote(kd_id, selected):
     
     galaxy_votes, galaxy_id = uag._get_galaxy_politics(kd_id)
     now = _now()
+    elected = {}
 
     def vote(galaxy_votes):
         # Added to the votes as they are right now, so galaxymates voting together all count.
+        elected.clear()  # decided again on each attempt
         patch_payload = _record_vote(galaxy_votes, "leader", kd_id, selected, now)
         leader_votes = collections.defaultdict(int)
         for leader in galaxy_votes["votes"]["leader"].values():
@@ -179,6 +181,7 @@ def cast_leader_vote(kd_id, selected):
         if len(kds_with_most_votes) == 1 and (kds_with_most_votes[0] != current_leader):
             patch_payload["leader"] = kds_with_most_votes[0]
             galaxy_votes["leader"] = kds_with_most_votes[0]
+            elected["leader"] = kds_with_most_votes[0]
         return patch_payload, galaxy_votes
 
     try:
@@ -187,6 +190,8 @@ def cast_leader_vote(kd_id, selected):
         return {"message": rejection.message}, rejection.status
     except occ.Busy:
         return {"message": "Server is busy"}, 400
+    if elected:
+        _leader_news(galaxy_id, elected["leader"], now)
 
     return galaxy_votes, 200
 
@@ -207,8 +212,10 @@ def cast_galaxy_vote(kd_id, galaxy_id, policy, option):
     inside the cooldown that follows a changed vote. The route and the bots both come through here.
     """
     now = _now()
+    adopted = {}
 
     def vote(galaxy_votes):
+        adopted.clear()  # decided again on each attempt
         patch_payload = _record_vote(galaxy_votes, policy, kd_id, option.split('_')[-1], now)
         policy_votes = collections.defaultdict(int)
         for chosen in galaxy_votes["votes"][policy].values():
@@ -229,10 +236,25 @@ def cast_galaxy_vote(kd_id, galaxy_id, policy, option):
             patch_payload["active_policies"] = new_active_policies
             galaxy_votes[f"{policy}_winner"] = policies_with_most_votes[0]
             galaxy_votes["active_policies"] = new_active_policies
+            adopted["name"] = new_option_name
 
         return patch_payload, galaxy_votes
 
-    return occ.update(f'/galaxy/{galaxy_id}/politics', vote)
+    galaxy_votes = occ.update(f'/galaxy/{galaxy_id}/politics', vote)
+    if adopted:
+        _galaxy_politics_news(galaxy_id, f"The galaxy voted for the {adopted['name']} policy", now)
+    return galaxy_votes
+
+
+@uan.best_effort
+def _leader_news(galaxy_id, leader, now):
+    _galaxy_politics_news(galaxy_id, f"{uag._get_kingdoms().get(leader, leader)} is now the galaxy leader", now)
+
+
+@uan.best_effort
+def _galaxy_politics_news(galaxy_id, message, now):
+    """A change of galaxy leader or policy: a line in the galaxy's news, unread for every kingdom in it."""
+    uam._galaxy_news_for_all(galaxy_id, message, now, kind="politics")
 
 
 @bp.route('/api/galaxypolitics/policies', methods=['POST'])

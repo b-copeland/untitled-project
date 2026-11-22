@@ -357,6 +357,7 @@ def create_bot(name, archetype_key, rng=None):
         return payload, None
 
     occ.update(f'/kingdom/{kd_id}', set_up)
+    uam.announce_new_kingdom(kd_id, name)
 
     user.save(kd_id=kd_id, kd_created=True)
     return kd_id
