@@ -14,6 +14,7 @@ import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.getters as uag
 import untitledapp.galaxypolicies as uagp
+import untitledapp.universepolicies as uaup
 import untitledapp.shared as uas
 import untitledapp.targets as uat
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
@@ -1252,6 +1253,11 @@ def cast_universe_votes(kd_id, policy, option, votes):
     The route and the bots both come through here.
     """
 
+    state = uag._get_state().get("state", {})
+    problem = uaup.vote_problem(uaup.ballot_of(state), policy, option, bool(state.get("election_end")))
+    if problem:
+        return {"message": problem}, 400
+
     def take_votes(kd_info):
         valid_votes, message = _validate_cast_votes(kd_info, votes)
         if not valid_votes:
@@ -1259,11 +1265,10 @@ def cast_universe_votes(kd_id, policy, option, votes):
         return {"votes": kd_info["votes"] - votes}, None
 
     def add_votes(universe_politics):
-        try:
-            universe_politics["votes"][policy][option][kd_id] += votes
-        except KeyError:
-            universe_politics["votes"][policy][option][kd_id] = votes
-        return {"votes": universe_politics["votes"]}, None
+        tally = universe_politics.get("votes") or {}
+        cast = tally.setdefault(policy, {}).setdefault(option, {})
+        cast[kd_id] = cast.get(kd_id, 0) + votes
+        return {"votes": tally}, None
 
     def give_back(kd_info):
         return {"votes": kd_info["votes"] + votes}, None
@@ -1292,8 +1297,13 @@ def cast_universe_votes(kd_id, policy, option, votes):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def universe_policies():
-    req = flask.request.get_json(force=True)
+    req = flask.request.get_json(force=True, silent=True)
+    req = req if isinstance(req, dict) else {}
     kd_id = flask_praetorian.current_user().kd_id
+    try:
+        votes = int(req.get("votes"))
+    except (TypeError, ValueError):
+        return (flask.jsonify({"message": "Choose how many votes to cast"}), 400)
 
-    payload, status = cast_universe_votes(kd_id, req["policy"], req["option"], int(req["votes"]))
+    payload, status = cast_universe_votes(kd_id, req.get("policy"), req.get("option"), votes)
     return (flask.jsonify(payload), status)

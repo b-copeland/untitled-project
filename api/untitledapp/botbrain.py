@@ -53,6 +53,7 @@ import untitledapp.botstrategy as strategy
 import untitledapp.build as uab
 import untitledapp.conquer as uac
 import untitledapp.galaxypolicies as uagp
+import untitledapp.universepolicies as uaup
 import untitledapp.getters as uag
 import untitledapp.intel as uai
 import untitledapp.misc as uam
@@ -208,7 +209,7 @@ PERSONALITIES = {
         key_projects=("drone_gadgets", "big_flexers"), key_share=(0.4, 0.25, 0.15),
         intel_chance=0.15, share_chance=0.5,
         galaxy_votes=("expansionist", "drone_foundries", "conscription", "applied_research", "industrialists", "renovators", "mining_guilds", "civic_taxation", "fortification", "plunderers", "drone_recovery", "aegis", "fortress", "rapid_construction"),
-        universe_votes={"policy_1": "2", "policy_2": "1"},    # Treatied (it defends), Free trade
+        universe_votes={"rules_of_war": "ceasefire_accords", "espionage": "surveillance_act", "arms_control": "non_proliferation", "labor": "draft_limits", "environment": "carbon_cap", "primitives": "native_reserves", "diplomacy": "aggression_monitors", "secrecy": "classified", "wealth": "antitrust"},
     ),
     "attacker": Personality(
         think_epochs=(1.0, 3.0),
@@ -222,7 +223,7 @@ PERSONALITIES = {
         attack_buffer=(3.0, 9.0), player_edge=1.0,
         intel_chance=0.7, intel_ops=("spymilitary",), share_chance=0.2,
         galaxy_votes=("raiders", "warlike", "conscription", "applied_research", "industrialists", "shipwrights", "refineries", "efficiency", "offensive_arms", "infiltrators", "veteran_corps", "silo_programme", "fortress", "rapid_construction"),
-        universe_votes={"policy_1": "1", "policy_2": "1"},    # Unregulated, Free trade
+        universe_votes={"rules_of_war": "land_tax", "espionage": "open_skies", "arms_control": "non_proliferation", "labor": "research_moratorium", "environment": "population_control", "primitives": "native_reserves", "diplomacy": "shield_levy", "secrecy": "transparency", "wealth": "progressive_tax"},
     ),
     "intel": Personality(
         think_epochs=(1.0, 2.5), max_new=4, max_pending=7,
@@ -239,7 +240,7 @@ PERSONALITIES = {
         intel_tries=(1, 3), share_chance=0.95, share_cut=10.0,
         aggressive_chance=0.15, sabotage_chance=(0.0, 0.1, 0.5),
         galaxy_votes=("expansionist", "drone_foundries", "intelligence", "breakthroughs", "engineering_corps", "renovators", "mining_guilds", "civic_taxation", "fortification", "infiltrators", "drone_recovery", "aegis", "counter_intel", "population_boom"),
-        universe_votes={"policy_1": "2", "policy_2": "1"},
+        universe_votes={"rules_of_war": "ceasefire_accords", "espionage": "open_skies", "arms_control": "treatied", "labor": "draft_limits", "environment": "carbon_cap", "primitives": "wilderness_protection", "diplomacy": "shield_levy", "secrecy": "transparency", "wealth": "progressive_tax"},
     ),
     "thief": Personality(
         think_epochs=(1.5, 4.0), max_new=3, max_pending=6,
@@ -255,7 +256,7 @@ PERSONALITIES = {
         aggressive_chance=0.9, sabotage_chance=(0.0, 0.0, 0.1),
         sabotage_ops=("kidnappopulation", "bombhomes", "sabotagefuelplants", "kidnappopulation"),
         galaxy_votes=("expansionist", "drone_foundries", "intelligence", "applied_research", "industrialists", "renovators", "mining_guilds", "civic_taxation", "fortification", "plunderers", "drone_recovery", "aegis", "counter_intel", "population_boom"),
-        universe_votes={"policy_1": "2", "policy_2": "1"},
+        universe_votes={"rules_of_war": "ceasefire_accords", "espionage": "open_skies", "arms_control": "treatied", "labor": "draft_limits", "environment": "carbon_cap", "primitives": "wilderness_protection", "diplomacy": "shield_levy", "secrecy": "transparency", "wealth": "progressive_tax"},
     ),
 }
 
@@ -414,9 +415,7 @@ class World:
     @property
     def cost_modifier(self):
         """Unit prices as ``getters._get_units_adjusted_costs`` makes them (before the pure-unit discounts)."""
-        return (1.0 - ("Unregulated" in self.active_policies) * uas.GAME_CONFIG["BASE_UNREGULATED_COST_REDUCTION"]
-                + ("Treatied" in self.active_policies) * uas.GAME_CONFIG["BASE_TREATIED_COST_INCREASE"]
-                + uas.modifier(self.modifiers, "unit_cost"))
+        return 1.0 + uas.modifier(self.modifiers, "unit_cost")
 
     # --- lazily read documents
 
@@ -959,13 +958,14 @@ def plan_politics(world, personality, style, memory, rng):
             if buy > 0:
                 decisions.append(Decision("buy_votes", {"votes": buy}, f"buy {buy} universe votes"))
         total = int(me.get("votes") or 0) + buy
-        policies = list(personality.universe_votes.items())
+        # Only the ballot's policies, in its order: most votes on the first.
+        ballot = uaup.ballot_of(world.state.get("state"))
+        policies = [(policy, personality.universe_votes[policy]) for policy in ballot if policy in personality.universe_votes]
         rest = total // 5 if len(policies) > 1 and total >= 5 else 0
         amounts = [total - rest * (len(policies) - 1)] + [rest] * (len(policies) - 1)
         for (policy, option), amount in zip(policies, amounts):
             if amount > 0:
-                # The tally is kept under "option_1" and "option_2", as the Universe page sends them.
-                decisions.append(Decision("vote_universe", {"policy": policy, "option": f"option_{option}", "votes": amount},
+                decisions.append(Decision("vote_universe", {"policy": policy, "option": option, "votes": amount},
                                           f"cast {amount} votes for {uas.UNIVERSE_POLICIES[policy]['options'][option]['name']}"))
     return decisions
 

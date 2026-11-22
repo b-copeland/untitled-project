@@ -382,16 +382,20 @@ def test_a_locked_leader_vote_waits_but_a_policy_vote_never_does():
 
 
 def test_in_an_election_it_buys_votes_once_and_casts_them_as_the_universe_page_does():
-    world = StubWorld(me={"money": 400_000, "votes": 2}, state={"election_end": until(6)},
-                      politics={"votes": {"policy_1": {"1": "2"}, "policy_2": {"1": "2"}, "leader": {"1": "1"}}})
+    world = StubWorld(me={"money": 400_000, "votes": 2},
+                      state={"election_end": until(6), "ballot": ["primitives", "wealth"], **ROUND_POLICIES},
+                      politics={"votes": {"leader": {"1": "1"}},
+                                "policy_votes": {"growth_doctrine": {"1": "raiders"}, "tempo_doctrine": {"1": "warlike"}}})
     memory = {}
     decisions = brain.plan_politics(world, ATTACKER, style(), memory, random.Random(1))
     bought = [d for d in decisions if d.kind == "buy_votes"]
     cast = [d for d in decisions if d.kind == "vote_universe"]
     assert bought[0].options == {"votes": 10}   # a quarter of its money at 10,000 a vote
     assert sum(d.options["votes"] for d in cast) == 12
-    assert {d.options["option"] for d in cast} <= {"option_1", "option_2"}
-    assert cast[0].options["votes"] > cast[1].options["votes"]  # most on the arms doctrine
+    # Only the ballot's policies, with the options the attacker likes, most on the first.
+    assert [(d.options["policy"], d.options["option"]) for d in cast] == [
+        ("primitives", "native_reserves"), ("wealth", "progressive_tax")]
+    assert cast[0].options["votes"] > cast[1].options["votes"]
     again = brain.plan_politics(world, ATTACKER, style(), memory, random.Random(1))
     assert not [d for d in again if d.kind == "buy_votes"]
 

@@ -18,6 +18,7 @@ the other docs; they are not instructions themselves. Read one before arguing to
 | [0011](0011-preferences-and-themes.md) | Player preferences in their own document; colour themes from tokens |
 | [0012](0012-one-request-new-round.md) | A new round is one request that pauses the game first and writes the state whole last |
 | [0013](0013-galaxy-policy-tally.md) | Galaxy policies change only at a timed tally that weighs votes by time held; every policy is a sum of named effects |
+| [0014](0014-universe-ballots.md) | Universe elections have ballots, keep the last result while voting, and break ties at random |
 
 To add one: copy the shape below into the next number, and link it from this table.
 

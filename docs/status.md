@@ -100,6 +100,21 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   backend). Failed fetches are now retried for about half a minute (`src/data/gameData.js`). If it happens again,
   look in the browser's network tab for a failing or empty `/api/structures`.
 
+## Universe policies
+
+Added 2026-11-22 (issue #168, [decisions/0014](decisions/0014-universe-ballots.md)):
+
+- Every number is a placeholder: each option's `effects` in `UNIVERSE_POLICIES`, `UNIVERSE_POLICIES_PER_ELECTION` (2),
+  `BASE_FIRST_ELECTION_START_MULTIPLIER` (48), `UNIVERSE_WEALTH_TOP_KINGDOMS` (10), `UNIVERSE_WEALTH_TOP_GALAXIES` (2).
+- Wealth's leaders are read from the scores the refresh last wrote, so a kingdom that rises into the top 10 pays from
+  the next tick.
+- Votes can no longer be cast between elections (they were wiped when the next one opened).
+- A round from before the ballot keeps only Treatied of its old options; Unregulated, Free Trade and Isolationist end.
+- The function app's `/init` and `/resetstate` still write `universe_votes` in the old two-policy shape; the first
+  election writes it fresh, so it does no harm, but it could be emptied there.
+- Carbon Cap raises fuel upkeep; a kingdom pushed out of fuel loses strength over time, not at once, but the forecast
+  does not yet warn of it.
+
 ## Galaxy policies
 
 Added 2026-11-22 (issue #168, [decisions/0013](decisions/0013-galaxy-policy-tally.md)):

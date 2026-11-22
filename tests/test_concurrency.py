@@ -221,10 +221,12 @@ def test_racing_vote_purchases_charge_and_grant_once(app, client, jwt1):
 
 def test_racing_vote_casts_spend_the_votes_once_and_tally_them_once(app, client, jwt1):
     _set_up_kingdom(money=0, votes=5)
-    _create_item("universe_votes", {"votes": {"policy_1": {"1": {}, "2": {}}}})
-    body = {"votes": 5, "policy": "policy_1", "option": "1"}
+    state = _get("/state")["state"]
+    _create_item("state", {"state": {**state, "ballot": ["labor", "secrecy"], "election_end": "2099-01-01T00:00:00+00:00"}})
+    _create_item("universe_votes", {"votes": {"labor": {"draft_limits": {}, "research_moratorium": {}}}})
+    body = {"votes": 5, "policy": "labor", "option": "draft_limits"}
     responses = _run_together(app, 8, _post(app, jwt1, "/api/universepolitics/policies", body))
 
     assert sorted(r.status_code for r in responses) == [200] + [400] * 7, [r.get_json() for r in responses]
     assert _get(f"/kingdom/{KD_ID}")["votes"] == 0
-    assert _get("/universevotes")["votes"]["policy_1"]["1"][KD_ID] == 5
+    assert _get("/universevotes")["votes"]["labor"]["draft_limits"][KD_ID] == 5

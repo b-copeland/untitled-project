@@ -197,8 +197,9 @@ hidden state.
   own empire, and attack an under-defended human as readily as an under-defended bot.
 - **War.** From the mid game the empire leader denounces the strongest other empire (the aggression that follows can
   bring a war without the penalty for a surprise), and late in the round declares war if it has not come.
-- **Universe votes.** In an election a bot buys votes once, with a quarter of its loose money, and casts most on the arms
-  doctrine (where playstyles disagree) and the rest on trade.
+- **Universe votes.** In an election a bot buys votes once, with a quarter of its loose money, and casts them on the
+  ballot's policies by its playstyle's choice (`Personality.universe_votes`: one option of every policy, the one that
+  hurts its rivals), most on the first.
 
 ### The bot's own record
 
@@ -340,8 +341,9 @@ Not changed: these are balance and rules, which are the maintainer's call.
    homes sizing (`botstrategy.py`) uses the base capacity and they never assign it engineers.
 9. **A small kingdom can be ground down to nothing.** An attack takes at least 25 stars however small the target, and
    nothing protects a kingdom a tenth of the attacker's size. Bots that only hit kingdoms do this to each other.
-10. **Treatied won the election in the runs looked at**, because three of the four playstyles vote for it. It makes
-   every unit 20% dearer for all of them too.
+10. **Universe votes are a fixed choice per playstyle**, so the same options keep winning when the bots outvote the
+   players. Since issue #168 every option punishes someone; the lists in `PERSONALITIES` pick the one that hurts each
+   playstyle's rivals.
 
 ### Bugs found on the way (fixed)
 
@@ -378,6 +380,5 @@ Nothing is blocked on these; I picked a default and moved on.
 
 1. **Quick starts.** The archetypes now start with far more attackers and fewer drones (it is worth about 20% in the
    simulations). New players are offered the same starts. Is that what you want them offered?
-2. **Vote preferences** are from the policy text (`Personality.galaxy_votes`, `universe_votes`). Three playstyles
-   vote Treatied, which they also pay for.
+2. **Vote preferences** are from the policy text (`Personality.galaxy_votes`, `universe_votes`).
 3. **Existing bots** (without `style`) keep working with a default style. Re-create them to get the mix.

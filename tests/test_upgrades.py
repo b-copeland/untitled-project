@@ -50,8 +50,8 @@ def test_an_upgrade_always_costs_something_and_keeps_to_its_line():
 
 def test_the_upgrade_cost_is_the_difference_in_the_prices_the_kingdom_pays():
     assert uas.upgrade_cost(uas.UNITS, "heavy_attack") == uas.UNITS["heavy_attack"]["cost"] - uas.UNITS["attack"]["cost"]
-    cheap = uag._get_units_adjusted_costs({"state": {"active_policies": ["Unregulated"]}})
-    expected = uas.upgrade_cost(uas.UNITS, "heavy_attack") * (1 - uas.GAME_CONFIG["BASE_UNREGULATED_COST_REDUCTION"])
+    cheap = uag._get_units_adjusted_costs({"state": {"active_policies": []}}, {"unit_cost": -0.2})
+    expected = uas.upgrade_cost(uas.UNITS, "heavy_attack") * 0.8
     assert uas.upgrade_cost(cheap, "heavy_attack") == pytest.approx(expected)
     assert uas.units_for({"completed_projects": []}, cheap)["heavy_attack"]["upgrade_cost"] == pytest.approx(expected)
     assert "upgrade_cost" not in uas.units_for({"completed_projects": []})["attack"]

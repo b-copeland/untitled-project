@@ -437,10 +437,12 @@ GAME_CONFIG = {
     # tallied. Between tallies the policies hold; each tally weighs every vote by how long it was held since the last.
     "GALAXY_POLICIES_PER_ROUND": 4,
     "GALAXY_POLICY_TALLY_EPOCHS": 12,
-    "BASE_UNREGULATED_COST_REDUCTION": 0.2,
-    "BASE_TREATIED_COST_INCREASE": 0.2,
-    "BASE_FREE_TRADE_INCREASE": 0.1,
-    "BASE_ISOLATIONIST_DECREASE": 0.1,
+    # Universe policies (universepolicies.py): the first election opens this many epochs after the round starts (unless
+    # the admin sets another time), and each ballot has this many policies. Wealth's options hit the leaders.
+    "BASE_FIRST_ELECTION_START_MULTIPLIER": 48,
+    "UNIVERSE_POLICIES_PER_ELECTION": 2,
+    "UNIVERSE_WEALTH_TOP_KINGDOMS": 10,
+    "UNIVERSE_WEALTH_TOP_GALAXIES": 2,
 
     # Cluster politics (clusters.py). Placeholders: the framework is in, the balance is not.
     "CLUSTER_SIZE": 5,  # galaxies per cluster when /api/admin/newround makes them
@@ -1356,6 +1358,17 @@ EFFECTS = {
                         "down": "Spy shields and spy radar cost {pct} less fuel"},
     "structure_time": {"better": "lower", "up": "Structures take {pct} longer to build",
                        "down": "Structures build {pct} faster"},
+    # What only universe policies do: they punish, so each is worded for a rise in what hurts.
+    "attack_stars": {"better": "higher", "up": "Attacks on kingdoms gain {pct} more stars",
+                     "down": "Attacks on kingdoms gain {pct} fewer stars"},
+    "aggressive_failure_losses": {"better": "lower", "up": "Failed aggressive spy operations lose {pct} more drones",
+                                  "down": "Failed aggressive spy operations lose {pct} fewer drones"},
+    "primitives_defense": {"better": "lower", "up": "Primitives defend {pct} harder", "down": "Primitives defend {pct} less"},
+    "aggression": {"better": "lower", "up": "Attacks and aggressive spying raise {pct} more aggression between empires",
+                   "down": "Attacks and aggressive spying raise {pct} less aggression between empires"},
+    "spy_defense": {"better": "higher", "up": "Spy operations need {pct} more drones to succeed against a kingdom",
+                    "down": "Spy operations need {pct} fewer drones to succeed against a kingdom"},
+    "money_income": {"better": "higher", "up": "You earn {pct} more money", "down": "You earn {pct} less money"},
     # What only cluster benefits do: capacities, which a vote that switches must not raise (tenet 1).
     "homes_capacity": {"better": "higher", "up": "Homes house {pct} more people", "down": "Homes house {pct} fewer people"},
     "hangar_capacity": {"better": "higher", "up": "Hangars hold {pct} more units", "down": "Hangars hold {pct} fewer units"},
@@ -1595,33 +1608,98 @@ TARGET_MEASURE_NAMES = {
     "stars": "star", "fuel": "fuel", "units": "unit destroyed",
 }
 
+# The universe policies (universepolicies.py). Each election puts UNIVERSE_POLICIES_PER_ELECTION of them on the ballot;
+# kingdoms spend bought votes on one option of each, and the winners hold until the next election closes. Every option
+# punishes a playstyle, so the vote is the universe deciding whom to rein in. ``first_election_only`` policies are always
+# on the first ballot and never on another. ``applies_to`` says who an option hits: everyone, or (``top_kingdoms``,
+# ``top_galaxies``) the leaders by networth. Placeholders: the numbers are the maintainer's to balance.
 UNIVERSE_POLICIES = {
-    "policy_1": {
-        "name": "Arms Doctrine",
+    "rules_of_war": {
+        "name": "Rules of War",
         "options": {
-            "1": {
-                "name": "Unregulated",
-                "desc": "Militarization has no universal regulation. All military units cost 20% less."
-            },
-            "2": {
-                "name": "Treatied",
-                "desc": "Universal treaties enforce demilitarization. All military units cost 20% more."
-            }
-        }
+            "ceasefire_accords": {"name": "Ceasefire Accords", "effects": {"attack_stars": -0.15}},
+            "land_tax": {"name": "Land Tax", "effects": {"settle_cost": 0.15}},
+        },
     },
-    "policy_2": {
-        "name": "Trade Doctrine",
+    "espionage": {
+        "name": "Espionage",
         "options": {
-            "1": {
-                "name": "Free Trade",
-                "desc": "Kingdoms freely engage in mutually beneficial trade. Universal income is increased by 10%"
-            },
-            "2": {
-                "name": "Isolationist",
-                "desc": "Kingdoms impose tariffs on imported goods. Universal income is decreased by 10%"
-            }
-        }
+            "surveillance_act": {"name": "Surveillance Act", "effects": {"aggressive_failure_losses": 1.0}},
+            "open_skies": {"name": "Open Skies", "effects": {"spy_shield_fuel": 1.0}},
+        },
     },
+    "arms_control": {
+        "name": "Arms Control",
+        "options": {
+            "treatied": {"name": "Treatied", "effects": {"unit_cost": 0.20}},
+            "non_proliferation": {"name": "Non-Proliferation", "effects": {"missile_cost": 0.30}},
+        },
+    },
+    "labor": {
+        "name": "Labor",
+        "options": {
+            "draft_limits": {"name": "Draft Limits", "effects": {"recruit_cost": 0.30}},
+            "research_moratorium": {"name": "Research Moratorium", "effects": {"project_points": -0.15}},
+        },
+    },
+    "environment": {
+        "name": "Environment",
+        "options": {
+            "carbon_cap": {"name": "Carbon Cap", "effects": {"unit_fuel": 0.25}},
+            "population_control": {"name": "Population Control", "effects": {"pop_growth": -0.25}},
+        },
+    },
+    "primitives": {
+        "name": "Primitives",
+        "first_election_only": True,
+        "options": {
+            "native_reserves": {"name": "Native Reserves", "effects": {"rob_primitives": -0.30}},
+            "wilderness_protection": {"name": "Wilderness Protection", "effects": {"primitives_defense": 0.30}},
+        },
+    },
+    "diplomacy": {
+        "name": "Diplomacy",
+        "options": {
+            "aggression_monitors": {"name": "Aggression Monitors", "effects": {"aggression": 0.50}},
+            "shield_levy": {"name": "Shield Levy", "effects": {"military_shield_fuel": 1.0}},
+        },
+    },
+    "secrecy": {
+        "name": "Secrecy",
+        "options": {
+            "classified": {"name": "Classified", "effects": {"reveal_duration": -0.25}},
+            "transparency": {"name": "Transparency", "effects": {"spy_defense": -0.25}},
+        },
+    },
+    "wealth": {
+        "name": "Wealth",
+        "options": {
+            "progressive_tax": {"name": "Progressive Tax", "effects": {"money_income": -0.10}, "applies_to": "top_kingdoms"},
+            "antitrust": {"name": "Antitrust", "effects": {"money_income": -0.10}, "applies_to": "top_galaxies"},
+        },
+    },
+}
+for _policy in UNIVERSE_POLICIES.values():
+    for _option in _policy["options"].values():
+        _option.setdefault("applies_to", "everyone")
+        _option["desc"] = effects_text(_option["effects"])
+UNIVERSE_POLICIES["wealth"]["options"]["progressive_tax"]["desc"] = (
+    "The {n} kingdoms with the most networth earn {pct:.0%} less money".format(
+        n=GAME_CONFIG["UNIVERSE_WEALTH_TOP_KINGDOMS"],
+        pct=-UNIVERSE_POLICIES["wealth"]["options"]["progressive_tax"]["effects"]["money_income"]))
+UNIVERSE_POLICIES["wealth"]["options"]["antitrust"]["desc"] = (
+    "Kingdoms of the {n} galaxies with the most networth earn {pct:.0%} less money".format(
+        n=GAME_CONFIG["UNIVERSE_WEALTH_TOP_GALAXIES"],
+        pct=-UNIVERSE_POLICIES["wealth"]["options"]["antitrust"]["effects"]["money_income"]))
+# Doubling reads better said so.
+UNIVERSE_POLICIES["espionage"]["options"]["surveillance_act"]["desc"] = "Failed aggressive spy operations lose twice the drones"
+UNIVERSE_POLICIES["espionage"]["options"]["open_skies"]["desc"] = "Spy shields and spy radar cost twice the fuel"
+UNIVERSE_POLICIES["diplomacy"]["options"]["shield_levy"]["desc"] = "Military shields cost twice the fuel"
+UNIVERSE_POLICIES["secrecy"]["options"]["classified"]["desc"] = "Reveals last {pct:.0%} less".format(
+    pct=-UNIVERSE_POLICIES["secrecy"]["options"]["classified"]["effects"]["reveal_duration"])
+# The policy each option belongs to.
+UNIVERSE_POLICY_OF_OPTION = {
+    option: policy for policy, entry in UNIVERSE_POLICIES.items() for option in entry["options"]
 }
 
 PRETTY_NAMES = {

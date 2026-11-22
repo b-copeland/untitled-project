@@ -18,6 +18,7 @@ import untitledapp.build as uab
 import untitledapp.clusters as uacl
 import untitledapp.conquer as uac
 import untitledapp.galaxypolicies as uagp
+import untitledapp.universepolicies as uaup
 import untitledapp.getters as uag
 import untitledapp.lastknown as uala
 import untitledapp.shared as uas
@@ -40,6 +41,7 @@ class _RefreshContext:
         self._galaxies = None
         self._galaxy_politics = {}
         self._clusters = {}
+        self._scores = None  # read once a tick, and only if a universe policy hits the leaders
         # Reveals that ended this tick, as (holder, target, category, ended), and each kingdom as the tick left it:
         # last-known intel is snapshotted from these once every kingdom is done (_record_ended_intel), so it costs
         # no reads for kingdoms the tick has refreshed. Both survive a kingdom's retried attempts.
@@ -95,11 +97,15 @@ class _RefreshContext:
         policies and its cluster's benefits, from documents read once per tick.
         """
         galaxy_id = self.galaxies_inverted.get(kd_id)
-        if galaxy_id is None:
-            return {}
         state = self.state if self.state is not None else uag._get_state()
+        active = uaup.active_options((state or {}).get("state"))
+        if uaup.needs_scores(active) and self._scores is None:
+            self._scores = uag._get_scores_shared()
+        universe = uaup.modifiers(active, kd_id, galaxy_id, self._scores)
+        if galaxy_id is None:
+            return universe
         galaxy = uag._galaxy_policies_now(self.galaxy_politics(kd_id, galaxy_id), state, time_update)
-        return uas.add_modifiers(uagp.modifiers(galaxy), self.cluster_modifiers(kd_id, time_update))
+        return uas.add_modifiers(uagp.modifiers(galaxy), self.cluster_modifiers(kd_id, time_update), universe)
 
 
 def _calc_pop_change_per_epoch(
@@ -414,8 +420,6 @@ def _kingdom_with_income(
     seconds_elapsed = (time_now - time_last_income).total_seconds()
     epoch_elapsed = seconds_elapsed / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
 
-    is_isolationist = "Isolationist" in state["state"]["active_policies"]
-    is_free_trade = "Free Trade" in state["state"]["active_policies"]
 
     income = {
         "money": {},
@@ -430,7 +434,7 @@ def _kingdom_with_income(
         math.floor(kd_info_parse["population"]) * uas.GAME_CONFIG["BASE_POP_INCOME_PER_EPOCH"]
         * max(1 + uas.modifier(modifiers, "pop_income"), 0)
     )
-    income["money"]["bonus"] = current_bonuses["money_bonus"] - is_isolationist * uas.GAME_CONFIG["BASE_ISOLATIONIST_DECREASE"] + is_free_trade * uas.GAME_CONFIG["BASE_FREE_TRADE_INCREASE"]
+    income["money"]["bonus"] = current_bonuses["money_bonus"] + uas.modifier(modifiers, "money_income")
     # Xo Evolution pays for open hangar space; Fuzi Evolution makes money, fuel and drones in empty missile silos.
     if mobis_queue is None and uas.has_project(kd_info_parse, "xo_evolution"):
         mobis_queue = uag._get_mobis_queue(kd_info_parse["kdId"])  # read once, for this and the population below
@@ -1440,13 +1444,19 @@ def _take_history_mark(time_update):
 
 
 def _begin_election(state):
+    """
+    Open the election that is due: its ballot (drawn when the last one closed, or now for a round from before the
+    ballot) gets empty votes. The policies in force stay in force until it closes.
+    """
     app = flask.current_app
     election_start = datetime.datetime.fromisoformat(state["state"]["election_start"]).astimezone(datetime.timezone.utc)
     election_end = election_start + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_ELECTION_LENGTH_MULTIPLIER"])
+    ballot = uaup.ballot_of(state["state"]) or uaup.draw_ballot(
+        random.Random(state["state"]["election_start"]), first=not uaup.active_options(state["state"]))
 
     state_payload = {
         "election_end": election_end.isoformat(),
-        "active_policies": [],
+        "ballot": ballot,
     }
     # Decided against the state as it is: only the tick that opens the election clears the votes.
     if not _claim_state(lambda stored: state_payload if stored.get("election_end", "") == "" else None):
@@ -1454,26 +1464,18 @@ def _begin_election(state):
     state["state"].update(state_payload)
 
     # The new election's votes start empty (an effect of the decision above, so it happens once).
-    universe_politics_payload = {
-        "votes": {
-            "policy_1": {
-                "option_1": {},
-                "option_2": {},
-            },
-            "policy_2": {
-                "option_1": {},
-                "option_2": {},
-            },
-        }
-    }
     REQUESTS_SESSION.patch(
         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universepolitics',
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps(universe_politics_payload)
+        data=json.dumps({"votes": uaup.empty_votes(ballot)})
     )
     return state
 
 def _resolve_election(state):
+    """
+    Close the open election: each ballot policy's option with the most votes is in force until the next one closes (a
+    tie decided at random), and the next ballot is drawn now, from the policies not on this one, so it shows days ahead.
+    """
     election_end = datetime.datetime.fromisoformat(state["state"]["election_end"]).astimezone(datetime.timezone.utc)
     next_election_start = election_end + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_ELECTION_RESULTS_DURATION_MULTIPLIER"])
     result = {}
@@ -1482,29 +1484,16 @@ def _resolve_election(state):
         # Only the tick that closes this election counts it; one that overlaps it finds it closed already.
         if stored.get("election_end", "") != state["state"]["election_end"]:
             return None
-        # Counted here, inside the decision, so a vote that lands before the close is counted.
+        # Counted here, inside the decision, so a vote that lands before the close is counted. The draws are seeded by
+        # the election, so deciding again (a conflict) gives the same result.
         universe_politics = occ.read('/universevotes')
-        policy_1_option_1_votes = sum(universe_politics["votes"]["policy_1"]["option_1"].values())
-        policy_1_option_2_votes = sum(universe_politics["votes"]["policy_1"]["option_2"].values())
-        policy_2_option_1_votes = sum(universe_politics["votes"]["policy_2"]["option_1"].values())
-        policy_2_option_2_votes = sum(universe_politics["votes"]["policy_2"]["option_2"].values())
-
-        active_policies = []
-        if policy_1_option_1_votes >= policy_1_option_2_votes:
-            active_policies.append(uas.UNIVERSE_POLICIES["policy_1"]["options"]["1"]["name"])
-        else:
-            active_policies.append(uas.UNIVERSE_POLICIES["policy_1"]["options"]["2"]["name"])
-
-            
-        if policy_2_option_1_votes >= policy_2_option_2_votes:
-            active_policies.append(uas.UNIVERSE_POLICIES["policy_2"]["options"]["1"]["name"])
-        else:
-            active_policies.append(uas.UNIVERSE_POLICIES["policy_2"]["options"]["2"]["name"])
-
+        ballot = uaup.ballot_of(stored) or uaup.ballot_of(state["state"])
+        seed = stored.get("election_end", "")
         result["state_payload"] = {
             "election_start": next_election_start.isoformat(),
             "election_end": "",
-            "active_policies": active_policies,
+            "active_policies": uaup.tally(universe_politics.get("votes"), ballot, seed),
+            "ballot": uaup.draw_ballot(random.Random(f"next {seed}"), previous=ballot),
         }
         return result["state_payload"]
 
