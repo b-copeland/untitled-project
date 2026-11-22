@@ -113,7 +113,7 @@ def test_tallies_fall_at_the_start_and_every_period_after_it():
 
 def test_no_votes_no_policy():
     assert active({}, at(100)) == {}
-    assert gp.advance({}, POLICIES, START, at(100))["held"] == {"growth_doctrine": {}, "industry": {}}
+    assert gp.advance({}, POLICIES, START, at(100))["votes"] == {"growth_doctrine": {}, "industry": {}}
 
 
 def test_a_vote_does_not_switch_the_policy_until_a_tally():
@@ -130,27 +130,24 @@ def test_votes_cast_before_the_round_count_at_its_start():
     assert active(document, START) == {"growth_doctrine": "raiders"}
 
 
-def test_a_switch_just_before_the_tally_counts_for_little():
+def test_the_tally_counts_the_votes_as_they_are_at_the_tally():
     # Two kingdoms vote Expansionist all through the window; three switch to Raiders an hour before the tally.
     tally = START + period()
     document = vote({}, START, "1", "expansionist")
     document = vote(document, START, "2", "expansionist")
-    for kd in ("3", "4", "5"):
-        document = vote(document, tally - HOUR, kd, "raiders")
-    hours = period() / HOUR
-    weights = gp.advance(document, POLICIES, START, tally - datetime.timedelta(seconds=1))["held"]["growth_doctrine"]
-    assert weights["expansionist"] == pytest.approx(2 * hours * 3600 - 2, abs=1)
     assert active(document, tally) == {"growth_doctrine": "expansionist"}
-    # Held through the next window, the three outweigh the two.
-    assert active(document, tally + period()) == {"growth_doctrine": "raiders"}
+    for kd in ("3", "4", "5"):
+        document = vote(document, tally + period() - HOUR, kd, "raiders")
+    assert active(document, tally + period() - datetime.timedelta(seconds=1)) == {"growth_doctrine": "expansionist"}
+    assert active(document, tally + period()) == {"growth_doctrine": "raiders"}  # three votes to two at the tally
 
 
-def test_a_vote_switched_late_still_tips_an_even_window():
+def test_a_vote_cast_just_before_a_tally_counts_in_full():
     tally = START + period()
     document = vote({}, START, "1", "expansionist")
     document = vote(document, START, "2", "raiders")
     assert active(document, tally) == {}  # even: nothing changes
-    document = vote(document, tally + period() - 10 * 60 * datetime.timedelta(seconds=1), "3", "raiders")
+    document = vote(document, tally + period() - datetime.timedelta(minutes=10), "3", "raiders")
     assert active(document, tally + period()) == {"growth_doctrine": "raiders"}
 
 
@@ -166,11 +163,11 @@ def test_a_tie_keeps_the_active_option():
     assert active(document, tally + 5 * period()) == {"growth_doctrine": "expansionist"}
 
 
-def test_each_tally_starts_the_weights_again():
+def test_votes_carry_from_one_tally_to_the_next():
     tally = START + period()
     document = vote({}, START, "1", "expansionist")
-    galaxy = gp.advance(document, POLICIES, START, tally + HOUR)
-    assert galaxy["held"]["growth_doctrine"] == {"expansionist": pytest.approx(3600)}
+    galaxy = gp.advance(document, POLICIES, START, tally + 3 * period())
+    assert galaxy["votes"]["growth_doctrine"] == {"1": "expansionist"} and galaxy["active"] == {"growth_doctrine": "expansionist"}
 
 
 def test_the_tally_is_the_same_however_often_it_is_read():
@@ -182,9 +179,7 @@ def test_the_tally_is_the_same_however_often_it_is_read():
     for hours in (5, 6, 13, 20.5, 33, 40):
         stepwise = stored(gp.advance(stepwise, POLICIES, START, at(hours)))
     again = gp.advance(stepwise, POLICIES, START, at(40))
-    assert again["active"] == once["active"]
-    for policy in POLICIES:
-        assert again["held"][policy] == pytest.approx(once["held"][policy])
+    assert again["active"] == once["active"] and again["votes"] == once["votes"]
 
 
 def test_reading_at_an_earlier_moment_changes_nothing():
@@ -206,12 +201,11 @@ def test_a_galaxy_from_before_the_tally_keeps_its_active_policies_by_name():
     assert gp.normalize(document, POLICIES)["active"] == {"growth_doctrine": "expansionist"}  # until a tally says not
 
 
-def test_votes_and_weights_for_options_this_round_does_not_play_are_dropped():
+def test_votes_for_options_this_round_does_not_play_are_dropped():
     document = {"policy_votes": {"growth_doctrine": {"1": "warlike"}, "economy": {"1": "refineries"}},
-                "policy_held": {"growth_doctrine": {"warlike": 100.0}}, "policy_active": {"economy": "refineries"}}
+                "policy_active": {"economy": "refineries"}}
     galaxy = gp.normalize(document, POLICIES)
-    assert galaxy["votes"] == {"growth_doctrine": {}, "industry": {}}
-    assert galaxy["held"] == {"growth_doctrine": {}, "industry": {}} and galaxy["active"] == {}
+    assert galaxy["votes"] == {"growth_doctrine": {}, "industry": {}} and galaxy["active"] == {}
 
 
 # --- votes ---------------------------------------------------------------------------------------------------------------
@@ -245,21 +239,21 @@ def test_modifiers_are_the_active_options_effects():
 
 # --- what the page shows --------------------------------------------------------------------------------------------------
 
-def test_the_view_shows_each_policy_its_votes_and_the_weight_so_far():
+def test_the_view_shows_each_policy_and_its_votes():
     document = vote({}, START, "1", "expansionist")
     document = vote(document, START + 3 * HOUR, "2", "raiders")
+    document = vote(document, START + 3 * HOUR, "3", "raiders")
     galaxy = gp.advance(document, POLICIES, START, START + 4 * HOUR)
     view = gp.view(galaxy, POLICIES, START, START + 4 * HOUR, "2")
     assert [policy["key"] for policy in view["policies"]] == POLICIES
     growth = view["policies"][0]
     assert growth["my_vote"] == "raiders" and growth["active"] is None
     options = {option["key"]: option for option in growth["options"]}
-    assert options["expansionist"]["votes"] == 1 and options["raiders"]["votes"] == 1
-    assert options["expansionist"]["weight"] == pytest.approx(0.8) and options["raiders"]["weight"] == pytest.approx(0.2)
+    assert options["expansionist"]["votes"] == 1 and options["raiders"]["votes"] == 2
     assert options["expansionist"]["desc"] == "Settling costs 15% less"
     assert view["next_tally"] == (START + period()).isoformat()
     assert view["tally_hours"] == pytest.approx(period() / HOUR)
-    assert all(option["weight"] == 0 for option in view["policies"][1]["options"])
+    assert all(option["votes"] == 0 for option in view["policies"][1]["options"])
 
 
 def test_every_effect_is_read_somewhere_in_the_game():

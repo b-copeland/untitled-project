@@ -1,4 +1,4 @@
-# 0013: Galaxy policies change only at a timed tally that weighs votes by time held
+# 0013: Galaxy policies change only at a timed tally
 
 Date: 2026-11-22. Status: accepted.
 
@@ -14,11 +14,10 @@ between tallies instead.
 - A round's policies are drawn once, in `admin.round_state`, and stored in the state (`galaxy_policies`); they hold for
   the whole round (the issue's rotation through the round was dropped by the maintainer).
 - Votes can change at any time. A policy changes only at a **tally**, every `GALAXY_POLICY_TALLY_EPOCHS` from the
-  round's start. Each tally weighs every vote by how long it was held since the last one; the most weight wins, a tie
-  or no votes keeps the active option.
+  round's start: the option with the most votes at that moment wins; a tie, or no votes, keeps the active option.
 - Like cluster levels ([0007](0007-cluster-politics.md)), the tally is a pure function of the stored document and the
-  clock (`galaxypolicies.advance`): the document keeps the votes, the seconds held per option since the last tally, the
-  active options and when it was brought up to date. Every vote advances it to its own moment first; nothing is
+  clock (`galaxypolicies.advance`): the document keeps the votes, the active options and when it was brought up to
+  date; the votes have not changed since, so every tally since counts the same votes. Every vote advances it to its own moment first; nothing is
   written on a tick.
 - Everything a policy does is a named, signed **effect** (`EFFECTS`). The game sums a kingdom's effects once per
   request or tick (`getters._get_modifiers`, `_RefreshContext.modifiers`) and reads each where its rule lives, so the
@@ -26,7 +25,8 @@ between tallies instead.
 
 ## Rejected
 - **A longer vote cooldown**: whoever is online when it ends can still flip the policy at once.
-- **A snapshot at each tally** (the votes as they stand at the tally time): the last-minute switch it was meant to stop.
+- **Weighing each vote by how long it was held** since the last tally, which this first did to blunt last-minute
+  switches: the maintainer chose the plain count at the tally (2026-11-22) as simpler to explain.
 - **Writing the tally on a tick**: a write per galaxy per tally, and a tick that runs late or twice would need a cursor;
   working it out on read gives the same answer for nothing.
 - **A boolean per option at each call site** (`is_expansionist`), as before: with 28 options and cluster and universe

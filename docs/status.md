@@ -109,7 +109,8 @@ Added 2026-11-22 (issue #168, [decisions/0013](decisions/0013-galaxy-policy-tall
 - Discounts from different sources add up with no floor (only below zero is cut off): settling can be cheaper by
   Expansionist, the cluster, Gaian, Cheaper Exploring and Xo Evolution together.
 - Galaxies of a round made before this keep the options they had by name (Expansionist, Warlike, Intelligence,
-  Conscription, where their policy is in the draw) until a tally decides otherwise; old votes are not carried over.
+  Conscription, where their policy is in the draw) until a tally decides otherwise. Their old votes are carried over
+  by `adhoc/migrate_168_galaxy_policies.py`, to run in production right after the deploy (until then they are lost).
 - A kingdom that dies keeps its policy votes, as it keeps its vote for leader.
 - Bots vote by a fixed list per playstyle; they do not weigh what the galaxy is short of.
 - The Galaxy page has not been checked in a browser.

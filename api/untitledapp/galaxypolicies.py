@@ -6,33 +6,26 @@ the round and stored in the state (``galaxy_policies``); they hold for the whole
 kingdom of a galaxy may vote for one option of each, or none.
 
 Votes do not switch a policy at once. The galaxy's votes are **tallied** every ``GALAXY_POLICY_TALLY_EPOCHS``, at fixed
-times counted from the round's start (the first at the start itself). A tally weighs each vote by how long it was held
-since the last tally, so a vote switched just before a tally counts for little and the galaxymates who log in most
-can not flip a policy at the last moment. The option with the most weight is active until the next tally; a tie, or
-no votes at all, keeps the one that was active (none, at first). So a kingdom never has a vote cooldown on policies:
-changing a vote only changes how its time is counted.
+times counted from the round's start (the first at the start itself). At each tally the option with the most votes
+then becomes active until the next tally; a tie, or no votes at all, keeps the one that was active (none, at first).
+So policies hold between tallies, and a kingdom has no vote cooldown on them.
 
 Like cluster levels, the tally is a pure function of the stored document and the clock (``advance``): between writes
 the votes are constant, so anyone reading the document works out every tally since it was written. Only a vote writes.
 The fields, on the galaxy's politics document ``galaxy_votes_<galaxy>`` (each read with a default):
 
 * ``policy_votes``: policy to kingdom to the option it votes for.
-* ``policy_held``: policy to option to the seconds votes for it have been held since the last tally, as of
-  ``policy_updated``.
 * ``policy_active``: policy to its active option. A policy with none is absent.
-* ``policy_updated``: when ``policy_held`` was last brought up to date.
+* ``policy_updated``: the moment the document was last brought up to date (every tally up to it applied).
 
-Galaxies made before this kept their active policies by name in ``active_policies``; those still count until the
-first tally after their next vote, where they are in this round's draw.
+Galaxies made before this kept their active policies by name in ``active_policies``; those still count, where they
+are in this round's draw, until a tally decides otherwise (``adhoc/migrate_168_galaxy_policies.py`` moves them over).
 """
 import datetime
 import math
 import random
 
 import untitledapp.shared as uas
-
-_EPSILON = 1e-6
-
 
 def draw(rng=random, count=None):
     """The policies a new round plays: ``count`` of them at random, in the order ``GALAXY_POLICIES`` lists them."""
@@ -73,14 +66,8 @@ def normalize(document, policies):
     """The policy fields of a galaxy's politics document, each with its default, for ``policies``, as a private copy."""
     document = document or {}
     stored_votes = document.get("policy_votes") or {}
-    stored_held = document.get("policy_held") or {}
     votes = {
         policy: {kd: option for kd, option in (stored_votes.get(policy) or {}).items() if option in _options(policy)}
-        for policy in policies
-    }
-    held = {
-        policy: {option: float(value) for option, value in (stored_held.get(policy) or {}).items()
-                 if option in _options(policy)}
         for policy in policies
     }
     if "policy_active" in document:
@@ -95,31 +82,30 @@ def normalize(document, policies):
             for option, entry in _options(policy).items():
                 if entry["name"] in names:
                     active[policy] = option
-    return {"votes": votes, "held": held, "active": active, "updated": document.get("policy_updated")}
+    return {"votes": votes, "active": active, "updated": document.get("policy_updated")}
 
 
-def _accumulate(galaxy, seconds):
-    if seconds <= 0:
-        return
-    for policy, votes in galaxy["votes"].items():
-        for option in votes.values():
-            galaxy["held"][policy][option] = galaxy["held"][policy].get(option, 0.0) + seconds
+def counts(galaxy, policy):
+    """The votes each option of ``policy`` has now."""
+    found = {option: 0 for option in _options(policy)}
+    for option in galaxy["votes"][policy].values():
+        found[option] += 1
+    return found
 
 
 def _tally(galaxy):
     for policy in galaxy["votes"]:
-        weights = galaxy["held"][policy]
-        best = max(weights.values(), default=0.0)
-        leaders = [option for option, weight in weights.items() if abs(weight - best) < _EPSILON]
-        if best > _EPSILON and len(leaders) == 1:
+        votes = counts(galaxy, policy)
+        best = max(votes.values(), default=0)
+        leaders = [option for option, count in votes.items() if count == best]
+        if best > 0 and len(leaders) == 1:
             galaxy["active"][policy] = leaders[0]
-        galaxy["held"][policy] = {}
 
 
 def advance(document, policies, round_start, now):
     """
-    The galaxy's policies as of ``now``: every tally since the document was last written applied, and the time since
-    the last tally counted. ``round_start`` is the round's ``game_start`` as a datetime.
+    The galaxy's policies as of ``now``: every tally since the document was last written applied (the votes have not
+    changed since, so each counts the same votes). ``round_start`` is the round's ``game_start`` as a datetime.
     """
     galaxy = normalize(document, policies)
     if galaxy["updated"] is None:
@@ -128,14 +114,8 @@ def advance(document, policies, round_start, now):
     moment = uas.utc(galaxy["updated"])
     if now <= moment:
         return galaxy
-    while True:
-        tally_time = tally_after(round_start, moment)
-        if tally_time > now:
-            break
-        _accumulate(galaxy, (tally_time - moment).total_seconds())
-        _tally(galaxy)
-        moment = tally_time
-    _accumulate(galaxy, (now - moment).total_seconds())
+    if tally_after(round_start, moment) <= now:
+        _tally(galaxy)  # one tally or many, the votes are the same, so is the result
     galaxy["updated"] = now.isoformat()
     return galaxy
 
@@ -156,7 +136,6 @@ def written(galaxy):
     """The fields a write stores, from ``advance``."""
     return {
         "policy_votes": galaxy["votes"],
-        "policy_held": galaxy["held"],
         "policy_active": galaxy["active"],
         "policy_updated": galaxy["updated"],
     }
@@ -189,29 +168,25 @@ def cast(galaxy, kd_id, policy, option):
 def view(galaxy, policies, round_start, now, kd_id):
     """
     What the Policies tab shows a kingdom of the galaxy: each of the round's policies with its options, the active
-    one, the votes for each, how much weight each has gathered towards the next tally, and this kingdom's vote.
+    one, the votes for each, and this kingdom's vote.
     ``galaxy`` is from ``advance`` at ``now``.
     """
     shown = []
     for policy in policies:
         entry = uas.GALAXY_POLICIES[policy]
-        votes = galaxy["votes"][policy]
-        held = galaxy["held"][policy]
-        total_held = sum(held.values())
+        votes = counts(galaxy, policy)
         shown.append({
             "key": policy,
             "name": entry["name"],
             "active": galaxy["active"].get(policy),
-            "my_vote": votes.get(kd_id),
+            "my_vote": galaxy["votes"][policy].get(kd_id),
             "options": [
                 {
                     "key": option,
                     "name": option_entry["name"],
                     "desc": option_entry["desc"],
                     "effects": option_entry["effects"],
-                    "votes": sum(1 for chosen in votes.values() if chosen == option),
-                    # The share of the weight so far towards the next tally (0 when nothing is held yet).
-                    "weight": (held.get(option, 0.0) / total_held) if total_held > 0 else 0.0,
+                    "votes": votes[option],
                 }
                 for option, option_entry in entry["options"].items()
             ],
