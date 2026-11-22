@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useSwipeToDismiss } from "./swipe";
 import "./toasts.css";
 
 const HIDE_SUCCESS_MS = 6000;
@@ -15,9 +16,10 @@ const idOf = (result) => {
 /** How a result looks: worked (green, closes itself), refused (amber, stays until closed). */
 const kindOf = (result) => (result.status === "success" ? "success" : "warning");
 
-/** One result: a card with a coloured edge, the page's title, the server's message and a close button. */
+/** One result: a card with a coloured edge, the page's title, the server's message and a close button. Swipe to close. */
 function Result({ title, result, onClose }) {
     const kind = kindOf(result);
+    const swipe = useSwipeToDismiss(onClose);
     useEffect(() => {
         if (kind !== "success") {
             return undefined;
@@ -26,7 +28,8 @@ function Result({ title, result, onClose }) {
         return () => clearTimeout(timer);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
     return (
-        <div className={`game-toast game-toast-${kind}`} role={kind === "success" ? "status" : "alert"}>
+        <div className={`game-toast game-toast-${kind} swipeable`} role={kind === "success" ? "status" : "alert"}
+            {...swipe.handlers} style={swipe.style}>
             <div className="game-toast-text">
                 <strong className="game-toast-title">{title}</strong>
                 <div className="game-toast-message">{result.message}</div>
@@ -39,7 +42,8 @@ function Result({ title, result, onClose }) {
 /**
  * The results of the actions a page has sent (built a structure, attacked, ...), as cards in the bottom corner, above
  * the help button. Green when the server said it worked, and those close themselves after a few seconds; amber when it
- * did not, and those stay until closed. With several, one button closes them all.
+ * did not, and those stay until closed. With several, one button closes them all. On a touch screen, a card swiped
+ * sideways closes.
  *
  *     const [results, setResults] = useState([]);
  *     ... .then(r => setResults(results.concat(r)))

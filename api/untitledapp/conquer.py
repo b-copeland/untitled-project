@@ -8,7 +8,7 @@ import uuid
 
 import flask
 import flask_praetorian
-from flask_sock import Sock, ConnectionClosed
+from flask_sock import Sock
 
 import untitledapp.misc as uam
 import untitledapp.news as uan
@@ -17,7 +17,8 @@ import untitledapp.getters as uag
 import untitledapp.intel as uai
 import untitledapp.shared as uas
 import untitledapp.targets as uat
-from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import alive_required, start_required, REQUESTS_SESSION
+from untitledapp.push import push
 
 bp = flask.Blueprint("conquer", __name__)
 
@@ -1085,17 +1086,8 @@ def _attack(req, kd_id, target_kd):
                 data=json.dumps({"time": time_now.isoformat(), "from": kd_id, "news": sharer_message, "kind": "intel"}),
             )
             uam._add_notifs(sharer, ["news_kingdom"])
-            try:
-                ws = SOCK_HANDLERS[sharer]
-                ws.send(json.dumps({
-                    "message": f"You have gained {sharer_spoils_values['stars']} stars from an attack by your galaxymate {kd_info_parse['name']}",
-                    "status": "info",
-                    "category": "Galaxy",
-                    "delay": 15000,
-                    "update": [],
-                }))
-            except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-                pass
+            push(sharer, "galaxy",
+                 f"You have gained {sharer_spoils_values['stars']} stars from an attack by your galaxymate {kd_info_parse['name']}")
 
         target_news = {
             "time": time_now.isoformat(),
@@ -1103,17 +1095,7 @@ def _attack(req, kd_id, target_kd):
             "news": defender_message,
             "kind": "attack",
         }
-        try:
-            ws = SOCK_HANDLERS[target_kd]
-            ws.send(json.dumps({
-                "message": defender_message,
-                "status": "warning",
-                "category": "Attack",
-                "delay": 60000,
-                "update": ["news", "galaxynews"],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
+        push(target_kd, "attacked", defender_message, status="warning", delay=60000, update=["news", "galaxynews"])
         REQUESTS_SESSION.patch(
             app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}/news',
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
@@ -1190,17 +1172,9 @@ def _attack(req, kd_id, target_kd):
                 )
                 _lower_reveal_timer(kd_revealed_to, revealed_until)
                 if kd_revealed_to != target_kd:
-                    try:
-                        ws = SOCK_HANDLERS[kd_revealed_to]
-                        ws.send(json.dumps({
-                            "message": f"Your galaxymate {target_kd_info['name']} was attacked by {kd_info_parse['name']}. Galaxy {attacker_galaxy} will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours",
-                            "status": "info",
-                            "category": "Galaxy",
-                            "delay": 15000,
-                            "update": ["galaxynews"],
-                        }))
-                    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-                        pass
+                    push(kd_revealed_to, "galaxy",
+                         f"Your galaxymate {target_kd_info['name']} was attacked by {kd_info_parse['name']}. Galaxy {attacker_galaxy} will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours",
+                         update=["galaxynews"])
         for defender_galaxy_kd in galaxy_info[defender_galaxy]:
             uam._add_notifs(defender_galaxy_kd, ["news_galaxy"])
         if attacker_galaxy != defender_galaxy:
@@ -2095,17 +2069,7 @@ def _spy(req, kd_id, target_kd):
             data=json.dumps(target_news_payload),
         )
         uam._add_notifs(target_kd, ["news_kingdom"])
-        try:
-            ws = SOCK_HANDLERS[target_kd]
-            ws.send(json.dumps({
-                "message": target_message,
-                "status": "warning",
-                "category": "Spy",
-                "delay": 15000,
-                "update": ["news"],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
+        push(target_kd, "spied", target_message, status="warning", update=["news"])
 
         if success and operation in uas.REVEAL_OPERATIONS and req.get("share_to_galaxy", False):
             # Free (no cut) goes to the whole galaxy at once; with a cut it is listed on the galaxy's market.
@@ -2852,17 +2816,7 @@ def _launch_missiles(req, kd_id, target_kd):
             headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
             data=json.dumps(defender_galaxy_payload),
         )
-        try:
-            ws = SOCK_HANDLERS[target_kd]
-            ws.send(json.dumps({
-                "message": defender_message,
-                "status": "warning",
-                "category": "Missiles",
-                "delay": 30000,
-                "update": [],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
+        push(target_kd, "missile_strikes", defender_message, status="warning", delay=30000)
 
         new_kd_info = {
             **kd_info_parse,

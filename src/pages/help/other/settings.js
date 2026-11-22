@@ -13,6 +13,16 @@ function Settings() {
                 nearly black, and Light has dark text on a light page. Eclipse, Nebula, Planet and Twilight are dark
                 themes in the colours of space. This device also remembers your theme, so the login page uses it too.
             </p>
+            <p>
+                <b>Notifications</b> has a switch for each kind of notification: finished settles, structures, military
+                and the rest of your own kingdom, messages and news from other players, and attacks, spy operations and
+                missile strikes against you. Turn one off and it no longer appears in the Notifications panel, on any
+                device. Nothing else changes: the pages still update, and your news still records what happened. You
+                are always told when your kingdom dies.
+            </p>
+            <p>
+                On a phone or tablet, swipe a notification or a result sideways, either way, to dismiss it.
+            </p>
         </Topic>
     );
 }

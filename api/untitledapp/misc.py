@@ -7,14 +7,15 @@ import uuid
 
 import flask
 import flask_praetorian
-from flask_sock import Sock, ConnectionClosed
+from flask_sock import Sock
 
 import untitledapp.shared as uas
 import untitledapp.getters as uag
 import untitledapp.lastknown as uala
 import untitledapp.news as uan
 import untitledapp.occ as occ
-from untitledapp import User, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
+from untitledapp import User, REQUESTS_SESSION, before_start_required, alive_required
+from untitledapp.push import push
 from untitledapp.users import issue_tokens
 
 bp = flask.Blueprint("misc", __name__)
@@ -479,17 +480,7 @@ def send_message(target_kd):
         data=json.dumps(payload_to)
     )
     _add_notifs(target_kd, ["messages"])
-    try:
-        ws = SOCK_HANDLERS[target_kd]
-        ws.send(json.dumps({
-            "message": f"New message from {kingdoms[kd_id]}!",
-            "status": "info",
-            "category": "Message",
-            "delay": 30000,
-            "update": ["messages"],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    push(target_kd, "messages", f"New message from {kingdoms[kd_id]}!", delay=30000, update=["messages"])
     return (flask.jsonify({"message": "Message sent!", "status": "success"}), 200)
 
 
@@ -690,14 +681,4 @@ def _mark_kingdom_death(kd_id, killer=None):
     _death_news(kd_id, killer)
     for user in User.by_kd_id(kd_id):
         user.save(kd_death_date=death_date)
-    try:
-        ws = SOCK_HANDLERS[kd_id]
-        ws.send(json.dumps({
-            "message": f"You died!",
-            "status": "warning",
-            "category": "Dead",
-            "delay": 999999,
-            "update": [],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    push(kd_id, "dead", "You died!", status="warning", delay=999999)
