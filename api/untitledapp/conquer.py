@@ -11,6 +11,7 @@ import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.misc as uam
+import untitledapp.news as uan
 import untitledapp.occ as occ
 import untitledapp.getters as uag
 import untitledapp.intel as uai
@@ -1202,6 +1203,11 @@ def _attack(req, kd_id, target_kd):
                         pass
         for defender_galaxy_kd in galaxy_info[defender_galaxy]:
             uam._add_notifs(defender_galaxy_kd, ["news_galaxy"])
+        if attacker_galaxy != defender_galaxy:
+            # The attacker's galaxymates see the attack in their galaxy news too, so it counts as unread for them.
+            for galaxymate in galaxy_info[attacker_galaxy]:
+                if galaxymate != kd_id:
+                    uam._add_notifs(galaxymate, ["news_galaxy"])
 
         if attacker_empire is not None and defender_empire is not None and attacker_empire != defender_empire:
             _add_aggression(
@@ -1338,6 +1344,17 @@ def calculate_attack_primitives():
 
     return (flask.jsonify(payload), 200)
 
+def _primitives_galaxy_news(name, stars, generals, time_now):
+    """The galaxy news line for an attack on primitives: what it gained, and when the generals it sent are home."""
+    returns = sorted(uas.utc(general["return_time"]) for general in generals)
+    count = len(returns)
+    message = f"{name} attacked primitives and gained {stars} stars. {count} general{'s' if count != 1 else ''} out"
+    if returns:
+        first, last = (uas.wait_text(when - time_now) for when in (returns[0], returns[-1]))
+        message += f", back in {first}" if first == last else f", back in {first} to {last}"
+    return message + "."
+
+
 def _attack_primitives(req, kd_id):
     app = flask.current_app
     
@@ -1452,10 +1469,14 @@ def _attack_primitives(req, kd_id):
 
         kd_info_parse["projects_max_points"] = uas.projects_max_points(kd_info_parse["stars"])
 
-        return kd_info_parse, (kd_info_parse, time_now, attack_status, attacker_message)
+        galaxy_news = _primitives_galaxy_news(kd_info_parse["name"], stars, generals, time_now)
+        return kd_info_parse, (kd_info_parse, time_now, attack_status, attacker_message, galaxies_inverted[kd_id], galaxy_news)
 
     try:
-        kd_info_parse, time_now, attack_status, attacker_message = occ.update(f'/kingdom/{kd_id}', decide)
+        kd_info_parse, time_now, attack_status, attacker_message, galaxy, galaxy_news = occ.update(f'/kingdom/{kd_id}', decide)
+        # Galaxymates see it, so they know when this kingdom's generals are home. No unread count: automatic attacks
+        # on primitives come often.
+        uan.best_effort(uan.galaxy)(galaxy, galaxy_news, time_now, kind="primitives", from_kd=kd_id)
         kd_attack_history = {
             "time": time_now.isoformat(),
             "to": "",
