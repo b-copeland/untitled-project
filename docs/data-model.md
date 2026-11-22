@@ -70,6 +70,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `empire_politics_<empire>` | `empire_invitations`, `empire_join_requests`, `surrender_offers_sent`, `surrender_offers_received`, `surrender_requests_sent`, `surrender_requests_received`, `leader` | empire politics routes | strict |
 | `galaxy_intel_<galaxy>` | The galaxy's intel market, see [below](#the-intel-market). `GET /galaxy/<id>/intel` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `intel.py` (every intel action) | strict: every change is decided on it with `occ.update` |
 | `cluster_<cluster>` | The cluster's politics, see [below](#cluster-politics). `GET /cluster/<id>` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `clusters.py`: a galaxy leader's vote, and the refresh when the cluster's empire alignment changes | strict: every change is decided on it with `occ.update` |
+| `galaxy_board_<galaxy>` | The galaxy board: `posts` (newest first, each `{id, time, from, text}`, the newest `GALAXY_BOARD_KEEP_POSTS` kept) and `pinned` (a copy of one post, or null). `GET /galaxy/<id>/board` creates the document as `{"id": ...}` the first time it is read, so both are read with a default. Read and written only for the caller's own galaxy. A new round deletes it | `board.py`: posting, deleting, pinning | strict: every change is decided on it with `occ.update` |
 | `empire_targets_<empire>` | The empire's targets, see [below](#empire-targets). `GET /empire/<id>/targets` creates the document as `{"id": ...}` the first time it is read, so every field is read with a default | `targets.py`: leadership's routes, and every attack, spy operation and missile strike on a target | strict: every change is decided on it with `occ.update` |
 | `empire_news_<empire>` | `news`: list, newest first. Read only by the empire's members (`/api/empirenews`), so it may name its targets | `news.py`, called by the politics routes (founded, join requests, invitations, joins, leaves, denouncements, wars, surrenders), the refresh (wars by aggression) and `targets.py` (marked, ended and what the fund paid) | eventual |
 
@@ -87,7 +88,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `pinned_<id>` | `pinned`: list of kd ids | eventual |
 | `spy_history_<id>`, `attack_history_<id>`, `missile_history_<id>` | Lists of past operations | eventual |
 | `messages_<id>` | `messages`: list | eventual |
-| `notifs_<id>` | Counters: `news_kingdom`, `news_galaxy`, `messages`, `shared` (intel market events for this kingdom: a sale, a bounty answered, free intel received) | eventual |
+| `notifs_<id>` | Counters: `news_kingdom`, `news_galaxy`, `messages`, `shared` (intel market events for this kingdom: a sale, a bounty answered, free intel received), `galaxy_board` (galaxymates' posts on the galaxy board; kingdoms made before it lack it, and the first add starts it at 0) | eventual |
 | `history_<id>` | `history`: series of `networth`, `stars`, `population`, `drones`, `engineers`, `max_offense`, `max_defense` | eventual, written by the refresh once an epoch |
 
 The tiers are explained in [concurrency.md](concurrency.md#which-documents-need-strict-handling). In short: **strict**

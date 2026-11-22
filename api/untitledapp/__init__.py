@@ -171,6 +171,7 @@ def create_app(config_class='config.Config'):
 
     import untitledapp.account as uaa
     import untitledapp.admin as uaad
+    import untitledapp.board as uabo
     import untitledapp.build as uab
     import untitledapp.clusters as uacl
     import untitledapp.conquer as uac
@@ -194,6 +195,7 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uar.bp)
     app.register_blueprint(uare.bp)
     app.register_blueprint(uat.bp)
+    app.register_blueprint(uabo.bp)
     app.before_request(uare.frozen_response)  # once the round is over, the game is read only
 
     limiter = Limiter(
@@ -210,6 +212,7 @@ def create_app(config_class='config.Config'):
         ("account.reset_password", "10 per minute"),
         ("account.verify_email", "10 per minute"),
         ("account.set_email", "5 per minute"),
+        ("board.post_to_board", "10 per minute"),
     ):
         app.view_functions[endpoint] = limiter.limit(limit)(app.view_functions[endpoint])
 

@@ -20,7 +20,7 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
 ```
 
 - **Flask owns the rules.** Every decision (can you afford it, does the attack win, what does the player see) is made in
-  `api/untitledapp/`. Blueprints: `account`, `admin`, `build`, `conquer`, `getters`, `intel`, `misc`, `politics`, `refresh`, `targets`.
+  `api/untitledapp/`. Blueprints: `account`, `admin`, `board`, `build`, `conquer`, `getters`, `intel`, `misc`, `politics`, `refresh`, `targets`.
 - **The function app owns storage, nothing else.** Each route reads or writes one Cosmos document. It does no game
   logic. Its `update_*` handlers merge or append into the newest version of the document (see [data-model.md](data-model.md)).
 - **Identity is in Cosmos, through the function app.** Each user is a `user_<id>` document (login, roles, `kd_id`), read
