@@ -44,7 +44,8 @@ what needs doing, and what is worth doing next.** Every page should answer its p
 | A plain number field | `NumberField` (shows `error` under the box). Any other number box is a `NumberControl`, never a bare `Form.Control`: it takes the commas out of "1,000,000" before `onChange`, as `NumberField` and `AmountInput` do. | `src/components/forms.js` |
 | The send button | `SubmitButton` with `blocked` set to the reason, or null | `src/components/forms.js` |
 | Results of an action | `ResultToasts`: cards in the bottom corner, above the help button. Green ones close themselves after a few seconds, amber ones stay until closed, and with several there is a Close all | `src/components/results.js` |
-| Notifications the server pushes | Nothing to add: App.js shows them in one panel in the top corner, needing-attention first. A notification with `status: "warning"` keeps the panel open until the player closes it | `src/components/notifications.js` |
+| Notifications the server pushes | Nothing to add: App.js shows them in one panel in the top corner, under the account button, needing-attention first. A notification with `status: "warning"` keeps the panel open until the player closes it | `src/components/notifications.js` |
+| The player's own account (Settings, Logout) | Nothing to add: App.js puts `UserMenu` at the top right, the username on its button; on a phone it is in the top bar. Account pages go in its menu, not the side navigation | `src/components/usermenu.js` |
 | A planning page (Attack, Spy, Primitives, Schedule, Launch Missiles) | `Panel`, `FieldRow`, `Stats`, `VersusBar`, `Picker`, status tags, `useServerForecast` (asks again 700 ms after the last change, drops answers that were overtaken) | `src/components/planner.js` |
 | An icon action | `IconButton` (`react-icons`; the name is the tooltip and the accessible label) | `src/components/iconbutton.js` |
 | Another kingdom's values, with last-known intel where nothing is revealed now | `withLastKnown(info)` gives the kingdom and `endedOf(path)`; show each value in `Known`, and `LastKnownNote` at the top of a section whose intel has ended | `src/components/lastknown.js` |
@@ -61,7 +62,7 @@ for a planner page.
 
 ## Visual language
 
-- Colour themes, chosen on the Settings page: Gray (the default), Dark, Light, and four from space palettes
+- Colour themes, chosen on the Settings page (in the account menu): Gray (the default), Dark, Light, and four from space palettes
   (`src/styles/themes.css`). **Never write a hex colour in a page's stylesheet**: use the theme tokens (`--surface`,
   `--surface-raised`, `--border-subtle`, `--row-divider`, `--hover-tint`, `--accent`, `--accent-contrast`, Bootstrap's
   `--bs-*` colours), or the page will be wrong in some theme, most often Light. Check a new page in Light and one dark

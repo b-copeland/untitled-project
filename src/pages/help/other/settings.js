@@ -12,7 +12,7 @@ function Settings(props) {
         <div id="settings" ref={yourElementRef} className="help-section">
             <h2>Settings</h2>
             <p>
-                The Settings page, linked next to Help in the menu, holds your own preferences. They belong to your
+                The Settings page, in the account menu at the top right (the button with your username), holds your own preferences. They belong to your
                 account rather than your kingdom, so they follow you to every device and stay from one round to the next.
             </p>
             <p>

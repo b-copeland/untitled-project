@@ -5,6 +5,7 @@ import { useAuth, logout } from "./auth";
 import { useGameData, initGlobalData } from "./data/gameData";
 import { useNotifications, Notifications } from "./components/notifications";
 import SideNavbar from "./components/navbar";
+import UserMenu from "./components/usermenu";
 import Button from 'react-bootstrap/Button';
 import { FiMenu } from "react-icons/fi";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -90,12 +91,14 @@ function Content({ logged, session }) {
       <div className="topbar d-lg-none">
         <Button variant="outline-secondary" aria-label="Open menu" onClick={() => setShowNav(true)}><FiMenu /></Button>
         <span className="topbar-title">Untitled Project</span>
+        {logged ? <UserMenu id="user-menu-phone" username={data.preferences?.username} /> : null}
       </div>
 
       <div className="main-body">
         <Notifications {...notifications} />
         <SideNavbar logged={logged} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs} hasKingdom={hasKingdom(data.kingdomid)}/>
         <div className="router">
+          {logged ? <div className="userbar d-none d-lg-flex"><UserMenu username={data.preferences?.username} /></div> : null}
           <div className="router-body">
             <Routes>
               {publicRoutes.map((route) => (

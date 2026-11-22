@@ -41,14 +41,11 @@
 
 /* Notifications: one panel that collects them, newest first. */
 .notifications-panel {
-    top: 16px;
+    top: 64px;  /* under the account button (desktop) or the top bar (phone) */
     max-height: min(70vh, 640px);
     overflow: hidden;
     gap: 0;
     animation: game-toast-in 160ms ease-out;
-}
-@media (max-width: 991px) {
-    .notifications-panel { top: 64px; }  /* under the phone's top bar */
 }
 .notifications-head {
     display: flex; align-items: center; gap: 0.5rem;

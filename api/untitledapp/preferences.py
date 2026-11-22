@@ -50,10 +50,11 @@ def _answer(stored):
 @bp.route("/api/preferences")
 @flask_praetorian.auth_required
 def get_preferences():
-    user_id = flask_praetorian.current_user().id
-    response = REQUESTS_SESSION.get(_path(user_id), headers=_headers())
+    """The preferences, and the player's username for the user menu (from the login token, so no extra read)."""
+    user = flask_praetorian.current_user()
+    response = REQUESTS_SESSION.get(_path(user.id), headers=_headers())
     stored = json.loads(response.text) if response.status_code == 200 else {}
-    return flask.jsonify(_answer(stored)), 200
+    return flask.jsonify({**_answer(stored), "username": user.username}), 200
 
 
 @bp.route("/api/preferences", methods=["POST"])

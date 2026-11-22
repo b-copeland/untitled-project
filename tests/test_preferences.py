@@ -35,3 +35,8 @@ def test_a_choice_that_is_not_offered_is_refused(app, client, jwt1):
 
 def test_preferences_need_a_login(app, client):
     assert client.get("/api/preferences").status_code == 401
+
+
+def test_the_answer_names_the_player_for_the_user_menu(app, client, jwt1, jwt2):
+    assert _get(client, jwt1).get_json()["username"] == "user1"
+    assert _get(client, jwt2).get_json()["username"] == "user2"

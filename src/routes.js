@@ -110,8 +110,8 @@ export const sections = [
 ];
 
 /*
- * Game pages that are not in the navigation sections: they are opened from links on other pages (Settings from the link
- * by Help in the menu). ``section`` is the name over
+ * Game pages that are not in the navigation sections: they are opened from links on other pages (Settings from the account menu,
+ * components/usermenu.js). ``section`` is the name over
  * their title; ``title(data, params)`` gives the title when it depends on the page's address.
  */
 export const linkedPages = [
