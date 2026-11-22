@@ -1,7 +1,7 @@
 .landing { width: 100%; max-width: 1000px; margin: 0 auto; padding: 1rem 0 5rem; display: flex; flex-direction: column; gap: 2.5rem; }
 
 .landing-hero { text-align: center; padding: 2.5rem 1rem; border-radius: 1rem; background: var(--bs-tertiary-bg, #f1f3f5); }
-.landing-logo { display: block; width: clamp(112px, 22vw, 160px); height: auto; margin: 0 auto 1.25rem; filter: drop-shadow(0 8px 24px rgba(7, 10, 20, 0.35)); }
+.landing-logo { display: block; width: clamp(160px, 34vw, 240px); height: auto; margin: 0 auto 1.25rem; filter: drop-shadow(0 8px 24px rgba(7, 10, 20, 0.35)); }
 .landing-hero h1 { font-weight: 800; letter-spacing: 0.04em; font-size: clamp(2rem, 6vw, 3.25rem); margin-bottom: 1rem; }
 .landing-tagline { max-width: 36rem; margin: 0 auto 1.5rem; font-size: 1.15rem; color: var(--bs-secondary-color, #6c757d); }
 .landing-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem; margin-bottom: 1rem; }

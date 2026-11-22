@@ -27,7 +27,7 @@ function Landing(props) {
     return (
         <div className="landing">
             <section className="landing-hero">
-                <img src="/logo.svg" alt="" className="landing-logo" width="160" height="160" />
+                <img src="/logo.svg" alt="" className="landing-logo" width="240" height="240" />
                 <h1>Farsteel</h1>
                 <p className="landing-tagline">
                     A long-running multiplayer strategy game in your browser. Run a kingdom, join a galaxy, and work
