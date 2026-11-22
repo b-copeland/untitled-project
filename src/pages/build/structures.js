@@ -194,7 +194,7 @@ function RazeStructures(props) {
 
     return (
         <div className="structures structures-raze warning-zone">
-            <p className="page-note">Raze structures to destroy them and receive {displayPercent(props.data.state.game_config?.BASE_STRUCTURES_RAZE_RETURN || 0)} of the current build cost back</p>
+            <p className="page-note">Raze structures to destroy them and receive {displayPercent(props.data.structures?.raze_return ?? props.data.state.game_config?.BASE_STRUCTURES_RAZE_RETURN ?? 0)} of the current build cost back</p>
             <ResultToasts title="Raze Results" results={results} setResults={setResults} />
             <GameTable className="structures-table" columns={columns} rows={keys} rowKey={(key) => key} />
             <div className="form-actions">

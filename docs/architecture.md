@@ -168,6 +168,7 @@ In game code take `kd_id` from `flask_praetorian.current_user()` and nothing els
 | The galaxy's intel market: listings, bounties, free shares, exclusions, who earns which cut | `intel.py` |
 | Galaxy, empire and universe politics, votes, war, surrender | `politics.py` |
 | Cluster politics: a galaxy leader's vote, benefit levels, the cluster's empire alignment | `clusters.py` |
+| Galaxy policies: the round's draw, the timed tally of votes, what the active options are worth | `galaxypolicies.py` (pure); the vote route in `politics.py`; every effect summed by `getters._get_modifiers` |
 | Empire targets: marking targets, delegates, participation points, the spoils fund and its payouts | `targets.py` |
 | Read routes (`/api/kingdom`, `/api/structures`, ...) and the calculations they share | `getters.py` |
 | Last-known intel: snapshots of ended reveals, and which to show with a kingdom | `lastknown.py` (the fields each reveal shows: `REVEAL_FIELDS` in `shared.py`) |

@@ -9,6 +9,7 @@ import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.shared as uas
+import untitledapp.galaxypolicies as uagp
 from untitledapp import request_cache
 import untitledapp.lastknown as uala
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
@@ -65,12 +66,14 @@ def get_state():
         "reveal_operation_stats": uas.REVEAL_OPERATION_STATS,  # what each reveals, for the Spy page's refusal
         "operation_projects": uas.OPERATION_PROJECTS,
         "cluster_benefits": uas.CLUSTER_BENEFITS,
+        "galaxy_policies_desc": uas.GALAXY_POLICIES,  # every galaxy policy; the round plays state.galaxy_policies
         # The objects above reach the browser with their keys sorted; this is the order the game lists them in.
         "order": {
             "units": list(uas.UNITS),
             "projects": list(uas.PROJECTS),
             "project_categories": list(uas.PROJECT_CATEGORIES),
             "cluster_benefits": list(uas.CLUSTER_BENEFITS),
+            "galaxy_policies": list(uas.GALAXY_POLICIES),
         },
         "operations_replaced_by_project": uas.OPERATIONS_REPLACED_BY_PROJECT,
         "game_config": uas.GAME_CONFIG,
@@ -169,23 +172,25 @@ def kingdom():
 @flask_praetorian.auth_required
 # @flask_praetorian.roles_required('verified')
 def shields():
+    # The fuel each costs is this kingdom's, after its policies.
+    modifiers = _get_modifiers(flask_praetorian.current_user().kd_id)
     return {
         "desc": {
             "military": {
                 "max": uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_MAX"],
-                "cost": uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT"],
+                "cost": uas.shield_fuel_per_pct("military", modifiers),
             },
             "spy": {
                 "max": uas.GAME_CONFIG["BASE_SPY_SHIELDS_MAX"],
-                "cost": uas.GAME_CONFIG["BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT"],
+                "cost": uas.shield_fuel_per_pct("spy", modifiers),
             },
             "spy_radar": {
                 "max": uas.GAME_CONFIG["BASE_SPY_RADAR_MAX"],
-                "cost": uas.GAME_CONFIG["BASE_SPY_RADAR_COST_PER_LAND_PER_PCT"],
+                "cost": uas.shield_fuel_per_pct("spy_radar", modifiers),
             },
             "missiles": {
                 "max": uas.GAME_CONFIG["BASE_MISSILES_SHIELDS_MAX"],
-                "cost": uas.GAME_CONFIG["BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT"],
+                "cost": uas.shield_fuel_per_pct("missiles", modifiers),
             },
         }
     }
@@ -580,8 +585,9 @@ def _calc_max_recruits(kd_info, units):
         current_available_recruits = 0
     return max_available_recruits, current_available_recruits
 
-def _calc_recruit_time(is_conscription, time_multiplier):
-    return uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier * (1 - int(is_conscription) * uas.GAME_CONFIG["BASE_CONSCRIPTION_TIME_REDUCTION"])
+def _calc_recruit_time(time_multiplier, modifiers=None):
+    """Seconds drafting recruits takes for ``time_multiplier`` epochs, after the kingdom's ``modifiers``."""
+    return uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * time_multiplier * max(1 + uas.modifier(modifiers, "recruit_time"), 0)
 
 def _get_cluster_document(cluster_id):
     """The cluster's stored document (with its ``_etag``), read at most once per request."""
@@ -602,8 +608,42 @@ def _get_cluster_modifiers(kd_id, galaxy_id=None, now=None):
     return uacl.modifiers(cluster)
 
 
-def _get_units_adjusted_costs(state, cluster_modifiers=None):
-    """``UNITS`` with each cost after the universe's arms policy and the cluster's unit discount."""
+def _round_start(state):
+    """When the round starts (or started), from the state; long ago for a state with no round set up."""
+    try:
+        return uas.utc(state["state"]["game_start"])
+    except (KeyError, TypeError, ValueError):
+        return datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc)
+
+
+def _galaxy_policies_now(galaxy_politics, state, now):
+    """A galaxy's policies as of ``now`` (``galaxypolicies.advance``), from its politics document and the state."""
+    return uagp.advance(galaxy_politics, uagp.round_policies(state.get("state")), _round_start(state), now)
+
+
+def _get_galaxy_policies(kd_id, galaxy_id=None, now=None):
+    """``kd_id``'s galaxy's policies as of now (``galaxypolicies.advance``), and the galaxy id."""
+    galaxy_politics, galaxy_id = _get_galaxy_politics(kd_id, galaxy_id)
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    return _galaxy_policies_now(galaxy_politics, _get_state(), now), galaxy_id
+
+
+def _get_modifiers(kd_id, galaxy_id=None, now=None):
+    """
+    Everything politics does to ``kd_id`` now, as one ``{effect: signed value}`` (``shared.EFFECTS``): its galaxy's
+    active policies and its cluster's benefits, added up. Each source document is read at most once per request.
+    """
+    if galaxy_id is None:
+        galaxy_id = _get_galaxies_inverted()[0].get(str(kd_id))
+    if galaxy_id is None:
+        return {}
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    galaxy, _ = _get_galaxy_policies(kd_id, galaxy_id, now)
+    return uas.add_modifiers(uagp.modifiers(galaxy), _get_cluster_modifiers(kd_id, galaxy_id, now))
+
+
+def _get_units_adjusted_costs(state, modifiers=None):
+    """``UNITS`` with each cost after the universe's arms policy and the kingdom's ``modifiers``."""
     is_unregulated = "Unregulated" in state["state"]["active_policies"]
     is_treatied = "Treatied" in state["state"]["active_policies"]
 
@@ -611,12 +651,17 @@ def _get_units_adjusted_costs(state, cluster_modifiers=None):
         1.0
         - is_unregulated * uas.GAME_CONFIG["BASE_UNREGULATED_COST_REDUCTION"]
         + is_treatied * uas.GAME_CONFIG["BASE_TREATIED_COST_INCREASE"]
-        - (cluster_modifiers or {}).get("unit_cost", 0.0)
+        + uas.modifier(modifiers, "unit_cost")
     )
     units_desc = copy.deepcopy(uas.UNITS)
     for unit, unit_dict in units_desc.items():
         if "cost" in unit_dict:
-            unit_dict["cost"] = unit_dict["cost"] * cost_modifier
+            unit_modifier = cost_modifier
+            if unit in uas.PURE_ATTACK_UNITS:
+                unit_modifier += uas.modifier(modifiers, "pure_attack_cost")
+            if unit in uas.PURE_DEFENSE_UNITS:
+                unit_modifier += uas.modifier(modifiers, "pure_defense_cost")
+            unit_dict["cost"] = unit_dict["cost"] * max(unit_modifier, 0)
 
     return units_desc
 
@@ -635,9 +680,9 @@ def _get_mobis_queue(kd_id):
     mobis_info_parse = json.loads(mobis_info.text)
     return mobis_info_parse["mobis"]
 
-def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policies=None, cluster_modifiers=None):
-    """What the Military page shows. A caller that already holds the kingdom, its mobis queue, the state, the
-    galaxy's politics or the cluster's modifiers passes them, and only what is missing is read."""
+def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, modifiers=None):
+    """What the Military page shows. A caller that already holds the kingdom, its mobis queue, the state or its
+    modifiers (``_get_modifiers``) passes them, and only what is missing is read."""
     kd_info_parse = kd_info if kd_info is not None else _get_kd_info(kd_id)
     mobis_info_parse = mobis_queue if mobis_queue is not None else _get_mobis_queue(kd_id)
     current_units = kd_info_parse["units"]
@@ -661,14 +706,10 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policie
     len_queue = len(mobis_info_parse)
     total_queue = _queue_total(mobis_info_parse)
 
-    if galaxy_policies is None:
-        galaxy_policies, _ = _get_galaxy_politics(kd_id)
-    is_conscription = "Conscription" in galaxy_policies["active_policies"]
-    recruit_time = _calc_recruit_time(is_conscription, (uas.GAME_CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"] + uas.GAME_CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"]) / 2)
-
-    if cluster_modifiers is None:
-        cluster_modifiers = _get_cluster_modifiers(kd_id)
-    units_adjusted_costs = _get_units_adjusted_costs(state, cluster_modifiers)
+    if modifiers is None:
+        modifiers = _get_modifiers(kd_id)
+    recruit_time = _calc_recruit_time((uas.GAME_CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"] + uas.GAME_CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"]) / 2, modifiers)
+    units_adjusted_costs = _get_units_adjusted_costs(state, modifiers)
 
     max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
     max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units)
@@ -681,11 +722,11 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, galaxy_policie
         'current_hangar_capacity': current_hangar_capacity,
         'max_available_recruits': max_available_recruits,
         'current_available_recruits': current_available_recruits,
-        'units_desc': uas.units_for(kd_info_parse, units_adjusted_costs),
+        'units_desc': uas.units_for(kd_info_parse, units_adjusted_costs, modifiers),
         'top_queue': top_queue,
         'len_queue': len_queue,
         'total_queue': total_queue,
-        'is_conscription': is_conscription,
+        'modifiers': modifiers,  # what the refresh's auto spending needs from here (recruit time)
         }
     return payload
 
@@ -727,8 +768,9 @@ def _calc_structures(
         structures[f"hour_{hours}"] = hour_structures
     return structures
 
-def _get_structure_price(kd_info):
-    return uas.GAME_FUNCS["BASE_STRUCTURE_COST"](int(kd_info["stars"]))
+def _get_structure_price(kd_info, modifiers=None):
+    """The price of one structure, after the kingdom's ``modifiers``."""
+    return uas.GAME_FUNCS["BASE_STRUCTURE_COST"](int(kd_info["stars"])) * max(1 + uas.modifier(modifiers, "structure_cost"), 0)
 
 def _calc_available_structures(structure_price, kd_info, structures_info):
     total_structures = math.ceil(sum(structures_info["current"].values()) + sum(structures_info["hour_24"].values()))
@@ -753,9 +795,14 @@ def _get_structures_queue(kd_id):
     return json.loads(structures_info.text)["structures"]
 
 
-def _get_structures_info(kd_id, kd_info=None, structures_queue=None, state=None):
-    """What the Build page shows. A caller that already holds the kingdom, its structures queue or the state passes
-    them, and only what is missing is read."""
+def _raze_return(modifiers=None):
+    """The share of today's build cost razing a structure refunds, after the kingdom's ``modifiers``."""
+    return uas.GAME_CONFIG["BASE_STRUCTURES_RAZE_RETURN"] * max(1 + uas.modifier(modifiers, "raze_return"), 0)
+
+
+def _get_structures_info(kd_id, kd_info=None, structures_queue=None, state=None, modifiers=None):
+    """What the Build page shows. A caller that already holds the kingdom, its structures queue, the state or its
+    modifiers passes them, and only what is missing is read."""
     building_structures = structures_queue if structures_queue is not None else _get_structures_queue(kd_id)
     kd_info_parse = kd_info if kd_info is not None else _get_kd_info(kd_id)
 
@@ -766,7 +813,9 @@ def _get_structures_info(kd_id, kd_info=None, structures_queue=None, state=None)
     len_queue = len(building_structures)
     total_queue = _queue_total(building_structures)
 
-    current_price = _get_structure_price(kd_info_parse)
+    if modifiers is None:
+        modifiers = _get_modifiers(kd_id)
+    current_price = _get_structure_price(kd_info_parse, modifiers)
     current_structures = kd_info_parse["structures"]
 
     if state is None:
@@ -783,6 +832,7 @@ def _get_structures_info(kd_id, kd_info=None, structures_queue=None, state=None)
     payload = {
         **structures,
         "price": current_price,
+        "raze_return": _raze_return(modifiers),
         "max_available_structures": max_available_structures,
         "current_available_structures": current_available_structures,
         "top_queue": top_queue,
@@ -886,14 +936,13 @@ def _get_settle_queue(kd_id):
     return settle_info_parse["settles"]
 
 
-def _get_settle_price(kd_info, is_expansionist, cluster_settle_cost=0.0):
-    """The price of one star. ``cluster_settle_cost`` is the cluster's discount (``_get_cluster_modifiers``)."""
+def _get_settle_price(kd_info, modifiers=None):
+    """The price of one star, after the kingdom's race, projects and ``modifiers`` (``_get_modifiers``)."""
     return (
         uas.GAME_FUNCS["BASE_SETTLE_COST"](int(kd_info["stars"]))
         * (
             1
-            - (int(is_expansionist) * uas.GAME_CONFIG["BASE_EXPANSIONIST_SETTLE_REDUCTION"])
-            - cluster_settle_cost
+            + uas.modifier(modifiers, "settle_cost")
             - (int(kd_info["race"] == "Gaian") * uas.GAME_CONFIG["GAIAN_SETTLE_COST_REDUCTION"])
             - uas.project_bonus(kd_info, "settle_cost_bonus")
             - (int(uas.has_project(kd_info, "xo_evolution")) * uas.GAME_CONFIG["XO_EVOLUTION_SETTLE_COST_REDUCTION"])
@@ -908,14 +957,14 @@ def _get_settle_time(kd_info, time_multiplier):
     )
     return seconds
 
-def _get_available_settle(kd_info, settle_info, is_expansionist, cluster_settle_cost=0.0):
+def _get_available_settle(kd_info, settle_info, modifiers=None):
     max_settle = uas.GAME_FUNCS["BASE_MAX_SETTLE"](int(kd_info["stars"]))
     current_settle = sum([
         int(settle_item["amount"])
         for settle_item in settle_info
     ])
     max_available_settle = max(max_settle - current_settle, 0)
-    current_settle_cost = _get_settle_price(kd_info, is_expansionist, cluster_settle_cost)
+    current_settle_cost = _get_settle_price(kd_info, modifiers)
     max_settle_cost = current_settle_cost * max_available_settle
     try:
         current_available_settle = min(
@@ -928,9 +977,9 @@ def _get_available_settle(kd_info, settle_info, is_expansionist, cluster_settle_
 
 
 
-def _get_settle(kd_id, kd_info=None, settle_queue=None, galaxy_policies=None, cluster_modifiers=None):
-    """What the Settle page shows. A caller that already holds the kingdom, its settle queue, the galaxy's politics or
-    the cluster's modifiers passes them, and only what is missing is read."""
+def _get_settle(kd_id, kd_info=None, settle_queue=None, modifiers=None):
+    """What the Settle page shows. A caller that already holds the kingdom, its settle queue or its modifiers
+    (``_get_modifiers``) passes them, and only what is missing is read."""
     kd_info_parse = kd_info if kd_info is not None else _get_kd_info(kd_id)
     settle_info = settle_queue if settle_queue is not None else _get_settle_queue(kd_id)
 
@@ -941,15 +990,10 @@ def _get_settle(kd_id, kd_info=None, settle_queue=None, galaxy_policies=None, cl
     len_queue = len(settle_info)
     total_queue = _queue_total(settle_info)
 
-    if galaxy_policies is None:
-        galaxy_policies, _ = _get_galaxy_politics(kd_id)
-    is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
-    if cluster_modifiers is None:
-        cluster_modifiers = _get_cluster_modifiers(kd_id)
-    cluster_settle_cost = cluster_modifiers.get("settle_cost", 0.0)
-    settle_price = _get_settle_price(kd_info_parse, is_expansionist, cluster_settle_cost)
-    max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info, is_expansionist,
-                                                         cluster_settle_cost)
+    if modifiers is None:
+        modifiers = _get_modifiers(kd_id)
+    settle_price = _get_settle_price(kd_info_parse, modifiers)
+    max_settle, available_settle = _get_available_settle(kd_info_parse, settle_info, modifiers)
     avg_settle_time = (
         uas.GAME_CONFIG["BASE_SETTLE_TIME_MIN_MULTIPLIER"]
         + uas.GAME_CONFIG["BASE_SETTLE_TIME_MAX_MUTLIPLIER"]
@@ -1058,10 +1102,7 @@ def missiles():
 
     max_available_missiles = _calc_missile_capacity(kd_info_parse)
 
-    cost_modifier = (
-        1
-        - int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_COST_REDUCTION"]
-    )
+    cost_modifier = _missile_cost_modifier(kd_info_parse, _get_modifiers(kd_id))
 
     payload = {
         "current": current_missiles,
@@ -1076,6 +1117,16 @@ def missiles():
     }
 
     return (flask.jsonify(payload), 200)
+
+
+def _missile_cost_modifier(kd_info, modifiers=None):
+    """The share of the listed money and fuel this kingdom pays for a missile: its race and its ``modifiers``."""
+    return max(
+        1
+        - int(kd_info["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_COST_REDUCTION"]
+        + uas.modifier(modifiers, "missile_cost"),
+        0,
+    )
 
 
 def _get_engineers_queue(kd_id):
@@ -1104,7 +1155,12 @@ def _calc_workshop_capacity(kd_info, engineers_building):
     current_workshop_capacity = current_engineers + engineers_building
     return max_workshop_capacity, current_workshop_capacity
 
-def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
+def _engineer_price(modifiers=None):
+    """The price of one engineer, after the kingdom's ``modifiers``."""
+    return uas.GAME_CONFIG["BASE_ENGINEER_COST"] * max(1 + uas.modifier(modifiers, "engineer_cost"), 0)
+
+
+def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity, modifiers=None):
     engineers_total = kd_info["units"]["engineers"] + engineers_building
     available_workshop_capacity = max(max_workshop_capacity - engineers_total, 0)
     max_trainable_engineers = uas.GAME_FUNCS["BASE_MAX_ENGINEERS"](int(kd_info["population"]))
@@ -1112,7 +1168,7 @@ def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
     max_available_engineers = min(available_workshop_capacity, untrained_engineers)
     try:
         current_available_engineers = min(
-            math.floor(kd_info["money"] / uas.GAME_CONFIG["BASE_ENGINEER_COST"]),
+            math.floor(kd_info["money"] / _engineer_price(modifiers)),
             max_available_engineers,
         )
     except ZeroDivisionError:
@@ -1120,14 +1176,16 @@ def _calc_max_engineers(kd_info, engineers_building, max_workshop_capacity):
     return max_available_engineers, current_available_engineers
 
 
-def _get_engineers(kd_id, kd_info=None, engineers_queue=None):
-    """What the Engineers page shows. A caller that already holds the kingdom or its engineers queue passes them, and
-    only what is missing is read."""
+def _get_engineers(kd_id, kd_info=None, engineers_queue=None, modifiers=None):
+    """What the Engineers page shows. A caller that already holds the kingdom, its engineers queue or its modifiers
+    passes them, and only what is missing is read."""
     kd_info_parse = kd_info if kd_info is not None else _get_kd_info(kd_id)
     engineers_info = engineers_queue if engineers_queue is not None else _get_engineers_queue(kd_id)
+    if modifiers is None:
+        modifiers = _get_modifiers(kd_id)
     engineers_building = sum([training["amount"] for training in engineers_info])
     max_workshop_capacity, current_workshop_capacity = _calc_workshop_capacity(kd_info_parse, engineers_building)
-    max_available_engineers, current_available_engineers = _calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
+    max_available_engineers, current_available_engineers = _calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity, modifiers)
     top_queue = sorted(
         engineers_info,
         key=lambda queue: uas.utc(queue["time"]),
@@ -1136,7 +1194,7 @@ def _get_engineers(kd_id, kd_info=None, engineers_queue=None):
     total_queue = _queue_total(engineers_info)
 
     payload = {
-        'engineers_price': uas.GAME_CONFIG["BASE_ENGINEER_COST"],
+        'engineers_price': _engineer_price(modifiers),
         'max_workshop_capacity': max_workshop_capacity,
         'current_workshop_capacity': current_workshop_capacity,
         'max_available_engineers': max_available_engineers,
@@ -1308,16 +1366,42 @@ def galaxy_politics():
     kd_id = flask_praetorian.current_user().kd_id
     
     galaxy_votes, _ = _get_galaxy_politics(kd_id)
+    state = _get_state()
     now = datetime.datetime.now(datetime.timezone.utc)
-    unlocks = {kind: uas.galaxy_vote_unlocks_at(galaxy_votes, kind, kd_id, now) for kind in ("leader", "policy_1", "policy_2")}
+    galaxy = _galaxy_policies_now(galaxy_votes, state, now)
+    unlocks = uas.galaxy_vote_unlocks_at(galaxy_votes, "leader", kd_id, now)
+    stored_votes = galaxy_votes.get("votes") or {}
     payload = {
-        **galaxy_votes,
-        "desc": uas.GALAXY_POLICIES,
-        # When this kingdom can change each of its votes again (null: now), and how long a change holds.
-        "vote_unlocks_at": {kind: unlock.isoformat() if unlock else None for kind, unlock in unlocks.items()},
+        "leader": galaxy_votes.get("leader", ""),
+        "votes": {"leader": stored_votes.get("leader") or {}},
+        "empire_invitations": galaxy_votes.get("empire_invitations", []),
+        "empire_join_requests": galaxy_votes.get("empire_join_requests", []),
+        # This round's policies: the options, the active one, the votes, and the weight towards the next tally.
+        **uagp.view(galaxy, uagp.round_policies(state.get("state")), _round_start(state), now, kd_id),
+        # When this kingdom can change its vote for leader again (null: now), and how long a change holds.
+        "vote_unlocks_at": {"leader": unlocks.isoformat() if unlocks else None},
         "vote_cooldown_hours": uas.GAME_CONFIG["BASE_GALAXY_VOTE_COOLDOWN_EPOCHS"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 3600,
     }
     return (flask.jsonify(payload), 200)
+
+@bp.route('/api/modifiers', methods=['GET'])
+@flask_praetorian.auth_required
+def get_modifiers():
+    """
+    What politics does to the caller's kingdom now (``_get_modifiers``): each effect with its value and sentence, and
+    the few figures pages show that it changes and that no other route carries. Only the caller's own kingdom.
+    """
+    kd_id = flask_praetorian.current_user().kd_id
+    modifiers = {effect: value for effect, value in _get_modifiers(kd_id).items() if abs(value) > 1e-9}
+    state = _get_state()
+    seconds_elapsed = max((datetime.datetime.now(datetime.timezone.utc) - _round_start(state)).total_seconds(), 0)
+    rob_per_drone = uas.GAME_FUNCS["BASE_PRIMITIVES_ROB_PER_DRONE"](seconds_elapsed)
+    return flask.jsonify({
+        "modifiers": modifiers,
+        "texts": {effect: uas.effect_text(effect, value) for effect, value in modifiers.items() if effect in uas.EFFECTS},
+        "primitives_rob_per_drone": rob_per_drone * max(1 + uas.modifier(modifiers, "rob_primitives"), 0),
+    }), 200
+
 
 def _get_universe_politics():
     app = flask.current_app

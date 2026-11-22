@@ -89,3 +89,10 @@ test("razing cannot go past what you have", () => {
     expect(input.value).toBe("100");
     expect(button("Raze").disabled).toBe(false);
 });
+
+test("the raze note shows the kingdom's own refund, after its policies", () => {
+    render(<Structures data={{ ...data, structures: { ...data.structures, raze_return: 0.5 },
+        state: { game_config: { BASE_STRUCTURES_RAZE_RETURN: 0.25 }, pretty_names: {} } }} loading={{}} updateData={updateData} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Raze" }));
+    expect(screen.getByText(/receive 50\.0% of the current build cost back/)).toBeTruthy();
+});

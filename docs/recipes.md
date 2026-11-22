@@ -180,3 +180,20 @@ This touches many places; search for an existing name (for example `drone_factor
 `funcapp/` and handle every hit. At least: `UNITS` or `STRUCTURES` or `MISSILES`, `INITIAL_KINGDOM_STATE` (counts and
 targets), `NETWORTH_VALUES`, `PRETTY_NAMES`, the formulas that use the others, the frontend lists (some pages still have
 their own, such as `STRUCTURES` in `structures.js`), the help pages, and a backfill for existing kingdoms.
+
+## 12. A galaxy policy, or a new kind of effect
+
+1. **An option whose effects exist** is an entry in `GALAXY_POLICIES` in `shared.py`: a policy is a `name` and two
+   `options`, each a `name` and `effects` (names from `EFFECTS`, signed values: `-0.15` is 15% less). Its sentence
+   is made from the effects; give a `desc` only where those read badly. The vote route, the Galaxy page, the help
+   page, the draw and the bots' validator all read the table. Add the option to every bot playstyle's `galaxy_votes`
+   (`botbrain.PERSONALITIES`): `tests/test_bot_brain.py` checks each lists one option of every policy.
+2. **A new kind of effect** is an entry in `EFFECTS` (`better`, and the `up` and `down` sentences), then one
+   `uas.modifier(modifiers, "<effect>")` where the rule lives. A request reads the kingdom's sum once with
+   `uag._get_modifiers(kd_id)` and passes it down; the refresh uses `context.modifiers(kd_id, time_update)`. Clamp
+   what it multiplies at zero (`max(1 + ..., 0)`).
+3. **Forecasts and pages show what the action charges**: put the effect in the helper both use (the price getters,
+   `_shielding_fuel`, `_reveal_seconds`), never in only one of them (recipe 9, step 4).
+4. **Tests**: the effect through its helper in `tests/test_policy_effects.py` (a test that would fail without it), and
+   `tests/test_galaxy_policies.py` fails if an effect is read nowhere. Say in the pull request that the numbers are
+   proposals.

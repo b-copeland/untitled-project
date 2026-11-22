@@ -104,10 +104,11 @@ def test_an_empty_document_is_all_zero_and_starts_its_clock(config):
     assert clusters.modifiers(cluster) == {"drone_production": 0.0, "unit_cost": 0.0, "settle_cost": 0.0}
 
 
-def test_modifiers_are_the_level_times_the_max(config):
+def test_modifiers_are_the_level_times_the_max_signed_the_way_that_helps(config):
+    # A discount is a lower cost, so it comes out negative, as policies give it (shared.EFFECTS).
     cluster = clusters.normalize({"levels": {"drone_production": 0.5, "unit_cost": 1.0}})
     assert clusters.modifiers(cluster) == pytest.approx(
-        {"drone_production": 0.075, "unit_cost": 0.05, "settle_cost": 0.0})
+        {"drone_production": 0.075, "unit_cost": -0.05, "settle_cost": 0.0})
 
 
 def test_rate_matches_what_advance_does(config):
@@ -271,7 +272,7 @@ def test_state_lists_the_cluster_benefits(app, client):
 def test_the_unit_discount_lowers_every_unit_cost():
     state = {"state": {"active_policies": []}}
     plain = getters._get_units_adjusted_costs(state)
-    cheaper = getters._get_units_adjusted_costs(state, {"unit_cost": 0.05})
+    cheaper = getters._get_units_adjusted_costs(state, {"unit_cost": -0.05})
     for unit, desc in plain.items():
         if "cost" in desc:
             assert cheaper[unit]["cost"] == pytest.approx(desc["cost"] * 0.95)
@@ -280,7 +281,7 @@ def test_the_unit_discount_lowers_every_unit_cost():
 def test_the_settle_discount_lowers_the_settle_price():
     kd = kingdoms.kingdom()
     base = uas.GAME_FUNCS["BASE_SETTLE_COST"](int(kd["stars"]))
-    assert (getters._get_settle_price(kd, False) - getters._get_settle_price(kd, False, 0.1)) == pytest.approx(base * 0.1)
+    assert (getters._get_settle_price(kd) - getters._get_settle_price(kd, {"settle_cost": -0.1})) == pytest.approx(base * 0.1)
 
 
 def test_the_drone_bonus_raises_drone_production(app):
@@ -337,7 +338,7 @@ def test_the_refresh_context_reads_each_cluster_once(app, monkeypatch):
     monkeypatch.setattr(getters, "_get_cluster_document", lambda cid: reads.append(cid) or {"levels": {"unit_cost": 1.0}})
     context = refresh._RefreshContext(state={})
     for kd_id in ("1", "2", "3", "1"):
-        assert context.cluster_modifiers(kd_id, NOW)["unit_cost"] == uas.CLUSTER_BENEFITS["unit_cost"]["max"]
+        assert context.cluster_modifiers(kd_id, NOW)["unit_cost"] == -uas.CLUSTER_BENEFITS["unit_cost"]["max"]
     assert reads == ["1", "2"]
 
 

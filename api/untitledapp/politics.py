@@ -13,6 +13,7 @@ import flask_praetorian
 import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.getters as uag
+import untitledapp.galaxypolicies as uagp
 import untitledapp.shared as uas
 import untitledapp.targets as uat
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
@@ -136,9 +137,10 @@ def _now():
 
 def _record_vote(galaxy_votes, kind, kd_id, choice, now):
     """
-    Put ``kd_id``'s vote of ``kind`` as ``choice`` in ``galaxy_votes`` (the document as it is right now), and return the
-    fields to write. Changing a vote that was cast starts the cooldown, and inside it raises ``occ.Rejected`` saying when
-    it can change; voting what it already is changes nothing and starts nothing. The first vote is free.
+    Put ``kd_id``'s vote of ``kind`` (``leader``) as ``choice`` in ``galaxy_votes`` (the document as it is right now),
+    and return the fields to write. Changing a vote that was cast starts the cooldown, and inside it raises
+    ``occ.Rejected`` saying when it can change; voting what it already is changes nothing and starts nothing. The first
+    vote is free. Policy votes have no cooldown: the tally weighs them by time instead (``galaxypolicies``).
     """
     fields = {}
     if galaxy_votes["votes"][kind].get(kd_id) != choice:
@@ -201,35 +203,24 @@ def galaxy_leader():
 
 def cast_galaxy_vote(kd_id, galaxy_id, policy, option):
     """
-    Record ``kd_id``'s vote for ``option`` of ``policy`` in its galaxy, switching the galaxy's active policy if that
-    makes one option the clear leader. Returns the galaxy politics document. Raises ``occ.Busy``, and ``occ.Rejected``
-    inside the cooldown that follows a changed vote. The route and the bots both come through here.
+    Record ``kd_id``'s vote for ``option`` of the galaxy ``policy`` (None withdraws it). It does not switch the policy:
+    the next tally does, weighing every vote by how long it was held (``galaxypolicies``). Returns the galaxy's
+    policies as they are after the vote (``galaxypolicies.advance``). Raises ``occ.Rejected`` for a policy this round
+    does not play or an option it does not have, and ``occ.Busy``. The route and the bots both come through here.
     """
+    state = uag._get_state()
+    policies = uagp.round_policies(state.get("state"))
+    problem = uagp.vote_problem(policies, policy, option)
+    if problem:
+        raise occ.Rejected(problem)
+    round_start = uag._round_start(state)
     now = _now()
 
     def vote(galaxy_votes):
-        patch_payload = _record_vote(galaxy_votes, policy, kd_id, option.split('_')[-1], now)
-        policy_votes = collections.defaultdict(int)
-        for chosen in galaxy_votes["votes"][policy].values():
-            policy_votes[chosen] += 1
-
-        current_option_winner = galaxy_votes[f"{policy}_winner"]
-        most_votes = max(policy_votes.values())
-        policies_with_most_votes = [
-            k
-            for k, v in policy_votes.items()
-            if v == most_votes
-        ]
-        if len(policies_with_most_votes) == 1 and (policies_with_most_votes[0] != current_option_winner):
-            patch_payload[f"{policy}_winner"] = policies_with_most_votes[0]
-            option_names = [option["name"] for option in uas.GALAXY_POLICIES[policy]["options"].values()]
-            new_option_name = uas.GALAXY_POLICIES[policy]["options"][policies_with_most_votes[0]]["name"]
-            new_active_policies = [active for active in galaxy_votes["active_policies"] if active not in option_names] + [new_option_name]
-            patch_payload["active_policies"] = new_active_policies
-            galaxy_votes[f"{policy}_winner"] = policies_with_most_votes[0]
-            galaxy_votes["active_policies"] = new_active_policies
-
-        return patch_payload, galaxy_votes
+        galaxy = uagp.advance(galaxy_votes, policies, round_start, now)
+        if not uagp.cast(galaxy, kd_id, policy, option):
+            return None, galaxy  # the vote is what it was: nothing to write
+        return uagp.written(galaxy), galaxy
 
     return occ.update(f'/galaxy/{galaxy_id}/politics', vote)
 
@@ -239,21 +230,28 @@ def cast_galaxy_vote(kd_id, galaxy_id, policy, option):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_policies():
-    app = flask.current_app
-    req = flask.request.get_json(force=True)
+    req = flask.request.get_json(force=True, silent=True)
+    req = req if isinstance(req, dict) else {}
     kd_id = flask_praetorian.current_user().kd_id
-    
-    galaxy_votes, galaxy_id = uag._get_galaxy_politics(kd_id)
-    
+    policy = req.get("policy")
+    option = req.get("option") or None
+    if not isinstance(policy, str) or (option is not None and not isinstance(option, str)):
+        return (flask.jsonify({"message": "Choose a policy and one of its options"}), 400)
 
+    _, galaxy_id = uag._get_galaxy_politics(kd_id)
     try:
-        galaxy_votes = cast_galaxy_vote(kd_id, galaxy_id, req["policy"], req["option"])
+        cast_galaxy_vote(kd_id, galaxy_id, policy, option)
     except occ.Rejected as rejection:
         return (flask.jsonify({"message": rejection.message}), rejection.status)
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
 
-    return (flask.jsonify(galaxy_votes), 200)
+    if option is None:
+        message = f"Your vote on {uas.GALAXY_POLICIES[policy]['name']} is withdrawn"
+    else:
+        message = (f"You now vote for {uas.GALAXY_POLICIES[policy]['options'][option]['name']}. "
+                   "It counts from now towards the next tally")
+    return (flask.jsonify({"message": message, "status": "success"}), 200)
 
 def _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted):
 

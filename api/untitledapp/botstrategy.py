@@ -200,9 +200,10 @@ def guess_defense(networth, stars):
 
 # ------------------------------------------------------------------------------------------------------- the economy
 
-def settle_price(kd, expansionist):
+def settle_price(kd, settle_cost=0.0):
+    """The price of a star, near enough: ``settle_cost`` is the kingdom's ``settle_cost`` effect from politics."""
     return uas.GAME_FUNCS["BASE_SETTLE_COST"](int(kd["stars"])) * (
-        1 - (CONFIG["BASE_EXPANSIONIST_SETTLE_REDUCTION"] if expansionist else 0)
+        1 + settle_cost
         - (CONFIG["GAIAN_SETTLE_COST_REDUCTION"] if kd["race"] == "Gaian" else 0))
 
 
@@ -217,7 +218,7 @@ def defense_wanted(kd, epochs, margin):
     return kd["stars"] * deterrence_per_star(epochs) * margin
 
 
-def settle_worth(kd, epochs_left, expansionist, income_per_star=None):
+def settle_worth(kd, epochs_left, settle_cost, income_per_star=None):
     """
     Whether one more settled star still pays: the networth of the star and its structure, plus the networth its income
     buys as units before the round ends, per unit of money, against simply buying units with the money. Above 1,
@@ -227,7 +228,7 @@ def settle_worth(kd, epochs_left, expansionist, income_per_star=None):
     unit_value = values["attack"] / unit_cost("attack")
     if income_per_star is None:
         income_per_star = guess_income(1)
-    cost = settle_price(kd, expansionist) + uas.GAME_FUNCS["BASE_STRUCTURE_COST"](int(kd["stars"]))
+    cost = settle_price(kd, settle_cost) + uas.GAME_FUNCS["BASE_STRUCTURE_COST"](int(kd["stars"]))
     earning_epochs = max(epochs_left - HORIZON * 1.5, 0)  # it has to be settled and built on first
     worth = values["stars"] + values["structures"] + income_per_star * earning_epochs * unit_value
     return worth / max(cost, 1) / unit_value
@@ -237,7 +238,7 @@ def unit_cost(unit, cost_modifier=1.0):
     return uas.UNITS[unit]["cost"] * cost_modifier + CONFIG["BASE_RECRUIT_COST"]
 
 
-def spending_plan(kd, income, order, settle_drive, military_drive, defense_deficit_units, expansionist=False,
+def spending_plan(kd, income, order, settle_drive, military_drive, defense_deficit_units, settle_cost=0.0,
                   growth_per_epoch=0.012, reserve=0.0, cost_modifier=1.0, engineers_per_star=None):
     """
     Split ``income`` (money per epoch) over the four auto spending categories by what each can use.
@@ -269,7 +270,7 @@ def spending_plan(kd, income, order, settle_drive, military_drive, defense_defic
     build_time = (CONFIG["BASE_STRUCTURE_TIME_MIN_MULTIPLIER"] + CONFIG["BASE_STRUCTURE_TIME_MAX_MUTLIPLIER"]) / 2
     backlog = max(empty - stars * growth_per_epoch * build_time, 0)
     wants = {
-        "settle": settle_drive * settle_rate * settle_price(kd, expansionist) * 1.1,
+        "settle": settle_drive * settle_rate * settle_price(kd, settle_cost) * 1.1,
         "structures": structure_price * (backlog / 4 + stars * growth_per_epoch * 1.15),
         "engineers": CONFIG["BASE_ENGINEER_COST"] * engineer_rate,
         "military": min(defense_deficit_units * unit_cost("defense", cost_modifier) / HORIZON + military_drive * income,

@@ -275,11 +275,13 @@ def _general_speed(kd_info, current_bonuses):
     )
 
 
-def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0, war=False, attacker_units=None, defender_units=None):
+def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0, war=False, attacker_units=None, defender_units=None,
+                       attacker_modifiers=None):
     """
     The share of its units each side loses in an attack, before race and war (``_calc_losses`` applies those): the base
     rates, the defender's scaled by how close the attack came (``attack_ratio``), the projects that change them, and
-    the self-destructing units on each side (``attacker_units`` sent, ``defender_units`` at home).
+    the self-destructing units on each side (``attacker_units`` sent, ``defender_units`` at home), and the attacker's
+    ``attacker_modifiers`` (``getters._get_modifiers``).
     ``defender_kd`` is the defending kingdom, what the attacker knows of it (a forecast), or None for primitives.
     """
     attacker_rate = uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"]
@@ -292,6 +294,7 @@ def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0, war=False, at
         if war and uas.has_project(attacker_kd, "xo_capstone"):
             defender_rate *= 1 + uas.GAME_CONFIG["XO_CAPSTONE_WAR_LOSSES_INCREASE"]
     attacker_rate *= 1 - uas.project_bonus(attacker_kd, "casualties_bonus")
+    attacker_rate *= max(1 + uas.modifier(attacker_modifiers, "attacker_losses"), 0)
     return attacker_rate, defender_rate
 
 
@@ -314,6 +317,19 @@ def _split_across_generals(units, return_times):
     return generals
 
 
+def _primitives_stars(attack, primitives_defense_per_star, kd_info, modifiers=None):
+    """The stars an attack of ``attack`` offense takes from primitives, after the attacker's race and ``modifiers``."""
+    return math.floor(
+        attack
+        / primitives_defense_per_star
+        * (
+            1
+            + (int(kd_info["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
+            + uas.modifier(modifiers, "primitives_attack_stars")
+        )
+    )
+
+
 def _calc_coordinate_distance(
     coord_a,
     coord_b,
@@ -328,12 +344,14 @@ def _calc_generals_return_time(
     return_multiplier,
     base_time,
     general_bonus=0,
-    is_warlike=False,
+    return_modifier=0.0,
     coordinate_distance=25,
 ):
+    """When each of ``generals`` generals comes home. ``return_modifier`` is the kingdom's ``generals_return_time``
+    effect (``getters._get_modifiers``): -0.1 brings them home 10% sooner."""
     coordinate_distance_norm = coordinate_distance - 25
     coordinate_effect = coordinate_distance_norm * uas.GAME_CONFIG["BASE_RETURN_TIME_PENALTY_PER_COORDINATE"]
-    return_time_with_bonus = datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * return_multiplier) * (1 - general_bonus - int(is_warlike) * uas.GAME_CONFIG["BASE_WARLIKE_RETURN_REDUCTION"] + coordinate_effect)
+    return_time_with_bonus = datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * return_multiplier) * max(1 - general_bonus + return_modifier + coordinate_effect, 0)
     
     return_times = [
         base_time + (return_time_with_bonus / i)
@@ -479,6 +497,7 @@ def calculate_attack(target_kd):
         attack_ratio = 1.0
     attacker_loss_rate, defender_loss_rate = _battle_loss_rates(
         kd_info_parse, max_target_kd_info, attack_ratio, war, attacker_units, defender_units,
+        attacker_modifiers=uag._get_modifiers(kd_id),
     )
     attacker_losses = _calc_losses(
         attacker_units,
@@ -492,15 +511,13 @@ def calculate_attack(target_kd):
         war=war,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
-    galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-    is_warlike = "Warlike" in galaxy_policies["active_policies"]
+    modifiers = uag._get_modifiers(kd_id)
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values.get("generals", 1) or 1),
         uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
         _general_speed(kd_info_parse, current_bonuses),
-        is_warlike=is_warlike,
+        return_modifier=uas.modifier(modifiers, "generals_return_time"),
         coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], max_target_kd_info["coordinate"]),
     )
     generals_strftime = ', '.join([
@@ -671,6 +688,7 @@ def _autofill_attack(req, kd_id, target_kd):
         attack_ratio = 1.0
     attacker_loss_rate, defender_loss_rate = _battle_loss_rates(
         kd_info_parse, max_target_kd_info, attack_ratio, war, attacker_units, defender_units,
+        attacker_modifiers=uag._get_modifiers(kd_id),
     )
     attacker_losses = _calc_losses(
         attacker_units,
@@ -684,15 +702,13 @@ def _autofill_attack(req, kd_id, target_kd):
         war=war,
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
-    galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-    is_warlike = "Warlike" in galaxy_policies["active_policies"]
+    modifiers = uag._get_modifiers(kd_id)
     generals_return_times = _calc_generals_return_time(
         generals,
         uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
         _general_speed(kd_info_parse, current_bonuses),
-        is_warlike=is_warlike,
+        return_modifier=uas.modifier(modifiers, "generals_return_time"),
         coordinate_distance=_calc_coordinate_distance(kd_info_parse["coordinate"], max_target_kd_info["coordinate"]),
     )
     generals_strftime = ', '.join([
@@ -811,8 +827,7 @@ def _attack(req, kd_id, target_kd):
         peace = defender_empire in empires_info["empires"].get(attacker_empire, {}).get("peace", {})
         surprise_war_penalty = empires_info["empires"].get(defender_empire, {}).get("surprise_war_penalty", False)
         denounced = defender_empire == empires_info["empires"].get(attacker_empire, {}).get("denounced", "")
-        galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-        is_warlike = "Warlike" in galaxy_policies["active_policies"]
+        modifiers = uag._get_modifiers(kd_id)
         n_generals = int(attacker_raw_values["generals"])
         # On one of the attacker's empire's targets, intel cuts do not apply and a share of the spoils goes into the
         # target's spoils fund. Elsewhere, intel on this target the attacker took from galaxymates earns each sharer
@@ -844,7 +859,8 @@ def _attack(req, kd_id, target_kd):
                 surprise_war_penalty=surprise_war_penalty,
             )
             # The attacker's losses do not depend on how the battle goes, so they are fixed as the units leave.
-            attacker_loss_rate, _ = _battle_loss_rates(kd, target_kd_info, defender_units=target_kd_info["units"])
+            attacker_loss_rate, _ = _battle_loss_rates(kd, target_kd_info, defender_units=target_kd_info["units"],
+                                                       attacker_modifiers=uag._get_modifiers(kd_id))
             attacker_losses = _calc_losses(
                 attacker_units,
                 attacker_loss_rate,
@@ -857,7 +873,7 @@ def _attack(req, kd_id, target_kd):
                 uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
                 time_now,
                 _general_speed(kd, current_bonuses),
-                is_warlike=is_warlike,
+                return_modifier=uas.modifier(modifiers, "generals_return_time"),
                 coordinate_distance=_calc_coordinate_distance(kd["coordinate"], target_kd_info["coordinate"]),
             )
             remaining_attacker_units = {
@@ -1282,33 +1298,24 @@ def calculate_attack_primitives():
         fuelless=attacker_fuelless,
         lumina=kd_info_parse["race"] == "Lumina",
     )
-    stars = math.floor(
-        attack
-        / primitives_defense_per_star
-        * (
-            1
-            + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
-        )
-    )
+    stars = _primitives_stars(attack, primitives_defense_per_star, kd_info_parse, uag._get_modifiers(kd_id))
     money = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_MONEY_PER_STAR"]
     fuel = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_FUEL_PER_STAR"]
     pop = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_POPULATION_PER_STAR"]
-    attacker_loss_rate, _ = _battle_loss_rates(kd_info_parse, None)
+    attacker_loss_rate, _ = _battle_loss_rates(kd_info_parse, None, attacker_modifiers=uag._get_modifiers(kd_id))
     attacker_losses = _calc_losses(
         attacker_units,
         attacker_loss_rate,
         xo=kd_info_parse["race"] == "Xo",
     )
     time_now = datetime.datetime.now(datetime.timezone.utc)
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
-    galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-    is_warlike = "Warlike" in galaxy_policies["active_policies"]
+    modifiers = uag._get_modifiers(kd_id)
     generals_return_times = _calc_generals_return_time(
         int(attacker_raw_values["generals"]),
         uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
         time_now,
         _general_speed(kd_info_parse, current_bonuses),
-        is_warlike=is_warlike,
+        return_modifier=uas.modifier(modifiers, "generals_return_time"),
         coordinate_distance=25,
     )
     generals_strftime = ', '.join([
@@ -1375,23 +1382,21 @@ def _attack_primitives(req, kd_id):
             fuelless=attacker_fuelless,
             lumina=kd_info_parse["race"] == "Lumina",
         )
-        attacker_loss_rate, _ = _battle_loss_rates(kd_info_parse, None)
+        attacker_loss_rate, _ = _battle_loss_rates(kd_info_parse, None, attacker_modifiers=uag._get_modifiers(kd_id))
         attacker_losses = _calc_losses(
             attacker_units,
             attacker_loss_rate,
             xo=kd_info_parse["race"] == "Xo",
         )
         time_now = datetime.datetime.now(datetime.timezone.utc)
-        galaxies_inverted, _ = uag._get_galaxies_inverted()
-        galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-        is_warlike = "Warlike" in galaxy_policies["active_policies"]
+        modifiers = uag._get_modifiers(kd_id)
         n_generals = int(attacker_raw_values["generals"])
         generals_return_times = _calc_generals_return_time(
             n_generals,
             uas.GAME_CONFIG["BASE_GENERALS_RETURN_TIME_MULTIPLIER"],
             time_now,
             _general_speed(kd_info_parse, current_bonuses),
-            is_warlike=is_warlike,
+            return_modifier=uas.modifier(modifiers, "generals_return_time"),
             coordinate_distance=25,
         )
         new_home_attacker_units = {
@@ -1405,14 +1410,7 @@ def _attack_primitives(req, kd_id):
         generals = _split_across_generals(remaining_attacker_units, generals_return_times)
         next_return_time = min([general["return_time"] for general in generals])
 
-        stars = math.floor(
-            attack
-            / primitives_defense_per_star
-            * (
-                1
-                + (int(kd_info_parse["race"] == "Xo") * uas.GAME_CONFIG["XO_ATTACK_GAINS_INCREASE"])
-            )
-        )
+        stars = _primitives_stars(attack, primitives_defense_per_star, kd_info_parse, modifiers)
         if stars == 0:
             raise occ.Rejected("Attacks against primitives should conquer at least 1 star. Send more units")
         money = stars * uas.GAME_CONFIG["BASE_PRIMITIVES_MONEY_PER_STAR"]
@@ -1489,10 +1487,24 @@ def attack_primitives():
     _, attack_results, status_code = _attack_primitives(req, kd_id)
     return (flask.jsonify(attack_results), status_code)
 
-def _shielding_fuel(kd_info, drones):
-    """Fuel it costs this kingdom to shield ``drones`` drones on one operation."""
-    per_drone = uas.GAME_CONFIG["BASE_DRONES_SHIELDING_FUEL_PER_DRONE"] * (
-        1 - int(uas.has_project(kd_info, "lumina_capstone")) * uas.GAME_CONFIG["LUMINA_CAPSTONE_SHIELDING_FUEL_REDUCTION"]
+def _reveal_seconds(modifiers=None):
+    """How long a reveal operation of this kingdom reveals for, after its ``modifiers``."""
+    return (uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+            * max(1 + uas.modifier(modifiers, "reveal_duration"), 0))
+
+
+def _rob_per_drone(primitives_rob_per_drone, modifiers=None):
+    """Money one drone robs from primitives now, after this kingdom's ``modifiers``."""
+    return primitives_rob_per_drone * max(1 + uas.modifier(modifiers, "rob_primitives"), 0)
+
+
+def _shielding_fuel(kd_info, drones, operation=None, modifiers=None):
+    """Fuel it costs this kingdom to shield ``drones`` drones on one ``operation``, after its ``modifiers``."""
+    per_drone = uas.GAME_CONFIG["BASE_DRONES_SHIELDING_FUEL_PER_DRONE"] * max(
+        1
+        - int(uas.has_project(kd_info, "lumina_capstone")) * uas.GAME_CONFIG["LUMINA_CAPSTONE_SHIELDING_FUEL_REDUCTION"]
+        + (uas.modifier(modifiers, "siphon_shield_fuel") if operation == "siphonfunds" else 0),
+        0,
     )
     return drones * per_drone
 
@@ -1501,13 +1513,15 @@ def _validate_spy_request(
     drones,
     kd_info,
     shielded,
+    operation=None,
+    modifiers=None,
 ):
     if drones > kd_info["drones"]:
         return False, "You do not have that many drones"
     if drones < 0:
         return False, "You can not send negative drones"
     if shielded:
-        if kd_info["fuel"] < _shielding_fuel(kd_info, drones):
+        if kd_info["fuel"] < _shielding_fuel(kd_info, drones, operation, modifiers):
             return False, "You do not have enough fuel"
     if kd_info["spy_attempts"] == 0:
         return False, "You do not have any more spy attempts"
@@ -1641,8 +1655,15 @@ def _calculate_spy_losses(
     drones_to_send,
     shielded,
     has_drone_gadgets=False,
+    modifiers=None,
 ):
-    additive_loss_reduction = 1 - (int(has_drone_gadgets) * uas.GAME_CONFIG["BASE_DRONE_GADGETS_LOSS_REDUCTION"])
+    """The drones an operation loses if it succeeds and if it fails, after Drone Gadgets, shielding and ``modifiers``."""
+    additive_loss_reduction = max(
+        1
+        - (int(has_drone_gadgets) * uas.GAME_CONFIG["BASE_DRONE_GADGETS_LOSS_REDUCTION"])
+        + uas.modifier(modifiers, "drone_losses"),
+        0,
+    )
     multiplicative_reduction = additive_loss_reduction * (1 - (int(shielded) * uas.GAME_CONFIG["BASE_DRONES_SHIELDING_LOSS_REDUCTION"]))
     success_loss = math.floor(drones_to_send * uas.GAME_CONFIG["BASE_DRONES_SUCCESS_LOSS_RATE"] * multiplicative_reduction)
     failure_loss = math.floor(drones_to_send * uas.GAME_CONFIG["BASE_DRONES_FAILURE_LOSS_RATE"] * multiplicative_reduction)
@@ -1680,6 +1701,8 @@ def calculate_spy(target_kd):
         drones,
         kd_info_parse,
         shielded,
+        operation,
+        uag._get_modifiers(kd_id),
     )
     if not valid_request:
         return (flask.jsonify({"message": message}), 400)
@@ -1727,6 +1750,7 @@ def calculate_spy(target_kd):
         drones,
         shielded,
         has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
+        modifiers=uag._get_modifiers(kd_id),
     )
 
     damage_multiplier = _aggro_damage_multiplier(kd_info_parse, max_target_kd_info, war)
@@ -1734,7 +1758,7 @@ def calculate_spy(target_kd):
 
     if operation in uas.REVEAL_OPERATIONS:
         revealed_stat = ", ".join(uas.REVEAL_OPERATION_STATS[operation])
-        reveal_duration_seconds = uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+        reveal_duration_seconds = _reveal_seconds(uag._get_modifiers(kd_id))
         reveal_duration_hours = reveal_duration_seconds / 3600
         message += f"If successful, the target's {revealed_stat} will be revealed for {reveal_duration_hours} hours.\n"
     if operation == "siphonfunds":
@@ -1798,10 +1822,13 @@ def _spy(req, kd_id, target_kd):
 
         kd_info_parse = occ.read(f'/kingdom/{kd_id}')
 
+        modifiers = uag._get_modifiers(kd_id)
         valid_request, message = _validate_spy_request(
             drones,
             kd_info_parse,
             shielded,
+            operation,
+            modifiers,
         )
         if not valid_request:
             return kd_info_parse, {"message": message}, 400, False
@@ -1821,12 +1848,12 @@ def _spy(req, kd_id, target_kd):
         def charge(kd):
             # What the operation costs is taken up front, against the kingdom as it is right now, so a duplicate
             # request can not spend the same drones or spy attempt twice. The drones that survive come back below.
-            valid, charge_message = _validate_spy_request(drones, kd, shielded)
+            valid, charge_message = _validate_spy_request(drones, kd, shielded, operation, modifiers)
             if not valid:
                 raise occ.Rejected(charge_message)
             charged = {"drones": kd["drones"] - drones, "spy_attempts": kd["spy_attempts"] - 1}
             if shielded:
-                charged["fuel"] = kd["fuel"] - _shielding_fuel(kd, drones)
+                charged["fuel"] = kd["fuel"] - _shielding_fuel(kd, drones, operation, modifiers)
             return charged, None
 
         occ.update(f'/kingdom/{kd_id}', charge, document=kd_info_parse)
@@ -1854,6 +1881,7 @@ def _spy(req, kd_id, target_kd):
             drones,
             shielded,
             has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
+            modifiers=uag._get_modifiers(kd_id),
         )
 
         roll = random.uniform(0, 1)
@@ -1889,7 +1917,7 @@ def _spy(req, kd_id, target_kd):
             if success:
                 status = "success"
                 if operation in uas.REVEAL_OPERATIONS:
-                    reveal_duration_seconds = uas.GAME_CONFIG["BASE_REVEAL_DURATION_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+                    reveal_duration_seconds = _reveal_seconds(modifiers)
                     revealed_until = time_now + datetime.timedelta(seconds=reveal_duration_seconds)
                     reveal_duration_hours = reveal_duration_seconds / 3600
 
@@ -1963,7 +1991,7 @@ def _spy(req, kd_id, target_kd):
         if kidnap_return:
             kd_patch_payload["population"] = kd_info_parse["population"] + kidnap_return
         if shielded:
-            kd_patch_payload["fuel"] = kd_info_parse["fuel"] - _shielding_fuel(kd_info_parse, drones)
+            kd_patch_payload["fuel"] = kd_info_parse["fuel"] - _shielding_fuel(kd_info_parse, drones, operation, modifiers)
         if revealed_until:
             next_resolve = kd_info_parse["next_resolve"]
             next_resolve["revealed"] = min(next_resolve["revealed"], revealed_until.isoformat())
@@ -2181,10 +2209,11 @@ def _rob_primitives(req, kd_id):
             drones,
             shielded,
             has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
+            modifiers=uag._get_modifiers(kd_id),
         )
 
         status = "success"
-        rob = math.floor(drones * primitives_rob_per_drone)
+        rob = math.floor(drones * _rob_per_drone(primitives_rob_per_drone, uag._get_modifiers(kd_id)))
         message = f"You have robbed {rob} money from primitives. You have lost {success_losses} drones."
         
 

@@ -52,6 +52,7 @@ import flask
 import untitledapp.botstrategy as strategy
 import untitledapp.build as uab
 import untitledapp.conquer as uac
+import untitledapp.galaxypolicies as uagp
 import untitledapp.getters as uag
 import untitledapp.intel as uai
 import untitledapp.misc as uam
@@ -187,7 +188,9 @@ class Personality:
 
     # Politics: the option (as the vote route takes it) it votes for in each galaxy and universe policy, and the share
     # of its loose money it spends on universe votes in an election.
-    galaxy_votes: dict = dataclasses.field(default_factory=dict)
+    # The galaxy policy options it votes for, one of each policy: in a round, it votes for the one listed of each of
+    # the round's policies.
+    galaxy_votes: tuple = ()
     universe_votes: dict = dataclasses.field(default_factory=dict)
     vote_budget: float = 0.25
 
@@ -204,7 +207,7 @@ PERSONALITIES = {
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.6, "military_bonus": 0.8, "general_bonus": 0.3, "spy_bonus": 0.4},
         key_projects=("drone_gadgets", "big_flexers"), key_share=(0.4, 0.25, 0.15),
         intel_chance=0.15, share_chance=0.5,
-        galaxy_votes={"policy_1": "1", "policy_2": "2"},     # Expansionist, Conscription
+        galaxy_votes=("expansionist", "drone_foundries", "conscription", "applied_research", "industrialists", "renovators", "mining_guilds", "civic_taxation", "fortification", "plunderers", "drone_recovery", "aegis", "fortress", "rapid_construction"),
         universe_votes={"policy_1": "2", "policy_2": "1"},    # Treatied (it defends), Free trade
     ),
     "attacker": Personality(
@@ -218,7 +221,7 @@ PERSONALITIES = {
         key_projects=("big_flexers",), key_share=(0.5, 0.3, 0.15),
         attack_buffer=(3.0, 9.0), player_edge=1.0,
         intel_chance=0.7, intel_ops=("spymilitary",), share_chance=0.2,
-        galaxy_votes={"policy_1": "2", "policy_2": "2"},     # Warlike, Conscription
+        galaxy_votes=("raiders", "warlike", "conscription", "applied_research", "industrialists", "shipwrights", "refineries", "efficiency", "offensive_arms", "infiltrators", "veteran_corps", "silo_programme", "fortress", "rapid_construction"),
         universe_votes={"policy_1": "1", "policy_2": "1"},    # Unregulated, Free trade
     ),
     "intel": Personality(
@@ -235,7 +238,7 @@ PERSONALITIES = {
         intel_chance=0.9, intel_ops=("spymilitary", "spymilitary", "spymilitary", "spykingdom"),
         intel_tries=(1, 3), share_chance=0.95, share_cut=10.0,
         aggressive_chance=0.15, sabotage_chance=(0.0, 0.1, 0.5),
-        galaxy_votes={"policy_1": "1", "policy_2": "1"},     # Expansionist, Intelligence
+        galaxy_votes=("expansionist", "drone_foundries", "intelligence", "breakthroughs", "engineering_corps", "renovators", "mining_guilds", "civic_taxation", "fortification", "infiltrators", "drone_recovery", "aegis", "counter_intel", "population_boom"),
         universe_votes={"policy_1": "2", "policy_2": "1"},
     ),
     "thief": Personality(
@@ -251,7 +254,7 @@ PERSONALITIES = {
         intel_chance=0.1, intel_ops=("spykingdom", "spydrones", "spymilitary"), share_chance=0.3,
         aggressive_chance=0.9, sabotage_chance=(0.0, 0.0, 0.1),
         sabotage_ops=("kidnappopulation", "bombhomes", "sabotagefuelplants", "kidnappopulation"),
-        galaxy_votes={"policy_1": "1", "policy_2": "1"},
+        galaxy_votes=("expansionist", "drone_foundries", "intelligence", "applied_research", "industrialists", "renovators", "mining_guilds", "civic_taxation", "fortification", "plunderers", "drone_recovery", "aegis", "counter_intel", "population_boom"),
         universe_votes={"policy_1": "2", "policy_2": "1"},
     ),
 }
@@ -302,9 +305,14 @@ def problems(personality):
     for operation in personality.sabotage_ops:
         if operation not in uas.AGGRO_OPERATIONS:
             found.append(f"{operation} is not an aggressive operation")
-    for policy, option in personality.galaxy_votes.items():
-        if option not in uas.GALAXY_POLICIES.get(policy, {}).get("options", {}):
-            found.append(f"galaxy {policy} has no option {option}")
+    voted_policies = []
+    for option in personality.galaxy_votes:
+        if option not in uas.GALAXY_POLICY_OF_OPTION:
+            found.append(f"no galaxy policy has the option {option}")
+        else:
+            voted_policies.append(uas.GALAXY_POLICY_OF_OPTION[option])
+    if len(set(voted_policies)) != len(voted_policies):
+        found.append("galaxy_votes lists two options of one policy")
     for policy, option in personality.universe_votes.items():
         if option not in uas.UNIVERSE_POLICIES.get(policy, {}).get("options", {}):
             found.append(f"universe {policy} has no option {option}")
@@ -399,16 +407,16 @@ class World:
         return self.state["state"].get("active_policies") or []
 
     @property
-    def cluster_modifiers(self):
-        """What this kingdom's cluster's benefits are worth now, as the server prices things with them."""
-        return self._lazy("cluster_modifiers", lambda: uag._get_cluster_modifiers(self.kd_id, self.galaxy_of.get(self.kd_id), self.now))
+    def modifiers(self):
+        """What politics does to this kingdom now (``getters._get_modifiers``), as the server prices things with it."""
+        return self._lazy("modifiers", lambda: uag._get_modifiers(self.kd_id, self.galaxy_of.get(self.kd_id), self.now))
 
     @property
     def cost_modifier(self):
-        """Unit prices as ``getters._get_units_adjusted_costs`` makes them."""
+        """Unit prices as ``getters._get_units_adjusted_costs`` makes them (before the pure-unit discounts)."""
         return (1.0 - ("Unregulated" in self.active_policies) * uas.GAME_CONFIG["BASE_UNREGULATED_COST_REDUCTION"]
                 + ("Treatied" in self.active_policies) * uas.GAME_CONFIG["BASE_TREATIED_COST_INCREASE"]
-                - self.cluster_modifiers.get("unit_cost", 0.0))
+                + uas.modifier(self.modifiers, "unit_cost"))
 
     # --- lazily read documents
 
@@ -650,7 +658,7 @@ def plan_economy(world, personality, style, memory):
     me, phase_name = world.me, world.phase
     temper = style.get("temper", 1.0)
     army_style = style.get("army", "none")
-    expansionist = "Expansionist" in (world.galaxy_politics.get("active_policies") or [])
+    settle_cost = uas.modifier(world.modifiers, "settle_cost")
     income = (me.get("income") or {}).get("money", {}).get("net") or strategy.guess_income(me["stars"])
     growth = growth_rate(memory, world)
     stalled = memory.get("stalled", False)
@@ -684,7 +692,7 @@ def plan_economy(world, personality, style, memory):
     deficit = max(wanted / multiplier - counted, 0) / uas.UNITS["defense"]["defense"]
 
     # Money: what each category can use, most urgent first.
-    worth = strategy.settle_worth(me, world.epochs_left, expansionist, income / max(me["stars"], 1))
+    worth = strategy.settle_worth(me, world.epochs_left, settle_cost, income / max(me["stars"], 1))
     settle_drive = _by_phase(personality.settle_drive, phase_name) * min(max(worth, 0.0), 1.0)
     if stalled:
         settle_drive = max(settle_drive, min(worth, 1.0), 0.5)
@@ -698,7 +706,7 @@ def plan_economy(world, personality, style, memory):
         order = ["military"] + [key for key in order if key != "military"]
     reserve = _by_phase(personality.missile_reserve, phase_name) if style.get("bomber") else 0.0
     shares, wants = strategy.spending_plan(
-        me, income, order, settle_drive, military_drive, deficit, expansionist=expansionist, growth_per_epoch=growth,
+        me, income, order, settle_drive, military_drive, deficit, settle_cost=settle_cost, growth_per_epoch=growth,
         reserve=reserve, cost_modifier=world.cost_modifier, engineers_per_star=ENGINEERS_PER_STAR)
 
     # The army the money buys, and the land to keep it on.
@@ -756,7 +764,7 @@ def plan_economy(world, personality, style, memory):
         army_money = income * max(1 - shares["settle"] - shares["structures"] - shares["engineers"] - reserve, 0)
         average_unit = (strategy.unit_cost("attack", world.cost_modifier) + strategy.unit_cost("defense", world.cost_modifier)) / 2
         units_per_epoch = army_money / average_unit
-        engineers_per_epoch = shares["engineers"] * income / (uas.GAME_CONFIG["BASE_ENGINEER_COST"] * world.cost_modifier)
+        engineers_per_epoch = shares["engineers"] * income / uag._engineer_price(world.modifiers)
         homes = strategy.homes_for_people(units_per_epoch, engineers_per_epoch, vult=me["race"] == "Vult") * HOMES_SPARE
         taken = sum(land[key] for key in ("workshops", "drone_factories", "missile_silos")) * me["stars"]
         taken += me["structures"].get("hangars", 0) + me["structures"].get("fuel_plants", 0)
@@ -911,8 +919,12 @@ def plan_politics(world, personality, style, memory, rng):
     me = world.me
     politics = world.galaxy_politics
     votes = politics.get("votes", {})
-    for policy, option in personality.galaxy_votes.items():
-        if votes.get(policy, {}).get(world.kd_id) != option and not uas.galaxy_vote_unlocks_at(politics, policy, world.kd_id, world.now):
+    # Galaxy policies: the option it likes of each of this round's policies. Votes have no cooldown (the tally weighs
+    # them by time), so it only votes where its vote is not that already.
+    policy_votes = politics.get("policy_votes") or {}
+    for policy in uagp.round_policies(world.state.get("state")):
+        option = next((o for o in personality.galaxy_votes if uas.GALAXY_POLICY_OF_OPTION.get(o) == policy), None)
+        if option and (policy_votes.get(policy) or {}).get(world.kd_id) != option:
             decisions.append(Decision("vote_galaxy", {"policy": policy, "option": option},
                                       f"vote {uas.GALAXY_POLICIES[policy]['options'][option]['name']} in the galaxy"))
 
@@ -1416,7 +1428,7 @@ def plan_missiles(world, personality, style, memory, rng):
     capacity = _silo_capacity(me)
     if style.get("bomber") and capacity > 0 and not _recent(memory, "missiles_ordered", world.now, 24):
         kinds = [kind for kind in ("galaxy_busters", "star_busters") if kind in me.get("completed_projects", [])] + ["planet_busters"]
-        discount = 1 - (uas.GAME_CONFIG["FUZI_MISSILE_COST_REDUCTION"] if me["race"] == "Fuzi" else 0)
+        discount = uag._missile_cost_modifier(me, world.modifiers)
         money, fuel = me["money"] * 0.9, max(me["fuel"] - 0.3 * me["structures"].get("fuel_plants", 0) * uas.GAME_CONFIG["BASE_FUEL_PLANTS_CAPACITY"], 0)
         order = {}
         for kind in kinds:

@@ -176,24 +176,41 @@ def unit_hangar_space(kd_info, unit):
     return space
 
 
-def units_for(kd_info, units_desc=None):
+def units_for(kd_info, units_desc=None, modifiers=None):
     """``UNITS`` (or ``units_desc``, e.g. with costs adjusted) with this kingdom's hangar space per unit, and for each
-    unit that can be upgraded to, what one upgrade costs at those prices (``upgrade_cost``)."""
+    unit that can be upgraded to, what one upgrade costs at those prices and ``modifiers`` (``upgrade_cost``)."""
     units_desc = units_desc if units_desc is not None else UNITS
     return {
         key: {
             **unit,
             "hangar_capacity": unit_hangar_space(kd_info, key),
-            **({"upgrade_cost": upgrade_cost(units_desc, key)} if "upgrades_from" in unit else {}),
+            **({"upgrade_cost": upgrade_cost(units_desc, key, modifiers)} if "upgrades_from" in unit else {}),
         }
         for key, unit in units_desc.items()
     }
 
 
-def upgrade_cost(units_desc, unit):
-    """What upgrading one unit to ``unit`` costs: its price less the price of the unit it is made from. ``units_desc``
-    is ``UNITS`` with the prices the kingdom pays (``getters._get_units_adjusted_costs``)."""
-    return units_desc[unit]["cost"] - units_desc[UNITS[unit]["upgrades_from"]]["cost"]
+def upgrade_cost(units_desc, unit, modifiers=None):
+    """What upgrading one unit to ``unit`` costs: its price less the price of the unit it is made from, after the
+    kingdom's ``modifiers``. ``units_desc`` is ``UNITS`` with the prices the kingdom pays
+    (``getters._get_units_adjusted_costs``)."""
+    difference = units_desc[unit]["cost"] - units_desc[UNITS[unit]["upgrades_from"]]["cost"]
+    return difference * max(1 + modifier(modifiers, "upgrade_cost"), 0)
+
+
+# Each kind of shield: the constant for the fuel it costs, and the effect that changes that.
+SHIELD_FUEL = {
+    "military": ("BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT", "military_shield_fuel"),
+    "spy": ("BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT", "spy_shield_fuel"),
+    "spy_radar": ("BASE_SPY_RADAR_COST_PER_LAND_PER_PCT", "spy_shield_fuel"),
+    "missiles": ("BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT", "missile_shield_fuel"),
+}
+
+
+def shield_fuel_per_pct(kind, modifiers=None):
+    """Fuel per epoch one point of ``kind`` shields costs per star, after the kingdom's ``modifiers``."""
+    constant, effect = SHIELD_FUEL[kind]
+    return GAME_CONFIG[constant] * max(1 + modifier(modifiers, effect), 0)
 
 
 def self_destruct_share(units, stat):
@@ -409,16 +426,16 @@ GAME_CONFIG = {
     "BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT": 0.005, 
 
     "BASE_VOTES_COST": 10000,
-    "BASE_GALAXY_VOTE_COOLDOWN_EPOCHS": 6,  # once a kingdom has changed one of its galaxy votes, that vote stays this long 
+    "BASE_GALAXY_VOTE_COOLDOWN_EPOCHS": 6,  # once a kingdom has changed its vote for galaxy leader, that vote stays this long 
     "BASE_ELECTION_LENGTH_MULTIPLIER": 24, 
     "BASE_ELECTION_RESULTS_DURATION_MULTIPLIER": 24 * 6, 
 
     "BASE_AUTO_SPENDING_TIME_MULTIPLIER": 0.1, 
 
-    "BASE_EXPANSIONIST_SETTLE_REDUCTION": 0.15,
-    "BASE_WARLIKE_RETURN_REDUCTION": 0.1,
-    "BASE_INTELLIGENCE_RETURN_REDUCTION": 0.1,
-    "BASE_CONSCRIPTION_TIME_REDUCTION": 0.2,
+    # Galaxy policies (galaxypolicies.py): how many of GALAXY_POLICIES a round plays, and how often a galaxy's votes are
+    # tallied. Between tallies the policies hold; each tally weighs every vote by how long it was held since the last.
+    "GALAXY_POLICIES_PER_ROUND": 4,
+    "GALAXY_POLICY_TALLY_EPOCHS": 12,
     "BASE_UNREGULATED_COST_REDUCTION": 0.2,
     "BASE_TREATIED_COST_INCREASE": 0.2,
     "BASE_FREE_TRADE_INCREASE": 0.1,
@@ -1281,33 +1298,205 @@ KINGDOM_CREATOR_POINTS = {
     "engineers": 10,
 }
 
+# What policies and cluster benefits can change, by name. A policy option or a benefit says how much of each effect it
+# has as a signed share: +0.15 makes the thing 15% bigger, -0.15 makes it 15% smaller. The game reads them through
+# ``modifier`` where the rule lives; several sources of one effect add up. ``better`` says which way helps the
+# kingdom (a cluster benefit always helps, so its level becomes a value of that sign), and ``up``/``down`` are the
+# sentences the pages show for a rise or a fall, ``{pct}`` being its size.
+EFFECTS = {
+    "settle_cost": {"better": "lower", "up": "Settling costs {pct} more", "down": "Settling costs {pct} less"},
+    "primitives_attack_stars": {"better": "higher", "up": "Attacks on primitives gain {pct} more stars",
+                                "down": "Attacks on primitives gain {pct} fewer stars"},
+    "generals_return_time": {"better": "lower", "up": "Generals return {pct} slower",
+                             "down": "Generals return {pct} faster"},
+    "drone_production": {"better": "higher", "up": "Drone factories make {pct} more drones",
+                         "down": "Drone factories make {pct} fewer drones"},
+    "spy_attempt_time": {"better": "lower", "up": "Spy attempts come back {pct} slower",
+                         "down": "Spy attempts come back {pct} faster"},
+    "recruit_time": {"better": "lower", "up": "Drafting recruits takes {pct} longer",
+                     "down": "Drafting recruits takes {pct} less time"},
+    "project_points_continuous": {"better": "higher", "up": "Engineers earn {pct} more points on continuous projects",
+                                  "down": "Engineers earn {pct} fewer points on continuous projects"},
+    "project_points_one_time": {"better": "higher", "up": "Engineers earn {pct} more points on one-time projects",
+                                "down": "Engineers earn {pct} fewer points on one-time projects"},
+    "structure_cost": {"better": "lower", "up": "Structures cost {pct} more", "down": "Structures cost {pct} less"},
+    "engineer_cost": {"better": "lower", "up": "Engineers cost {pct} more", "down": "Engineers cost {pct} less"},
+    "upgrade_cost": {"better": "lower", "up": "Unit upgrades cost {pct} more", "down": "Unit upgrades cost {pct} less"},
+    "raze_return": {"better": "higher", "up": "Razing structures refunds {pct} more",
+                    "down": "Razing structures refunds {pct} less"},
+    "mines_income": {"better": "higher", "up": "Mines make {pct} more money", "down": "Mines make {pct} less money"},
+    "fuel_production": {"better": "higher", "up": "Fuel plants make {pct} more fuel",
+                        "down": "Fuel plants make {pct} less fuel"},
+    "pop_income": {"better": "higher", "up": "Population pays {pct} more income",
+                   "down": "Population pays {pct} less income"},
+    "unit_fuel": {"better": "lower", "up": "Units burn {pct} more fuel", "down": "Units burn {pct} less fuel"},
+    "unit_cost": {"better": "lower", "up": "Military units cost {pct} more", "down": "Military units cost {pct} less"},
+    "pure_attack_cost": {"better": "lower", "up": "Pure attackers cost {pct} more",
+                         "down": "Pure attackers cost {pct} less"},
+    "pure_defense_cost": {"better": "lower", "up": "Pure defenders cost {pct} more",
+                          "down": "Pure defenders cost {pct} less"},
+    "rob_primitives": {"better": "higher", "up": "Robbing primitives yields {pct} more money",
+                       "down": "Robbing primitives yields {pct} less money"},
+    "siphon_shield_fuel": {"better": "lower", "up": "Shielding Siphon Funds operations costs {pct} more fuel",
+                           "down": "Shielding Siphon Funds operations costs {pct} less fuel"},
+    "reveal_duration": {"better": "higher", "up": "Your reveals last {pct} longer",
+                        "down": "Your reveals last {pct} less"},
+    "attacker_losses": {"better": "lower", "up": "You lose {pct} more of the units you send to attack",
+                        "down": "You lose {pct} fewer of the units you send to attack"},
+    "drone_losses": {"better": "lower", "up": "You lose {pct} more drones on spy operations",
+                     "down": "You lose {pct} fewer drones on spy operations"},
+    "missile_cost": {"better": "lower", "up": "Missiles cost {pct} more", "down": "Missiles cost {pct} less"},
+    "missile_shield_fuel": {"better": "lower", "up": "Missile shields cost {pct} more fuel",
+                            "down": "Missile shields cost {pct} less fuel"},
+    "military_shield_fuel": {"better": "lower", "up": "Military shields cost {pct} more fuel",
+                             "down": "Military shields cost {pct} less fuel"},
+    "spy_shield_fuel": {"better": "lower", "up": "Spy shields and spy radar cost {pct} more fuel",
+                        "down": "Spy shields and spy radar cost {pct} less fuel"},
+    "structure_time": {"better": "lower", "up": "Structures take {pct} longer to build",
+                       "down": "Structures build {pct} faster"},
+    "pop_growth": {"better": "higher", "up": "Population grows {pct} faster", "down": "Population grows {pct} slower"},
+}
+
+
+def effect_text(effect, value):
+    """The sentence for ``value`` of ``effect``: "Settling costs 15% less"."""
+    template = EFFECTS[effect]["up" if value > 0 else "down"]
+    return template.format(pct=f"{abs(value):.0%}")
+
+
+def effects_text(effects):
+    """The sentences for several effects, joined: what a policy option or a benefit says it does."""
+    return ". ".join(effect_text(effect, value) for effect, value in effects.items())
+
+
+def modifier(modifiers, effect):
+    """How much of ``effect`` a kingdom has, from its ``modifiers`` (``getters._get_modifiers``): 0 for none."""
+    return (modifiers or {}).get(effect, 0.0)
+
+
+def add_modifiers(*sources):
+    """Several ``{effect: value}`` added up into one."""
+    total = {}
+    for source in sources:
+        for effect, value in (source or {}).items():
+            total[effect] = total.get(effect, 0.0) + value
+    return total
+
+
+# The galaxy policies (galaxypolicies.py). A round plays GALAXY_POLICIES_PER_ROUND of them, drawn when it is made.
+# Each has two options for competing playstyles, and both only help the galaxy's own kingdoms: none makes what you do
+# to others hit harder or softens what others do to you. ``effects`` are what the active option does (EFFECTS
+# above). Placeholders: the numbers are the maintainer's to balance.
 GALAXY_POLICIES = {
-    "policy_1": {
+    "growth_doctrine": {
         "name": "Growth Doctrine",
         "options": {
-            "1": {
-                "name": "Expansionist",
-                "desc": "You grow your kingdoms through exploring new frontiers. Your galaxy's settling costs 15% less"
-            },
-            "2": {
-                "name": "Warlike",
-                "desc": "You grow your kingdoms through military force. Your galaxy's generals return 10% faster"
-            }
-        }
+            "expansionist": {"name": "Expansionist", "effects": {"settle_cost": -0.15}},
+            "raiders": {"name": "Raiders", "effects": {"primitives_attack_stars": 0.20}},
+        },
     },
-    "policy_2": {
+    "tempo_doctrine": {
+        "name": "Tempo Doctrine",
+        "options": {
+            "warlike": {"name": "Warlike", "effects": {"generals_return_time": -0.10}},
+            "drone_foundries": {"name": "Drone Foundries", "effects": {"drone_production": 0.15}},
+        },
+    },
+    "defense_doctrine": {
         "name": "Defense Doctrine",
         "options": {
-            "1": {
-                "name": "Intelligence",
-                "desc": "You protect your kingdoms through proactive intelligence gathering. Your galaxy's spy attempts return 10% faster"
-            },
-            "2": {
-                "name": "Conscription",
-                "desc": "You protect your kingdoms through mandatory military enlistment. Your galaxy's recruits are trained 20% faster"
-            }
-        }
+            "intelligence": {"name": "Intelligence", "effects": {"spy_attempt_time": -0.10}},
+            "conscription": {"name": "Conscription", "effects": {"recruit_time": -0.20}},
+        },
     },
+    "research_focus": {
+        "name": "Research Focus",
+        "options": {
+            "applied_research": {"name": "Applied Research", "effects": {"project_points_continuous": 0.15}},
+            "breakthroughs": {"name": "Breakthroughs", "effects": {"project_points_one_time": 0.25}},
+        },
+    },
+    "industry": {
+        "name": "Industry",
+        "options": {
+            "industrialists": {"name": "Industrialists", "effects": {"structure_cost": -0.15}},
+            "engineering_corps": {"name": "Engineering Corps", "effects": {"engineer_cost": -0.20}},
+        },
+    },
+    "refit_doctrine": {
+        "name": "Refit Doctrine",
+        "options": {
+            "shipwrights": {"name": "Shipwrights", "effects": {"upgrade_cost": -0.20}},
+            "renovators": {"name": "Renovators", "effects": {"raze_return": 1.0}},
+        },
+    },
+    "economy": {
+        "name": "Economy",
+        "options": {
+            "mining_guilds": {"name": "Mining Guilds", "effects": {"mines_income": 0.15}},
+            "refineries": {"name": "Refineries", "effects": {"fuel_production": 0.20}},
+        },
+    },
+    "upkeep": {
+        "name": "Upkeep",
+        "options": {
+            "civic_taxation": {"name": "Civic Taxation", "effects": {"pop_income": 0.15}},
+            "efficiency": {"name": "Efficiency", "effects": {"unit_fuel": -0.15}},
+        },
+    },
+    "procurement": {
+        "name": "Procurement",
+        "options": {
+            "offensive_arms": {"name": "Offensive Arms", "effects": {"pure_attack_cost": -0.10}},
+            "fortification": {"name": "Fortification", "effects": {"pure_defense_cost": -0.10}},
+        },
+    },
+    "shadow_doctrine": {
+        "name": "Shadow Doctrine",
+        "options": {
+            "plunderers": {"name": "Plunderers", "effects": {"rob_primitives": 0.20, "siphon_shield_fuel": -0.25}},
+            "infiltrators": {"name": "Infiltrators", "effects": {"reveal_duration": 0.25}},
+        },
+    },
+    "attrition_doctrine": {
+        "name": "Attrition Doctrine",
+        "options": {
+            "veteran_corps": {"name": "Veteran Corps", "effects": {"attacker_losses": -0.20}},
+            "drone_recovery": {"name": "Drone Recovery", "effects": {"drone_losses": -0.25}},
+        },
+    },
+    "arsenal": {
+        "name": "Arsenal",
+        "options": {
+            "silo_programme": {"name": "Silo Programme", "effects": {"missile_cost": -0.20}},
+            "aegis": {"name": "Aegis", "effects": {"missile_shield_fuel": -0.50}},
+        },
+    },
+    "shield_doctrine": {
+        "name": "Shield Doctrine",
+        "options": {
+            "fortress": {"name": "Fortress", "effects": {"military_shield_fuel": -0.25}},
+            "counter_intel": {"name": "Counter-Intel", "effects": {"spy_shield_fuel": -0.25}},
+        },
+    },
+    "home_front": {
+        "name": "Home Front",
+        "options": {
+            "rapid_construction": {"name": "Rapid Construction", "effects": {"structure_time": -0.20}},
+            "population_boom": {"name": "Population Boom", "effects": {"pop_growth": 0.50}},
+        },
+    },
+}
+for _policy in GALAXY_POLICIES.values():
+    for _option in _policy["options"].values():
+        _option["desc"] = effects_text(_option["effects"])
+# Renovators doubles the refund: say it as the share it becomes.
+GALAXY_POLICIES["refit_doctrine"]["options"]["renovators"]["desc"] = (
+    f"Razing structures refunds {GAME_CONFIG['BASE_STRUCTURES_RAZE_RETURN'] * 2:.0%} of the build cost instead of "
+    f"{GAME_CONFIG['BASE_STRUCTURES_RAZE_RETURN']:.0%}")
+# The policy each option belongs to.
+GALAXY_POLICY_OF_OPTION = {
+    option: policy for policy, entry in GALAXY_POLICIES.items() for option in entry["options"]
 }
 
 # What a cluster's galaxy leaders can vote to build up (clusters.py). Each benefit's level runs from 0 to ``max``;

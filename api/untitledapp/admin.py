@@ -8,10 +8,12 @@ failure is the fix.
 """
 import datetime
 import json
+import random
 
 import flask
 import flask_praetorian
 
+import untitledapp.galaxypolicies as uagp
 import untitledapp.getters as uag
 import untitledapp.occ as occ
 import untitledapp.shared as uas
@@ -101,13 +103,15 @@ def check_new_round(req, now):
     return settings, errors
 
 
-def round_state(settings, rounds_archived):
+def round_state(settings, rounds_archived, rng=random):
     """
     The whole inner ``state`` of a round that has not run yet. Every key the refresh, the decorators and the pages read
-    is here, so nothing left over from an earlier round (an open election, policies, ``game_over``) carries on.
+    is here, so nothing left over from an earlier round (an open election, policies, ``game_over``) carries on. The
+    galaxy policies the round plays are drawn here with ``rng``, once, and hold for the whole round.
     """
     start = settings["game_start"].isoformat()
     return {
+        "galaxy_policies": uagp.draw(rng),
         "game_start": start,
         "game_end": settings["game_end"].isoformat(),
         "election_start": settings["election_start"].isoformat() if settings["election_start"] else "",

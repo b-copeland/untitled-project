@@ -17,6 +17,7 @@ import untitledapp.occ as occ
 import untitledapp.build as uab
 import untitledapp.clusters as uacl
 import untitledapp.conquer as uac
+import untitledapp.galaxypolicies as uagp
 import untitledapp.getters as uag
 import untitledapp.lastknown as uala
 import untitledapp.shared as uas
@@ -87,14 +88,28 @@ class _RefreshContext:
             self._galaxy_politics[galaxy_id], _ = uag._get_galaxy_politics(kd_id, galaxy_id)
         return self._galaxy_politics[galaxy_id]
 
+    def modifiers(self, kd_id, time_update):
+        """
+        Everything politics does to ``kd_id`` at ``time_update`` (``getters._get_modifiers``): its galaxy's active
+        policies and its cluster's benefits, from documents read once per tick.
+        """
+        galaxy_id = self.galaxies_inverted.get(kd_id)
+        if galaxy_id is None:
+            return {}
+        state = self.state if self.state is not None else uag._get_state()
+        galaxy = uag._galaxy_policies_now(self.galaxy_politics(kd_id, galaxy_id), state, time_update)
+        return uas.add_modifiers(uagp.modifiers(galaxy), self.cluster_modifiers(kd_id, time_update))
+
 
 def _calc_pop_change_per_epoch(
     kd_info_parse,
     fuelless: bool,
     epoch_elapsed,
     mobis_queue=None,
+    modifiers=None,
 ):
-    """``mobis_queue`` is the units still in training, if the caller has them (read otherwise)."""
+    """``mobis_queue`` is the units still in training, if the caller has them (read otherwise). ``modifiers`` are what
+    politics does to the kingdom (``_RefreshContext.modifiers``)."""
     current_units = kd_info_parse["units"]
     generals_units = kd_info_parse["generals_out"]
     mobis_units = mobis_queue if mobis_queue is not None else uag._get_mobis_queue(kd_info_parse["kdId"])
@@ -133,13 +148,21 @@ def _calc_pop_change_per_epoch(
         greater_pop_gain = (
             max(pct_pop_gain, stars_pop_gain)
             * (1 - int_fuelless * uas.GAME_CONFIG["BASE_FUELLESS_POP_GROWTH_REDUCTION"])
-            * (1 + uas.project_bonus(kd_info_parse, "pop_growth_bonus"))
+            * max(1 + uas.project_bonus(kd_info_parse, "pop_growth_bonus") + uas.modifier(modifiers, "pop_growth"), 0)
         )
         pop_change = min(greater_pop_gain, pop_difference)
     else:
         pop_change = 0
     
     return pop_change, pop_capacity_less_overflow
+
+def _project_points_multiplier(project, modifiers=None):
+    """How many points an engineer earns on ``project`` for each base point, after the kingdom's ``modifiers``: the
+    continuous projects (those with a ``max_bonus``) and the one-time ones each have their own effect."""
+    entry = uas.PROJECTS.get(project, {})
+    effect = "project_points_continuous" if "max_bonus" in entry else "project_points_one_time"
+    return max(1 + uas.modifier(modifiers, effect), 0)
+
 
 def _open_hangar_money(kd_info_parse, mobis_queue):
     """Money per epoch from Xo Evolution: for each hangar space not taken by a unit (trained, out, or in training)."""
@@ -379,12 +402,12 @@ def _kingdom_with_income(
     time_now,
     effects=None,
     mobis_queue=None,
-    cluster_modifiers=None,
+    modifiers=None,
     is_dead=None,
 ):
-    """``cluster_modifiers`` are the kingdom's cluster's benefits (``_RefreshContext.cluster_modifiers``); none if None.
+    """``modifiers`` are what politics does to the kingdom (``_RefreshContext.modifiers``): none if None.
     ``is_dead(kd_id)`` says whether a siphoner is dead, so its siphons end (``_resolve_siphons``)."""
-    cluster_modifiers = cluster_modifiers or {}
+    modifiers = modifiers or {}
     time_last_income =datetime.datetime.fromisoformat(kd_info_parse["last_income"]).astimezone(datetime.timezone.utc)
     seconds_elapsed = (time_now - time_last_income).total_seconds()
     epoch_elapsed = seconds_elapsed / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
@@ -399,8 +422,12 @@ def _kingdom_with_income(
     income["money"]["mines"] = (
         math.floor(kd_info_parse["structures"]["mines"])
         * (uas.GAME_CONFIG["BASE_MINES_INCOME_PER_EPOCH"] + uas.project_increase(kd_info_parse, "mines_bonus"))
+        * max(1 + uas.modifier(modifiers, "mines_income"), 0)
     )
-    income["money"]["population"] = math.floor(kd_info_parse["population"]) * uas.GAME_CONFIG["BASE_POP_INCOME_PER_EPOCH"]
+    income["money"]["population"] = (
+        math.floor(kd_info_parse["population"]) * uas.GAME_CONFIG["BASE_POP_INCOME_PER_EPOCH"]
+        * max(1 + uas.modifier(modifiers, "pop_income"), 0)
+    )
     income["money"]["bonus"] = current_bonuses["money_bonus"] - is_isolationist * uas.GAME_CONFIG["BASE_ISOLATIONIST_DECREASE"] + is_free_trade * uas.GAME_CONFIG["BASE_FREE_TRADE_INCREASE"]
     # Xo Evolution pays for open hangar space; Fuzi Evolution makes money, fuel and drones in empty missile silos.
     if mobis_queue is None and uas.has_project(kd_info_parse, "xo_evolution"):
@@ -434,16 +461,21 @@ def _kingdom_with_income(
             total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
 
     income["fuel"]["fuel_plants"] = math.floor(kd_info_parse["structures"]["fuel_plants"]) * uas.GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"]
-    income["fuel"]["bonus"] = current_bonuses["fuel_bonus"] + (int(kd_info_parse["race"] == "Lumina") * uas.GAME_CONFIG["LUMINA_FUEL_PRODUCTION_INCREASE"])
+    income["fuel"]["bonus"] = (
+        current_bonuses["fuel_bonus"]
+        + (int(kd_info_parse["race"] == "Lumina") * uas.GAME_CONFIG["LUMINA_FUEL_PRODUCTION_INCREASE"])
+        + uas.modifier(modifiers, "fuel_production")
+    )
     income["fuel"]["units"] = {}
+    unit_fuel = max(1 + uas.modifier(modifiers, "unit_fuel"), 0)
     for key_unit, value_units in total_units.items():
-        income["fuel"]["units"][key_unit] = value_units * uas.UNITS[key_unit]["fuel"]
+        income["fuel"]["units"][key_unit] = value_units * uas.UNITS[key_unit]["fuel"] * unit_fuel
     income["fuel"]["population"] = kd_info_parse["population"] * uas.GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"]
     income["fuel"]["shields"] = {}
-    income["fuel"]["shields"]["military"] = kd_info_parse["shields"]["military"] * 100 * kd_info_parse["stars"] * uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT"]
-    income["fuel"]["shields"]["spy"] = kd_info_parse["shields"]["spy"] * 100 * kd_info_parse["stars"] * uas.GAME_CONFIG["BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT"]
-    income["fuel"]["shields"]["spy_radar"] = kd_info_parse["shields"]["spy_radar"] * 100 * kd_info_parse["stars"] * uas.GAME_CONFIG["BASE_SPY_RADAR_COST_PER_LAND_PER_PCT"]
-    income["fuel"]["shields"]["missiles"] = kd_info_parse["shields"]["missiles"] * 100 * kd_info_parse["stars"] * uas.GAME_CONFIG["BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT"]
+    for kind in ("military", "spy", "spy_radar", "missiles"):
+        income["fuel"]["shields"][kind] = (
+            kd_info_parse["shields"][kind] * 100 * kd_info_parse["stars"] * uas.shield_fuel_per_pct(kind, modifiers)
+        )
 
     income["fuel"]["empty_silos"] = empty_silos * uas.GAME_CONFIG["FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO"]
     new_fuel = income["fuel"]["fuel_plants"] * (1 + income["fuel"]["bonus"]) + income["fuel"]["empty_silos"]
@@ -467,7 +499,7 @@ def _kingdom_with_income(
             * (
                 1
                 + (int(kd_info_parse["race"] == "Vult") * uas.GAME_CONFIG["VULT_DRONE_PRODUCTION_INCREASE"])
-                + cluster_modifiers.get("drone_production", 0.0)
+                + uas.modifier(modifiers, "drone_production")
             )
             + uas.project_increase(kd_info_parse, "drone_factories_bonus")
         )
@@ -476,13 +508,16 @@ def _kingdom_with_income(
     new_drones = income["drones"] * epoch_elapsed
 
     fuelless = kd_info_parse["fuel"] <= 0
-    pop_change, _ = _calc_pop_change_per_epoch(kd_info_parse, fuelless, epoch_elapsed, mobis_queue)
+    pop_change, _ = _calc_pop_change_per_epoch(kd_info_parse, fuelless, epoch_elapsed, mobis_queue, modifiers)
     income["population"] = pop_change / epoch_elapsed
 
     structures_to_reduce = _calc_structures_losses(kd_info_parse, epoch_elapsed)
 
     new_project_points = {
-        key_project: assigned_engineers * uas.GAME_CONFIG["BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH"] * epoch_elapsed
+        key_project: (
+            assigned_engineers * uas.GAME_CONFIG["BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH"] * epoch_elapsed
+            * _project_points_multiplier(key_project, modifiers)
+        )
         for key_project, assigned_engineers in kd_info_parse["projects_assigned"].items()
     }
     new_kd_info = kd_info_parse.copy()
@@ -755,12 +790,10 @@ def _resolve_spy(kd_info_parse, time_update, current_bonuses, context=None):
     resolve_time = datetime.datetime.fromisoformat(kd_info_parse["next_resolve"]["spy_attempt"]).astimezone(datetime.timezone.utc)
     if context is None:
         context = _RefreshContext(state=None)
-    galaxies_inverted = context.galaxies_inverted
-    galaxy_policies = context.galaxy_politics(kd_info_parse["kdId"], galaxies_inverted[kd_info_parse["kdId"]])
-    is_intelligence = "Intelligence" in galaxy_policies["active_policies"]
+    modifiers = context.modifiers(kd_info_parse["kdId"], time_update)
     next_resolve_time = max(
         resolve_time + datetime.timedelta(
-            seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"] * (1 - current_bonuses["spy_bonus"] - int(is_intelligence) * uas.GAME_CONFIG["BASE_INTELLIGENCE_RETURN_REDUCTION"])
+            seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_SPY_ATTEMPT_TIME_MULTIPLIER"] * max(1 - current_bonuses["spy_bonus"] + uas.modifier(modifiers, "spy_attempt_time"), 0)
         ),
         time_update,
     )
@@ -873,7 +906,8 @@ def _resolve_auto_spending(
                 if v > 0
             }
             if sum(target_structures_to_build_nonzero.values()) > 0:
-                new_structures_payload, min_structures_time = uab._get_new_structures(target_structures_to_build_nonzero, time_update, kd_info_parse)
+                new_structures_payload, min_structures_time = uab._get_new_structures(
+                    target_structures_to_build_nonzero, time_update, kd_info_parse, mobis_info.get("modifiers"))
                 next_resolves["structures"] = min(min_structures_time, kd_info_parse["next_resolve"]["structures"])
                 structures_payload = {
                     "new_structures": new_structures_payload
@@ -961,7 +995,7 @@ def _resolve_auto_spending(
             "new_mobis": []
         }
         if recruits_to_train:
-            new_recruits, min_recruits_time = uab._get_new_recruits(recruits_to_train, mobis_info["is_conscription"], time_update)
+            new_recruits, min_recruits_time = uab._get_new_recruits(recruits_to_train, mobis_info.get("modifiers"), time_update)
             mobis_payload["new_mobis"].extend(new_recruits)
             next_resolves["mobis"] = min(min_recruits_time, kd_info_parse["next_resolve"]["mobis"])
         if sum(target_units_to_build_nonzero.values()) > 0:
@@ -1772,18 +1806,16 @@ def _refresh_kd_in(kd_id, state, time_update, update_history, context):
             # What the Settle, Build, Military and Engineers pages would show, worked out from the kingdom as this
             # tick has it (with what finished just now credited, and only what is still to come in the queues),
             # instead of each reading the kingdom, its queue, the state and the galaxy's politics again.
-            galaxy_policies = context.galaxy_politics(kd_id, context.galaxies_inverted[kd_id])
-            cluster_modifiers = context.cluster_modifiers(kd_id, time_update)
+            modifiers = context.modifiers(kd_id, time_update)
             queue = lambda category: _pending_queue(kd_id, category, _cursor(kd_info_parse, category), pending)
             kd_info_parse, next_resolves_auto_spending = _resolve_auto_spending(
                 kd_info_parse,
                 time_update,
                 current_bonuses,
-                settle_info=uag._get_settle(kd_id, kd_info_parse, queue("settles"), galaxy_policies, cluster_modifiers),
-                structures_info=uag._get_structures_info(kd_id, kd_info_parse, queue("structures"), state),
-                mobis_info=uag._get_mobis(kd_id, kd_info_parse, queue("mobis"), state, galaxy_policies,
-                                          cluster_modifiers),
-                engineers_info=uag._get_engineers(kd_id, kd_info_parse, queue("engineers")),
+                settle_info=uag._get_settle(kd_id, kd_info_parse, queue("settles"), modifiers),
+                structures_info=uag._get_structures_info(kd_id, kd_info_parse, queue("structures"), state, modifiers),
+                mobis_info=uag._get_mobis(kd_id, kd_info_parse, queue("mobis"), state, modifiers),
+                engineers_info=uag._get_engineers(kd_id, kd_info_parse, queue("engineers"), modifiers),
                 effects=effects,
             )
             next_resolves_spending_effective = {
@@ -1812,7 +1844,7 @@ def _refresh_kd_in(kd_id, state, time_update, update_history, context):
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
         # The mobis still to come, if this tick has read them (None: the population step reads them itself).
         new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update, effects, pending.get("mobis"),
-                                           context.cluster_modifiers(kd_id, time_update),
+                                           context.modifiers(kd_id, time_update),
                                            lambda siphoner: _is_dead(context.kingdom(siphoner)))
         kd_payload = json.dumps(new_kd_info, default=str)
         write_headers = {'x-functions-key': app.config['AZURE_FUNCTION_KEY']}

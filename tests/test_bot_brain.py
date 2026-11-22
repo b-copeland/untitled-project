@@ -82,7 +82,7 @@ class StubWorld(brain.World):
             "intel": intel or {"listings": [], "bounties": [], "accepted": [], "cuts": {}, "my_intel": [],
                       "exclusions": [], "history": []},
             "attack_history": attack_history or [],
-            "cluster_modifiers": {},
+            "modifiers": {},  # what politics does to the bot (World.modifiers)
             "empire_targets": targets or {},  # the empire's targets: kingdom to the actions it is marked for
         }
 
@@ -329,30 +329,54 @@ def test_loose_money_is_spent_on_the_build_pages():
 
 # ---------------------------------------------------------------------------------------------------------- politics
 
+ROUND_POLICIES = {"galaxy_policies": ["growth_doctrine", "tempo_doctrine"]}
+
+
 def test_it_votes_for_its_policies_and_backs_the_candidate_the_others_back():
-    world = StubWorld(stats={"2": (900, 400_000)},
-                      politics={"votes": {"policy_1": {"1": "2"}, "policy_2": {}, "leader": {}}})
+    world = StubWorld(stats={"2": (900, 400_000)}, state=ROUND_POLICIES,
+                      politics={"policy_votes": {"growth_doctrine": {"1": "raiders"}}})
     decisions = brain.plan_politics(world, ATTACKER, style(), {}, random.Random(1))
     assert [(d.kind, d.options) for d in decisions] == [
-        ("vote_galaxy", {"policy": "policy_2", "option": "2"}),     # policy_1 is already its vote
-        ("vote_leader", {"selected": "2"}),                         # nobody has voted: the strongest
+        ("vote_galaxy", {"policy": "tempo_doctrine", "option": "warlike"}),  # Raiders is already its vote
+        ("vote_leader", {"selected": "2"}),                                    # nobody has voted: the strongest
     ]
     # Somebody has votes already: join them, so the galaxy gets a leader.
     world = StubWorld(stats={"2": (900, 400_000)}, galaxies={"g1": ["1", "2", "7", "8"], "g2": ["3"]},
-                      politics={"votes": {"policy_1": {"1": "2"}, "policy_2": {"1": "2"}, "leader": {"7": "8", "8": "8"}}})
+                      state=ROUND_POLICIES,
+                      politics={"policy_votes": {"growth_doctrine": {"1": "raiders"}, "tempo_doctrine": {"1": "warlike"}},
+                                "votes": {"leader": {"7": "8", "8": "8"}}})
     (decision,) = brain.plan_politics(world, ATTACKER, style(), {}, random.Random(1))
     assert decision.kind == "vote_leader" and decision.options == {"selected": "8"}
 
 
-def test_it_does_not_try_to_change_a_vote_that_is_locked():
-    world = StubWorld(stats={"2": (900, 400_000)},
-                      politics={"votes": {"policy_1": {"1": "2"}, "policy_2": {}, "leader": {}}})
-    changed = {kind: {world.kd_id: world.now.isoformat()} for kind in ("policy_2", "leader")}
-    world.galaxy_politics["vote_changed"] = changed
-    # It has voted both (and changed them just now) and wants to change both, but must wait.
-    world.galaxy_politics["votes"] = {"policy_1": {"1": "2"}, "policy_2": {world.kd_id: "1"}, "leader": {world.kd_id: "7"}}
-    assert brain.plan_politics(world, ATTACKER, style(), {}, random.Random(1)) == []
-    # Once the wait is over, it changes them.
+def test_it_only_votes_on_the_rounds_policies_and_each_playstyle_picks_its_own():
+    world = StubWorld(state={"galaxy_policies": ["shadow_doctrine", "arsenal"]})
+    picks = {
+        name: {d.options["policy"]: d.options["option"]
+               for d in brain.plan_politics(world, personality, style(), {}, random.Random(1)) if d.kind == "vote_galaxy"}
+        for name, personality in brain.PERSONALITIES.items()
+    }
+    assert picks["thief"] == {"shadow_doctrine": "plunderers", "arsenal": "aegis"}
+    assert picks["intel"] == {"shadow_doctrine": "infiltrators", "arsenal": "aegis"}
+    assert picks["attacker"] == {"shadow_doctrine": "infiltrators", "arsenal": "silo_programme"}
+
+
+def test_every_playstyle_has_an_option_for_every_galaxy_policy():
+    for name, personality in brain.PERSONALITIES.items():
+        covered = sorted(uas.GALAXY_POLICY_OF_OPTION[option] for option in personality.galaxy_votes)
+        assert covered == sorted(uas.GALAXY_POLICIES), name
+
+
+def test_a_locked_leader_vote_waits_but_a_policy_vote_never_does():
+    world = StubWorld(stats={"2": (900, 400_000)}, state=ROUND_POLICIES)
+    world.galaxy_politics["vote_changed"] = {"leader": {world.kd_id: world.now.isoformat()}}
+    # It votes for itself and Expansionist, and wants Kd2 and Raiders: the policy vote goes now, the leader must wait.
+    world.galaxy_politics["votes"] = {"leader": {world.kd_id: "7"}}
+    world.galaxy_politics["policy_votes"] = {"growth_doctrine": {world.kd_id: "expansionist"},
+                                             "tempo_doctrine": {world.kd_id: "warlike"}}
+    assert [(d.kind, d.options) for d in brain.plan_politics(world, ATTACKER, style(), {}, random.Random(1))] == [
+        ("vote_galaxy", {"policy": "growth_doctrine", "option": "raiders"})]
+    # Once the wait is over, it changes the leader too.
     world.now = world.now + datetime.timedelta(hours=24)
     assert [d.kind for d in brain.plan_politics(world, ATTACKER, style(), {}, random.Random(1))] == ["vote_galaxy", "vote_leader"]
 
@@ -825,11 +849,12 @@ def test_a_think_sets_up_the_kingdom_votes_and_remembers(app, client):
     assert bot["phase"] == "early" and bot["style"]["army"] == "both" and bot["reserved_generals"] == 0
     assert datetime.datetime.fromisoformat(bot["next_think"]) > datetime.datetime.now(datetime.timezone.utc)
     assert any(entry["kind"] == "plan" and "spend settle" in entry["why"] for entry in bot["log"])
-    assert bot["counts"]["vote_galaxy"] == 2 and bot["counts"]["vote_leader"] == 1
+    # A round made before the draw plays the first four policies: it votes on each of them, and for a leader.
+    assert bot["counts"]["vote_galaxy"] == 4 and bot["counts"]["vote_leader"] == 1
     assert "stars_log" in bot["memory"]
-    # The attacker votes Warlike and Conscription in its galaxy, and for a leader.
     votes = _get("/galaxy/1/politics")
-    assert votes["votes"]["policy_1"] == {KD_ID: "2"} and "Warlike" in votes["active_policies"]
+    assert votes["policy_votes"]["growth_doctrine"] == {KD_ID: "raiders"}
+    assert votes["policy_votes"]["tempo_doctrine"] == {KD_ID: "warlike"}
     assert votes["leader"] == KD_ID
 
 
@@ -871,7 +896,7 @@ def test_a_bot_votes_only_once_for_the_same_thing(app, client):
     with app.app_context():
         first = _think(random.Random(1))
         second = _think(random.Random(2))
-    assert sum(d.kind == "vote_galaxy" for d in first) == 2 and sum(d.kind == "vote_leader" for d in first) == 1
+    assert sum(d.kind == "vote_galaxy" for d in first) == 4 and sum(d.kind == "vote_leader" for d in first) == 1
     assert sum(d.kind.startswith("vote_") for d in second) == 0
 
 

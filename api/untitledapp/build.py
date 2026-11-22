@@ -63,7 +63,8 @@ def _validate_recruits(recruits_input, current_available_recruits):
 
 
 
-def _get_new_recruits(recruits_input, is_conscription, start_time):
+def _get_new_recruits(recruits_input, modifiers, start_time):
+    """The queue entries for ``recruits_input`` recruits drafted from ``start_time``, after the kingdom's ``modifiers``."""
     time_splits = _make_time_splits(
         uas.GAME_CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"],
         uas.GAME_CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"],
@@ -75,8 +76,8 @@ def _get_new_recruits(recruits_input, is_conscription, start_time):
         start_time
         + datetime.timedelta(
             seconds=uag._calc_recruit_time(
-                is_conscription,
                 min(input_splits.keys()),
+                modifiers,
             )
         )
     ).isoformat()
@@ -86,8 +87,8 @@ def _get_new_recruits(recruits_input, is_conscription, start_time):
                 start_time
                 + datetime.timedelta(
                     seconds=uag._calc_recruit_time(
-                        is_conscription,
                         time_multiplier,
+                        modifiers,
                     )
                 )
             ).isoformat(),
@@ -122,11 +123,7 @@ def _recruit(kd_id, recruits_input):
         if not valid_recruits:
             raise occ.Rejected('Please enter valid recruits value')
 
-        galaxies_inverted, _ = uag._get_galaxies_inverted()
-        galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-        is_conscription = "Conscription" in galaxy_policies["active_policies"]
-
-        new_recruits, min_recruits_time = _get_new_recruits(recruits_input, is_conscription, start_time)
+        new_recruits, min_recruits_time = _get_new_recruits(recruits_input, uag._get_modifiers(kd_id), start_time)
 
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["mobis"] = min(next_resolve["mobis"], min_recruits_time)
@@ -161,7 +158,7 @@ def recruits():
 
 def _get_mobis_cost(mobis_request, kd_id):
     state = uag._get_state()
-    units_adjusted_costs = uag._get_units_adjusted_costs(state, uag._get_cluster_modifiers(kd_id))
+    units_adjusted_costs = uag._get_units_adjusted_costs(state, uag._get_modifiers(kd_id))
     mobis_cost = sum([
         units_adjusted_costs[k]['cost'] * units_value
         for k, units_value in mobis_request.items()
@@ -414,7 +411,7 @@ def disband_mobis():
     return flask.jsonify(payload), status
 
 
-def _upgrade_problem(upgrade_request, kd_info, units_desc):
+def _upgrade_problem(upgrade_request, kd_info, units_desc, modifiers=None):
     """Why this upgrade (unit to make: count) can not start, or None. ``units_desc`` has the prices the kingdom pays.
     Several units can come from the same one (Solar and Self-Destructing Attackers both from Elite Attackers), so what
     each source gives up is added before it is compared with what is at home."""
@@ -434,14 +431,14 @@ def _upgrade_problem(upgrade_request, kd_info, units_desc):
     for source, count in needed.items():
         if count > kd_info["units"].get(source, 0):
             return f"You have {math.floor(kd_info['units'].get(source, 0)):,} {uas.PRETTY_NAMES.get(source, source)} at home"
-    cost = _upgrade_cost(upgrade_request, units_desc)
+    cost = _upgrade_cost(upgrade_request, units_desc, modifiers)
     if cost > kd_info["money"]:
         return f"Upgrading costs {math.ceil(cost):,}, you have {math.floor(kd_info['money']):,}"
     return None
 
 
-def _upgrade_cost(upgrade_request, units_desc):
-    return sum(uas.upgrade_cost(units_desc, unit) * count for unit, count in upgrade_request.items())
+def _upgrade_cost(upgrade_request, units_desc, modifiers=None):
+    return sum(uas.upgrade_cost(units_desc, unit, modifiers) * count for unit, count in upgrade_request.items())
 
 
 def _upgrade(kd_id, upgrade_request):
@@ -450,11 +447,12 @@ def _upgrade(kd_id, upgrade_request):
     fight while upgrading. Returns ``(payload, status_code)``."""
     app = flask.current_app
     state = uag._get_state()
-    units_desc = uag._get_units_adjusted_costs(state, uag._get_cluster_modifiers(kd_id))
+    modifiers = uag._get_modifiers(kd_id)
+    units_desc = uag._get_units_adjusted_costs(state, modifiers)
     upgrade_request = {unit: count for unit, count in upgrade_request.items() if count != 0}
 
     def decide(kd_info):
-        problem = _upgrade_problem(upgrade_request, kd_info, units_desc)
+        problem = _upgrade_problem(upgrade_request, kd_info, units_desc, modifiers)
         if problem:
             raise occ.Rejected(problem)
         start_time = max(
@@ -469,7 +467,7 @@ def _upgrade(kd_id, upgrade_request):
         next_resolve = kd_info["next_resolve"]
         next_resolve["mobis"] = min(next_resolve["mobis"], min_mobis_time)
         return {
-            "money": kd_info["money"] - _upgrade_cost(upgrade_request, units_desc),
+            "money": kd_info["money"] - _upgrade_cost(upgrade_request, units_desc, modifiers),
             "units": new_units,
             "next_resolve": next_resolve,
         }, new_mobis
@@ -518,16 +516,17 @@ def _validate_structures(structures_input, current_available_structures):
     
     return True
 
-def _structure_time_multiplier(kd_info):
-    """How much of the base construction time this kingdom's structures take."""
+def _structure_time_multiplier(kd_info, modifiers=None):
+    """How much of the base construction time this kingdom's structures take, after its projects and ``modifiers``."""
+    multiplier = max(1 + uas.modifier(modifiers, "structure_time"), 0)
     if kd_info is not None and uas.has_project(kd_info, "gaian_capstone"):
-        return 1 - uas.GAME_CONFIG["GAIAN_CAPSTONE_STRUCTURE_TIME_REDUCTION"]
-    return 1
+        multiplier *= 1 - uas.GAME_CONFIG["GAIAN_CAPSTONE_STRUCTURE_TIME_REDUCTION"]
+    return multiplier
 
 
-def _get_new_structures(structures_request, start_time, kd_info=None):
+def _get_new_structures(structures_request, start_time, kd_info=None, modifiers=None):
     """The queue entries for building ``structures_request``, spread over the construction times of ``kd_info``."""
-    speed = _structure_time_multiplier(kd_info)
+    speed = _structure_time_multiplier(kd_info, modifiers)
     structure_time_splits = [
         split * speed
         for split in _make_time_splits(
@@ -568,8 +567,7 @@ def _build_structures(kd_id, structures_request):
     
     
     
-    # Parsed before taking the lock, so bad input can not leave it held.
-
+    modifiers = uag._get_modifiers(kd_id)
 
     def decide(kd_info_parse):
         # The money is taken from the kingdom document, so that is where the check happens: this runs against the
@@ -577,7 +575,7 @@ def _build_structures(kd_id, structures_request):
         # if something else changed the kingdom first, so it must not have side effects.
         structures_info_parse = occ.read(f'/kingdom/{kd_id}/structures')
 
-        current_price = uag._get_structure_price(kd_info_parse)
+        current_price = uag._get_structure_price(kd_info_parse, modifiers)
         current_structures = kd_info_parse["structures"]
         building_structures = structures_info_parse["structures"]
 
@@ -595,7 +593,7 @@ def _build_structures(kd_id, structures_request):
         if not valid_structures:
             raise occ.Rejected('Please enter valid structures values')
 
-        new_structures, min_structures_time = _get_new_structures(structures_request, start_time, kd_info_parse)
+        new_structures, min_structures_time = _get_new_structures(structures_request, start_time, kd_info_parse, modifiers)
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["structures"] = min(next_resolve["structures"], min_structures_time)
         new_money = kd_info_parse["money"] - sum(structures_request.values()) * current_price
@@ -708,20 +706,23 @@ def raze_structures():
     } 
 
     kd_id = flask_praetorian.current_user().kd_id
+    modifiers = uag._get_modifiers(kd_id)
+    raze_return = uag._raze_return(modifiers)
 
     def decide(kd_info):
         valid_raze, message = _validate_raze(kd_info, req_input)
         if not valid_raze:
             raise occ.Rejected(message)
 
-        structures_price = uag._get_structure_price(kd_info)
+        # The refund is a share of what a structure costs this kingdom today.
+        structures_price = uag._get_structure_price(kd_info, modifiers)
 
         new_structures = {
             key_structure: math.floor(value_structure - req_input.get(key_structure, 0))
             for key_structure, value_structure in kd_info["structures"].items()
         }
         new_money = kd_info["money"] + sum([
-            structures_price * value_structures * uas.GAME_CONFIG["BASE_STRUCTURES_RAZE_RETURN"]
+            structures_price * value_structures * raze_return
             for value_structures in req_input.values()
         ])
 
@@ -740,8 +741,8 @@ def raze_structures():
     return (flask.jsonify({"message": "Razed structures", "status": "success"}), 200)
 
 
-def _validate_settles(settle_input, kd_info, settle_info, is_expansionist, settle_cost=0.0):
-    max_settle, available_settle = uag._get_available_settle(kd_info, settle_info, is_expansionist, settle_cost)
+def _validate_settles(settle_input, kd_info, settle_info, modifiers=None):
+    max_settle, available_settle = uag._get_available_settle(kd_info, settle_info, modifiers)
     if settle_input <= 0:
         return False
     if settle_input > available_settle:
@@ -789,13 +790,11 @@ def _settle(kd_id, settle_input):
     
     
     
+    modifiers = uag._get_modifiers(kd_id)
+
     def decide(kd_info_parse):
         settle_info = uag._get_settle_queue(kd_id)
-        galaxies_inverted, _ = uag._get_galaxies_inverted()
-        galaxy_policies, _ = uag._get_galaxy_politics(kd_id, galaxies_inverted[kd_id])
-        is_expansionist = "Expansionist" in galaxy_policies["active_policies"]
-        settle_cost = uag._get_cluster_modifiers(kd_id, galaxies_inverted[kd_id])["settle_cost"]
-        valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info, is_expansionist, settle_cost)
+        valid_settle = _validate_settles(settle_input, kd_info_parse, settle_info, modifiers)
         if not valid_settle:
             raise occ.Rejected('Please enter valid settle value')
 
@@ -807,7 +806,7 @@ def _settle(kd_id, settle_input):
         )
         new_settles, min_settle_time = _get_new_settles(kd_info_parse, settle_input, start_time)
 
-        settle_price = uag._get_settle_price(kd_info_parse, is_expansionist, settle_cost)
+        settle_price = uag._get_settle_price(kd_info_parse, modifiers)
         new_money = kd_info_parse["money"] - settle_price * settle_input
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["settles"] = min(next_resolve["settles"], min_settle_time)
@@ -839,15 +838,12 @@ def settle():
     payload, status = _settle(flask_praetorian.current_user().kd_id, int(req["settleInput"]))
     return flask.jsonify(payload), status
 
-def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles):
+def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles, modifiers=None):
     current_missiles = kd_info_parse["missiles"]
     missiles = {k: current_missiles.get(k, 0) + missiles_building.get(k, 0) for k in uas.MISSILES}
 
     missiles_available = {k: max_available_missiles - missiles.get(k, 0) for k in missiles}
-    cost_multiplier = (
-        1
-        - int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_COST_REDUCTION"]
-    )
+    cost_multiplier = uag._missile_cost_modifier(kd_info_parse, modifiers)
     costs = sum([uas.MISSILES[key_missile]["cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
     fuel_costs = sum([uas.MISSILES[key_missile]["fuel_cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
 
@@ -875,6 +871,7 @@ def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_a
 def _build_missiles(kd_id, missiles_request):
     """Start building missiles (kind to count) for ``kd_id``. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
+    modifiers = uag._get_modifiers(kd_id)
     
     
     
@@ -885,14 +882,11 @@ def _build_missiles(kd_id, missiles_request):
 
         max_available_missiles = uag._calc_missile_capacity(kd_info_parse)
 
-        valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles)
+        valid_missiles = _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles, modifiers)
         if not valid_missiles:
             raise occ.Rejected('Please enter valid missiles values')
 
-        cost_multiplier = (
-            1
-            - int(kd_info_parse["race"] == "Fuzi") * uas.GAME_CONFIG["FUZI_MISSILE_COST_REDUCTION"]
-        )
+        cost_multiplier = uag._missile_cost_modifier(kd_info_parse, modifiers)
         costs = sum([uas.MISSILES[key_missile]["cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
         fuel_costs = sum([uas.MISSILES[key_missile]["fuel_cost"] * value_missile * cost_multiplier for key_missile, value_missile in missiles_request.items()])
         new_money = kd_info_parse["money"] - costs
@@ -961,6 +955,7 @@ def _validate_engineers(engineers_input, current_available_engineers):
 
 
 def _get_new_engineers(engineers_input, start_time):
+    """The queue entries for ``engineers_input`` engineers trained from ``start_time``."""
     time_splits = _make_time_splits(
         uas.GAME_CONFIG["BASE_ENGINEER_TIME_MIN_MULTIPLIER"],
         uas.GAME_CONFIG["BASE_ENGINEER_TIME_MAX_MUTLIPLIER"],
@@ -989,6 +984,7 @@ def _get_new_engineers(engineers_input, start_time):
 def _train_engineers(kd_id, engineers_input):
     """Start training ``engineers_input`` engineers for ``kd_id`` with its money. Returns ``(payload, status_code)``. The route and the bots both come through here."""
     app = flask.current_app
+    modifiers = uag._get_modifiers(kd_id)
     
     
 
@@ -996,7 +992,7 @@ def _train_engineers(kd_id, engineers_input):
         engineers_info = uag._get_engineers_queue(kd_id)
         engineers_building = sum([training["amount"] for training in engineers_info])
         max_workshop_capacity, current_workshop_capacity = uag._calc_workshop_capacity(kd_info_parse, engineers_building)
-        max_available_engineers, current_available_engineers = uag._calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity)
+        max_available_engineers, current_available_engineers = uag._calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity, modifiers)
 
         valid_engineers = _validate_engineers(engineers_input, current_available_engineers)
         if not valid_engineers:
@@ -1011,7 +1007,7 @@ def _train_engineers(kd_id, engineers_input):
         new_engineers, min_engineers_time = _get_new_engineers(engineers_input, start_time)
         next_resolve = kd_info_parse["next_resolve"]
         next_resolve["engineers"] = min(next_resolve["engineers"], min_engineers_time)
-        new_money = kd_info_parse["money"] - uas.GAME_CONFIG["BASE_ENGINEER_COST"] * engineers_input
+        new_money = kd_info_parse["money"] - uag._engineer_price(modifiers) * engineers_input
         return {'money': new_money, 'next_resolve': next_resolve}, new_engineers
 
     try:
