@@ -76,9 +76,12 @@ test("the Upgrade page lists only units made from others, with where they come f
     fireEvent.click(screen.getByRole("button", { name: "Upgrade" }));
     expect(document.getElementById("attack-upgrade-input")).toBeNull();
     expect(document.getElementById("heavy_attack-upgrade-input")).not.toBeNull();
-    expect(screen.getByText("Attackers (10 at home)")).toBeTruthy();
-    expect(screen.getByText("Heavy Attackers (4 at home)")).toBeTruthy();
+    expect(screen.getByText("10 at home").parentElement.textContent).toBe("Attackers10 at home");
+    expect(screen.getByText("4 at home").parentElement.textContent).toBe("Heavy Attackers4 at home");
     expect(screen.getByText("125")).toBeTruthy();
+    // Only what an upgrade needs: the price, fuel and training columns are on Train.
+    const headers = screen.getAllByRole("columnheader").map((th) => th.textContent);
+    expect(headers).toEqual(["Unit", "Off / Def", "Have", "From", "Upgrade Cost", "To Upgrade"]);
     expect(document.getElementById("solar_attack-upgrade-input").disabled).toBe(true);  // project not done
 });
 
