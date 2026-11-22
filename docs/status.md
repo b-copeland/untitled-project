@@ -94,6 +94,11 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
 - UX proposals not built: see [decisions/0003-ux-review.md](decisions/0003-ux-review.md#proposed-not-built).
 - Spy attempts come back every epoch again (2026-11-17), so a player away for more than 10 epochs loses attempts.
   Recurring scheduled siphons and intel are issue #137.
+- 2026-11-21, on production: right after making a kingdom, Status showed 0% of stars built and Structures had no
+  rows, until a reload or an action that refetched `structures`. The server's data was right. Not reproduced
+  locally. The likely cause is that the refetch of every key right after creation failed (a throttled or busy
+  backend). Failed fetches are now retried for about half a minute (`src/data/gameData.js`). If it happens again,
+  look in the browser's network tab for a failing or empty `/api/structures`.
 
 ## Vote cooldown
 

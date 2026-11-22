@@ -3,7 +3,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 
 import { authFetch } from "../auth";
-import { createQueryClient, useGameData, GAME_KEYS, ENDPOINTS, initGlobalData } from "./gameData";
+import { createQueryClient, useGameData, fetchGameKey, retryDelay, RETRIES, GAME_KEYS, ENDPOINTS, initGlobalData } from "./gameData";
 
 jest.mock("../auth", () => ({ authFetch: jest.fn() }));
 
@@ -235,4 +235,50 @@ test("a player who already had a kingdom does not trigger a second fetch of ever
     await result.current.updateData(["kingdomid"]);
   });
   expect(callsTo(KINGDOM)).toBe(1);
+});
+
+test("a server error is thrown rather than stored as the key's data; a refusal is still stored", async () => {
+  authFetch.mockImplementation(() => Promise.resolve({ status: 500, json: () => Promise.resolve({ message: "boom" }) }));
+  await expect(fetchGameKey("structures")).rejects.toThrow("api/structures answered 500");
+
+  authFetch.mockImplementation(() => Promise.resolve({ status: 400, json: () => Promise.resolve({ message: "no" }) }));
+  await expect(fetchGameKey("structures")).resolves.toEqual({ message: "no" });
+});
+
+test("failed fetches are retried with growing gaps, for about half a minute", () => {
+  expect(RETRIES).toBeGreaterThanOrEqual(4);
+  expect([0, 1, 2, 3, 4].map(retryDelay)).toEqual([1000, 2000, 4000, 8000, 16000]);
+  expect(retryDelay(10)).toBe(30000);
+  const defaults = createQueryClient().getDefaultOptions().queries;
+  expect(defaults.retry).toBe(RETRIES);
+  expect(defaults.refetchOnWindowFocus({ state: { status: "error" } })).toBe(true);
+  expect(defaults.refetchOnWindowFocus({ state: { status: "success" } })).toBe(false);
+});
+
+test("a key that fails right after the kingdom is made heals itself without another action", async () => {
+  responses[ENDPOINTS.kingdomid] = { kd_id: "", created: false };
+  const client = createQueryClient();
+  // The real number of retries, with short gaps so the test is quick (the gaps have their own test above).
+  client.setDefaultOptions({ queries: { ...client.getDefaultOptions().queries, retryDelay: 10 } });
+  const wrapper = ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const { result } = renderHook((props) => useGameData(props), { wrapper, initialProps: { logged: true } });
+  await waitFor(() => expect(result.current.loading.kingdomid).toBe(false));
+
+  // The kingdom is made; the next two fetches of structures fail (a throttled backend), then it answers.
+  let failures = 2;
+  authFetch.mockImplementation((url) => {
+    if (url === ENDPOINTS.structures && failures > 0) {
+      failures -= 1;
+      return Promise.resolve({ status: 500, json: () => Promise.resolve({}) });
+    }
+    return respond(responses[url]);
+  });
+  responses[ENDPOINTS.kingdomid] = { kd_id: "7", created: true };
+  responses[ENDPOINTS.structures] = { current: { homes: 300 } };
+  await act(async () => {
+    await result.current.updateData(["kingdomid"]);
+  });
+
+  await waitFor(() => expect(result.current.data.structures).toEqual({ current: { homes: 300 } }));
+  expect(failures).toBe(0);
 });
