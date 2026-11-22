@@ -1,7 +1,12 @@
 {
-  "short_name": "USG",
-  "name": "Untitled Space Game",
+  "short_name": "Farsteel",
+  "name": "Farsteel",
   "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
     {
       "src": "favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
@@ -20,6 +25,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#0b1020",
+  "background_color": "#0b1020"
 }

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Farsteel">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#1f2a4a"/>
+      <stop offset="1" stop-color="#070a14"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffd58a" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffd58a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
+  <g fill="#ffffff">
+    <circle cx="96" cy="108" r="5" opacity="0.7"/>
+    <circle cx="410" cy="96" r="4" opacity="0.55"/>
+    <circle cx="432" cy="388" r="5" opacity="0.6"/>
+    <circle cx="120" cy="404" r="3.5" opacity="0.5"/>
+    <circle cx="372" cy="178" r="3" opacity="0.45"/>
+  </g>
+  <circle cx="256" cy="256" r="150" fill="url(#glow)"/>
+  <g transform="rotate(-24 256 256)">
+    <ellipse cx="256" cy="256" rx="214" ry="74" fill="none" stroke="#f59e0b" stroke-width="18" opacity="0.55"/>
+  </g>
+  <!-- Faceted steel star, lit from the top left -->
+  <polygon points="256,256 222,222 256,48" fill="#ffffff"/>
+  <polygon points="256,256 256,48 290,222" fill="#c9d3e0"/>
+  <polygon points="256,256 290,222 424,256" fill="#aebccd"/>
+  <polygon points="256,256 424,256 290,290" fill="#56657a"/>
+  <polygon points="256,256 290,290 256,464" fill="#38435a"/>
+  <polygon points="256,256 256,464 222,290" fill="#7f90a6"/>
+  <polygon points="256,256 222,290 88,256" fill="#5d6d84"/>
+  <polygon points="256,256 88,256 222,222" fill="#e3e9f1"/>
+  <g transform="rotate(-24 256 256)">
+    <path d="M42,256 A214,74 0 0 0 470,256" fill="none" stroke="#f59e0b" stroke-width="18" stroke-linecap="round"/>
+  </g>
+</svg>

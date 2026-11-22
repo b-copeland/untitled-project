@@ -13,7 +13,7 @@ function Guide(props) {
         <div id="guide" ref={yourElementRef} className="help-section">
             <h2>Guide</h2>
             <p>
-                Welcome to Untitled Space Game. You are the ruler of an interstellar kingdom. 
+                Welcome to Farsteel. You are the ruler of an interstellar kingdom. 
                 The goal of the game is to have the most points at the end of the round (or to have fun). 
                 You gain points while your kingdom is one of the strongest kingdoms in the universe. 
                 If you lose all of your stars or your population hits 0 at any point during the round, your kingdom 

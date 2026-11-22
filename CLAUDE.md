@@ -2,7 +2,8 @@
 
 A long-running, real-time, team-based space strategy game in the browser. Players run a **kingdom** inside a **galaxy**
 (their team); galaxies form **empires**; everyone shares one **universe**. Kingdoms build, attack, spy, rob, trade and
-vote. Solo-maintained personal project with no live users and no funding: a broken deploy is low stakes but still gets
+vote. The game's public name is **Farsteel** (logo: `public/logo.svg`, small sizes: `public/favicon.svg`); the repo,
+the Python package and the Azure resources keep their `untitled` names. Solo-maintained personal project with no live users and no funding: a broken deploy is low stakes but still gets
 fixed, and anything that costs money needs the maintainer's agreement.
 
 This file is the rules and the map. The detail is in `docs/`. Read the doc for your task before you start.
