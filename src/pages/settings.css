@@ -46,3 +46,16 @@
     font-size: 0.7rem;
     font-weight: 600;
 }
+
+/* The notification switches: one column of groups on a phone, side by side when there is room. */
+.notification-choices {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+    gap: 0.5rem 1.5rem;
+}
+.notification-group { margin: 0; }
+.notification-group legend {
+    font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+    color: var(--bs-secondary-color); margin-bottom: 0.35rem;
+}
+.notification-group .form-check { margin-bottom: 0.3rem; }

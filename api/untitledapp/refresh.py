@@ -10,7 +10,7 @@ import random
 
 import flask
 import flask_praetorian
-from flask_sock import Sock, ConnectionClosed
+from flask_sock import Sock
 
 import untitledapp.misc as uam
 import untitledapp.news as uan
@@ -23,7 +23,8 @@ import untitledapp.lastknown as uala
 import untitledapp.shared as uas
 import untitledapp.botbrain as botbrain
 import untitledapp.roundend as uare
-from untitledapp import REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import REQUESTS_SESSION
+from untitledapp.push import push
 
 bp = flask.Blueprint("refresh", __name__)
 
@@ -496,17 +497,7 @@ def _kingdom_with_income(
                 new_kd_info["completed_projects"].append(key_project)
                 new_kd_info["projects_assigned"][key_project] = 0
                 new_kd_info["projects_target"][key_project] = 0
-                try:
-                    ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-                    ws.send(json.dumps({
-                        "message": f"Completed project {uas.PROJECTS[key_project]['name']}!",
-                        "status": "info",
-                        "category": "Projects",
-                        "delay": 15000,
-                        "update": [],
-                    }))
-                except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-                    pass
+                push(kd_info_parse["kdId"], "projects", f"Completed project {uas.PROJECTS[key_project]['name']}!")
 
     if new_kd_info["auto_spending_enabled"]:
         pct_allocated = sum(new_kd_info["auto_spending"].values())
@@ -589,11 +580,11 @@ QUEUES = ("settles", "mobis", "structures", "missiles", "engineers")
 # Per queue: the websocket message when something in it finishes. Settles and engineers entries are
 # ``{"time", "amount"}``; the others are ``{"time", <unit or structure>: count, ...}``.
 _QUEUE_NOTICES = {
-    "settles": ("Settles", "Finished settling {} stars"),
-    "mobis": ("Mobis", "Finished mobilizing {} units"),
-    "structures": ("Structures", "Finished building {} structures"),
-    "missiles": ("Missiles", "Finished building {} missiles"),
-    "engineers": ("Engineers", "Finished training {} engineers"),
+    "settles": ("settles", "Finished settling {} stars"),
+    "mobis": ("military", "Finished mobilizing {} units"),
+    "structures": ("structures", "Finished building {} structures"),
+    "missiles": ("missiles", "Finished building {} missiles"),
+    "engineers": ("engineers", "Finished training {} engineers"),
 }
 _AMOUNT_QUEUES = ("settles", "engineers")
 
@@ -640,18 +631,8 @@ def _resolve_queue(kd_id, category, time_update, cursor=None, effects=None, pend
     _defer(effects, lambda: _trim_queue(path, category, time_update, document))
     count = ready if by_amount else sum(ready.values())
     if count:
-        notice_category, message = _QUEUE_NOTICES[category]
-        try:
-            ws = SOCK_HANDLERS[kd_id]
-            ws.send(json.dumps({
-                "message": message.format(count),
-                "status": "info",
-                "category": notice_category,
-                "delay": 5000,
-                "update": [],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
+        kind, message = _QUEUE_NOTICES[category]
+        push(kd_id, kind, message.format(count), delay=5000)
 
     return ready, next_resolve
 
@@ -736,19 +717,9 @@ def _resolve_generals(kd_info_parse, time_update):
 
     kd_info_parse["generals_out"] = generals_keep
     
-    try:
-        ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-        count_returning_units = sum(returning_units.values())
-        if count_returning_units:
-            ws.send(json.dumps({
-                "message": f"{returning_generals} generals returned with {count_returning_units} units",
-                "status": "info",
-                "category": "Generals",
-                "delay": 15000,
-                "update": [],
-            }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    count_returning_units = sum(returning_units.values())
+    if count_returning_units:
+        push(kd_info_parse["kdId"], "generals", f"{returning_generals} generals returned with {count_returning_units} units")
     return kd_info_parse, next_resolve
 
 
@@ -767,17 +738,7 @@ def _resolve_spy(kd_info_parse, time_update, current_bonuses, context=None):
     )
     if kd_info_parse["spy_attempts"] < uas.GAME_CONFIG["BASE_SPY_ATTEMPTS_MAX"]:
         kd_info_parse["spy_attempts"] += 1
-        try:
-            ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-            ws.send(json.dumps({
-                "message": f"A new spy attempt is available",
-                "status": "info",
-                "category": "Spy",
-                "delay": 15000,
-                "update": [],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
+        push(kd_info_parse["kdId"], "spy_attempts", "A new spy attempt is available")
     return kd_info_parse, next_resolve_time
 
 
@@ -1052,17 +1013,8 @@ def _resolve_auto_attack(kd_info_parse):
                 )
     # A refused attack comes back without a kingdom document, so keep using the one we have.
     _, payload, _ = uac._attack_primitives(req, kd_info_parse["kdId"])
-    try:
-        ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-        ws.send(json.dumps({
-            "message": payload["message"],
-            "status": payload.get("status", "info"),
-            "category": "Auto Primitives",
-            "delay": 15000,
-            "update": ["mobis", "attackhistory"],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    push(kd_info_parse["kdId"], "auto_primitives", payload["message"], status=payload.get("status", "info"),
+         update=["mobis", "attackhistory"])
     return True
 
 def _resolve_auto_rob(kd_info_parse):
@@ -1077,17 +1029,8 @@ def _resolve_auto_rob(kd_info_parse):
             "shielded": shielded,
         }
         _, payload, _ = uac._rob_primitives(req, kd_info_parse["kdId"])
-        try:
-            ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-            ws.send(json.dumps({
-                "message": payload["message"],
-                "status": payload.get("status", "info"),
-                "category": "Auto Primitives",
-                "delay": 15000,
-                "update": ["spyhistory"],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
+        push(kd_info_parse["kdId"], "auto_primitives", payload["message"], status=payload.get("status", "info"),
+             update=["spyhistory"])
         return True
     return False
 

@@ -45,13 +45,13 @@ import json
 
 import flask
 import flask_praetorian
-from flask_sock import ConnectionClosed
 
 import untitledapp.getters as uag
 import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.shared as uas
-from untitledapp import REQUESTS_SESSION, SOCK_HANDLERS, alive_required
+from untitledapp import REQUESTS_SESSION, alive_required
+from untitledapp.push import push
 
 bp = flask.Blueprint("intel", __name__)
 
@@ -349,12 +349,7 @@ def _name(kingdoms, kd_id):
 
 
 def _tell(kd_id, message, update=("intel",)):
-    try:
-        SOCK_HANDLERS[kd_id].send(json.dumps({
-            "message": message, "status": "info", "category": "Intel", "delay": 15000, "update": list(update),
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    push(kd_id, "intel", message, update=update)
 
 
 def _news(kd_id, message, from_kd):

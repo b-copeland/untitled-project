@@ -30,6 +30,8 @@
 .game-toast-message { overflow-wrap: anywhere; white-space: pre-wrap; }
 .game-toast-close { flex: none; font-size: 0.7rem; margin-top: 0.15rem; }
 .game-toasts-clear { align-self: flex-end; }
+/* Swiped sideways to dismiss (swipe.js): the browser keeps vertical scrolling, the page gets the sideways movement. */
+.swipeable { touch-action: pan-y; }
 
 @keyframes game-toast-in {
     from { opacity: 0; transform: translateY(6px); }
