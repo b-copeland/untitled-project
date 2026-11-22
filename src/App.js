@@ -90,7 +90,7 @@ function Content({ logged, session }) {
     <div className="main">
       <div className="topbar d-lg-none">
         <Button variant="outline-secondary" aria-label="Open menu" onClick={() => setShowNav(true)}><FiMenu /></Button>
-        <span className="topbar-title">Untitled Project</span>
+        <span className="topbar-title"><img src="/favicon.svg" alt="" className="topbar-logo" />Farsteel</span>
         {logged ? <UserMenu id="user-menu-phone" username={data.preferences?.username} /> : null}
       </div>
 

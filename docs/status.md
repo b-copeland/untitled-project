@@ -41,7 +41,8 @@ These pieces do not yet:
 - `scripts/check.ps1` is PowerShell and expects conda; there is no equivalent script for Linux or macOS, only the plain
   commands in [testing.md](testing.md#the-suites).
 - The refresh is triggered by a WebJob configured in the portal; its script is not in the repo.
-- The web app is on the Free plan with Always On off, which cron-triggered WebJobs need. Missed refreshes are possible.
+- The web app moved to Basic B1 (about $13 a month) on 2026-11-21 for the custom domain, as a stopgap: issue #173 plans a
+  move of the web app to a cheaper host.
 - `iac/` is the Azure quickstart sample, not a description of production.
 - No staging environment.
 

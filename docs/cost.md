@@ -10,7 +10,7 @@ the Azure pricing pages before relying on a number here.
 
 | Piece | Plan | Cost model | Limit that bites first |
 |---|---|---|---|
-| Web app (Flask and the built frontend) | App Service **Free (F1)** | Free | A daily CPU quota; no Always On; few concurrent websockets; one instance |
+| Web app (Flask and the built frontend) | App Service **Basic (B1)**, one instance (since 2026-11-21, for the custom domain; was Free F1) | Paid per instance, about $13 a month for one | 1 core and 1.75 GB; stays at one instance. Issue #173 plans a cheaper host. |
 | Function app | **Linux Consumption (Y1)** | Free monthly grant of executions and GB-seconds, then pay per execution and per GB-second | Executions: every Flask request makes several function calls |
 | Cosmos DB | **Free tier**, 1000 RU/s shared by the database, manual | Free up to 1000 RU/s and 25 GB per account | Request units per second. **All four containers, including production, share the 1000 RU/s.** |
 | Email | SendGrid | Free tier | Daily send limit |
