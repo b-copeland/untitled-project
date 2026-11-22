@@ -185,6 +185,8 @@ built; the content is not.
 - Every number is a placeholder: `CLUSTER_SIZE`, `CLUSTER_REF_SIZE`, `CLUSTER_VOTE_COOLDOWN_EPOCHS` (6, proposed by the maintainer 2026-11-20), `CLUSTER_VOTE_RATE`, `CLUSTER_DECAY_RATE`, `CLUSTER_BENEFITS_PER_ROUND` (7), and each
   benefit's `max` and `thresholds` in `CLUSTER_BENEFITS`. The fourteen benefits are the list the maintainer chose for
   issue #168 (2026-11-22); the ideas cut from it are in the maintainer's politics backlog.
+- A running round plays the first `CLUSTER_BENEFITS_PER_ROUND` benefits; `adhoc/migrate_168_cluster_benefits.py` writes
+  that list into its state after the deploy (2026-11-22).
 - A capacity that fades below what a kingdom has (2026-11-22): nothing is taken away. Over the workshop, silo or
   recruit cap it can train or build no more of that kind; units over the hangar space take room from homes, as they
   already do; over the homes cap population shrinks as it already does; fuel over the storage is cut to it, as when

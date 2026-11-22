@@ -60,3 +60,13 @@ def test_options_of_policies_the_round_does_not_play_are_left_out():
     fields = galaxy.plan_galaxy(OLD, ["growth_doctrine", "arsenal"], NOW)
     assert fields["policy_votes"] == {"growth_doctrine": {"1": "expansionist", "3": "expansionist"}, "arsenal": {}}
     assert fields["policy_active"] == {"growth_doctrine": "expansionist"}
+
+
+cluster = _script("migrate_168_cluster_benefits")
+
+
+def test_an_old_round_writes_down_the_cluster_benefits_it_already_plays():
+    fields = cluster.plan_state({"game_start": "x"})
+    assert fields == {"cluster_benefits": list(uas.CLUSTER_BENEFITS)[:uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]]}
+    assert fields["cluster_benefits"][:3] == ["drone_production", "unit_cost", "settle_cost"]
+    assert cluster.plan_state({"cluster_benefits": ["pop_growth"]}) == {}
