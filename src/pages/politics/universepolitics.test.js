@@ -62,3 +62,9 @@ test("between elections it shows the next ballot and no way to cast", () => {
     expect(screen.getByText("Nothing yet: the first election decides.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Cast votes" })).toBeNull();
 });
+
+test("with no ballot drawn there is no ballot heading", () => {
+    show(universe({ election: { open: false, start: "", end: "" }, ballot: [], active: [] }));
+    expect(screen.getByText("No election is planned.")).toBeTruthy();
+    expect(screen.queryByText(/On the (next )?ballot/)).toBeNull();
+});

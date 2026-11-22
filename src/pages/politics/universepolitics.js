@@ -75,7 +75,7 @@ function UniversePolitics(props) {
                 </Button>
                 {buyVotes !== "" ? <span className="text-muted"> Votes cost: {((parseInt(buyVotes, 10) || 0) * voteCost).toLocaleString()}</span> : null}
             </Panel>
-            <h2>{election.open ? "On the ballot" : "On the next ballot"}</h2>
+            {(universe.ballot || []).length ? <h2>{election.open ? "On the ballot" : "On the next ballot"}</h2> : null}
             {(universe.ballot || []).map((policy) => (
                 <div className="galaxy-policy" key={policy.key}>
                     <h3>{policy.name}{policy.first_election_only ? <span className="text-muted"> (first election only)</span> : null}</h3>
