@@ -437,7 +437,7 @@ def _kingdom_with_income(
     income["fuel"]["bonus"] = current_bonuses["fuel_bonus"] + (int(kd_info_parse["race"] == "Lumina") * uas.GAME_CONFIG["LUMINA_FUEL_PRODUCTION_INCREASE"])
     income["fuel"]["units"] = {}
     for key_unit, value_units in total_units.items():
-        income["fuel"]["units"][key_unit] = value_units * uas.unit_fuel(kd_info_parse, key_unit)
+        income["fuel"]["units"][key_unit] = value_units * uas.UNITS[key_unit]["fuel"]
     income["fuel"]["population"] = kd_info_parse["population"] * uas.GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"]
     income["fuel"]["shields"] = {}
     income["fuel"]["shields"]["military"] = kd_info_parse["shields"]["military"] * 100 * kd_info_parse["stars"] * uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT"]
@@ -731,7 +731,7 @@ def _resolve_generals(kd_info_parse, time_update):
 
     kd_info_parse["generals_available"] += returning_generals
     for key_unit, value_unit in returning_units.items():
-        kd_info_parse["units"][key_unit] += value_unit
+        kd_info_parse["units"][key_unit] = kd_info_parse["units"].get(key_unit, 0) + value_unit
 
     kd_info_parse["generals_out"] = generals_keep
     
@@ -1721,7 +1721,7 @@ def _refresh_kd_in(kd_id, state, time_update, update_history, context):
                 kd_id, "mobis", time_update, _cursor(kd_info_parse, "mobis"), effects, pending,
             )
             for key_unit, amt_unit in new_units.items():
-                kd_info_parse["units"][key_unit] += amt_unit
+                kd_info_parse["units"][key_unit] = kd_info_parse["units"].get(key_unit, 0) + amt_unit
 
         if "structures" in categories_to_resolve:
             new_structures, next_resolves["structures"] = _resolve_queue(
