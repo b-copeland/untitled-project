@@ -64,9 +64,8 @@ Starting a round, its dates and bots were reworked on 2026-11-21 ([admin.md](adm
 
 - The function app's handlers catch everything with a bare `except` and answer `500`, which hides throttling (`429`) and
   real errors alike. Several `GET` handlers answer `201`.
-- A function app write route that cannot work (2026-11-14), uncalled: `PATCH /empire/<id>/news` reads `empire_<id>`
-  where the document is `empire_news_<id>`, so empire news is never written. Kingdoms made before the intel market
-  (2026-11-18) still have an unused `shared_<id>` document; a round reset removes it.
+- Kingdoms made before the intel market (2026-11-18) still have an unused `shared_<id>` document; a round reset
+  removes it.
 - `getters.py` and `conquer.py` are large and mix routes, formulas and storage calls.
 - Over a hundred raw `REQUESTS_SESSION` calls across the blueprints; the target is one storage module
   ([architecture.md](architecture.md#target-one-storage-module)).

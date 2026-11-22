@@ -13,7 +13,8 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
   `intel`, `clusters`, `targets`, `roundend`. Which area
   holds what is in [docs/architecture.md](../docs/architecture.md#where-things-are).
 - `shared.py`: every game constant and formula (`GAME_CONFIG`, `GAME_FUNCS`, `UNITS`, `PROJECTS`, policies,
-  `INITIAL_KINGDOM_STATE`). `occ.py`: optimistic concurrency.
+  `INITIAL_KINGDOM_STATE`). `occ.py`: optimistic concurrency. `news.py`: posting to an empire's news and the
+  universe news.
 - `api/config.py`: `Config` reads environment variables; `TestingConfig` is what the tests use.
 
 ## Conventions

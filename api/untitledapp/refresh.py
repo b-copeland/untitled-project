@@ -13,6 +13,7 @@ import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.misc as uam
+import untitledapp.news as uan
 import untitledapp.occ as occ
 import untitledapp.build as uab
 import untitledapp.clusters as uacl
@@ -1626,13 +1627,10 @@ def _resolve_empires(
                         empires_info["empires"][empire_id]["war"].append(other_empire_id)
                         empires_info["empires"][other_empire_id]["war"].append(empire_id)
 
-                        news_payload = {
-                            "news": {
-                                "time": time_update.isoformat(),
-                                "news": f"{empires_info['empires'][empire_id]['name']} declared war by aggression on {empires_info['empires'][other_empire_id]['name']}",
-                            }
-                        }
-                        news_items.append(news_payload)
+                        news_items.append((empire_id, other_empire_id, uan.item(
+                            f"{empires_info['empires'][empire_id]['name']} declared war by aggression on {empires_info['empires'][other_empire_id]['name']}",
+                            time_update,
+                        )))
             for other_empire_id in empires_info["empires"][empire_id]["aggression"]:
                 empires_info["empires"][empire_id]["aggression"][other_empire_id] = max(
                     empires_info["empires"][empire_id]["aggression"][other_empire_id] - decay,
@@ -1644,12 +1642,14 @@ def _resolve_empires(
         }, (news_items, empires_info["empires"])
 
     news_items, empires = occ.update('/empires', decide)
-    for news_payload in news_items:
-        REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(news_payload)
-        )
+    # One call per document however many wars started this tick: the universe's news, and each empire involved.
+    if news_items:
+        uan.universe_lines([line for _, _, line in news_items])
+        by_empire = collections.defaultdict(list)
+        for empire_id, other_empire_id, line in news_items:
+            by_empire[empire_id].append(line)
+            by_empire[other_empire_id].append(line)
+        uan.empire_lines(by_empire)
     return empires
 
 
