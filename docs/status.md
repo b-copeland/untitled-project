@@ -100,6 +100,18 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   backend). Failed fetches are now retried for about half a minute (`src/data/gameData.js`). If it happens again,
   look in the browser's network tab for a failing or empty `/api/structures`.
 
+## Instant changes to military strength
+
+Found 2026-11-22, when the rule that strength never changes much in an instant joined tenet 1
+([game-design.md](game-design.md#the-tenets-in-order-of-priority)). These still break it. Not changed yet:
+
+- **Military shields** (`POST /api/shields`, `misc.set_shields`) apply the moment they are set: a defender can go from
+  0 to `BASE_MILITARY_SHIELDS_MAX` (10%) of extra defense as an attack comes in. Raising them could instead climb to the
+  new level over some hours, worked out from timestamps; lowering them can stay instant.
+- **Empire bonuses** apply as soon as their event happens: denouncing (`DENOUNCE_OFFENSE_BONUS`), war
+  (`WAR_OFFENSE_INCREASE`) and peace (`PEACE_DEFENSE_BONUS`, 50% defense), in `getters.py`. Empire politics is likely
+  to be cut back for launch, which may settle these.
+
 ## Vote cooldown
 
 Added 2026-11-20: a changed galaxy vote (leader, either doctrine) holds for `BASE_GALAXY_VOTE_COOLDOWN_EPOCHS` (6, proposed
