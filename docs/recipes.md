@@ -120,7 +120,11 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
    `src/pages/conquer/attack.js` for a planner.
 3. Validate each field with `src/validation.js`, set `SubmitButton`'s `blocked` to the first error, and send with
    `updateData([changed keys], [request])`.
-4. A help topic in `src/pages/help/` and a `HelpButton` pointing to it.
+4. A help topic in `src/pages/help/`, listed in `TOPICS` in `help.js`, and a `HelpButton` whose `scrollTarget` is its
+   id. Build it from `Topic` and `HelpTable` in `help/util.js`: a one-line lead saying what the page is for, then how
+   to use it and the rules, short and in bullets where they are a list. Take every number from the state the topic
+   receives, and show time with `duration` and `perHour`. `help.test.js` renders every topic and fails on "epoch",
+   "seconds", "NaN" or "undefined".
 5. A Jest test next to the page. Mock `components/helpbutton`; set mock implementations in `beforeEach`. A page with
    links (`KingdomLink`, `useFromHere`) renders inside a `MemoryRouter`.
 

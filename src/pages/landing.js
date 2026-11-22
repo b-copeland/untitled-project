@@ -2,15 +2,15 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Button from 'react-bootstrap/Button';
 import Card from 'react-bootstrap/Card';
-import { GiCrossedSwords, GiMagnifyingGlass, GiSpaceship, GiBank } from "react-icons/gi";
+import { GiCrossedSwords, GiMagnifyingGlass, GiSpaceship, GiSwapBag } from "react-icons/gi";
 import "./landing.css";
 
 // The four playstyles from the game's design: what a player can do, in a line each.
 const PLAYSTYLES = [
-    { icon: GiSpaceship, title: "Explore", text: "Settle new stars and grow your kingdom faster than anyone else." },
-    { icon: GiCrossedSwords, title: "Attack", text: "Train a fleet and take stars from the kingdoms around you." },
-    { icon: GiMagnifyingGlass, title: "Spy", text: "Gather intel and share it, so your galaxy strikes with its eyes open." },
-    { icon: GiBank, title: "Plunder", text: "Slip in, rob what others have stockpiled and slip out again." },
+    { icon: GiSpaceship, title: "Explore", text: "Settle new stars and grow your kingdom while fending off attackers." },
+    { icon: GiCrossedSwords, title: "Attack", text: "Train a fleet and conquer stars from the kingdoms around you." },
+    { icon: GiMagnifyingGlass, title: "Spy", text: "Gather intel to support and protect your galaxy." },
+    { icon: GiSwapBag, title: "Plunder", text: "Use your drones to covertly steal from other players." },
 ];
 
 const formatDate = (value) => (value ? new Date(value).toLocaleString() : "...");

@@ -248,7 +248,7 @@ function Universe(props) {
                             : <GalaxyTable rows={rows} empires={empires} myGalaxy={myGalaxy} />}
                 </Panel>
             </div>
-            <HelpButton scrollTarget={"clusterpolitics"} />
+            <HelpButton scrollTarget={"map"} />
         </>
     );
 }

@@ -1,46 +1,25 @@
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
-import Table from 'react-bootstrap/Table';
+import React from "react";
+import { HelpTable, Topic, config, num, perHour } from "../util";
 
 function Scores(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "scores") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
-    const pointsRows = props.state.game_config?.NETWORTH_POINTS.map((points, iter) => {
-        return <tr key={iter}>
-            <td style={{textAlign: "left"}}>{iter + 1}</td>
-            <td style={{textAlign: "right"}}>{points}</td>
-        </tr>
-    })
+    const cfg = config(props.state);
+    const points = cfg.NETWORTH_POINTS || [];
     return (
-        <div id="scores" ref={yourElementRef} className="help-section">
-            <h2>Scores</h2>
+        <Topic id="scores" title="Scores" lead="The leaderboards. Points decide the round.">
             <p>
-                The scores page displays the current leaders in Points, Networth, or Stars. 
-                The kingdom names in the Points ranking will always be hidden. Kingdoms in the 
-                Networth or Stars ranking will be revealed if their stats are revealed to you.
+                <b>Points</b> build up all round. While your kingdom is in the top {points.length || "few"} by networth,
+                it earns points every hour, at the rate for its rank below. Rising early and staying there counts for
+                more than a high networth at the very end.
             </p>
             <p>
-                Points are allocated to continuously to networth leaders at the rate below 
-                per {props.state.game_config?.BASE_EPOCH_SECONDS} seconds.
+                The boards show Points, Networth, Stars and Galaxy networth. Names on the Points board are always
+                hidden. On the Networth and Stars boards, you see the name of a kingdom from another galaxy only if its
+                stats are revealed to you.
             </p>
-            <Table hover>
-                <thead>
-                    <tr>
-                        <th>Networth Rank</th>
-                        <th>Points</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {pointsRows}
-                </tbody>
-            </Table>
-        </div>
-    )
+            <HelpTable columns={[["Networth rank", "right"], ["Points per hour", "right"]]}
+                rows={points.map((value, index) => [index + 1, num(perHour(value, cfg))])} />
+        </Topic>
+    );
 }
 
 export default Scores;

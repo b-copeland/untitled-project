@@ -1,45 +1,28 @@
-import React, { useEffect, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic, config, duration, pct, perHour } from "../util";
 
-const percent = (fraction, digits = 1) => (fraction != null ? `${(fraction * 100).toFixed(digits)}%` : "");
-
-// The game works in epochs; players read hours.
-const perHour = (perEpoch, epochSeconds) => (perEpoch != null && epochSeconds ? (perEpoch * 3600) / epochSeconds : null);
+const percent = (fraction, digits = 1) => (fraction != null ? `${(fraction * 100).toFixed(digits)}%` : "?");
 
 function ClusterPolitics(props) {
-    const yourElementRef = useRef(null);
-
-    useEffect(() => {
-        if (Object.keys(props.state).length > 0 && props.scrollTarget === "clusterpolitics") {
-            yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-    }, [props.state, props.scrollTarget]);
-
-    const config = props.state.game_config || {};
+    const cfg = config(props.state);
     const benefits = props.state.cluster_benefits || {};
     const order = props.state.order?.cluster_benefits || Object.keys(benefits);
     return (
-        <div id="clusterpolitics" ref={yourElementRef} className="help-section">
-            <h2>Politics - Cluster</h2>
+        <Topic id="clusterpolitics" title="Cluster politics"
+            lead="Neighbouring galaxies vote to build up benefits that every kingdom among them shares.">
             <p>
-                Galaxies are grouped into clusters of {config.CLUSTER_SIZE || "a few"} when the round begins, and a galaxy
-                never leaves its cluster. Galaxy 2:3 is galaxy 3 of cluster 2. The galaxies of a cluster can belong to
-                different empires.
+                At the start of the round, galaxies are grouped into clusters of {cfg.CLUSTER_SIZE || "a few"}, for good.
+                Galaxy 2:3 is galaxy 3 of cluster 2. The galaxies of a cluster can belong to different empires.
             </p>
-            <p>
-                Each galaxy's leader casts the galaxy's one vote for a benefit, which every kingdom in the cluster gets.
-                The leader can change or withdraw the vote, but once it has changed (cast, switched or withdrawn)
-                it stays for {config.CLUSTER_VOTE_COOLDOWN_EPOCHS * config.BASE_EPOCH_SECONDS / 3600} hours, so it can not be
-                flipped to chase whatever is ahead; the page says when it can change again. Voting for what the galaxy already
-                votes for changes nothing and starts no wait. Every hour, each vote builds its benefit up by
-                {" "}{percent(perHour(config.CLUSTER_VOTE_RATE, config.BASE_EPOCH_SECONDS))} of the benefit's maximum (shared out so that a whole cluster
-                voting together builds as fast whatever its size), and every benefit fades by
-                {" "}{percent(perHour(config.CLUSTER_DECAY_RATE, config.BASE_EPOCH_SECONDS))} of its maximum, whether anyone votes for it or not. A benefit
-                nobody keeps up fades away, and one that only some galaxies vote for may only hold steady.
-            </p>
-            <p>
-                The higher a benefit is, the less each vote adds: past each threshold below, votes are less effective.
-            </p>
+            <h4>Voting</h4>
+            <ul>
+                <li>Each galaxy's leader casts one vote for a benefit, which every kingdom in the cluster gets.</li>
+                <li>Each vote builds its benefit up by {percent(perHour(cfg.CLUSTER_VOTE_RATE, cfg))} of its maximum per hour. The rate is scaled so a whole cluster voting together builds as fast whatever its size.</li>
+                <li>Every benefit fades by {percent(perHour(cfg.CLUSTER_DECAY_RATE, cfg))} of its maximum per hour, voted for or not. One nobody votes for fades away. One that only a few galaxies vote for may only hold steady.</li>
+                <li>Once a galaxy's vote changes (cast, switched or withdrawn), it stays for {duration(cfg.CLUSTER_VOTE_COOLDOWN_EPOCHS, cfg)}. Voting again for the same benefit changes nothing and starts no wait.</li>
+            </ul>
+            <h4>Benefits</h4>
+            <p>The higher a benefit gets, the less each vote adds: past each threshold, votes count for less.</p>
             <ul>
                 {order.filter((key) => benefits[key]).map((key) => {
                     const benefit = benefits[key];
@@ -48,23 +31,18 @@ function ClusterPolitics(props) {
                         .join("; ");
                     return (
                         <li key={key}>
-                            <strong>{benefit.name}</strong>: {benefit.desc}, by up to {percent(benefit.max, 0)}.
+                            <strong>{benefit.name}</strong>: {benefit.desc}, by up to {pct(benefit.max)}.
                             {thresholds ? ` (${thresholds}.)` : ""}
                         </li>
                     );
                 })}
             </ul>
             <p>
-                The Cluster page shows each benefit now, how fast it is changing, and how the galaxies of the
-                cluster are voting. Prices on the Settle and Military pages, and drone production, already include the
-                cluster's benefits.
+                The Benefits tab shows each benefit's level, how fast it is changing, and your galaxy's vote. The
+                Galaxies tab shows how each galaxy is voting. Prices and drone production elsewhere already include
+                the cluster's benefits.
             </p>
-            <p>
-                The Map page shows every galaxy as a bubble inside a bigger one: its cluster (coloured by empire)
-                or its empire (coloured by cluster). Galaxies are sized by their kingdoms still alive or their
-                networth. Your galaxy has a white ring. Point at or tap a galaxy to see it, or switch to the table.
-            </p>
-        </div>
+        </Topic>
     );
 }
 

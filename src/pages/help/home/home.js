@@ -1,58 +1,27 @@
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
-import Table from 'react-bootstrap/Table';
+import React from "react";
+import { HelpTable, Topic, config, num } from "../util";
 
 function Home(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "home") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
-    const nwRows = Object.keys(props.state.game_config?.NETWORTH_VALUES || {}).map((keyItem, iter) => {
-        return <tr key={"networthvalues_" + iter}>
-            <td style={{textAlign: "left"}}>{props.state.pretty_names[keyItem] || keyItem}</td>
-            <td style={{textAlign: "right"}}>{props.state.game_config?.NETWORTH_VALUES[keyItem]}</td>
-        </tr>
-    })
+    const values = config(props.state).NETWORTH_VALUES || {};
+    const names = props.state.pretty_names || {};
     return (
-        <div id="home" ref={yourElementRef} className="help-section">
-            <h2>Home</h2>
-            <h4>Home - Kingdom</h4>
-            <p>The kingdom page displays information about your kingdom's status, such as networth, stars, and units.</p>
+        <Topic id="home" title="Status" lead="Your kingdom at a glance.">
+            <ul>
+                <li><b>Overview</b>: your economy, military, growth and threats on four cards. Each card's title links to the page where you act on it.</li>
+                <li><b>Kingdom</b>: your resources, income and population. Income adds up continuously, not in steps.</li>
+                <li><b>Military</b>: your units at home and with each general, and when each general returns.</li>
+                <li><b>Structures</b>: what is built and what is still being built.</li>
+            </ul>
             <p>
-                Additionally, you can view your kingdom's current income. 
-                Income is updated continuously as the game progresses. Income is continuously accumulated as the game progresses, 
-                based on the number of seconds elapsed since the last update. Updates occur every 15 to 60 seconds, based on the
-                current game config.
+                <b>Max offense</b> and <b>max defense</b> on the Military tab assume your best case: military
+                efficiency and military shields at their maximum, all four generals sent, and fuel in stock.
             </p>
-            <p>Networth is calculated by summing the values below</p>
-            <Table hover>
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th>Networth Value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {nwRows}
-                </tbody>
-            </Table>
-            <h4>Home - Military</h4>
-            <p>
-                The military page displays the current status of your generals and the production status of your military.
-            </p>
-            <p>
-                The max offense and max defense statistics are calculated assuming that your kingdom has the max possible bonuses, 
-                that is: your military efficiency is maxed, your military shields are maxed, you are sending 4 generals, and you are not fuelless.
-            </p>
-            <h4>Home - Structures</h4>
-            <p>
-                The structures page displays the current and future status of your structures.
-            </p>
-        </div>
-    )
+            <h4>Networth</h4>
+            <p>Networth adds up the values below. It sets your rank on the Scores page, which earns points.</p>
+            <HelpTable columns={[["Item"], ["Networth each", "right"]]}
+                rows={Object.keys(values).map((key) => [names[key] || key, num(values[key])])} />
+        </Topic>
+    );
 }
 
 export default Home;

@@ -1,28 +1,18 @@
-import { displayPercent } from "../../../format";
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic, averageDuration, config, num, pct } from "../util";
 
 function Settle(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "settle") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+    const cfg = config(props.state);
     return (
-        <div id="settle" ref={yourElementRef} className="help-section">
-            <h2>Build - Settle</h2>
-            <p>
-                The settle page allows you to explore stars to expand your kingdom. You can explore 
-                up to {displayPercent(props.state.game_config?.BASE_MAX_SETTLE_CAP)} of your current stars.
-            </p>
-            <p>
-                Settle cost increases with your stars at a rate of `(stars ^ {props.state.game_config?.BASE_SETTLE_STARS_POWER}) * {props.state.game_config?.BASE_SETTLE_COST_CONSTANT}`. 
-                The base average settle time is {props.state.game_config?.BASE_EPOCH_SECONDS * (props.state.game_config?.BASE_SETTLE_TIME_MIN_MULTIPLIER + props.state.game_config?.BASE_SETTLE_TIME_MAX_MUTLIPLIER) / 2 / 3600} hours.
-            </p>
-        </div>
-    )
+        <Topic id="settle" title="Settle" lead="Buy new stars without a fight.">
+            <ul>
+                <li>You can have up to {pct(cfg.BASE_MAX_SETTLE_CAP)} of your current stars being settled at once.</li>
+                <li>New stars take {averageDuration(cfg.BASE_SETTLE_TIME_MIN_MULTIPLIER, cfg.BASE_SETTLE_TIME_MAX_MUTLIPLIER, cfg)} on average to arrive. Each batch arrives over a spread of times.</li>
+                <li>Each star costs more the more stars you have: stars<sup>{num(cfg.BASE_SETTLE_STARS_POWER)}</sup> × {num(cfg.BASE_SETTLE_COST_CONSTANT)}. The page shows today's price, after your race, policies and cluster benefits.</li>
+            </ul>
+            <p>A settled star arrives empty. Build on it to make it pay.</p>
+        </Topic>
+    );
 }
 
 export default Settle;

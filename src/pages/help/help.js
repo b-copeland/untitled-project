@@ -30,6 +30,7 @@ import Politics from "./politics/politics.js";
 import EmpirePolitics from "./politics/empirepolitics.js";
 import UniversePolitics from "./politics/universepolitics.js";
 import ClusterPolitics from "./politics/clusterpolitics.js";
+import MapHelp from "./politics/map.js";
 import CreateKingdom from "./other/createkingdom.js";
 import ViewKingdom from "./other/viewkingdom.js";
 import SettingsHelp from "./other/settings.js";
@@ -38,13 +39,13 @@ import "./help.css";
 // Every topic, in the order of the game's own navigation: [id, label, component]. Each page's help section is one topic.
 const TOPICS = [
     ["Start here", [["guide", "Guide", Guide]]],
-    ["Home", [["home", "Status", Home], ["shields", "Shields", Shields], ["news", "News", News], ["galaxy", "Galaxy", Galaxy], ["message", "Message", Message], ["history", "History", History], ["scores", "Scores", Scores], ["automation", "Automation", Automation], ["spending", "Spending", Spending]]],
+    ["Home", [["home", "Status", Home], ["shields", "Shields", Shields], ["news", "News", News], ["galaxy", "Galaxy", Galaxy], ["message", "Message", Message], ["history", "History", History], ["scores", "Scores", Scores], ["automation", "Automation", Automation], ["spending", "Auto spending", Spending]]],
     ["Build", [["build", "Overview", Build], ["settle", "Settle", Settle], ["structures", "Structures", Structures], ["military", "Military", Military], ["projects", "Projects", Projects], ["buildmissiles", "Build Missiles", BuildMissiles]]],
     ["Conquer", [["conquer", "Overview", Conquer], ["attack", "Attack", Attack], ["spy", "Spy", Spy], ["intel", "Intel", Intel], ["launchmissiles", "Launch Missiles", LaunchMissiles], ["schedule", "Schedule", Schedule], ["primitives", "Primitives", Primitives]]],
-    ["Politics", [["politics", "Galaxy", Politics], ["empirepolitics", "Empire", EmpirePolitics], ["clusterpolitics", "Cluster", ClusterPolitics], ["universepolitics", "Universe", UniversePolitics]]],
-    ["Other", [["createkingdom", "Create Kingdom", CreateKingdom], ["viewkingdom", "View Kingdom", ViewKingdom], ["settings", "Settings", SettingsHelp]]],
+    ["Politics", [["politics", "Galaxy", Politics], ["empirepolitics", "Empire", EmpirePolitics], ["clusterpolitics", "Cluster", ClusterPolitics], ["universepolitics", "Universe", UniversePolitics], ["map", "Map", MapHelp]]],
+    ["Other", [["createkingdom", "Create Kingdom", CreateKingdom], ["viewkingdom", "Kingdom page", ViewKingdom], ["settings", "Settings", SettingsHelp]]],
 ];
-const FLAT = TOPICS.flatMap(([, topics]) => topics);
+export const FLAT = TOPICS.flatMap(([, topics]) => topics);
 
 /**
  * The help, one topic at a time: a list of topics on the left on a wide screen and a drop-down on a narrow one, with
@@ -86,7 +87,7 @@ function Help(props) {
                 </Nav>
             </aside>
             <article className="help-article">
-                <Topic key={selected} state={state} scrollTarget={null} />
+                <Topic key={selected} state={state} />
                 <div className="help-pager">
                     {index > 0
                         ? <button type="button" className="help-pager-link" onClick={() => setSelected(FLAT[index - 1][0])}>&larr; {FLAT[index - 1][1]}</button>

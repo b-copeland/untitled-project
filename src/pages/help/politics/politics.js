@@ -1,35 +1,20 @@
-import { displayPercent } from "../../../format";
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic, config, duration } from "../util";
 
 function Politics(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "politics") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+    const cfg = config(props.state);
     return (
-        <div id="politics" ref={yourElementRef} className="help-section">
-            <h2>Politics - Galaxy</h2>
+        <Topic id="politics" title="Galaxy politics" lead="Choose your galaxy's leader and its policies.">
+            <ul>
+                <li><b>Leader</b>: every kingdom votes for one galaxymate. The kingdom with the most votes leads, and a tie keeps the current leader. The leader casts the galaxy's vote in cluster politics, and acts for the galaxy in empire politics: founding, joining or leaving an empire.</li>
+                <li><b>Policies</b>: each doctrine has two policies, and each kingdom votes for one of them. The one with more votes is active for the whole galaxy, and a tie keeps the current one. The tab describes what each policy does.</li>
+            </ul>
             <p>
-                The Galaxy page under Politics allows you to interact with your galaxy's politics. The 
-                Galaxy Leader vote currently does nothing.
+                Once you change a vote, it stays for {duration(cfg.BASE_GALAXY_VOTE_COOLDOWN_EPOCHS, cfg)}, and the page
+                says when you can change it again. Your first vote, and voting again for the same choice, start no wait.
             </p>
-            <p>
-                The Policies tab allows you to vote with your galaxy on difference policies across 
-                doctrines. You can only vote for one policy within each doctrine. The active policy will 
-                change when it has more votes than the other policy in the doctrine.
-            </p>
-            <p>
-                Once you change a vote (the leader, or either doctrine), it stays for
-                {" "}{(props.state.game_config?.BASE_GALAXY_VOTE_COOLDOWN_EPOCHS * props.state.game_config?.BASE_EPOCH_SECONDS / 3600) || "a few"} hours,
-                and the page says when you can change it again. Your first vote, and voting for what you already vote for,
-                start no wait.
-            </p>
-        </div>
-    )
+        </Topic>
+    );
 }
 
 export default Politics;

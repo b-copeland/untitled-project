@@ -1,35 +1,27 @@
-import React, { useEffect, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic, config, duration } from "../util";
 
 function Spending(props) {
-    const yourElementRef = useRef(null);
-
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "spending") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+    const cfg = config(props.state);
     return (
-        <div id="spending" ref={yourElementRef} className="help-section">
-            <h2>Spending</h2>
+        <Topic id="spending" title="Auto spending" lead="Let your income build your kingdom for you.">
             <p>
-                The Spending tab of the Automation page turns auto-spending on or off and sets how it splits your money: one slider per category, adding up to at most 100%; what is left stays as money. Press Update to save the sliders. With auto-spending enabled, 
-                the game automatically spends your money to build your kingdom.
+                On the Spending tab of the Automation page, give each category a share of your income: settling,
+                structures, military and engineers. The shares add up to at most 100%. Whatever is left stays as money
+                you spend yourself. Press Update to save.
             </p>
             <p>
-                When auto-spending is enabled, money from your income, attacks, or robs is allocated to funding in the percentages you've chosen. 
-                You can view your current funding by category on the "Build" page.
+                While auto spending is on, each share of the money you make (income, attacks and robs) goes into that
+                category's funding. About every {duration(cfg.BASE_AUTO_SPENDING_TIME_MULTIPLIER, cfg)} the game spends
+                each category's funding as far as it can. The Build page shows how much funding each category holds.
             </p>
             <p>
-                Every {(props.state.game_config?.BASE_AUTO_SPENDING_TIME_MULTIPLIER || 0) * (props.state.game_config?.BASE_EPOCH_SECONDS || 0)} seconds 
-                the game engine will spend any available funding to the extent that it is able. In order for the auto-spender to build structures or units, their respective allocations
-                must first be set in the "Allocate" tab of the "Structures" and "Military" pages, or on the Automation page.
+                <b>Structures and military need targets.</b> Without a target mix (Structure targets and Unit targets
+                on the Automation page), their funding builds up and is never spent.
             </p>
-            <p>
-                When auto-spending is disabled, all reserved funding is released back into money to be spent as you wish.
-            </p>
-        </div>
-    )
+            <p>Turning auto spending off returns all funding to your money.</p>
+        </Topic>
+    );
 }
 
 export default Spending;

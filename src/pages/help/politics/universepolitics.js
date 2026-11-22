@@ -1,31 +1,22 @@
-import { displayPercent } from "../../../format";
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic, config, duration, num } from "../util";
 
 function UniversePolitics(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "universepolitics") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+    const cfg = config(props.state);
     return (
-        <div id="universepolitics" ref={yourElementRef} className="help-section">
-            <h2>Politics - Universe</h2>
+        <Topic id="universepolitics" title="Universe politics" lead="Universe-wide elections that change the rules for everyone.">
             <p>
-                The Universe page under Politics allows you periodically participate in universal elections. 
-                The election period lasts for {props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_ELECTION_LENGTH_MULTIPLIER / 3600} hours, 
-                while the results of the election are active 
-                for {props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_ELECTION_RESULTS_DURATION_MULTIPLIER / 3600} hours.
+                Elections come round regularly. Voting is open for {duration(cfg.BASE_ELECTION_LENGTH_MULTIPLIER, cfg)},
+                and the winning policies then hold for {duration(cfg.BASE_ELECTION_RESULTS_DURATION_MULTIPLIER, cfg)}.
+                The page says when the next vote opens.
             </p>
-            <p>
-                During the election period, you can buy votes to participate in the election. At the end of the election period, the policy with the 
-                most votes within each doctrine will become active and you will no longer be able to vote. Unused votes will be retained for the 
-                next election cycle.
-            </p>
-        </div>
-    )
+            <ul>
+                <li>Buy votes with money, at {num(cfg.BASE_VOTES_COST)} each, while voting is open.</li>
+                <li>Spend them on the policies you want, in either doctrine and in any amounts. Spent votes can not be taken back.</li>
+                <li>When voting closes, the policy with the most votes in each doctrine wins. Votes you did not spend carry over to the next election.</li>
+            </ul>
+        </Topic>
+    );
 }
 
 export default UniversePolitics;

@@ -1,23 +1,18 @@
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic } from "../util";
 
-function Build(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "build") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+function Build() {
     return (
-        <div id="build" ref={yourElementRef} className="help-section">
-            <h2>Build</h2>
+        <Topic id="build" title="Build overview" lead="What is on its way, and what auto spending has set aside.">
             <p>
-                The build page displays the items in the production queue that are closest to being completed. 
-                In the parenthesis next to each section title, you can see the total number of items in your queue.
+                <b>Auto spending funding</b> shows the money held for each category while auto spending is on.
             </p>
-        </div>
-    )
+            <p>
+                Below it, one queue each for settling, structures, units, engineers and missiles lists what is closest
+                to finishing and when. The number in each title is the total still in that queue.
+            </p>
+        </Topic>
+    );
 }
 
 export default Build;

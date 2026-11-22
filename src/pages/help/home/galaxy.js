@@ -1,38 +1,28 @@
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic } from "../util";
 import { LastKnownHelp } from "../other/viewkingdom";
 
 function Galaxy(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "galaxy") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
     return (
-        <div id="galaxy" ref={yourElementRef} className="help-section">
-            <h2>Galaxy</h2>
+        <Topic id="galaxy" title="Galaxy" lead="Browse the universe one galaxy at a time.">
             <p>
-                The galaxy page allows you to view the different galaxies in the universe. 
+                Use the arrows or the two boxes to pick a cluster and galaxy, and switch between Table and Cards. Each
+                kingdom has buttons to view it, attack, spy, launch missiles, message it, pin it to your Conquer page
+                and, for kingdoms in other galaxies, trade intel on it.
             </p>
             <p>
-                You can not view the stats (stars or networth) for kingdoms in foreign galaxies 
-                unless they have first been revealed. Certain aggressive actions will cause kingdoms to be revealed, 
-                such as attacking a kingdom in your galaxy or having a spy attempt caught on spy radar.
-            </p>
-            <p>
-                When kingdoms have stats revealed, you can press the "View" button to see information about that kingdom. Additionally, 
-                there are various buttons to interact with each kingdom.
+                A kingdom in another galaxy shows its stars and networth only once they are revealed to you. You reveal
+                them by spying, by buying or receiving intel, or when that kingdom attacks your galaxy or gets caught
+                spying on you.
             </p>
             <LastKnownHelp state={props.state} />
+            <h4>Sharing your kingdom</h4>
             <p>
-                When viewing your own galaxy, you can press the "Share" button to share your kingdom's details with a galaxymate. 
-                You should only use this with galaxymates you trust, since they will be able to view virtually any information about 
-                your kingdom at any time. You can choose to unshare your information at a later time. 
+                In your own galaxy, the share button on a galaxymate shows them almost everything about your kingdom
+                for as long as you share. Only share with galaxymates you trust. Press it again to stop.
             </p>
-        </div>
-    )
+        </Topic>
+    );
 }
 
 export default Galaxy;
