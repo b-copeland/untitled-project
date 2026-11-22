@@ -114,8 +114,21 @@ const POLL_MS = {
 
 export const gameQueryKey = (key) => ["game", key];
 
-// The API reports failures as a JSON body, which the app has always stored as the key's data, so keep doing that.
-const fetchGameKey = (key) => authFetch(ENDPOINTS[key], { keepalive: true }).then((r) => r.json());
+// The API reports refusals (4xx) as a JSON body, which the app has always stored as the key's data, so keep doing
+// that. A server error (5xx) is not data: it is thrown, so the key keeps its last good value and is fetched again.
+export const fetchGameKey = (key) =>
+  authFetch(ENDPOINTS[key], { keepalive: true }).then((r) => {
+    if (r.status >= 500) {
+      throw new Error(`${ENDPOINTS[key]} answered ${r.status}`);
+    }
+    return r.json();
+  });
+
+// A failed fetch (a server error, a dropped connection, a throttled backend) is tried again 1, 2, 4, 8 and 16 seconds
+// later. Most keys are not polled, so without this one bad moment, such as the burst of requests right after a kingdom
+// is made, would leave a page empty until something unrelated happened to refetch that key.
+export const RETRIES = 5;
+export const retryDelay = (attempt) => Math.min(1000 * 2 ** attempt, 30 * 1000);
 
 export const createQueryClient = () =>
   new QueryClient({
@@ -123,8 +136,10 @@ export const createQueryClient = () =>
       queries: {
         // Data only changes through explicit invalidation (user actions, websocket pushes, polling).
         staleTime: Infinity,
-        refetchOnWindowFocus: false,
-        retry: 1,
+        // Only a key whose last fetch failed is fetched again when the player comes back to the tab.
+        refetchOnWindowFocus: (query) => query.state.status === "error",
+        retry: RETRIES,
+        retryDelay,
       },
     },
   });
