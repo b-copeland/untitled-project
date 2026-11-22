@@ -51,6 +51,19 @@ test("the navigation shows how much is new, per section and per page", () => {
     expect(screen.getByText("Conquer")).toBeTruthy();
 });
 
+test("the navigation opens with the game's name, then the player's kingdom and its galaxy", () => {
+    render(
+        <MemoryRouter>
+            <SideNavbar logged={true} hasKingdom={true} showNav={true} setShowNav={() => {}} notifs={{}}
+                kingdomName="Iron Reach" galaxy="2:5"/>
+        </MemoryRouter>
+    );
+
+    expect(screen.getAllByText("Farsteel").length).toBeGreaterThan(0);
+    expect(screen.getByText("Iron Reach")).toBeTruthy();
+    expect(screen.getByText("2:5")).toBeTruthy();
+});
+
 test("the navigation for someone not signed in is just landing and login", () => {
     render(
         <MemoryRouter><SideNavbar logged={false} showNav={true} setShowNav={() => {}} notifs={{}}/></MemoryRouter>
@@ -58,6 +71,7 @@ test("the navigation for someone not signed in is just landing and login", () =>
 
     expect(screen.getByText("Login")).toBeTruthy();
     expect(screen.queryByText("Build")).toBeNull();
+    expect(screen.getAllByText("Farsteel").length).toBeGreaterThan(0);
 });
 
 test("the navigation for a player with no kingdom yet offers only making one, and help", () => {

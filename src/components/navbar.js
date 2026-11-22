@@ -12,8 +12,9 @@ import { sections } from "../routes";
 /**
  * The side navigation, built from the page table in routes.js: a label for each section (not a link; with a count of anything new in
  * it) and its pages, all links at one indent, underneath, then Misc (Help and Landing) last. Settings and Logout are in the
- * account menu (usermenu.js), not here. The list scrolls. From the lg breakpoint up it is a fixed column; below
- * that it is a drawer opened from the top bar, and it closes whenever you navigate.
+ * account menu (usermenu.js), not here. Above the list: the game's name and star, then the player's kingdom and its
+ * galaxy ("1:3", cluster then galaxy). The list scrolls. From the lg breakpoint up it is a fixed column; below that it
+ * is a drawer opened from the top bar, and it closes whenever you navigate.
  */
 function SideNavbar(props) {
   const location = useLocation();
@@ -31,11 +32,27 @@ function SideNavbar(props) {
     <Nav.Link as={Link} to={to} onClick={closeNav} className="nav-page" active={location.pathname === to}>{label}</Nav.Link>
   );
 
+  const brand = <><img src="/favicon.svg" alt="" className="nav-brand-logo" />Farsteel</>;
+
   return (
     <Offcanvas className="nav-canvas" show={props.showNav} onHide={closeNav} responsive="lg">
-      <Offcanvas.Header closeButton><Offcanvas.Title>Menu</Offcanvas.Title></Offcanvas.Header>
+      <Offcanvas.Header closeButton><Offcanvas.Title className="nav-brand">{brand}</Offcanvas.Title></Offcanvas.Header>
       <Offcanvas.Body>
         <div className="navdiv">
+          <div className="nav-top">
+            {/* On a phone the drawer's title already shows the name. */}
+            <div className="nav-brand d-none d-lg-flex">{brand}</div>
+            {props.logged && props.hasKingdom && props.kingdomName ? (
+              <div className="nav-identity">
+                <div className="nav-kingdom">{props.kingdomName}</div>
+                {props.galaxy ? (
+                  <div className="nav-galaxy" title={`Cluster ${props.galaxy.split(":")[0]}, galaxy ${props.galaxy.split(":")[1] ?? ""}`}>
+                    {props.galaxy}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
           <Nav className="mainnav">
             {!props.logged ? <>{sectionLink("/login", "Login")}</> : null}
             {props.logged && !props.hasKingdom ? <>

@@ -4,6 +4,14 @@
 .navdiv { display: flex; flex-direction: column; min-height: 100%; }
 .mainnav { display: flex; flex-direction: column; width: 100%; }
 
+/* The game's name, then the player's kingdom and galaxy, above the list. */
+.nav-top { padding: 0.25rem 0.75rem 0.75rem; border-bottom: 1px solid var(--border-subtle); }
+.nav-brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; font-weight: 700; }
+.nav-brand-logo { width: 28px; height: 28px; flex: none; }
+.nav-brand + .nav-identity { margin-top: 0.5rem; }
+.nav-kingdom { font-weight: 600; overflow-wrap: anywhere; }
+.nav-galaxy { color: var(--bs-secondary-color); font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+
 .nav-group { margin-top: 0.75rem; }
 .nav-heading {
     padding: 0.25rem 0.75rem; color: var(--bs-secondary-color, #6c757d);
