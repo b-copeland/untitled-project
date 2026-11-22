@@ -80,9 +80,10 @@ function MilitaryContent(props) {
 
 /**
  * The one units table: what each unit costs and does, how many you have and have training, and a last column that is
- * whatever the mode asks for. A unit whose project is not done shows why in place of its numbers.
+ * whatever the mode asks for, after any ``extra`` columns. ``omit`` drops columns by header (Upgrade shows only what an
+ * upgrade needs). A unit whose project is not done shows why in place of its numbers.
  */
-function UnitsTable({ kdInfo, mobisInfo, units, lastHeader, last, extra = [] }) {
+function UnitsTable({ kdInfo, mobisInfo, units, lastHeader, last, extra = [], omit = [], className = "" }) {
     const desc = mobisInfo.units_desc || {};
     const locked = (unit) => Boolean(unit.project) && (kdInfo.completed_projects || []).indexOf(unit.project) < 0;
     const whole = (value) => Math.floor(value || 0).toLocaleString();
@@ -92,12 +93,12 @@ function UnitsTable({ kdInfo, mobisInfo, units, lastHeader, last, extra = [] }) 
         { header: "Off / Def", cell: (unit) => `${desc[unit.key]?.offense || 0} / ${desc[unit.key]?.defense || 0}` },
         { header: "Fuel", cell: (unit) => desc[unit.key]?.fuel || 0 },
         { header: "Have", cell: (unit) => (locked(unit) ? `Research "${unit.projectName}" to unlock` : whole(mobisInfo.units.current_total?.[unit.key])),
-          span: (unit) => (locked(unit) ? 2 : 1) },
+          span: (unit) => (locked(unit) && !omit.includes("Training") ? 2 : 1) },
         { header: "Training", cell: (unit) => whole(mobisInfo.units.hour_24?.[unit.key]) },
         ...extra,
         { header: lastHeader, cell: (unit) => last(unit, locked(unit)) },
-    ];
-    return <GameTable className="game-table specialists-table" columns={columns} rows={units} rowKey={(unit) => unit.key}
+    ].filter((column) => !omit.includes(column.header));
+    return <GameTable className={"game-table specialists-table " + className} columns={columns} rows={units} rowKey={(unit) => unit.key}
         rowClassName={(unit) => (locked(unit) ? "disabled-table-row" : undefined)} />;
 }
 
@@ -301,17 +302,26 @@ function Upgrade(props) {
                 Upgrade units at home to the next unit of their line, one step at a time, for the difference in cost.
                 They train like new units and do not fight until they are done.
             </p>
+            {/* Only what an upgrade needs (the unit's price, fuel and training are on Train). On a phone each row is a
+                small block (military.css), which counts on these columns in this order. */}
             <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} units={rows} lastHeader="To Upgrade"
+                omit={["Cost", "Fuel", "Training"]} className="upgrade-table"
                 extra={[
-                    { header: "From", align: "left", cell: (unit) => `${names[desc[unit.key].upgrades_from] || desc[unit.key].upgrades_from} (${Math.floor(home[desc[unit.key].upgrades_from] || 0).toLocaleString()} at home)` },
+                    { header: "From", align: "left", cell: (unit) => {
+                        const source = desc[unit.key].upgrades_from;
+                        return <span className="upgrade-from">{names[source] || source}
+                            <span className="upgrade-from-home">{Math.floor(home[source] || 0).toLocaleString()} at home</span></span>;
+                    } },
                     { header: "Upgrade Cost", cell: (unit) => Math.ceil(desc[unit.key].upgrade_cost || 0).toLocaleString() },
                 ]}
                 last={(unit, locked) => <AmountInput name={unit.key} id={`${unit.key}-upgrade-input`} label={`${unit.label} to upgrade to`}
                     value={input[unit.key]} onChange={handleInputChange} max={limits.max(unit.key)} soloMax={limits.soloMax(unit.key)} disabled={locked} />} />
-            <div className="military-summary">
-                <span>Cost: {Math.ceil(limits.cost).toLocaleString()}</span>
+            <div className="form-actions">
+                <span className="military-summary text-muted">
+                    <span>Cost: {Math.ceil(limits.cost).toLocaleString()}</span>
+                </span>
+                <SubmitButton loading={props.loading.mobis} blocked={blocked} onClick={onSubmitClick} className="specialists-button">Upgrade units</SubmitButton>
             </div>
-            <SubmitButton loading={props.loading.mobis} blocked={blocked} onClick={onSubmitClick} className="specialists-button">Upgrade units</SubmitButton>
         </div>
     );
 }

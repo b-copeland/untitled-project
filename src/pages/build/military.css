@@ -69,3 +69,33 @@
 .military-modes { margin: 0 0 0.75rem; align-self: flex-start; }
 .military-note { margin: 0 0 0.75rem; color: var(--bs-secondary-color, #6c757d); }
 .military-summary { display: inline-flex; gap: 1.5rem; }
+
+/* Upgrade: the unit it comes from, and how many of it are at home underneath in smaller, muted text. */
+.upgrade-from { white-space: nowrap; }
+.upgrade-from-home { display: block; font-size: 0.8rem; color: var(--bs-secondary-color); }
+
+/* Upgrade on a phone: each unit is a small block instead of a wide row, so the slider fits. The unit and its
+   offense / defense, then what you have (or the project to research), then where it comes from and the cost of each,
+   then the slider across the whole width. Columns: Unit, Off / Def, Have, From, Upgrade Cost, To Upgrade. */
+@media (max-width: 575.98px) {
+    .upgrade-table thead { display: none; }
+    .upgrade-table tr {
+        display: grid; grid-template-columns: 1fr auto; column-gap: 0.75rem; row-gap: 0.3rem;
+        padding: 0.65rem 0.25rem; border-bottom: 1px solid var(--row-divider);
+    }
+    .upgrade-table tr:last-child { border-bottom: 0; }
+    .upgrade-table td { display: block; padding: 0; border: 0; text-align: left !important; }
+    .upgrade-table td:nth-child(1) { font-weight: 600; }
+    .upgrade-table td:nth-child(2), .upgrade-table td:nth-child(5) { text-align: right !important; white-space: nowrap; }
+    .upgrade-table td:nth-child(3), .upgrade-table td:nth-child(6) { grid-column: 1 / -1; }
+    .upgrade-table td:nth-child(2)::before,
+    .upgrade-table td:nth-child(3)::before,
+    .upgrade-table td:nth-child(4)::before,
+    .upgrade-table td:nth-child(5)::before { color: var(--bs-secondary-color); font-size: 0.8rem; margin-right: 0.35rem; }
+    .upgrade-table td:nth-child(2)::before { content: "Off / Def"; }
+    .upgrade-table td:nth-child(3)::before { content: "Have"; }
+    .upgrade-table td:nth-child(4)::before { content: "From"; }
+    .upgrade-table .disabled-table-row td:nth-child(3)::before { content: none; }
+    .upgrade-table td:nth-child(5)::before { content: "Cost each"; }
+    .upgrade-table .amount-input { max-width: none; margin-left: 0; }
+}
