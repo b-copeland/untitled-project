@@ -1261,7 +1261,7 @@ def update_notifs(req: func.HttpRequest) -> func.HttpResponse:
     )
     try:
         for add_cat in add_categories:
-            notifs[add_cat] += 1
+            notifs[add_cat] = notifs.get(add_cat, 0) + 1  # a counter added after the kingdom was made starts at 0
         for clear_cat in clear_categories:
             notifs[clear_cat] = 0
         CONTAINER.replace_item(
@@ -2121,6 +2121,47 @@ def update_galaxy_intel(req: func.HttpRequest) -> func.HttpResponse:
     except CosmosAccessConditionFailedError:
         return func.HttpResponse("Conflict", status_code=412)
     return func.HttpResponse("Galaxy intel updated", status_code=200)
+
+
+# --- galaxy_board_<galaxy>: the galaxy's message board -----------------------------------------------------------
+# One document per galaxy. Flask owns every field (the posts, the pinned post) and decides every change with If-Match,
+# so this layer only reads it, creates it, and merges into it.
+
+GALAXY_BOARD_PREFIX = "galaxy_board_"
+
+
+@APP.function_name(name="GetGalaxyBoard")
+@APP.route(route="galaxy/{galaxy_id}/board", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_galaxy_board(req: func.HttpRequest) -> func.HttpResponse:
+    """The galaxy's board. Created empty (``{"id": ...}``) the first time it is read, so it always exists."""
+    item_id = f"{GALAXY_BOARD_PREFIX}{req.route_params.get('galaxy_id')}"
+    document = _read_or_none(item_id)
+    if document is None:
+        try:
+            document = CONTAINER.create_item({"id": item_id})
+        except CosmosResourceExistsError:  # another request created it first
+            document = CONTAINER.read_item(item=item_id, partition_key=item_id)
+    return _json_response(document)
+
+
+@APP.function_name(name="UpdateGalaxyBoard")
+@APP.route(route="galaxy/{galaxy_id}/board", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
+def update_galaxy_board(req: func.HttpRequest) -> func.HttpResponse:
+    """Shallow merge into ``galaxy_board_<galaxy>``. Honours If-Match (412): Flask decides every change with it."""
+    item_id = f"{GALAXY_BOARD_PREFIX}{req.route_params.get('galaxy_id')}"
+    body = req.get_json()
+    if not isinstance(body, dict):
+        return func.HttpResponse("The body must be an object", status_code=400)
+    document = _read_or_none(item_id)
+    if document is None:
+        return func.HttpResponse("No such galaxy board", status_code=404)
+    changes = {key: value for key, value in body.items() if key != "id"}
+    try:
+        CONTAINER.replace_item(item_id, {**document, **changes})
+    except CosmosAccessConditionFailedError:
+        return func.HttpResponse("Conflict", status_code=412)
+    return func.HttpResponse("Galaxy board updated", status_code=200)
 
 
 # --- cluster_<cluster>: a cluster's politics ---------------------------------------------------------------------
