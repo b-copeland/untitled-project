@@ -56,6 +56,51 @@ test("training waits for units, and the slider stops at the recruits you have", 
     expect(train().disabled).toBe(false);
 });
 
+const withUpgrades = () => {
+    const d = data();
+    d.kingdom.units = { ...d.kingdom.units, attack: 10, heavy_attack: 4 };
+    d.kingdom.completed_projects = ["heavy_attackers", "elite_attackers"];
+    d.mobis.units_desc = {
+        ...d.mobis.units_desc,
+        heavy_attack: { ...unit(400, 6, 0), project: "heavy_attackers", upgrades_from: "attack", upgrade_cost: 100 },
+        elite_attack: { ...unit(525, 7, 0), project: "elite_attackers", upgrades_from: "heavy_attack", upgrade_cost: 125 },
+        solar_attack: { ...unit(600, 7, 0), project: "solar_attackers", upgrades_from: "elite_attack", upgrade_cost: 75 },
+    };
+    d.state.pretty_names = { ...d.state.pretty_names, heavy_attack: "Heavy Attackers", elite_attack: "Elite Attackers", solar_attack: "Solar Attackers" };
+    d.state.projects = { ...d.state.projects, solar_attackers: { name: "Solar Attackers" } };
+    return d;
+};
+
+test("the Upgrade page lists only units made from others, with where they come from and the server's cost", () => {
+    render(<MilitaryContent data={withUpgrades()} loading={{}} updateData={jest.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Upgrade" }));
+    expect(document.getElementById("attack-upgrade-input")).toBeNull();
+    expect(document.getElementById("heavy_attack-upgrade-input")).not.toBeNull();
+    expect(screen.getByText("10 at home").parentElement.textContent).toBe("Attackers10 at home");
+    expect(screen.getByText("4 at home").parentElement.textContent).toBe("Heavy Attackers4 at home");
+    expect(screen.getByText("125")).toBeTruthy();
+    // Only what an upgrade needs: the price, fuel and training columns are on Train.
+    const headers = screen.getAllByRole("columnheader").map((th) => th.textContent);
+    expect(headers).toEqual(["Unit", "Off / Def", "Have", "From", "Upgrade Cost", "To Upgrade"]);
+    expect(document.getElementById("solar_attack-upgrade-input").disabled).toBe(true);  // project not done
+});
+
+test("an upgrade stops at the units at home, and sends what was chosen", async () => {
+    const updateData = jest.fn((keys, funcs) => funcs.forEach((f) => f()));
+    render(<MilitaryContent data={withUpgrades()} loading={{}} updateData={updateData} />);
+    fireEvent.click(screen.getByRole("button", { name: "Upgrade" }));
+    const button = () => screen.getByRole("button", { name: "Upgrade units" });
+    expect(button().title).toBe("Choose some units to upgrade");
+    fireEvent.change(document.getElementById("heavy_attack-upgrade-input"), { target: { value: "50" } });
+    expect(document.getElementById("heavy_attack-upgrade-input").value).toBe("10");  // 10 attackers at home
+    expect(screen.getByText("Cost: 1,000")).toBeTruthy();
+    fireEvent.click(button());
+    expect(authFetch).toHaveBeenCalledWith("api/mobis/upgrade", expect.objectContaining({
+        body: JSON.stringify({ input: { heavy_attack: "10", elite_attack: "", solar_attack: "" } }),
+    }));
+    expect(await screen.findByText("ok")).toBeTruthy();
+});
+
 test("the Disband page offers recruits and the trained units, but not engineers", () => {
     show();
     fireEvent.click(screen.getByRole("button", { name: "Disband" }));

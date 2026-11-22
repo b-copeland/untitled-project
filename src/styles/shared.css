@@ -9,9 +9,89 @@
 :root {
   --space-tight: 5px;
   --space-loose: 10px;
-  --table-font-size: 12px;
-  --table-font-size-wide: 16px;
+  --table-font-size: 0.8125rem;
+  --table-font-size-wide: 0.9375rem;
   --wide-screen: 756px;
+  --content-width: 1200px;
+  --radius: 0.75rem;
+}
+
+/* Colours come from the theme (styles/themes.css): --surface for a card, --border-subtle for its edge, --row-divider
+   between rows, --hover-tint under the pointer, --accent for the chosen and the primary. */
+
+/* A section of a page is a Panel (components/planner.js): a titled card on the page. Panels side by side from tablet
+   width, stacked on a phone: */
+.panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 1rem; width: 100%; align-items: start; }
+
+/* The page head (components/pagehead.js): the section name, or the way back, over the page title. */
+.page-head { width: 100%; margin: 0 0 1rem; text-align: left; }
+.page-crumbs {
+  color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.page-crumbs a { text-decoration: none; }
+.page-crumbs a:hover { text-decoration: underline; }
+.page-title { font-size: 1.5rem; font-weight: 600; margin: 0.1rem 0 0; }
+
+/* A kingdom name that links to its page (components/kingdomlink.js): link coloured, underlined on hover. */
+.kingdom-link { color: var(--bs-link-color); text-decoration: none; }
+.kingdom-link:hover { color: var(--bs-link-hover-color); text-decoration: underline; }
+
+/* --- Tabs: a segmented control - a track of buttons, the chosen one filled - left-aligned, scrolling sideways on a
+   phone rather than wrapping. Pages written with `justify fill` stretched each tab across the page; tabs keep their own
+   width now. */
+
+.nav-tabs {
+  --bs-nav-tabs-border-width: 0;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+  padding: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--bs-border-color);
+  border-radius: calc(var(--radius) - 0.125rem);
+}
+.nav-tabs::-webkit-scrollbar { display: none; }
+.nav-tabs .nav-item { flex: 0 0 auto; }
+.nav-tabs .nav-link {
+  margin: 0;
+  padding: 0.4rem 0.9rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  color: var(--bs-body-color);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.nav-tabs .nav-link:hover,
+.nav-tabs .nav-link:focus-visible { background: var(--surface-raised); color: var(--bs-emphasis-color); isolation: auto; }
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+  background: rgba(var(--bs-primary-rgb), 0.18);
+  color: var(--bs-emphasis-color);
+  box-shadow: inset 0 0 0 1px rgba(var(--bs-primary-rgb), 0.55);
+  font-weight: 600;
+}
+/* A tab bar is a block of its own, so what follows starts below it. */
+.nav-tabs + .tab-content { clear: both; }
+
+/* --- Accordions (queues on Build): the same card as a section --------------------------------------------------- */
+
+.accordion {
+  --bs-accordion-bg: var(--surface);
+  --bs-accordion-border-color: var(--border-subtle);
+  --bs-accordion-border-radius: var(--radius);
+  --bs-accordion-inner-border-radius: calc(var(--radius) - 1px);
+  --bs-accordion-active-bg: var(--surface-raised);
+  --bs-accordion-active-color: var(--bs-emphasis-color);
+  --bs-accordion-btn-focus-box-shadow: none;
 }
 
 /* --- Layout --------------------------------------------------------------------------------------------------- */
@@ -38,12 +118,13 @@
   display: flex;
   flex-direction: row;
 }
+/* Full width with space above and below only: side margins on a full-width box push it past its container. */
 .box-tight {
-  margin: var(--space-tight);
+  margin: var(--space-tight) 0;
   width: 100%;
 }
 .box-loose {
-  margin: var(--space-loose);
+  margin: var(--space-loose) 0;
   width: 100%;
 }
 .panel-medium {
@@ -57,17 +138,37 @@
 
 /* --- Tables built with GameTable (components/gametable.js) ---------------------------------------------------- */
 
+/* Borderless rows on the section's surface: a muted header, a faint line between rows, a tint on hover. */
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: transparent;
+  --bs-table-border-color: var(--row-divider, var(--bs-border-color));
+  --bs-table-hover-bg: var(--hover-tint);
+  --bs-table-active-bg: var(--hover-tint);
+  margin-bottom: 0;
+}
+.table > :not(caption) > * > * { padding: 0.5rem 0.625rem; }
+.table > thead > tr > th {
+  color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: bottom;
+  border-bottom-color: var(--bs-border-color);
+}
+.table > tbody > tr:last-child > * { border-bottom-width: 0; }
+.table td { font-variant-numeric: tabular-nums; }
+/* Pages that still pass `bordered` get rows only, like the rest. */
+.table-bordered > :not(caption) > * > * { border-left-width: 0; border-right-width: 0; }
+.table-bordered > :not(caption) > * { border-top-width: 0; }
+
 .game-table {
-  margin: var(--space-tight);
   width: 100%;
   font-size: var(--table-font-size);
 }
 @media (min-width: 756px) {
-  .game-table {
-    width: 50%;
-    min-width: 450px;
-    font-size: var(--table-font-size-wide);
-  }
+  .game-table { font-size: var(--table-font-size-wide); }
 }
 
 /* --- Form fields and buttons (components/forms.js) ------------------------------------------------------------ */
@@ -83,8 +184,26 @@
   margin: var(--space-tight);
 }
 
-/* Wide tables scroll sideways inside this instead of squeezing or pushing the page wider. */
-.table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* Wide tables scroll sideways inside this instead of squeezing or pushing the page wider. On its own it is a section
+   card; inside a section, panel or modal it is just the scroller, so cards do not nest. */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 0 1rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+}
+:is(.panel, .overview-card, .text-box, .galaxy-card, .accordion-body, .modal-body) .table-scroll,
+.table-scroll .table-scroll {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
 /* No side margin inside it: a full-width table plus a margin is always a little too wide, and scrolls for nothing. */
 .table-scroll > .table { margin-left: 0; margin-right: 0; }
 
@@ -124,12 +243,12 @@
 .amount-input-track { display: flex; align-items: center; gap: 8px; }
 .amount-input-cap { flex: 0 0 auto; min-width: 2.5ch; text-align: right; font-size: 0.8em; color: var(--bs-secondary-color, #6c757d); }
 .amount-input-slider { margin: 0; flex: 1 1 auto; min-width: 0; }
-/* Three tones: dark blue up to what is chosen (--val), light blue for what is still free to choose, grey for what the other boxes have used up (--avail). Both are set inline. */
+/* Three tones: the accent up to what is chosen (--val), a pale accent for what is still free to choose, the theme's secondary background for what the other sliders have used up (--avail). Both are set inline. */
 .amount-input-slider::-webkit-slider-runnable-track {
-  background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--avail, 100%), var(--bs-gray-400, #ced4da) var(--avail, 100%), var(--bs-gray-400, #ced4da) 100%);
+  background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--avail, 100%), var(--bs-secondary-bg) var(--avail, 100%), var(--bs-secondary-bg) 100%);
 }
 .amount-input-slider::-moz-range-track {
-  background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--avail, 100%), var(--bs-gray-400, #ced4da) var(--avail, 100%), var(--bs-gray-400, #ced4da) 100%);
+  background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--avail, 100%), var(--bs-secondary-bg) var(--avail, 100%), var(--bs-secondary-bg) 100%);
 }
 .amount-input-error { color: var(--bs-danger, #dc3545); font-size: 0.8em; text-align: right; }
 .table > :not(caption) > * > * { vertical-align: middle; }
@@ -147,7 +266,7 @@
 
 /* --- Last-known intel (components/lastknown.js) ----------------------------------------------------------------- */
 /* A value from intel that has ended, by how long ago: yellow, then orange, then red. The colour is on the text only,
-   with a faint dotted underline that says there is a tooltip (its age). Tuned for the dark theme. */
+   with a faint dotted underline that says there is a tooltip (its age). The colours are the theme's (--known-*). */
 
 .last-known {
   text-decoration: underline dotted;
@@ -155,19 +274,74 @@
   text-underline-offset: 3px;
 }
 .last-known-fresh {
-  color: #e9c46a;
-  text-decoration-color: rgba(233, 196, 106, 0.45);
+  color: var(--known-fresh);
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
 }
 .last-known-aging {
-  color: #f4a261;
-  text-decoration-color: rgba(244, 162, 97, 0.45);
+  color: var(--known-aging);
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
 }
 .last-known-stale {
-  color: #ef6f6c;
-  text-decoration-color: rgba(239, 111, 108, 0.45);
+  color: var(--known-stale);
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
 }
 .last-known-note {
   font-size: 0.85em;
   margin: var(--space-tight) 0;
   text-decoration: none;
 }
+
+/* --- Summary boxes (.text-box) --------------------------------------------------------------------------------- */
+/* A card of label / value lines. With `text-box-stats` the lines become a row of stat tiles (label above value), and
+   anything else in the box (a slider, a button) takes a full row under them. */
+
+.text-box {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0 0 1rem;
+  padding: 0.875rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  text-align: left;
+}
+.text-box-item { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: 0.15rem 0; }
+.text-box-item-title { color: var(--bs-secondary-color); }
+.text-box-item-value { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+
+.text-box-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr));
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+.text-box-stats > br { display: none; }
+.text-box-stats > :not(.text-box-item) { grid-column: 1 / -1; }
+.text-box-stats > .text-box-item { flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 0.1rem; padding: 0; }
+.text-box-stats .text-box-item-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.text-box-stats .text-box-item-value { font-size: 1.15rem; text-align: left; }
+
+/* The form under a summary: the amount slider and its button on one line where there is room. */
+.summary-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem 1rem; padding-top: 0.75rem; border-top: 1px solid var(--row-divider); }
+.summary-form label { display: block; font-size: 0.875rem; color: var(--bs-secondary-color); margin-bottom: 0.25rem; }
+.summary-form .amount-input { margin-left: 0; }
+
+/* The action under a table: on the right, as in most forms. */
+.form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.5rem 1rem; width: 100%; margin: 0 0 1rem; }
+
+/* A line of plain text that introduces a table or form, above it. */
+.page-note { width: 100%; margin: 0 0 0.75rem; color: var(--bs-secondary-color); text-align: left; }
+
+/* A tab whose action destroys something (Structures > Raze, Military > Disband): soft orange, so it is not chosen by
+   mistake. */
+.nav-tabs .nav-link.tab-warning { color: var(--bs-warning-text-emphasis); }
+.nav-tabs .nav-link.tab-warning:hover { background: rgba(var(--bs-warning-rgb), 0.12); }
+.nav-tabs .nav-link.tab-warning.active {
+  background: rgba(var(--bs-warning-rgb), 0.18);
+  color: var(--bs-warning-text-emphasis);
+  box-shadow: inset 0 0 0 1px rgba(var(--bs-warning-rgb), 0.6);
+}
+/* What a warning tab shows: its cards edged in the same orange. */
+.warning-zone .table-scroll,
+.warning-zone .text-box { border-color: rgba(var(--bs-warning-rgb), 0.35); }

@@ -1,7 +1,7 @@
 import React from "react";
 import { render as renderBare, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
-import IntelMarket, { KingdomIntel, KingdomModal, TargetIntel, tradable } from "./intel";
+import IntelMarket, { KingdomIntel, KingdomTabs, TargetIntel, tradable } from "./intel";
 import { authFetch } from "../../auth";
 
 jest.mock("../../components/header", () => () => null);
@@ -16,13 +16,15 @@ jest.mock("../kingdominfo.js", () => (props) => (
     </div>
 ));
 
-// The pages link to the Spy page, so they are shown inside a router; /spy shows where the link went.
-function SpyProbe() {
-    return <div>Spy page with {JSON.stringify(useLocation().state)}</div>;
+// The pages link to the Spy and Kingdom pages, so they are shown inside a router; any other page shows the address
+// the link went to.
+function Opened() {
+    const location = useLocation();
+    return <div>Opened {location.pathname}{location.search}</div>;
 }
 const render = (ui) => renderBare(
     <MemoryRouter initialEntries={["/intel"]}>
-        <Routes><Route path="/intel" element={ui} /><Route path="/spy" element={<SpyProbe />} /></Routes>
+        <Routes><Route path="/intel" element={ui} /><Route path="*" element={<Opened />} /></Routes>
     </MemoryRouter>,
 );
 
@@ -114,7 +116,7 @@ test("a bounty for intel you do not have offers to spy for it", () => {
     const drones = row("drones");
     expect(within(drones).queryByRole("button", { name: "Fulfil" })).toBeNull();
     fireEvent.click(within(drones).getByRole("button", { name: "Attempt" }));
-    expect(screen.getByText('Spy page with {"kdId":"6","operation":"spydrones"}')).toBeTruthy();
+    expect(screen.getByText("Opened /spy?target=6&op=spydrones")).toBeTruthy();
 });
 
 test("a page that is itself the spy page takes the operation in place", () => {
@@ -137,16 +139,14 @@ test("a bounty left without a length is posted without one, for the server's lon
     expect(JSON.parse(request.body)).toEqual({ target: "6", category: "drones", cut: 0 });
 });
 
-test("every row you can act on can show its kingdom", async () => {
-    authFetch.mockImplementation((url) => Promise.resolve({ json: () => Promise.resolve(url === "api/kingdom/5" ? { name: "Five's details" } : {}) }));
+test("every row you can act on can show its kingdom, on its own page", () => {
     render(<IntelMarket data={data} loading={{}} updateData={updateData} />);
-    fireEvent.click(screen.getByRole("tab", { name: /Market/ }));
-    fireEvent.click(within(row("military")).getByRole("button", { name: "View kingdom" }));
-    expect(await screen.findByText("Kingdom view of 5: Five's details")).toBeTruthy();
-    for (const tab of [/Bounties/, "Your intel"]) {
+    for (const tab of [/Bounties/, "Your intel", /Market/]) {
         fireEvent.click(screen.getByRole("tab", { name: tab }));
         expect(pane().getAllByRole("button", { name: "View kingdom" }).length).toBeGreaterThan(0);
     }
+    fireEvent.click(within(row("military")).getByRole("button", { name: "View kingdom" }));
+    expect(screen.getByText("Opened /kingdom/5")).toBeTruthy();
 });
 
 test("listings of intel you have already taken are shaded and tagged", () => {
@@ -238,8 +238,8 @@ test("a bounty's length is in hours", () => {
 });
 
 const showKingdom = (target, tab = "kingdom") => render(
-    <KingdomModal show onHide={() => {}} target={target} tab={tab} data={data} loading={{}} updateData={updateData} />);
-const activePane = () => within(document.querySelector(".kingdom-modal-tabs + .tab-content > .tab-pane.active"));
+    <KingdomTabs target={target} tab={tab} data={data} loading={{}} updateData={updateData} />);
+const activePane = () => within(document.querySelector(".kingdom-tabs + .tab-content > .tab-pane.active"));
 
 test("asking the galaxy from the kingdom view fills in the bounty form on its intel tab", async () => {
     showKingdom("6");
@@ -286,9 +286,14 @@ test("a galaxymate's kingdom view has no intel tab or actions", async () => {
     expect(screen.queryByRole("button", { name: "Ask the galaxy" })).toBeNull();
 });
 
-test("the Intel page opens one kingdom's intel from its rows", async () => {
+test("the Intel page opens one kingdom's intel from its rows", () => {
     render(<IntelMarket data={data} loading={{}} updateData={updateData} />);
     fireEvent.click(within(row("drones")).getByRole("button", { name: "Intel on this kingdom" }));
+    expect(screen.getByText("Opened /kingdom/6?tab=intel")).toBeTruthy();
+});
+
+test("the kingdom's tabs open on the tab asked for", async () => {
+    showKingdom("6", "intel");
     expect(await screen.findByText("Intel on Six")).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Intel market" }).getAttribute("aria-selected")).toBe("true");
 });

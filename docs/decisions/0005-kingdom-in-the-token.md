@@ -22,7 +22,9 @@ Two facts make this less simple than adding a claim:
 
 - **D1. Which values go in the token.** The existing `id` and `rls` (roles), plus `kd` (the kingdom id, or empty),
   `kc` (whether the kingdom was created, which the front end uses to choose between the create page and the game) and
-  `rnd` (the id of the round the token was issued in). Nothing else: not `is_active`, not the death date, not email.
+  `rnd` (the id of the round the token was issued in), and `un` (the username, which never changes, for the user
+  menu; added later, and a token without it reads the document). Nothing else: not `is_active`, not the death date,
+  not email.
   `alive_required` and the action routes keep reading the user document (writes are rare next to polls), so death needs
   no token change. The user document stays the source of truth; the token is a copy for reads.
 - **D2. A fresh token when the kingdom changes.** The routes that change `kd_id` or `kd_created` (creating a

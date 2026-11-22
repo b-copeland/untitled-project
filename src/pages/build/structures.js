@@ -4,13 +4,13 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import "./structures.css"
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
-import { AmountInput, SubmitButton, useFormValues } from "../../components/forms";
+import { AmountInput, SubmitButton, useFormValues, useSliders } from "../../components/forms";
+import Button from "react-bootstrap/Button";
 import { displayPercent } from "../../format";
-import { anyFilled, checkCount, checkPercent, checkTotal, firstError } from "../../validation";
+import { anyFilled, checkCount, checkTotal, firstError } from "../../validation";
 
 const STRUCTURES = [
     ["homes", "Homes"],
@@ -30,11 +30,10 @@ function Structures(props) {
     const shared = { loading: props.loading, updateData: props.updateData, data: props.data };
     return (
         <>
-            <Header data={props.data} />
-            <Tabs id="controlled-tab-example" defaultActiveKey="build" justify fill variant="tabs">
+            <Tabs id="controlled-tab-example" defaultActiveKey="build" variant="tabs">
                 <Tab eventKey="build" title="Build"><BuildStructures {...shared} /></Tab>
                 <Tab eventKey="allocate" title="Allocate"><AllocateStructures {...shared} /></Tab>
-                <Tab eventKey="raze" title="Raze"><RazeStructures {...shared} /></Tab>
+                <Tab eventKey="raze" title="Raze" tabClassName="tab-warning"><RazeStructures {...shared} /></Tab>
             </Tabs>
             <HelpButton scrollTarget={"structures"}/>
         </>
@@ -95,7 +94,7 @@ function BuildStructures(props) {
     return (
         <div className="structures">
             <ResultToasts title="Structures Results" results={results} setResults={setResults} />
-            <div className="text-box box-tight structures-box">
+            <div className="text-box text-box-stats">
                 <div className="text-box-item">
                     <span className="text-box-item-title">Average Build Time</span>
                     <span className="text-box-item-value">{config.BASE_EPOCH_SECONDS * (config.BASE_STRUCTURE_TIME_MIN_MULTIPLIER + config.BASE_STRUCTURE_TIME_MAX_MUTLIPLIER) / 2 / 3600}h</span>
@@ -115,67 +114,58 @@ function BuildStructures(props) {
                 </div>
             </div>
             <GameTable className="structures-table" columns={columns} rows={STRUCTURES} rowKey={([key]) => key} />
-            <SubmitButton loading={props.loading.structures} blocked={blocked} className="structures-button"
-                onClick={() => send(form.values, form.reset)}>
-                Build
-            </SubmitButton>
-            {stars !== 0
-                ? <div>
-                    <h3>Structures Cost: {(stars * info.price).toLocaleString()}</h3>
-                    <h3>Stars Remaining: {(info.max_available_structures - stars).toLocaleString()}</h3>
-                </div>
-                : null}
+            <div className="form-actions">
+                {stars !== 0
+                    ? <span className="text-muted">Cost {(stars * info.price).toLocaleString()} · {(info.max_available_structures - stars).toLocaleString()} stars left</span>
+                    : null}
+                <SubmitButton loading={props.loading.structures} blocked={blocked} onClick={() => send(form.values, form.reset)}>
+                    Build
+                </SubmitButton>
+            </div>
         </div>
     );
 }
 
-function AllocateStructures(props) {
-    const form = useFormValues(noneYet);
+export function AllocateStructures(props) {
+    const kingdom = props.data.kingdom;
+    const current = Object.fromEntries(STRUCTURES.map(([key]) => [key, (kingdom.structures_target?.[key] || 0) * 100]));
+    const sliders = useSliders(current);
     const [results, setResults, send] = useSubmit('api/structures/target', ['kingdom'], props);
 
-    if (Object.keys(props.data.structures).length === 0 || Object.keys(props.data.kingdom).length === 0) {
+    if (Object.keys(props.data.structures).length === 0 || Object.keys(kingdom).length === 0) {
         return null;
     }
     const info = props.data.structures;
-    const kingdom = props.data.kingdom;
-    const current = kingdom.structures_target || {};
-
-    // What the targets would be after this change: what is typed replaces what is there, the rest stays.
-    const afterChange = Object.fromEntries(STRUCTURES.map(([key]) => [
-        key,
-        form.values[key] !== "" ? form.values[key] : (current[key] || 0) * 100,
-    ]));
-    const fieldErrors = Object.fromEntries(STRUCTURES.map(([key]) => [key, checkPercent(form.values[key])]));
-    const totalError = firstError(fieldErrors) ? null : checkTotal(afterChange, { max: 100 });
-    const blocked = firstError(fieldErrors, totalError ? "Allocation would total more than 100%" : null)
-        || (anyFilled(form.values) ? null : "Enter the new percent for at least one structure");
+    const keys = STRUCTURES.map(([key]) => key);
+    const total = sliders.total(keys);
+    const blocked = total > 100 ? "Allocation would total more than 100%"
+        : sliders.changed ? null : "Move a slider to change a structure's share";
 
     const columns = [
         { header: "Structure", align: "left", cell: ([, label]) => label },
         { header: "% Built", cell: ([key]) => displayPercent((info.current[key] || 0) / kingdom.stars) },
         { header: "# Built", cell: ([key]) => whole(info.current[key]) },
         { header: "# Building", cell: ([key]) => whole(info.hour_24[key]) },
-        { header: "Current Allocation", cell: ([key]) => displayPercent(current[key] || 0) },
+        { header: "Current Allocation", cell: ([key]) => displayPercent(current[key] / 100) },
         {
             header: "New Allocation", className: "structures-form-data",
-            cell: ([key, label]) => <AmountInput name={key} label={label} suffix="%" value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]}
-                soloMax={100} max={Math.max(100 - Object.entries(afterChange).filter(([other]) => other !== key).reduce((sum, [, value]) => sum + (parseFloat(value) || 0), 0), 0)} />,
+            cell: ([key, label]) => <AmountInput name={key} label={label} suffix="%" value={String(sliders.value(key))} onChange={sliders.onChange}
+                soloMax={100} max={Math.max(100 - (total - sliders.value(key)), 0)} />,
         },
     ];
-    const total = Object.values(afterChange).reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
 
     return (
         <div className="structures">
             <ResultToasts title="Structures Results" results={results} setResults={setResults} />
-            <div className="text-box box-tight structures-box">
-                <span>Choose the target allocation of structures that you would like the auto-spender to build towards</span>
-            </div>
+            <p className="page-note">Choose the target allocation of structures that you would like the auto-spender to build towards</p>
             <GameTable className="structures-allocation-table" columns={columns} rows={STRUCTURES} rowKey={([key]) => key} />
-            <div className={totalError ? "text-danger" : "text-muted"}>Allocation after this change: {total.toFixed(1)}% of 100%</div>
-            <SubmitButton loading={props.loading.kingdom} blocked={blocked} className="structures-button"
-                onClick={() => send(form.values, form.reset)}>
-                Update
-            </SubmitButton>
+            <div className="form-actions">
+                <span className={total > 100 ? "text-danger" : "text-muted"}>Allocation after this change: {total}% of 100%</span>
+                {sliders.changed ? <Button variant="link" size="sm" onClick={sliders.reset}>Undo changes</Button> : null}
+                <SubmitButton loading={props.loading.kingdom} blocked={blocked} onClick={() => send(sliders.body(keys), sliders.reset)}>
+                    Update
+                </SubmitButton>
+            </div>
         </div>
     );
 }
@@ -203,17 +193,15 @@ function RazeStructures(props) {
     ];
 
     return (
-        <div className="col-center structures-raze">
-            <h2>Raze Structures</h2>
-            <div className="text-box box-tight structures-box">
-                <span>Raze structures to destroy them and receive {displayPercent(props.data.state.game_config?.BASE_STRUCTURES_RAZE_RETURN || 0)} of the current build cost back</span>
-            </div>
+        <div className="structures structures-raze warning-zone">
+            <p className="page-note">Raze structures to destroy them and receive {displayPercent(props.data.state.game_config?.BASE_STRUCTURES_RAZE_RETURN || 0)} of the current build cost back</p>
             <ResultToasts title="Raze Results" results={results} setResults={setResults} />
             <GameTable className="structures-table" columns={columns} rows={keys} rowKey={(key) => key} />
-            <SubmitButton loading={props.loading.kingdom} blocked={blocked} variant="warning" className="structures-button"
-                onClick={() => send({ input: form.values }, form.reset)}>
-                Raze
-            </SubmitButton>
+            <div className="form-actions">
+                <SubmitButton loading={props.loading.kingdom} blocked={blocked} variant="warning" onClick={() => send({ input: form.values }, form.reset)}>
+                    Raze
+                </SubmitButton>
+            </div>
         </div>
     );
 }

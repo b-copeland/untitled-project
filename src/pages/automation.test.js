@@ -56,9 +56,10 @@ test("auto attack can not be switched on until it has a share of units to send, 
     expect(sw("Rob primitives").disabled).toBe(false);
 });
 
-test("each feature links to the page with its settings", () => {
+test("each feature links to the tab with its settings", () => {
     renderPage();
-    expect(screen.getByText("Project targets").getAttribute("href")).toBe("/projects");
-    expect(screen.getByText("Rob settings").getAttribute("href")).toBe("/primitives");
+    fireEvent.click(screen.getByText("Rob settings"));
+    expect(screen.getByRole("tab", { name: "Primitives" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("Schedule something").getAttribute("href")).toBe("/schedule");
     expect(automations({}).every((item) => item.links.length > 0)).toBe(true);
 });

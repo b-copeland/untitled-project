@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
-import Modal from "react-bootstrap/Modal";
 import Tab from "react-bootstrap/Tab";
 import Tabs from "react-bootstrap/Tabs";
 import { BsXLg } from "react-icons/bs";
+import { useNavigate } from "react-router-dom";
 import { authFetch } from "../../auth";
+import { KingdomLink, targetPath } from "../../components/kingdomlink";
+import { useFromHere } from "../../components/pagehead";
 import { GameTable } from "../../components/gametable";
 import { NumberControl, SubmitButton } from "../../components/forms";
 import { IconButton } from "../../components/iconbutton";
@@ -13,9 +15,6 @@ import { Panel, Picker, Stats } from "../../components/planner";
 import { ResultToasts, safeJson } from "../../components/results";
 import { displayNumber, displayPercent } from "../../format";
 import { checkDecimal, checkPercent, firstError } from "../../validation";
-import Attack from "../conquer/attack.js";
-import Spy from "../conquer/spy.js";
-import LaunchMissiles from "../conquer/launchmissiles.js";
 import "./targets.css";
 
 /*
@@ -294,7 +293,7 @@ function Delegates({ data, targets, members, send, loading }) {
             <GameTable
                 rows={(targets.delegates || []).map((delegate) => ({ ...delegate, key: delegate.kd_id }))}
                 columns={[
-                    { header: "Delegate", align: "left", cell: (row) => kdLabel(data, row.kd_id) },
+                    { header: "Delegate", align: "left", cell: (row) => <KingdomLink kdId={row.kd_id} data={data}>{kdLabel(data, row.kd_id)}</KingdomLink> },
                     {
                         header: "", cell: (row) => (
                             <IconButton icon={BsXLg} label={`Remove ${row.name} as a delegate`} disabled={loading}
@@ -342,26 +341,15 @@ function History({ targets }) {
     );
 }
 
-/** The Attack, Spy or Launch Missiles planner in a dialog, opened on a target. */
-function PlannerModal({ planner, data, loading, updateData, onHide }) {
-    const titles = { attack: "Attack", spy: "Spy", missiles: "Launch Missiles" };
-    const shared = { data, loading, updateData, initialKd: planner?.target };
-    return (
-        <Modal show={Boolean(planner)} onHide={onHide} animation={false} dialogClassName="attack-modal">
-            <Modal.Header closeButton><Modal.Title>{planner ? titles[planner.open] : ""}</Modal.Title></Modal.Header>
-            <Modal.Body>
-                {planner?.open === "attack" ? <Attack {...shared} /> : null}
-                {planner?.open === "spy" ? <Spy {...shared} initialOperation={planner.operation} /> : null}
-                {planner?.open === "missiles" ? <LaunchMissiles {...shared} /> : null}
-            </Modal.Body>
-            <Modal.Footer><Button variant="secondary" onClick={onHide}>Close</Button></Modal.Footer>
-        </Modal>
-    );
-}
+/** The planner pages the action buttons open, with the target (and the operation) chosen. */
+const PLANNER_PAGES = { attack: "/attack", spy: "/spy", missiles: "/launchmissiles" };
 
 export default function Targets(props) {
     const [results, setResults] = useState([]);
-    const [planner, setPlanner] = useState(null);
+    const navigate = useNavigate();
+    const fromHere = useFromHere();
+    const openPlanner = (open, kdId, operation) =>
+        navigate(targetPath(PLANNER_PAGES[open], kdId, operation ? { op: operation } : {}), { state: fromHere });
     const targets = props.data.empiretargets || {};
     const loading = Boolean(props.loading.empiretargets);
     if (!targets.empire) {
@@ -382,20 +370,18 @@ export default function Targets(props) {
     return (
         <div className="targets">
             <ResultToasts title="Targets" results={results} setResults={setResults} />
-            <PlannerModal planner={planner} data={props.data} loading={props.loading} updateData={props.updateData}
-                onHide={() => setPlanner(null)} />
             <Stats items={[
                 { label: "Targets", value: `${list.length} of ${targets.max_targets}` },
                 { label: "Your role", value: role },
                 { label: "Funds paid out", value: "When the target ends" },
                 { label: "Most stars a kingdom gets from a target", value: `${displayPercent(targets.max_payout_stars_share || 0)} of its land` },
             ]} />
-            <Tabs id="targets-tabs" defaultActiveKey="targets" justify fill variant="tabs">
+            <Tabs id="targets-tabs" defaultActiveKey="targets" variant="tabs">
                 <Tab eventKey="targets" title={`Targets (${list.length})`}>
                     {list.length ? list.map((target) => (
                         <TargetCard key={target.target} target={target} targets={targets} data={props.data}
                             send={send} loading={loading}
-                            open={(open, kdId, operation) => setPlanner({ open, target: kdId, operation })} />
+                            open={openPlanner} />
                     )) : <p className="targets-empty">Your empire has no targets right now.</p>}
                 </Tab>
                 {targets.can_manage ? (

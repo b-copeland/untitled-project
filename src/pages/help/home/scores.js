@@ -28,7 +28,7 @@ function Scores(props) {
                 Points are allocated to continuously to networth leaders at the rate below 
                 per {props.state.game_config?.BASE_EPOCH_SECONDS} seconds.
             </p>
-            <Table striped bordered hover>
+            <Table hover>
                 <thead>
                     <tr>
                         <th>Networth Rank</th>

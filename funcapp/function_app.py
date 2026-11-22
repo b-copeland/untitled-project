@@ -2024,11 +2024,13 @@ def update_history(req: func.HttpRequest) -> func.HttpResponse:
 USER_PREFIX = "user_"
 USERNAME_PREFIX = "username_"
 USER_COUNTER_ID = "user_counter"
+PREFERENCES_PREFIX = "preferences_"  # a player's own settings: see get_preferences
 
 
 def is_user_document(item_id):
-    """Users outlive a round: /resetstate keeps these and /deleteall removes them rather than blanking them."""
-    return item_id.startswith(USER_PREFIX) or item_id.startswith(USERNAME_PREFIX)
+    """Users (and their preferences) outlive a round: /resetstate keeps these and /deleteall removes them rather than
+    blanking them."""
+    return item_id.startswith((USER_PREFIX, USERNAME_PREFIX, PREFERENCES_PREFIX))
 
 
 def _json_response(document, status_code=200):
@@ -2379,3 +2381,46 @@ def _merge_known(known, new_known):
                 target_known[category] = entry
         merged[str(target)] = target_known
     return merged
+
+
+# --- preferences_<user_id>: a player's own settings ---------------------------------------------------------------------
+# One document per user, for settings that belong to the player rather than to a kingdom (the colour theme). Flask holds
+# the defaults and checks the values; this layer reads the document and merges into it. A user with none has every
+# default: a read answers it empty without writing, and the first merge creates it. Like the user documents, it outlives
+# a round.
+
+
+
+@APP.function_name(name="GetPreferences")
+@APP.route(route="preferences/{userId:int}", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_preferences(req: func.HttpRequest) -> func.HttpResponse:
+    """The user's preferences, or ``{"id": ...}`` if they have set none yet (nothing is written)."""
+    item_id = f"{PREFERENCES_PREFIX}{req.route_params.get('userId')}"
+    return _json_response(_read_or_none(item_id) or {"id": item_id})
+
+
+@APP.function_name(name="UpdatePreferences")
+@APP.route(route="preferences/{userId:int}", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
+def update_preferences(req: func.HttpRequest) -> func.HttpResponse:
+    """Shallow merge of the body into the user's preferences (``id`` is never changed). Creates the document on the
+    first write."""
+    item_id = f"{PREFERENCES_PREFIX}{req.route_params.get('userId')}"
+    body = req.get_json()
+    if not isinstance(body, dict):
+        return func.HttpResponse("The body must be an object", status_code=400)
+    changes = {key: value for key, value in body.items() if key != "id" and not key.startswith("_")}
+
+    document = _read_or_none(item_id)
+    try:
+        if document is None:
+            try:
+                CONTAINER.create_item({"id": item_id, **changes})
+                return func.HttpResponse("Preferences updated", status_code=200)
+            except CosmosResourceExistsError:  # another request created it first: merge into that one
+                document = CONTAINER.read_item(item=item_id, partition_key=item_id)
+        CONTAINER.replace_item(item_id, {**document, **changes})
+    except CosmosAccessConditionFailedError:
+        # retry_on_conflict has noted the conflict: it runs this again on the newer document
+        return func.HttpResponse("Conflict", status_code=412)
+    return func.HttpResponse("Preferences updated", status_code=200)

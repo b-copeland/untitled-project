@@ -1,42 +1,3 @@
-.App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .main {
   display: flex;
   flex-direction: column;
@@ -47,13 +8,6 @@
   align-items: flex-start;
 }
 
-/* @media screen and (min-width: 480px) {
-  .navdiv {
-     width: clamp(300px,24rem,800px);
-  }
-} */
-
-
 .router {
   flex: 1 1 0;
   min-width: 0;
@@ -62,57 +16,68 @@
   align-items: center;
 }
 
+/* One content column: everything on a page, tabs included, shares its left and right edges. The bottom padding keeps
+   the floating Help button off the last row. */
 .router-body {
-  width: 95%;
-  /* overflow-y: auto; */
+  width: 100%;
+  max-width: var(--content-width, 1200px);
+  padding: 0 1rem 5rem;
 }
+@media (min-width: 992px) {
+  .router-body { padding: 0 2rem 5rem; }
+}
+
+/* --- Header strip (components/header.js): one card, label and value per item -------------------------------------- */
 
 .header-container {
   width: 100%;
-  /* max-height: 10%; */
-  align-items: center;
-  justify-content: center;
   display: flex;
-  padding: 5px;
-  align-self: center;
+  flex-wrap: wrap;
+  padding: 1rem 0;
 }
 
 .header-contents {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  padding: 5px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1.25rem;
+  width: 100%;
+  padding: 0.375rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
 }
 .header-item {
-  width: 50%;
-  border: 1px solid var(--bs-border-color);
-  box-sizing: border-box;
-  padding: 3px;
-  font-size: smaller;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.2rem 0;
+  font-size: 0.8125rem;
+  white-space: nowrap;
 }
+.header-label { color: var(--bs-secondary-color); overflow: hidden; text-overflow: ellipsis; }
+.header-value { font-weight: 600; font-variant-numeric: tabular-nums; }
 @media (min-width: 756px) {
-    .header-item {
-        width: 25%;
-        font-size: 16px;
-        min-width: 175px;
-    }
+  .header-contents { grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 2rem; }
+  .header-item { font-size: 0.9375rem; }
 }
 
 /* Fuel or money has run out (components/header.js). */
-.header-alert {
-  border-color: var(--bs-danger);
+.header-alert .header-label,
+.header-alert .header-value {
   color: var(--bs-danger);
-  font-weight: bold;
 }
+.header-alert .header-value { font-weight: 700; }
 
 /* The round has ended (components/header.js): a full-width line above the numbers. */
-.header-container { flex-wrap: wrap; }
 .header-over {
   flex-basis: 100%;
   text-align: center;
   padding: 6px;
-  margin-bottom: 4px;
+  margin-bottom: 0.5rem;
   border: 1px solid var(--bs-warning);
+  border-radius: var(--radius);
   color: var(--bs-warning-text-emphasis, inherit);
   background: var(--bs-warning-bg-subtle, transparent);
 }

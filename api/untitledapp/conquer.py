@@ -275,19 +275,19 @@ def _general_speed(kd_info, current_bonuses):
     )
 
 
-def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0, war=False):
+def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0, war=False, attacker_units=None, defender_units=None):
     """
     The share of its units each side loses in an attack, before race and war (``_calc_losses`` applies those): the base
-    rates, the defender's scaled by how close the attack came (``attack_ratio``), and the projects that change them.
+    rates, the defender's scaled by how close the attack came (``attack_ratio``), the projects that change them, and
+    the self-destructing units on each side (``attacker_units`` sent, ``defender_units`` at home).
     ``defender_kd`` is the defending kingdom, what the attacker knows of it (a forecast), or None for primitives.
     """
     attacker_rate = uas.GAME_CONFIG["BASE_ATTACKER_UNIT_LOSS_RATE"]
     defender_rate = uas.GAME_CONFIG["BASE_DEFENDER_UNIT_LOSS_RATE"] * attack_ratio
     if defender_kd is not None:
-        if uas.has_project(defender_kd, "self_destructing_defenders"):
-            attacker_rate *= 1 + uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
-        if uas.has_project(attacker_kd, "self_destructing_attackers"):
-            defender_rate *= 1 + uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
+        increase = uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
+        attacker_rate *= 1 + increase * uas.self_destruct_share(defender_units or {}, "defense")
+        defender_rate *= 1 + increase * uas.self_destruct_share(attacker_units or {}, "offense")
         defender_rate *= 1 - uas.project_bonus(defender_kd, "casualties_bonus")
         if war and uas.has_project(attacker_kd, "xo_capstone"):
             defender_rate *= 1 + uas.GAME_CONFIG["XO_CAPSTONE_WAR_LOSSES_INCREASE"]
@@ -295,19 +295,18 @@ def _battle_loss_rates(attacker_kd, defender_kd, attack_ratio=1.0, war=False):
     return attacker_rate, defender_rate
 
 
-def _split_across_generals(kd_info, units, return_times):
+def _split_across_generals(units, return_times):
     """
     The generals of an attack, each with its return time and its share of the units that survived: an even split, the
-    remainder to the earliest. With Warp Speed every big flexer goes with the general who returns first.
+    remainder to the earliest. Every warp unit (Warp Speed Big Flexers) goes with the general who returns first.
     """
     n_generals = len(return_times)
     first = min(range(n_generals), key=lambda i: return_times[i])
-    warp = uas.has_project(kd_info, "warp_speed")
     generals = []
     for i_general, general_time in enumerate(return_times):
         general = {"return_time": general_time.isoformat()}
         for key_unit, count in units.items():
-            if warp and key_unit == "big_flex":
+            if uas.UNITS.get(key_unit, {}).get("warp"):
                 general[key_unit] = count if i_general == first else 0
             else:
                 general[key_unit] = math.floor(count / n_generals) + int((count % n_generals) > i_general)
@@ -478,7 +477,9 @@ def calculate_attack(target_kd):
         attack_ratio = min(attack / defense, 1.0)
     except ZeroDivisionError:
         attack_ratio = 1.0
-    attacker_loss_rate, defender_loss_rate = _battle_loss_rates(kd_info_parse, max_target_kd_info, attack_ratio, war)
+    attacker_loss_rate, defender_loss_rate = _battle_loss_rates(
+        kd_info_parse, max_target_kd_info, attack_ratio, war, attacker_units, defender_units,
+    )
     attacker_losses = _calc_losses(
         attacker_units,
         attacker_loss_rate,
@@ -668,7 +669,9 @@ def _autofill_attack(req, kd_id, target_kd):
         attack_ratio = min(attack / defense_adjusted, 1.0)
     except ZeroDivisionError:
         attack_ratio = 1.0
-    attacker_loss_rate, defender_loss_rate = _battle_loss_rates(kd_info_parse, max_target_kd_info, attack_ratio, war)
+    attacker_loss_rate, defender_loss_rate = _battle_loss_rates(
+        kd_info_parse, max_target_kd_info, attack_ratio, war, attacker_units, defender_units,
+    )
     attacker_losses = _calc_losses(
         attacker_units,
         attacker_loss_rate,
@@ -841,7 +844,7 @@ def _attack(req, kd_id, target_kd):
                 surprise_war_penalty=surprise_war_penalty,
             )
             # The attacker's losses do not depend on how the battle goes, so they are fixed as the units leave.
-            attacker_loss_rate, _ = _battle_loss_rates(kd, target_kd_info)
+            attacker_loss_rate, _ = _battle_loss_rates(kd, target_kd_info, defender_units=target_kd_info["units"])
             attacker_losses = _calc_losses(
                 attacker_units,
                 attacker_loss_rate,
@@ -861,7 +864,7 @@ def _attack(req, kd_id, target_kd):
                 key_unit: value_unit - attacker_losses.get(key_unit, 0)
                 for key_unit, value_unit in attacker_units.items()
             }
-            generals = _split_across_generals(kd, remaining_attacker_units, generals_return_times)
+            generals = _split_across_generals(remaining_attacker_units, generals_return_times)
             next_return_time = min([general["return_time"] for general in generals])
             next_resolve = kd["next_resolve"]
             next_resolve["generals"] = min(next_resolve["generals"], next_return_time)
@@ -907,7 +910,9 @@ def _attack(req, kd_id, target_kd):
             )
             # A kingdom with nothing to defend with has a defense of zero: any attack is at full strength.
             attack_ratio = min(attack / defense, 1.0) if defense > 0 else 1.0
-            _, defender_loss_rate = _battle_loss_rates(departure, target_doc, attack_ratio, war)
+            _, defender_loss_rate = _battle_loss_rates(
+                departure, target_doc, attack_ratio, war, attacker_units=departure["attacker_units"],
+            )
             defender_losses = _calc_losses(
                 defender_units,
                 defender_loss_rate,
@@ -1397,7 +1402,7 @@ def _attack_primitives(req, kd_id):
             key_unit: value_unit - attacker_losses.get(key_unit, 0)
             for key_unit, value_unit in attacker_units.items()
         }
-        generals = _split_across_generals(kd_info_parse, remaining_attacker_units, generals_return_times)
+        generals = _split_across_generals(remaining_attacker_units, generals_return_times)
         next_return_time = min([general["return_time"] for general in generals])
 
         stars = math.floor(
@@ -1538,6 +1543,11 @@ def _validate_auto_attack_settings(req_settings):
     return True, ""
 
 
+def _given(value, current):
+    """A setting from a request: an empty box (or none) keeps ``current``; 0 is a value like any other."""
+    return current if value in ("", None) else value
+
+
 @bp.route('/api/attackprimitives/auto', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -1560,8 +1570,8 @@ def auto_attack_primitives():
         def change_settings(kd_info_parse):
             current_settings = kd_info_parse['auto_attack_settings']
             req_settings = {
-                "pure": float(req.get("pure") or (current_settings.get("pure", 0) * 100)) / 100,
-                "flex": float(req.get("flex") or (current_settings.get("flex", 0) * 100)) / 100,
+                "pure": float(_given(req.get("pure"), current_settings.get("pure", 0) * 100)) / 100,
+                "flex": float(_given(req.get("flex"), current_settings.get("flex", 0) * 100)) / 100,
             }
             new_settings = {**current_settings, **req_settings}
             valid_settings, message = _validate_auto_attack_settings(new_settings)
@@ -2278,8 +2288,8 @@ def auto_rob_primitives():
         def change_settings(kd_info_parse):
             current_settings = kd_info_parse['auto_rob_settings']
             req_settings = {
-                "drones": float(req.get("drones") or (current_settings.get("drones", 0) * 100)) / 100,
-                "keep": int(req.get("keep") or current_settings.get("keep", 0)),
+                "drones": float(_given(req.get("drones"), current_settings.get("drones", 0) * 100)) / 100,
+                "keep": int(_given(req.get("keep"), current_settings.get("keep", 0))),
                 "shielded": bool(req.get("shielded", current_settings.get("shielded", False))),
             }
             new_settings = {**current_settings, **req_settings}

@@ -19,7 +19,7 @@ function Login(props) {
     e.preventDefault();
     setMessage("");
     setBusy(true);
-    fetch('api/login', {
+    fetch('/api/login', {
       method: 'post',
       body: JSON.stringify({ 'username': username, 'password': password }),
     }).then(r => r.json())

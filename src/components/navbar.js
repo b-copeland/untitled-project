@@ -3,31 +3,23 @@ import "./navbar.css";
 import {
     Link,
     useLocation,
-    useNavigate,
   } from "react-router-dom";
-import Button from 'react-bootstrap/Button';
 import Nav from 'react-bootstrap/Nav';
 import Offcanvas from 'react-bootstrap/Offcanvas';
 import 'bootstrap/dist/css/bootstrap.css';
-import { logout } from "../auth";
 import { sections } from "../routes";
 
 /**
  * The side navigation, built from the page table in routes.js: a label for each section (not a link; with a count of anything new in
- * it) and its pages, all links at one indent, underneath. The list scrolls. From the lg breakpoint up it is a fixed column; below
+ * it) and its pages, all links at one indent, underneath, then Misc (Help and Landing) last. Settings and Logout are in the
+ * account menu (usermenu.js), not here. The list scrolls. From the lg breakpoint up it is a fixed column; below
  * that it is a drawer opened from the top bar, and it closes whenever you navigate.
  */
 function SideNavbar(props) {
   const location = useLocation();
-  const navigate = useNavigate();
 
   const closeNav = () => props.setShowNav(false);
   useEffect(() => { props.setShowNav(false); }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const onClickLogout = () => {
-    logout();
-    navigate('/login');
-  };
 
   // " (3)" when there is something new in these categories, otherwise nothing.
   const newCount = (categories = []) => {
@@ -45,11 +37,9 @@ function SideNavbar(props) {
       <Offcanvas.Body>
         <div className="navdiv">
           <Nav className="mainnav">
-            {sectionLink("/", "Landing")}
             {!props.logged ? <>{sectionLink("/login", "Login")}</> : null}
             {props.logged && !props.hasKingdom ? <>
               {sectionLink("/createkingdom", "Create your kingdom")}
-              {sectionLink("/help", "Help")}
             </> : null}
             {props.logged && props.hasKingdom ? <>
               {sections.map((section) => (
@@ -62,10 +52,13 @@ function SideNavbar(props) {
                   ))}
                 </div>
               ))}
-              {sectionLink("/help", "Help")}
             </> : null}
+            <div className="nav-group">
+              <div className="nav-heading">Misc</div>
+              {sectionLink("/help", "Help")}
+              {sectionLink("/", "Landing")}
+            </div>
           </Nav>
-          {props.logged ? <div className="nav-logout"><Button onClick={onClickLogout}>Logout</Button></div> : null}
         </div>
       </Offcanvas.Body>
     </Offcanvas>

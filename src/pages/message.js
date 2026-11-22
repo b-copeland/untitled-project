@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { authFetch } from "../auth";
+import { useSearchParams } from "react-router-dom";
 import 'bootstrap/dist/css/bootstrap.css';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import { FiSend, FiArrowLeft, FiEdit } from "react-icons/fi";
-import Header from "../components/header";
 import "./message.css";
 import HelpButton from "../components/helpbutton";
 import { ResultToasts, safeJson } from "../components/results";
@@ -21,7 +21,9 @@ const shortTime = (time) => {
  * bubbles with a box to write in at the bottom. On a phone it shows one at a time, with a back arrow.
  */
 function Message(props) {
-    const [selected, setSelected] = useState(props.initialKd || undefined);
+    // A conversation opened by a link (/message?to=12: the Galaxy page) or a prop.
+    const [query] = useSearchParams();
+    const [selected, setSelected] = useState(props.initialKd || query.get("to") || undefined);
     const [draft, setDraft] = useState("");
     const [results, setResults] = useState([]);
     const [composing, setComposing] = useState(false);  // picking someone new to write to
@@ -67,7 +69,6 @@ function Message(props) {
 
     return (
         <>
-            <Header data={props.data} />
             <div className={"messenger" + (selected !== undefined ? " messenger-open" : "")}>
                 <ResultToasts title="Message Results" results={results} setResults={setResults} />
                 <aside className="messenger-list">

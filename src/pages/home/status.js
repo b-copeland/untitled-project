@@ -11,8 +11,8 @@ import Table from 'react-bootstrap/Table';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./status.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
+import { KingdomLink } from "../../components/kingdomlink";
 import Overview from "./overview";
 
 function StatusContent(props) {
@@ -20,13 +20,10 @@ function StatusContent(props) {
 
     return (
     <>
-      <Header data={props.data} />
       <Tabs
         id="controlled-tab-example"
         activeKey={key}
         onSelect={(k) => setKey(k)}
-        justify
-        fill
         variant="tabs"
       >
         <Tab eventKey="overview" title="Overview">
@@ -140,7 +137,7 @@ function Status(props) {
         props.kingdom.siphons?.length > 0
         ? props.kingdom.siphons?.map((siphon, iter) =>
             <div className="text-box-item" key={"siphonsin_" + iter}>
-                <span className="text-box-item-title">&nbsp;&nbsp;{kdFullLabel(siphon.from)}</span>
+                <span className="text-box-item-title">&nbsp;&nbsp;<KingdomLink kdId={siphon.from}>{kdFullLabel(siphon.from)}</KingdomLink></span>
                 <span className="text-box-item-value">{Math.floor(siphon.remaining_siphon).toLocaleString()} ({getTimeString(new Date(siphon.time))})</span>
             </div>
         )
@@ -371,7 +368,7 @@ function Military(props) {
         <div className="status-kingdom-content">
             <div className="col-center-card army-info">
                 <h2>Armies</h2>
-                <Table striped bordered hover className="army-table" size="sm">
+                <Table hover className="army-table" size="sm">
                     <thead>
                         <tr>
                         <th colSpan={2}></th>
@@ -400,7 +397,7 @@ function Military(props) {
                         ))}
                     </tbody>
                 </Table>
-                <Table striped bordered hover className="army-table" size="sm">
+                <Table hover className="army-table" size="sm">
                     <thead>
                         <tr>
                         <th colSpan={2}></th>
@@ -439,7 +436,7 @@ function Military(props) {
             </div>
             <div className="col-center-card mobi-info">
                 <h2>Mobilization</h2>
-                <Table striped bordered hover className="mobis-table" size="sm">
+                <Table hover className="mobis-table" size="sm">
                     <thead>
                         <tr>
                         <th style={{textAlign: "right"}}></th>
@@ -463,7 +460,7 @@ function Military(props) {
                         ))}
                     </tbody>
                 </Table>
-                <Table striped bordered hover className="mobis-table" size="sm">
+                <Table hover className="mobis-table" size="sm">
                     <thead>
                         <tr>
                         <th style={{textAlign: "right"}}></th>
@@ -509,7 +506,7 @@ function Structures(props) {
         <div className="col-center structures-status">
             <h2>Structures</h2>
             <div className="structures-info">
-                <Table striped bordered hover className="structures-status-table" size="sm">
+                <Table hover className="structures-status-table" size="sm">
                     <thead>
                         <tr>
                         <th style={{textAlign: "right"}}></th>

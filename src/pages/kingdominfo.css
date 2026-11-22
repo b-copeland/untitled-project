@@ -1,6 +1,38 @@
+/* Another kingdom's details (pages/kingdominfo.js), on the Kingdom page. */
 .kingdom-structures-info {
-    /* width: 30%; */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    width: 100%;
+}
+
+/* The Kingdom tab: small cards side by side, so each value sits near its label. */
+.kd-facts {
+    grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+}
+.kd-card .text-box-item-value {
+    white-space: nowrap;
+}
+.kd-unknown {
+    color: var(--bs-secondary-color);
+    font-weight: 400;
+}
+
+/* Tables of a few columns stay as wide as they need, so values stay near their labels. */
+.table-scroll.kd-narrow {
+    max-width: 640px;
+}
+
+/* Continuous and one-time projects side by side where there is room. */
+.kd-projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+    gap: 0 1rem;
+    align-items: start;
+}
+
+.kd-not-revealed {
+    margin: 0 0 1rem;
+    padding: 1rem 1.25rem;
+    color: var(--bs-secondary-color);
+    background: var(--surface);
+    border: 1px dashed var(--bs-border-color);
+    border-radius: var(--radius);
 }

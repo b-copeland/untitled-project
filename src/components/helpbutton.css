@@ -3,7 +3,7 @@
     display: inline-flex; align-items: center; gap: 8px;
     height: 48px; padding: 0 18px 0 14px;
     border: 0; border-radius: 24px;
-    background: var(--bs-primary); color: #fff;
+    background: var(--accent); color: var(--accent-contrast);
     font-weight: 600; font-size: 1rem;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
     cursor: pointer;

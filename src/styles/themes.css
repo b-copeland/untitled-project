@@ -1,0 +1,290 @@
+/*
+ * Colour themes. The player picks one on the Settings page (src/pages/settings.js); src/theme.js puts its name on <html>
+ * as data-theme, and data-bs-theme="light" for Light, "dark" for the rest, so Bootstrap's own colours follow.
+ *
+ * Every colour a page uses comes from these tokens: write a new rule with them, never a hex value, or it will look
+ * wrong in some theme. The tokens are on [data-theme=...] rather than :root, so any element can show another theme
+ * (the previews on the Settings page). This file loads after Bootstrap, so its rules win at equal specificity.
+ *
+ * The list of themes, and the default, are in api/untitledapp/preferences.py.
+ */
+
+/* --- Gray, the default: dark but not black ------------------------------------------------------------------- */
+[data-theme="gray"] {
+  --bs-body-bg: #1f2328;
+  --bs-body-bg-rgb: 31, 35, 40;
+  --bs-body-color: #e4e7eb;
+  --bs-body-color-rgb: 228, 231, 235;
+  --bs-emphasis-color: #ffffff;
+  --bs-secondary-color: rgba(228, 231, 235, 0.66);
+  --bs-secondary-bg: #343a42;
+  --bs-tertiary-bg: #2c3138;
+  --bs-tertiary-bg-rgb: 44, 49, 56;
+  --bs-border-color: #424952;
+  --bs-border-color-translucent: rgba(255, 255, 255, 0.1);
+  --surface: #282d33;
+  --surface-raised: #30363d;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --row-divider: rgba(255, 255, 255, 0.07);
+  --hover-tint: rgba(255, 255, 255, 0.04);
+  --accent: #3d8bfd;
+  --accent-rgb: 61, 139, 253;
+  --accent-hover: #5c9dfd;
+  --accent-contrast: #ffffff;
+  --bs-link-color: #7fb0ff;
+  --bs-link-color-rgb: 127, 176, 255;
+  --bs-link-hover-color: #a6c8ff;
+  --bs-link-hover-color-rgb: 166, 200, 255;
+  --page-glow: none;
+}
+
+/* --- Dark: near black, the look before themes ---------------------------------------------------------------- */
+[data-theme="dark"] {
+  --bs-body-bg: #111418;
+  --bs-body-bg-rgb: 17, 20, 24;
+  --bs-body-color: #dee2e6;
+  --bs-body-color-rgb: 222, 226, 230;
+  --bs-emphasis-color: #ffffff;
+  --bs-secondary-color: rgba(222, 226, 230, 0.66);
+  --bs-secondary-bg: #222830;
+  --bs-tertiary-bg: #1b2026;
+  --bs-tertiary-bg-rgb: 27, 32, 38;
+  --bs-border-color: #2e353e;
+  --bs-border-color-translucent: rgba(255, 255, 255, 0.08);
+  --surface: #181c21;
+  --surface-raised: #1f242a;
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --row-divider: rgba(255, 255, 255, 0.06);
+  --hover-tint: rgba(255, 255, 255, 0.035);
+  --accent: #0d6efd;
+  --accent-rgb: 13, 110, 253;
+  --accent-hover: #3d8bfd;
+  --accent-contrast: #ffffff;
+  --bs-link-color: #6ea8fe;
+  --bs-link-color-rgb: 110, 168, 254;
+  --bs-link-hover-color: #9ec5fe;
+  --bs-link-hover-color-rgb: 158, 197, 254;
+  --page-glow: none;
+}
+
+/* --- Light ----------------------------------------------------------------------------------------------------- */
+[data-theme="light"] {
+  --bs-body-bg: #eef0f3;
+  --bs-body-bg-rgb: 238, 240, 243;
+  --bs-body-color: #1f2328;
+  --bs-body-color-rgb: 31, 35, 40;
+  --bs-emphasis-color: #000000;
+  --bs-secondary-color: rgba(31, 35, 40, 0.66);
+  --bs-secondary-bg: #e3e6ea;
+  --bs-tertiary-bg: #f5f6f8;
+  --bs-tertiary-bg-rgb: 245, 246, 248;
+  --bs-border-color: #d3d8de;
+  --bs-border-color-translucent: rgba(0, 0, 0, 0.1);
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --border-subtle: rgba(0, 0, 0, 0.09);
+  --row-divider: rgba(0, 0, 0, 0.07);
+  --hover-tint: rgba(0, 0, 0, 0.035);
+  --accent: #0d6efd;
+  --accent-rgb: 13, 110, 253;
+  --accent-hover: #0b5ed7;
+  --accent-contrast: #ffffff;
+  --bs-link-color: #0a58ca;
+  --bs-link-color-rgb: 10, 88, 202;
+  --bs-link-hover-color: #084298;
+  --bs-link-hover-color-rgb: 8, 66, 152;
+  --page-glow: none;
+}
+
+/* --- Eclipse: black and deep navy, with a gold corona ---------------------------------------------------------- */
+[data-theme="eclipse"] {
+  --bs-body-bg: #02070f;
+  --bs-body-bg-rgb: 2, 7, 15;
+  --bs-body-color: #eef2f7;
+  --bs-body-color-rgb: 238, 242, 247;
+  --bs-emphasis-color: #ffffff;
+  --bs-secondary-color: rgba(214, 224, 238, 0.66);
+  --bs-secondary-bg: #0f2645;
+  --bs-tertiary-bg: #0a1c35;
+  --bs-tertiary-bg-rgb: 10, 28, 53;
+  --bs-border-color: #1b3a62;
+  --bs-border-color-translucent: rgba(160, 190, 230, 0.12);
+  --surface: #061529;
+  --surface-raised: #0b2040;
+  --border-subtle: rgba(160, 190, 230, 0.1);
+  --row-divider: rgba(160, 190, 230, 0.08);
+  --hover-tint: rgba(247, 191, 6, 0.05);
+  --accent: #f7bf06;
+  --accent-rgb: 247, 191, 6;
+  --accent-hover: #ffd23d;
+  --accent-contrast: #140f00;
+  --bs-link-color: #f7c94a;
+  --bs-link-color-rgb: 247, 201, 74;
+  --bs-link-hover-color: #ffdd80;
+  --bs-link-hover-color-rgb: 255, 221, 128;
+  --page-glow:
+    radial-gradient(ellipse 70% 55% at 100% 0%, rgba(163, 65, 34, 0.28), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 0% 100%, rgba(82, 15, 30, 0.45), transparent 70%);
+}
+
+/* --- Nebula: violet and plum, with a pink glow ----------------------------------------------------------------- */
+[data-theme="nebula"] {
+  --bs-body-bg: #160425;
+  --bs-body-bg-rgb: 22, 4, 37;
+  --bs-body-color: #f6e8ef;
+  --bs-body-color-rgb: 246, 232, 239;
+  --bs-emphasis-color: #ffffff;
+  --bs-secondary-color: rgba(244, 211, 224, 0.68);
+  --bs-secondary-bg: #3d1557;
+  --bs-tertiary-bg: #2e0d47;
+  --bs-tertiary-bg-rgb: 46, 13, 71;
+  --bs-border-color: #55236a;
+  --bs-border-color-translucent: rgba(244, 211, 224, 0.12);
+  --surface: #25073d;
+  --surface-raised: #33104f;
+  --border-subtle: rgba(244, 211, 224, 0.1);
+  --row-divider: rgba(244, 211, 224, 0.08);
+  --hover-tint: rgba(197, 116, 177, 0.07);
+  --accent: #c574b1;
+  --accent-rgb: 197, 116, 177;
+  --accent-hover: #d590c4;
+  --accent-contrast: #1e0530;
+  --bs-link-color: #e7a9d7;
+  --bs-link-color-rgb: 231, 169, 215;
+  --bs-link-hover-color: #f4d3e0;
+  --bs-link-hover-color-rgb: 244, 211, 224;
+  --page-glow:
+    radial-gradient(ellipse 70% 60% at 100% 0%, rgba(125, 56, 131, 0.45), transparent 70%),
+    radial-gradient(ellipse 65% 55% at 0% 100%, rgba(72, 15, 79, 0.7), transparent 70%);
+}
+
+/* --- Planet: ocean blues ---------------------------------------------------------------------------------------- */
+[data-theme="planet"] {
+  --bs-body-bg: #031a2d;
+  --bs-body-bg-rgb: 3, 26, 45;
+  --bs-body-color: #e6eef3;
+  --bs-body-color-rgb: 230, 238, 243;
+  --bs-emphasis-color: #ffffff;
+  --bs-secondary-color: rgba(205, 215, 224, 0.7);
+  --bs-secondary-bg: #0d3c5f;
+  --bs-tertiary-bg: #08304f;
+  --bs-tertiary-bg-rgb: 8, 48, 79;
+  --bs-border-color: #164e77;
+  --bs-border-color-translucent: rgba(156, 203, 219, 0.14);
+  --surface: #062742;
+  --surface-raised: #0a3456;
+  --border-subtle: rgba(156, 203, 219, 0.12);
+  --row-divider: rgba(156, 203, 219, 0.09);
+  --hover-tint: rgba(156, 203, 219, 0.06);
+  --accent: #9ccbdb;
+  --accent-rgb: 156, 203, 219;
+  --accent-hover: #b8dce8;
+  --accent-contrast: #062742;
+  --bs-link-color: #9ccbdb;
+  --bs-link-color-rgb: 156, 203, 219;
+  --bs-link-hover-color: #cdd7e0;
+  --bs-link-hover-color-rgb: 205, 215, 224;
+  --page-glow:
+    radial-gradient(ellipse 75% 55% at 50% 0%, rgba(88, 145, 171, 0.3), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(3, 67, 106, 0.55), transparent 70%);
+}
+
+/* --- Twilight: night blue and violet, with a coral sunset ------------------------------------------------------- */
+[data-theme="twilight"] {
+  --bs-body-bg: #040612;
+  --bs-body-bg-rgb: 4, 6, 18;
+  --bs-body-color: #f6ece6;
+  --bs-body-color-rgb: 246, 236, 230;
+  --bs-emphasis-color: #ffffff;
+  --bs-secondary-color: rgba(255, 231, 217, 0.64);
+  --bs-secondary-bg: #2a2040;
+  --bs-tertiary-bg: #1b1530;
+  --bs-tertiary-bg-rgb: 27, 21, 48;
+  --bs-border-color: #372a52;
+  --bs-border-color-translucent: rgba(255, 231, 217, 0.12);
+  --surface: #110f24;
+  --surface-raised: #1d1733;
+  --border-subtle: rgba(255, 231, 217, 0.09);
+  --row-divider: rgba(255, 231, 217, 0.07);
+  --hover-tint: rgba(255, 155, 115, 0.05);
+  --accent: #ff9b73;
+  --accent-rgb: 255, 155, 115;
+  --accent-hover: #ffb293;
+  --accent-contrast: #1a0b06;
+  --bs-link-color: #ffb293;
+  --bs-link-color-rgb: 255, 178, 147;
+  --bs-link-hover-color: #ffe7d9;
+  --bs-link-hover-color-rgb: 255, 231, 217;
+  --page-glow:
+    radial-gradient(ellipse 70% 55% at 0% 0%, rgba(111, 59, 189, 0.38), transparent 70%),
+    radial-gradient(ellipse 60% 45% at 100% 100%, rgba(255, 155, 115, 0.16), transparent 70%);
+}
+
+/* --- What every theme shares: the accent drives Bootstrap's primary colour ------------------------------------- */
+[data-theme] {
+  --bs-primary: var(--accent);
+  --bs-primary-rgb: var(--accent-rgb);
+  --bs-primary-bg-subtle: rgba(var(--accent-rgb), 0.18);
+  --bs-primary-border-subtle: rgba(var(--accent-rgb), 0.45);
+  --bs-primary-text-emphasis: var(--bs-link-color);
+  --bs-focus-ring-color: rgba(var(--accent-rgb), 0.35);
+  --known-fresh: #e9c46a;
+  --known-aging: #f4a261;
+  --known-stale: #ef6f6c;
+  color: var(--bs-body-color);
+}
+/* Light keeps its darker last-known colours (set above, after this rule would undo them). */
+[data-theme="light"] {
+  --known-fresh: #9a6b00;
+  --known-aging: #b35400;
+  --known-stale: #c0262d;
+}
+
+body {
+  background-color: var(--bs-body-bg);
+  background-image: var(--page-glow, none);
+  background-attachment: fixed;
+}
+
+/* Bootstrap writes its primary colour into these as literal values, so they are pointed at the accent here. */
+.btn-primary {
+  --bs-btn-color: var(--accent-contrast);
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: var(--accent-contrast);
+  --bs-btn-hover-bg: var(--accent-hover);
+  --bs-btn-hover-border-color: var(--accent-hover);
+  --bs-btn-active-color: var(--accent-contrast);
+  --bs-btn-active-bg: var(--accent-hover);
+  --bs-btn-active-border-color: var(--accent-hover);
+  --bs-btn-disabled-color: var(--accent-contrast);
+  --bs-btn-disabled-bg: var(--accent);
+  --bs-btn-disabled-border-color: var(--accent);
+  --bs-btn-focus-shadow-rgb: var(--accent-rgb);
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--bs-link-color);
+  --bs-btn-border-color: rgba(var(--accent-rgb), 0.7);
+  --bs-btn-hover-color: var(--accent-contrast);
+  --bs-btn-hover-bg: var(--accent);
+  --bs-btn-hover-border-color: var(--accent);
+  --bs-btn-active-color: var(--accent-contrast);
+  --bs-btn-active-bg: var(--accent);
+  --bs-btn-active-border-color: var(--accent);
+  --bs-btn-disabled-color: var(--bs-link-color);
+  --bs-btn-disabled-border-color: rgba(var(--accent-rgb), 0.5);
+  --bs-btn-focus-shadow-rgb: var(--accent-rgb);
+}
+.btn-link { --bs-btn-color: var(--bs-link-color); --bs-btn-hover-color: var(--bs-link-hover-color); }
+.form-check-input:checked { background-color: var(--accent); border-color: var(--accent); }
+.form-check-input:focus,
+.form-control:focus,
+.form-select:focus { border-color: rgba(var(--accent-rgb), 0.6); box-shadow: 0 0 0 0.25rem var(--bs-focus-ring-color); }
+.form-range::-webkit-slider-thumb { background-color: var(--accent); }
+.form-range::-moz-range-thumb { background-color: var(--accent); }
+.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 1px var(--bs-body-bg), 0 0 0 0.25rem var(--bs-focus-ring-color); }
+.form-range:focus::-moz-range-thumb { box-shadow: 0 0 0 1px var(--bs-body-bg), 0 0 0 0.25rem var(--bs-focus-ring-color); }
+.page-link { --bs-pagination-active-bg: var(--accent); --bs-pagination-active-border-color: var(--accent); --bs-pagination-active-color: var(--accent-contrast); }
+.dropdown-menu { --bs-dropdown-link-active-bg: var(--accent); --bs-dropdown-link-active-color: var(--accent-contrast); }
+.modal { --bs-modal-bg: var(--surface-raised); --bs-modal-border-color: var(--border-subtle); }
+.offcanvas, .offcanvas-lg { --bs-offcanvas-bg: var(--bs-body-bg); }

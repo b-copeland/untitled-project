@@ -12,6 +12,7 @@ import Galaxy from "./home/galaxy.js";
 import Message from "./home/message.js";
 import History from "./home/history.js";
 import Scores from "./home/scores.js";
+import Automation from "./home/automation.js";
 import Build from "./build/build.js";
 import Settle from "./build/settle.js";
 import Structures from "./build/structures.js";
@@ -31,16 +32,17 @@ import UniversePolitics from "./politics/universepolitics.js";
 import ClusterPolitics from "./politics/clusterpolitics.js";
 import CreateKingdom from "./other/createkingdom.js";
 import ViewKingdom from "./other/viewkingdom.js";
+import SettingsHelp from "./other/settings.js";
 import "./help.css";
 
 // Every topic, in the order of the game's own navigation: [id, label, component]. Each page's help section is one topic.
 const TOPICS = [
     ["Start here", [["guide", "Guide", Guide]]],
-    ["Home", [["home", "Status", Home], ["shields", "Shields", Shields], ["spending", "Spending", Spending], ["news", "News", News], ["galaxy", "Galaxy", Galaxy], ["message", "Message", Message], ["history", "History", History], ["scores", "Scores", Scores]]],
+    ["Home", [["home", "Status", Home], ["shields", "Shields", Shields], ["news", "News", News], ["galaxy", "Galaxy", Galaxy], ["message", "Message", Message], ["history", "History", History], ["scores", "Scores", Scores], ["automation", "Automation", Automation], ["spending", "Spending", Spending]]],
     ["Build", [["build", "Overview", Build], ["settle", "Settle", Settle], ["structures", "Structures", Structures], ["military", "Military", Military], ["projects", "Projects", Projects], ["buildmissiles", "Build Missiles", BuildMissiles]]],
     ["Conquer", [["conquer", "Overview", Conquer], ["attack", "Attack", Attack], ["spy", "Spy", Spy], ["intel", "Intel", Intel], ["launchmissiles", "Launch Missiles", LaunchMissiles], ["schedule", "Schedule", Schedule], ["primitives", "Primitives", Primitives]]],
     ["Politics", [["politics", "Galaxy", Politics], ["empirepolitics", "Empire", EmpirePolitics], ["clusterpolitics", "Cluster", ClusterPolitics], ["universepolitics", "Universe", UniversePolitics]]],
-    ["Other", [["createkingdom", "Create Kingdom", CreateKingdom], ["viewkingdom", "View Kingdom", ViewKingdom]]],
+    ["Other", [["createkingdom", "Create Kingdom", CreateKingdom], ["viewkingdom", "View Kingdom", ViewKingdom], ["settings", "Settings", SettingsHelp]]],
 ];
 const FLAT = TOPICS.flatMap(([, topics]) => topics);
 
@@ -56,7 +58,7 @@ function Help(props) {
     const [selected, setSelected] = useState(FLAT.some(([id]) => id === wanted) ? wanted : "guide");
 
     useEffect(() => {
-        fetch('api/state', {keepalive: true}).then(r => r.json()).then(r => setState(r)).catch(
+        fetch('/api/state', {keepalive: true}).then(r => r.json()).then(r => setState(r)).catch(
             err => console.log('Failed to fetch state', err)
         );
     }, []);

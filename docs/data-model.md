@@ -213,6 +213,7 @@ Users are Cosmos documents too ([decisions/0004](decisions/0004-users-in-cosmos.
 | `user_<id>` | `id_number` (the numeric user id, an int: it is the `id` claim in JWTs and in email tokens), `username`, hashed `password`, `roles` (comma-separated: `operator`, `admin`, `verified`), `kd_id` (a string, or null), `kd_created`, `kd_death_date`, `email`, `email_verified`, `is_active`, `is_verified`; `kd_pending` while a kingdom is being made for it | `POST /user` (create only, `409` if it exists); `PATCH /user/<id>` (shallow merge, honours `If-Match`; never changes `id_number`). Flask writes through `user.save` / `user.update`, which are `occ.update` |
 | `username_<key>` | `user_id`: the int id of the user with that name. `key` is the lowercase hex of the UTF-8 username, so any name is a valid id and lookups stay case-sensitive | `POST /username/<key>` at sign-up: creating it is the uniqueness check, `409` if the name is taken |
 | `user_counter` | `next_id`: the next free user id | `PATCH /usercounter` with `If-Match` (`occ.update`), at sign-up. `GET /usercounter` creates it with `next_id: 1` if it is missing |
+| `preferences_<id>` | The player's own settings, by user id: `theme` (a name from `THEMES` in `api/untitledapp/preferences.py`). A user who has set nothing has no document; Flask fills in the defaults, and a value no longer offered reads as its default | `PATCH /preferences/<id>` (shallow merge; creates the document on the first write). `GET /preferences/<id>` answers `{"id": ...}` without writing when there is none |
 
 - **Sign-up** takes an id from the counter, claims the name for it, then writes the user. A crash after the claim leaves
   the name taken by nobody; `User.lookup` also checks that the user it finds has the name, so a stale claim finds
@@ -227,6 +228,6 @@ Users are Cosmos documents too ([decisions/0004](decisions/0004-users-in-cosmos.
 - **Queries:** `GET /users` is one cross-partition query over the user documents, in id order, filtered by any of
   `email`, `kd_id` and `prefix` (of the username). For admin and rare lookups only (round reset, kingdom death, email
   recovery, bot names), never per request or per tick.
-- **Users outlive a round:** `/resetstate` keeps every `user_` and `username_` document (the admin reset then clears
+- **Users outlive a round:** `/resetstate` keeps every `user_`, `username_` and `preferences_` document (the admin reset then clears
   their kingdom fields). `/deleteall` (tests) removes them rather than blanking them, so names become free again.
 - **Old documents:** a user document written before a field existed lacks it; `users.FIELDS` holds the defaults.

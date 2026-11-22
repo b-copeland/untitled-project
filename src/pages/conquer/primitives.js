@@ -9,10 +9,9 @@ import Tabs from 'react-bootstrap/Tabs';
 import Modal from 'react-bootstrap/Modal';
 import Alert from 'react-bootstrap/Alert';
 import "./primitives.css";
-import Header from "../../components/header";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
-import { AmountInput, NumberControl } from "../../components/forms";
+import { AmountInput, NumberControl, useSliders } from "../../components/forms";
 import { Panel, FieldRow, UnitStat, Stats, useServerForecast } from "../../components/planner";
 import { displayPercent } from "../../format";
 
@@ -22,10 +21,8 @@ const percentOf = (fraction) => (fraction === undefined || fraction === null ? "
 function Primitives(props) {
     return (
         <>
-            <Header data={props.data} />
             <div className="planner primitives">
-                <h2>Primitives</h2>
-                <Tabs id="primitives-tabs" defaultActiveKey="attack" justify fill variant="tabs">
+                <Tabs id="primitives-tabs" defaultActiveKey="attack" variant="tabs">
                     <Tab eventKey="attack" title="Attack">
                         <AttackPrimitives loading={props.loading} updateData={props.updateData} data={props.data} />
                     </Tab>
@@ -42,14 +39,14 @@ function Primitives(props) {
 const initialAttackerValues = { military_bonus: "", generals: "" };
 
 /** An on/off switch with the settings under it, for the automatic version of an action. */
-function AutoPanel({ title, hint, enabled, onToggle, disabled, children, onSave, saveLabel = "Save settings" }) {
+function AutoPanel({ title, hint, enabled, onToggle, disabled, saveDisabled, children, onSave, saveLabel = "Save settings" }) {
     return (
         <Panel title={title} hint={hint}>
             <Form.Check type="switch" id={"auto-" + title.replace(/\s+/g, "-").toLowerCase()} label={enabled ? "On" : "Off"}
                 checked={enabled} onChange={onToggle} disabled={disabled} />
             {children}
             <div className="planner-actions">
-                <Button variant="outline-primary" onClick={onSave} disabled={disabled}>{saveLabel}</Button>
+                <Button variant="outline-primary" onClick={onSave} disabled={disabled || saveDisabled}>{saveLabel}</Button>
             </div>
         </Panel>
     );
@@ -59,13 +56,10 @@ function AttackPrimitives(props) {
     const [attackerValues, setAttackerValues] = useState(initialAttackerValues);
     const [results, setResults] = useState([]);
     const [confirming, setConfirming] = useState(false);
-    const [autoPure, setAutoPure] = useState("");
-    const [autoFlex, setAutoFlex] = useState("");
 
     const kingdom = props.data.kingdom;
     const unitsDesc = props.data.mobis?.units_desc || {};
     const myUnits = kingdom.units || {};
-    const settings = kingdom.auto_attack_settings || {};
     const ATTACK_UNITS = attackUnits(unitsDesc, props.data.state?.pretty_names, props.data.state?.order?.units);
 
     useEffect(() => {
@@ -91,16 +85,7 @@ function AttackPrimitives(props) {
             .then(safeJson).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); });
         props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects'], [updateFunc]);
     };
-    const toggleAuto = (event) => {
-        const updateFunc = () => authFetch('api/attackprimitives/auto', { method: 'post', body: JSON.stringify({ enabled: event.target.checked }) })
-            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
-        props.updateData(['kingdom'], [updateFunc]);
-    };
-    const saveAuto = () => {
-        const updateFunc = () => authFetch('api/attackprimitives/auto', { method: 'post', body: JSON.stringify({ pure: autoPure, flex: autoFlex }) })
-            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
-        props.updateData(['kingdom'], [updateFunc]);
-    };
+
 
     const problems = [];
     if (sending === 0) problems.push("Choose units to send");
@@ -124,12 +109,12 @@ function AttackPrimitives(props) {
                     {ATTACK_UNITS.map(([key, name]) => (
                         (!unitsDesc[key]?.project || myUnits[key] > 0 || attackerValues[key])
                             ? <FieldRow key={key} label={name} stat={<UnitStat kind="offense" value={unitsDesc[key]?.offense} />} htmlFor={"prim-" + key}>
-                                <AmountInput box name={key} id={"prim-" + key} label={name} value={attackerValues[key] || ""} onChange={onChange} max={myUnits[key] || 0} />
+                                <AmountInput name={key} id={"prim-" + key} label={name} value={attackerValues[key] || ""} onChange={onChange} max={myUnits[key] || 0} />
                             </FieldRow>
                             : null
                     ))}
                     <FieldRow label="Generals" htmlFor="prim-generals">
-                        <AmountInput box name="generals" id="prim-generals" label="Generals" value={attackerValues.generals} onChange={onChange} max={kingdom.generals_available || 0} />
+                        <AmountInput name="generals" id="prim-generals" label="Generals" value={attackerValues.generals} onChange={onChange} max={kingdom.generals_available || 0} />
                     </FieldRow>
                 </Panel>
                 <Panel title="Forecast" hint={hasForecast ? undefined : "Choose some units to see how it would go."}>
@@ -153,17 +138,8 @@ function AttackPrimitives(props) {
                 </Panel>
             </div>
 
-            <AutoPanel title="Automatic attacks" hint="Send part of your army at the primitives on its own, whenever it is ready."
-                enabled={kingdom.auto_attack_enabled || false} onToggle={toggleAuto} disabled={props.loading.kingdom} onSave={saveAuto}>
-                <FieldRow label="Attackers to send" hint={`Now ${percentOf(settings.pure)}%`} htmlFor="pure-percent">
-                    <div className="attack-buffer"><NumberControl id="pure-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoPure}
-                        placeholder={String(percentOf(settings.pure) || 0)} onChange={(e) => setAutoPure(e.target.value)} /><span>%</span></div>
-                </FieldRow>
-                <FieldRow label="Flexers to send" hint={`Now ${percentOf(settings.flex)}%`} htmlFor="flex-percent">
-                    <div className="attack-buffer"><NumberControl id="flex-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoFlex}
-                        placeholder={String(percentOf(settings.flex) || 0)} onChange={(e) => setAutoFlex(e.target.value)} /><span>%</span></div>
-                </FieldRow>
-            </AutoPanel>
+
+            <AutoAttack data={props.data} loading={props.loading} updateData={props.updateData} />
 
             <Modal show={confirming} onHide={() => setConfirming(false)} animation={false}>
                 <Modal.Header closeButton><Modal.Title>Send this attack?</Modal.Title></Modal.Header>
@@ -184,13 +160,9 @@ function RobPrimitives(props) {
     const [results, setResults] = useState([]);
     const [drones, setDrones] = useState("");
     const [shieldDrones, setShieldDrones] = useState(false);
-    const [autoDrones, setAutoDrones] = useState("");
-    const [autoKeep, setAutoKeep] = useState("");
-    const [autoShield, setAutoShield] = useState(props.data.kingdom.auto_rob_settings?.shielded || false);
     const [confirming, setConfirming] = useState(false);
 
     const kingdom = props.data.kingdom;
-    const settings = kingdom.auto_rob_settings || {};
     const maxDrones = Math.floor(kingdom.drones || 0);
     const sending = parseInt(drones, 10) || 0;
     const perDrone = props.data.state.primitives_rob_per_drone || 4;
@@ -215,7 +187,7 @@ function RobPrimitives(props) {
             <div className="planner-grid">
                 <Panel title="Your drones" hint={`You have ${whole(maxDrones)} drones and ${kingdom.spy_attempts ?? 0} spy attempts.`}>
                     <FieldRow label="Drones to send" htmlFor="rob-drones">
-                        <AmountInput box name="drones" id="rob-drones" label="Drones to send" value={drones} onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
+                        <AmountInput name="drones" id="rob-drones" label="Drones to send" value={drones} onChange={(e) => setDrones(e.target.value)} max={maxDrones} />
                     </FieldRow>
                     <FieldRow label="Shield the drones" hint="Protects them if the rob fails">
                         <Form.Check type="switch" id="shield-drones-switch" checked={shieldDrones} onChange={(e) => setShieldDrones(e.target.checked)} />
@@ -230,22 +202,8 @@ function RobPrimitives(props) {
                 </Panel>
             </div>
 
-            <AutoPanel title="Automatic robs" hint="Send drones on its own whenever you have spy attempts to spare."
-                enabled={kingdom.auto_rob_enabled || false} onToggle={(e) => post('api/robprimitives/auto', { enabled: e.target.checked })}
-                disabled={props.loading.kingdom}
-                onSave={() => post('api/robprimitives/auto', { drones: autoDrones, keep: autoKeep, shielded: autoShield })}>
-                <FieldRow label="Drones to send" hint={`Now ${percentOf(settings.drones)}%`} htmlFor="drones-percent">
-                    <div className="attack-buffer"><NumberControl id="drones-percent" size="sm" inputMode="decimal" autoComplete="off" value={autoDrones}
-                        placeholder={String(percentOf(settings.drones) || 0)} onChange={(e) => setAutoDrones(e.target.value)} /><span>%</span></div>
-                </FieldRow>
-                <FieldRow label="Spy attempts to keep" hint={`Now ${settings.keep ?? 0}`} htmlFor="keep-attempts">
-                    <NumberControl id="keep-attempts" size="sm" inputMode="numeric" autoComplete="off" value={autoKeep}
-                        placeholder={String(settings.keep || 0)} onChange={(e) => setAutoKeep(e.target.value)} />
-                </FieldRow>
-                <FieldRow label="Shield automatic robs">
-                    <Form.Check type="switch" id="enable-auto-rob-shields-switch" checked={autoShield} onChange={(e) => setAutoShield(e.target.checked)} />
-                </FieldRow>
-            </AutoPanel>
+
+            <AutoRob data={props.data} loading={props.loading} updateData={props.updateData} />
 
             <Modal show={confirming} onHide={() => setConfirming(false)} animation={false}>
                 <Modal.Header closeButton><Modal.Title>Send these drones?</Modal.Title></Modal.Header>
@@ -256,6 +214,74 @@ function RobPrimitives(props) {
                 </Modal.Footer>
             </Modal>
         </div>
+    );
+}
+
+/** The automatic attack on primitives: on or off, and the share of attackers and flexers it sends. */
+export function AutoAttack(props) {
+    const kingdom = props.data.kingdom || {};
+    const settings = kingdom.auto_attack_settings || {};
+    const sliders = useSliders({ pure: (settings.pure || 0) * 100, flex: (settings.flex || 0) * 100 });
+    const [results, setResults] = useState([]);
+    const post = (body) => {
+        const updateFunc = () => authFetch('api/attackprimitives/auto', { method: 'post', body: JSON.stringify(body) })
+            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
+        props.updateData(['kingdom'], [updateFunc]);
+    };
+    return (
+        <>
+            <ResultToasts title="Automatic attacks" results={results} setResults={setResults} />
+            <AutoPanel title="Automatic attacks" hint="Send part of your army at the primitives on its own, whenever it is ready."
+                enabled={kingdom.auto_attack_enabled || false} onToggle={(e) => post({ enabled: e.target.checked })}
+                disabled={!!props.loading.kingdom} saveDisabled={!sliders.changed}
+                onSave={() => { post(sliders.body(["pure", "flex"])); sliders.reset(); }}>
+                <FieldRow label="Attackers to send" hint={`Now ${percentOf(settings.pure) || 0}%`} htmlFor="pure-percent">
+                    <AmountInput name="pure" id="pure-percent" label="Attackers to send" suffix="%" max={100}
+                        value={String(sliders.value("pure"))} onChange={sliders.onChange} />
+                </FieldRow>
+                <FieldRow label="Flexers to send" hint={`Now ${percentOf(settings.flex) || 0}%`} htmlFor="flex-percent">
+                    <AmountInput name="flex" id="flex-percent" label="Flexers to send" suffix="%" max={100}
+                        value={String(sliders.value("flex"))} onChange={sliders.onChange} />
+                </FieldRow>
+            </AutoPanel>
+        </>
+    );
+}
+
+/** The automatic rob of primitives: on or off, the share of drones it sends, the spy attempts it keeps back. */
+export function AutoRob(props) {
+    const kingdom = props.data.kingdom || {};
+    const settings = kingdom.auto_rob_settings || {};
+    const sliders = useSliders({ drones: (settings.drones || 0) * 100 });
+    const [autoKeep, setAutoKeep] = useState("");
+    const [autoShield, setAutoShield] = useState(settings.shielded || false);
+    const [results, setResults] = useState([]);
+    const post = (body) => {
+        const updateFunc = () => authFetch('api/robprimitives/auto', { method: 'post', body: JSON.stringify(body) })
+            .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
+        props.updateData(['kingdom'], [updateFunc]);
+    };
+    const changed = sliders.changed || autoKeep !== "" || autoShield !== (settings.shielded || false);
+    return (
+        <>
+            <ResultToasts title="Automatic robs" results={results} setResults={setResults} />
+            <AutoPanel title="Automatic robs" hint="Send drones on its own whenever you have spy attempts to spare."
+                enabled={kingdom.auto_rob_enabled || false} onToggle={(e) => post({ enabled: e.target.checked })}
+                disabled={!!props.loading.kingdom} saveDisabled={!changed}
+                onSave={() => { post({ ...sliders.body(["drones"]), keep: autoKeep, shielded: autoShield }); sliders.reset(); setAutoKeep(""); }}>
+                <FieldRow label="Drones to send" hint={`Now ${percentOf(settings.drones) || 0}%`} htmlFor="drones-percent">
+                    <AmountInput name="drones" id="drones-percent" label="Drones to send" suffix="%" max={100}
+                        value={String(sliders.value("drones"))} onChange={sliders.onChange} />
+                </FieldRow>
+                <FieldRow label="Spy attempts to keep" hint={`Now ${settings.keep ?? 0}`} htmlFor="keep-attempts">
+                    <NumberControl id="keep-attempts" size="sm" inputMode="numeric" autoComplete="off" value={autoKeep}
+                        placeholder={String(settings.keep || 0)} onChange={(e) => setAutoKeep(e.target.value)} />
+                </FieldRow>
+                <FieldRow label="Shield automatic robs">
+                    <Form.Check type="switch" id="enable-auto-rob-shields-switch" checked={autoShield} onChange={(e) => setAutoShield(e.target.checked)} />
+                </FieldRow>
+            </AutoPanel>
+        </>
     );
 }
 

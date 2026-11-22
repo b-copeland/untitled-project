@@ -28,7 +28,7 @@ function BuildMissiles(props) {
             <p>
                 You can build up to {props.state.game_config?.BASE_MISSILE_SILO_CAPACITY} missiles per Missile Silo that you own.
             </p>
-            <Table className="missiles-table" striped bordered hover size="sm">
+            <Table className="missiles-table" hover size="sm">
                 <thead>
                     <tr>
                         <th>Missile</th>

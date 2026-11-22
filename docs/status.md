@@ -161,6 +161,17 @@ built; the content is not.
   the names on hover and the table view carry identity too. Selecting a galaxy does not yet open it on the Galaxy page.
 - Neither the Cluster page nor the Map page under Politics has been checked in a browser yet.
 
+## Unit upgrades and playstyle units
+
+Added 2026-11-21 (issue #145). Upgrading units at home to the next tier, and the six playstyle units that replaced the
+playstyle projects' effects on whole kingdoms.
+
+- Upgrading is by hand only: the auto spender trains towards unit targets from recruits but never upgrades, and an
+  upgrade can not be scheduled. Tenet 1 wants both; not built yet.
+- Bots neither train nor upgrade to the heavy, elite or playstyle units.
+- The playstyle units' costs, `NETWORTH_VALUES` and `SELF_DESTRUCT_LOSSES_INCREASE` are the maintainer's first
+  numbers, not yet tested in play.
+
 ## Bots
 
 See [bots.md](bots.md) for what bots do not do yet and the open questions.

@@ -1,7 +1,11 @@
 import React from "react";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render as renderBare, screen, fireEvent, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import GalaxyPolitics from "./galaxypolitics";
 import { authFetch } from "../../auth";
+
+// Kingdom names link to their pages, so the page is shown inside a router.
+const render = (element) => renderBare(<MemoryRouter>{element}</MemoryRouter>);
 
 jest.mock("../../components/header", () => () => null);
 jest.mock("../../components/helpbutton", () => () => null);

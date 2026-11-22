@@ -53,7 +53,7 @@ function AdminUniverse() {
         <Button size="sm" variant="secondary" onClick={load}>Refresh now</Button>
       </div>
       <div style={{ overflowX: "auto" }}>
-        <Table striped hover size="sm">
+        <Table hover size="sm">
           <thead>
             <tr><th>#</th><th>Kingdom</th><th>Playstyle</th><th>Galaxy</th><th>Empire</th><th>Stars</th><th>Networth</th><th>Points</th></tr>
           </thead>

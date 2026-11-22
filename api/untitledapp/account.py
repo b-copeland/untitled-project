@@ -37,7 +37,7 @@ def refresh():
     claims = guard.extract_jwt_token(guard.refresh_jwt_token(old_token))
     # praetorian copies the old token's custom claims; rebuild them from the user as they are now.
     user = User.read(claims["id"])
-    claims.update({"kd": user.kd_id or "", "kc": bool(user.kd_created), "rnd": round_id})
+    claims.update({"kd": user.kd_id or "", "kc": bool(user.kd_created), "rnd": round_id, "un": user.username})
     new_token = jwt.encode(claims, guard.encode_key, guard.encode_algorithm)
     return {'accessToken': new_token}, 200
 

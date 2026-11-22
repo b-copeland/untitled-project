@@ -45,6 +45,7 @@ export const ENDPOINTS = {
   messages: "api/messages",
   scores: "api/scores",
   notifs: "api/notifs",
+  preferences: "api/preferences",
 };
 
 export const GAME_KEYS = Object.keys(ENDPOINTS);
@@ -85,6 +86,7 @@ export const initGlobalData = {
   messages: [],
   scores: {},
   notifs: {},
+  preferences: {},
 };
 
 /** When a `kingdom.next_resolve` timer changes, these keys hold the data it produced. */

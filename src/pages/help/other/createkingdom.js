@@ -31,7 +31,7 @@ function CreateKingdom(props) {
             <p>
                 The quick starts (Explorer, Attacker, Intel and Thief) are each a race and a starting kingdom, with a ready-made plan for
                 the auto builder. The plan is always saved with your kingdom; you are asked whether to switch the auto builder on. Left
-                off, nothing is spent or sent until you do it yourself, and you can switch it on later from the Spending page (auto
+                off, nothing is spent or sent until you do it yourself, and you can switch it on later from the Spending tab of the Automation page (auto
                 spending) and the Primitives page (auto attack and robbing).
             </p>
             <p>
@@ -42,7 +42,7 @@ function CreateKingdom(props) {
                 Custom lets you spend the starting unit points and stars yourself. You must use all of both. The numbers under
                 the choices update as you change them.
             </p>
-            <Table striped bordered hover size="sm" className="races-table">
+            <Table hover size="sm" className="races-table">
                 <thead>
                     <tr>
                         <th>Race</th>

@@ -23,6 +23,7 @@ function Military(props) {
             <td style={{textAlign: "right"}}>{unitsDesc[unitKey].hangar_capacity}</td>
             <td style={{textAlign: "right"}}>{unitsDesc[unitKey].fuel}</td>
             <td style={{textAlign: "left"}}>{props.state.projects?.[unitsDesc[unitKey].project]?.name || ""}</td>
+            <td style={{textAlign: "left"}}>{prettyNames[unitsDesc[unitKey].upgrades_from] || ""}</td>
         </tr>
     })
     return (
@@ -67,7 +68,23 @@ function Military(props) {
                 elite units pack more strength into each hangar space, so the same hangars hold a stronger army and
                 more of your land can go to homes and mines, but each point of their strength costs more money.
             </p>
-            <Table className="specialists-table" striped bordered hover size="sm">
+            <p>
+                Each line of units ends in two playstyle units, each unlocked by its own project. They are as strong as
+                the best unit of their line and cost more, for a trait: Solar Attackers and Solar Defenders use
+                {" "}{displayPercent(props.state.game_config?.SOLAR_FUEL_REDUCTION)} less fuel; Self-Destructing
+                Attackers and Defenders raise the other side's losses in battle (see the Attack help); Warp Speed Big
+                Flexers all come home with the first general to return; Compact Big Flexers take
+                {" "}{props.state.game_config?.COMPACT_FLEX_HANGAR_CAPACITY} hangar space each. A trait belongs to those
+                units only, not to the rest of your army.
+            </p>
+            <p>
+                The Upgrade page turns units you already have at home into the next unit of their line (the "Upgrades
+                from" column), for the difference between the two units' costs, once the new unit is unlocked. Upgrades go
+                one step at a time (Attackers to Heavy Attackers, then Heavy to Elite), never back down, and never from
+                one playstyle unit to the other. The units leave at once and come back as the new unit through training,
+                taking as long as training does, and do not fight while they upgrade.
+            </p>
+            <Table className="specialists-table" hover size="sm">
                 <thead>
                     <tr>
                         <th style={{textAlign: "left"}}>Unit</th>
@@ -77,6 +94,7 @@ function Military(props) {
                         <th style={{textAlign: "right"}}>Hangar Usage</th>
                         <th style={{textAlign: "right"}}>Fuel</th>
                         <th style={{textAlign: "left"}}>Unlocked by</th>
+                        <th style={{textAlign: "left"}}>Upgrades from</th>
                     </tr>
                 </thead>
                 <tbody>

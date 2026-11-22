@@ -58,7 +58,7 @@ function Structures(props) {
                 receive {displayPercent(props.state.game_config?.BASE_STRUCTURES_RAZE_RETURN)} of the current build cost back. 
                 This can be useful if you have obsolete buildings and need to free up stars.
             </p>
-            <Table striped bordered hover>
+            <Table hover>
                 <thead>
                     <tr>
                         <th>Structure</th>

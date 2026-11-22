@@ -1,6 +1,9 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render as renderBare, screen, fireEvent } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import LaunchMissiles from "./launchmissiles";
+
+const render = (element) => renderBare(<MemoryRouter>{element}</MemoryRouter>);
 
 jest.mock("../../components/header", () => () => null);
 jest.mock("../../components/helpbutton", () => () => null);
@@ -19,17 +22,17 @@ const data = () => ({
 const type = (id, value) => fireEvent.change(document.getElementById(id), { target: { value } });
 const launch = () => screen.getByRole("button", { name: "Launch missiles" });
 
-test("nothing can be launched until a target and a missile are chosen", () => {
-    render(<LaunchMissiles data={data()} loading={{}} updateData={jest.fn()} />);
+test("only the target shows until one is chosen, and nothing launches until a missile is chosen", () => {
+    const { unmount } = render(<LaunchMissiles data={data()} loading={{}} updateData={jest.fn()} />);
+    expect(screen.queryByRole("button", { name: "Launch missiles" })).toBeNull();
+    unmount();
+    render(<LaunchMissiles data={data()} loading={{}} updateData={jest.fn()} initialKd="2" />);
     expect(launch().disabled).toBe(true);
-    expect(launch().title).toBe("Choose a target");
 });
 
-test("more missiles than you have is refused with the reason", () => {
+test("a missile slider stops at what you have", () => {
     render(<LaunchMissiles data={data()} loading={{}} updateData={jest.fn()} initialKd="2" />);
     type("planet_busters-input", "5");
-    expect(screen.getAllByText("You only have 4").length).toBeGreaterThan(0);
-    expect(launch().disabled).toBe(true);
-    type("planet_busters-input", "4");
+    expect(document.getElementById("planet_busters-input").value).toBe("4");
     expect(launch().disabled).toBe(false);
 });

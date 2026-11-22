@@ -21,7 +21,33 @@ export function useFormValues(initial = {}) {
 }
 
 /** The text of a number box without its thousands separators, so "1,000" is read as 1000. */
-export const withoutCommas = (text) => (typeof text === "string" ? text.replace(/,/g, "") : text);
+/**
+ * Sliders that start at what the kingdom has now (`current`, in the sliders' units). `value(key)` is where the slider
+ * was moved to, else the current value (rounded down, as the slider shows it); `changed` says whether any slider was
+ * moved off it; `reset` puts them all back. A slider moved to 0 stays at 0 (AmountInput reports 0 as "").
+ */
+export function useSliders(current = {}) {
+    const [moved, setMoved] = useState({});
+    const now = (key) => Math.floor(current[key] || 0);
+    const value = (key) => (key in moved ? moved[key] : now(key));
+    const isMoved = (key) => key in moved && moved[key] !== now(key);
+    return {
+        value,
+        moved: isMoved,
+        /** The sum of the sliders `keys`, as they are now. */
+        total: (keys) => keys.reduce((sum, key) => sum + value(key), 0),
+        /** For a request where "" keeps what the server has: the moved sliders' values, "" for the rest. */
+        body: (keys) => Object.fromEntries(keys.map((key) => [key, isMoved(key) ? value(key) : ""])),
+        changed: Object.keys(moved).some((key) => moved[key] !== now(key)),
+        onChange: (event) => {
+            const { name, value: next } = event.target;
+            setMoved((previous) => ({ ...previous, [name]: parseInt(next, 10) || 0 }));
+        },
+        reset: () => setMoved({}),
+    };
+}
+
+export const withoutCommas =(text) => (typeof text === "string" ? text.replace(/,/g, "") : text);
 
 /**
  * ``Form.Control`` for a number. A player can type or paste thousands separators ("1,000,000"): ``onChange`` gets an

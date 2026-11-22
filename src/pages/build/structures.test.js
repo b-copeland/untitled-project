@@ -16,7 +16,10 @@ const data = {
 };
 
 let updateData;
-beforeEach(() => { updateData = jest.fn(); });
+beforeEach(() => {
+    updateData = jest.fn();
+    require("../../auth").authFetch.mockImplementation(() => Promise.resolve({ json: () => Promise.resolve({ status: "success", message: "ok" }) }));
+});
 
 const renderStructures = () => render(<Structures data={data} loading={{}} updateData={updateData} />);
 const button = (name) => screen.getByRole("button", { name });
@@ -49,16 +52,32 @@ test("a valid build is sent with the values typed, then the form is cleared", ()
     expect(document.getElementById("homes-input").value).toBe("0");
 });
 
-test("an allocation can only go as far as is left of 100%", () => {
+test("an allocation starts at the current shares and can only go as far as is left of 100%", () => {
     renderStructures();
     fireEvent.click(screen.getByRole("tab", { name: "Allocate" }));
     const sliders = document.querySelectorAll('#controlled-tab-example-tabpane-allocate input[type="range"]');
+    expect(sliders[0].value).toBe("60");                       // homes start at their 60%
     const workshops = sliders[sliders.length - 1];
     fireEvent.change(workshops, { target: { value: "20" } });  // 60% + 30% already allocated leaves 10%
 
     expect(workshops.value).toBe("10");
-    expect(screen.getByText(/Allocation after this change: 100.0%/)).toBeTruthy();
+    expect(screen.getByText(/Allocation after this change: 100% of 100%/)).toBeTruthy();
     expect(button("Update").disabled).toBe(false);
+});
+
+test("a share moved to 0 is sent as 0, and the shares not moved are left as they are", () => {
+    const { authFetch } = require("../../auth");
+    updateData.mockImplementation((keys, funcs) => funcs.forEach((f) => f()));
+    renderStructures();
+    fireEvent.click(screen.getByRole("tab", { name: "Allocate" }));
+    const homes = document.querySelectorAll('#controlled-tab-example-tabpane-allocate input[type="range"]')[0];
+    fireEvent.change(homes, { target: { value: "0" } });
+    expect(homes.value).toBe("0");
+    fireEvent.click(button("Update"));
+
+    const body = JSON.parse(authFetch.mock.calls[authFetch.mock.calls.length - 1][1].body);
+    expect(body.homes).toBe(0);
+    expect(body.mines).toBe("");
 });
 
 test("razing cannot go past what you have", () => {

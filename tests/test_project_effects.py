@@ -34,105 +34,142 @@ def _attack(client, jwt, units):
     )
 
 
-# --- playstyle projects -------------------------------------------------------------------------------------------------
+# --- playstyle units ----------------------------------------------------------------------------------------------------
+# Each playstyle project unlocks a unit with a trait. The trait belongs to that unit, not to every unit of its kind.
 
-def test_solar_attackers_cut_the_fuel_pure_attackers_use_and_nothing_else(app):
-    units = {"elite_attack": 100, "attack": 100, "defense": 100, "flex": 100}
-    without = kingdoms.kingdom(units=units)
-    with_project = kingdoms.kingdom(units=units, completed_projects=["solar_attackers"])
+PLAYSTYLE_UNITS = {
+    "solar_attackers": "solar_attack", "self_destructing_attackers": "self_destruct_attack",
+    "solar_defenders": "solar_defense", "self_destructing_defenders": "self_destruct_defense",
+    "warp_speed": "warp_big_flex", "compact_flexers": "compact_big_flex",
+}
+NO_UNITS = {"attack": 0, "defense": 0, "flex": 0, "recruits": 0, "engineers": 0, "big_flex": 0}
+
+
+@pytest.mark.parametrize("project, unit", PLAYSTYLE_UNITS.items())
+def test_each_playstyle_project_unlocks_its_unit_and_nothing_else(project, unit):
+    assert uas.UNITS[unit]["project"] == project
+    assert uas.unit_locked({"completed_projects": []}, unit)
+    assert not uas.unit_locked({"completed_projects": [project]}, unit)
+    others = [other for other in PLAYSTYLE_UNITS.values() if other != unit]
+    assert all(uas.unit_locked({"completed_projects": [project]}, other) for other in others)
+
+
+@pytest.mark.parametrize("unit, best", [
+    ("solar_attack", "elite_attack"), ("self_destruct_attack", "elite_attack"),
+    ("solar_defense", "elite_defense"), ("self_destruct_defense", "elite_defense"),
+    ("warp_big_flex", "big_flex"), ("compact_big_flex", "big_flex"),
+])
+def test_a_playstyle_unit_is_as_strong_as_the_best_unit_of_its_line_and_upgrades_from_it(unit, best):
+    assert uas.UNITS[unit]["offense"] == uas.UNITS[best]["offense"]
+    assert uas.UNITS[unit]["defense"] == uas.UNITS[best]["defense"]
+    assert uas.UNITS[unit]["upgrades_from"] == best
+
+
+def test_solar_units_use_less_fuel_and_their_projects_change_no_other_unit(app):
+    units = {"solar_attack": 100, "elite_attack": 100, "solar_defense": 100, "elite_defense": 100}
+    kd = kingdoms.kingdom(units=units, completed_projects=["solar_attackers", "solar_defenders"])
     cut = 1 - uas.GAME_CONFIG["SOLAR_FUEL_REDUCTION"]
-    for unit in ("elite_attack", "attack"):
-        assert _fuel_used(app, with_project, unit) == pytest.approx(_fuel_used(app, without, unit) * cut)
-    for unit in ("defense", "flex"):
-        assert _fuel_used(app, with_project, unit) == _fuel_used(app, without, unit)
+    assert _fuel_used(app, kd, "solar_attack") == pytest.approx(_fuel_used(app, kd, "elite_attack") * cut)
+    assert _fuel_used(app, kd, "solar_defense") == pytest.approx(_fuel_used(app, kd, "elite_defense") * cut)
+    assert _fuel_used(app, kd, "elite_attack") == 100 * uas.UNITS["elite_attack"]["fuel"]
+    assert _fuel_used(app, kd, "elite_defense") == 100 * uas.UNITS["elite_defense"]["fuel"]
 
 
-def test_solar_defenders_cut_the_fuel_pure_defenders_use_and_nothing_else(app):
-    units = {"heavy_defense": 100, "defense": 100, "attack": 100, "recruits": 100}
-    without = kingdoms.kingdom(units=units)
-    with_project = kingdoms.kingdom(units=units, completed_projects=["solar_defenders"])
-    cut = 1 - uas.GAME_CONFIG["SOLAR_FUEL_REDUCTION"]
-    for unit in ("heavy_defense", "defense"):
-        assert _fuel_used(app, with_project, unit) == pytest.approx(_fuel_used(app, without, unit) * cut)
-    for unit in ("attack", "recruits"):
-        assert _fuel_used(app, with_project, unit) == _fuel_used(app, without, unit)
+def test_the_military_page_shows_the_fuel_each_unit_uses():
+    desc = uas.units_for(kingdoms.kingdom(completed_projects=["solar_attackers"]))
+    assert desc["solar_attack"]["fuel"] == uas.UNITS["elite_attack"]["fuel"] * (1 - uas.GAME_CONFIG["SOLAR_FUEL_REDUCTION"])
+    assert desc["elite_attack"]["fuel"] == uas.UNITS["elite_attack"]["fuel"]
 
 
-def test_the_military_page_shows_the_fuel_a_unit_uses_after_projects():
-    kd = kingdoms.kingdom(completed_projects=["solar_attackers"])
-    desc = uas.units_for(kd)
-    assert desc["elite_attack"]["fuel"] == uas.UNITS["elite_attack"]["fuel"] * (1 - uas.GAME_CONFIG["SOLAR_FUEL_REDUCTION"])
-    assert desc["defense"]["fuel"] == uas.UNITS["defense"]["fuel"]
+def test_self_destruct_share_is_the_share_of_the_strength_from_self_destructing_units():
+    assert uas.self_destruct_share({"self_destruct_attack": 10}, "offense") == 1
+    assert uas.self_destruct_share({"self_destruct_attack": 10, "elite_attack": 10}, "offense") == pytest.approx(0.5)
+    # Flexers defend too, and attackers at home add no defense.
+    share = uas.self_destruct_share({"self_destruct_defense": 10, "flex": 14, "attack": 1000}, "defense")
+    assert share == pytest.approx(70 / (70 + 70))
+    assert uas.self_destruct_share({}, "defense") == 0
+    assert uas.self_destruct_share({"attack": 10}, "defense") == 0
 
 
-def test_self_destructing_attackers_raise_the_defenders_losses_against_kingdoms_only():
+def test_self_destructing_attackers_raise_the_defenders_losses_by_their_share_of_the_offense():
     plain = {"completed_projects": []}
-    bomber = {"completed_projects": ["self_destructing_attackers"]}
-    increase = 1 + uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
-    assert uac._battle_loss_rates(bomber, plain, 0.5)[1] == pytest.approx(uac._battle_loss_rates(plain, plain, 0.5)[1] * increase)
-    assert uac._battle_loss_rates(bomber, plain)[0] == uac._battle_loss_rates(plain, plain)[0]
-    assert uac._battle_loss_rates(bomber, None) == uac._battle_loss_rates(plain, None)  # primitives are not kingdoms
+    increase = uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
+    base = uac._battle_loss_rates(plain, plain, 0.5, attacker_units={"elite_attack": 10})
+    all_of_them = uac._battle_loss_rates(plain, plain, 0.5, attacker_units={"self_destruct_attack": 10})
+    half = uac._battle_loss_rates(plain, plain, 0.5, attacker_units={"self_destruct_attack": 10, "elite_attack": 10})
+    assert all_of_them[1] == pytest.approx(base[1] * (1 + increase))
+    assert half[1] == pytest.approx(base[1] * (1 + increase / 2))
+    assert all_of_them[0] == base[0]
+    # Primitives are not kingdoms.
+    assert uac._battle_loss_rates(plain, None, attacker_units={"self_destruct_attack": 10}) == uac._battle_loss_rates(plain, None)
 
 
-def test_self_destructing_defenders_raise_the_attackers_losses():
+def test_self_destructing_defenders_raise_the_attackers_losses_by_their_share_of_the_defense():
     plain = {"completed_projects": []}
-    fortress = {"completed_projects": ["self_destructing_defenders"]}
-    increase = 1 + uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
-    assert uac._battle_loss_rates(plain, fortress)[0] == pytest.approx(uac._battle_loss_rates(plain, plain)[0] * increase)
-    assert uac._battle_loss_rates(plain, fortress)[1] == uac._battle_loss_rates(plain, plain)[1]
+    increase = uas.GAME_CONFIG["SELF_DESTRUCT_LOSSES_INCREASE"]
+    base = uac._battle_loss_rates(plain, plain, defender_units={"elite_defense": 10})
+    fortress = uac._battle_loss_rates(plain, plain, defender_units={"self_destruct_defense": 10})
+    assert fortress[0] == pytest.approx(base[0] * (1 + increase))
+    assert fortress[1] == base[1]
+
+
+def test_the_self_destructing_projects_alone_change_no_losses():
+    both = {"completed_projects": ["self_destructing_attackers", "self_destructing_defenders"]}
+    plain = {"completed_projects": []}
+    units = {"elite_attack": 10, "elite_defense": 10}
+    assert (uac._battle_loss_rates(both, both, 0.5, False, units, units)
+            == uac._battle_loss_rates(plain, plain, 0.5, False, units, units))
 
 
 @pytest.mark.parametrize("side", ["attacker", "defender"])
 def test_self_destruct_changes_the_losses_of_a_real_attack(app, client, jwt1, side):
-    def attacker_units_lost(projects_of_attacker, projects_of_target):
-        _set_up_two_kingdoms(attacker_attack=2000, target_defense=1000,
-                             target_overrides={"completed_projects": projects_of_target})
-        if projects_of_attacker:
-            from tests.test_concurrency import _create_item
-            kd = _get(f"/kingdom/{KD_ID}")
-            kd.pop("_etag", None)
-            kd["completed_projects"] = projects_of_attacker
-            _create_item(f"kingdom_{KD_ID}", kd)
-        response = _attack(client, jwt1, {"attack": 2000})
+    from tests.test_concurrency import _create_item
+
+    def units_lost(attacker_unit, target_unit):
+        _set_up_two_kingdoms(attacker_attack=0, target_defense=0,
+                             target_overrides={"units": {**NO_UNITS, target_unit: 1000}})
+        kd = _get(f"/kingdom/{KD_ID}")
+        kd.pop("_etag", None)
+        kd["units"] = {**kd["units"], attacker_unit: 2000}
+        _create_item(f"kingdom_{KD_ID}", kd)
+        response = _attack(client, jwt1, {attacker_unit: 2000})
         assert response.status_code == 200, response.get_json()
         sent_home = sum(sum(v for k, v in g.items() if k != "return_time") for g in _get(f"/kingdom/{KD_ID}")["generals_out"])
-        return 2000 - sent_home, 1000 - _get(f"/kingdom/{TARGET_ID}")["units"]["defense"]
+        return 2000 - sent_home, 1000 - _get(f"/kingdom/{TARGET_ID}")["units"][target_unit]
 
-    plain_attacker_lost, plain_defender_lost = attacker_units_lost([], [])
+    plain_attacker_lost, plain_defender_lost = units_lost("elite_attack", "elite_defense")
     if side == "defender":
-        attacker_lost, defender_lost = attacker_units_lost([], ["self_destructing_defenders"])
+        attacker_lost, defender_lost = units_lost("elite_attack", "self_destruct_defense")
         assert attacker_lost > plain_attacker_lost
         assert defender_lost == plain_defender_lost
     else:
-        attacker_lost, defender_lost = attacker_units_lost(["self_destructing_attackers"], [])
+        attacker_lost, defender_lost = units_lost("self_destruct_attack", "elite_defense")
         assert defender_lost > plain_defender_lost
         assert attacker_lost == plain_attacker_lost
 
 
-def test_warp_speed_sends_every_big_flexer_home_with_the_first_general():
+def test_warp_speed_big_flexers_all_come_home_with_the_first_general_and_big_flexers_do_not():
     times = [NOW + datetime.timedelta(hours=hours) for hours in (6, 8, 12, 24)]
-    units = {"big_flex": 10, "attack": 10}
-    plain = uac._split_across_generals({"completed_projects": []}, units, times)
-    warped = uac._split_across_generals({"completed_projects": ["warp_speed"]}, units, times)
-    assert [g["big_flex"] for g in plain] == [3, 3, 2, 2]
-    assert [g["big_flex"] for g in warped] == [10, 0, 0, 0]
-    assert [g["attack"] for g in warped] == [g["attack"] for g in plain]
-    assert warped[0]["return_time"] == times[0].isoformat()
+    generals = uac._split_across_generals({"warp_big_flex": 10, "big_flex": 10, "attack": 10}, times)
+    assert [g["warp_big_flex"] for g in generals] == [10, 0, 0, 0]
+    assert [g["big_flex"] for g in generals] == [3, 3, 2, 2]
+    assert [g["attack"] for g in generals] == [3, 3, 2, 2]
+    assert generals[0]["return_time"] == times[0].isoformat()
 
 
 def test_warp_speed_picks_the_earliest_general_whatever_the_order():
     times = [NOW + datetime.timedelta(hours=hours) for hours in (24, 6, 12)]
-    warped = uac._split_across_generals({"completed_projects": ["warp_speed"]}, {"big_flex": 9}, times)
-    assert [g["big_flex"] for g in warped] == [0, 9, 0]
+    generals = uac._split_across_generals({"warp_big_flex": 9}, times)
+    assert [g["warp_big_flex"] for g in generals] == [0, 9, 0]
 
 
-def test_compact_flexers_make_big_flexers_take_one_hangar_space():
-    units = {"big_flex": 100, "attack": 100}
-    plain = kingdoms.kingdom()
-    compact = kingdoms.kingdom(completed_projects=["compact_flexers"])
-    assert _hangar_used(plain, units) == 100 * uas.UNITS["big_flex"]["hangar_capacity"] + 100
-    assert _hangar_used(compact, units) == 100 * uas.GAME_CONFIG["COMPACT_FLEX_HANGAR_CAPACITY"] + 100
-    assert uas.units_for(compact)["big_flex"]["hangar_capacity"] == uas.GAME_CONFIG["COMPACT_FLEX_HANGAR_CAPACITY"]
+def test_compact_big_flexers_take_less_hangar_space_and_big_flexers_do_not():
+    units = {"compact_big_flex": 100, "big_flex": 100}
+    kd = kingdoms.kingdom(completed_projects=["compact_flexers"])
+    compact = uas.GAME_CONFIG["COMPACT_FLEX_HANGAR_CAPACITY"]
+    assert _hangar_used(kd, units) == 100 * compact + 100 * uas.UNITS["big_flex"]["hangar_capacity"]
+    assert uas.units_for(kd)["compact_big_flex"]["hangar_capacity"] == compact
+    assert uas.units_for(kd)["big_flex"]["hangar_capacity"] == uas.UNITS["big_flex"]["hangar_capacity"]
 
 
 def test_the_playstyle_projects_need_the_best_unit_of_their_kind():
