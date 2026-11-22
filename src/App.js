@@ -96,7 +96,8 @@ function Content({ logged, session }) {
 
       <div className="main-body">
         <Notifications {...notifications} />
-        <SideNavbar logged={logged} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs} hasKingdom={hasKingdom(data.kingdomid)}/>
+        <SideNavbar logged={logged} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs} hasKingdom={hasKingdom(data.kingdomid)}
+          kingdomName={data.kingdom?.name} galaxy={data.galaxies_inverted?.[data.kingdomid?.kd_id]}/>
         <div className="router">
           {logged ? <div className="userbar d-none d-lg-flex"><UserMenu username={data.preferences?.username} /></div> : null}
           <div className="router-body">

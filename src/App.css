@@ -71,13 +71,22 @@
 .header-alert .header-value { font-weight: 700; }
 
 /* The round has ended (components/header.js): a full-width line above the numbers. */
-.header-over {
+/* A round-wide notice (components/header.js): the round is over (above the strip) or not started yet (below it). */
+.header-banner {
   flex-basis: 100%;
   text-align: center;
   padding: 6px;
+  border-radius: var(--radius);
+}
+.header-over {
   margin-bottom: 0.5rem;
   border: 1px solid var(--bs-warning);
-  border-radius: var(--radius);
   color: var(--bs-warning-text-emphasis, inherit);
   background: var(--bs-warning-bg-subtle, transparent);
+}
+.header-before {
+  margin-top: 0.5rem;
+  border: 1px solid var(--bs-info);
+  color: var(--bs-info-text-emphasis, inherit);
+  background: var(--bs-info-bg-subtle, transparent);
 }

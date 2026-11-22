@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import Header from "./header";
+import Header, { notStarted } from "./header";
 
 jest.mock("../auth", () => ({ authFetch: jest.fn() }));
 const { authFetch } = require("../auth");
@@ -53,4 +53,25 @@ test("once the round is over, every page says so", () => {
 test("during the round there is no such banner", () => {
     render(<Header data={{ kingdom, state: { state: {} } }} />);
     expect(screen.queryByRole("status")).toBeNull();
+});
+
+test("before the round starts, every page says when it starts", () => {
+    const later = new Date(Date.now() + 3600 * 1000).toISOString();
+    const { container } = render(<Header data={{ kingdom, state: { state: { game_start: later } } }} />);
+    expect(screen.getByRole("status").textContent).toMatch(/not started yet/i);
+    // Under the strip, not above it.
+    expect(container.querySelector(".header-contents + .header-before")).toBeTruthy();
+});
+
+test("once the round has started there is no start banner", () => {
+    const earlier = new Date(Date.now() - 3600 * 1000).toISOString();
+    render(<Header data={{ kingdom, state: { state: { game_start: earlier } } }} />);
+    expect(screen.queryByRole("status")).toBeNull();
+});
+
+test("the round has not started only when its start time is still to come", () => {
+    const now = Date.parse("2026-01-01T12:00:00Z");
+    expect(notStarted("2026-01-01T13:00:00Z", now)).toBe(true);
+    expect(notStarted("2026-01-01T11:00:00Z", now)).toBe(false);
+    expect(notStarted(undefined, now)).toBe(false);
 });

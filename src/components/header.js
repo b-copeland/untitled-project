@@ -72,7 +72,7 @@ function Header(props) {
     return (
         <div className="header-container">
             {props.data.state?.state?.game_over && (
-                <div className="header-over" role="status">
+                <div className="header-banner header-over" role="status">
                     The round is over. The game is read only now, and every kingdom is public.
                 </div>
             )}
@@ -98,8 +98,17 @@ function Header(props) {
                     ) : React.cloneElement(item, { key: label });
                 })}
             </div>
+            {notStarted(props.data.state?.state?.game_start) && (
+                <div className="header-banner header-before" role="status">
+                    The round has not started yet. It starts {new Date(props.data.state.state.game_start).toLocaleString()};
+                    your kingdom earns nothing until then.
+                </div>
+            )}
         </div>
     );
 }
+
+/** True when the round has a start time that is still to come. */
+export const notStarted = (gameStart, now = Date.now()) => Boolean(gameStart) && Date.parse(gameStart) > now;
 
 export default Header;
