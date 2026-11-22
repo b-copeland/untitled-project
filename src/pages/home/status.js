@@ -45,7 +45,7 @@ function StatusContent(props) {
           <Military mobis={props.data.mobis} state={props.data.state} />
         </Tab>
         <Tab eventKey="structures" title="Structures">
-          <Structures kingdom={props.data.kingdom} structures={props.data.structures}/>
+          <Structures kingdom={props.data.kingdom} structures={props.data.structures} state={props.data.state}/>
         </Tab>
       </Tabs>
       <HelpButton scrollTarget={"home"}/>
@@ -357,13 +357,51 @@ function unitKeys(counts, state) {
     return all.filter((key) => !state?.units?.[key]?.project || (counts?.[key] || 0) > 0);
 }
 
-function Military(props) {
+/** A column heading for a forecast that many epochs ahead, in real time: "30m", "1h", "24h". */
+export function horizonLabel(epochs, cfg) {
+    const seconds = (epochs || 0) * (cfg?.BASE_EPOCH_SECONDS || 0);
+    if (seconds > 0 && seconds < 3600) {
+        return `${Math.round(seconds / 60)}m`;
+    }
+    return `${Math.round((seconds / 3600) * 10) / 10}h`;
+}
+
+function ForecastHead({ horizons, cfg }) {
+    return (
+        <thead>
+            <tr>
+                <th style={{textAlign: "right"}}></th>
+                <th style={{textAlign: "right"}}>Now</th>
+                {horizons.map((epochs) => <th key={epochs} style={{textAlign: "right"}}>{horizonLabel(epochs, cfg)}</th>)}
+            </tr>
+        </thead>
+    );
+}
+
+const wholeNumber = (value) => Math.floor(value || 0).toLocaleString();
+
+/** One row: the amount now, then now plus what the queue adds by each horizon (``future_<epochs>`` from the API). */
+function ForecastRow({ label, now, horizons, at, show = wholeNumber }) {
+    return (
+        <tr>
+            <td style={{textAlign: "left"}}>{label}</td>
+            <td style={{textAlign: "right"}}>{show(now || 0)}</td>
+            {horizons.map((epochs) => (
+                <td key={epochs} style={{textAlign: "right"}}>{show((now || 0) + (at(`future_${epochs}`) || 0))}</td>
+            ))}
+        </tr>
+    );
+}
+
+export function Military(props) {
     if (Object.keys(props.mobis).length === 0) {
         return null;
     }
     const units = props.mobis?.units || {};
     const maxOffense = props.mobis?.maxes?.offense || {};
     const maxDefense = props.mobis?.maxes?.defense || {};
+    const cfg = props.state?.game_config || {};
+    const horizons = cfg.QUEUE_FORECAST_EPOCHS || [];
     return (
         <div className="status-kingdom-content">
             <div className="col-center-card army-info">
@@ -436,231 +474,67 @@ function Military(props) {
             </div>
             <div className="col-center-card mobi-info">
                 <h2>Mobilization</h2>
-                <Table hover className="mobis-table" size="sm">
-                    <thead>
-                        <tr>
-                        <th style={{textAlign: "right"}}></th>
-                        <th style={{textAlign: "right"}}>Now</th>
-                        <th style={{textAlign: "right"}}>1h</th>
-                        <th style={{textAlign: "right"}}>2h</th>
-                        <th style={{textAlign: "right"}}>4h</th>
-                        <th style={{textAlign: "right"}}>8h</th>
-                        <th style={{textAlign: "right"}}>24h</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {unitKeys(units.current_total, props.state).map((key) => (
-                            <tr key={key}>
-                                <td style={{textAlign: "left"}}>{props.state?.pretty_names?.[key] || key}</td>
-                                <td style={{textAlign: "right"}}>{Math.floor(units.current_total?.[key] || 0).toLocaleString()}</td>
-                                {[1, 2, 4, 8, 24].map((hours) => (
-                                    <td key={hours} style={{textAlign: "right"}}>{Math.floor((units.current_total?.[key] || 0) + (units[`hour_${hours}`]?.[key] || 0)).toLocaleString()}</td>
-                                ))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </Table>
-                <Table hover className="mobis-table" size="sm">
-                    <thead>
-                        <tr>
-                        <th style={{textAlign: "right"}}></th>
-                        <th style={{textAlign: "right"}}>Now</th>
-                        <th style={{textAlign: "right"}}>1h</th>
-                        <th style={{textAlign: "right"}}>2h</th>
-                        <th style={{textAlign: "right"}}>4h</th>
-                        <th style={{textAlign: "right"}}>8h</th>
-                        <th style={{textAlign: "right"}}>24h</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Max offense</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(maxOffense.current_total || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxOffense.current_total || 0) + (maxOffense.hour_1 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxOffense.current_total || 0) + (maxOffense.hour_2 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxOffense.current_total || 0) + (maxOffense.hour_4 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxOffense.current_total || 0) + (maxOffense.hour_8 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxOffense.current_total || 0) + (maxOffense.hour_24 || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Max defense</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(maxDefense.current_total || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxDefense.current_total || 0) + (maxDefense.hour_1 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxDefense.current_total || 0) + (maxDefense.hour_2 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxDefense.current_total || 0) + (maxDefense.hour_4 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxDefense.current_total || 0) + (maxDefense.hour_8 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxDefense.current_total || 0) + (maxDefense.hour_24 || 0)).toLocaleString()}</td>
-                        </tr>
-                    </tbody>
-                </Table>
+                <div className="table-scroll">
+                    <Table hover className="mobis-table" size="sm">
+                        <ForecastHead horizons={horizons} cfg={cfg} />
+                        <tbody>
+                            {unitKeys(units.current_total, props.state).map((key) => (
+                                <ForecastRow key={key} label={props.state?.pretty_names?.[key] || key} now={units.current_total?.[key]}
+                                    horizons={horizons} at={(name) => units[name]?.[key]} />
+                            ))}
+                        </tbody>
+                    </Table>
+                </div>
+                <div className="table-scroll">
+                    <Table hover className="mobis-table" size="sm">
+                        <ForecastHead horizons={horizons} cfg={cfg} />
+                        <tbody>
+                            <ForecastRow label="Max offense" now={maxOffense.current_total} horizons={horizons} at={(name) => maxOffense[name]} />
+                            <ForecastRow label="Max defense" now={maxDefense.current_total} horizons={horizons} at={(name) => maxDefense[name]} />
+                        </tbody>
+                    </Table>
+                </div>
             </div>
         </div>
     )
 }
 
-function Structures(props) {    
-    if (Object.keys(props.structures).length === 0) {
+const STRUCTURE_ROWS = [
+    ["homes", "Homes"], ["mines", "Mines"], ["fuel_plants", "Fuel Plants"], ["hangars", "Hangars"],
+    ["drone_factories", "Drone Factories"], ["missile_silos", "Missile Silos"], ["workshops", "Workshops"],
+];
+
+export function Structures(props) {
+    if (Object.keys(props.structures || {}).length === 0) {
         return null;
     }
+    const cfg = props.state?.game_config || {};
+    const horizons = cfg.QUEUE_FORECAST_EPOCHS || [];
+    const structures = props.structures;
+    const stars = props.kingdom?.stars || 0;
+    const share = (count) => (stars ? displayPercent((count || 0) / stars) : "-");
     return (
         <div className="col-center structures-status">
             <h2>Structures</h2>
             <div className="structures-info">
-                <Table hover className="structures-status-table" size="sm">
-                    <thead>
-                        <tr>
-                        <th style={{textAlign: "right"}}></th>
-                        <th style={{textAlign: "right"}}>Now</th>
-                        <th style={{textAlign: "right"}}>1h</th>
-                        <th style={{textAlign: "right"}}>2h</th>
-                        <th style={{textAlign: "right"}}>4h</th>
-                        <th style={{textAlign: "right"}}>8h</th>
-                        <th style={{textAlign: "right"}}>24h</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Homes</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(props.structures.current?.homes || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.homes || 0) + (props.structures.hour_1?.homes || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.homes || 0) + (props.structures.hour_2?.homes || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.homes || 0) + (props.structures.hour_4?.homes || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.homes || 0) + (props.structures.hour_8?.homes || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.homes || 0) + (props.structures.hour_24?.homes || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Mines</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(props.structures.current?.mines || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.mines || 0) + (props.structures.hour_1?.mines || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.mines || 0) + (props.structures.hour_2?.mines || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.mines || 0) + (props.structures.hour_4?.mines || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.mines || 0) + (props.structures.hour_8?.mines || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.mines || 0) + (props.structures.hour_24?.mines || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Fuel Plants</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(props.structures.current?.fuel_plants || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.fuel_plants || 0) + (props.structures.hour_1?.fuel_plants || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.fuel_plants || 0) + (props.structures.hour_2?.fuel_plants || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.fuel_plants || 0) + (props.structures.hour_4?.fuel_plants || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.fuel_plants || 0) + (props.structures.hour_8?.fuel_plants || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.fuel_plants || 0) + (props.structures.hour_24?.fuel_plants || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Hangars</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(props.structures.current?.hangars || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.hangars || 0) + (props.structures.hour_1?.hangars || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.hangars || 0) + (props.structures.hour_2?.hangars || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.hangars || 0) + (props.structures.hour_4?.hangars || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.hangars || 0) + (props.structures.hour_8?.hangars || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.hangars || 0) + (props.structures.hour_24?.hangars || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Drone Factories</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(props.structures.current?.drone_factories || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.drone_factories || 0) + (props.structures.hour_1?.drone_factories || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.drone_factories || 0) + (props.structures.hour_2?.drone_factories || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.drone_factories || 0) + (props.structures.hour_4?.drone_factories || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.drone_factories || 0) + (props.structures.hour_8?.drone_factories || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.drone_factories || 0) + (props.structures.hour_24?.drone_factories || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Missile Silos</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(props.structures.current?.missile_silos || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.missile_silos || 0) + (props.structures.hour_1?.missile_silos || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.missile_silos || 0) + (props.structures.hour_2?.missile_silos || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.missile_silos || 0) + (props.structures.hour_4?.missile_silos || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.missile_silos || 0) + (props.structures.hour_8?.missile_silos || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.missile_silos || 0) + (props.structures.hour_24?.missile_silos || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Workshops</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(props.structures.current?.workshops || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.workshops || 0) + (props.structures.hour_1?.workshops || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.workshops || 0) + (props.structures.hour_2?.workshops || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.workshops || 0) + (props.structures.hour_4?.workshops || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.workshops || 0) + (props.structures.hour_8?.workshops || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((props.structures.current?.workshops || 0) + (props.structures.hour_24?.workshops || 0)).toLocaleString()}</td>
-                        </tr>
-                    </tbody>
-                    <thead>
-                        <tr><th colSpan={7}></th></tr>
-                        <tr>
-                        <th style={{textAlign: "right"}}></th>
-                        <th style={{textAlign: "right"}}>Now</th>
-                        <th style={{textAlign: "right"}}>1h</th>
-                        <th style={{textAlign: "right"}}>2h</th>
-                        <th style={{textAlign: "right"}}>4h</th>
-                        <th style={{textAlign: "right"}}>8h</th>
-                        <th style={{textAlign: "right"}}>24h</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Homes</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.structures.current?.homes || 0) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.homes || 0) + (props.structures.hour_1?.homes || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.homes || 0) + (props.structures.hour_2?.homes || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.homes || 0) + (props.structures.hour_4?.homes || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.homes || 0) + (props.structures.hour_8?.homes || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.homes || 0) + (props.structures.hour_24?.homes || 0)) / props.kingdom.stars)}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Mines</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.structures.current?.mines || 0) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.mines || 0) + (props.structures.hour_1?.mines || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.mines || 0) + (props.structures.hour_2?.mines || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.mines || 0) + (props.structures.hour_4?.mines || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.mines || 0) + (props.structures.hour_8?.mines || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.mines || 0) + (props.structures.hour_24?.mines || 0)) / props.kingdom.stars)}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Fuel Plants</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.structures.current?.fuel_plants || 0) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.fuel_plants || 0) + (props.structures.hour_1?.fuel_plants || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.fuel_plants || 0) + (props.structures.hour_2?.fuel_plants || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.fuel_plants || 0) + (props.structures.hour_4?.fuel_plants || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.fuel_plants || 0) + (props.structures.hour_8?.fuel_plants || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.fuel_plants || 0) + (props.structures.hour_24?.fuel_plants || 0)) / props.kingdom.stars)}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Hangars</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.structures.current?.hangars || 0) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.hangars || 0) + (props.structures.hour_1?.hangars || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.hangars || 0) + (props.structures.hour_2?.hangars || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.hangars || 0) + (props.structures.hour_4?.hangars || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.hangars || 0) + (props.structures.hour_8?.hangars || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.hangars || 0) + (props.structures.hour_24?.hangars || 0)) / props.kingdom.stars)}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Drone Factories</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.structures.current?.drone_factories || 0) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.drone_factories || 0) + (props.structures.hour_1?.drone_factories || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.drone_factories || 0) + (props.structures.hour_2?.drone_factories || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.drone_factories || 0) + (props.structures.hour_4?.drone_factories || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.drone_factories || 0) + (props.structures.hour_8?.drone_factories || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.drone_factories || 0) + (props.structures.hour_24?.drone_factories || 0)) / props.kingdom.stars)}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Missile Silos</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.structures.current?.missile_silos || 0) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.missile_silos || 0) + (props.structures.hour_1?.missile_silos || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.missile_silos || 0) + (props.structures.hour_2?.missile_silos || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.missile_silos || 0) + (props.structures.hour_4?.missile_silos || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.missile_silos || 0) + (props.structures.hour_8?.missile_silos || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.missile_silos || 0) + (props.structures.hour_24?.missile_silos || 0)) / props.kingdom.stars)}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Workshops</td>
-                            <td style={{textAlign: "right"}}>{displayPercent((props.structures.current?.workshops || 0) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.workshops || 0) + (props.structures.hour_1?.workshops || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.workshops || 0) + (props.structures.hour_2?.workshops || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.workshops || 0) + (props.structures.hour_4?.workshops || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.workshops || 0) + (props.structures.hour_8?.workshops || 0)) / props.kingdom.stars)}</td>
-                            <td style={{textAlign: "right"}}>{displayPercent(((props.structures.current?.workshops || 0) + (props.structures.hour_24?.workshops || 0)) / props.kingdom.stars)}</td>
-                        </tr>
-                    </tbody>
-                </Table>
+                <div className="table-scroll">
+                    <Table hover className="structures-status-table" size="sm">
+                        <ForecastHead horizons={horizons} cfg={cfg} />
+                        <tbody>
+                            {STRUCTURE_ROWS.map(([key, label]) => (
+                                <ForecastRow key={key} label={label} now={structures.current?.[key]} horizons={horizons}
+                                    at={(name) => structures[name]?.[key]} />
+                            ))}
+                        </tbody>
+                        <ForecastHead horizons={horizons} cfg={cfg} />
+                        <tbody>
+                            {STRUCTURE_ROWS.map(([key, label]) => (
+                                <ForecastRow key={key} label={label} now={structures.current?.[key]} horizons={horizons}
+                                    at={(name) => structures[name]?.[key]} show={share} />
+                            ))}
+                        </tbody>
+                    </Table>
+                </div>
             </div>
         </div>
     )

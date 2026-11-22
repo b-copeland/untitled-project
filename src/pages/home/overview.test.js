@@ -15,7 +15,7 @@ const data = (kingdom = {}) => ({
         units: { general_0: { return_time: new Date(Date.now() + 2 * 3.6e6).toISOString() } },
         current_hangar_capacity: 50, max_hangar_capacity: 100,
     },
-    structures: { current: { homes: 60 }, hour_24: { homes: 10 } },
+    structures: { current: { homes: 60 }, queued: { homes: 10 } },
     news: [{ time: new Date(Date.now() - 3 * 3.6e6).toISOString(), news: "You were attacked by Delta" }],
     state: { game_config: { BASE_EPOCH_SECONDS: 1800 } },
 });

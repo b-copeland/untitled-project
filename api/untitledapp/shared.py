@@ -288,6 +288,9 @@ def per_hour(per_epoch):
 
 GAME_CONFIG = {
     "BASE_EPOCH_SECONDS": _epoch_seconds(),
+    # How far ahead the Status page shows queued units and structures, in epochs (1, 2, 4, 8 and 24 hours at the
+    # default epoch), so the columns follow the epoch length. Limits that count everything queued use "queued" instead.
+    "QUEUE_FORECAST_EPOCHS": [2, 4, 8, 16, 48],
 
     "BASE_SETTLE_STARS_POWER": 0.5,
     "BASE_SETTLE_COST_CONSTANT": 50,

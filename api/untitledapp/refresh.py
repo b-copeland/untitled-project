@@ -836,7 +836,7 @@ def _resolve_auto_spending(
     structures_to_build = min(math.floor(structures_funding / structures_price), max_available_structures)
     if structures_to_build and sum(kd_info_parse["structures_target"].values()) > 0:
         structures_current = structures_info["current"]
-        structures_building = structures_info["hour_24"]
+        structures_building = structures_info["queued"]
         total_structures = {
             k: structures_current.get(k, 0) + structures_building.get(k, 0)
             for k in uas.STRUCTURES
@@ -887,7 +887,7 @@ def _resolve_auto_spending(
     recruit_time = mobis_info["recruit_time"]
     max_available_recruits = mobis_info["max_available_recruits"]
     current_units = mobis_info["units"]["current"]
-    building_units = mobis_info["units"]["hour_24"]
+    building_units = mobis_info["units"]["queued"]
     units_desc = mobis_info["units_desc"]
     military_funding = kd_info_parse["funding"]["military"]
 
