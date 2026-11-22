@@ -197,3 +197,17 @@ their own, such as `STRUCTURES` in `structures.js`), the help pages, and a backf
 4. **Tests**: the effect through its helper in `tests/test_policy_effects.py` (a test that would fail without it), and
    `tests/test_galaxy_policies.py` fails if an effect is read nowhere. Say in the pull request that the numbers are
    proposals.
+
+## 13. A change to what a document holds (a data migration)
+
+Players' data must survive the deploy with no manual step ([decisions/0015](decisions/0015-migrations-on-the-tick.md)).
+
+1. **Read both shapes.** Wherever the document is read, take the old shape as the new (see
+   `galaxypolicies.normalize`), so the game is right before the migration runs and any write in that window writes the
+   new shape without losing the old data.
+2. **Register a migration** in `api/untitledapp/migrations.py` with `@migration("<issue>_<what>")`: a function of the
+   state that changes each document with `occ.update`, leaving one already in the new shape alone. The refresh runs it
+   once, on the first tick after the deploy.
+3. **Test** (see `tests/test_migrate_168.py`): the old shape read right, an action before the migration losing
+   nothing, the migration's result, and a second run changing nothing.
+4. **Say so in the pull request**: what changes, that it runs on deploy, and when the old-shape reading can go.

@@ -14,6 +14,7 @@ import flask
 import flask_praetorian
 
 import untitledapp.galaxypolicies as uagp
+import untitledapp.migrations as uamig
 import untitledapp.getters as uag
 import untitledapp.occ as occ
 import untitledapp.shared as uas
@@ -112,6 +113,7 @@ def round_state(settings, rounds_archived, rng=random):
     start = settings["game_start"].isoformat()
     return {
         "galaxy_policies": uagp.draw(rng),
+        "migrations_done": uamig.all_ids(),  # a new round's documents are made in the current shape
         "game_start": start,
         "game_end": settings["game_end"].isoformat(),
         "election_start": settings["election_start"].isoformat() if settings["election_start"] else "",
