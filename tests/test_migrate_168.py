@@ -70,3 +70,24 @@ def test_an_old_round_writes_down_the_cluster_benefits_it_already_plays():
     assert fields == {"cluster_benefits": list(uas.CLUSTER_BENEFITS)[:uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]]}
     assert fields["cluster_benefits"][:3] == ["drone_production", "unit_cost", "settle_cost"]
     assert cluster.plan_state({"cluster_benefits": ["pop_growth"]}) == {}
+
+
+universe = _script("migrate_168_universe_policies")
+OLD_VOTES = {"votes": {"policy_1": {"option_1": {"1": 3, "2": 1}, "option_2": {"3": 2}},
+                       "policy_2": {"option_1": {"1": 2}, "option_2": {}}}}
+
+
+def test_the_old_names_in_force_become_keys_and_a_ballot_is_drawn():
+    fields = universe.plan_state({"active_policies": ["Treatied", "Free Trade"], "election_start": "x"})
+    assert fields["active_policies"] == ["treatied"]
+    assert len(fields["ballot"]) == uas.GAME_CONFIG["UNIVERSE_POLICIES_PER_ELECTION"] and "primitives" not in fields["ballot"]
+    first = universe.plan_state({"active_policies": ["Unregulated", "Isolationist"]})
+    assert first["active_policies"] == [] and "primitives" in first["ballot"]  # nothing new in force: the first ballot
+    assert universe.plan_state({"ballot": ["labor"], "active_policies": []}) == {}
+
+
+def test_votes_spent_in_an_open_election_are_given_back_and_none_between_elections():
+    assert universe.plan_refunds(OLD_VOTES, True) == {"1": 5, "2": 1, "3": 2}
+    assert universe.plan_refunds(OLD_VOTES, False) == {}
+    assert universe.plan_refunds({"votes": {"labor": {"draft_limits": {"1": 4}}}}, True) == {}  # moved already
+    assert universe.is_old_votes(OLD_VOTES) and not universe.is_old_votes({"votes": {}})

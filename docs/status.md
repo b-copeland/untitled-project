@@ -110,6 +110,8 @@ Added 2026-11-22 (issue #168, [decisions/0014](decisions/0014-universe-ballots.m
   the next tick.
 - Votes can no longer be cast between elections (they were wiped when the next one opened).
 - A round from before the ballot keeps only Treatied of its old options; Unregulated, Free Trade and Isolationist end.
+  `adhoc/migrate_168_universe_policies.py`, run in production right after the deploy, stores that, draws the ballot,
+  and gives back votes spent in an election that is open at the deploy.
 - The function app's `/init` and `/resetstate` still write `universe_votes` in the old two-policy shape; the first
   election writes it fresh, so it does no harm, but it could be emptied there.
 - Carbon Cap raises fuel upkeep; a kingdom pushed out of fuel loses strength over time, not at once, but the forecast
