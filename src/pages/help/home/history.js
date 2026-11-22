@@ -1,27 +1,15 @@
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic } from "../util";
 
-function History(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "history") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+function History() {
     return (
-        <div id="history" ref={yourElementRef} className="help-section">
-            <h2>History</h2>
-            <p>
-                The history page shows actions that you have taken against other kingdoms. 
-                You can sort or filter the columns in the header.
-            </p>
-            <p>
-                The stats page will show historical details of your kingdom, such stars or networth across time. 
-                Not yet implemented.
-            </p>
-        </div>
-    )
+        <Topic id="history" title="History" lead="What you have done to other kingdoms, and how your kingdom has grown.">
+            <ul>
+                <li><b>Attack</b>, <b>Spy</b> and <b>Missiles</b>: every attack, spy operation and missile launch you have made, with the results. Click a header to sort, and type under it to filter.</li>
+                <li><b>Stats</b>: a chart of your kingdom over the round. Choose what to plot, such as networth, stars, population or drones.</li>
+            </ul>
+        </Topic>
+    );
 }
 
 export default History;

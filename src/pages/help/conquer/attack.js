@@ -1,83 +1,42 @@
-import { displayPercent } from "../../../format";
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic, config, duration, num, pct } from "../util";
 
 function Attack(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "attack") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+    const cfg = config(props.state);
     return (
-        <div id="attack" ref={yourElementRef} className="help-section">
-            <h2>Conquer - Attack</h2>
+        <Topic id="attack" title="Attack" lead="Send your army at another kingdom to take its stars.">
+            <h4>How to attack</h4>
+            <ol>
+                <li><b>Choose a target.</b> The page fills in everything your intel reveals about it.</li>
+                <li><b>Check their defense.</b> Each number shows whether it is revealed, your estimate, or still needed. Fill in what is missing. The forecast is only as good as these numbers, so get military intel first if you can.</li>
+                <li><b>Choose your attack.</b> The page suggests units that should win, with the margin you set. Change them freely, or press Suggest again.</li>
+                <li><b>Check the forecast and send.</b> It updates as you type. It asks you to confirm if their units are a guess or the forecast says you would lose.</li>
+            </ol>
             <p>
-                The attack page is used to carry out attacks on other kingdoms. The first section of the page is used to 
-                fill out the details of the target kingdom, while the second part of the page is used to select the units
-                and generals that you would like to attack with.
+                If you have to guess, assume the worst: maximum military efficiency and shields.
             </p>
-            <p>
-                If you have any relevant intel on your target, that information will automatically be populated and 
-                used in calculating an attack against the defender.
-            </p>
-            <p>
-                The Calculate button projects the results of the attack on the target kingdom. Note that the calculator is only 
-                as good as the information that you give it, combined with intel that you've gathered. If you do not provide accurate details
-                about the target's units, it's likely that the calculator will falsely tell you that an attack will be successful. 
-            </p>
-            <p>
-                The Autofill button can be used to automatically choose your attacking units given the information provided 
-                about the defender. This works similar to the Calculate button, except that it will overwrite your attacking 
-                units inputs. 
-            </p>
-            <p>
-                It's a good idea to at least gather Military intel on the target prior to attempting an attack. You can then assume 
-                maximum Military Efficiency and Shields for determining if your attack will be a success.
-            </p>
-            <p>
-                Under the target, a line says what intel on it you have taken from galaxymates and the cut of your
-                winnings they will get, and what the Intel market has on it. Intel market opens it in place, to buy
-                intel, ask for it with a bounty, or share your own. The forecast names each galaxymate and their share.
-            </p>
-            <p>
-                To make an attack, you must send at least 1 general. Each general beyond the first will increase your offensive strength
-                by {displayPercent(props.state.game_config?.BASE_GENERALS_ATTACK_MODIFIER)}. Sending more generals allows some of your 
-                units to return quicker; your attacking units will be equally split across the returning generals (every Warp Speed
-                Big Flexer comes home with the first general). The base return time
-                for generals is {props.state.game_config?.BASE_GENERALS_RETURN_TIME_MULTIPLIER * props.state.game_config?.BASE_EPOCH_SECONDS / 3600} hours.
-            </p>
-            <p>
-                Return times will be further modified by your projects, your politics, and your coordinates distance relative to your target. 
-                Coordinates range from 0 to 99 in a loop (i.e. 99 is 1 distance from 0). Your return times will be increased
-                by {displayPercent(props.state.game_config?.BASE_RETURN_TIME_PENALTY_PER_COORDINATE)} per distance for distances beyond 25, or 
-                reduced by {displayPercent(props.state.game_config?.BASE_RETURN_TIME_PENALTY_PER_COORDINATE)} per distance for distances under 25.
-            </p>
-            <p>
-                Unit losses are changed by races, war, projects and self-destructing units. Self-Destructing Attackers
-                raise the losses of the kingdoms you attack by up
-                to {displayPercent(props.state.game_config?.SELF_DESTRUCT_LOSSES_INCREASE)}, by their share of the
-                attack's offense: all of it gives the whole increase, half gives half. Self-Destructing Defenders do the
-                same to kingdoms that attack you, by their share of your defense at home. The forecast uses what you
-                know of the target, so a target whose units or projects are not revealed may cost more.
-            </p>
-            <p>
-                Other attack info:
-            </p>
+            <h4>Generals and return times</h4>
             <ul>
-                <li>Max defender unit losses - {displayPercent(props.state.game_config?.BASE_DEFENDER_UNIT_LOSS_RATE)}</li>
-                <li>Max attacker unit losses - {displayPercent(props.state.game_config?.BASE_ATTACKER_UNIT_LOSS_RATE)}</li>
-                <li>Successful attack gains rate - {displayPercent(props.state.game_config?.BASE_KINGDOM_LOSS_RATE)}</li>
-                <li>Strength reduction when out of fuel - {displayPercent(props.state.game_config?.BASE_FUELLESS_STRENGTH_REDUCTION)}</li>
-                <li>Minimum stars gain - {props.state.game_config?.BASE_ATTACK_MIN_STARS_GAIN}</li>
+                <li>Every attack needs at least 1 general. Each extra one adds {pct(cfg.BASE_GENERALS_ATTACK_MODIFIER)} offense.</li>
+                <li>Your units split evenly across the generals sent and come home with them, so more generals bring part of the army back sooner. Warp Speed Big Flexers all return with the first.</li>
+                <li>Generals take {duration(cfg.BASE_GENERALS_RETURN_TIME_MULTIPLIER, cfg)} to return, changed by projects, policies and distance.</li>
+                <li>Distance: coordinates run 0 to 99 in a loop (99 is next to 0). Each step closer than 25 makes the return {pct(cfg.BASE_RETURN_TIME_PENALTY_PER_COORDINATE)} faster, and each step further makes it that much slower.</li>
             </ul>
+            <h4>The numbers</h4>
+            <ul>
+                <li>A win takes {pct(cfg.BASE_KINGDOM_LOSS_RATE)} of the target's stars, at least {num(cfg.BASE_ATTACK_MIN_STARS_GAIN)}.</li>
+                <li>The defender loses up to {pct(cfg.BASE_DEFENDER_UNIT_LOSS_RATE)} of its defending units and the attacker up to {pct(cfg.BASE_ATTACKER_UNIT_LOSS_RATE)} of the units sent, win or lose.</li>
+                <li>A kingdom with no fuel fights at {pct(cfg.BASE_FUELLESS_STRENGTH_REDUCTION)} less strength.</li>
+                <li>Races, war, projects and self-destructing units change losses. Self-Destructing Attackers raise the defender's losses by up to {pct(cfg.SELF_DESTRUCT_LOSSES_INCREASE)}, in proportion to their share of your offense. Self-Destructing Defenders do the same to attackers, by their share of your defense at home.</li>
+            </ul>
+            <h4>Intel cuts and empire targets</h4>
             <p>
-                On one of your Empire's targets, part of a win's stars and money goes into the target's spoils fund
-                instead, and intel cuts are not paid; the forecast says how much. See Empire politics.
+                Under the target, a line shows the intel you took from galaxymates and the cut of your winnings they
+                get. The forecast names each one and their share. On one of your empire's targets, part of the stars
+                and money goes to the target's spoils fund instead, and no intel cuts are paid (see Empire politics).
             </p>
-        </div>
-    )
+        </Topic>
+    );
 }
 
 export default Attack;

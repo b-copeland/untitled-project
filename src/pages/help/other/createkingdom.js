@@ -1,61 +1,24 @@
+import React from "react";
 import { raceDescriptions } from "../../../races";
-import React, { useEffect, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
-import Table from 'react-bootstrap/Table';
+import { HelpTable, Topic } from "../util";
 
 function CreateKingdom(props) {
-    const yourElementRef = useRef(null);
-
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "createkingdom") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
-
-    const lines = (list) => list.map((line, index) => <React.Fragment key={line}>{index > 0 ? <br/> : null}<span>{line}</span></React.Fragment>);
-    const racesDesc = raceDescriptions(props.state.game_config);
-    const racesRows = Object.keys(racesDesc).map((racesKey, iter) => {
-        return <tr key={"races_" + iter}>
-            <td style={{textAlign: "left"}}>{racesKey}</td>
-            <td style={{textAlign: "left"}}>{lines(racesDesc[racesKey].pros)}</td>
-            <td style={{textAlign: "left"}}>{lines(racesDesc[racesKey].cons)}</td>
-        </tr>
-    })
+    const races = raceDescriptions(props.state.game_config);
+    const lines = (list) => list.map((line, index) => <React.Fragment key={line}>{index > 0 ? <br /> : null}{line}</React.Fragment>);
     return (
-        <div id="createkingdom" ref={yourElementRef} className="help-section">
-            <h2>Create Kingdom</h2>
+        <Topic id="createkingdom" title="Create Kingdom" lead="Three steps: a name, a way to play, and a final check.">
+            <ul>
+                <li><b>Quick starts</b> (Explorer, Attacker, Intel and Thief) each give you a race, a starting kingdom and a ready-made plan for auto spending and the automatic attacks and robs. The plan is saved either way. You choose whether to switch it on now, or later from the Automation page.</li>
+                <li><b>Custom</b> lets you choose the race and spend the starting unit points and stars yourself. You must spend all of both. The numbers under the choices update as you go.</li>
+            </ul>
             <p>
-                Making your kingdom takes three steps: choose a name, choose how you want to play, and check the result. Nothing is
-                made until the last button. You will be placed in the galaxy with the fewest kingdoms.
+                Nothing is made until you press Create kingdom. You join the galaxy with the fewest kingdoms. Each race
+                also has two projects of its own, a capstone and an evolution.
             </p>
-            <p>
-                The quick starts (Explorer, Attacker, Intel and Thief) are each a race and a starting kingdom, with a ready-made plan for
-                the auto builder. The plan is always saved with your kingdom; you are asked whether to switch the auto builder on. Left
-                off, nothing is spent or sent until you do it yourself, and you can switch it on later from the Spending tab of the Automation page (auto
-                spending) and the Primitives page (auto attack and robbing).
-            </p>
-            <p>
-                Each race also has its own projects on the Projects page: a capstone and an evolution, that only
-                kingdoms of that race can research.
-            </p>
-            <p>
-                Custom lets you spend the starting unit points and stars yourself. You must use all of both. The numbers under
-                the choices update as you change them.
-            </p>
-            <Table hover size="sm" className="races-table">
-                <thead>
-                    <tr>
-                        <th>Race</th>
-                        <th>Pros</th>
-                        <th>Cons</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {racesRows}
-                </tbody>
-            </Table>
-        </div>
-    )
+            <HelpTable columns={[["Race"], ["Strengths"], ["Weaknesses"]]}
+                rows={Object.keys(races).map((race) => [race, lines(races[race].pros), lines(races[race].cons)])} />
+        </Topic>
+    );
 }
 
 export default CreateKingdom;

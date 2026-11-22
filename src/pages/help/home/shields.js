@@ -1,60 +1,31 @@
-import { displayPercent } from "../../../format";
-import React, { useEffect, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
-import Table from 'react-bootstrap/Table';
+import React from "react";
+import { HelpTable, Topic, config, num, pct, perHour } from "../util";
 
 function Shields(props) {
-    const yourElementRef = useRef(null);
-
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "shields") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+    const cfg = config(props.state);
+    const shields = [
+        ["Military", "Raises your defense", "MILITARY_SHIELDS"],
+        ["Spy", "Gives spy operations against you a chance to fail", "SPY_SHIELDS"],
+        ["Spy Radar", "Gives spy operations against you a chance to reveal who sent them", "SPY_RADAR"],
+        ["Missiles", "Reduces missile damage to you", "MISSILES_SHIELDS"],
+    ];
     return (
-        <div id="shields" ref={yourElementRef} className="help-section">
-            <h2>Shields</h2>
+        <Topic id="shields" title="Shields" lead="Burn fuel to protect your kingdom.">
             <p>
-                The Shields page allows you to update your shields usage. Shields burn fuel every hour, for each star and each percent, and the page shows what your shields cost per hour. Move a slider and press Update to change them; you need fuel to change shields.
+                Set each shield with its slider and press Update. A shield's cost grows with its level and your stars,
+                and the page shows what your shields cost in fuel per hour. You need fuel in stock to change them.
             </p>
-            <Table className="shields-table" hover size="sm">
-                <thead>
-                    <tr>
-                        <th style={{textAlign: "left"}}>Shield</th>
-                        <th style={{textAlign: "left"}}>Description</th>
-                        <th style={{textAlign: "right"}}>Max %</th>
-                        <th style={{textAlign: "right"}}>Cost Per Star Per %</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Military</td>
-                        <td style={{textAlign: "left"}}>Boosts your kingdom's defense based on current shields %</td>
-                        <td style={{textAlign: "right"}}>{displayPercent(props.state.game_config?.BASE_MILITARY_SHIELDS_MAX || 0)}</td>
-                        <td style={{textAlign: "right"}}>{props.state.game_config?.BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT || 0}</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Spy</td>
-                        <td style={{textAlign: "left"}}>Spy attempts against you have a chance to fail based on current shields %</td>
-                        <td style={{textAlign: "right"}}>{displayPercent(props.state.game_config?.BASE_SPY_SHIELDS_MAX || 0)}</td>
-                        <td style={{textAlign: "right"}}>{props.state.game_config?.BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT || 0}</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Spy Radar</td>
-                        <td style={{textAlign: "left"}}>Spy attempts against you have a chance to reveal the sender based on current radar %</td>
-                        <td style={{textAlign: "right"}}>{displayPercent(props.state.game_config?.BASE_SPY_RADAR_MAX || 0)}</td>
-                        <td style={{textAlign: "right"}}>{props.state.game_config?.BASE_SPY_RADAR_COST_PER_LAND_PER_PCT || 0}</td>
-                    </tr>
-                    <tr>
-                        <td style={{textAlign: "left"}}>Missiles</td>
-                        <td style={{textAlign: "left"}}>Missiles used against you have their damage reduced based on current shields %</td>
-                        <td style={{textAlign: "right"}}>{displayPercent(props.state.game_config?.BASE_MISSILES_SHIELDS_MAX || 0)}</td>
-                        <td style={{textAlign: "right"}}>{props.state.game_config?.BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT || 0}</td>
-                    </tr>
-                </tbody>
-            </Table>
-        </div>
-    )
+            <p>
+                <b>If you run out of fuel, every shield switches off.</b> Keep enough fuel income to pay for them.
+            </p>
+            <HelpTable columns={[["Shield"], ["Effect"], ["Max", "right"], ["Fuel per hour, per star per 1%", "right"]]}
+                rows={shields.map(([name, effect, key]) => [
+                    name, effect,
+                    pct(cfg[`BASE_${key}_MAX`]),
+                    num(perHour(cfg[`BASE_${key}_COST_PER_LAND_PER_PCT`], cfg)),
+                ])} />
+        </Topic>
+    );
 }
 
 export default Shields;

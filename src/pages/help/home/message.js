@@ -1,22 +1,16 @@
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic } from "../util";
 
-function Message(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "message") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+function Message() {
     return (
-        <div id="message" ref={yourElementRef} className="help-section">
-            <h2>Message</h2>
+        <Topic id="message" title="Message" lead="Write to any kingdom.">
             <p>
-                Select a kingdom to view your message history. Only the latest 100 messages (to/from all kingdoms) are saved.
+                Pick a conversation from the list, or press the new-message button and choose who to write to. The
+                Message button on a kingdom opens a conversation with it. A number next to Message in the menu is how
+                many messages you have not read.
             </p>
-        </div>
-    )
+        </Topic>
+    );
 }
 
 export default Message;

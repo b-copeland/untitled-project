@@ -1,93 +1,43 @@
+import React from "react";
 import { displayPercent } from "../../../format";
 import { inOrder } from "../../../order";
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
-import Table from 'react-bootstrap/Table';
+import { HelpTable, Topic, averageDuration, config, num, pct, perHour } from "../util";
 
 function Projects(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "projects") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
-    const prettyNames = props.state.pretty_names || {};
-    const projectsDesc = props.state.projects || {};
+    const cfg = config(props.state);
+    const projects = props.state.projects || {};
     const categories = props.state.project_categories || {};
-    const projectsRows = inOrder(Object.keys(projectsDesc), props.state.order?.projects).map((projectsKey, iter) => {
-        const project = projectsDesc[projectsKey];
+    const rows = inOrder(Object.keys(projects), props.state.order?.projects).map((key) => {
+        const project = projects[key];
         const requires = [
-            ...(project.requires || []).map((required) => projectsDesc[required]?.name || required),
+            ...(project.requires || []).map((required) => projects[required]?.name || required),
             ...(project.race ? [`${project.race} only`] : []),
         ];
-        return <tr key={"projects_" + iter}>
-            <td style={{textAlign: "left"}}>{project.name}</td>
-            <td style={{textAlign: "left"}}>{categories[project.category] || project.category}</td>
-            <td style={{textAlign: "left"}}>
-                {project.max_bonus !== undefined
-                    ? `Continuous, up to ${displayPercent(project.max_bonus)}`
-                    : `One-time, ${Math.floor(project.constant || 0).toLocaleString()} points`
-                        + (project.bonus !== undefined ? `, ${displayPercent(project.bonus)} once completed` : "")}
-            </td>
-            <td style={{textAlign: "left"}}>{requires.join(", ")}</td>
-            <td style={{textAlign: "left"}}>{project.desc}</td>
-        </tr>
-    })
+        const kind = project.max_bonus !== undefined
+            ? `Continuous, up to ${displayPercent(project.max_bonus)}`
+            : `One-time, ${num(Math.floor(project.constant || 0))} points`
+                + (project.bonus !== undefined ? `, +${displayPercent(project.bonus)}` : "");
+        return [project.name, categories[project.category] || project.category, kind, requires.join(", "), project.desc];
+    });
     return (
-        <div id="projects" ref={yourElementRef} className="help-section">
-            <h2>Build - Projects</h2>
+        <Topic id="projects" title="Projects" lead="Engineers earn points that improve almost every part of your kingdom.">
+            <ul>
+                <li><b>Train</b>: engineers cost {num(cfg.BASE_ENGINEER_COST)} and take {averageDuration(cfg.BASE_ENGINEER_TIME_MIN_MULTIPLIER, cfg.BASE_ENGINEER_TIME_MAX_MUTLIPLIER, cfg)} on average. You can train up to {pct(cfg.BASE_MAX_ENGINEERS_POP_CAP)} of your population at once, and each engineer needs room in a workshop.</li>
+                <li><b>Assign</b>: set how many engineers work on each project with its slider, then press Update. Each engineer earns {num(perHour(cfg.BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH, cfg))} points per hour.</li>
+                <li><b>Allocate</b>: give each project a share of your engineers and turn on auto assign. Every game update moves engineers to match the shares.</li>
+            </ul>
+            <h4>Two kinds of project</h4>
+            <ul>
+                <li><b>Continuous</b>: the bonus grows with the project's points, up to its maximum. The points needed for the maximum grow with your stars (about stars<sup>1.5</sup>), so you can not keep them all at the top. Choose the ones that matter most to you.</li>
+                <li><b>One-time</b>: finish it once to unlock a unit or an operation, or to get a fixed bonus. A finished project takes no more engineers.</li>
+            </ul>
             <p>
-                The Train page allows you to train engineers. You can train 
-                up to {displayPercent(props.state.game_config?.BASE_MAX_ENGINEERS_POP_CAP)} of your
-                current population at one time as long as you have workshop capacity.
+                A project can need others first (the Requires column). Racial projects are for that race only, and you
+                only see your own race's.
             </p>
-            <p>
-                Base engineers training cost is {props.state.game_config?.BASE_ENGINEER_COST}. 
-                The base average training time is {props.state.game_config?.BASE_EPOCH_SECONDS * (props.state.game_config?.BASE_ENGINEER_TIME_MIN_MULTIPLIER + props.state.game_config?.BASE_ENGINEER_TIME_MAX_MUTLIPLIER) / 2 / 3600} hours.
-            </p>
-            <p>
-                Each engineer produces {props.state.game_config?.BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH} project points
-                per {props.state.game_config?.BASE_EPOCH_SECONDS} seconds.
-            </p>
-            <p>
-                The Assign page allow you to assign available engineers to your projects, listed in two sections: continuous projects, then one-time projects by category. The Assign column overwrites currently 
-                assigned engineers across all projects, while the Add column is used to add engineers to projects.
-            </p>
-            <p>
-                The "Continuous Projects" are projects whose maximum points increases as your stars increase, generally at a rate of 
-                stars ^ 1.5. These projects will become exponentially more difficult to keep maxed as the game progresses, so you will 
-                likely have to choose which projects you would like to invest in.
-            </p>
-            <p>
-                The "One-Time Projects" are projects which provide some benefit after they are completed: they unlock something, or give a fixed bonus. Once you have finished these projects, 
-                you will no longer be able to assign engineers to these projects.
-            </p>
-            <p>
-                Some projects need others first: engineers can only work on a project once every project in its
-                "Requires" column is completed. Racial projects can only be researched by kingdoms of that race, and
-                you only see your own race's.
-            </p>
-            <p>
-                The Allocate page allows you to set the target allocation of engineers across all projects. When enabled, engineers will be 
-                automatically assigned to projects at the percentages you have chosen during each game update.
-            </p>
-            <Table hover>
-                <thead>
-                    <tr>
-                        <th>Project</th>
-                        <th>Category</th>
-                        <th>Kind</th>
-                        <th>Requires</th>
-                        <th>Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {projectsRows}
-                </tbody>
-            </Table>
-        </div>
-    )
+            <HelpTable columns={[["Project"], ["Category"], ["Kind"], ["Requires"], ["What it does"]]} rows={rows} />
+        </Topic>
+    );
 }
 
 export default Projects;

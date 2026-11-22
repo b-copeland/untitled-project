@@ -1,93 +1,55 @@
-import { displayPercent } from "../../../format";
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
-import Table from 'react-bootstrap/Table';
+import React from "react";
+import { HelpTable, Topic, config, duration, num, pct } from "../util";
 
 function Spy(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "spy") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
-    const siphonDurationHours = props.state.game_config?.BASE_EPOCH_SECONDS * props.state.game_config?.BASE_DRONES_SIPHON_TIME_MULTIPLIER / 3600
-    const siphonMax = displayPercent(props.state.game_config?.BASE_MAX_SIPHON);
-    const operationsDesc = {
-        "spykingdom": `Reveals non-military information about a kingdom and missiles`,
-        "spymilitary": `Reveals units and generals information`,
-        "spyshields": `Reveals shields information`,
-        "spystructures": `Reveals structures`,
-        "spyprojects": `Reveals projects information`,
-        "spydrones": `Reveals drones and spy attempts`,
-        "spyall": `Reveals everything the other intel operations do, at once. Only for Vult kingdoms with the Vult Evolution project, which then use it in place of the other intel operations`,
-        "siphonfunds": `Steals up to ${props.state.game_config?.BASE_DRONES_SIPHON_PER_DRONE} money per drone, paid evenly over the next ${siphonDurationHours} hours. A kingdom loses at most ${siphonMax} of its income to all siphons together. When the siphons on it would take more, the oldest siphon is reduced first, then the next oldest, until they fit, and the newer ones pay in full. A reduced siphon stays reduced for the rest of its time, and what it could not take is lost. If the siphoning kingdom dies, its siphons end.`,
-        "bombhomes": `Destroys 1 home per ${props.state.game_config?.BASE_DRONES_PER_HOME_DAMAGE} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_HOME_DAMAGE)} of the target's homes.`,
-        "sabotagefuelplants": `Destroys 1 fuel plant per ${props.state.game_config?.BASE_DRONES_PER_FUEL_PLANT_DAMAGE} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_FUEL_PLANT_DAMAGE)} of the target's fuel plants.`,
-        "kidnappopulation": `Kidnaps 1 population per ${props.state.game_config?.BASE_DRONES_PER_KIDNAP} drones, up to ${displayPercent(props.state.game_config?.BASE_DRONES_MAX_KIDNAP_DAMAGE)} of the target's population. ${displayPercent(props.state.game_config?.BASE_KIDNAP_RETURN_RATE)} of the kidnapped populaton returns to your kingdom.`,
-        "suicidedrones": `Destroys ${props.state.game_config?.BASE_DRONES_SUICIDE_FUEL_DAMAGE} fuel per drone sent. All of the sent drones are lost.`,
+    const cfg = config(props.state);
+    const names = props.state.pretty_names || {};
+    const aggressive = props.state.aggro_operations || [];
+    const operations = {
+        spykingdom: "Reveals the kingdom's resources, population and missiles",
+        spymilitary: "Reveals units and generals",
+        spyshields: "Reveals shields",
+        spystructures: "Reveals structures",
+        spyprojects: "Reveals projects",
+        spydrones: "Reveals drones and spy attempts",
+        spyall: "Reveals all of the above at once. Vult kingdoms with Vult Evolution only, in place of the other intel operations",
+        siphonfunds: `Steals up to ${num(cfg.BASE_DRONES_SIPHON_PER_DRONE)} money per drone, paid evenly over the next ${duration(cfg.BASE_DRONES_SIPHON_TIME_MULTIPLIER, cfg)}. A kingdom loses at most ${pct(cfg.BASE_MAX_SIPHON)} of its income to all siphons together. When the siphons on it would take more, the oldest siphon is reduced first, then the next oldest, until they fit, and the newer ones pay in full. A reduced siphon stays reduced, and what it could not take is lost. If the siphoning kingdom dies, its siphons end.`,
+        bombhomes: `Destroys 1 home per ${num(cfg.BASE_DRONES_PER_HOME_DAMAGE)} drones, up to ${pct(cfg.BASE_DRONES_MAX_HOME_DAMAGE)} of the target's homes`,
+        sabotagefuelplants: `Destroys 1 fuel plant per ${num(cfg.BASE_DRONES_PER_FUEL_PLANT_DAMAGE)} drones, up to ${pct(cfg.BASE_DRONES_MAX_FUEL_PLANT_DAMAGE)} of the target's fuel plants`,
+        kidnappopulation: `Takes 1 person per ${num(cfg.BASE_DRONES_PER_KIDNAP)} drones, up to ${pct(cfg.BASE_DRONES_MAX_KIDNAP_DAMAGE)} of the target's population. ${pct(cfg.BASE_KIDNAP_RETURN_RATE)} of them join your kingdom`,
+        suicidedrones: `Destroys ${num(cfg.BASE_DRONES_SUICIDE_FUEL_DAMAGE)} fuel per drone. Every drone sent is lost`,
     };
-    const prettyNames = props.state.pretty_names || {};
-    const operationsRows = Object.keys(operationsDesc).map((operationsKey, iter) => {
-        return <tr key={"operations_" + iter}>
-            <td style={{textAlign: "left"}}>{prettyNames[operationsKey]}</td>
-            <td style={{textAlign: "left"}}>{operationsDesc[operationsKey]}</td>
-            <td style={{textAlign: "left"}}>{props.state.aggro_operations?.includes(operationsKey).toString()}</td>
-        </tr>
-    })
     return (
-        <div id="spy" ref={yourElementRef} className="help-section">
-            <h2>Conquer - Spy</h2>
-            <p>
-                The spy page is used to carry out spy operations on other kingdoms. The first section of the page is used to 
-                fill out the details of the target kingdom and operation, while the second part of the page is used to select the amount 
-                of drones you would like to send.
-            </p>
-            <p>
-                Each star in the target's kindom will provide {props.state.game_config?.BASE_STARS_DRONE_DEFENSE_MULTIPLIER} spy defense, 
-                while each drone in the target's kingdom provides {props.state.game_config?.BASE_DRONES_DRONE_DEFENSE_MULTIPLIER} spy defense.
-            </p>
-            <p>
-                In order to maximimze your chance of success, you would like to send as many drones as the target's total spy defense. 
-                Your success chance in an operation will be reduced by the target's current Spy Shields. Each operation has a 
-                minimum chance of {displayPercent(props.state.game_config?.BASE_SPY_MIN_SUCCESS_CHANCE)} for succeeding, regardless of 
-                how many drones you send.
-            </p>
-            <p>
-                During successful spy operations, {displayPercent(props.state.game_config?.BASE_DRONES_SUCCESS_LOSS_RATE)} of drones will be lost, 
-                while {displayPercent(props.state.game_config?.BASE_DRONES_FAILURE_LOSS_RATE)} will be lost during failed operations. 
-                Shielding drones during any operation will reduce drones losses 
-                by {displayPercent(props.state.game_config?.BASE_DRONES_SHIELDING_LOSS_REDUCTION)}. Each drone during a shielded operation 
-                requires 1 fuel. The Drone Gadgets project reduces drone losses further.
-            </p>
-            <p>
-                Aggressive operations do less damage to a kingdom with the Counter-Intelligence project. The forecast
-                only counts it if the target's projects are revealed to you.
-            </p>
-            <p>
-                An intel operation is refused, before any drones or spy attempt are spent, when everything it would
-                reveal is already revealed to you: by your own spying, by intel you received from a galaxymate, or by a
-                galaxymate sharing their kingdom. Full Infiltration goes ahead while any of what it reveals is not.
-                Once a reveal ends you can spy for it again.
-            </p>
-            <p>
-                If you fail an aggressive spy operation, or your target's spy radar catches you, your drones will be revealed to the target
-                for {props.state.game_config?.BASE_REVEAL_DURATION_MULTIPLIER * props.state.game_config?.BASE_EPOCH_SECONDS / 3600} hours.
-            </p>
-            <Table hover>
-                <thead>
-                    <tr>
-                        <th>Operation</th>
-                        <th>Description</th>
-                        <th>Aggresive</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {operationsRows}
-                </tbody>
-            </Table>
-        </div>
-    )
+        <Topic id="spy" title="Spy" lead="Send drones to gather intel or to hurt another kingdom.">
+            <h4>How to spy</h4>
+            <ol>
+                <li>Choose a target and an operation.</li>
+                <li>Choose how many drones to send, and whether to shield them.</li>
+                <li>Fill in what you know of their drones and shields, if it is not revealed.</li>
+                <li>Check the forecast and send. It asks you to confirm when the chance of success is low.</li>
+            </ol>
+            <h4>Success</h4>
+            <ul>
+                <li>A kingdom's spy defense is {num(cfg.BASE_STARS_DRONE_DEFENSE_MULTIPLIER)} per star plus {num(cfg.BASE_DRONES_DRONE_DEFENSE_MULTIPLIER)} per drone. Send as many drones as their spy defense for your best chance.</li>
+                <li>Their spy shields lower your chance. It never drops below {pct(cfg.BASE_SPY_MIN_SUCCESS_CHANCE)}.</li>
+                <li>Each operation uses a spy attempt. Attempts come back over time.</li>
+            </ul>
+            <h4>Drone losses</h4>
+            <ul>
+                <li>You lose {pct(cfg.BASE_DRONES_SUCCESS_LOSS_RATE)} of the drones sent on a success and {pct(cfg.BASE_DRONES_FAILURE_LOSS_RATE)} on a failure.</li>
+                <li>Shielding cuts losses by {pct(cfg.BASE_DRONES_SHIELDING_LOSS_REDUCTION)} and costs 1 fuel per drone. The Drone Gadgets project cuts them further.</li>
+            </ul>
+            <h4>Good to know</h4>
+            <ul>
+                <li>An intel operation is refused, before anything is spent, when everything it would reveal is already revealed to you: by your own spying, by intel from a galaxymate, or by a galaxymate sharing their kingdom. Full Infiltration goes ahead while any part of it is not revealed.</li>
+                <li>If an aggressive operation fails, or their spy radar catches you, your stars, networth and drones are revealed to them for {duration(cfg.BASE_REVEAL_DURATION_MULTIPLIER, cfg)}.</li>
+                <li>Aggressive operations do less damage to a kingdom with Counter-Intelligence. The forecast counts it only if their projects are revealed.</li>
+                <li>When gathering intel, you can share it with your galaxy: free, or listed on the Intel market for a cut.</li>
+            </ul>
+            <HelpTable columns={[["Operation"], ["What it does"], ["Aggressive"]]}
+                rows={Object.keys(operations).map((key) => [names[key] || key, operations[key], aggressive.includes(key) ? "Yes" : ""])} />
+        </Topic>
+    );
 }
 
 export default Spy;

@@ -1,50 +1,24 @@
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
-import Table from 'react-bootstrap/Table';
+import React from "react";
+import { HelpTable, Topic, config, num } from "../util";
 
 function BuildMissiles(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "buildmissiles") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
-    const prettyNames = props.state.pretty_names || {};
-    const missilesDesc = props.state.missiles || {};
-    const missilesRows = Object.keys(missilesDesc).map((missilesKey, iter) => {
-        return <tr key={"missiles_" + iter}>
-            <td style={{textAlign: "left"}}>{prettyNames[missilesKey]}</td>
-            <td style={{textAlign: "right"}}>{missilesDesc[missilesKey].cost}</td>
-            <td style={{textAlign: "right"}}>{missilesDesc[missilesKey].fuel_cost}</td>
-            <td style={{textAlign: "right"}}>{missilesDesc[missilesKey].stars_damage}</td>
-            <td style={{textAlign: "right"}}>{missilesDesc[missilesKey].fuel_damage}</td>
-            <td style={{textAlign: "right"}}>{missilesDesc[missilesKey].pop_damage}</td>
-        </tr>
-    })
+    const cfg = config(props.state);
+    const names = props.state.pretty_names || {};
+    const missiles = props.state.missiles || {};
     return (
-        <div id="buildmissiles" ref={yourElementRef} className="help-section">
-            <h2>Build - Missiles</h2>
+        <Topic id="buildmissiles" title="Build Missiles" lead="Missiles damage a kingdom without risking your army.">
             <p>
-                You can build up to {props.state.game_config?.BASE_MISSILE_SILO_CAPACITY} missiles per Missile Silo that you own.
+                Each missile silo holds {num(cfg.BASE_MISSILE_SILO_CAPACITY)} of each kind of missile, counting those
+                still being built. Missiles cost money and fuel. Launch them from the Launch Missiles page.
             </p>
-            <Table className="missiles-table" hover size="sm">
-                <thead>
-                    <tr>
-                        <th>Missile</th>
-                        <th>Cost</th>
-                        <th>Fuel Cost</th>
-                        <th>Stars Damage</th>
-                        <th>Fuel Damage</th>
-                        <th>Pop Damage</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {missilesRows}
-                </tbody>
-            </Table>
-        </div>
-    )
+            <HelpTable
+                columns={[["Missile"], ["Cost", "right"], ["Fuel cost", "right"], ["Stars destroyed", "right"], ["Fuel destroyed", "right"], ["Population killed", "right"]]}
+                rows={Object.keys(missiles).map((key) => [
+                    names[key] || key, num(missiles[key].cost), num(missiles[key].fuel_cost),
+                    num(missiles[key].stars_damage), num(missiles[key].fuel_damage), num(missiles[key].pop_damage),
+                ])} />
+        </Topic>
+    );
 }
 
 export default BuildMissiles;

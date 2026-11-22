@@ -1,45 +1,30 @@
-import { displayPercent } from "../../../format";
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic, config, num } from "../util";
 
 function Primitives(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "primitives") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+    const cfg = config(props.state);
     return (
-        <div id="primitives" ref={yourElementRef} className="help-section">
-            <h2>Conquer - Primitives</h2>
+        <Topic id="primitives" title="Primitives" lead="Grow without making enemies: attack and rob the unclaimed stars around you.">
+            <h4>Attack</h4>
             <p>
-                The Primitives page provides a more casual option for utilizing your generals and spy 
-                attempts to grow your kingdom.
+                Choose units and generals and the forecast shows the stars you would take. Each star also brings
+                {" "}{num(cfg.BASE_PRIMITIVES_MONEY_PER_STAR)} money, {num(cfg.BASE_PRIMITIVES_FUEL_PER_STAR)} fuel and
+                {" "}{num(cfg.BASE_PRIMITIVES_POPULATION_PER_STAR)} population. Primitives get stronger as the round goes
+                on: their defense is {num(props.state.primitives_defense_per_star)} per star now.
             </p>
+            <h4>Rob</h4>
             <p>
-                Attacking primitives will primarily yield stars. You can enter units and hit the Calculate button 
-                to see your projected stars gain. In addition to stars, you will receive other spoils per star 
-                that you gain. Primitives defense per star increases as the round progresses.
+                Send drones to steal money. Each drone brings back about {num(props.state.primitives_rob_per_drone)} money
+                now, and less as the round goes on. A rob uses a spy attempt.
             </p>
-            <span>Primitives spoils per star</span>
+            <h4>Automatic attacks and robs</h4>
             <ul>
-                <li>Money: {props.state.game_config?.BASE_PRIMITIVES_MONEY_PER_STAR}</li>
-                <li>Fuel: {props.state.game_config?.BASE_PRIMITIVES_FUEL_PER_STAR}</li>
-                <li>Population: {props.state.game_config?.BASE_PRIMITIVES_POPULATION_PER_STAR}</li>
+                <li><b>Automatic attacks</b> attack the primitives whenever a general is home, sending every general at home (except any a scheduled action needs) with the shares of attackers and flexers you set. Shares count your whole army, including units already out.</li>
+                <li><b>Automatic robs</b> send the share of drones you set whenever you have more spy attempts than the number to keep. They can shield the drones.</li>
             </ul>
-            <p>
-                You can choose to enable Auto Attack primitives. This option will automatically send your generals 
-                out to attack primitives as they return. The Pure/Flex Offense settings specifies the maximum amount of 
-                offense you would like to send in total.
-            </p>
-            <p>
-                Robbing primitives will return money per drone sent. You can choose to enable Auto Rob primitives. This option 
-                will automatically use your spy attempts to rob primitives, leaving you with "Spy Attempts to Keep" spy attempts 
-                remaining. The amount of money received per drone decreases as the round progresses.
-            </p>
-        </div>
-    )
+            <p>Set the shares and save before you switch either one on. Both are also on the Automation page.</p>
+        </Topic>
+    );
 }
 
 export default Primitives;

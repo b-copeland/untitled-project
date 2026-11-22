@@ -197,7 +197,7 @@ function Add(props) {
                                 <Form.Check type="switch" id="prefer-autofill-input" checked={Boolean(options.prefer_autofill)} onChange={(e) => set("prefer_autofill", e.target.checked)} />
                             </FieldRow>
                             {percentRow("autofill_buffer", "Suggestion margin", "Extra offense the suggestion adds")}
-                            {percentRow("pure_offense", "Attackers to send", "Used if the suggestion can not win")}
+                            {percentRow("pure_offense", "Attackers to send", "Used when there is no military intel to suggest from")}
                             {percentRow("flex_offense", "Flexers to send")}
                             {generalsRow}
                         </> : null}

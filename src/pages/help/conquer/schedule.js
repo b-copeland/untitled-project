@@ -1,39 +1,27 @@
-import { displayPercent } from "../../../format";
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic } from "../util";
 
-function Schedule(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "schedule") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+function Schedule() {
     return (
-        <div id="schedule" ref={yourElementRef} className="help-section">
-            <h2>Conquer - Schedule</h2>
+        <Topic id="schedule" title="Schedule" lead="Set an action to happen on its own at a time you choose.">
             <p>
-                The Schedule page allows you to schedule future actions that will be taken automatically when 
-                the time arrives. 
+                On <b>Add</b>, choose what to do, when, and the details, then press Schedule it. <b>Queue</b> lists what
+                is scheduled, where you can cancel it. An action uses what you have when it runs, not what you have now.
             </p>
+            <ul>
+                <li><b>Attack</b>: attack a kingdom. With Suggest the army on and military intel on the target, it picks units that should win, with your margin. If that intel shows it can not win, nothing is sent. Without the intel, it sends the shares of attackers and flexers you set.</li>
+                <li><b>Attack primitives</b>: send shares of your attackers and flexers at the primitives.</li>
+                <li><b>Gather intel</b>: an intel operation, retried up to Max tries times until it succeeds. It can share what it finds with your galaxy for free.</li>
+                <li><b>Hostile operation</b>: an aggressive operation, repeated for the number of attempts you choose.</li>
+                <li><b>Launch missiles</b>: launch missiles at a kingdom.</li>
+            </ul>
             <p>
-                The Attack and Attack Primitives actions require you to specify the percent of pure offense and flex 
-                offense that you require to send. Pure offense is units that don't have defense, while flex offense is 
-                units that have both offense and defense. The actions will not be executed if the percent of request units 
-                are not available when the time arrives. <b>Note that these actions are currently only compatible with 
-                scheduling 1 attack.</b> Scheduling multiple consecutive attacks (i.e. an attack while generals are already out) 
-                will likely not work.
+                <b>Shares count your whole army, including units already out.</b> If 30% of your attackers are out with
+                a general and an action asks for 50%, it sends another 20%. Each action also needs the number of
+                generals it asks for to be at home, or it does nothing.
             </p>
-            <p>
-                The Intel Spy action will attempt spy operations until getting a success, up to "Max Tries" tries. If 
-                Share with your galaxy is selected, the acquired intel is shared free with your galaxymates (see Intel).
-            </p>
-            <p>
-                The Aggressive Spy action will attempt aggressive spy operations for the number of attempts specified.
-            </p>
-        </div>
-    )
+        </Topic>
+    );
 }
 
 export default Schedule;

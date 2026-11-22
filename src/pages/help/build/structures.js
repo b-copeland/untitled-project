@@ -1,76 +1,38 @@
-import { displayPercent } from "../../../format";
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
-import Table from 'react-bootstrap/Table';
+import React from "react";
+import { HelpTable, Topic, averageDuration, config, duration, num, pct, perHour } from "../util";
 
 function Structures(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "structures") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
-    const structuresDescs = {
-        "homes": `Houses ${props.state.game_config?.BASE_HOMES_CAPACITY} population`,
-        "mines": `Produces ${props.state.game_config?.BASE_MINES_INCOME_PER_EPOCH} money per ${props.state.game_config?.BASE_EPOCH_SECONDS} seconds`,
-        "fuel_plants": `Produces ${props.state.game_config?.BASE_FUEL_PLANTS_INCOME_PER_EPOCH} fuel per ${props.state.game_config?.BASE_EPOCH_SECONDS} seconds. Provides storage for ${props.state.game_config?.BASE_FUEL_PLANTS_CAPACITY} fuel`,
-        "hangars": `Provides storage for ${props.state.game_config?.BASE_HANGAR_CAPACITY} units`,
-        "drone_factories": `Produces ${props.state.game_config?.BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH} drones per ${props.state.game_config?.BASE_EPOCH_SECONDS} seconds`,
-        "missile_silos": `Provides storage for ${props.state.game_config?.BASE_MISSILE_SILO_CAPACITY} of each missile`,
-        "workshops": `Houses ${props.state.game_config?.BASE_WORKSHOP_CAPACITY} engineers`,
+    const cfg = config(props.state);
+    const names = props.state.pretty_names || {};
+    const effects = {
+        homes: `Houses ${num(cfg.BASE_HOMES_CAPACITY)} population`,
+        mines: `Makes ${num(perHour(cfg.BASE_MINES_INCOME_PER_EPOCH, cfg))} money per hour`,
+        fuel_plants: `Makes ${num(perHour(cfg.BASE_FUEL_PLANTS_INCOME_PER_EPOCH, cfg))} fuel per hour and stores ${num(cfg.BASE_FUEL_PLANTS_CAPACITY)} fuel`,
+        hangars: `Holds ${num(cfg.BASE_HANGAR_CAPACITY)} units`,
+        drone_factories: `Makes ${num(perHour(cfg.BASE_DRONE_FACTORIES_PRODUCTION_PER_EPOCH, cfg))} drones per hour`,
+        missile_silos: `Holds ${num(cfg.BASE_MISSILE_SILO_CAPACITY)} of each kind of missile`,
+        workshops: `Houses ${num(cfg.BASE_WORKSHOP_CAPACITY)} engineers`,
     };
-    const prettyNames = props.state.pretty_names || {};
-    const structuresRows = Object.keys(structuresDescs).map((structuresKey, iter) => {
-        return <tr key={"structures_" + iter}>
-            <td style={{textAlign: "left"}}>{prettyNames[structuresKey]}</td>
-            <td style={{textAlign: "left"}}>{structuresDescs[structuresKey]}</td>
-        </tr>
-    })
     return (
-        <div id="structures" ref={yourElementRef} className="help-section">
-            <h2>Build - Structures</h2>
+        <Topic id="structures" title="Structures" lead="One structure per star. Structures are your economy.">
+            <ul>
+                <li><b>Build</b>: order structures. Each one takes {averageDuration(cfg.BASE_STRUCTURE_TIME_MIN_MULTIPLIER, cfg.BASE_STRUCTURE_TIME_MAX_MUTLIPLIER, cfg)} on average and costs stars<sup>{num(cfg.BASE_STRUCTURE_STARS_POWER)}</sup> × {num(cfg.BASE_STRUCTURE_COST_CONSTANT)}, so they get dearer as you grow.</li>
+                <li><b>Allocate</b>: the mix auto spending builds towards. It builds whichever structure is furthest below its share, counting those still being built.</li>
+                <li><b>Raze</b>: destroy structures to free their stars, for {pct(cfg.BASE_STRUCTURES_RAZE_RETURN)} of today's build cost back.</li>
+            </ul>
             <p>
-                The structures page allows you to build structures to support your kingdom. You can build one structure 
-                for each star that you have.
+                If you have more structures than stars, for example after losing an attack, the extra ones fall apart.
+                Every {duration(1, cfg)} you lose {pct(cfg.BASE_STRUCTURES_LOSS_RETURN_RATE)} of the extra structures,
+                or as many structures as {pct(cfg.BASE_STRUCTURES_LOSS_PER_STAR_PER_EPOCH)} of your stars, whichever is more.
             </p>
             <p>
-                Each structure has a project that improves it (see Projects): the continuous Pop Bonus for homes and
-                Fuel Bonus for fuel plants, and a one-time bonus named after each of the others. The numbers below are before them.
+                The numbers below are before bonuses. Projects raise them: Pop Bonus for homes, Fuel Bonus for fuel
+                plants, and a one-time project for each of the others.
             </p>
-            <p>
-                Structure cost increases with your stars at a rate of `(stars ^ {props.state.game_config?.BASE_STRUCTURE_STARS_POWER}) * {props.state.game_config?.BASE_STRUCTURE_COST_CONSTANT}`. 
-                The base average construction time is {props.state.game_config?.BASE_EPOCH_SECONDS * (props.state.game_config?.BASE_STRUCTURE_TIME_MIN_MULTIPLIER + props.state.game_config?.BASE_STRUCTURE_TIME_MAX_MUTLIPLIER) / 2 / 3600} hours.
-            </p>
-            <p>
-                When you have more structures than land (such as when you get attacked), your structures decrease at a rate of 
-                the greater of {displayPercent(props.state.game_config?.BASE_STRUCTURES_LOSS_RETURN_RATE)} of your structures overflow 
-                or {displayPercent(props.state.game_config?.BASE_STRUCTURES_LOSS_PER_STAR_PER_EPOCH)} of your stars 
-                per {props.state.game_config?.BASE_EPOCH_SECONDS} seconds.
-            </p>
-            <p>
-                The allocate page allows you to specify the target mix of structures that you would like the auto-spender to 
-                build towards. The auto-spender will prioritize building structures that are farther from their target. Both 
-                currently built and in-construction structures are considered when determining the "current" mix of buildings.
-            </p>
-            <p>
-                The Raze page allows you to raze structures to destroy them and 
-                receive {displayPercent(props.state.game_config?.BASE_STRUCTURES_RAZE_RETURN)} of the current build cost back. 
-                This can be useful if you have obsolete buildings and need to free up stars.
-            </p>
-            <Table hover>
-                <thead>
-                    <tr>
-                        <th>Structure</th>
-                        <th>Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {structuresRows}
-                </tbody>
-            </Table>
-        </div>
-    )
+            <HelpTable columns={[["Structure"], ["What it does"]]}
+                rows={Object.keys(effects).map((key) => [names[key] || key, effects[key]])} />
+        </Topic>
+    );
 }
 
 export default Structures;

@@ -1,76 +1,36 @@
-import { displayPercent } from "../../../format";
-import React, { useEffect, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic, config, duration, pct } from "../util";
 
 function Intel(props) {
-    const yourElementRef = useRef(null);
-
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "intel") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
-    const config = props.state.game_config || {};
-    const maxHours = (config.BASE_INTEL_BOUNTY_MAX_EPOCHS || 0) * (config.BASE_EPOCH_SECONDS || 0) / 3600;
+    const cfg = config(props.state);
     return (
-        <div id="intel" ref={yourElementRef} className="help-section">
-            <h2>Conquer - Intel</h2>
+        <Topic id="intel" title="Intel" lead="Your galaxy's market for intel on kingdoms in other galaxies.">
             <p>
-                Your galaxy trades intel on its own market. Intel you have revealed yourself on a kingdom in another
-                galaxy (its kingdom, military, shields, projects, structures or drones) can be listed for a cut of the
-                spoils, or shared free. The Intel button wherever a kingdom is shown does the same for that kingdom.
+                Intel you revealed yourself (kingdom, military, shields, projects, structures or drones) can be sold to
+                galaxymates for a cut of their spoils, or given away free.
             </p>
+            <h4>The three tabs</h4>
             <ul>
-                <li>
-                    <strong>Market.</strong> A listing asks a cut of up to {displayPercent(config.BASE_MAX_SHARE_CUT)}.
-                    Any galaxymate can buy it, and it stays listed, so several can buy the same intel. It lasts until
-                    your reveal ends. Buying gives the buyer the reveal at once. A listing of intel you have already
-                    taken is greyed out and tagged "taken".
-                </li>
-                <li>
-                    <strong>Free.</strong> Intel shared free needs no accepting: every galaxymate gets it at once, and
-                    it answers their bounties for it.
-                </li>
-                <li>
-                    <strong>Bounties.</strong> Ask the galaxy for intel you want, offering a cut, for up
-                    to {maxHours} hours (leave the length blank for the longest). The first
-                    galaxymate to answer it with their own intel earns the cut, and the bounty leaves the board. If you
-                    do not have the intel a bounty asks for, Attempt opens the Spy page with that kingdom and operation
-                    chosen; once the spies bring it back, Fulfil the bounty.
-                </li>
+                <li><b>Market</b>: intel for sale. A listing asks a cut of up to {pct(cfg.BASE_MAX_SHARE_CUT)}. Buying reveals it to you at once. A listing stays up until the seller's reveal ends, so several galaxymates can buy it. Intel you already have is marked "taken".</li>
+                <li><b>Bounties</b>: ask the galaxy for intel, offering a cut, for up to {duration(cfg.BASE_INTEL_BOUNTY_MAX_EPOCHS, cfg)} (leave the length blank for the longest). The first galaxymate to answer with their own intel earns the cut. If you lack the intel a bounty wants, Attempt opens the Spy page with the right operation chosen. Fulfil it once your drones bring the intel back.</li>
+                <li><b>Your intel</b>: what you can list or share, and the galaxymates you keep it from. They do not see your listings or bounties and get nothing from your free shares. They are not told.</li>
+            </ul>
+            <h4>How cuts work</h4>
+            <ul>
+                <li>A cut is paid from every successful attack the buyer makes on that kingdom while the intel lasts.</li>
+                <li>Each kind of intel pays whoever provided it. The cuts add up, to at most {pct(cfg.BASE_MAX_TOTAL_SHARE_CUT)} on one kingdom.</li>
+                <li>Once you have taken a kind of intel on a kingdom, you can not take it again at a lower cut. Nobody can undercut the first seller. Free intel never replaces intel you paid for.</li>
+                <li>Free intel reaches every galaxymate at once and answers their bounties for it.</li>
+                <li>Intel a galaxymate gave you can not be passed on.</li>
+                <li>No cuts are paid on your empire's targets. Intel on a target goes to the whole empire instead (see Empire politics).</li>
             </ul>
             <p>
-                A cut is paid from every successful attack the buyer makes on that kingdom while the intel lasts. Each
-                kind of intel is paid to whoever provided it, and the cuts add up, to at most
-                {" "}{displayPercent(config.BASE_MAX_TOTAL_SHARE_CUT)} for one kingdom. Once you have taken a kind of intel
-                on a kingdom, you can not take the same kind on it at a lower cut, so nobody can cut the first sharer
-                out by offering it cheaper. Free intel never replaces intel you paid a cut for. No cut is paid on
-                attacks on your Empire's targets: intel on them is shared with the whole Empire instead (see Empire
-                politics).
+                On each row, the eye button opens that kingdom's page and the clipboard opens its intel market. On a
+                kingdom's page, each kind of intel you lack offers to spy for it, buy it, or ask the galaxy. Each kind
+                you have offers to share it.
             </p>
-            <p>
-                Intel a galaxymate gave you can not be passed on. On Your intel you can keep your intel from chosen
-                galaxymates: they do not see your listings or bounties, can not buy or answer them, and get nothing from your
-                free shares.
-                They are not told.
-            </p>
-            <p>
-                On each row, the eye button opens the kingdom the intel is on, as far as you have revealed it, and the
-                clipboard button opens the intel market for that kingdom alone. The two are tabs of one dialog, so you
-                can move between them.
-            </p>
-            <p>
-                Viewing a kingdom in another galaxy, each kind of intel says what you can do about it. Without it: Spy on
-                it (the Spy page, with that operation chosen), buy the cheapest listing you can take, or Ask the galaxy,
-                which opens the bounty form with that intel filled in. With intel of your own: share it, for a cut or
-                free. Military, structures, projects and shields are at the top of their tab; kingdom intel at the top
-                of the Kingdom tab, and drones next to the drones value.
-            </p>
-            <p>
-                The history keeps the most recent purchases, answered bounties and free shares.
-            </p>
-        </div>
-    )
+        </Topic>
+    );
 }
 
 export default Intel;

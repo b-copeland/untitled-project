@@ -1,32 +1,22 @@
-import React, { useEffect, useRef } from "react";
+import React from "react";
+import { Topic } from "../util";
 
-function Automation(props) {
-    const yourElementRef = useRef(null);
-
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "automation") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+function Automation() {
     return (
-        <div id="automation" ref={yourElementRef} className="help-section">
-            <h2>Automation</h2>
+        <Topic id="automation" title="Automation" lead="Everything your kingdom can do while you are away, in one place.">
             <p>
-                The Automation page gathers everything your kingdom can do by itself. The Overview tab lists each
-                feature, whether it is on, and what it will do, with a switch to turn it on or off.
+                The <b>Overview</b> tab lists each automatic feature, says whether it is on and what it will do next,
+                and has a switch for each. The other tabs hold their settings:
             </p>
-            <p>
-                The other tabs hold each feature's settings, the same ones as on their own pages: the auto spending
-                split, the structure, unit and project targets that auto spending builds towards, the automatic attacks
-                and robs on primitives, and the queue of scheduled actions. Adding a scheduled action is on the Schedule
-                page.
-            </p>
-            <p>
-                Automatic attacks need a share of attackers or flexers to send, and automatic robs a share of drones,
-                before they can be switched on.
-            </p>
-        </div>
-    )
+            <ul>
+                <li><b>Spending</b>: how your income is split between settling, structures, military and engineers (see Auto spending).</li>
+                <li><b>Structure targets</b> and <b>Unit targets</b>: the mix auto spending builds towards. The same settings are on the Allocate tabs of the Structures and Military pages.</li>
+                <li><b>Project targets</b>: how engineers are spread across projects when auto assign is on.</li>
+                <li><b>Primitives</b>: automatic attacks and robs on primitives. Set a share of attackers or flexers, or of drones, before you switch them on.</li>
+                <li><b>Schedule</b>: your queue of scheduled actions. Add new ones on the Schedule page.</li>
+            </ul>
+        </Topic>
+    );
 }
 
 export default Automation;

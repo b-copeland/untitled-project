@@ -1,41 +1,21 @@
-import React, { useMemo, useEffect, useState, useRef } from "react";
-import 'bootstrap/dist/css/bootstrap.css';
+import React from "react";
+import { Topic } from "../util";
 
-function News(props) {
-    const yourElementRef = useRef(null);
-  
-    useEffect(() => {
-      if (Object.keys(props.state).length > 0 && props.scrollTarget === "news") {
-        yourElementRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, [props.state]);
+function News() {
     return (
-        <div id="news" ref={yourElementRef} className="help-section">
-            <h2>News</h2>
-            <h4>News - Kingdom</h4>
+        <Topic id="news" title="News" lead="What has happened to you and the kingdoms around you.">
+            <ul>
+                <li><b>Kingdom</b>: attacks, spy operations and missiles against your kingdom.</li>
+                <li><b>Galaxy</b>: the same for every kingdom in your galaxy, in both directions.</li>
+                <li><b>Universe</b>: empires denouncing each other and going to war.</li>
+                <li><b>Empire</b>: set aside for your empire's own news. Nothing is posted there yet.</li>
+            </ul>
             <p>
-                The kingdom page displays news from actions taken against your kingdom. 
-                You can sort news by the Time, From, or Hours Since columns, as well as filter 
-                by typing in the boxes below the column headers.
+                Click a column header to sort, and type in the box under it to filter. A number next to a tab is how
+                many items you have not seen yet.
             </p>
-            <h4>News - Galaxy</h4>
-            <p>
-                The galaxy page displays news from actions involving kingdoms in your galaxy. 
-                You can sort news by the Time, From, To, or Hours Since columns, as well as filter 
-                by typing in the boxes below the column headers.
-            </p>
-            <h4>News - Empires</h4>
-            <p>
-                The empires page displays news from actions involving your empire. 
-                Not yet implemented.
-            </p>
-            <h4>News - Universe</h4>
-            <p>
-                The universe page displays news from actions affecting the universe. 
-                Not yet implemented.
-            </p>
-        </div>
-    )
+        </Topic>
+    );
 }
 
 export default News;

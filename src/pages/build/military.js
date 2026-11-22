@@ -54,7 +54,7 @@ function MilitaryContent(props) {
     <>
         <div className="military">
             <Recruits kdInfo={kdInfo} mobisInfo={mobisInfo} loading={props.loading} updateData={props.updateData}/>
-            <div className="military-capacity" title="Units take hangar space. Once the hangars are full, more units cannot be trained.">
+            <div className="military-capacity" title="Units take hangar space. Each space over it lowers the population your homes can hold by one.">
                 <div className="military-capacity-label">
                     <span>Hangar space</span>
                     <span>{used.toLocaleString()} / {room.toLocaleString()} ({room > 0 ? displayPercent(used / room) : "0%"})</span>
