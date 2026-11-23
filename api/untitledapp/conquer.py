@@ -1057,6 +1057,9 @@ def _attack(req, kd_id, target_kd):
                 "target_name": target_doc["name"],
                 "target_dead": target_new.get("status") == "Dead",
             })
+            # For the defender's reactive rules: when it was attacked, by whom, and whether it lost.
+            target_new["events"] = uas.note_event(target_doc, "attacked", departure["time_now"], by=kd_id,
+                                                  lost=attack_status == "success")
             return target_new, outcome
 
         credit = _credit_spoils
@@ -2104,6 +2107,11 @@ def _spy(req, kd_id, target_kd):
             )
             target_message += f" Their kingdom 'stats' and 'drones' will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours"
 
+        # For the target's reactive rules. Who sent it is known only when the target's news names them.
+        known_sender = kd_id if (not success or revealed) else None
+        occ.update(f'/kingdom/{target_kd}', lambda target: (
+            {"events": uas.note_event(target, "spied", time_now, by=known_sender, lost=success)}, None))
+
         if target_patch_payload:
             target_kd_patch_response = REQUESTS_SESSION.patch(
                 app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{target_kd}',
@@ -2829,6 +2837,8 @@ def _launch_missiles(req, kd_id, target_kd):
             }
             if target_stars <= 0 or target_pop <= 0:
                 changes["status"] = "Dead"
+            changes["events"] = uas.note_event(target, "missiles", datetime.datetime.now(datetime.timezone.utc), by=kd_id,
+                                               lost=damage["stars_damage"] > 0)
             # What was really destroyed (a strike can not take more than there is), for an empire target's points.
             destroyed = {
                 "stars": target["stars"] - changes["stars"],

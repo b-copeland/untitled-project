@@ -27,6 +27,7 @@ import untitledapp.shared as uas
 import untitledapp.botbrain as botbrain
 import untitledapp.roundend as uare
 import untitledapp.recurring as uarec
+import untitledapp.rules as uarules
 from untitledapp import REQUESTS_SESSION
 from untitledapp.push import push
 
@@ -1279,6 +1280,22 @@ def _tell_schedule_skipped(kd_id, schedule, reason):
     push(kd_id, "schedules", message, status="warning", update=["kingdom", "news"])
 
 
+_RULE_SCHEDULERS = {"intelspy": uac._schedule_intelspy, "missiles": uac._schedule_missiles}
+
+
+def _tell_rule(kd_id, message):
+    """A reactive rule fired or ended: the player's news, and a notification."""
+    app = flask.current_app
+    REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/news',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps({"time": datetime.datetime.now(datetime.timezone.utc).isoformat(), "from": "", "news": message,
+                         "kind": "schedule"}),
+    )
+    uam._add_notifs(kd_id, ["news_kingdom"])
+    push(kd_id, "schedules", message, status="info", update=["kingdom", "news"])
+
+
 def _is_schedule_due(schedule, time_update):
     return datetime.datetime.fromisoformat(schedule["time"]).astimezone(datetime.timezone.utc) < time_update
 
@@ -1797,6 +1814,11 @@ def _refresh_kd_in(kd_id, state, time_update, update_history, context):
         new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update, effects, pending.get("mobis"),
                                            context.modifiers(kd_id, time_update),
                                            lambda siphoner: _is_dead(context.kingdom(siphoner)))
+        # The player's reactive rules, on the kingdom about to be written: no read or write of their own.
+        rule_changes, rule_notes = uarules.step(new_kd_info, time_update, _RULE_SCHEDULERS)
+        new_kd_info.update(rule_changes)
+        for note in rule_notes:
+            _defer(effects, lambda note=note: _tell_rule(kd_id, note))
         kd_payload = json.dumps(new_kd_info, default=str)
         write_headers = {'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         if etag:

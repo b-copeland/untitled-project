@@ -46,6 +46,20 @@ function Schedule() {
                     refused three times in a row, when its target dies, or at the end time you set. Your news says
                     which. The Repeating tab shows what each one did last.</li>
             </ul>
+            <p>
+                <b>Reactions</b> are rules for when something happens to you: you are attacked, spied on or hit by
+                missiles (or only when it worked against you), or your fuel will run out within the hours you set.
+            </p>
+            <ul>
+                <li><b>Switch settings</b> for a number of hours: shields, auto spending, auto attack or auto rob. When
+                    the hours are up they go back to what they were, except any you changed yourself meanwhile.
+                    Raised shields still rise over time, as on the Shields page.</li>
+                <li><b>Spy on whoever did it</b> or <b>fire missiles at whoever did it</b>, at once. This only works
+                    when you know who it was: an attack always says, a spy operation only when it failed or your spy
+                    radar caught it.</li>
+                <li>A rule fires once for each new event and not again within its cooldown. Your news says each time
+                    one fires, and when switched settings go back.</li>
+            </ul>
         </Topic>
     );
 }

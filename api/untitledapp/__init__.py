@@ -182,6 +182,7 @@ def create_app(config_class='config.Config'):
     import untitledapp.preferences as uapr
     import untitledapp.recurring as uarec
     import untitledapp.refresh as uar
+    import untitledapp.rules as uarules
     import untitledapp.roundend as uare
     import untitledapp.targets as uat
     app.register_blueprint(uaa.bp)
@@ -197,6 +198,7 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uapr.bp)
     app.register_blueprint(uar.bp)
     app.register_blueprint(uarec.bp)
+    app.register_blueprint(uarules.bp)
     app.register_blueprint(uare.bp)
     app.register_blueprint(uat.bp)
     app.register_blueprint(uabo.bp)

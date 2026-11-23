@@ -105,6 +105,15 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   backend). Failed fetches are now retried for about half a minute (`src/data/gameData.js`). If it happens again,
   look in the browser's network tab for a failing or empty `/api/structures`.
 
+## Reactive rules
+
+Added 2026-11-22 (issue #35). Not built yet:
+
+- Conditions from the advisors (#185, not merged yet): defense under the break-even line, hangars full, a known army
+  that beats the kingdom's defense, war declared on the kingdom's empire.
+- Settings a rule can not switch yet: unit and structure targets, project targets.
+- Bots do not use rules; their brain reacts on its own (`botbrain.react`).
+
 ## Instant changes to military strength
 
 Found 2026-11-22, when the rule that strength never changes much in an instant joined tenet 1

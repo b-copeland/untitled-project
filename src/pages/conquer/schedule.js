@@ -15,6 +15,7 @@ import { Panel, FieldRow, Picker } from "../../components/planner";
 import { displayPercent } from "../../format";
 import { availableOperations } from "./spy";
 import { Repeating } from "./recurring";
+import { Reactions } from "./rules";
 
 function Schedule(props) {
     return (
@@ -29,6 +30,9 @@ function Schedule(props) {
                     </Tab>
                     <Tab eventKey="repeating" title={`Repeating${props.data.kingdom.recurring?.length ? ` (${props.data.kingdom.recurring.length})` : ""}`}>
                         <Repeating loading={props.loading} updateData={props.updateData} data={props.data} />
+                    </Tab>
+                    <Tab eventKey="reactions" title={`Reactions${props.data.kingdom.rules?.length ? ` (${props.data.kingdom.rules.length})` : ""}`}>
+                        <Reactions loading={props.loading} updateData={props.updateData} data={props.data} />
                     </Tab>
                 </Tabs>
                 <HelpButton scrollTarget={"schedule"}/>
