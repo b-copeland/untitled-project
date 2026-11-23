@@ -319,6 +319,16 @@ def _split_across_generals(units, return_times):
     return generals
 
 
+def _attack_stars(stars, modifiers=None):
+    """The stars a won attack on a kingdom takes, after the attacker's ``modifiers``."""
+    return math.floor(stars * max(1 + uas.modifier(modifiers, "attack_stars"), 0))
+
+
+def _primitives_defense(primitives_defense_per_star, modifiers=None):
+    """What primitives defend each star with, after the ``modifiers`` in force."""
+    return primitives_defense_per_star * max(1 + uas.modifier(modifiers, "primitives_defense"), 0)
+
+
 def _primitives_stars(attack, primitives_defense_per_star, kd_info, modifiers=None):
     """The stars an attack of ``attack`` offense takes from primitives, after the attacker's race and ``modifiers``."""
     return math.floor(
@@ -330,6 +340,18 @@ def _primitives_stars(attack, primitives_defense_per_star, kd_info, modifiers=No
             + uas.modifier(modifiers, "primitives_attack_stars")
         )
     )
+
+
+def _aggression_multiplier():
+    """How much aggression an attack or an aggressive operation raises, after the universe's policies."""
+    return max(1 + uas.modifier(uag._get_universe_modifiers(), "aggression"), 0)
+
+
+def _failure_losses(failure_losses, operation, drones, modifiers=None):
+    """The drones a failed ``operation`` loses, after the ``modifiers`` in force (aggressive operations only)."""
+    if operation not in uas.AGGRO_OPERATIONS:
+        return failure_losses
+    return min(math.floor(failure_losses * max(1 + uas.modifier(modifiers, "aggressive_failure_losses"), 0)), drones)
 
 
 def _calc_coordinate_distance(
@@ -382,7 +404,7 @@ def _spoils_forecast(kd_id, target_kd, max_target_kd_info, race, war):
         if key_spoil in {"stars", "population", "money", "fuel"}
     }
     if "stars" in total_spoils:
-        total_spoils["stars"] = max(total_spoils["stars"], min_stars_gain)
+        total_spoils["stars"] = _attack_stars(max(total_spoils["stars"], min_stars_gain), uag._get_modifiers(kd_id))
     if not total_spoils:
         return ""
     empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
@@ -959,7 +981,8 @@ def _attack(req, kd_id, target_kd):
                     for key_spoil, value_spoil in target_doc.items()
                     if key_spoil in {"stars", "population", "money", "fuel"}
                 }
-                total_spoils["stars"] = max(total_spoils["stars"], min_stars_gain)
+                total_spoils["stars"] = _attack_stars(max(total_spoils["stars"], min_stars_gain),
+                                                      uag._get_modifiers(kd_id))
                 total_spoils["funding"] = {
                     key_funding: max(math.floor(value_funding * spoils_rate), 0)
                     for key_funding, value_funding in target_doc["funding"].items()
@@ -1203,7 +1226,7 @@ def _attack(req, kd_id, target_kd):
             _add_aggression(
                 attacker_empire,
                 defender_empire,
-                uas.GAME_CONFIG["AGGRO_PER_ATTACK"],
+                uas.GAME_CONFIG["AGGRO_PER_ATTACK"] * _aggression_multiplier(),
                 empires_info,
             )
 
@@ -1252,7 +1275,7 @@ def calculate_attack_primitives():
     start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
     now_time = datetime.datetime.now(datetime.timezone.utc)
     seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_defense_per_star = uas.GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
+    primitives_defense_per_star = _primitives_defense(uas.GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0)), uag._get_modifiers(kd_id))
     
     kd_info_parse = json.loads(kd_info.text)
     current_bonuses = uas.project_bonuses(kd_info_parse)
@@ -1349,7 +1372,7 @@ def _attack_primitives(req, kd_id):
         start_time = datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc)
         now_time = datetime.datetime.now(datetime.timezone.utc)
         seconds_elapsed = (now_time - start_time).total_seconds()
-        primitives_defense_per_star = uas.GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
+        primitives_defense_per_star = _primitives_defense(uas.GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0)), uag._get_modifiers(kd_id))
 
         valid_attack_request, attack_request_message = _validate_attack_request(
             attacker_raw_values,
@@ -1610,9 +1633,13 @@ def _calculate_spy_probability(
     target_shields,
     aggro_vult=False,
     peace=False,
+    defense_modifier=0.0,
 ):
-    drones_defense = target_drones * uas.GAME_CONFIG["BASE_DRONES_DRONE_DEFENSE_MULTIPLIER"]
-    stars_defense = target_stars * uas.GAME_CONFIG["BASE_STARS_DRONE_DEFENSE_MULTIPLIER"]
+    """The chance a spy operation succeeds. ``defense_modifier`` is the ``spy_defense`` effect in force: -0.25 means
+    the target's drones and stars defend 25% less."""
+    defense_share = max(1 + defense_modifier, 0)
+    drones_defense = target_drones * uas.GAME_CONFIG["BASE_DRONES_DRONE_DEFENSE_MULTIPLIER"] * defense_share
+    stars_defense = target_stars * uas.GAME_CONFIG["BASE_STARS_DRONE_DEFENSE_MULTIPLIER"] * defense_share
     total_defense = max(drones_defense + stars_defense, 1)
     int_peace = int(peace)
 
@@ -1741,6 +1768,7 @@ def calculate_spy(target_kd):
         defender_shields,
         aggro_vult=(kd_info_parse["race"] == "Vult") and (operation in uas.AGGRO_OPERATIONS),
         peace=peace,
+        defense_modifier=uas.modifier(uag._get_universe_modifiers(), "spy_defense"),
     )
     success_losses, failure_losses = _calculate_spy_losses(
         drones,
@@ -1748,6 +1776,7 @@ def calculate_spy(target_kd):
         has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
         modifiers=uag._get_modifiers(kd_id),
     )
+    failure_losses = _failure_losses(failure_losses, operation, drones, uag._get_modifiers(kd_id))
 
     damage_multiplier = _aggro_damage_multiplier(kd_info_parse, max_target_kd_info, war)
     message = f"The operation has a {spy_probability:.2%} chance of success. \n\nIf successful, {success_losses} drones will be lost. \nIf unsuccessful, {failure_losses} drones will be lost.\n"
@@ -1871,6 +1900,7 @@ def _spy(req, kd_id, target_kd):
             defender_shields,
             aggro_vult=(kd_info_parse["race"] == "Vult") and (operation in uas.AGGRO_OPERATIONS),
             peace=peace,
+            defense_modifier=uas.modifier(uag._get_universe_modifiers(), "spy_defense"),
         )
         
         success_losses, failure_losses = _calculate_spy_losses(
@@ -1879,6 +1909,7 @@ def _spy(req, kd_id, target_kd):
             has_drone_gadgets=uas.has_project(kd_info_parse, "drone_gadgets"),
             modifiers=uag._get_modifiers(kd_id),
         )
+        failure_losses = _failure_losses(failure_losses, operation, drones, modifiers)
 
         roll = random.uniform(0, 1)
         spy_radar_roll = random.uniform(0, 1)
@@ -2132,7 +2163,7 @@ def _spy(req, kd_id, target_kd):
             _add_aggression(
                 attacker_empire,
                 defender_empire,
-                uas.GAME_CONFIG["AGGRO_PER_AGGRO_SPY"],
+                uas.GAME_CONFIG["AGGRO_PER_AGGRO_SPY"] * _aggression_multiplier(),
                 empires_info,
             )
 

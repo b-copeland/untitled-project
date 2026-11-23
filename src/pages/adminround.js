@@ -117,7 +117,8 @@ function NewRound({ round, send }) {
         const body = {
             game_start: fromInput(values.start),
             game_end: fromInput(values.end),
-            election_start: values.noElections ? "" : fromInput(values.election),
+            // Empty: the first election opens a set time after the start. "" asks for none.
+            election_start: values.noElections ? "" : (values.election ? fromInput(values.election) : null),
             num_galaxies: galaxies,
             cluster_size: clusterSize,
             archive: values.archive,
@@ -146,7 +147,7 @@ function NewRound({ round, send }) {
             {field("Starts", "game_start", time("game_start", "start"), "Players can make kingdoms before the start")}
             {field("Ends", "game_end", time("game_end", "end"), lengthDays > 0 ? `${lengthDays.toFixed(1)} days long` : null)}
             <FieldRow label="First election" htmlFor="newround-election_start"
-                hint={`Each lasts ${round.election_hours} hours; the next opens ${round.election_every_hours} hours after the last one opened`}>
+                hint={`Empty: ${round.first_election_hours ?? "some"} hours after the start. Each lasts ${round.election_hours} hours; the next opens ${round.election_every_hours} hours after the last one opened`}>
                 <Form.Control type="datetime-local" id="newround-election_start" value={values.election} onChange={set("election")}
                     disabled={values.noElections} isInvalid={Boolean(errors.election_start)} />
                 {errors.election_start ? <div className="invalid-feedback d-block">{errors.election_start}</div> : null}

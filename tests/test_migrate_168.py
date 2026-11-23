@@ -4,6 +4,7 @@ game reads the old shape right before it runs, an action in that gap loses nothi
 shape, and running it again changes nothing.
 """
 import datetime
+import json
 
 import pytest
 
@@ -11,7 +12,8 @@ import untitledapp.galaxypolicies as gp
 import untitledapp.migrations as migrations
 import untitledapp.refresh as refresh
 import untitledapp.shared as uas
-from tests.test_concurrency import KD_ID, _create_item, _get, _set_up_kingdom
+from tests.test_concurrency import FUNCTION_URL, KD_ID, _create_item, _get, _set_up_kingdom
+from untitledapp import REQUESTS_SESSION
 
 FIRST = list(uas.GALAXY_POLICIES)[:uas.GAME_CONFIG["GALAXY_POLICIES_PER_ROUND"]]
 OLD_GALAXY = {
@@ -33,6 +35,8 @@ def _old_round():
     _create_item("galaxies", {"galaxies": {"1:1": [KD_ID, "2", "3", "4"], "1:2": []}})
     _create_item("galaxy_votes_1:1", OLD_GALAXY)
     _create_item("galaxy_votes_1:2", {"votes": {"policy_1": {}, "policy_2": {}, "leader": {}}, "active_policies": []})
+    _create_item("universe_votes", {"votes": {"policy_1": {"option_1": {}, "option_2": {}},
+                                              "policy_2": {"option_1": {}, "option_2": {}}}})
 
 
 def _migrate(app):
@@ -158,3 +162,85 @@ def test_a_round_from_before_reads_as_the_first_benefits_and_the_migration_write
     with app.app_context():
         migrations.cluster_benefits(_get("/state"))  # again: nothing changes
     assert _get("/state")["state"]["cluster_benefits"] == first
+
+
+# --- universe policies ----------------------------------------------------------------------------------------------
+
+OLD_UNIVERSE_VOTES = {"votes": {"policy_1": {"option_1": {KD_ID: 3, "2": 1}, "option_2": {"3": 2}},
+                                "policy_2": {"option_1": {KD_ID: 2}, "option_2": {}}}}
+
+
+def _set_votes(kd_id, votes):
+    """Give kingdom ``kd_id`` ``votes`` to spend, leaving the state alone."""
+    response = REQUESTS_SESSION.patch(f"{FUNCTION_URL}/kingdom/{kd_id}", data=json.dumps({"votes": votes}))
+    assert response.status_code < 300, response.text
+
+
+def _old_universe(election_open):
+    """A round from before ballots: names in force, old-shape votes, an election open or not."""
+    for kd_id in ("2", "3"):
+        _set_up_kingdom(money=0, kd_id=kd_id)
+    _old_round()  # after them: each setup rewrites the state
+    for kd_id, votes in ((KD_ID, 1), ("2", 0), ("3", 0)):
+        _set_votes(kd_id, votes)
+    state = _get("/state")["state"]
+    soon = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=6)).isoformat()
+    past = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=1)).isoformat()
+    _create_item("state", {"state": {**state, "active_policies": ["Treatied", "Free Trade"],
+                                     "election_start": past if election_open else soon,
+                                     "election_end": soon if election_open else ""}})
+    _create_item("universe_votes", OLD_UNIVERSE_VOTES)
+
+
+def test_before_the_migration_the_universe_reads_as_after_it(app, client, jwt1):
+    import untitledapp.universepolicies as up
+
+    _old_universe(election_open=True)
+    inner = _get("/state")["state"]
+    page = client.get("/api/universepolitics", headers=_auth(jwt1)).get_json()
+    assert [option["key"] for option in page["active"]] == ["treatied"]
+    ballot = [policy["key"] for policy in page["ballot"]]
+    assert ballot == up.ballot_of(inner) and len(ballot) == uas.GAME_CONFIG["UNIVERSE_POLICIES_PER_ELECTION"]
+    # A vote before the migration goes on that ballot, beside the old votes.
+    policy = ballot[0]
+    option = list(uas.UNIVERSE_POLICIES[policy]["options"])[0]
+    _set_votes(KD_ID, 4)
+    assert client.post("/api/universepolitics/policies", json={"policy": policy, "option": option, "votes": 4},
+                       headers=_auth(jwt1)).status_code == 200
+    stored = _get("/universevotes")["votes"]
+    assert stored[policy][option] == {KD_ID: 4} and "policy_1" in stored
+
+
+def test_an_open_elections_old_votes_are_given_back_and_new_ones_kept(app, client, jwt1):
+    import untitledapp.universepolicies as up
+
+    _old_universe(election_open=True)
+    ballot = up.ballot_of(_get("/state")["state"])
+    policy, option = ballot[0], list(uas.UNIVERSE_POLICIES[ballot[0]]["options"])[0]
+    _set_votes(KD_ID, 4)
+    client.post("/api/universepolitics/policies", json={"policy": policy, "option": option, "votes": 4}, headers=_auth(jwt1))
+    _migrate(app)
+    state = _get("/state")["state"]
+    assert state["active_policies"] == ["treatied"] and state["ballot"] == ballot
+    votes = _get("/universevotes")
+    assert "policy_1" not in votes["votes"] and votes["votes"][policy][option] == {KD_ID: 4}
+    assert votes["refunds_pending"] == {}
+    # Kingdom 1 spent its 4 on the ballot and gets back the 5 it spent on the old doctrines.
+    assert _get(f"/kingdom/{KD_ID}")["votes"] == 5 and _get("/kingdom/2")["votes"] == 1 and _get("/kingdom/3")["votes"] == 2
+    # Again: nobody is paid twice.
+    with app.app_context():
+        migrations.universe_policies(_get("/state"))
+    assert _get(f"/kingdom/{KD_ID}")["votes"] == 5 and _get("/kingdom/3")["votes"] == 2
+
+
+def test_between_elections_old_votes_were_counted_already_and_are_not_given_back(app):
+    _old_universe(election_open=False)
+    _migrate(app)
+    assert _get(f"/kingdom/{KD_ID}")["votes"] == 1 and _get("/kingdom/3")["votes"] == 0
+    assert "policy_1" not in _get("/universevotes")["votes"]
+    assert "primitives" not in _get("/state")["state"]["ballot"]  # Treatied is in force: not the first election
+
+
+def test_the_refunds_owed_are_the_votes_spent_in_the_open_election():
+    assert migrations.universe_refunds(OLD_UNIVERSE_VOTES["votes"], True) == {KD_ID: 5, "2": 1, "3": 2}
+    assert migrations.universe_refunds(OLD_UNIVERSE_VOTES["votes"], False) == {}

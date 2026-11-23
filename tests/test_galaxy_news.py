@@ -143,5 +143,7 @@ def test_an_election_opening_and_closing_is_universe_news_once(app):
 
     news = [line["news"] for line in _get("/universenews")["news"]]
     assert len(news) == 2
-    assert news[1].startswith("A universe election has begun. Voting closes in ")
+    # The ballot of _election_state is Labor and Secrecy.
+    assert news[1].startswith("A universe election has begun, on Labor and Secrecy. Voting closes in ")
     assert news[0].startswith("The universe election is over. The universe has chosen ")
+    assert "_" not in news[0]  # names, not keys

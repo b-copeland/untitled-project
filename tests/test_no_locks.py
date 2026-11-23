@@ -87,16 +87,19 @@ def test_a_schedule_that_can_not_be_prepared_is_dropped_not_retried_forever(app,
 
 # --- elections and history ---------------------------------------------------------------------------------------
 
-def _universe_votes(**option_1_votes):
+BALLOT = ["labor", "secrecy"]
+
+
+def _universe_votes(**draft_limits_votes):
     return {"votes": {
-        "policy_1": {"option_1": dict(option_1_votes), "option_2": {}},
-        "policy_2": {"option_1": {}, "option_2": {}},
+        "labor": {"draft_limits": dict(draft_limits_votes), "research_moratorium": {}},
+        "secrecy": {"classified": {}, "transparency": {}},
     }}
 
 
 def _election_state(**fields):
-    state = {"game_start": PAST, "election_start": PAST, "election_end": "", "active_policies": ["old"],
-             "next_history": PAST, **fields}
+    state = {"game_start": PAST, "election_start": PAST, "election_end": "", "active_policies": ["treatied"],
+             "ballot": BALLOT, "next_history": PAST, **fields}
     _create_item("state", {"state": state})
     return {"state": dict(state)}
 
@@ -106,12 +109,14 @@ def test_an_election_is_opened_once_and_a_vote_cast_meanwhile_survives(app):
     _create_item("universe_votes", _universe_votes(**{"5": 3}))
     with app.app_context():
         refresh._begin_election(json.loads(json.dumps(stale_state)))
-        assert _get("/universevotes")["votes"]["policy_1"]["option_1"] == {}
+        assert _get("/universevotes")["votes"]["labor"]["draft_limits"] == {}
+        # The result of the last election holds while this one is open.
+        assert _get("/state")["state"]["active_policies"] == ["treatied"]
         _create_item("universe_votes", _universe_votes(**{"7": 2}))  # a vote in the new election
         # A tick that overlapped the first one, still holding the state from before it opened the election.
         refresh._begin_election(json.loads(json.dumps(stale_state)))
 
-    assert _get("/universevotes")["votes"]["policy_1"]["option_1"] == {"7": 2}
+    assert _get("/universevotes")["votes"]["labor"]["draft_limits"] == {"7": 2}
     assert _get("/state")["state"]["election_end"] != ""
 
 
@@ -144,7 +149,10 @@ def test_an_election_is_closed_once(app):
     config = uas.GAME_CONFIG
     results = datetime.timedelta(seconds=config["BASE_EPOCH_SECONDS"] * config["BASE_ELECTION_RESULTS_DURATION_MULTIPLIER"])
     assert stored["election_start"] == (datetime.datetime.fromisoformat(end) + results).isoformat()
-    assert len(stored["active_policies"]) == 2
+    # The ballot's winners replace what was in force; the next ballot leaves this one's policies out.
+    assert stored["active_policies"][0] == "draft_limits" and len(stored["active_policies"]) == 2
+    assert stored["active_policies"][1] in ("classified", "transparency")
+    assert len(stored["ballot"]) == 2 and not set(stored["ballot"]) & set(BALLOT)
 
 
 def test_overlapping_ticks_take_the_history_mark_once(app):

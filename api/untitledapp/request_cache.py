@@ -38,9 +38,10 @@ _WRITE_DROPS = (
     (re.compile(r"^/galaxy/([^/]+)/politics$"), lambda m: f"/galaxy/{m.group(1)}/politics"),
     (re.compile(r"^/cluster/([^/]+)$"), lambda m: f"/cluster/{m.group(1)}"),
     (re.compile(r"^/user/(\d+)$"), lambda m: f"/user/{m.group(1)}"),
+    (re.compile(r"^/scores$"), lambda m: "/scores"),
 )
 _WRITES_THAT_CHANGE_NOTHING_CACHED = re.compile(
-    r"^/(kingdom/\d+/.+|kingdom/\d+|galaxy/[^/]+/news|empire/[^/]+/(news|politics)|universenews|universepolitics|scores"
+    r"^/(kingdom/\d+/.+|kingdom/\d+|galaxy/[^/]+/news|empire/[^/]+/(news|politics)|universenews|universepolitics"
     r"|accounts|username/[0-9a-f]+|usercounter)$"
 )
 

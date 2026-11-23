@@ -30,7 +30,7 @@ stores them as `datetime.isoformat()` in UTC.
 
 ## Starting a new round
 
-The form asks for the start, the end, the first election (or none), the number of galaxies, galaxies per cluster, and
+The form asks for the start, the end, the first election (left empty, it opens `BASE_FIRST_ELECTION_START_MULTIPLIER` epochs after the start, or none in a round too short for it; or tick "No elections"), the number of galaxies, galaxies per cluster, and
 how many bots to add. "Players expected" is not sent: it only shows how many kingdoms each galaxy would get. A
 confirmation says what will be deleted.
 
@@ -57,7 +57,8 @@ never changes cluster ([decisions/0007](decisions/0007-cluster-politics.md)).
    (`kd_id`, `kd_created`, `kd_death_date`).
 4. **Galaxies**: one `POST /galaxy/<id>` each, which also makes the galaxy's news and votes documents.
 5. **Clocks and state**: the scores' and empires' `last_update` are set to the start, then the inner `state` is written
-   whole (`round_state`): the dates, `election_end: ""`, `next_history` = the start, no policies, `game_over: ""`,
+   whole (`round_state`): the dates, `election_end: ""`, `next_history` = the start, no policies, the drawn
+   `galaxy_policies`, `cluster_benefits` and first `ballot`, `game_over: ""`,
    `rounds_archived` carried over, `cluster_size`. Clearing `game_over` comes last, so the engine restarts only once
    everything is ready.
 

@@ -10,6 +10,7 @@ from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.shared as uas
 import untitledapp.galaxypolicies as uagp
+import untitledapp.universepolicies as uaup
 from untitledapp import request_cache
 import untitledapp.lastknown as uala
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
@@ -38,8 +39,12 @@ def get_state():
     start_time = datetime.datetime.fromisoformat(get_response_json["state"]["game_start"]).astimezone(datetime.timezone.utc)
     now_time = datetime.datetime.now(datetime.timezone.utc)
     seconds_elapsed = (now_time - start_time).total_seconds()
-    primitives_defense_per_star = uas.GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0))
-    primitives_rob_per_drone = uas.GAME_FUNCS["BASE_PRIMITIVES_ROB_PER_DRONE"](max(seconds_elapsed, 0))
+    # As every kingdom finds them, after the universe's policies (the rob figure per kingdom is in /api/modifiers).
+    everyone = _get_universe_modifiers(state=get_response_json)
+    primitives_defense_per_star = uas.GAME_FUNCS["BASE_PRIMITIVES_DEFENSE_PER_STAR"](max(seconds_elapsed, 0)) * max(
+        1 + uas.modifier(everyone, "primitives_defense"), 0)
+    primitives_rob_per_drone = uas.GAME_FUNCS["BASE_PRIMITIVES_ROB_PER_DRONE"](max(seconds_elapsed, 0)) * max(
+        1 + uas.modifier(everyone, "rob_primitives"), 0)
     return flask.jsonify({
         **get_response_json,
         "pretty_names": uas.PRETTY_NAMES,
@@ -67,6 +72,7 @@ def get_state():
         "operation_projects": uas.OPERATION_PROJECTS,
         "cluster_benefits": uas.CLUSTER_BENEFITS,
         "galaxy_policies_desc": uas.GALAXY_POLICIES,  # every galaxy policy; the round plays state.galaxy_policies
+        "universe_policies_desc": uas.UNIVERSE_POLICIES,
         # The objects above reach the browser with their keys sorted; this is the order the game lists them in.
         "order": {
             "units": list(uas.UNITS),
@@ -74,6 +80,7 @@ def get_state():
             "project_categories": list(uas.PROJECT_CATEGORIES),
             "cluster_benefits": list(uas.CLUSTER_BENEFITS),
             "galaxy_policies": list(uas.GALAXY_POLICIES),
+            "universe_policies": list(uas.UNIVERSE_POLICIES),
         },
         "operations_replaced_by_project": uas.OPERATIONS_REPLACED_BY_PROJECT,
         "game_config": uas.GAME_CONFIG,
@@ -621,31 +628,45 @@ def _get_galaxy_policies(kd_id, galaxy_id=None, now=None):
     return _galaxy_policies_now(galaxy_politics, _get_state(), now), galaxy_id
 
 
+def _get_scores_shared():
+    """The scores document, read at most once per request (for who leads, which some universe policies hit)."""
+    return _get_shared_document('/scores')
+
+
+def _get_universe_modifiers(kd_id=None, galaxy_id=None, state=None):
+    """
+    What the universe policies in force do to ``kd_id`` (of ``galaxy_id``), or, with no kingdom, what they do to
+    everyone (the options that hit only the leaders left out).
+    """
+    state = state if state is not None else _get_state()
+    active = uaup.active_options(state.get("state"))
+    if kd_id is None:
+        active = [option for option in active if not uaup.needs_scores([option])]
+        return uaup.modifiers(active)
+    scores = _get_scores_shared() if uaup.needs_scores(active) else None
+    return uaup.modifiers(active, kd_id, galaxy_id, scores)
+
+
 def _get_modifiers(kd_id, galaxy_id=None, now=None):
     """
     Everything politics does to ``kd_id`` now, as one ``{effect: signed value}`` (``shared.EFFECTS``): its galaxy's
-    active policies and its cluster's benefits, added up. Each source document is read at most once per request.
+    active policies, its cluster's benefits and the universe's policies, added up. Each source document is read at
+    most once per request.
     """
     if galaxy_id is None:
         galaxy_id = _get_galaxies_inverted()[0].get(str(kd_id))
     if galaxy_id is None:
-        return {}
+        return _get_universe_modifiers(kd_id)
     now = now or datetime.datetime.now(datetime.timezone.utc)
     galaxy, _ = _get_galaxy_policies(kd_id, galaxy_id, now)
-    return uas.add_modifiers(uagp.modifiers(galaxy), _get_cluster_modifiers(kd_id, galaxy_id, now))
+    return uas.add_modifiers(uagp.modifiers(galaxy), _get_cluster_modifiers(kd_id, galaxy_id, now),
+                             _get_universe_modifiers(kd_id, galaxy_id))
 
 
 def _get_units_adjusted_costs(state, modifiers=None):
-    """``UNITS`` with each cost after the universe's arms policy and the kingdom's ``modifiers``."""
-    is_unregulated = "Unregulated" in state["state"]["active_policies"]
-    is_treatied = "Treatied" in state["state"]["active_policies"]
-
-    cost_modifier = (
-        1.0
-        - is_unregulated * uas.GAME_CONFIG["BASE_UNREGULATED_COST_REDUCTION"]
-        + is_treatied * uas.GAME_CONFIG["BASE_TREATIED_COST_INCREASE"]
-        + uas.modifier(modifiers, "unit_cost")
-    )
+    """``UNITS`` with each cost after the kingdom's ``modifiers`` (``_get_modifiers``: the universe's arms policy
+    among them)."""
+    cost_modifier = 1.0 + uas.modifier(modifiers, "unit_cost")
     units_desc = copy.deepcopy(uas.UNITS)
     for unit, unit_dict in units_desc.items():
         if "cost" in unit_dict:
@@ -1414,26 +1435,38 @@ def _get_universe_politics():
 # @flask_praetorian.roles_required('verified')
 def universe_politics():
     kd_id = flask_praetorian.current_user().kd_id
-    
-    universe_politics = _get_universe_politics()
-    kd_payload = {
-        "policy_1": {
-            "option_1": "",
-            "option_2": "",
-        },
-        "policy_2": {
-            "option_1": "",
-            "option_2": "",
-        },
-    }
-    for policy_name, policy_options in universe_politics["votes"].items():
-        for option_name, option_votes in policy_options.items():
-            for vote_kd_id, votes_cast in option_votes.items():
-                if kd_id == vote_kd_id:
-                    kd_payload[policy_name][option_name] = votes_cast
+    state = _get_state()
+    inner = state.get("state", {})
+    galaxy_id = _get_galaxies_inverted()[0].get(str(kd_id))
+    # Only this kingdom's own votes: nobody sees the tally until the election closes.
+    tally = (_get_universe_politics().get("votes") or {}) if inner.get("election_end") else {}
+    active = uaup.active_options(inner)
+    scores = _get_scores_shared() if uaup.needs_scores(active) else None
+    ballot = uaup.ballot_of(inner)
     payload = {
-        **kd_payload,
-        "desc": uas.UNIVERSE_POLICIES,
+        "election": {
+            "open": bool(inner.get("election_end")),
+            "start": inner.get("election_start", ""),
+            "end": inner.get("election_end", ""),
+        },
+        # The next election's policies while none is open, the open one's while it is.
+        "ballot": [
+            {
+                "key": policy,
+                "name": uas.UNIVERSE_POLICIES[policy]["name"],
+                "first_election_only": bool(uas.UNIVERSE_POLICIES[policy].get("first_election_only")),
+                "options": [
+                    {**uaup.describe(option),
+                     "my_votes": ((tally.get(policy) or {}).get(option) or {}).get(str(kd_id), 0)}
+                    for option in uas.UNIVERSE_POLICIES[policy]["options"]
+                ],
+            }
+            for policy in ballot
+        ],
+        # In force now, and whether each hits this kingdom.
+        "active": [{**uaup.describe(option), "hits_me": uaup.applies(option, kd_id, galaxy_id, scores)}
+                   for option in active],
+        "votes_cost": uas.GAME_CONFIG["BASE_VOTES_COST"],
     }
     return (flask.jsonify(payload), 200)
 

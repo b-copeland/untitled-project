@@ -15,6 +15,7 @@ import flask_praetorian
 
 import untitledapp.clusters as uacl
 import untitledapp.galaxypolicies as uagp
+import untitledapp.universepolicies as uaup
 import untitledapp.migrations as uamig
 import untitledapp.getters as uag
 import untitledapp.occ as occ
@@ -71,7 +72,9 @@ def check_new_round(req, now):
     errors = {}
     start = parse_time(req.get("game_start"))
     end = parse_time(req.get("game_end"))
-    election_text = req.get("election_start") or ""
+    # No first election given: it opens BASE_FIRST_ELECTION_START_MULTIPLIER epochs after the start. "" is no elections.
+    election_given = req.get("election_start")
+    election_text = election_given or ""
     election = parse_time(election_text)
     if start is None:
         errors["game_start"] = "Choose when the round starts"
@@ -94,6 +97,11 @@ def check_new_round(req, now):
     if cluster_size is None or cluster_size < 1:
         errors["cluster_size"] = "At least 1 galaxy per cluster"
 
+    if election_given is None and start is not None:
+        election = start + datetime.timedelta(
+            seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_FIRST_ELECTION_START_MULTIPLIER"])
+        if end is not None and election >= end:
+            election = None  # a round too short for one
     settings = {
         "game_start": start,
         "game_end": end,
@@ -115,6 +123,7 @@ def round_state(settings, rounds_archived, rng=random):
     return {
         "galaxy_policies": uagp.draw(rng),
         "cluster_benefits": uacl.draw(rng),
+        "ballot": uaup.draw_ballot(rng, first=True),  # the first election's
         "migrations_done": uamig.all_ids(),  # a new round's documents are made in the current shape
         "game_start": start,
         "game_end": settings["game_end"].isoformat(),
@@ -244,6 +253,7 @@ def _round_summary():
         "max_galaxies": MAX_GALAXIES,
         "max_bots": MAX_BOTS_PER_CALL,
         "election_hours": uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_ELECTION_LENGTH_MULTIPLIER"] / 3600,
+        "first_election_hours": uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_FIRST_ELECTION_START_MULTIPLIER"] / 3600,
         "election_every_hours": uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * (
             uas.GAME_CONFIG["BASE_ELECTION_LENGTH_MULTIPLIER"] + uas.GAME_CONFIG["BASE_ELECTION_RESULTS_DURATION_MULTIPLIER"]) / 3600,
     }

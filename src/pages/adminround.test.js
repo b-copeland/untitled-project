@@ -99,3 +99,15 @@ test("a game with no round offers only the new round", async () => {
     expect(screen.queryByText("Add bots")).toBeNull();
     expect(screen.getByText("Start new round")).toBeTruthy();
 });
+
+test("an empty first election leaves it to the server: a set time after the start", async () => {
+    render(<AdminRound/>);
+    await waitFor(() => screen.getByText("Start new round"));
+    fireEvent.change(document.getElementById("newround-election_start"), {target: {value: ""}});
+    fireEvent.click(screen.getByText("Start new round"));
+    await waitFor(() => screen.getByText("Start a new round?"));
+    fireEvent.click(screen.getByText("Delete it and start"));
+    await waitFor(() => expect(adminAuth.authFetch.mock.calls.some(([url]) => url === "api/admin/newround")).toBe(true));
+    const [, newRound] = adminAuth.authFetch.mock.calls.find(([url]) => url === "api/admin/newround");
+    expect(JSON.parse(newRound.body).election_start).toBeNull();
+});

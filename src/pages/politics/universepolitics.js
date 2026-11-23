@@ -1,343 +1,110 @@
-import React, { useEffect, useState } from "react";
-import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
+import React, { useState } from "react";
+import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
-import Form from 'react-bootstrap/Form';
-import { AmountInput } from "../../components/forms";
 import Button from 'react-bootstrap/Button';
-import Table from 'react-bootstrap/Table';
-import Tab from 'react-bootstrap/Tab';
-import Tabs from 'react-bootstrap/Tabs';
-import Toast from 'react-bootstrap/Toast';
-import ToastContainer from 'react-bootstrap/ToastContainer'
+import { AmountInput } from "../../components/forms";
 import "./universepolitics.css";
-import Select from 'react-select';
+import "./galaxypolitics.css";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
+import { Panel } from "../../components/planner";
+import { useWait, waitText } from "../../components/wait";
 
-function getTimeSinceString(date) {
-    if (date === undefined) {
-        return "--"
-    }
-    const hours = Math.floor(Math.abs(Date.parse(date) - Date.now()) / 3.6e6);
-    const days = Math.floor(hours / 24);
-    if (hours > 48) {
-        return days.toString() + 'd'
-    }
-    return hours.toString() + 'h';
-}
-
-function getTimeString(date) {
-    if (date === undefined) {
-        return "--"
-    }
-    const hours = Math.abs(Date.parse(date) - Date.now()) / 3.6e6;
-    if (hours > 24) {
-        return getTimeSinceString(date)
-    }
-    var n = new Date(0, 0);
-    n.setSeconds(+hours * 60 * 60);
-    return n.toTimeString().slice(0, 8);
-}
-
-
+/**
+ * Universe politics. The server sends the ballot (the open election's policies, or the next one's), this kingdom's own
+ * votes, and the options in force; nobody sees anyone else's votes.
+ */
 function UniversePolitics(props) {
     const [buyVotes, setBuyVotes] = useState("");
     const [results, setResults] = useState([]);
-    const [policy1Option1Votes, setPolicy1Option1Votes] = useState("");
-    const [policy1Option2Votes, setPolicy1Option2Votes] = useState("");
-    const [policy2Option1Votes, setPolicy2Option1Votes] = useState("");
-    const [policy2Option2Votes, setPolicy2Option2Votes] = useState("");
-    const [timeNow, setTimeNow] = useState(new Date())
+    const [amounts, setAmounts] = useState({});
+    const universe = props.data.universepolitics || {};
+    const election = universe.election || {};
+    const opensIn = useWait(election.open ? null : election.start);
+    const closesIn = useWait(election.open ? election.end : null);
 
-    const electionStart = new Date(props.data.state.state?.election_start);
-
-    if (electionStart > timeNow && props.data.state.state?.active_policies?.length === 0) {
-        return (
-            <>
-            <div className="universe-politics">
-                <div className="text-box universe-politics-box">
-                    <span>The universe democracy elections have not yet begun.</span>
-                    <br />
-                    <span>The voting will begin in {getTimeString(props.data.state.state?.election_start)}</span>
-                    <br />
-                    <span>Voting will last for 1 day</span>
-                </div>
-                <HelpButton scrollTarget={"universepolitics"}/>
-            </div>
-            </>
-        )
-    }
-    if (electionStart > timeNow && props.data.state.state?.active_policies?.length > 0) {
-        if (Object.keys(props.data.universepolitics).length === 0) {
-            return <h2>Loading...</h2> 
-        }
-        const winningPolicies = props.data.state.state?.active_policies;
-        const winningOptionPolicy1 = (winningPolicies.includes(props.data.universepolitics.desc?.policy_1?.options["1"].name)) ? "1" : "2";
-        const winningOptionPolicy2 = (winningPolicies.includes(props.data.universepolitics.desc?.policy_2?.options["1"].name)) ? "1" : "2";
-        return (
-            <>
-            <div className="universe-politics">
-                <div className="text-box universe-politics-box">
-                    <span>The universe democracy elections have finished.</span>
-                    <br />
-                    <span>Effects will last until the next voting begins in {getTimeString(props.data.state.state?.election_start)}</span>
-                    <br />
-                    <span>Voting will last for 1 day</span>
-                </div>
-                <div className="galaxy-policy">
-                    <h3>Winning Policies</h3>
-                    <div className="galaxy-policy-options">
-                        <div className="text-box galaxy-policy-card">
-                            <span>{props.data.universepolitics.desc?.policy_1?.options[winningOptionPolicy1].name || "Option 1"}</span>
-                            <br />
-                            <span>{props.data.universepolitics.desc?.policy_1?.options[winningOptionPolicy1].desc || "Option 1 description"}</span>
-                            <br />
-                            <span>Your Votes: {props.data.universepolitics.policy_1["option_" + winningOptionPolicy1] || 0}</span>
-                            <br />
-                        </div>
-                        <div className="text-box galaxy-policy-card">
-                            <span>{props.data.universepolitics.desc?.policy_2?.options[winningOptionPolicy2].name || "Option 1"}</span>
-                            <br />
-                            <span>{props.data.universepolitics.desc?.policy_2?.options[winningOptionPolicy2].desc || "Option 1 description"}</span>
-                            <br />
-                            <span>Your Votes: {props.data.universepolitics.policy_2["option_" + winningOptionPolicy2] || 0}</span>
-                            <br />
-                        </div>
-                    </div>
-                </div>
-                <HelpButton scrollTarget={"universepolitics"}/>
-            </div>
-            </>
-        )
-    }
-    const onSubmitClick = (e)=>{
-        if (buyVotes > 0) {
-            let opts = {
-                'votes': buyVotes,
-            };
-            const updateFunc = () => authFetch('api/votes', {
-                method: 'post',
-                body: JSON.stringify(opts)
-            }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-            props.updateData(['kingdom'], [updateFunc])
-            setBuyVotes('');
-        }
-    }
-    const onClickVotePolicy1Option1 = () => {
-        const opts = {
-            "policy": "policy_1",
-            "option": "option_1",
-            "votes": policy1Option1Votes,
-        };
-        const updateFunc = async () => authFetch('api/universepolitics/policies', {
-            method: 'POST',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['universepolitics'], [updateFunc]);
+    const send = (path, body, keys) => {
+        const updateFunc = () => authFetch(path, { method: 'post', body: JSON.stringify(body) })
+            .then(r => r.json()).then(r => setResults((previous) => previous.concat(r)));
+        props.updateData(keys, [updateFunc]);
     };
-    const onClickVotePolicy1Option2 = () => {
-        const opts = {
-            "policy": "policy_1",
-            "option": "option_2",
-            "votes": policy1Option2Votes,
-        };
-        const updateFunc = async () => authFetch('api/universepolitics/policies', {
-            method: 'POST',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['universepolitics'], [updateFunc]);
-    };
-    const onClickVotePolicy2Option1 = () => {
-        const opts = {
-            "policy": "policy_2",
-            "option": "option_1",
-            "votes": policy2Option1Votes,
-        };
-        const updateFunc = async () => authFetch('api/universepolitics/policies', {
-            method: 'POST',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['universepolitics'], [updateFunc]);
-    };
-    const onClickVotePolicy2Option2 = () => {
-        const opts = {
-            "policy": "policy_2",
-            "option": "option_2",
-            "votes": policy2Option2Votes,
-        };
-        const updateFunc = async () => authFetch('api/universepolitics/policies', {
-            method: 'POST',
-            body: JSON.stringify(opts)
-        }).then(r => r.json()).then(r => {setResults(results.concat(r))})
-        props.updateData(['universepolitics'], [updateFunc]);
-    };
-
-    const handleBuyVotesInput = (e) => {
-        setBuyVotes(e.target.value);
-    }
-    const handlePolicy1Option1Input = (e) => {
-        setPolicy1Option1Votes(e.target.value);
-    }
-    const handlePolicy1Option2Input = (e) => {
-        setPolicy1Option2Votes(e.target.value);
-    }
-    const handlePolicy2Option1Input = (e) => {
-        setPolicy2Option1Votes(e.target.value);
-    }
-    const handlePolicy2Option2Input = (e) => {
-        setPolicy2Option2Votes(e.target.value);
-    }
     // The price of a vote is a game number (BASE_VOTES_COST in shared.py).
-    const voteCost = props.data.state.game_config?.BASE_VOTES_COST || 0;
-    const calcVotesCosts = (input) => (parseInt(input, 10) || 0) * voteCost;
+    const voteCost = universe.votes_cost || props.data.state.game_config?.BASE_VOTES_COST || 0;
     const unusedVotes = props.data.kingdom.votes || 0;
     const affordableVotes = voteCost > 0 ? Math.floor(Math.max(props.data.kingdom.money || 0, 0) / voteCost) : 0;
+    const buy = () => {
+        if (buyVotes > 0) {
+            send('api/votes', { votes: buyVotes }, ['kingdom']);
+            setBuyVotes('');
+        }
+    };
+    const cast = (policy, option) => {
+        const votes = parseInt(amounts[option], 10) || 0;
+        if (votes > 0) {
+            send('api/universepolitics/policies', { policy, option, votes }, ['universepolitics', 'kingdom']);
+            setAmounts({ ...amounts, [option]: "" });
+        }
+    };
+
+    const timing = election.open
+        ? `Voting is open${closesIn !== null ? `, and closes in ${waitText(closesIn)}` : ""}. Until then the policies below stay in force.`
+        : election.start
+            ? `The next election opens${opensIn !== null ? ` in ${waitText(opensIn)}` : " soon"}.`
+            : "No election is planned.";
+
     return (
-        <>
         <div className="universe-politics">
             <ResultToasts title="Votes Result" results={results} setResults={setResults} />
-            <div className="text-box universe-politics-box">
-                <span>The universe democracy elections have begun!</span>
-                <br />
-                <span>The voting will end in {getTimeString(props.data.state.state?.election_end)}</span>
-                <br />
-                <span>Effects will last for 6 days</span>
-            </div>
-            <div className="text-box universe-votes-box">
-                <span>You must buy votes to participate in the election. Each vote costs {voteCost.toLocaleString()} money</span>
-                <br />
-                <span>Unused votes: {props.data.kingdom.votes?.toLocaleString()}</span>
-                <br />
+            <p className="vote-rule text-muted">{timing}</p>
+            <Panel title="In force">
+                {(universe.active || []).length
+                    ? (universe.active || []).map((option) => (
+                        <p key={option.key} className="universe-active">
+                            <strong>{option.policy_name}: {option.name}</strong>. {option.desc}
+                            {option.hits_me ? "" : <span className="text-muted"> (not your kingdom)</span>}
+                        </p>))
+                    : <p className="text-muted">Nothing yet: the first election decides.</p>}
+            </Panel>
+            <Panel title="Your votes">
+                <p>Buy votes to take part. Each costs {voteCost.toLocaleString()} money. You have {unusedVotes.toLocaleString()} to spend.</p>
                 <label className="universe-votes-label" htmlFor="buy-votes-input">Votes to buy</label>
-                <AmountInput name="votes" id="buy-votes-input" label="Votes to buy" value={buyVotes} onChange={handleBuyVotesInput} max={affordableVotes} />
-                {props.loading.kingdom
-                ? <Button className="buy-votes-button" variant="primary" type="submit" disabled>
-                    Loading...
+                <AmountInput name="votes" id="buy-votes-input" label="Votes to buy" value={buyVotes}
+                    onChange={(e) => setBuyVotes(e.target.value)} max={affordableVotes} />
+                <Button className="buy-votes-button" variant="primary" onClick={buy} disabled={props.loading.kingdom}>
+                    {props.loading.kingdom ? "Loading..." : "Buy"}
                 </Button>
-                : <Button className="buy-votes-button" variant="primary" type="submit" onClick={onSubmitClick}>
-                    Buy
-                </Button>
-                }
-                {
-                    buyVotes !== ""
-                    ? <span className="text-muted">Votes Cost: {calcVotesCosts(buyVotes).toLocaleString()}</span>
-                    : null
-                }   
-            </div>
-            <div className="galaxy-policy">
-                <h3>{props.data.universepolitics.desc?.policy_1?.name || "Policy 1"}</h3>
-                <div className="galaxy-policy-options">
-                    <div className="text-box galaxy-policy-card">
-                        <span>{props.data.universepolitics.desc?.policy_1?.options["1"].name || "Option 1"}</span>
-                        <br />
-                        <span>{props.data.universepolitics.desc?.policy_1?.options["1"].desc || "Option 1 description"}</span>
-                        <br />
-                        <span>Your Votes: {props.data.universepolitics.policy_1?.option_1 || 0}</span>
-                        <br />
-                        <label className="universe-votes-label" htmlFor="cast-votes-policy-1-option-1-input">Votes to cast</label>
-                        <AmountInput name="votes" id="cast-votes-policy-1-option-1-input" label="Votes to cast" value={policy1Option1Votes} onChange={handlePolicy1Option1Input} max={unusedVotes} />
-                        {
-                            props.loading.universepolitics
-                            ? <Button className="galaxy-policy-button" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button
-                                className="galaxy-policy-button"
-                                variant="primary"
-                                type="submit"
-                                onClick={onClickVotePolicy1Option1}
-                                // disabled={(props.data.galaxypolitics.votes?.policy_1[props.data.kingdomid.kd_id] === "1")}
-                            >
-                                Cast Votes
-                            </Button>
-                        }
-                    </div>
-                    <div className="text-box galaxy-policy-card">
-                        <span>{props.data.universepolitics.desc?.policy_1?.options["2"].name || "Option 2"}</span>
-                        <br />
-                        <span>{props.data.universepolitics.desc?.policy_1?.options["2"].desc || "Option 2 description"}</span>
-                        <br />
-                        <span>Your Votes: {props.data.universepolitics.policy_1?.option_2 || 0}</span>
-                        <br />
-                        <label className="universe-votes-label" htmlFor="cast-votes-policy-1-option-2-input">Votes to cast</label>
-                        <AmountInput name="votes" id="cast-votes-policy-1-option-2-input" label="Votes to cast" value={policy1Option2Votes} onChange={handlePolicy1Option2Input} max={unusedVotes} />
-                        {
-                            props.loading.universepolitics
-                            ? <Button className="galaxy-policy-button" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button
-                                className="galaxy-policy-button"
-                                variant="primary"
-                                type="submit"
-                                onClick={onClickVotePolicy1Option2}
-                                // disabled={(props.data.galaxypolitics.votes?.policy_1[props.data.kingdomid.kd_id] === "2")}
-                            >
-                                Cast Votes
-                            </Button>
-                        }
+                {buyVotes !== "" ? <span className="text-muted"> Votes cost: {((parseInt(buyVotes, 10) || 0) * voteCost).toLocaleString()}</span> : null}
+            </Panel>
+            {(universe.ballot || []).length ? <h2>{election.open ? "On the ballot" : "On the next ballot"}</h2> : null}
+            {(universe.ballot || []).map((policy) => (
+                <div className="galaxy-policy" key={policy.key}>
+                    <h3>{policy.name}{policy.first_election_only ? <span className="text-muted"> (first election only)</span> : null}</h3>
+                    <div className="galaxy-policy-options">
+                        {policy.options.map((option) => (
+                            <div key={option.key} className="text-box galaxy-policy-card">
+                                <span>{option.name}</span>
+                                <span>{option.desc}</span>
+                                <span className="text-muted">Your votes: {(option.my_votes || 0).toLocaleString()}</span>
+                                {election.open
+                                    ? <>
+                                        <AmountInput name={option.key} id={`votes-${option.key}`} label={`Votes for ${option.name}`}
+                                            value={amounts[option.key] || ""} max={unusedVotes}
+                                            onChange={(e) => setAmounts({ ...amounts, [option.key]: e.target.value })} />
+                                        <Button className="galaxy-policy-button" variant="primary"
+                                            disabled={props.loading.universepolitics || !(parseInt(amounts[option.key], 10) > 0)}
+                                            onClick={() => cast(policy.key, option.key)}>
+                                            Cast votes
+                                        </Button>
+                                    </>
+                                    : null}
+                            </div>
+                        ))}
                     </div>
                 </div>
-            </div>
-            <div className="galaxy-policy">
-                <h3>{props.data.universepolitics.desc?.policy_2?.name || "Policy 2"}</h3>
-                <div className="galaxy-policy-options">
-                    <div className="text-box galaxy-policy-card">
-                        <span>{props.data.universepolitics.desc?.policy_2?.options["1"].name || "Option 1"}</span>
-                        <br />
-                        <span>{props.data.universepolitics.desc?.policy_2?.options["1"].desc || "Option 1 description"}</span>
-                        <br />
-                        <span>Your Votes: {props.data.universepolitics.policy_2?.option_1 || 0}</span>
-                        <br />
-                        <label className="universe-votes-label" htmlFor="cast-votes-policy-2-option-1-input">Votes to cast</label>
-                        <AmountInput name="votes" id="cast-votes-policy-2-option-1-input" label="Votes to cast" value={policy2Option1Votes} onChange={handlePolicy2Option1Input} max={unusedVotes} />
-                        {
-                            props.loading.universepolitics
-                            ? <Button className="galaxy-policy-button" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button
-                                className="galaxy-policy-button"
-                                variant="primary"
-                                type="submit"
-                                onClick={onClickVotePolicy2Option1}
-                                // disabled={(props.data.galaxypolitics.votes?.policy_2[props.data.kingdomid.kd_id] === "1")}
-                            >
-                                Cast Votes
-                            </Button>
-                        }
-                    </div>
-                    <div className="text-box galaxy-policy-card">
-                        <span>{props.data.universepolitics.desc?.policy_2?.options["2"].name || "Option 2"}</span>
-                        <br />
-                        <span>{props.data.universepolitics.desc?.policy_2?.options["2"].desc || "Option 2 description"}</span>
-                        <br />
-                        <span>Your Votes: {props.data.universepolitics.policy_2?.option_2 || 0}</span>
-                        <br />
-                        <label className="universe-votes-label" htmlFor="cast-votes-policy-2-option-2-input">Votes to cast</label>
-                        <AmountInput name="votes" id="cast-votes-policy-2-option-2-input" label="Votes to cast" value={policy2Option2Votes} onChange={handlePolicy2Option2Input} max={unusedVotes} />
-                        {
-                            props.loading.universepolitics
-                            ? <Button className="galaxy-policy-button" variant="primary" type="submit" disabled>
-                                Loading...
-                            </Button>
-                            : <Button
-                                className="galaxy-policy-button"
-                                variant="primary"
-                                type="submit"
-                                onClick={onClickVotePolicy2Option2}
-                                // disabled={(props.data.galaxypolitics.votes?.policy_2[props.data.kingdomid.kd_id] === "2")}
-                            >
-                                Cast Votes
-                            </Button>
-                        }
-                    </div>
-                </div>
-            </div>
+            ))}
             <HelpButton scrollTarget={"universepolitics"}/>
         </div>
-        </>
-    )
+    );
 }
 
 export default UniversePolitics;
