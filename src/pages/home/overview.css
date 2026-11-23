@@ -18,6 +18,21 @@
 .overview-card-title a:hover { text-decoration: underline; }
 .overview-advisors { grid-column: 1 / -1; }
 .overview-advice { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+.advice { margin: 0.35rem 0; }
+.advice-danger::marker { color: var(--bs-danger); }
+.advice-danger .advice-text { color: var(--bs-danger); }
+.advice-link { margin-right: 0.75rem; white-space: nowrap; }
+.advice-hide, .advice-toggle {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--bs-secondary-color);
+    font-size: 0.85rem;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.advice-toggle { display: block; margin-top: 0.5rem; }
+.advice-hidden-list { opacity: 0.75; }
 .overview-line { margin: 0.25rem 0 0; }
 .overview-warning { margin: 0.25rem 0 0; color: var(--bs-danger); }
 .overview-muted { color: var(--bs-secondary-color, #6c757d); }

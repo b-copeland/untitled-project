@@ -3,6 +3,9 @@ import { MemoryRouter } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import { Overview } from "./overview";
 
+// The advice itself is fetched by the Advisors component (advisors.test.js).
+jest.mock("./advisors", () => () => <p>advice goes here</p>);
+
 const data = (kingdom = {}) => ({
     kingdom: {
         money: 5000, fuel: 1000, population: 200, stars: 100, generals_available: 2, auto_spending_enabled: true,
@@ -38,11 +41,11 @@ test("the economy card links to the Spending tab of Automation", () => {
     expect(screen.getByRole("link", { name: "Economy" }).getAttribute("href")).toBe("/automation?tab=spending");
 });
 
-test("an Advisors box comes first, empty until advice is written", () => {
+test("an Advisors box comes first, with the advisors' advice in it", () => {
     show(data());
     const titles = screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
     expect(titles[0]).toBe("Advisors");
-    expect(screen.getByText("Your advisors have nothing to report.")).toBeTruthy();
+    expect(screen.getByText("advice goes here")).toBeTruthy();
 });
 
 test("nothing before the kingdom has loaded", () => {

@@ -76,3 +76,12 @@ test("turning a notification off saves the whole list, and a refusal turns it ba
     expect(await screen.findByText("Your settings could not be saved. Try again.")).toBeTruthy();
     expect(screen.getByRole("switch", { name: "Attacks on you" }).checked).toBe(true);
 });
+
+test("the advisors can be switched off, and are on until the player says so", () => {
+    renderPage();
+    const toggle = screen.getByRole("switch", { name: "Show advice on the Status page" });
+    expect(toggle.checked).toBe(true);
+    fireEvent.click(toggle);
+    expect(authFetch).toHaveBeenCalledWith("api/preferences", expect.objectContaining({ body: JSON.stringify({ advisors: "off" }) }));
+    expect(toggle.checked).toBe(false);
+});

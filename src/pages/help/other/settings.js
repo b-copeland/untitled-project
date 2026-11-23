@@ -21,6 +21,9 @@ function Settings() {
                 are always told when your kingdom dies.
             </p>
             <p>
+                <b>Advisors</b> turns the advice on the Status page on or off. It is on to start with.
+            </p>
+            <p>
                 On a phone or tablet, swipe a notification or a result sideways, either way, to dismiss it.
             </p>
         </Topic>

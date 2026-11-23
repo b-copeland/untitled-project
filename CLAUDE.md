@@ -18,6 +18,7 @@ This file is the rules and the map. The detail is in `docs/`. Read the doc for y
 | Anything that writes game state | [docs/concurrency.md](docs/concurrency.md) |
 | Document shapes and how the function app writes them | [docs/data-model.md](docs/data-model.md) |
 | A page or form | [docs/ux.md](docs/ux.md) |
+| The Status page's advisors: adding or changing advice | [docs/advisors.md](docs/advisors.md) |
 | Testing, and when a change is done | [docs/testing.md](docs/testing.md) |
 | Anything that adds requests, writes or services | [docs/cost.md](docs/cost.md) |
 | What is unfinished or known broken | [docs/status.md](docs/status.md) |

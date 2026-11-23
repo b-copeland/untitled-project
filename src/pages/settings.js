@@ -68,7 +68,35 @@ function NotificationChoices({ preferences, updateData, setResults }) {
     );
 }
 
-/** The Settings page: the player's own preferences, saved to their account. The colour theme and notifications. */
+/** Whether the Status page's advisors give advice: one switch. */
+function AdvisorsChoice({ preferences, updateData, setResults }) {
+    const [chosen, setChosen] = useState(null);
+    const current = chosen || preferences.advisors || "on";
+    const toggle = () => {
+        const before = current;
+        const next = current === "on" ? "off" : "on";
+        setChosen(next);
+        const updateFunc = () => authFetch("api/preferences", { method: "post", body: JSON.stringify({ advisors: next }) })
+            .then(safeJson)
+            .then((r) => {
+                if (r.status !== "success") {
+                    setChosen(before);
+                    setResults((previous) => previous.concat(r));
+                }
+            });
+        updateData(["preferences"], [updateFunc]);
+    };
+    return (
+        <div className="form-check form-switch">
+            <input className="form-check-input" type="checkbox" role="switch" id="advisors-on"
+                checked={current === "on"} onChange={toggle} />
+            <label className="form-check-label" htmlFor="advisors-on">Show advice on the Status page</label>
+        </div>
+    );
+}
+
+/** The Settings page: the player's own preferences, saved to their account. The colour theme, notifications and the
+ * advisors. */
 function Settings(props) {
     const [results, setResults] = useState([]);
     const preferences = props.data.preferences || {};
@@ -113,6 +141,9 @@ function Settings(props) {
             </Panel>
             <Panel title="Notifications" hint="Turn off the kinds you do not want to see. The page still updates, and the news still has them.">
                 <NotificationChoices preferences={preferences} updateData={props.updateData} setResults={setResults} />
+            </Panel>
+            <Panel title="Advisors" hint="Your advisors point out what in your kingdom may need fixing. Advice you hide stays hidden; the Status page can show it again.">
+                <AdvisorsChoice preferences={preferences} updateData={props.updateData} setResults={setResults} />
             </Panel>
             <HelpButton scrollTarget={"settings"} />
         </div>
