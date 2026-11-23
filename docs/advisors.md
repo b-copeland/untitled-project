@@ -46,10 +46,10 @@ bot.
 
 | Id | Kind | When | Line from |
 |---|---|---|---|
-| `out_of_fuel` | danger | fuel at or below zero | game rule (the fuelless penalties) |
-| `fuel_running_out` | danger | fuel falling, gone within `FUEL_WARNING_HOURS` | twice-a-day logins (tenet 1) |
-| `hangars_full` | danger | units at home, out and in training need more than `HANGAR_WARNING_SHARE` of the hangar space there is | game rule (overflow takes room in homes) |
-| `defense_under_break_even` | danger | defense at home now under `DEFENSE_WARNING_SHARE` of `break_even_per_star` (at war, the war line) | bot sum; bots.md finding 2; measured on the bots |
+| `out_of_fuel` | danger | fuel at or below zero; says when the fuel plants on order make up the difference | game rule (the fuelless penalties) |
+| `fuel_running_out` | danger | fuel falling, gone within `FUEL_WARNING_HOURS`, and the fuel plants on order do not stop it in time | twice-a-day logins (tenet 1) |
+| `hangars_full` | danger | units at home, out and in training need more than `HANGAR_WARNING_SHARE` of the hangar space there is, and will once the hangars on order are built | game rule (overflow takes room in homes) |
+| `defense_under_break_even` | danger | defense at home now under `DEFENSE_WARNING_SHARE` of `break_even_per_star` (at war, the war line); says what the units in training bring it to | bot sum; bots.md finding 2; measured on the bots |
 | `empty_stars` | waste | `EMPTY_STARS_SHARE` of the stars empty with nothing on order, and auto spending not set to build on them | the guide: empty stars earn nothing |
 | `idle_money` | waste | money and funding over `IDLE_MONEY_EPOCHS` of income | bots.md finding 3 (bots keep about two epochs idle) |
 | `auto_spending_without_targets` | waste | auto spending funds structures or units with no targets for them | game rule (nothing to build) |
@@ -63,6 +63,22 @@ bot.
 | `galaxy_votes_missing` | team | the kingdom has not voted for leader or policies | |
 | `galaxy_without_policies` | team | the galaxy has no policy in force | |
 | `peer_income_low`, `peer_defense_low`, `peer_offense_low`, `peer_drones_low`, `peer_bonuses_low` | peer | income, home defense, offense or drones per star, or how full the project bonuses are, under the universe's `PEER_LOW` percentile and under `PEER_GAP` of its median | the universe, live |
+
+## What is on order
+
+Most fixes take time: structures are built and units trained over hours. So the danger advice counts what is on order,
+from the structures and mobis queues the route already reads (`_on_order`, no extra reads), by the same formulas as
+now: hangar space once the hangars on order are built, fuel made once the fuel plants on order are built, and defense
+at home once the units in training are trained, each with when the last of it is ready.
+
+- **The order fixes it**: `hangars_full` and `fuel_running_out` say nothing (for fuel, only if the plants are built
+  before the fuel runs out). Nothing more can be done about it, and the warning would only nag.
+- **It partly fixes it**: the advice gives both, "6,150 now and 7,150 in about 12 hours", and asks for *more*.
+- **Defense is still warned about** when the units in training are enough, because an attack can come before they are
+  ready: the advice says when they bring it over the line (the line as it will be then) and points at shields.
+  `out_of_fuel` likewise stays, and says when the plants on order make up the difference.
+
+The reactive rules (`rules.py`) build a `Context` without the order, so "my hangars are full" still means now.
 
 ## Peer comparisons
 

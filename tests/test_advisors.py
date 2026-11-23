@@ -92,6 +92,70 @@ def test_at_war_the_line_is_higher_and_the_advice_says_why():
     assert "at war" in advice.text
 
 
+# What is on order: a fix that takes time to build or train is said, or stands the warning down once it is enough.
+# Twelve hours is 24 epochs at the default epoch length.
+
+def test_hangars_on_order_that_make_the_room_stand_the_warning_down():
+    assert _ids(_ctx(max_hangar=1000, used_hangar=1100, max_hangar_built=1100, hangars_ready_epochs=24)) == []
+
+
+def test_hangars_on_order_that_are_not_enough_are_said_with_when():
+    [advice] = uaadv.advise(_ctx(max_hangar=6150, used_hangar=7041, max_hangar_built=6500, hangars_ready_epochs=24))
+    assert advice.id == "hangars_full"
+    assert "hold 6,150 now and 6,500 in about 12 hours, once the hangars on order are built" in advice.text
+    assert "The 891 without a hangar" in advice.text and "Build more hangars." in advice.text
+    assert "epoch" not in advice.text
+
+
+def test_fuel_plants_on_order_in_time_stand_the_warning_down():
+    assert "fuel_running_out" not in _ids(_ctx(fuel=1000, income={"fuel": {"net": -100}}, fuel_net_built=50,
+                                               fuel_plants_ready_epochs=8))
+
+
+def test_fuel_plants_on_order_too_late_or_too_few_are_said():
+    [late] = uaadv.advise(_ctx(fuel=1000, income={"fuel": {"net": -100}}, fuel_net_built=50,
+                               fuel_plants_ready_epochs=16))
+    assert "those on order are ready only in about 8 hours" in late.text and "Lower your shields" in late.text
+    [few] = uaadv.advise(_ctx(fuel=1000, income={"fuel": {"net": -100}}, fuel_net_built=-20,
+                              fuel_plants_ready_epochs=4))
+    assert "even with those on order" in few.text and "Build more fuel plants" in few.text
+
+
+def test_out_of_fuel_with_enough_fuel_plants_on_order_says_when():
+    [advice] = uaadv.advise(_ctx(fuel=0, fuel_net_built=50, fuel_plants_ready_epochs=4))
+    assert "The fuel plants on order make more than you use in about 2 hours" in advice.text
+
+
+def test_defense_with_units_in_training_says_what_it_will_be():
+    line = 1000 * strategy.break_even_per_star(96 + 24)
+    [enough] = uaadv.advise(_ctx(home_defense=0, defense_trained=line + 10, training_ready_epochs=24))
+    assert enough.id == "defense_under_break_even"
+    assert f"The units in training bring it to {int(line + 10):,} in about 12 hours" in enough.text
+    assert ("Shields", "/shields") in enough.links
+    [short] = uaadv.advise(_ctx(home_defense=0, defense_trained=line / 2, training_ready_epochs=24))
+    assert f"0 right now and {int(line / 2):,} in about 12 hours" in short.text
+    assert f"At least {int(line):,}" in short.text and "Train more defense" in short.text
+
+
+def test_context_projects_what_is_on_order():
+    kd = {"kdId": "1", "race": "Xo", "stars": 300, "fuel": 100, "units": {"defense": 0},
+          "structures": {"hangars": 10, "fuel_plants": 2}, "income": {"fuel": {"net": -100, "bonus": 0.5}}}
+    state = {"state": {"game_start": (NOW - datetime.timedelta(days=1)).isoformat(),
+                       "game_end": (NOW + datetime.timedelta(days=6)).isoformat(), "election_end": ""}}
+    epoch = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+    soon, later = (NOW + datetime.timedelta(seconds=epoch * n) for n in (2, 6))
+    structures = [{"time": soon.isoformat(), "hangars": 5}, {"time": later.isoformat(), "hangars": 5, "fuel_plants": 1}]
+    mobis = [{"time": soon.isoformat(), "defense": 100}]
+    ctx = uaadv.context_for(kd, state, mobis, {}, {}, NOW, structures_queue=structures)
+    capacity = uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]
+    assert ctx.max_hangar == 10 * capacity and ctx.max_hangar_built == 20 * capacity
+    assert ctx.hangars_ready_epochs == 6 and ctx.fuel_plants_ready_epochs == 6
+    assert ctx.fuel_net_built == -100 + uas.GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"] * 1.5
+    assert ctx.defense_trained > ctx.home_defense and ctx.training_ready_epochs == 2
+    nothing = uaadv.context_for(kd, state, [], {}, {}, NOW)
+    assert nothing.max_hangar_built is None and nothing.fuel_net_built is None and nothing.defense_trained is None
+
+
 def test_every_check_has_an_id_and_kind_listed():
     ctx = _ctx(fuel=0, max_hangar=0, used_hangar=1, home_defense=0)
     for check in uaadv.CHECKS:
