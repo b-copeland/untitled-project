@@ -3,6 +3,9 @@ import { authFetch } from "../auth";
 import HelpButton from "../components/helpbutton";
 import { ResultToasts, safeJson } from "../components/results";
 import { Panel } from "../components/planner";
+import Button from "react-bootstrap/Button";
+import { useTour } from "../components/tour";
+import { tourLength } from "../tour";
 import { applyTheme, DEFAULT_THEME } from "../theme";
 import "./settings.css";
 
@@ -96,9 +99,10 @@ function AdvisorsChoice({ preferences, updateData, setResults }) {
 }
 
 /** The Settings page: the player's own preferences, saved to their account. The colour theme, notifications and the
- * advisors. */
+ * advisors, and a button that starts the guided tour. */
 function Settings(props) {
     const [results, setResults] = useState([]);
+    const tour = useTour();
     const preferences = props.data.preferences || {};
     const options = preferences.options?.theme || [];
     const [chosen, setChosen] = useState(null);
@@ -144,6 +148,9 @@ function Settings(props) {
             </Panel>
             <Panel title="Advisors" hint="Your advisors point out what in your kingdom may need fixing. Advice you hide stays hidden; the Status page can show it again.">
                 <AdvisorsChoice preferences={preferences} updateData={props.updateData} setResults={setResults} />
+            </Panel>
+            <Panel title="Guided tour" hint={`A walk through the main pages of the game, ${tourLength()}.`}>
+                <div className="form-actions"><Button variant="outline-primary" onClick={tour.start}>Take the tour</Button></div>
             </Panel>
             <HelpButton scrollTarget={"settings"} />
         </div>

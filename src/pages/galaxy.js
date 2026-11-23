@@ -221,7 +221,7 @@ function Galaxy(props) {
             <td style={{textAlign: "right"}}>{galaxyInfo[kdId].aggression || ""}</td> */}
             <td style={{textAlign: "right"}}>{calcCoordinateDistance(galaxyInfo[kdId].coordinate || 0, props.data.kingdom.coordinate || 0).toString().padStart(2, '0') + ' (' + (galaxyInfo[kdId].coordinate || 0).toString().padStart(2, '0') + ')'}</td>
             <td>{galaxyInfo[kdId].status}</td>
-            <td className="galaxy-actions">
+            <td className="galaxy-actions" data-tour="galaxy-actions">
                 {kingdomActions(kdId).map((action) => <IconButton key={action.label} {...action} />)}
             </td>
         </tr>
@@ -263,7 +263,7 @@ function Galaxy(props) {
                     <div><dt>Status</dt><dd>{facts.status || "?"}</dd></div>
                     <div><dt>Intel</dt><dd>{facts.intel || "none"}</dd></div>
                 </dl>
-                <div className="galaxy-actions">
+                <div className="galaxy-actions" data-tour="galaxy-actions">
                     {kingdomActions(kdId).map((action) => <IconButton key={action.label} {...action} />)}
                 </div>
             </div>
@@ -306,7 +306,7 @@ function Galaxy(props) {
             </Modal>
             {
                 loading
-                ? <div className="galaxy-nav-container">
+                ? <div className="galaxy-nav-container" data-tour="galaxy-nav">
                     <IconButton icon={BsChevronLeft} label="Previous galaxy" disabled />
                     <div className="box-tight galaxy-nav-input">
                         <InputGroup className="galaxy-nav-input-form">
@@ -334,7 +334,7 @@ function Galaxy(props) {
                     </div>
                     <IconButton icon={BsChevronRight} label="Next galaxy" disabled />
                 </div>
-                : <div className="galaxy-nav-container">
+                : <div className="galaxy-nav-container" data-tour="galaxy-nav">
                     <IconButton icon={BsChevronLeft} label="Previous galaxy" onClick={moveLeft} />
                     <div className="box-tight galaxy-nav-input">
                         <InputGroup className="galaxy-nav-input-form">
@@ -369,8 +369,8 @@ function Galaxy(props) {
             {!(galaxiesArray[galaxyIndex] != undefined)
                 ? <NonexistentGalaxy />
                 : view === "cards"
-                ? <div className="galaxy-cards">{galaxyCards}</div>
-                : <div className="table-scroll"><Table hover className="galaxies-table" size="sm" >
+                ? <div className="galaxy-cards" data-tour="galaxy-kingdoms">{galaxyCards}</div>
+                : <div className="table-scroll" data-tour="galaxy-kingdoms"><Table hover className="galaxies-table" size="sm" >
                     <thead>
                         <tr>
                         <th>Kingdom</th>

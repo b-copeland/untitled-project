@@ -104,7 +104,7 @@ function Overview({ data, loading, updateData, openTab }) {
                 {active} of {switches.length} automatic features are on. Turn them on or off here; the tabs above
                 hold their settings.
             </p>
-            <div className="automation-items">
+            <div className="automation-items" data-tour="automation-items">
             {items.map((item) => (
                 <section className="automation-item" key={item.key} aria-label={item.title}>
                     <div className="automation-head">
@@ -143,7 +143,7 @@ function Automation(props) {
 
     return (
         <>
-            <Tabs id="automation-tabs" activeKey={tab} onSelect={(key) => openTab(key)} variant="tabs" mountOnEnter>
+            <Tabs id="automation-tabs" data-tour="automation-tabs" activeKey={tab} onSelect={(key) => openTab(key)} variant="tabs" mountOnEnter>
                 <Tab eventKey="overview" title="Overview"><Overview {...shared} openTab={openTab} /></Tab>
                 <Tab eventKey="spending" title="Spending">
                     <Spending kingdom={data.kingdom} loading={loading} updateData={updateData} />

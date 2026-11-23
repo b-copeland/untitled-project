@@ -10,9 +10,9 @@ import "./planner.css";
  */
 
 /** A titled card. ``hint`` is a line of explanation under the title. */
-export function Panel({ title, hint, children, className = "" }) {
+export function Panel({ title, hint, children, className = "", ...attributes }) {
     return (
-        <section className={"panel " + className}>
+        <section className={"panel " + className} {...attributes}>
             {title ? <h3 className="panel-title">{title}</h3> : null}
             {hint ? <p className="panel-hint">{hint}</p> : null}
             {children}
