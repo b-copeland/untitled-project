@@ -15,7 +15,9 @@ function Home(props) {
             </ul>
             <p>
                 <b>Max offense</b> and <b>max defense</b> on the Military tab assume your best case: military
-                efficiency and military shields at their maximum, all four generals sent, and fuel in stock.
+                efficiency and military shields at their maximum, all four generals sent, and fuel in stock. The
+                Overview's Military card shows your defense and offense at home as they are now instead: your real
+                military efficiency, shields and fuel, and the generals at home.
             </p>
             {horizons.length > 0 && (
                 <p>

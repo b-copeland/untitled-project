@@ -265,3 +265,21 @@ def test_queue_forecasts_follow_the_epoch_length_and_queued_counts_everything(mo
     assert units["queued"]["recruits"] == 9 and units["future_2"]["recruits"] == 0
     assert getters._calc_max_recruits({"money": 10 ** 9, "population": 1000}, units)[0] == (
         app_shared.GAME_FUNCS["BASE_MAX_RECRUITS"](1000) - 9)
+
+
+def test_the_military_page_gives_strength_now_as_well_as_the_best_case(app, client, jwt1):
+    """The Status page's Military card shows the kingdom's own strength as it is: real bonus, shields, fuel and the
+    generals at home, not the best case of ``maxes`` (full bonus, 10% shields, four generals)."""
+    from tests.test_concurrency import _set_up_kingdom
+    units = {**app_shared.INITIAL_KINGDOM_STATE["kingdom"]["units"], "defense": 1000, "attack": 1000}
+    _set_up_kingdom(money=0, race="Xo", units=units, generals_available=1,
+                    shields={"military": 0.0, "spy": 0.0, "spy_radar": 0.0, "missiles": 0.0})
+    mobis = client.get("/api/mobis", headers={"Authorization": f"Bearer {jwt1}"}).get_json()
+    now, best = mobis["now"], mobis["maxes"]
+    from tests.test_concurrency import _get
+    bonus = app_shared.project_bonuses(_get("/kingdom/1"))["military_bonus"]  # what its starting projects give
+    with app.app_context():
+        expected_defense = app_getters._calc_max_defense({"defense": 1000}, military_bonus=bonus, shields=0)
+        expected_offense = app_getters._calc_max_offense({"attack": 1000}, military_bonus=bonus, generals=1)
+    assert now == {"defense": expected_defense, "offense": expected_offense}
+    assert now["defense"] < best["defense"]["current"] and now["offense"] < best["offense"]["current"]
