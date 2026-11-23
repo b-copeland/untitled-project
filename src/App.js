@@ -14,7 +14,6 @@ import { publicRoutes, createKingdomRoute, gamePages, propsFor } from "./routes"
 import Header from "./components/header";
 import { PageContext, PageHead } from "./components/pagehead";
 import { useTheme } from "./theme";
-import { startVisitClock } from "./lastVisit";
 
 /**
  * A game page in its frame: the header strip, then the page's section and title (or the way back to the page that
@@ -80,7 +79,6 @@ function Content({ logged, session }) {
   const { data, loading, updateData } = useGameData({ logged });
   const notifications = useNotifications({ logged, session, updateData, muted: data.preferences?.muted });
   useTheme(logged ? data.preferences : null);
-  React.useEffect(() => { if (logged) startVisitClock(); }, [logged]);
   const context = { logged, session, data, loading, updateData };
 
   const renderPage = (route, extraProps) => {

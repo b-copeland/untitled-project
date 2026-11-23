@@ -4,37 +4,33 @@ import { displayNumber, displayPercent } from "../../format";
 import { rateTip } from "../../components/header";
 import { Stats } from "../../components/planner";
 import { authFetch } from "../../auth";
-import { previousVisit, VISIT_EVENT } from "../../lastVisit";
 import { inOrder } from "../../order";
 import "./overview.css";
 
-const HOUR_MS = 3.6e6;
 const SUMMARY_SERIES = [["stars", "Stars"], ["networth", "Networth"], ["population", "Population"],
     ["drones", "Drones"], ["engineers", "Engineers"]];
 const EVENT_KINDS = [["attack", "attack", "attacks"], ["spy", "spy operation", "spy operations"],
     ["missiles", "missile strike", "missile strikes"]];
 
-const fetchSummary = (since) => authFetch(`api/history/summary?since=${encodeURIComponent(since)}`)
-    .then((response) => (response.ok ? response.json() : null));
+const fetchSummary = () => authFetch("api/history/summary").then((response) => (response.ok ? response.json() : null));
 
-/** Since the last visit when it was an hour or more ago, otherwise the last hour. */
-function summaryWindow() {
-    const last = previousVisit();
-    const now = Date.now();
-    return last && now - Date.parse(last) >= HOUR_MS
-        ? { since: last, sinceVisit: true }
-        : { since: new Date(now - HOUR_MS).toISOString(), sinceVisit: false };
-}
-
-/** The window to summarise. Follows the visit clock, so a tab shown again after a while counts as a new visit. */
-function useSummaryWindow() {
-    const [current, setCurrent] = React.useState(summaryWindow);
+/**
+ * The summary, fetched when the card opens and again whenever the tab is shown after being hidden: the server records
+ * the visit and decides what to count from, so a tab left open in the background starts a new visit when it comes back.
+ */
+function useSummary(load) {
+    const [summary, setSummary] = React.useState(undefined);
     React.useEffect(() => {
-        const update = () => setCurrent(summaryWindow());
-        window.addEventListener(VISIT_EVENT, update);
-        return () => window.removeEventListener(VISIT_EVENT, update);
-    }, []);
-    return current;
+        let live = true;
+        const fetch = () => Promise.resolve().then(load)
+            .then((result) => { if (live) setSummary(result || null); })
+            .catch(() => { if (live) setSummary(null); });
+        const onShow = () => { if (document.visibilityState === "visible") fetch(); };
+        fetch();
+        document.addEventListener("visibilitychange", onShow);
+        return () => { live = false; document.removeEventListener("visibilitychange", onShow); };
+    }, [load]);
+    return summary;
 }
 
 /** "+12" or "-3" for a change in a count. */
@@ -71,24 +67,18 @@ function Breakdown({ title, changes, names, order, from, since }) {
 
 /**
  * "Since you were last here": what changed in the kingdom (stars, networth, population, drones, engineers, then each
- * military unit and structure that changed) and what other kingdoms did to it. The numbers come from the API, which
- * compares the history point nearest before that time with the kingdom now; the events come from the news.
+ * military unit and structure that changed) and what other kingdoms did to it. The server decides the time to count
+ * from (the end of the last visit, or an hour ago) and compares the history point nearest before it with the kingdom
+ * now; the events come from the news.
  */
 export function SinceLastVisit({ data, load = fetchSummary }) {
-    const { since, sinceVisit } = useSummaryWindow();
-    const [summary, setSummary] = React.useState(undefined);
-    React.useEffect(() => {
-        let live = true;
-        setSummary(undefined);
-        Promise.resolve().then(() => load(since))
-            .then((result) => { if (live) setSummary(result || null); })
-            .catch(() => { if (live) setSummary(null); });
-        return () => { live = false; };
-    }, [since, load]);
+    const summary = useSummary(load);
+    const since = summary?.since;
+    const sinceVisit = !!summary?.since_visit;
 
     const names = data.state?.pretty_names || {};
     const order = data.state?.order || {};
-    const events = (data.news || []).filter((item) => Date.parse(item.time) > Date.parse(since));
+    const events = since ? (data.news || []).filter((item) => Date.parse(item.time) > Date.parse(since)) : [];
     const counts = EVENT_KINDS.map(([kind, one, many]) => {
         const count = events.filter((item) => item.kind === kind).length;
         return count > 0 ? `${count} ${count === 1 ? one : many}` : null;
@@ -125,11 +115,13 @@ export function SinceLastVisit({ data, load = fetchSummary }) {
                     {!anyChange ? <p className="overview-line overview-muted">Nothing in your kingdom changed.</p> : null}
                 </>
             ) : null}
-            <p className="overview-line">
-                {counts.length > 0
-                    ? <>Against you: {counts.join(", ")}. <Link to="/news">See the news</Link></>
-                    : "No attacks, spy operations or missiles against you."}
-            </p>
+            {summary ? (
+                <p className="overview-line">
+                    {counts.length > 0
+                        ? <>Against you: {counts.join(", ")}. <Link to="/news">See the news</Link></>
+                        : "No attacks, spy operations or missiles against you."}
+                </p>
+            ) : null}
             {latest.length > 0 ? (
                 <ul className="overview-news">
                     {latest.map((item, i) => <li key={i}>{item.news} <span className="overview-muted">({ago(item.time)})</span></li>)}

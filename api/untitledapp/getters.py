@@ -13,6 +13,7 @@ import untitledapp.galaxypolicies as uagp
 import untitledapp.universepolicies as uaup
 from untitledapp import request_cache
 import untitledapp.lastknown as uala
+import untitledapp.visits as uav
 from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
 
 bp = flask.Blueprint("getters", __name__)
@@ -1600,15 +1601,18 @@ def _history_summary(history, kd_info, since):
 @bp.route('/api/history/summary', methods=['GET'])
 @flask_praetorian.auth_required
 def get_history_summary():
-    """``?since=<iso time>``: what changed in the caller's kingdom since then (``_history_summary``)."""
+    """
+    What changed in the caller's kingdom (``_history_summary``) since they were last here, or in the last hour
+    (``visits.summary_window``), with ``since_visit`` saying which. Records the visit too, as this may be the first
+    request of a visit and must not answer from before it.
+    """
     kd_id = flask_praetorian.current_user().kd_id
-    try:
-        since = uas.utc(flask.request.args["since"])
-    except (KeyError, ValueError, TypeError):
-        return flask.jsonify({"message": "since must be a time"}), 400
+    now = datetime.datetime.now(datetime.timezone.utc)
+    notifs = uav.read_and_record(kd_id, now)
+    since, since_visit = uav.summary_window(notifs, now)
     history = _get_history(kd_id)
     kd_info = _get_kd_info(kd_id)
-    return flask.jsonify(_history_summary(history, kd_info, since)), 200
+    return flask.jsonify({**_history_summary(history, kd_info, since), "since_visit": since_visit}), 200
 
     
 @bp.route('/api/time')

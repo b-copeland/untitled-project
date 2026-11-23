@@ -7,6 +7,7 @@ import json
 
 import untitledapp.getters as uag
 import untitledapp.refresh as refresh
+import untitledapp.shared as uas
 from untitledapp import REQUESTS_SESSION
 from tests.kingdoms import kingdom
 from tests.test_concurrency import KD_ID, _create_item, _set_up_kingdom
@@ -127,15 +128,39 @@ def test_a_function_app_that_refuses_the_breakdowns_still_records_the_rest(app, 
     assert len(history["stars"]) == 1
 
 
-def test_the_route_needs_a_time_and_answers_for_the_callers_kingdom(app, client, jwt1):
+def _notifs():
+    return json.loads(REQUESTS_SESSION.get(
+        uag.flask.current_app.config["AZURE_FUNCTION_ENDPOINT"] + f"/kingdom/{KD_ID}/notifs",
+        headers={"x-functions-key": uag.flask.current_app.config["AZURE_FUNCTION_KEY"]},
+    ).text)
+
+
+def test_the_route_counts_from_the_last_visit_and_records_this_one(app, client, jwt1):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    left = now - datetime.timedelta(hours=3)
     with app.app_context():
         _set_up_kingdom(1000, stars=310)
-        _create_item(f"history_{KD_ID}", {"history": {"stars": points(300), "units": [], "structures": []}})
+        _create_item(f"notifs_{KD_ID}", {**uas.INITIAL_KINGDOM_STATE["notifs"], "last_active": left.isoformat()})
+        _create_item(f"history_{KD_ID}", {"history": {
+            "stars": [{"time": (left - datetime.timedelta(minutes=10)).isoformat(), "value": 300}],
+            "units": [], "structures": []}})
     headers = {"Authorization": f"Bearer {jwt1}"}
 
-    assert client.get("/api/history/summary", headers=headers).status_code == 400
-    assert client.get("/api/history/summary?since=yesterday", headers=headers).status_code == 400
-    response = client.get(f"/api/history/summary?since={T0.isoformat().replace('+', '%2B')}", headers=headers)
+    response = client.get("/api/history/summary", headers=headers)
 
     assert response.status_code == 200
+    assert response.json["since_visit"] is True
+    assert uas.utc(response.json["since"]) == left
     assert response.json["changes"]["stars"] == {"from": 300, "to": 310}
+    with app.app_context():
+        notifs = _notifs()
+    assert uas.utc(notifs["visit_since"]) == left and uas.utc(notifs["last_active"]) > left
+
+
+def test_without_a_last_visit_the_route_counts_the_last_hour(app, client, jwt1):
+    with app.app_context():
+        _set_up_kingdom(1000)
+    response = client.get("/api/history/summary", headers={"Authorization": f"Bearer {jwt1}"})
+
+    assert response.status_code == 200
+    assert response.json["since_visit"] is False

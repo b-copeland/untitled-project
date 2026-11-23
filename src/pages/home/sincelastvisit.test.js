@@ -1,13 +1,14 @@
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { SinceLastVisit } from "./overview";
-import { resetVisitClock, startVisitClock } from "../../lastVisit";
 
 const HOUR = 3.6e6;
 const hoursAgo = (hours) => new Date(Date.now() - hours * HOUR).toISOString();
 
-const summary = {
+const summary = (overrides = {}) => ({
+    since: hoursAgo(3),
+    since_visit: true,
     from: hoursAgo(3),
     changes: { stars: { from: 300, to: 320 }, networth: { from: 1000, to: 900 }, population: { from: 50, to: 50 },
                drones: { from: 0, to: 0 }, engineers: { from: 2, to: 2 } },
@@ -15,7 +16,8 @@ const summary = {
     units_from: hoursAgo(3),
     structures: { mines: { from: 0, to: 4 } },
     structures_from: hoursAgo(3),
-};
+    ...overrides,
+});
 const data = {
     state: { pretty_names: { attack: "Attackers", defense: "Defenders", mines: "Mines" },
              order: { units: ["attack", "defense"], structures: ["homes", "mines"] } },
@@ -26,23 +28,13 @@ const data = {
     ],
 };
 
-function show(load) {
-    return render(<MemoryRouter><SinceLastVisit data={data} load={load} /></MemoryRouter>);
-}
+const show = (load, d = data) => render(<MemoryRouter><SinceLastVisit data={d} load={load} /></MemoryRouter>);
 
-beforeEach(() => {
-    window.localStorage.clear();
-    resetVisitClock();
-});
+test("after three hours away it shows what changed since the last visit", async () => {
+    show(() => Promise.resolve(summary()));
 
-test("after three hours away it summarises since the last visit", async () => {
-    window.localStorage.setItem("FARSTEEL_LAST_VISIT", hoursAgo(3));
-    startVisitClock();
-    const load = jest.fn(() => Promise.resolve(summary));
-    show(load);
-
-    expect(screen.getByText("Since you were last here (3h ago)")).toBeTruthy();
-    expect(await screen.findByText("+20")).toBeTruthy();       // stars
+    expect(await screen.findByText("Since you were last here (3h ago)")).toBeTruthy();
+    expect(screen.getByText("+20")).toBeTruthy();              // stars
     expect(screen.getByText("-100")).toBeTruthy();             // networth
     expect(screen.getByText("Attackers")).toBeTruthy();
     expect(screen.getByText("+15")).toBeTruthy();
@@ -54,30 +46,25 @@ test("after three hours away it summarises since the last visit", async () => {
     expect(screen.queryByText(/An old attack/)).toBeNull();
 });
 
-test("the last visit read is the one before this page load, not the time just stamped", async () => {
-    const before = hoursAgo(2);
-    window.localStorage.setItem("FARSTEEL_LAST_VISIT", before);
-    startVisitClock();
-    const load = jest.fn(() => new Promise(() => {}));
-    show(load);
+test("when the server counts from an hour ago the card says the last hour", async () => {
+    show(() => Promise.resolve(summary({ since: hoursAgo(1), since_visit: false })));
 
-    await waitFor(() => expect(load).toHaveBeenCalledWith(before));
-    expect(Date.parse(window.localStorage.getItem("FARSTEEL_LAST_VISIT"))).toBeGreaterThan(Date.parse(before));
+    expect(await screen.findByText("The last hour")).toBeTruthy();
+    expect(screen.queryByText(/Delta spied on you/)).toBeNull();  // two hours ago: before the window
 });
 
-test("a visit less than an hour ago, or none, shows the last hour", async () => {
-    window.localStorage.setItem("FARSTEEL_LAST_VISIT", hoursAgo(0.5));
-    startVisitClock();
-    const load = jest.fn(() => new Promise(() => {}));
+test("showing the tab again asks the server again", async () => {
+    const load = jest.fn(() => Promise.resolve(summary()));
     show(load);
+    await screen.findByText("Since you were last here (3h ago)");
 
-    expect(screen.getByText("The last hour")).toBeTruthy();
-    await waitFor(() => expect(load).toHaveBeenCalled());
-    expect(Date.now() - Date.parse(load.mock.calls[0][0])).toBeGreaterThanOrEqual(HOUR - 1000);
+    await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+
+    expect(load).toHaveBeenCalledTimes(2);
 });
 
 test("a kingdom with no history yet says so", async () => {
-    show(() => Promise.resolve({ from: null, changes: {}, units: {}, structures: {} }));
+    show(() => Promise.resolve(summary({ changes: {}, units: {}, structures: {}, from: null })));
     expect(await screen.findByText(/no history yet/)).toBeTruthy();
 });
 
@@ -87,8 +74,8 @@ test("a failed load says it could not load", async () => {
 });
 
 test("nothing changed and nothing happened", async () => {
-    const still = { from: hoursAgo(1), changes: { stars: { from: 300, to: 300 } }, units: {}, structures: {} };
-    render(<MemoryRouter><SinceLastVisit data={{ ...data, news: [] }} load={() => Promise.resolve(still)} /></MemoryRouter>);
+    const still = summary({ changes: { stars: { from: 300, to: 300 } }, units: {}, structures: {} });
+    show(() => Promise.resolve(still), { ...data, news: [] });
     expect(await screen.findByText("Nothing in your kingdom changed.")).toBeTruthy();
     expect(screen.getByText("No attacks, spy operations or missiles against you.")).toBeTruthy();
 });

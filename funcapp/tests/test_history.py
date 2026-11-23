@@ -52,3 +52,16 @@ def test_keep_trims_only_the_series_it_names(session):
     history = _history(session)
     assert [point["time"] for point in history["units"]] == ["t2", "t3"]
     assert len(history["stars"]) == 4
+
+
+def test_notifs_set_writes_plain_fields_and_keeps_the_counters():
+    container = fake_backend.FakeContainer()
+    container.create_item({"id": "notifs_1", "news_kingdom": 2})
+    session = fake_backend.FakeSession(fake_backend.load_function_app(container))
+
+    response = session.request("PATCH", f"{ENDPOINT}/kingdom/1/notifs",
+                               data=json.dumps({"set": {"last_active": "t1", "id": "other", "_etag": "x"}}))
+
+    assert response.status_code == 200
+    notifs = json.loads(session.request("GET", f"{ENDPOINT}/kingdom/1/notifs").text)
+    assert notifs["last_active"] == "t1" and notifs["news_kingdom"] == 2 and notifs["id"] == "notifs_1"
