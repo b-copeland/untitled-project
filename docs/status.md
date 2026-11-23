@@ -264,6 +264,6 @@ Issue #185, [advisors.md](advisors.md). Updated 2026-11-22.
 
 | Item | Status |
 |---|---|
-| Bots overfill their hangars | They run 5-20% over capacity, counting units in training (the game's overflow rule counts them; `botstrategy.structures_plan` does not), so `hangars_full` fires on most bots. Fixing the bots' hangar sizing needs a simulation comparison. |
-| Bots never cast a cluster vote | `cluster_vote_missing` fires on every galaxy-leader bot. `botbrain.plan_politics` has no cluster vote. |
+| Bots overfill their hangars | They run 5-20% over capacity, counting units in training (the game's overflow rule counts them; `botstrategy.structures_plan` does not), so `hangars_full` fires on most bots. Fixed by #211; remove this row once it is merged. |
+| Bots never cast a cluster vote | `cluster_vote_missing` fires on every galaxy-leader bot. `botbrain.plan_politics` has no cluster vote. Fixed by #211; remove this row once it is merged. |
 | Thresholds | `DEFENSE_WARNING_SHARE`, `HANGAR_WARNING_SHARE`, `EMPTY_STARS_SHARE`, `IDLE_MONEY_EPOCHS`, `ATTACKERS_SHARE` are the maintainer's numbers, checked on bots only; no human rounds to check them against. |
