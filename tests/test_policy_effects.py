@@ -314,3 +314,77 @@ def test_the_refresh_credits_income_with_the_galaxys_policies(app):
     income = _get(f"/kingdom/{KD_ID}")["income"]["money"]
     per_mine = uas.GAME_CONFIG["BASE_MINES_INCOME_PER_EPOCH"] + uas.project_increase(kingdoms.kingdom(), "mines_bonus")
     assert income["mines"] == pytest.approx(100 * per_mine * 1.15)
+
+
+# --- what only cluster benefits do: capacities, and a few that apply to everything ---------------------------------------
+
+def test_homes_capacity():
+    kd = kingdoms.kingdom(structures={"homes": 100}, population=0)
+    _, plain = refresh._calc_pop_change_per_epoch(kd, False, 1, [])
+    _, roomier = refresh._calc_pop_change_per_epoch(kd, False, 1, [], {"homes_capacity": 0.1})
+    assert roomier == pytest.approx(plain * 1.1, abs=1)
+
+
+def test_hangar_capacity():
+    kd = kingdoms.kingdom(structures={"hangars": 100})
+    units = {"current_total": {}, "queued": {}}
+    plain, _ = uag._calc_hangar_capacity(kd, units)
+    bigger, _ = uag._calc_hangar_capacity(kd, units, {"hangar_capacity": 0.1})
+    assert bigger == int(plain * 1.1)
+
+
+def test_workshop_capacity():
+    kd = kingdoms.kingdom(structures={"workshops": 100}, race="Gaian")
+    plain, _ = uag._calc_workshop_capacity(kd, 0)
+    bigger, _ = uag._calc_workshop_capacity(kd, 0, {"workshop_capacity": 0.1})
+    assert bigger == int(plain * 1.1)
+
+
+def test_missile_silo_capacity():
+    kd = kingdoms.kingdom(structures={"missile_silos": 40})
+    assert uag._calc_missile_capacity(kd, {"missile_silo_capacity": 0.25}) == int(uag._calc_missile_capacity(kd) * 1.25)
+
+
+def test_fuel_storage(app):
+    kd = kingdoms.kingdom(structures={"fuel_plants": 10}, fuel=10_000_000)  # far over: it is held at the cap
+    plain = kingdoms.income(app, kd)["fuel"]
+    more = kingdoms.income(app, kd, modifiers={"fuel_storage": 0.2})["fuel"]
+    assert more == pytest.approx(plain * 1.2)
+
+
+def test_recruit_cap_and_recruit_cost():
+    kd = kingdoms.kingdom(population=100_000, money=10_000_000)
+    units = {"queued": {"recruits": 0}}
+    plain_max, _ = uag._calc_max_recruits(kd, units)
+    wider_max, _ = uag._calc_max_recruits(kd, units, {"recruit_cap": 0.15})
+    assert wider_max == int(plain_max * 1.15)
+    assert uag._recruit_price(kd, {"recruit_cost": -0.1}) == pytest.approx(uag._recruit_price(kd) * 0.9)
+    poor = kingdoms.kingdom(population=100_000, money=uag._recruit_price(kd) * 100)
+    assert uag._calc_max_recruits(poor, units, {"recruit_cost": -0.5})[1] == 200
+
+
+def test_project_points_on_every_project(app):
+    kd = kingdoms.kingdom(units={"engineers": 200}, projects_assigned={"money_bonus": 100, "big_flexers": 100})
+    plain = kingdoms.income(app, kd)["projects_points"]
+    more = kingdoms.income(app, kd, modifiers={"project_points": 0.1, "project_points_one_time": 0.25})["projects_points"]
+    assert more["money_bonus"] == pytest.approx(plain["money_bonus"] * 1.1)
+    assert more["big_flexers"] == pytest.approx(plain["big_flexers"] * 1.35)  # they add up
+
+
+def test_shield_fuel_on_every_kind_of_shield():
+    for kind in ("military", "spy", "spy_radar", "missiles"):
+        assert uas.shield_fuel_per_pct(kind, {"shield_fuel": -0.15}) == pytest.approx(uas.shield_fuel_per_pct(kind) * 0.85)
+    assert uas.shield_fuel_per_pct("military", {"shield_fuel": -0.15, "military_shield_fuel": -0.25}) == pytest.approx(
+        uas.shield_fuel_per_pct("military") * 0.6)
+
+
+def test_a_cluster_benefit_sets_what_the_military_page_shows(app, client, jwt1):
+    _set_up_kingdom(money=0, structures={**uas.INITIAL_KINGDOM_STATE["kingdom"]["structures"], "hangars": 100})
+    state = _get("/state")
+    _create_item("state", {"state": {**state["state"], "cluster_benefits": ["hangar_capacity"]}})
+    _create_item("cluster_1", {"levels": {"hangar_capacity": 1.0},
+                               "last_update": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+    plain = 100 * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]
+    page = client.get("/api/mobis", headers={"Authorization": f"Bearer {jwt1}"}).get_json()
+    # The level has faded a hair since it was written, so within one hangar space of full.
+    assert page["max_hangar_capacity"] == pytest.approx(plain * (1 + uas.CLUSTER_BENEFITS["hangar_capacity"]["max"]), abs=1)

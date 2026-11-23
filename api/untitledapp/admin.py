@@ -13,6 +13,7 @@ import random
 import flask
 import flask_praetorian
 
+import untitledapp.clusters as uacl
 import untitledapp.galaxypolicies as uagp
 import untitledapp.migrations as uamig
 import untitledapp.getters as uag
@@ -108,11 +109,12 @@ def round_state(settings, rounds_archived, rng=random):
     """
     The whole inner ``state`` of a round that has not run yet. Every key the refresh, the decorators and the pages read
     is here, so nothing left over from an earlier round (an open election, policies, ``game_over``) carries on. The
-    galaxy policies the round plays are drawn here with ``rng``, once, and hold for the whole round.
+    galaxy policies and cluster benefits the round plays are drawn here with ``rng``, once, for the whole round.
     """
     start = settings["game_start"].isoformat()
     return {
         "galaxy_policies": uagp.draw(rng),
+        "cluster_benefits": uacl.draw(rng),
         "migrations_done": uamig.all_ids(),  # a new round's documents are made in the current shape
         "game_start": start,
         "game_end": settings["game_end"].isoformat(),

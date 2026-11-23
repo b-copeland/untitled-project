@@ -7,6 +7,7 @@ function ClusterPolitics(props) {
     const cfg = config(props.state);
     const benefits = props.state.cluster_benefits || {};
     const order = props.state.order?.cluster_benefits || Object.keys(benefits);
+    const playing = new Set(props.state.state?.cluster_benefits || []);
     return (
         <Topic id="clusterpolitics" title="Cluster politics"
             lead="Neighbouring galaxies vote to build up benefits that every kingdom among them shares.">
@@ -22,7 +23,17 @@ function ClusterPolitics(props) {
                 <li>Once a galaxy's vote changes (cast, switched or withdrawn), it stays for {duration(cfg.CLUSTER_VOTE_COOLDOWN_EPOCHS, cfg)}. Voting again for the same benefit changes nothing and starts no wait.</li>
             </ul>
             <h4>Benefits</h4>
-            <p>The higher a benefit gets, the less each vote adds: past each threshold, votes count for less.</p>
+            <p>
+                Each round plays {cfg.CLUSTER_BENEFITS_PER_ROUND} of the benefits below, drawn when the round is made,
+                for the whole round; a galaxy can only vote for those. The higher a benefit gets, the less each vote
+                adds: past each threshold, votes count for less.
+            </p>
+            <p>
+                Benefits that raise a capacity (homes, hangars, workshops, silos, fuel storage, recruits in training)
+                fade slowly when nobody keeps them up. A kingdom left over a capacity keeps what it has: it can not
+                train or build more engineers, missiles or recruits until it is under again, units over the hangar
+                space take room from homes, and fuel over the storage is lost.
+            </p>
             <ul>
                 {order.filter((key) => benefits[key]).map((key) => {
                     const benefit = benefits[key];
@@ -31,7 +42,7 @@ function ClusterPolitics(props) {
                         .join("; ");
                     return (
                         <li key={key}>
-                            <strong>{benefit.name}</strong>: {benefit.desc}, by up to {pct(benefit.max)}.
+                            <strong>{benefit.name}</strong>{playing.has(key) ? <b> (this round)</b> : null}: {benefit.desc}, by up to {pct(benefit.max)}.
                             {thresholds ? ` (${thresholds}.)` : ""}
                         </li>
                     );
@@ -39,7 +50,7 @@ function ClusterPolitics(props) {
             </ul>
             <p>
                 The Benefits tab shows each benefit's level, how fast it is changing, and your galaxy's vote. The
-                Galaxies tab shows how each galaxy is voting. Prices and drone production elsewhere already include
+                Galaxies tab shows how each galaxy is voting. Prices, times and capacities elsewhere already include
                 the cluster's benefits.
             </p>
         </Topic>

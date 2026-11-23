@@ -5,7 +5,9 @@ A **cluster** is the group of galaxies whose ids share a first part: galaxy ``2:
 ``/api/admin/newround`` deals galaxies into clusters of ``CLUSTER_SIZE``, and a galaxy never changes cluster, so a
 kingdom's cluster follows from its galaxy and needs no document of its own.
 
-Each galaxy's leader casts the galaxy's one vote for a benefit in ``shared.CLUSTER_BENEFITS``, or none. Every benefit has
+A round plays ``CLUSTER_BENEFITS_PER_ROUND`` of the benefits in ``shared.CLUSTER_BENEFITS``, drawn when the admin makes
+the round and stored in the state (``cluster_benefits``), for the whole round (``draw``, ``round_benefits``). Each
+galaxy's leader casts the galaxy's one vote for one of them, or none. Every benefit has
 a **level** from 0 to 1 (a fraction of its ``max``). Per epoch:
 
 * each vote raises the level by ``CLUSTER_VOTE_RATE * CLUSTER_REF_SIZE / galaxies in the cluster``, so a unanimous
@@ -30,6 +32,7 @@ default, since the function app creates it as ``{"id"}``):
 * ``last_update``: when ``levels`` were last advanced.
 """
 import datetime
+import random
 
 import flask
 import flask_praetorian
@@ -47,6 +50,25 @@ _EPSILON = 1e-12
 # --- pure rules: plain values in, plain values out ----------------------------------------------------------------
 
 _utc = uas.utc  # compare times as datetimes, never as strings
+
+
+def draw(rng=random, count=None):
+    """The benefits a new round plays: ``count`` of them at random, in the order ``CLUSTER_BENEFITS`` lists them."""
+    count = uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"] if count is None else count
+    keys = list(uas.CLUSTER_BENEFITS)
+    chosen = rng.sample(keys, min(max(count, 0), len(keys)))
+    return [key for key in keys if key in chosen]
+
+
+def round_benefits(state_inner):
+    """
+    The benefits this round plays, from the state's inner object. A round made before the draw plays the first
+    ``CLUSTER_BENEFITS_PER_ROUND``, which start with the three it had.
+    """
+    drawn = [key for key in ((state_inner or {}).get("cluster_benefits") or []) if key in uas.CLUSTER_BENEFITS]
+    if drawn:
+        return drawn
+    return list(uas.CLUSTER_BENEFITS)[:uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]]
 
 
 def cluster_of(galaxy_id):
@@ -226,28 +248,33 @@ def advance(document, member_galaxies, now):
     return cluster
 
 
-def modifiers(cluster):
+def modifiers(cluster, benefits=None):
     """
     What the cluster's benefits are worth to its kingdoms now: effect to signed value, as policies give them
-    (``shared.EFFECTS``): a 5% discount on units is ``{"unit_cost": -0.05}``. From ``advance``.
+    (``shared.EFFECTS``): a 5% discount on units is ``{"unit_cost": -0.05}``. From ``advance``. Only the round's
+    ``benefits`` count (every benefit if None).
     """
     values = {}
     for key, benefit in uas.CLUSTER_BENEFITS.items():
+        if benefits is not None and key not in benefits:
+            continue
         effect = benefit["effect"]
         sign = -1.0 if uas.EFFECTS[effect]["better"] == "lower" else 1.0
         values[effect] = values.get(effect, 0.0) + sign * cluster["levels"].get(key, 0.0) * benefit["max"]
     return values
 
 
-def view(cluster, cluster_id, member_galaxies, galaxies, galaxy_empires, my_galaxy):
+def view(cluster, cluster_id, member_galaxies, galaxies, galaxy_empires, my_galaxy, benefits=None):
     """What ``/api/cluster`` shows a kingdom of ``my_galaxy``: everything about its own cluster, which is all public
     to the cluster. ``cluster`` is from ``advance``. Whether the caller may vote is not here: the page knows its
-    galaxy's leader from ``/api/galaxypolitics``, and the vote route checks it."""
+    galaxy's leader from ``/api/galaxypolitics``, and the vote route checks it. Only the round's ``benefits`` are shown (every benefit if None)."""
     gain = vote_gain(len(member_galaxies), cluster["alignment"])
     decay = uas.GAME_CONFIG["CLUSTER_DECAY_RATE"]
     counts = tally(cluster["votes"], member_galaxies)
+    playing = list(uas.CLUSTER_BENEFITS) if benefits is None else [key for key in uas.CLUSTER_BENEFITS if key in benefits]
     benefits = {}
-    for key, benefit in uas.CLUSTER_BENEFITS.items():
+    for key in playing:
+        benefit = uas.CLUSTER_BENEFITS[key]
         level = cluster["levels"][key]
         benefits[key] = {
             "name": benefit["name"],
@@ -257,6 +284,8 @@ def view(cluster, cluster_id, member_galaxies, galaxies, galaxy_empires, my_gala
             "value": level * benefit["max"],
             "rate_per_epoch": rate_of(level, gain * counts[key], decay, benefit["thresholds"]) * benefit["max"],
             "votes": counts[key],
+            "effect_text": uas.effect_text(benefit["effect"], modifiers(
+                {"levels": {key: 1.0}}, [key]).get(benefit["effect"], benefit["max"])),
         }
     return {
         "cluster": cluster_id,
@@ -274,7 +303,7 @@ def view(cluster, cluster_id, member_galaxies, galaxies, galaxy_empires, my_gala
         "vote_unlocks_at": (lambda unlocks: unlocks.isoformat() if unlocks else None)(
             vote_unlocks_at(cluster, my_galaxy, _utc(cluster["last_update"]))),
         "benefits": benefits,
-        "order": list(uas.CLUSTER_BENEFITS),  # the benefits reach the browser with their keys sorted
+        "order": playing,  # the benefits reach the browser with their keys sorted
         "alignment": cluster["alignment"],
         "alignment_multiplier": alignment_multiplier(cluster["alignment"]),
         "vote_gain_per_epoch": gain,
@@ -309,7 +338,8 @@ def _view(kd_id):
     cluster_id = cluster_of(my_galaxy)
     member_galaxies = members(galaxies, cluster_id)
     cluster = advance(uag._get_cluster_document(cluster_id), member_galaxies, _now())
-    return view(cluster, cluster_id, member_galaxies, galaxies, _galaxy_empires(), my_galaxy), 200
+    benefits = round_benefits(uag._get_state().get("state"))
+    return view(cluster, cluster_id, member_galaxies, galaxies, _galaxy_empires(), my_galaxy, benefits), 200
 
 
 def vote(kd_id, benefit):
@@ -320,7 +350,9 @@ def vote(kd_id, benefit):
     if benefit in ("", None):
         benefit = None
     elif benefit not in uas.CLUSTER_BENEFITS:
-        return {"message": "Choose one of: " + ", ".join(uas.CLUSTER_BENEFITS)}, 400
+        return {"message": "Choose one of this round's benefits"}, 400
+    elif benefit not in round_benefits(uag._get_state().get("state")):
+        return {"message": f"{uas.CLUSTER_BENEFITS[benefit]['name']} is not one of this round's benefits"}, 400
     galaxies_inverted, galaxies = uag._get_galaxies_inverted()
     my_galaxy = galaxies_inverted.get(kd_id)
     if my_galaxy is None:

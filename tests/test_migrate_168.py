@@ -142,3 +142,19 @@ def test_a_new_round_needs_no_migration():
                                          "num_galaxies": 2}, datetime.datetime(2029, 12, 1, tzinfo=datetime.timezone.utc))
     state = admin.round_state(settings, rounds_archived=0, rng=random.Random(1))
     assert migrations.pending(state) == []
+
+
+# --- cluster benefits ---------------------------------------------------------------------------------------------
+
+def test_a_round_from_before_reads_as_the_first_benefits_and_the_migration_writes_them_down(app):
+    import untitledapp.clusters as clusters
+
+    _old_round()
+    first = list(uas.CLUSTER_BENEFITS)[:uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]]
+    assert clusters.round_benefits(_get("/state")["state"]) == first  # before: read the same
+    _migrate(app)
+    state = _get("/state")["state"]
+    assert state["cluster_benefits"] == first and "168_cluster_benefits" in state["migrations_done"]
+    with app.app_context():
+        migrations.cluster_benefits(_get("/state"))  # again: nothing changes
+    assert _get("/state")["state"]["cluster_benefits"] == first

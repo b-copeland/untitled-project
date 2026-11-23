@@ -539,10 +539,12 @@ def _calc_maxes(
     }
     return maxes
 
-def _calc_hangar_capacity(kd_info, units):
+def _calc_hangar_capacity(kd_info, units, modifiers=None):
+    """The hangar space the kingdom has (after its projects and ``modifiers``) and the space its units take."""
     max_hangar_capacity = math.floor(
         math.floor(kd_info["structures"]["hangars"])
         * (uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"] + uas.project_increase(kd_info, "hangars_bonus"))
+        * max(1 + uas.modifier(modifiers, "hangar_capacity"), 0)
     )
     current_hangar_capacity = sum([
         uas.unit_hangar_space(kd_info, key) * (units["current_total"].get(key, 0) + units["queued"].get(key, 0))
@@ -550,16 +552,23 @@ def _calc_hangar_capacity(kd_info, units):
     ])
     return max_hangar_capacity, current_hangar_capacity
 
-def _recruit_price(kd_info):
-    """What one recruit costs this kingdom."""
-    return uas.GAME_CONFIG["BASE_RECRUIT_COST"] * (1 - uas.project_bonus(kd_info, "recruit_cost_bonus"))
+def _recruit_price(kd_info, modifiers=None):
+    """What one recruit costs this kingdom, after its projects and ``modifiers``."""
+    return uas.GAME_CONFIG["BASE_RECRUIT_COST"] * max(
+        1 - uas.project_bonus(kd_info, "recruit_cost_bonus") + uas.modifier(modifiers, "recruit_cost"), 0)
 
 
-def _calc_max_recruits(kd_info, units):
+def _max_recruits(kd_info, modifiers=None):
+    """The most recruits the kingdom can have in training at once, after its ``modifiers``."""
+    return math.floor(uas.GAME_FUNCS["BASE_MAX_RECRUITS"](int(kd_info["population"]))
+                      * max(1 + uas.modifier(modifiers, "recruit_cap"), 0))
+
+
+def _calc_max_recruits(kd_info, units, modifiers=None):
     recruits_training = units["queued"]["recruits"]
-    max_total_recruits = uas.GAME_FUNCS["BASE_MAX_RECRUITS"](int(kd_info["population"]))
+    max_total_recruits = _max_recruits(kd_info, modifiers)
     max_available_recruits = max(max_total_recruits - recruits_training, 0)
-    max_recruits_cost = _recruit_price(kd_info) * max_available_recruits
+    max_recruits_cost = _recruit_price(kd_info, modifiers) * max_available_recruits
     try:
         current_available_recruits = min(
             math.floor((kd_info["money"] / max_recruits_cost) * max_available_recruits),
@@ -585,11 +594,11 @@ def _get_cluster_modifiers(kd_id, galaxy_id=None, now=None):
     galaxies_inverted, galaxies = _get_galaxies_inverted()
     galaxy_id = galaxy_id or galaxies_inverted.get(str(kd_id))
     if galaxy_id is None:
-        return uacl.modifiers(uacl.normalize({}))
+        return {}
     cluster_id = uacl.cluster_of(galaxy_id)
     now = now or datetime.datetime.now(datetime.timezone.utc)
     cluster = uacl.advance(_get_cluster_document(cluster_id), uacl.members(galaxies, cluster_id), now)
-    return uacl.modifiers(cluster)
+    return uacl.modifiers(cluster, uacl.round_benefits(_get_state().get("state")))
 
 
 def _round_start(state):
@@ -695,12 +704,12 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, modifiers=None
     recruit_time = _calc_recruit_time((uas.GAME_CONFIG["BASE_RECRUIT_TIME_MIN_MULTIPLIER"] + uas.GAME_CONFIG["BASE_RECRUIT_TIME_MAX_MUTLIPLIER"]) / 2, modifiers)
     units_adjusted_costs = _get_units_adjusted_costs(state, modifiers)
 
-    max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units)
-    max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units)
+    max_hangar_capacity, current_hangar_capacity = _calc_hangar_capacity(kd_info_parse, units, modifiers)
+    max_available_recruits, current_available_recruits = _calc_max_recruits(kd_info_parse, units, modifiers)
     payload = {
         'units': units,
         'maxes': maxes,
-        'recruit_price': _recruit_price(kd_info_parse),
+        'recruit_price': _recruit_price(kd_info_parse, modifiers),
         'recruit_time': recruit_time,
         'max_hangar_capacity': max_hangar_capacity,
         'current_hangar_capacity': current_hangar_capacity,
@@ -1016,8 +1025,9 @@ def _get_missiles_info(kd_id):
     missiles_info_parse = json.loads(missiles_info.text)
     return missiles_info_parse["missiles"]
 
-def _calc_missile_capacity(kd_info):
-    """How many of each missile the kingdom's silos hold: per silo, more for Fuzi and with the Missile Silos project."""
+def _calc_missile_capacity(kd_info, modifiers=None):
+    """How many of each missile the kingdom's silos hold: per silo, more for Fuzi and with the Missile Silos project,
+    and after the kingdom's ``modifiers``."""
     per_silo = math.floor(
         uas.GAME_CONFIG["BASE_MISSILE_SILO_CAPACITY"]
         * (
@@ -1028,10 +1038,11 @@ def _calc_missile_capacity(kd_info):
     return math.floor(
         math.floor(kd_info["structures"]["missile_silos"])
         * (per_silo + uas.project_increase(kd_info, "missile_silos_bonus"))
+        * max(1 + uas.modifier(modifiers, "missile_silo_capacity"), 0)
     )
 
 
-def _empty_missile_silos(kd_info):
+def _empty_missile_silos(kd_info, modifiers=None):
     """
     Silos holding no missile: the silos less those needed for the largest stock of one missile (each silo holds some of
     every missile). Missiles still being built are not counted.
@@ -1039,7 +1050,7 @@ def _empty_missile_silos(kd_info):
     silos = math.floor(kd_info["structures"].get("missile_silos", 0))
     if silos <= 0:
         return 0
-    per_silo = _calc_missile_capacity(kd_info) / silos
+    per_silo = _calc_missile_capacity(kd_info, modifiers) / silos
     most_of_one = max((kd_info.get("missiles") or {}).values(), default=0)
     used = math.ceil(most_of_one / per_silo) if per_silo > 0 else silos
     return max(silos - used, 0)
@@ -1082,9 +1093,10 @@ def missiles():
 
     current_missiles = kd_info_parse["missiles"]
 
-    max_available_missiles = _calc_missile_capacity(kd_info_parse)
+    modifiers = _get_modifiers(kd_id)
+    max_available_missiles = _calc_missile_capacity(kd_info_parse, modifiers)
 
-    cost_modifier = _missile_cost_modifier(kd_info_parse, _get_modifiers(kd_id))
+    cost_modifier = _missile_cost_modifier(kd_info_parse, modifiers)
 
     payload = {
         "current": current_missiles,
@@ -1121,7 +1133,7 @@ def _get_engineers_queue(kd_id):
     engineers_info_parse = json.loads(engineers_info.text)
     return engineers_info_parse["engineers"]
 
-def _calc_workshop_capacity(kd_info, engineers_building):
+def _calc_workshop_capacity(kd_info, engineers_building, modifiers=None):
     per_workshop = math.floor(
         uas.GAME_CONFIG["BASE_WORKSHOP_CAPACITY"]
         * (
@@ -1132,6 +1144,7 @@ def _calc_workshop_capacity(kd_info, engineers_building):
     max_workshop_capacity = math.floor(
         math.floor(kd_info["structures"]["workshops"])
         * (per_workshop + uas.project_increase(kd_info, "workshops_bonus"))
+        * max(1 + uas.modifier(modifiers, "workshop_capacity"), 0)
     )
     current_engineers = kd_info["units"]["engineers"]
     current_workshop_capacity = current_engineers + engineers_building
@@ -1166,7 +1179,7 @@ def _get_engineers(kd_id, kd_info=None, engineers_queue=None, modifiers=None):
     if modifiers is None:
         modifiers = _get_modifiers(kd_id)
     engineers_building = sum([training["amount"] for training in engineers_info])
-    max_workshop_capacity, current_workshop_capacity = _calc_workshop_capacity(kd_info_parse, engineers_building)
+    max_workshop_capacity, current_workshop_capacity = _calc_workshop_capacity(kd_info_parse, engineers_building, modifiers)
     max_available_engineers, current_available_engineers = _calc_max_engineers(kd_info_parse, engineers_building, max_workshop_capacity, modifiers)
     top_queue = sorted(
         engineers_info,

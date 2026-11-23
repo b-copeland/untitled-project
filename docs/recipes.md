@@ -158,13 +158,15 @@ its address); a page linked to rather than listed goes in `linkedPages`.
 
 ## 10. A cluster benefit
 
-1. Add it to `CLUSTER_BENEFITS` in `shared.py`: `name`, `desc`, `max` (the benefit at full level, e.g. `0.1` for 10%),
-   `thresholds` (`(level, efficiency)` pairs: from that share of the max up, a vote adds only `efficiency` as much),
-   and `effect`. The vote route, the Cluster page and the help page list benefits from it, so a benefit whose effect
-   already exists (`drone_production`, `unit_cost`, `settle_cost`) needs nothing else. Its numbers are proposals.
-2. **A new effect:** wire it where the rule lives. In a request, read `uag._get_cluster_modifiers(kd_id)[effect]` (one
-   read of the cluster per request, cached). In the refresh, read `context.cluster_modifiers(kd_id, time_update)`
-   (once per cluster per tick) and pass it down. Several benefits may share an effect; their values add up.
+1. Add it to `CLUSTER_BENEFITS` in `shared.py` (`_benefit(name, desc, max, effect, thresholds)`): `max` is the
+   benefit at full level as a positive share (`0.1` for 10%), `thresholds` are `(level, efficiency)` pairs (from that
+   share of the max up, a vote adds only `efficiency` as much), and `effect` is a name from `EFFECTS`; the level times
+   `max` is turned into a value of the sign that helps. The vote route, the draw, the Cluster page and the help page
+   list benefits from it, so a benefit whose effect exists needs nothing else. Its numbers are proposals. A round plays
+   `CLUSTER_BENEFITS_PER_ROUND` of them, so a new one is not in every round.
+2. **A new effect:** recipe 12, step 2: an entry in `EFFECTS` and one `uas.modifier(...)` where the rule lives,
+   through the kingdom's summed modifiers (`uag._get_modifiers`, `context.modifiers`). A capacity belongs here, not
+   in a galaxy policy: a level fades slowly, a vote that switches would not.
 3. Forecasts and pages must show what the action charges: use the same function for both (recipe 9, step 4).
 4. A test that would fail without the effect (see `tests/test_clusters.py`), and a line in the Cluster help topic.
 

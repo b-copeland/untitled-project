@@ -101,3 +101,14 @@ def galaxy_policies(state):
                 return None, None  # in the new shape already (a vote, or an earlier run)
             return uagp.written(uagp.advance(document, policies, round_start, now)), None
         occ.update(f'/galaxy/{galaxy_id}/politics', decide)
+
+
+@migration("168_cluster_benefits")
+def cluster_benefits(state):
+    """
+    Issue #168: the round writes down the cluster benefits it plays. A round from before has none and plays the first
+    ``CLUSTER_BENEFITS_PER_ROUND``, which start with the three it had; cluster documents keep their keys.
+    """
+    import untitledapp.clusters as uacl  # clusters imports getters, as this module does; imported here to keep it light
+
+    _set_state_field("cluster_benefits", uacl.round_benefits)

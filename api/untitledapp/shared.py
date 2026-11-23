@@ -208,9 +208,10 @@ SHIELD_FUEL = {
 
 
 def shield_fuel_per_pct(kind, modifiers=None):
-    """Fuel per epoch one point of ``kind`` shields costs per star, after the kingdom's ``modifiers``."""
+    """Fuel per epoch one point of ``kind`` shields costs per star, after the kingdom's ``modifiers``: the effect for
+    that kind of shield and ``shield_fuel``, for every kind."""
     constant, effect = SHIELD_FUEL[kind]
-    return GAME_CONFIG[constant] * max(1 + modifier(modifiers, effect), 0)
+    return GAME_CONFIG[constant] * max(1 + modifier(modifiers, effect) + modifier(modifiers, "shield_fuel"), 0)
 
 
 def self_destruct_share(units, stat):
@@ -453,6 +454,7 @@ GAME_CONFIG = {
     "CLUSTER_VOTE_COOLDOWN_EPOCHS": 6,  # once a galaxy's vote has changed (cast, switched or withdrawn), it stays this long
     "CLUSTER_VOTE_RATE": 0.005,  # per galaxy vote per epoch, as a fraction of the benefit's max
     "CLUSTER_DECAY_RATE": 0.005,  # per epoch, as a fraction of the benefit's max, voted for or not
+    "CLUSTER_BENEFITS_PER_ROUND": 7,  # of CLUSTER_BENEFITS, drawn when the round is made, for the whole round
 
     # Empire targets (targets.py). Placeholders: the framework is in, the balance is not. The points each kind of damage
     # earns are in TARGET_ACTIONS.
@@ -1361,6 +1363,22 @@ EFFECTS = {
                         "down": "Spy shields and spy radar cost {pct} less fuel"},
     "structure_time": {"better": "lower", "up": "Structures take {pct} longer to build",
                        "down": "Structures build {pct} faster"},
+    # What only cluster benefits do: capacities, which a vote that switches must not raise (tenet 1).
+    "homes_capacity": {"better": "higher", "up": "Homes house {pct} more people", "down": "Homes house {pct} fewer people"},
+    "hangar_capacity": {"better": "higher", "up": "Hangars hold {pct} more units", "down": "Hangars hold {pct} fewer units"},
+    "workshop_capacity": {"better": "higher", "up": "Workshops house {pct} more engineers",
+                          "down": "Workshops house {pct} fewer engineers"},
+    "missile_silo_capacity": {"better": "higher", "up": "Missile silos store {pct} more missiles",
+                              "down": "Missile silos store {pct} fewer missiles"},
+    "fuel_storage": {"better": "higher", "up": "Fuel plants store {pct} more fuel",
+                     "down": "Fuel plants store {pct} less fuel"},
+    "recruit_cap": {"better": "higher", "up": "You can have {pct} more recruits in training",
+                    "down": "You can have {pct} fewer recruits in training"},
+    "recruit_cost": {"better": "lower", "up": "Recruits cost {pct} more", "down": "Recruits cost {pct} less"},
+    "project_points": {"better": "higher", "up": "Engineers earn {pct} more points on every project",
+                       "down": "Engineers earn {pct} fewer points on every project"},
+    "shield_fuel": {"better": "lower", "up": "Every kind of shield costs {pct} more fuel",
+                    "down": "Every kind of shield costs {pct} less fuel"},
     "pop_growth": {"better": "higher", "up": "Population grows {pct} faster", "down": "Population grows {pct} slower"},
 }
 
@@ -1506,31 +1524,36 @@ GALAXY_POLICY_OF_OPTION = {
     option: policy for policy, entry in GALAXY_POLICIES.items() for option in entry["options"]
 }
 
-# What a cluster's galaxy leaders can vote to build up (clusters.py). Each benefit's level runs from 0 to ``max``;
-# ``thresholds`` are ``(level as a fraction of max, how effective votes are from there up)``, so votes add less the
-# higher the level gets. ``effect`` names the hook in the game that reads it (``clusters.modifiers``). Placeholders.
+# What a cluster's galaxy leaders can vote to build up (clusters.py). A round plays CLUSTER_BENEFITS_PER_ROUND of them,
+# drawn when it is made. Each benefit's level runs from 0 to ``max``; ``thresholds`` are ``(level as a fraction of max,
+# how effective votes are from there up)``, so votes add less the higher the level gets. ``effect`` is what it does
+# (EFFECTS): the level times ``max``, signed the way that helps. Capacities live here and not in the galaxy policies
+# because a level rises and fades slowly: a kingdom over a cap that fades has time to adjust, and nothing new of that
+# kind can be built or trained until it is under again. Placeholders.
+def _benefit(name, desc, maximum, effect, thresholds=((0.5, 0.8),)):
+    return {"name": name, "desc": desc, "max": maximum, "thresholds": list(thresholds), "effect": effect}
+
+
 CLUSTER_BENEFITS = {
-    "drone_production": {
-        "name": "Drone Production",
-        "desc": "Drone factories in the cluster produce more drones",
-        "max": 0.15,
-        "thresholds": [(1 / 3, 0.8), (2 / 3, 0.6)],
-        "effect": "drone_production",
-    },
-    "unit_cost": {
-        "name": "Cheaper Units",
-        "desc": "Military units in the cluster cost less",
-        "max": 0.05,
-        "thresholds": [(0.5, 0.8)],
-        "effect": "unit_cost",
-    },
-    "settle_cost": {
-        "name": "Cheaper Settling",
-        "desc": "Settling new stars in the cluster costs less",
-        "max": 0.10,
-        "thresholds": [(0.5, 0.8)],
-        "effect": "settle_cost",
-    },
+    "drone_production": _benefit("Drone Production", "Drone factories in the cluster produce more drones", 0.15,
+                                 "drone_production", [(1 / 3, 0.8), (2 / 3, 0.6)]),
+    "unit_cost": _benefit("Cheaper Units", "Military units in the cluster cost less", 0.05, "unit_cost"),
+    "settle_cost": _benefit("Cheaper Settling", "Settling new stars in the cluster costs less", 0.10, "settle_cost"),
+    "homes_capacity": _benefit("Roomier Homes", "Homes in the cluster house more people", 0.10, "homes_capacity"),
+    "hangar_capacity": _benefit("Bigger Hangars", "Hangars in the cluster hold more units", 0.10, "hangar_capacity"),
+    "workshop_capacity": _benefit("Bigger Workshops", "Workshops in the cluster house more engineers", 0.10,
+                                  "workshop_capacity"),
+    "missile_silo_capacity": _benefit("Deeper Silos", "Missile silos in the cluster store more missiles", 0.25,
+                                      "missile_silo_capacity"),
+    "fuel_storage": _benefit("Fuel Depots", "Fuel plants in the cluster store more fuel", 0.20, "fuel_storage"),
+    "recruit_cap": _benefit("Wider Draft", "Kingdoms in the cluster can have more recruits in training", 0.15,
+                            "recruit_cap"),
+    "recruit_cost": _benefit("Cheaper Recruits", "Recruits in the cluster cost less", 0.10, "recruit_cost"),
+    "project_points": _benefit("Research Network", "Engineers in the cluster earn more project points", 0.10,
+                               "project_points"),
+    "structure_time": _benefit("Fast Construction", "Structures in the cluster build faster", 0.10, "structure_time"),
+    "pop_growth": _benefit("Population Growth", "Population in the cluster grows faster", 0.25, "pop_growth"),
+    "shield_fuel": _benefit("Shield Grid", "Every kind of shield in the cluster costs less fuel", 0.15, "shield_fuel"),
 }
 
 # What an empire can mark a target for (targets.py), and the participation points each one earns. ``points`` maps each
