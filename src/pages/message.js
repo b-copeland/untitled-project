@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { authFetch } from "../auth";
+import { markRead } from "../data/notifs";
 import { useSearchParams } from "react-router-dom";
 import Tab from "react-bootstrap/Tab";
 import Tabs from "react-bootstrap/Tabs";
@@ -32,10 +33,10 @@ function Conversations(props) {
     const [composing, setComposing] = useState(false);  // picking someone new to write to
     const thread = useRef(null);
 
+    const unread = props.data.notifs?.messages || 0;
     useEffect(() => {
-        const updateFunc = () => authFetch("api/clearnotifs", { method: "POST", body: JSON.stringify({ categories: ["messages"] }) });
-        props.updateData(['notifs'], [updateFunc]);
-    }, []);
+        if (unread > 0) markRead(props.updateData, props.data.notifs, ["messages"], ["messages"]);
+    }, [unread]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
     const options = Object.keys(props.data.kingdoms).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));

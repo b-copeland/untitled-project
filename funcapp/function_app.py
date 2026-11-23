@@ -16,6 +16,7 @@ from azure.cosmos.exceptions import (
 
 from concurrency import ConditionalContainer, Refused, TooBusy, change_document, retry_on_conflict
 from queues import coalesce
+import notifs as notifs_counts
 
 ENDPOINT = os.environ["COSMOS_ENDPOINT"]
 KEY = os.environ["COSMOS_KEY"]
@@ -1264,11 +1265,17 @@ def update_notifs(req: func.HttpRequest) -> func.HttpResponse:
         item=item_id,
         partition_key=item_id,
     )
+    # ``read``: {category: total seen} moves that category's read cursor (notifs.py). A category in both ``read`` and
+    # ``clear_categories`` follows ``read``: the API sends both so that a function app from before ``read`` still clears.
+    read = req_body.get("read") or {}
     try:
         for add_cat in add_categories:
-            notifs[add_cat] = notifs.get(add_cat, 0) + 1  # a counter added after the kingdom was made starts at 0
+            notifs_counts.add(notifs, add_cat)  # a counter added after the kingdom was made starts at 0
+        for read_cat, seen_total in read.items():
+            notifs_counts.mark_read(notifs, read_cat, seen_total)
         for clear_cat in clear_categories:
-            notifs[clear_cat] = 0
+            if clear_cat not in read:
+                notifs_counts.mark_read(notifs, clear_cat)
         notifs.update(set_fields)
         CONTAINER.replace_item(
             item_id,
