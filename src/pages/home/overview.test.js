@@ -14,7 +14,8 @@ const data = (kingdom = {}) => ({
         ...kingdom,
     },
     mobis: {
-        maxes: { defense: { current: 4321 }, offense: { current: 1234 } },
+        maxes: { defense: { current: 9999 }, offense: { current: 9999 } },
+        now: { defense: 4321, offense: 1234 },  // what the card shows: current, not the best case
         units: { general_0: { return_time: new Date(Date.now() + 2 * 3.6e6).toISOString() } },
         current_hangar_capacity: 50, max_hangar_capacity: 100,
     },

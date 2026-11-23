@@ -574,6 +574,36 @@ def _calc_maxes(
     }
     return maxes
 
+def _strength_now(kd_info):
+    """
+    The kingdom's own strength at home right now, with what it really has: its military bonus, military shields,
+    fuel and race, and for offense the generals at home. ``maxes`` is the best case (full bonus and shields, every
+    general); this is what an attack on it would face, and what it could send. Bonuses that depend on the other side
+    (war, denouncing, peace) are left out.
+    """
+    units_home = {key: value for key, value in kd_info["units"].items() if key in uas.UNITS}
+    military_bonus = float(uas.project_bonuses(kd_info)["military_bonus"] or 0)
+    fuelless = kd_info.get("fuel", 0) <= 0
+    return {
+        "defense": _calc_max_defense(
+            units_home,
+            military_bonus=military_bonus,
+            other_bonuses=0,
+            shields=kd_info.get("shields", {}).get("military", 0),
+            fuelless=fuelless,
+            gaian=kd_info.get("race") == "Gaian",
+        ),
+        "offense": _calc_max_offense(
+            units_home,
+            military_bonus=military_bonus,
+            other_bonuses=0,
+            generals=int(kd_info.get("generals_available", 0) or 0),
+            fuelless=fuelless,
+            lumina=kd_info.get("race") == "Lumina",
+        ),
+    }
+
+
 def _calc_hangar_capacity(kd_info, units, modifiers=None):
     """The hangar space the kingdom has (after its projects and ``modifiers``) and the space its units take."""
     max_hangar_capacity = math.floor(
@@ -758,6 +788,7 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, modifiers=None
     payload = {
         'units': units,
         'maxes': maxes,
+        'now': _strength_now(kd_info_parse),
         'recruit_price': _recruit_price(kd_info_parse, modifiers),
         'recruit_time': recruit_time,
         'max_hangar_capacity': max_hangar_capacity,

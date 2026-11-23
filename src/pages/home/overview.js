@@ -90,8 +90,8 @@ export function Overview({ data }) {
 
             <Card title="Military" to="/military">
                 <Stats items={[
-                    { label: "Defense at home", value: displayNumber(mobis.maxes?.defense?.current) },
-                    { label: "Offense at home", value: displayNumber(mobis.maxes?.offense?.current) },
+                    { label: "Defense at home", value: displayNumber(mobis.now?.defense) },
+                    { label: "Offense at home", value: displayNumber(mobis.now?.offense) },
                     { label: "Generals home", value: kingdom.generals_available ?? "--" },
                     { label: "Hangar", value: mobis.max_hangar_capacity ? displayPercent((mobis.current_hangar_capacity || 0) / mobis.max_hangar_capacity) : "--" },
                 ]} />
