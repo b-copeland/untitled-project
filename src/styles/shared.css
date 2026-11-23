@@ -259,6 +259,18 @@
 
 /* The slider-only form (the Build pages): the number on the left, the most you can choose on the right. */
 .amount-input-bare { min-width: 140px; }
+/* In a table on a wider screen the slider's column would otherwise shrink to fit the others. */
+@media (min-width: 576px) {
+  .table .amount-input-bare { min-width: 240px; }
+}
+/* On a phone a table's slider is on its own line under its row (GameTable's phoneRow), across the whole width. The
+   two lines read as one row: no divider between them. */
+.game-table-phone > tbody > tr.game-table-row-head > * { border-bottom-width: 0; padding-bottom: 0.1rem; }
+.game-table-phone > tbody > tr.game-table-row-own > td { padding-top: 0; }
+.game-table-own-cell .amount-input { max-width: none; min-width: 0; margin-left: 0; }
+/* A table still wider than the phone scrolls sideways; its sliders stay the width of the card and in view. */
+.table-scroll-phone { container-type: inline-size; }
+.game-table-own-cell > div { position: sticky; left: 0; max-width: calc(100cqw - 1.25rem); }
 .amount-input-value { flex: 0 0 auto; min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; }
 .amount-input-cap-button { background: none; border: 0; padding: 0; cursor: pointer; color: var(--bs-link-color, #0d6efd); }
 .amount-input-cap-button:hover:not(:disabled) { text-decoration: underline; }

@@ -279,7 +279,7 @@ function ProjectTables({ groups, valueHeader, kdInfo, engineersInfo, projectsInf
                   : projectCells(row, kdInfo, engineersInfo, projectsInfo).assigned) },
             { header: "Points", cell: (row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).points },
             { header: valueHeader, cell:(row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).value },
-            ...inputHeaders.map((header, index) => ({ header, cell: (row) => inputs(row, blocked(row))[index] })),
+            ...inputHeaders.map((header, index) => ({ header, phoneRow: index === inputHeaders.length - 1, cell: (row) => inputs(row, blocked(row))[index] })),
         ];
         return (
             <div className="projects-category" key={category}>

@@ -83,7 +83,7 @@ function MilitaryContent(props) {
  * whatever the mode asks for, after any ``extra`` columns. ``omit`` drops columns by header (Upgrade shows only what an
  * upgrade needs). A unit whose project is not done shows why in place of its numbers.
  */
-function UnitsTable({ kdInfo, mobisInfo, units, lastHeader, last, extra = [], omit = [], className = "" }) {
+function UnitsTable({ kdInfo, mobisInfo, units, lastHeader, last, extra = [], omit = [], className = "", phoneRow = true }) {
     const desc = mobisInfo.units_desc || {};
     const locked = (unit) => Boolean(unit.project) && (kdInfo.completed_projects || []).indexOf(unit.project) < 0;
     const whole = (value) => Math.floor(value || 0).toLocaleString();
@@ -96,7 +96,7 @@ function UnitsTable({ kdInfo, mobisInfo, units, lastHeader, last, extra = [], om
           span: (unit) => (locked(unit) && !omit.includes("Training") ? 2 : 1) },
         { header: "Training", cell: (unit) => whole(mobisInfo.units.queued?.[unit.key]) },
         ...extra,
-        { header: lastHeader, cell: (unit) => last(unit, locked(unit)) },
+        { header: lastHeader, phoneRow, cell: (unit) => last(unit, locked(unit)) },
     ].filter((column) => !omit.includes(column.header));
     return <GameTable className={"game-table specialists-table " + className} columns={columns} rows={units} rowKey={(unit) => unit.key}
         rowClassName={(unit) => (locked(unit) ? "disabled-table-row" : undefined)} />;
@@ -305,7 +305,7 @@ function Upgrade(props) {
             {/* Only what an upgrade needs (the unit's price, fuel and training are on Train). On a phone each row is a
                 small block (military.css), which counts on these columns in this order. */}
             <UnitsTable kdInfo={props.kdInfo} mobisInfo={props.mobisInfo} units={rows} lastHeader="To Upgrade"
-                omit={["Cost", "Fuel", "Training"]} className="upgrade-table"
+                omit={["Cost", "Fuel", "Training"]} className="upgrade-table" phoneRow={false}
                 extra={[
                     { header: "From", align: "left", cell: (unit) => {
                         const source = desc[unit.key].upgrades_from;

@@ -14,8 +14,15 @@
     border-radius: var(--radius);
     overflow: hidden;
 }
+/* On a phone the table keeps a readable width and scrolls sideways inside its card, instead of squeezing its columns
+   and filter boxes too narrow to read. */
 .p-datatable-table {
     font-size: var(--table-font-size);
+    min-width: 640px;
+}
+.p-column-filter-row .p-inputtext {
+    width: 100%;
+    min-width: 5rem;
 }
 .p-datatable-tbody {
     width: 100%;
