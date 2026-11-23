@@ -59,7 +59,7 @@ export function AdvisorsList({ answer, onHide, busy = false }) {
             {hidden.length > 0 ? (
                 <>
                     <button type="button" className="advice-toggle" onClick={() => setShowHidden(!showHidden)}>
-                        {showHidden ? "Hide hidden advice" : `Show hidden advice (${hidden.length})`}
+                        {showHidden ? "Close hidden advice" : `Show hidden advice (${hidden.length})`}
                     </button>
                     {showHidden
                         ? <ul className="overview-advice advice-hidden-list">{hidden.map((item) => <AdviceItem key={item.id} item={item} onHide={onHide} busy={busy} />)}</ul>

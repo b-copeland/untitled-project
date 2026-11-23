@@ -12,8 +12,10 @@ healthy kingdom looks like, and they stay quiet for a kingdom that is doing fine
 
 ## How it works
 
-`GET /api/advisors` reads the player's preferences, the state, their kingdom, its mobis queue and the empires and galaxies
-(about six reads), builds a `Context`, runs every check in `CHECKS` and answers the advice that applies, most serious kind first:
+`GET /api/advisors` reads the player's preferences, the state, their kingdom, its mobis, structures and settles queues,
+the empires, the galaxies and the galaxy's politics (nine reads), plus the cluster for a galaxy leader, the universe
+votes while an election is open, and the empire's targets while it is at war. It builds a `Context`, runs every check
+in `CHECKS` and answers the advice that applies, most serious kind first:
 
 ```json
 {"enabled": true, "advice": [{"id": "fuel_running_out", "kind": "danger", "text": "Your fuel runs out in about 5 hours: ...",
@@ -38,6 +40,28 @@ bot.
 | `danger` | Something is hurting the kingdom now: out of fuel, fuel running out, hangars over capacity, defense so low that attacking it pays better than primitives | No |
 | `waste` | Money, land or people doing nothing | Yes |
 | `team` | Something the galaxy, cluster, empire or universe is waiting on. Advice only a galaxy leader can act on goes only to the leader | Yes |
+
+## The advice
+
+| Id | Kind | When | Line from |
+|---|---|---|---|
+| `out_of_fuel` | danger | fuel at or below zero | game rule (the fuelless penalties) |
+| `fuel_running_out` | danger | fuel falling, gone within `FUEL_WARNING_HOURS` | twice-a-day logins (tenet 1) |
+| `hangars_full` | danger | units at home, out and in training need more hangar space than there is | game rule (overflow takes room in homes) |
+| `defense_under_break_even` | danger | defense at home now under `break_even_per_star` (at war, the war line) | bot sum; bots.md finding 2 |
+| `empty_stars` | waste | `EMPTY_STARS_SHARE` of the stars empty with nothing on order | the guide: empty stars earn nothing |
+| `idle_money` | waste | money and funding over `IDLE_MONEY_HOURS` of income | bots.md finding 3 (bots keep about an hour idle) |
+| `auto_spending_without_targets` | waste | auto spending funds structures or units with no targets for them | game rule (nothing to build) |
+| `settling_slowly` | waste | settling queue under `SETTLE_SLOW_SHARE` of the cap while `settle_worth` is over 1 | bot sum; bots.md finding 1 |
+| `engineers_idle` | waste | auto assign off and `IDLE_ENGINEERS_SHARE` of engineers unassigned | game rule |
+| `generals_idle` | waste | all generals home, offense at home, no auto attack and no attack scheduled | bots.md finding 1 (primitives) |
+| `spy_attempts_full` | waste | spy attempts at `BASE_SPY_ATTEMPTS_MAX`, auto rob off | game rule (attempts over the cap are lost) |
+| `empire_war_targets` | team | the empire is at war and has targets | |
+| `universe_election_open` | team | an election is open and the kingdom has no votes in it | |
+| `cluster_vote_missing` | team | the galaxy has no cluster vote; the leader only | |
+| `galaxy_without_empire` | team | the galaxy is in no empire, from the mid round; the leader only | |
+| `galaxy_votes_missing` | team | the kingdom has not voted for leader or policies | |
+| `galaxy_without_policies` | team | the galaxy has no policy in force | |
 
 ## Where a threshold may come from
 

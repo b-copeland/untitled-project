@@ -2,6 +2,7 @@
 The advisors (``advisors.py``, docs/advisors.md): each check with plain inputs, then the route, hiding advice and the
 switch in the preferences.
 """
+import dataclasses
 import datetime
 import json
 
@@ -16,11 +17,17 @@ NOW = datetime.datetime(2026, 11, 22, tzinfo=datetime.timezone.utc)
 
 
 def _ctx(**kd_fields):
-    """A healthy kingdom: fuel to spare, room in its hangars, defended well over the break-even."""
-    ctx_fields = {key: kd_fields.pop(key) for key in ("epochs", "max_hangar", "used_hangar", "home_defense", "at_war")
+    """A healthy kingdom: fuel to spare, room in its hangars, defended well over the break-even, built on, settling,
+    money spent, and its galaxy votes in. Keyword arguments that are ``Context`` fields set those; the rest go into the
+    kingdom."""
+    ctx_fields = {key: kd_fields.pop(key) for key in [field.name for field in dataclasses.fields(uaadv.Context)]
                   if key in kd_fields}
-    kd = {"kdId": "1", "stars": 1000, "fuel": 50000, "income": {"fuel": {"net": 100}}, **kd_fields}
+    kd = {"kdId": "1", "race": "Xo", "stars": 1000, "fuel": 50000, "money": 1000,
+          "income": {"fuel": {"net": 100}, "money": {"net": 5000}},
+          "structures": {"homes": 500, "mines": 500}, "units": {"attack": 0, "engineers": 0}, "spy_attempts": 2,
+          **kd_fields}
     fields = {"epochs": 96, "max_hangar": 1000, "used_hangar": 500, "home_defense": 10 ** 6, "at_war": False,
+              "epochs_left": 240, "progress": 0.3, "settles_queued": 100,
               **ctx_fields}
     return uaadv.Context(kd=kd, now=NOW, **fields)
 
@@ -59,7 +66,7 @@ def test_fuel_running_out_gives_the_time_in_hours_not_epochs():
 
 
 def test_a_kingdom_without_an_income_yet_is_not_warned_about_fuel():
-    assert _ids(_ctx(income={})) == []
+    assert "fuel_running_out" not in _ids(_ctx(income={}))
 
 
 def test_hangars_full_counts_units_in_training():
@@ -101,6 +108,126 @@ def test_advice_is_most_serious_kind_first():
     assert [advice.id for advice in found] == ["d", "w"]
 
 
+# ----------------------------------------------------------------------------------------------------------- waste
+
+def _only(ctx, advice_id):
+    [advice] = [advice for advice in uaadv.advise(ctx) if advice.id == advice_id]
+    return advice
+
+
+def test_empty_stars_count_what_is_on_order():
+    assert "empty_stars" not in _ids(_ctx(structures={"homes": 900}, structures_queued=60))  # 40 empty: under 5%
+    assert _only(_ctx(structures={"homes": 900}, structures_queued=40), "empty_stars").text.startswith("60 of your stars")
+
+
+def test_idle_money_is_measured_in_hours_of_income():
+    # 5,000 an epoch is 10,000 an hour, so 12 hours is 120,000.
+    assert "idle_money" not in _ids(_ctx(money=100000, funding={"military": 20000}))
+    advice = _only(_ctx(money=130000, funding={"military": 20000}), "idle_money")
+    assert "150,000" in advice.text and "15 hours" in advice.text
+
+
+def test_auto_spending_without_targets_names_what_is_missing():
+    base = {"auto_spending_enabled": True, "auto_spending": {"structures": 0.3, "military": 0.3},
+            "structures_target": {"homes": 0.5}, "units_target": {"attack": 0}}
+    assert "for units" in _only(_ctx(**base), "auto_spending_without_targets").text
+    assert "auto_spending_without_targets" not in _ids(_ctx(**{**base, "auto_spending_enabled": False}))
+    assert "auto_spending_without_targets" not in _ids(_ctx(**{**base, "units_target": {"attack": 1}}))
+
+
+def test_settling_slowly_only_while_a_star_still_pays():
+    assert "settling_slowly" in _ids(_ctx(settles_queued=10))      # the cap is 100
+    assert "settling_slowly" not in _ids(_ctx(settles_queued=50))
+    assert "settling_slowly" not in _ids(_ctx(settles_queued=10, epochs_left=0))  # no time left to earn it back
+
+
+def test_engineers_idle_only_without_auto_assign():
+    kd = {"units": {"engineers": 100}, "projects_assigned": {"pop_bonus": 50}}
+    assert "engineers_idle" not in _ids(_ctx(**kd))                  # auto assign is on by default
+    assert "engineers_idle" in _ids(_ctx(auto_assign_projects=False, **kd))
+
+
+def test_generals_idle_needs_an_army_and_nothing_to_send_it():
+    army = {"units": {"attack": 100}}
+    assert "generals_idle" in _ids(_ctx(**army))
+    assert "generals_idle" not in _ids(_ctx(**army, auto_attack_enabled=True))
+    assert "generals_idle" not in _ids(_ctx(**army, generals_out=[{"attack": 50}]))
+    assert "generals_idle" not in _ids(_ctx(**army, schedule=[{"type": "attackprimitives"}]))
+    assert "generals_idle" not in _ids(_ctx())                       # no offense to send
+
+
+def test_spy_attempts_full():
+    full = uas.GAME_CONFIG["BASE_SPY_ATTEMPTS_MAX"]
+    assert "spy_attempts_full" in _ids(_ctx(spy_attempts=full))
+    assert "spy_attempts_full" not in _ids(_ctx(spy_attempts=full, auto_rob_enabled=True))
+
+
+# ------------------------------------------------------------------------------------------------------------ team
+
+def test_galaxy_votes_missing_says_which():
+    [advice] = uaadv.advise(_ctx(galaxy_votes_missing=["policies"]))
+    assert advice.id == "galaxy_votes_missing"
+    assert advice.text.startswith("You have not voted for all of your galaxy's policies.")
+    assert "leader and policies" in _only(_ctx(galaxy_votes_missing=["leader", "policies"]), "galaxy_votes_missing").text
+
+
+def test_a_galaxy_without_policies():
+    advice = _only(_ctx(galaxy_policies_active=0), "galaxy_without_policies")
+    assert "galaxy_without_policies" not in _ids(_ctx(galaxy_policies_active=1))
+    assert "galaxy_without_policies" not in _ids(_ctx(galaxy_policies_active=None))  # no galaxy
+    assert ("Galaxy politics", "/galaxypolitics") in advice.links
+
+
+def test_leader_only_advice_goes_only_to_the_leader():
+    assert "cluster_vote_missing" not in _ids(_ctx(is_leader=False, cluster_voted=False))
+    assert "cluster_vote_missing" in _ids(_ctx(is_leader=True, cluster_voted=False))
+    assert "galaxy_without_empire" not in _ids(_ctx(is_leader=False, in_empire=False))
+    assert "galaxy_without_empire" in _ids(_ctx(is_leader=True, in_empire=False, progress=0.5))
+    assert "galaxy_without_empire" not in _ids(_ctx(is_leader=True, in_empire=False, progress=0.1))  # early
+
+
+def test_an_open_election_without_your_votes():
+    ends = NOW + datetime.timedelta(hours=5, minutes=30)
+    [advice] = uaadv.advise(_ctx(election_ends=ends, cast_universe_votes=False))
+    assert advice.id == "universe_election_open" and "about 5 hours" in advice.text
+    assert _ids(_ctx(election_ends=ends, cast_universe_votes=True)) == []
+
+
+def test_war_targets():
+    [advice] = uaadv.advise(_ctx(at_war=True, war_targets=2))
+    assert advice.id == "empire_war_targets" and "2 targets" in advice.text
+    assert _ids(_ctx(at_war=False, war_targets=2)) == []
+
+
+def test_context_reads_leadership_votes_and_targets():
+    kd = {"kdId": "1", "race": "Xo", "stars": 300, "fuel": 100, "units": {}, "structures": {"hangars": 0}}
+    state = {"state": {"game_start": (NOW - datetime.timedelta(days=1)).isoformat(),
+                       "game_end": (NOW + datetime.timedelta(days=6)).isoformat(),
+                       "election_end": (NOW + datetime.timedelta(hours=2)).isoformat()}}
+    votes = {"votes": {"policy_1": {"option_1": {"2": 5}}, "policy_2": {"option_1": {}}}}
+    ctx = uaadv.context_for(kd, state, [], {"1": "e"}, {"e": {"war": ["f"]}}, NOW, galaxy_id="1:1",
+                            galaxy_votes={"leader": "1"}, cluster={"votes": {"1:2": "x"}}, universe_votes=votes,
+                            targets={"targets": {"9": {}}})
+    assert ctx.is_leader and not ctx.cluster_voted and ctx.in_empire and ctx.at_war and ctx.war_targets == 1
+    assert ctx.election_ends is not None and not ctx.cast_universe_votes
+    assert abs(ctx.progress - 1 / 7) < 0.01
+    assert ctx.galaxy_votes_missing == ["leader", "policies"] and ctx.galaxy_policies_active == 0
+
+
+def test_context_reads_the_galaxy_policies_the_round_plays():
+    import untitledapp.galaxypolicies as uagp
+    kd = {"kdId": "1", "race": "Xo", "stars": 300, "fuel": 100, "units": {}, "structures": {"hangars": 0}}
+    policy = uagp.round_policies({})[0]
+    option = next(iter(uas.GALAXY_POLICIES[policy]["options"]))
+    state = {"state": {"game_start": (NOW - datetime.timedelta(days=1)).isoformat(),
+                       "game_end": (NOW + datetime.timedelta(days=6)).isoformat(), "election_end": ""}}
+    document = {"votes": {"leader": {"1": "2"}}, "policy_votes": {policy: {"1": option}},
+                "policy_active": {policy: option}, "policy_updated": NOW.isoformat()}
+    ctx = uaadv.context_for(kd, state, [], {}, {}, NOW, galaxy_id="1:1", galaxy_votes=document)
+    assert ctx.galaxy_votes_missing == [] and ctx.galaxy_policies_active == 1
+    assert uaadv.context_for(kd, state, [], {}, {}, NOW).galaxy_policies_active is None
+
+
 # ----------------------------------------------------------------------------------------------------------- route
 
 def _auth(jwt):
@@ -129,8 +256,20 @@ def test_the_route_gives_a_new_kingdom_its_advice(app, client, jwt1):
 def test_the_route_reads_fuel_and_hangars_from_the_kingdom(app, client, jwt1):
     units = {**uas.INITIAL_KINGDOM_STATE["kingdom"]["units"], "defense": 100000}
     _set_up(fuel=0, units=units)
+    advice = client.get("/api/advisors", headers=_auth(jwt1)).get_json()["advice"]
+    danger = [item["id"] for item in advice if item["kind"] == "danger"]
+    assert danger == ["out_of_fuel", "hangars_full"]  # no hangars for 100,000 defenders, which out-defend the line
+
+
+def test_the_route_tells_a_galaxy_leader_about_the_cluster_vote(app, client, jwt1):
+    _set_up()
+    _create_item("galaxies", {"galaxies": {"1:1": ["1"]}})
+    _create_item("galaxy_votes_1:1", {"leader": "1", "votes": {"leader": {"1": "1"}},
+                                      "policy_votes": {}, "policy_active": {}})
     ids = [advice["id"] for advice in client.get("/api/advisors", headers=_auth(jwt1)).get_json()["advice"]]
-    assert ids == ["out_of_fuel", "hangars_full"]  # no hangars for 100,000 defenders, which out-defend the line
+    assert "cluster_vote_missing" in ids
+    assert "galaxy_votes_missing" in ids  # policies, not the leader
+    assert "galaxy_without_policies" in ids
 
 
 def test_no_advice_before_the_round_starts(app, client, jwt1):

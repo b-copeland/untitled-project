@@ -24,6 +24,7 @@ import flask
 import flask_praetorian
 
 import untitledapp.botstrategy as strategy
+import untitledapp.galaxypolicies as uagp
 import untitledapp.getters as uag
 import untitledapp.preferences as uapr
 import untitledapp.shared as uas
@@ -68,6 +69,20 @@ class Context:
     used_hangar: float          # hangar space its units take, those in training included
     home_defense: float         # the defense an attacker would face now, by the rules an attack uses
     at_war: bool = False        # the kingdom's empire is at war
+    epochs_left: float = 0.0    # until the round ends
+    progress: float = 0.0       # how far through the round, 0 to 1
+    structures_queued: float = 0
+    settles_queued: float = 0
+    expansionist: bool = False  # the galaxy's Expansionist option is active (cheaper settling)
+    # Team: the galaxy's politics as the kingdom sees them on the Galaxy politics page.
+    galaxy_votes_missing: list = dataclasses.field(default_factory=list)  # "leader" and/or "policies" not voted for
+    galaxy_policies_active: int = None  # options in force in the galaxy now; None without a galaxy
+    is_leader: bool = False     # the galaxy's leader
+    cluster_voted: bool = True  # the galaxy has a cluster vote in (only looked up for the leader)
+    in_empire: bool = True
+    election_ends: datetime.datetime = None  # when the universe election that is open closes; None if none is open
+    cast_universe_votes: bool = True         # the kingdom has votes in the open election
+    war_targets: int = 0        # targets its empire has marked, while at war
 
 
 def _hours(epochs):
@@ -146,19 +161,253 @@ def defense_under_break_even(ctx):
     )
 
 
+# ------------------------------------------------------------------------------------------------------------- waste
+
+# A twentieth of the land with nothing on it and nothing on order is worth a word; a few stars waiting for the next
+# build are not.
+EMPTY_STARS_SHARE = 0.05
+EMPTY_STARS_MIN = 10
+# Money and funding unspent for more than this many hours of income. Well-run bots keep about one hour's worth idle
+# (bots.md, "what the simulations say", 3); twelve leaves room for saving up, and matches twice-a-day logins.
+IDLE_MONEY_HOURS = 12
+# Settling counts as slow under this share of the most the queue may hold (BASE_MAX_SETTLE_CAP of the stars).
+SETTLE_SLOW_SHARE = 0.5
+# Unassigned engineers worth a word: this share of them, and at least this many.
+IDLE_ENGINEERS_SHARE = 0.05
+IDLE_ENGINEERS_MIN = 10
+
+
+def empty_stars(ctx):
+    stars = ctx.kd.get("stars", 0)
+    empty = stars - sum((ctx.kd.get("structures") or {}).values()) - ctx.structures_queued
+    if empty < max(stars * EMPTY_STARS_SHARE, EMPTY_STARS_MIN):
+        return None
+    return Advice(
+        "empty_stars", "waste",
+        f"{_number(empty)} of your stars have nothing built on them and nothing on order. An empty star earns nothing: "
+        "build on it, or set structure targets so auto spending does.",
+        [("Build structures", "/structures"), ("Spending", "/automation?tab=spending")],
+    )
+
+
+def idle_money(ctx):
+    income = ((ctx.kd.get("income") or {}).get("money") or {}).get("net") or 0
+    if income <= 0:
+        return None
+    idle = max(ctx.kd.get("money", 0), 0) + sum((ctx.kd.get("funding") or {}).values())
+    hours = _hours(idle / income)
+    if hours <= IDLE_MONEY_HOURS:
+        return None
+    return Advice(
+        "idle_money", "waste",
+        f"You have {_number(idle)} money waiting to be spent, about {math.floor(hours)} hours of income. Money earns "
+        "nothing until it becomes stars, structures or units. Spend it, or let auto spending do it.",
+        [("Build", "/build"), ("Spending", "/automation?tab=spending")],
+    )
+
+
+def auto_spending_without_targets(ctx):
+    kd = ctx.kd
+    if not kd.get("auto_spending_enabled"):
+        return None
+    shares = kd.get("auto_spending") or {}
+    missing = []
+    if shares.get("structures", 0) > 0 and sum((kd.get("structures_target") or {}).values()) <= 0:
+        missing.append("structures")
+    if shares.get("military", 0) > 0 and sum((kd.get("units_target") or {}).values()) <= 0:
+        missing.append("units")
+    if not missing:
+        return None
+    what = " or ".join(missing)
+    return Advice(
+        "auto_spending_without_targets", "waste",
+        f"Auto spending puts money aside for {what} but has no {what} to aim for, so that money builds nothing. Set "
+        "your targets.",
+        [("Targets", "/automation?tab=spending")],
+    )
+
+
+def settling_slowly(ctx):
+    """Settling is where most of a kingdom's stars come from (bots.md, "what the simulations say", 1), and
+    ``settle_worth`` says whether a star still pays for itself before the round ends."""
+    kd = ctx.kd
+    stars = kd.get("stars", 0)
+    if stars <= 0 or not kd.get("race"):
+        return None
+    cap = uas.GAME_FUNCS["BASE_MAX_SETTLE"](stars)
+    if ctx.settles_queued >= cap * SETTLE_SLOW_SHARE:
+        return None
+    income = ((kd.get("income") or {}).get("money") or {}).get("net") or 0
+    worth = strategy.settle_worth(kd, ctx.epochs_left, ctx.expansionist, income / stars if income > 0 else None)
+    if worth <= 1:
+        return None
+    return Advice(
+        "settling_slowly", "waste",
+        f"You are settling {_number(ctx.settles_queued)} stars, and could have {_number(cap)} on the way. A new star "
+        "still pays for itself before the round ends, and settling is where most kingdoms get most of their land.",
+        [("Settle", "/settle"), ("Spending", "/automation?tab=spending")],
+    )
+
+
+def engineers_idle(ctx):
+    kd = ctx.kd
+    if kd.get("auto_assign_projects", True):
+        return None
+    engineers = (kd.get("units") or {}).get("engineers", 0)
+    idle = engineers - sum((kd.get("projects_assigned") or {}).values())
+    if idle < max(engineers * IDLE_ENGINEERS_SHARE, IDLE_ENGINEERS_MIN):
+        return None
+    return Advice(
+        "engineers_idle", "waste",
+        f"{_number(idle)} of your engineers are not working on a project. Assign them, or let them be assigned "
+        "automatically.",
+        [("Projects", "/projects")],
+    )
+
+
+def generals_idle(ctx):
+    """Primitives are a fifth to a third of a kingdom's stars in the simulations (bots.md, "what the simulations say",
+    1): an army that never goes out leaves them to others."""
+    kd = ctx.kd
+    if kd.get("generals_out") or kd.get("auto_attack_enabled"):
+        return None
+    if any(str(entry.get("type", "")).startswith("attack") for entry in kd.get("schedule") or []):
+        return None
+    if strategy.raw_offense(kd.get("units") or {}) <= 0:
+        return None
+    return Advice(
+        "generals_idle", "waste",
+        "All your generals are at home and nothing will send them out. Attacking primitives brings stars: turn on "
+        "auto attack, or send or schedule an attack.",
+        [("Primitives", "/primitives"), ("Auto attack", "/automation")],
+    )
+
+
+def spy_attempts_full(ctx):
+    kd = ctx.kd
+    if kd.get("auto_rob_enabled") or kd.get("spy_attempts", 0) < uas.GAME_CONFIG["BASE_SPY_ATTEMPTS_MAX"]:
+        return None
+    return Advice(
+        "spy_attempts_full", "waste",
+        "Your spy attempts are full, so the new ones you earn are lost. Use them: rob primitives, spy on a kingdom, "
+        "or turn on auto rob.",
+        [("Spy", "/spy"), ("Auto rob", "/automation")],
+    )
+
+
+# -------------------------------------------------------------------------------------------------------------- team
+
+def galaxy_votes_missing(ctx):
+    missing = ctx.galaxy_votes_missing
+    if not missing:
+        return None
+    what = "a galaxy leader" if missing == ["leader"] else "your galaxy's leader and policies" if "leader" in missing \
+        else "all of your galaxy's policies"
+    return Advice(
+        "galaxy_votes_missing", "team",
+        f"You have not voted for {what}. Your galaxy is your team: its leader speaks for it, and its policies help "
+        "every kingdom in it.",
+        [("Galaxy politics", "/galaxypolitics")],
+    )
+
+
+def galaxy_without_policies(ctx):
+    if ctx.galaxy_policies_active is None or ctx.galaxy_policies_active > 0:
+        return None
+    return Advice(
+        "galaxy_without_policies", "team",
+        "Your galaxy has no policies in force. Each one helps every kingdom in the galaxy; agree on them with your "
+        "galaxymates and vote.",
+        [("Galaxy politics", "/galaxypolitics"), ("Galaxy board", "/message?tab=board")],
+    )
+
+
+def cluster_vote_missing(ctx):
+    if not ctx.is_leader or ctx.cluster_voted:
+        return None
+    return Advice(
+        "cluster_vote_missing", "team",
+        "As your galaxy's leader you cast its vote for a cluster benefit, and it has none. Every kingdom in the "
+        "cluster gets the benefits voted for.",
+        [("Cluster politics", "/clusterpolitics")],
+    )
+
+
+def galaxy_without_empire(ctx):
+    if not ctx.is_leader or ctx.in_empire or ctx.progress < strategy.EARLY_UNTIL:
+        return None
+    return Advice(
+        "galaxy_without_empire", "team",
+        "Your galaxy is in no empire. Empires go to war together and share their targets' spoils; as leader you can "
+        "found one, or ask to join one.",
+        [("Empire politics", "/empirepolitics")],
+    )
+
+
+def universe_election_open(ctx):
+    if ctx.election_ends is None or ctx.cast_universe_votes:
+        return None
+    hours = max((ctx.election_ends - ctx.now).total_seconds() / 3600, 0)
+    when = "within the hour" if hours < 1 else f"in about {math.floor(hours)} hours"
+    return Advice(
+        "universe_election_open", "team",
+        f"A universe election is open and closes {when}; you have not voted. Votes are bought with money, and the "
+        "result changes the rules for every kingdom.",
+        [("Universe politics", "/universepolitics")],
+    )
+
+
+def empire_war_targets(ctx):
+    if not ctx.at_war or ctx.war_targets <= 0:
+        return None
+    count = "a target" if ctx.war_targets == 1 else f"{ctx.war_targets} targets"
+    return Advice(
+        "empire_war_targets", "team",
+        f"Your empire is at war and has marked {count}. Attacks, spying and missiles on a target earn you points "
+        "and a share of its spoils.",
+        [("Empire targets", "/empirepolitics")],
+    )
+
+
 CHECKS = [
     out_of_fuel,
     fuel_running_out,
     hangars_full,
     defense_under_break_even,
+    empty_stars,
+    idle_money,
+    auto_spending_without_targets,
+    settling_slowly,
+    engineers_idle,
+    generals_idle,
+    spy_attempts_full,
+    empire_war_targets,
+    universe_election_open,
+    cluster_vote_missing,
+    galaxy_without_empire,
+    galaxy_votes_missing,
+    galaxy_without_policies,
 ]
 
-# Every advice id there is, and whether it can be hidden, so the hide route can refuse anything else.
+# Every advice id there is, and its kind, so the hide route can refuse anything else.
 IDS = {
     "out_of_fuel": "danger",
     "fuel_running_out": "danger",
     "hangars_full": "danger",
     "defense_under_break_even": "danger",
+    "empty_stars": "waste",
+    "idle_money": "waste",
+    "auto_spending_without_targets": "waste",
+    "settling_slowly": "waste",
+    "engineers_idle": "waste",
+    "generals_idle": "waste",
+    "spy_attempts_full": "waste",
+    "empire_war_targets": "team",
+    "universe_election_open": "team",
+    "cluster_vote_missing": "team",
+    "galaxy_without_empire": "team",
+    "galaxy_votes_missing": "team",
+    "galaxy_without_policies": "team",
 }
 
 
@@ -168,10 +417,14 @@ def advise(ctx, checks=None):
     return sorted(found, key=lambda advice: KINDS.index(advice.kind))
 
 
-def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None):
-    """The context for ``kd``, from documents the route has read."""
+def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, structures_queue=(), settles_queue=(),
+                galaxy_id=None, galaxy_votes=None, cluster=None, universe_votes=None, targets=None):
+    """The context for ``kd``, from documents the route has read. ``cluster`` (the cluster document) is only needed
+    for a galaxy leader, ``universe_votes`` while an election is open, ``targets`` (the empire's targets document)
+    while its empire is at war: the route reads each only then."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
-    epochs = strategy.epochs_since(now, uas.utc(state["state"]["game_start"]))
+    game_start, game_end = uas.utc(state["state"]["game_start"]), uas.utc(state["state"]["game_end"])
+    epochs = strategy.epochs_since(now, game_start)
     units = uag._calc_units(now, kd["units"], kd.get("generals_out", []), mobis_queue)
     max_hangar, used_hangar = uag._calc_hangar_capacity(kd, units)
     home_defense = uag._calc_max_defense(
@@ -182,10 +435,52 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None):
         fuelless=kd.get("fuel", 0) <= 0,
         gaian=kd.get("race") == "Gaian",
     )
-    empire = empires_inverted.get(str(kd.get("kdId")))
+    kd_id = str(kd.get("kdId"))
+    empire = empires_inverted.get(kd_id)
     at_war = bool(empire and empires.get(empire, {}).get("war"))
-    return Context(kd=kd, now=now, epochs=epochs, max_hangar=max_hangar, used_hangar=used_hangar,
-                   home_defense=home_defense, at_war=at_war)
+    missing, active_count, expansionist = [], None, False
+    if galaxy_votes is not None:
+        # The galaxy's policies as the tally has them now, for the policies this round plays (galaxypolicies.py).
+        policies = uagp.round_policies(state["state"])
+        galaxy = uagp.advance(galaxy_votes, policies, game_start, now)
+        if kd_id not in ((galaxy_votes.get("votes") or {}).get("leader") or {}):
+            missing.append("leader")
+        if policies and all(kd_id not in galaxy["votes"].get(policy, {}) for policy in policies):
+            missing.append("policies")
+        active_count = len(galaxy["active"])
+        expansionist = "expansionist" in galaxy["active"].values()
+    galaxy_votes = galaxy_votes or {}
+    is_leader = galaxy_votes.get("leader") == kd_id
+    election_ends = election_open(state, now)
+    cast = True
+    if election_ends is not None:
+        cast = any(kd_id in voters for options in (universe_votes or {}).get("votes", {}).values()
+                   for voters in options.values())
+    return Context(
+        kd=kd, now=now, epochs=epochs, max_hangar=max_hangar, used_hangar=used_hangar, home_defense=home_defense,
+        at_war=at_war,
+        epochs_left=max((game_end - now).total_seconds(), 0) / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"],
+        progress=strategy.round_progress(now, game_start, game_end),
+        structures_queued=uag._queue_total(structures_queue),
+        settles_queued=uag._queue_total(settles_queue),
+        expansionist=expansionist,
+        galaxy_votes_missing=missing,
+        galaxy_policies_active=active_count,
+        is_leader=is_leader,
+        cluster_voted=not is_leader or galaxy_id in ((cluster or {}).get("votes") or {}),
+        in_empire=empire is not None,
+        election_ends=election_ends,
+        cast_universe_votes=cast,
+        war_targets=len((targets or {}).get("targets") or {}) if at_war else 0,
+    )
+
+
+def election_open(state, now):
+    """When the universe election that is open now closes, or None."""
+    end = state["state"].get("election_end") or ""
+    if end == "" or now >= uas.utc(end):
+        return None
+    return uas.utc(end)
 
 
 @bp.route("/api/advisors")
@@ -194,6 +489,9 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None):
 def get_advisors():
     """``{"enabled", "advice"}``: the caller's advice, most serious first, the hidden ones flagged ``hidden``. Nothing
     while the advisors are switched off, before the round starts, or without a kingdom."""
+    import untitledapp.clusters as uacl  # clusters imports getters, which imports more; keep the import here
+    import untitledapp.occ as occ
+
     user = flask_praetorian.current_user()
     preferences = uapr.read(user.id)
     if preferences["advisors"] == "off":
@@ -206,8 +504,23 @@ def get_advisors():
     kd = uag._get_kd_info(kd_id)
     if not kd.get("race"):  # never set up
         return flask.jsonify({"enabled": True, "advice": []}), 200
-    empires_inverted, empire_infos, _, _ = uag._get_empires_inverted()
-    ctx = context_for(kd, state, uag._get_mobis_queue(kd_id), empires_inverted, empire_infos["empires"], now)
+    empires_inverted, empire_infos, _, galaxy_info = uag._get_empires_inverted()
+    empires = empire_infos["empires"]
+    galaxy_id = next((galaxy for galaxy, members in galaxy_info.items() if str(kd_id) in members), None)
+    galaxy_votes = uag._get_galaxy_politics(kd_id, galaxy_id)[0] if galaxy_id else {}
+    # The rest only when a check could use it.
+    cluster = (uag._get_cluster_document(uacl.cluster_of(galaxy_id))
+               if galaxy_id and galaxy_votes.get("leader") == str(kd_id) else None)
+    universe_votes = uag._get_universe_politics() if election_open(state, now) else None
+    empire = empires_inverted.get(str(kd_id))
+    targets = (occ.read(f"/empire/{empire}/targets")
+               if empire and empires.get(empire, {}).get("war") and empires[empire].get("targets") else None)
+    ctx = context_for(
+        kd, state, uag._get_mobis_queue(kd_id), empires_inverted, empires, now,
+        structures_queue=uag._get_structures_queue(kd_id), settles_queue=uag._get_settle_queue(kd_id),
+        galaxy_id=galaxy_id, galaxy_votes=galaxy_votes, cluster=cluster, universe_votes=universe_votes,
+        targets=targets,
+    )
     hidden = set(preferences["hidden_advice"])
     advice = [item.view(hidden=item.id in hidden and item.kind in HIDEABLE_KINDS) for item in advise(ctx)]
     return flask.jsonify({"enabled": True, "advice": advice}), 200
