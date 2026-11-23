@@ -26,6 +26,7 @@ import untitledapp.lastknown as uala
 import untitledapp.shared as uas
 import untitledapp.botbrain as botbrain
 import untitledapp.roundend as uare
+import untitledapp.recurring as uarec
 from untitledapp import REQUESTS_SESSION
 from untitledapp.push import push
 
@@ -1819,6 +1820,9 @@ def _refresh_kd_in(kd_id, state, time_update, update_history, context):
     # return it. Only read it again after a step that changes the kingdom, instead of after every step.
     new_kd_info = json.loads(kd_payload)
     if _resolve_schedules(kd_id, time_update, new_kd_info):
+        new_kd_info = uag._get_kd_info(kd_id)
+    # Repeating spy operations come before the auto rob, which only gets the attempts they leave.
+    if uarec.resolve_recurring(kd_id, time_update, new_kd_info):
         new_kd_info = uag._get_kd_info(kd_id)
     reserved_generals = botbrain.reserved_generals(new_kd_info)  # kept for the bot's own attacks
     if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > reserved_generals:

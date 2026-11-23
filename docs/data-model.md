@@ -192,6 +192,7 @@ Created from `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`, which has the st
 | `auto_rob_enabled`, `auto_rob_settings` | Automatic robbing of primitives |
 | `projects_points`, `projects_max_points`, `projects_assigned`, `completed_projects`, `auto_assign_projects` | Projects: progress, caps, engineers assigned, unlocks done. One key per project in `PROJECTS`; a kingdom made before a unit or project existed lacks its keys until its next tick fills them (`with_new_fields` in `shared.py`), so read them with the helpers there. |
 | `schedule` | Scheduled actions waiting for their time: `{id, time, type, options}`. An attack's `options` hold `pure_offense` and `flex_offense` (fractions of the whole army), `units_mode` (`send`: that share; `up_to`: up to that share, counting units already out), `prefer_autofill`, `autofill_buffer`, `send_without_intel` and `generals`. Entries saved before `units_mode` and `send_without_intel` existed lack them and run as `up_to` and true. |
+| `recurring` | Repeating spy operations (issue #137, `recurring.py`): `{id, type, target, target_name, operation, drones_pct, shielded, share_to_galaxy, cut, stop_after_fails, until, next, fails, refused, runs, last}`. `type` is `siphon` or `intel`; `next` is the earliest time it runs again; `last` is `{time, status, message}` of the last run. Missing on kingdoms made before it (read as `[]`) |
 | `siphons` | Siphons this kingdom is running |
 
 Fields added after creation:

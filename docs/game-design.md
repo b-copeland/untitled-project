@@ -86,7 +86,8 @@ building.
   the matching `next_resolve`.
 - The refresh, for each kingdom, resolves every category whose `next_resolve` has passed: credits finished queue entries,
   returns generals, regenerates spy attempts, runs auto spending. Then it adds income for the time elapsed since
-  `last_income`, writes the kingdom once, and runs due scheduled actions and auto attack or rob.
+  `last_income`, writes the kingdom once, and runs due scheduled actions, due repeating spy operations, and auto
+  attack or rob.
 - Finish times are spread: a build of 100 structures arrives in several parts between a minimum and maximum number of
   epochs (`*_TIME_MIN_MULTIPLIER`, `*_TIME_MAX_MUTLIPLIER`, `*_TIME_SPLITS`; the misspelling is in the real key names).
 
@@ -103,6 +104,7 @@ building.
 | Galaxy board | `board.py` (`/api/galaxyboard`, `/api/galaxyboard/*`) | `GALAXY_BOARD_MAX_LENGTH`, `GALAXY_BOARD_KEEP_POSTS` | `src/pages/help/home/message.js` |
 | Sharing your own kingdom with galaxymates | `misc.py` (`/api/share/<kingdom>`, `/api/unshare/<kingdom>`) | | `src/pages/help/other/viewkingdom.js` |
 | Schedule | `conquer.py` (`/api/schedule`), `refresh._resolve_schedules` | | `src/pages/help/conquer/schedule.js` |
+| Repeating spy operations | `recurring.py` (`/api/recurring`), `recurring.resolve_recurring` | | `src/pages/help/conquer/schedule.js` |
 | Politics | `politics.py`, `universepolicies.py` (ballots, the count, who an option hits), `refresh._begin_election`, `_resolve_election` | `UNIVERSE_POLICIES`, `UNIVERSE_*`, `BASE_FIRST_ELECTION_START_MULTIPLIER`, `BASE_VOTES_COST`, `AGGRO_*`, `DENOUNCE_*`, `PEACE_*`, `WAR_*` | `src/pages/help/politics/*.js` |
 | Galaxy policies and effects | `galaxypolicies.py` (the draw, the tally), `politics.cast_galaxy_vote`; what they do through `getters._get_modifiers` and `_RefreshContext.modifiers` | `GALAXY_POLICIES`, `GALAXY_POLICIES_PER_ROUND`, `GALAXY_POLICY_TALLY_EPOCHS`, `EFFECTS` | `src/pages/help/politics/politics.js` |
 | Empire targets | `targets.py` (`/api/empiretargets`, `/api/empiretargets/*`); the hooks in `conquer._attack`, `_spoils_forecast`, `_spy`, `_launch_missiles`, `misc._mark_kingdom_death` and `politics._surrender` | `TARGET_*`, `TARGET_ACTIONS` | `src/pages/help/politics/empirepolitics.js` |
