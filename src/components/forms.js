@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Form from "react-bootstrap/Form";
 import InputGroup from "react-bootstrap/InputGroup";
 import Button from "react-bootstrap/Button";
+import { displayShort } from "../format";
 
 /**
  * The state of a form of named text fields: ``values``, an ``onChange`` for the inputs (it reads the input's name), and
@@ -112,7 +113,8 @@ export function SubmitButton({ loading, blocked, onClick, children, variant = "p
 /**
  * A slider for choosing an amount, for spending from something shared (money, a pool of recruits, 100%) across several
  * sliders at once. By default it is the slider alone, with the number chosen on its left and the most that can be
- * chosen on its right (press it to fill it in): that is all the Build pages need, as the auto builder does most of the
+ * chosen on its right (press it to fill it in), both short ("33k", exact on hover) in a fixed width so the slider
+ * never moves under the pointer: that is all the Build pages need, as the auto builder does most of the
  * work. ``box`` adds a number box and a Max button for the planner pages (Attack, Spy, ...), where the exact number
  * matters.
  *
@@ -147,11 +149,13 @@ export function AmountInput({ name, id, value, onChange, max = 0, soloMax, error
         return (
             <div className="amount-input amount-input-bare">
                 <div className="amount-input-track">
-                    <output className="amount-input-value" aria-live="off">{Math.min(number, scale).toLocaleString()}{suffix || ""}</output>
+                    <output className="amount-input-value" aria-live="off" title={`${Math.min(number, scale).toLocaleString()}${suffix || ""}`}>
+                        {displayShort(Math.min(number, scale))}{suffix || ""}
+                    </output>
                     {slider}
                     <button type="button" className="amount-input-cap amount-input-cap-button" disabled={disabled || available < 1}
                         onClick={() => set(available)} title={`Fill in the most you can: ${available.toLocaleString()}`}>
-                        {available.toLocaleString()}
+                        {displayShort(available)}
                     </button>
                 </div>
                 {error ? <div className="amount-input-error">{error}</div> : null}
@@ -181,7 +185,7 @@ export function AmountInput({ name, id, value, onChange, max = 0, soloMax, error
             </div>
             <div className="amount-input-track">
                 {slider}
-                <span className="amount-input-cap" title="The most you can choose">{available.toLocaleString()}</span>
+                <span className="amount-input-cap" title={`The most you can choose: ${available.toLocaleString()}`}>{displayShort(available)}</span>
             </div>
             {error ? <div className="amount-input-error">{error}</div> : null}
         </div>
