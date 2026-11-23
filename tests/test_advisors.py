@@ -69,26 +69,27 @@ def test_a_kingdom_without_an_income_yet_is_not_warned_about_fuel():
     assert "fuel_running_out" not in _ids(_ctx(income={}))
 
 
-def test_hangars_full_counts_units_in_training():
-    assert _ids(_ctx(max_hangar=1000, used_hangar=1000)) == []
-    [advice] = uaadv.advise(_ctx(max_hangar=1000, used_hangar=1200))
+def test_hangars_full_once_the_overflow_costs_a_twentieth_of_the_homes_room():
+    # 500 homes hold 25,000 people: a twentieth is 1,250 units without a hangar.
+    assert _ids(_ctx(max_hangar=1000, used_hangar=2250)) == []
+    [advice] = uaadv.advise(_ctx(max_hangar=1000, used_hangar=2300))
     assert advice.id == "hangars_full"
-    assert "1,200" in advice.text and "1,000" in advice.text
+    assert "2,300" in advice.text and "1,000" in advice.text and "The 1,300 without a hangar" in advice.text
 
 
-def test_defense_under_the_break_even_with_primitives():
+def test_defense_well_under_the_break_even_with_primitives():
     line = 1000 * strategy.break_even_per_star(96)
-    assert _ids(_ctx(home_defense=line)) == []
-    [advice] = uaadv.advise(_ctx(home_defense=line - 1))
+    assert _ids(_ctx(home_defense=line * uaadv.DEFENSE_WARNING_SHARE)) == []
+    [advice] = uaadv.advise(_ctx(home_defense=line * uaadv.DEFENSE_WARNING_SHARE - 1))
     assert advice.id == "defense_under_break_even"
-    assert f"{int(line):,}" in advice.text
+    assert f"{int(line):,}" in advice.text  # the full line, not the warning point
     assert ("Train units", "/military") in advice.links
 
 
 def test_at_war_the_line_is_higher_and_the_advice_says_why():
-    peace_line = 1000 * strategy.break_even_per_star(96)
-    assert _ids(_ctx(home_defense=peace_line, at_war=False)) == []
-    [advice] = uaadv.advise(_ctx(home_defense=peace_line, at_war=True))
+    defense = 1000 * strategy.break_even_per_star(96) * uaadv.DEFENSE_WARNING_SHARE
+    assert _ids(_ctx(home_defense=defense, at_war=False)) == []
+    [advice] = uaadv.advise(_ctx(home_defense=defense, at_war=True))
     assert "at war" in advice.text
 
 

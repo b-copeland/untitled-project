@@ -257,3 +257,13 @@ Found by simulating rounds (2026-11-15), not changed because they are rules or b
 - An attack always takes at least `BASE_ATTACK_MIN_STARS_GAIN` stars, so a small kingdom can be ground down to nothing.
 - Details, and what else the simulations show, in
   [bots.md](bots.md#what-the-simulations-say-about-the-game-for-the-maintainer).
+
+## Advisors
+
+Issue #185, [advisors.md](advisors.md). Updated 2026-11-22.
+
+| Item | Status |
+|---|---|
+| Bots overfill their hangars | They run 5-20% over capacity, counting units in training (the game's overflow rule counts them; `botstrategy.structures_plan` does not), so `hangars_full` fires on most bots. Fixing the bots' hangar sizing needs a simulation comparison. |
+| Bots never cast a cluster vote | `cluster_vote_missing` fires on every galaxy-leader bot. `botbrain.plan_politics` has no cluster vote. |
+| Thresholds | `DEFENSE_WARNING_SHARE`, `HANGAR_OVERFLOW_SHARE`, `EMPTY_STARS_SHARE`, `IDLE_MONEY_HOURS`, `SETTLE_SLOW_SHARE`, `IDLE_ENGINEERS_SHARE` are proposals checked on bots only; no human rounds to check them against. |

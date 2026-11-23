@@ -47,8 +47,8 @@ bot.
 |---|---|---|---|
 | `out_of_fuel` | danger | fuel at or below zero | game rule (the fuelless penalties) |
 | `fuel_running_out` | danger | fuel falling, gone within `FUEL_WARNING_HOURS` | twice-a-day logins (tenet 1) |
-| `hangars_full` | danger | units at home, out and in training need more hangar space than there is | game rule (overflow takes room in homes) |
-| `defense_under_break_even` | danger | defense at home now under `break_even_per_star` (at war, the war line) | bot sum; bots.md finding 2 |
+| `hangars_full` | danger | units at home, out and in training need more hangar space than there is, by more than `HANGAR_OVERFLOW_SHARE` of the homes' room | game rule (overflow takes room in homes); measured on the bots |
+| `defense_under_break_even` | danger | defense at home now under `DEFENSE_WARNING_SHARE` of `break_even_per_star` (at war, the war line) | bot sum; bots.md finding 2; measured on the bots |
 | `empty_stars` | waste | `EMPTY_STARS_SHARE` of the stars empty with nothing on order | the guide: empty stars earn nothing |
 | `idle_money` | waste | money and funding over `IDLE_MONEY_HOURS` of income | bots.md finding 3 (bots keep about an hour idle) |
 | `auto_spending_without_targets` | waste | auto spending funds structures or units with no targets for them | game rule (nothing to build) |
@@ -86,6 +86,27 @@ Never a number guessed in `advisors.py` without one of these.
 - Every advice has at least one link, to the page (and tab, `?tab=`) where the fix is made.
 - The `id` is stable and particular (`hangars_full`, not `structures`): hiding one must not hide another, and hidden
   ids are kept for good.
+
+## Measured on the bots
+
+`scripts/simulate_round.py` runs every check on every kingdom at every sample and reports how often each fired, by
+playstyle and phase ([bots.md](bots.md#tuning-scriptssimulate_roundpy)). The bots play every rule the Help gives
+consistently, so an advice that fires on most of them all round is either drawn in the wrong place or points at
+something the bots also get wrong. Rerun it after changing a threshold or a bot rule.
+
+What it showed (seven days, 40 bots, three seeds), and what was done:
+
+- **Defense.** Fired on any shortfall, it caught 50-85% of attackers and explorers: they aim at about the break-even
+  on purpose and sit a little under it without being hunted. From `DEFENSE_WARNING_SHARE` (0.8) of the line it fires
+  on 0-30% by playstyle, mostly early in the round, while armies are still being built.
+- **Hangars.** Any overflow caught 93% of bots: they run 5-20% over capacity all round, counting units in training,
+  which the game's overflow rule counts and the bots' `structures_plan` does not. From `HANGAR_OVERFLOW_SHARE` of the
+  homes' room it still fires on about 80%. That is left as it is: by the game's rule those bots give up a twentieth or
+  more of their homes to units without hangars. It is a bot gap, listed in [status.md](status.md#advisors).
+- **Cluster vote.** Fires on every galaxy leader all round: the bots never cast a cluster vote. A bot gap.
+- The rest fire on a minority, at the times one would expect: empty stars early (primitives bring land faster than it
+  is built on), settling slowly early and late, idle generals on bots whose style keeps the army home, full spy
+  attempts on thieves holding theirs for siphons.
 
 ## Hiding and the switch
 

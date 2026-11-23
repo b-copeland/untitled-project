@@ -129,26 +129,37 @@ def fuel_running_out(ctx):
     )
 
 
+# Each unit without a hangar takes the room of one person in the homes (refresh._calc_pop_change_per_epoch). Bots run
+# 5-20% over their hangars all round, counting units in training (docs/advisors.md, "Measured on the bots"), so a
+# little overflow is normal; it is worth a warning once it costs more than this share of the homes' room.
+HANGAR_OVERFLOW_SHARE = 0.05
+# Defense under this share of the break-even line. Bots aim at about the line (explorers on purpose, bots.md) and sit a
+# little under it often without being hunted; well under it, a kingdom is clearly the better target.
+DEFENSE_WARNING_SHARE = 0.8
+
+
 def hangars_full(ctx):
-    if ctx.used_hangar <= ctx.max_hangar:
+    overflow = ctx.used_hangar - ctx.max_hangar
+    homes_room = (ctx.kd.get("structures") or {}).get("homes", 0) * uas.GAME_CONFIG["BASE_HOMES_CAPACITY"]
+    if overflow <= 0 or overflow <= homes_room * HANGAR_OVERFLOW_SHARE:
         return None
     return Advice(
         "hangars_full", "danger",
         f"Your units, with those in training, need {_number(ctx.used_hangar)} hangar space and your hangars hold "
-        f"{_number(ctx.max_hangar)}. Units without a hangar take room in your homes, so your population shrinks. "
-        "Build hangars.",
+        f"{_number(ctx.max_hangar)}. The {_number(overflow)} without a hangar take that much room from your homes, so "
+        "your population shrinks. Build hangars.",
         [("Build hangars", "/structures"), ("Military", "/military")],
     )
 
 
 def defense_under_break_even(ctx):
-    """Below this line, hitting the kingdom pays an attacker more than sending the same army at primitives (bots.md,
-    "what the simulations say", 2: bots that dropped to it were hunted at once)."""
+    """Below the line, hitting the kingdom pays an attacker more than sending the same army at primitives (bots.md,
+    "what the simulations say", 2). The warning starts at DEFENSE_WARNING_SHARE of it; the text gives the full line."""
     stars = ctx.kd.get("stars", 0)
     if stars <= 0:
         return None
     line = stars * strategy.break_even_per_star(ctx.epochs, war=ctx.at_war)
-    if ctx.home_defense >= line:
+    if ctx.home_defense >= line * DEFENSE_WARNING_SHARE:
         return None
     war = " Your empire is at war, which makes you worth more to its enemies." if ctx.at_war else ""
     return Advice(

@@ -242,6 +242,11 @@ For a round on the local stack (`simulate_bots.py`, or a real one), the admin pa
 (`/api/admin/universe`, four reads whatever the number of kingdoms, and `/api/admin/kingdom/<id>`, two reads when
 one is opened): every kingdom at a glance, and one in full with its bot. Admin only; nothing is hidden there.
 
+**The advisors on the bots.** Every sample also runs the Status page's advisors on every kingdom, from the documents a
+player's request would read, and the report ends with how often each advice fired, by playstyle and phase. It is how
+the advice thresholds are checked ([advisors.md](advisors.md#measured-on-the-bots)), and it shows bot gaps: an advice
+that keeps firing on one playstyle is something those bots never do.
+
 **All `Personality` and archetype numbers are `TUNE` values.** `botbrain.problems(personality)` and
 `bots.problems(archetype)` check them, with the validators the routes use.
 
