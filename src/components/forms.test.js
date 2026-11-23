@@ -104,3 +104,10 @@ test("a typed or pasted 1,000 reaches the form as 1000 in every kind of number b
     fireEvent.change(document.getElementById("drones-input"), { target: { value: "2,500" } });
     expect(fieldSeen).toEqual(["2500"]);
 });
+
+test("the slider's numbers are short, with the exact number on hover", () => {
+    render(<AmountInput name="money" label="Money" value="33123" max={2500000} onChange={() => {}} />);
+    const value = screen.getByText("33k");
+    expect(value).toHaveAttribute("title", "33,123");
+    expect(screen.getByRole("button", { name: "2.5m" })).toHaveAttribute("title", "Fill in the most you can: 2,500,000");
+});
