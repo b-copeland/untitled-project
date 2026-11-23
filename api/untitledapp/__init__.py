@@ -13,7 +13,7 @@ import flask_cors
 from flask_mail import Mail
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_sock import Sock, ConnectionClosed
+from flask_sock import Sock
 
 guard = flask_praetorian.Praetorian()
 cors = flask_cors.CORS()
@@ -47,7 +47,9 @@ class _FunctionAppSession(requests.Session):
 
 REQUESTS_SESSION = _FunctionAppSession()
 
-SOCK_HANDLERS = {}
+from untitledapp.sockets import Registry  # noqa: E402
+
+SOCKETS = Registry()  # this process's open notification sockets, by kingdom (sockets.py)
 
 # Users live in Cosmos, behind the function app (users.py, docs/decisions/0004-users-in-cosmos.md).
 from untitledapp.users import User, UserExists  # noqa: E402
@@ -100,6 +102,7 @@ def before_start_required(f):
 
 import untitledapp.getters as uag
 import untitledapp.shared as uas
+import untitledapp.sockets as untitledapp_sockets
 
 def _custom_limit_key_func():
     try:
@@ -224,30 +227,17 @@ def create_app(config_class='config.Config'):
     ):
         app.view_functions[endpoint] = limiter.limit(limit)(app.view_functions[endpoint])
 
+    def kingdom_for_token(token):
+        """The kingdom of a valid, unexpired login token's user (one read: the socket outlives any request cache)."""
+        user = User.get(guard.extract_jwt_token(token)["id"])
+        if user is None or not user.is_valid() or user.kd_id is None:
+            raise ValueError("No kingdom for this token")
+        return user.kd_id
+
     @sock.route('/ws/listen')
-    # @flask_praetorian.auth_required
     def listen(ws):
-        while True:
-            try:
-                data = ws.receive()
-                json_data = json.loads(data)
-
-                sock.app.logger.info('Got data %s', str(data))
-                jwt = json_data.get('jwt', None)
-                if jwt:
-                    id = guard.extract_jwt_token(jwt)["id"]
-                    user = User.get(id)  # not identify: this request lasts as long as the socket
-                    sock.app.logger.info('Added %s to listeners', user.kd_id)
-                    SOCK_HANDLERS[user.kd_id] = ws
-
-                sock.app.logger.info('Current handlers %s', SOCK_HANDLERS)
-            except ConnectionClosed:
-                sock.app.logger.info('Breaking handler')
-                break
-            except Exception as e:
-                sock.app.logger.warning('Error handling listener %s', str(e))
-
-            time.sleep(5)
+        """Notification pushes (push.py). The browser sends ``{"jwt": ...}`` on opening and every minute after."""
+        untitledapp_sockets.serve(ws, SOCKETS, kingdom_for_token, logger=sock.app.logger)
 
 
     @app.route('/', defaults={'path': ''})

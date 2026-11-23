@@ -23,7 +23,9 @@ class _Socket:
 
 def test_a_push_carries_its_kind_and_the_label_as_its_category(monkeypatch):
     socket = _Socket()
-    monkeypatch.setitem(untitledapp.SOCK_HANDLERS, "7", socket)
+    monkeypatch.setattr(untitledapp, "SOCKETS", untitledapp.sockets.Registry())
+    monkeypatch.setattr(uapu, "SOCKETS", untitledapp.SOCKETS)
+    untitledapp.SOCKETS.register("7", socket)
     uapu.push("7", "spy_attempts", "A new spy attempt is available", update=("kingdom",))
     assert socket.sent == [{
         "message": "A new spy attempt is available", "status": "info", "kind": "spy_attempts",

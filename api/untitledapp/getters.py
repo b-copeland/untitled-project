@@ -14,7 +14,7 @@ import untitledapp.universepolicies as uaup
 from untitledapp import request_cache
 import untitledapp.lastknown as uala
 import untitledapp.visits as uav
-from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import alive_required, start_required, REQUESTS_SESSION
 
 bp = flask.Blueprint("getters", __name__)
 

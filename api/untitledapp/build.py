@@ -12,7 +12,7 @@ import untitledapp.misc as uam
 import untitledapp.getters as uag
 import untitledapp.occ as occ
 import untitledapp.shared as uas
-from untitledapp import alive_required, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import alive_required, REQUESTS_SESSION
 
 bp = flask.Blueprint("build", __name__)
 

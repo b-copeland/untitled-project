@@ -42,7 +42,7 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
 - **The frontend** fetches each data key (`kingdom`, `structures`, ...) from its own `/api/<key>` route
   (`src/data/gameData.js`), polls the kingdom every 10 seconds, and refetches what an action changed. Game constants come
   from the server (`data.state.game_config`, `data.state.pretty_names`), not from copies in the browser.
-- **Live notifications** use a websocket at `/ws/listen`. `SOCK_HANDLERS` maps a kingdom to its open socket. Send one
+- **Live notifications** use a websocket at `/ws/listen`. `SOCKETS` (`sockets.py`) holds each kingdom's open sockets, one per tab or device: a socket is registered once it sends a valid token, and removed when it closes, goes quiet or fails, with caps per kingdom and per process. Send one
   with `push(kd_id, kind, message)` in `push.py`; every `kind` is in its `KINDS`, which the Settings page lists so a
   player can turn kinds off. The browser does the hiding, so a push costs no read of the player's preferences.
 
@@ -67,7 +67,7 @@ requests can overlap. Concretely:
 - **No locks.** The old SQLite locks only worked inside one process and are gone; nothing replaces them but the two
   rules above.
 
-Pieces that still assume one process or one machine, and so are known gaps: `SOCK_HANDLERS` and the rate limiter's
+Pieces that still assume one process or one machine, and so are known gaps: `SOCKETS` and the rate limiter's
 `memory://` storage. Do not build on them, and do not copy their pattern.
 
 ### 2. The server decides what a player can see

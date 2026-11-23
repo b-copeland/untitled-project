@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import useWebSocket from "react-use-websocket";
 
 import { useInterval } from "../hooks";
@@ -18,16 +18,33 @@ export function socketUrl() {
 
 /**
  * Listens for the server's push messages, collects them for the Notifications panel, and tells the caller which parts of the game data to
- * refresh. Registers the player's token on connect and every minute after, so the server keeps the socket mapped to them.
+ * refresh. Registers the player's token on every connect and every minute after, so the server keeps the socket mapped
+ * to them (api/untitledapp/sockets.py).
  *
  * ``muted`` is the kinds the player turned off in Settings (their preferences): those still refresh the data they name,
  * but are not shown.
  */
 export function useNotifications({ logged, session, updateData, muted = [] }) {
   const [messages, setMessages] = useState([]);
-  const { sendMessage, lastMessage } = useWebSocket(socketUrl());
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  // Open only while logged in, so logging out closes it. The server closes a socket that sends no valid token within
+  // seconds of opening, or none for a few minutes, so register on every open and reconnect, backing off, when it drops.
+  const { sendMessage, lastMessage } = useWebSocket(logged ? socketUrl() : null, {
+    onOpen: (event) => {
+      const token = sessionRef.current?.accessToken;
+      if (token) event.target.send(JSON.stringify({ "jwt": token }));
+    },
+    shouldReconnect: () => true,
+    reconnectAttempts: 30,
+    reconnectInterval: (attempt) => Math.min(1000 * 2 ** attempt, 60000),
+  });
 
-  const register = () => sendMessage(JSON.stringify({ "jwt": session.accessToken }));
+  const register = () => {
+    if (logged && sessionRef.current?.accessToken) {
+      sendMessage(JSON.stringify({ "jwt": sessionRef.current.accessToken }));
+    }
+  };
 
   useEffect(() => {
     if (lastMessage !== null) {
@@ -40,12 +57,6 @@ export function useNotifications({ logged, session, updateData, muted = [] }) {
       }
     }
   }, [lastMessage]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (logged) {
-      register();
-    }
-  }, [logged]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useInterval(register, 60000);
 
