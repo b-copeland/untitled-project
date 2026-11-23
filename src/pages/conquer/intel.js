@@ -545,7 +545,7 @@ function IntelMarket(props) {
         <>
             <div className="intel-market">
                 <ResultToasts title="Intel" results={results} setResults={setResults} />
-                <Tabs id="intel-tabs" defaultActiveKey="bounties" variant="tabs">
+                <Tabs id="intel-tabs" data-tour="intel-tabs" defaultActiveKey="bounties" variant="tabs">
                     <Tab eventKey="bounties" title={`Bounties (${intel.bounties.length})`}>
                         <Panel title="Open bounties"><BountiesTable {...shared} /></Panel>
                         <Panel title="Ask the galaxy for intel" className="intel-form-panel"><BountyForm {...shared} /></Panel>

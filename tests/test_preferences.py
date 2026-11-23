@@ -68,3 +68,13 @@ def test_a_notification_kind_that_does_not_exist_or_cannot_be_muted_is_refused(a
     assert _post(client, jwt1, {"muted": ["dead"]}).status_code == 400
     assert _post(client, jwt1, {"muted": "settles"}).status_code == 400
     assert _get(client, jwt1).get_json()["muted"] == []
+
+
+def test_the_tour_is_offered_until_the_player_answers_and_the_answer_is_kept(app, client, jwt1, jwt2):
+    assert _get(client, jwt1).get_json()["tour"] == "offer"
+    for answer in ("later", "declined", "done"):
+        assert _post(client, jwt1, {"tour": answer}).status_code == 200
+        assert _get(client, jwt1).get_json()["tour"] == answer
+    assert _get(client, jwt2).get_json()["tour"] == "offer"
+    assert _post(client, jwt1, {"tour": "maybe"}).status_code == 400
+    assert _get(client, jwt1).get_json()["tour"] == "done"

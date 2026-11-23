@@ -22,6 +22,7 @@ function StatusContent(props) {
     <>
       <Tabs
         id="controlled-tab-example"
+        data-tour="status-tabs"
         activeKey={key}
         onSelect={(k) => setKey(k)}
         variant="tabs"

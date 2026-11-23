@@ -22,7 +22,7 @@ function Primitives(props) {
     return (
         <>
             <div className="planner primitives">
-                <Tabs id="primitives-tabs" defaultActiveKey="attack" variant="tabs">
+                <Tabs id="primitives-tabs" data-tour="primitives-tabs" defaultActiveKey="attack" variant="tabs">
                     <Tab eventKey="attack" title="Attack">
                         <AttackPrimitives loading={props.loading} updateData={props.updateData} data={props.data} />
                     </Tab>

@@ -143,7 +143,7 @@ function Spy(props) {
                 <ResultToasts title="Spy Results" results={results} setResults={setResults} />
 
                 <div className="wide-layout spy-layout">
-                    <Panel className="area-target" title="1. Target and operation">
+                    <Panel className="area-target" title="1. Target and operation" data-tour="spy-target">
                         <FieldRow label="Target" htmlFor="spy-target">
                             <Picker id="spy-target" options={options} value={selected} onChange={onPickTarget}
                                 placeholder="Type a kingdom to filter" autoFocus={selected === undefined} />
@@ -198,7 +198,7 @@ function Spy(props) {
                     </FieldRow>
                 </Panel>
 
-                <Panel className="area-forecast" title="4. Forecast and send">
+                <Panel className="area-forecast" title="4. Forecast and send" data-tour="spy-forecast">
                     {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
                     {hasForecast ? <>
                         {guessing

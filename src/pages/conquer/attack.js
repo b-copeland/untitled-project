@@ -188,7 +188,7 @@ function Attack(props) {
                 <ResultToasts title="Attack Results" results={attackResults} setResults={setAttackResults} />
                 <div className="wide-layout attack-layout">
 
-                <Panel className="area-target" title="1. Choose a target">
+                <Panel className="area-target" title="1. Choose a target" data-tour="attack-target">
                     <Picker id="attack-target" options={options} value={selected} onChange={loadTarget}
                         placeholder="Type a kingdom to filter" autoFocus={selected === undefined} />
                     {loadingTarget ? <p className="planner-hint-line">Loading what is known about them...</p> : null}
@@ -209,7 +209,7 @@ function Attack(props) {
                 </Panel> : null}
 
                 {context ? <>
-                    <Panel className="area-def" title="2. Their defense">
+                    <Panel className="area-def" title="2. Their defense" data-tour="attack-defense">
                         {DEFENDER_UNITS.map(([key, name]) => (
                             <FieldRow key={key} label={name} status={unitStatus(key)} stat={<UnitStat kind="defense" value={unitsDesc[key]?.defense} />} htmlFor={"def-" + key}>
                                 {unitsKnown
@@ -232,7 +232,7 @@ function Attack(props) {
                         </FieldRow>
                     </Panel>
 
-                    <Panel className="area-attack" title="3. Your attack">
+                    <Panel className="area-attack" title="3. Your attack" data-tour="attack-units">
                         {ATTACK_UNITS.map(([key, name]) => (
                             // A unit that needs a project is shown once you have some.
                             (!unitsDesc[key]?.project || myUnits[key] > 0 || attackerValues[key])
@@ -261,7 +261,7 @@ function Attack(props) {
                     </Panel>
                 </> : null}
 
-                {context ? <Panel className="area-forecast" title="4. Forecast and send">
+                {context ? <Panel className="area-forecast" title="4. Forecast and send" data-tour="attack-forecast">
                     {forecast.message && !hasForecast ? <Alert variant="warning">{forecast.message}</Alert> : null}
                     {hasForecast ? <>
                         <div className={"planner-verdict " + (wins ? "good" : "bad")}>

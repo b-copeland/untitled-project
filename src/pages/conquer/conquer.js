@@ -48,6 +48,7 @@ function ConquerContent(props) {
     <>
       <Tabs
         id="conquer-tabs"
+        data-tour="conquer-tabs"
         activeKey={tab}
         variant="tabs"
         onSelect={openTab}
