@@ -18,7 +18,7 @@ import untitledapp.galaxypolicies as uagp
 import untitledapp.universepolicies as uaup
 import untitledapp.shared as uas
 import untitledapp.targets as uat
-from untitledapp import alive_required, start_required, REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import alive_required, start_required, REQUESTS_SESSION
 
 bp = flask.Blueprint("politics", __name__)
 

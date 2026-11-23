@@ -10,9 +10,8 @@ notification, because reading every player's preferences on every tick would cos
 """
 import json
 
-from flask_sock import ConnectionClosed
 
-from untitledapp import SOCK_HANDLERS
+from untitledapp import SOCKETS
 
 # (kind, label, group), in the order the Settings page shows them. The label is also the category the panel shows.
 KINDS = [
@@ -41,7 +40,7 @@ _LABELS = {**{kind: label for kind, label, _ in KINDS}, **ALWAYS}
 
 
 def push(kd_id, kind, message, status="info", delay=15000, update=()):
-    """Send one notification to the kingdom's open socket, if it has one. A closed or missing socket is not an error."""
+    """Send one notification to each of the kingdom's open sockets, if it has any (sockets.py). None is not an error."""
     payload = {
         "message": message,
         "status": status,
@@ -50,7 +49,4 @@ def push(kd_id, kind, message, status="info", delay=15000, update=()):
         "delay": delay,
         "update": list(update),
     }
-    try:
-        SOCK_HANDLERS[kd_id].send(json.dumps(payload))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    SOCKETS.send(kd_id, json.dumps(payload))
