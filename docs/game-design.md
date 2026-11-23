@@ -105,6 +105,7 @@ building.
 | Sharing your own kingdom with galaxymates | `misc.py` (`/api/share/<kingdom>`, `/api/unshare/<kingdom>`) | | `src/pages/help/other/viewkingdom.js` |
 | Schedule | `conquer.py` (`/api/schedule`), `refresh._resolve_schedules` | | `src/pages/help/conquer/schedule.js` |
 | Repeating spy operations | `recurring.py` (`/api/recurring`), `recurring.resolve_recurring` | | `src/pages/help/conquer/schedule.js` |
+| Reactive rules | `rules.py` (`/api/rules`), `rules.step` in the refresh write | | `src/pages/help/conquer/schedule.js` |
 | Politics | `politics.py`, `universepolicies.py` (ballots, the count, who an option hits), `refresh._begin_election`, `_resolve_election` | `UNIVERSE_POLICIES`, `UNIVERSE_*`, `BASE_FIRST_ELECTION_START_MULTIPLIER`, `BASE_VOTES_COST`, `AGGRO_*`, `DENOUNCE_*`, `PEACE_*`, `WAR_*` | `src/pages/help/politics/*.js` |
 | Galaxy policies and effects | `galaxypolicies.py` (the draw, the tally), `politics.cast_galaxy_vote`; what they do through `getters._get_modifiers` and `_RefreshContext.modifiers` | `GALAXY_POLICIES`, `GALAXY_POLICIES_PER_ROUND`, `GALAXY_POLICY_TALLY_EPOCHS`, `EFFECTS` | `src/pages/help/politics/politics.js` |
 | Empire targets | `targets.py` (`/api/empiretargets`, `/api/empiretargets/*`); the hooks in `conquer._attack`, `_spoils_forecast`, `_spy`, `_launch_missiles`, `misc._mark_kingdom_death` and `politics._surrender` | `TARGET_*`, `TARGET_ACTIONS` | `src/pages/help/politics/empirepolitics.js` |

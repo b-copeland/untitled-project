@@ -36,6 +36,7 @@ The steady load, without anyone acting:
 | The refresh | every minute, reading and writing every kingdom and its due queues, plus scores, history and elections |
 | Bots | as many function calls as a player, on the refresh |
 | Repeating spy operations | nothing until one is due and a spy attempt is free (found in the kingdom the tick already read). Then two kingdom writes (claim, record), one revealed read for intel, and the spy operation itself (what a player clicking Spy costs). At most one spy attempt's worth per epoch per kingdom, since attempts come back once an epoch |
+| Reactive rules | nothing to check: they run on the kingdom the tick is about to write. A firing rule adds one news write and a notification; a reaction against the sender adds a schedule entry to that write, and then costs what the action does. Every spy operation now writes the target once more (its `events`), about 10 RU |
 
 ## Rules
 

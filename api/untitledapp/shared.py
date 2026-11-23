@@ -293,6 +293,22 @@ def settle_shields(kd, when):
     return shields, climbs
 
 
+EVENT_KINDS = ("attacked", "spied", "missiles")
+
+
+def note_event(kd, kind, when, by=None, lost=False):
+    """
+    The kingdom's ``events`` with one more ``kind`` (``EVENT_KINDS``) at ``when``: the last time, who did it when the
+    kingdom can know (None otherwise), whether it lost, and a running count. The reactive rules read these
+    (``rules.py``), from the kingdom document the refresh already has. Missing on kingdoms made before it.
+    """
+    events = {key: dict(value) for key, value in (kd.get("events") or {}).items()}
+    old = events.get(kind) or {}
+    events[kind] = {"at": when.isoformat(), "by": str(by) if by else None, "lost": bool(lost),
+                    "count": int(old.get("count", 0)) + 1}
+    return events
+
+
 def self_destruct_share(units, stat):
     """The share of these units' raw ``stat`` ("offense" or "defense") that comes from self-destructing units, which is
     how much of ``SELF_DESTRUCT_LOSSES_INCREASE`` they add to the other side's losses. Zero if they have none."""
@@ -514,7 +530,9 @@ GAME_CONFIG = {
     "BASE_MISSILES_SHIELDS_MAX": 1.0,
     # Raised shields climb to the new level over this many epochs (lowered ones drop at once): strength never
     # changes much in an instant (tenet 1).
-    "BASE_SHIELDS_CLIMB_EPOCHS": 1, 
+    "BASE_SHIELDS_CLIMB_EPOCHS": 1,
+    # Not a gameplay limit: only a guard against a kingdom document grown huge by a script.
+    "BASE_MAX_RULES": 20, 
     "BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT": 0.005, 
 
     "BASE_VOTES_COST": 10000,
@@ -1342,6 +1360,8 @@ INITIAL_KINGDOM_STATE = {
             "missiles": 0.0
         },
         "shields_climb": {},
+        "events": {},
+        "rules": [],
         "income": {},
         "schedule": [],
         "recurring": [],
