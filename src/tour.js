@@ -21,9 +21,9 @@ const example = (demoName) => (demoName ? `${demoName} is filled in as an exampl
 export const TOUR_STOPS = [
     {
         path: "/status", title: "Welcome to your kingdom",
-        text: "This tour walks through the main pages. Nothing is sent or spent while it runs. The Status page "
-            + "is your kingdom at a glance: what changed since you were last here, your economy, your military, your "
-            + "growth and any threats. Each card's title links to the page where you act on it.",
+        text: "The Status page is your kingdom at a glance: what changed since your last visit, your economy, "
+            + "military, growth and threats. Each card's title opens the page where you act on it. Nothing is sent "
+            + "or spent during the tour.",
     },
     {
         path: "/status", target: "status-advisors", title: "Advisors",
@@ -37,9 +37,8 @@ export const TOUR_STOPS = [
     },
     {
         path: "/shields", target: "shields-panel", title: "Shields",
-        text: "Shields burn fuel every hour to protect you. Military shields add to your defense against attacks, "
-            + "and matter most: keep them as high as you can afford. Spy shields and spy radar work against spies, "
-            + "and missile shields cut the damage of missiles.",
+        text: "Shields burn fuel every hour to protect you. Military shields add to your defense, and matter most: "
+            + "keep them as high as you can afford. The others work against spies and missiles.",
     },
     {
         path: "/shields", target: "shields-fuel", title: "Fuel",
@@ -91,15 +90,13 @@ export const TOUR_STOPS = [
     },
     {
         path: "/automation?tab=schedule", target: "automation-tabs", title: "Schedule",
-        text: "Queue an attack, a spy operation or missiles for a set time, for when you will be away. The Schedule "
-            + "page also repeats operations, and sets reactions: change your settings, or act, when you are attacked, "
-            + "spied on, hit by missiles or low on fuel.",
+        text: "Queue an attack, a spy operation or missiles for a set time while you are away. The Schedule page "
+            + "also repeats operations, and reacts when you are attacked, spied on, hit by missiles or low on fuel.",
     },
     {
         path: "/build", target: "build-queues", title: "Build",
-        text: "Build is where you spend by hand: settle new stars, build structures, train military, put engineers on "
-            + "projects and build missiles, from the pages under Build in the menu. Anything auto spending does, you "
-            + "can also do yourself here. This page shows what is on its way and when it arrives.",
+        text: "The Build pages in the menu are where you spend by hand: settle stars, build structures, train "
+            + "military, put engineers on projects and build missiles. This one shows what is on its way and when.",
     },
     {
         path: "/conquer", target: "conquer-tabs", title: "Conquer",
@@ -148,10 +145,9 @@ export const TOUR_STOPS = [
     },
     {
         path: "/galaxypolitics", title: "Politics",
-        text: "Your galaxy votes for a leader and on policies, galaxies join into empires that go to war, and the "
-            + "universe votes on policies for everyone. No need to look now: come back once you have settled in. "
-            + "That is the tour. Every page has a Help button at the bottom right, and Settings can start the tour "
-            + "again.",
+        text: "Your galaxy votes for a leader and policies, galaxies join into empires that go to war, and the "
+            + "universe votes on policies for everyone. Come back once you have settled in. That is the tour: every "
+            + "page has a Help button, and Settings can start the tour again.",
     },
 ];
 

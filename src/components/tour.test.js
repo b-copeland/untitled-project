@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { Link, MemoryRouter, useLocation } from "react-router-dom";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { TourProvider, TourOffer, TourReminder, useTour } from "./tour";
+import { TourProvider, TourOffer, TourReminder, useTour, scrollToFrame } from "./tour";
 import { TOUR_STOPS, demoTarget, tourLength, resolve } from "../tour";
 
 jest.mock("../auth", () => ({ authFetch: jest.fn() }));
@@ -11,6 +11,7 @@ const { authFetch } = require("../auth");
 
 const updateData = jest.fn();
 beforeEach(() => {
+    window.scrollTo = jest.fn();  // jsdom has no scrolling
     updateData.mockImplementation((keys, funcs) => funcs.forEach((f) => f()));
     authFetch.mockImplementation(() => Promise.resolve({ json: () => Promise.resolve({ status: "success" }) }));
 });
@@ -165,4 +166,28 @@ test("every stop has words and a page, and each part it outlines is marked on so
             expect([stop.target, marked]).toEqual([stop.target, true]);
         }
     }
+});
+
+test("a part the tour outlines scrolls into the space between the top bar and the card", () => {
+    const phone = { topBar: 55, cardTop: 600, viewport: 800 };  // a free band from 67 to 588
+    // A tall part shows from its top, just under the top bar.
+    expect(scrollToFrame({ top: 900, height: 1200 }, phone)).toBe(900 - 67);
+    // A short one (a tab bar) sits a fifth of the way down, leaving the rest for its tab.
+    expect(scrollToFrame({ top: 400, height: 47 }, phone)).toBeCloseTo(400 - (67 + (521 - 47) * 0.2));
+    // A part above the screen scrolls back down to it; on a desktop there is no top bar.
+    expect(scrollToFrame({ top: -300, height: 2000 }, phone)).toBe(-367);
+    expect(scrollToFrame({ top: 500, height: 2000 }, { cardTop: 700, viewport: 900 })).toBe(488);
+});
+
+test("the card folds to one line with Next, and stays folded on the next stop until opened", () => {
+    show("done");
+    fireEvent.click(screen.getByText("start from settings"));
+    fireEvent.click(screen.getByLabelText("Fold the tour away"));
+    expect(screen.queryByText("On the status page.")).toBeNull();
+    expect(screen.getByText("First stop")).toBeTruthy();
+    fireEvent.click(screen.getByText("Next"));
+    expect(screen.getByText("Second stop")).toBeTruthy();
+    expect(screen.queryByText("Aiming at Near.")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Show the tour's words"));
+    expect(screen.getByText("Aiming at Near.")).toBeTruthy();
 });
