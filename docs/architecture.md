@@ -167,6 +167,7 @@ In game code take `kd_id` from `flask_praetorian.current_user()` and nothing els
 | Kingdom creation, shields, messages, spending, sharing, notifications | `misc.py` |
 | Settling, building, training, projects, missiles | `build.py` |
 | Attacks, spying, primitives, missiles launched, schedule, pinned | `conquer.py` |
+| Repeating spy operations | `recurring.py` |
 | The galaxy's intel market: listings, bounties, free shares, exclusions, who earns which cut | `intel.py` |
 | Galaxy, empire and universe politics, votes, war, surrender | `politics.py` |
 | Cluster politics: a galaxy leader's vote, benefit levels, the cluster's empire alignment | `clusters.py` |

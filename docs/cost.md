@@ -34,6 +34,7 @@ The steady load, without anyone acting:
 | Each open game tab polls scores | every 60 s |
 | The refresh | every minute, reading and writing every kingdom and its due queues, plus scores, history and elections |
 | Bots | as many function calls as a player, on the refresh |
+| Repeating spy operations | nothing until one is due and a spy attempt is free (found in the kingdom the tick already read). Then two kingdom writes (claim, record), one revealed read for intel, and the spy operation itself (what a player clicking Spy costs). At most one spy attempt's worth per epoch per kingdom, since attempts come back once an epoch |
 
 ## Rules
 

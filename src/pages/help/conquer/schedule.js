@@ -31,6 +31,21 @@ function Schedule() {
                 Each action also needs the number of generals it asks for to be at home. When a scheduled action does
                 nothing (no units to send, not enough generals, or the intel says it would fail), your news says why.
             </p>
+            <p>
+                <b>Repeating</b> holds spy operations that run again by themselves, so you use your spy attempts while
+                you are away. Each one has a target and a share of your drones to send.
+            </p>
+            <ul>
+                <li><b>Siphon funds</b> runs again once its last siphon on that kingdom has run its course, and at the
+                    next free spy attempt if it failed.</li>
+                <li><b>Gather intel</b> runs again once the intel it revealed runs out. It can share what it finds with
+                    your galaxy, free or for a cut.</li>
+                <li>Repeating operations take your spy attempts before the automatic rob, which only uses the attempts
+                    left over. When several are due and attempts are short, the ones added first go first.</li>
+                <li>One stops by itself when it fails the number of times in a row you set (0 never stops), when it is
+                    refused three times in a row, when its target dies, or at the end time you set. Your news says
+                    which. The Repeating tab shows what each one did last.</li>
+            </ul>
         </Topic>
     );
 }
