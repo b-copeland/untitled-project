@@ -13,6 +13,7 @@ import random
 import flask
 import flask_praetorian
 
+import untitledapp.adminaccounts as uaac
 import untitledapp.clusters as uacl
 import untitledapp.galaxypolicies as uagp
 import untitledapp.universepolicies as uaup
@@ -352,10 +353,17 @@ def new_round():
     failed = "The new round failed part way, so the game is paused. Start the new round again."
     if _function_app("post", "/resetstate").status_code != 200:
         return flask.jsonify({"message": failed}), 500
-    # Users outlive the round (the function app's reset keeps their documents); only their kingdoms go.
+    # Users outlive the round (the function app's reset keeps their documents); only their kingdoms go, and any
+    # login signal older than adminaccounts.SEEN_DAYS, in the same write.
     for user in User.all():
+        fields = {}
         if user.kd_id not in (None, "") or user.kd_created or user.kd_death_date not in (None, ""):
-            user.save(kd_id=None, kd_created=False, kd_death_date=None)
+            fields.update(kd_id=None, kd_created=False, kd_death_date=None)
+        kept = uaac.prune_seen(user.seen, now)
+        if len(kept) != len(user.seen or []):
+            fields["seen"] = kept
+        if fields:
+            user.save(**fields)
     for galaxy_id in galaxy_ids(settings["num_galaxies"], settings["cluster_size"]):
         if _function_app("post", f"/galaxy/{galaxy_id}").status_code != 201:
             return flask.jsonify({"message": failed}), 500

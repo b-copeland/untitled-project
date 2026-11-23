@@ -49,15 +49,22 @@ def test_protected_routes_need_a_token(client):
     assert client.get("/api/account", headers=_auth("garbage")).status_code in (401, 403)
 
 
-def test_only_an_admin_can_disable_a_user_and_a_disabled_user_can_not_log_in(client):
+def test_only_an_admin_can_ban_a_user_and_a_banned_user_can_not_log_in(app, client):
     client.post("/api/signup", json={"username": "acct_d", "password": "x"})
+    with app.app_context():
+        import untitledapp
+
+        user_id = untitledapp.User.lookup("acct_d").id
     user_token = _login(client, "user1", "user1").get_json()["accessToken"]
     admin_token = _login(client, "admin", "admin").get_json()["accessToken"]
 
-    refused = client.post("/api/disable_user", json={"username": "acct_d"}, headers=_auth(user_token))
+    refused = client.post(f"/api/admin/accounts/{user_id}/ban", json={}, headers=_auth(user_token))
     assert refused.status_code in (401, 403)
     assert _login(client, "acct_d", "x").status_code == 200
 
-    done = client.post("/api/disable_user", json={"username": "acct_d"}, headers=_auth(admin_token))
+    done = client.post(f"/api/admin/accounts/{user_id}/ban", json={"reason": "Cheating"}, headers=_auth(admin_token))
     assert done.status_code == 200
-    assert _login(client, "acct_d", "x").status_code == 403  # a disabled account is refused, not "wrong password"
+    banned = _login(client, "acct_d", "x")
+    assert banned.status_code == 403  # a banned account is refused, not "wrong password"
+    assert banned.get_json()["message"] == "This account is banned. Reason: Cheating"
+    assert _login(client, "acct_d", "wrong").status_code == 401  # without the password, nothing about the ban

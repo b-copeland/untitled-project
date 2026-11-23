@@ -42,7 +42,8 @@ Two facts make this less simple than adding a claim:
   function app keeps a `next_id` in the `kingdoms` document, which `/resetstate` keeps, and takes
   `max(len(kingdoms), next_id)`. A stale token then names a kingdom that does not exist and its polls return nothing
   until the app next loads or refreshes. This is a function app change, so it is published first.
-- **D4. Disabling a player takes effect when their token is renewed.** `disable_user` sets `is_active` false;
+- **D4. Disabling a player takes effect when their token is renewed.** A ban (`disable_user` when this was written,
+  `POST /api/admin/accounts/<id>/ban` since) sets `is_active` false;
   praetorian refuses to refresh or log in a disabled user, but a token already issued keeps working until it expires,
   at most 24 hours. Accepted: disabling is rare and an admin action, and the game has no money or private data at
   stake beyond the kingdom. The same goes for roles: an `admin` removed from `rls` keeps admin routes for the same

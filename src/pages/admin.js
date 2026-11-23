@@ -5,6 +5,7 @@ import { adminAuth } from "../auth";
 import { Panel } from "../components/planner";
 import AdminRound from "./adminround";
 import AdminUniverse from "./adminuniverse";
+import AdminAccounts from "./adminaccounts";
 
 // The admin page: sign in with an account that has the admin role, then run the round and watch it. See docs/admin.md.
 function Admin() {
@@ -59,6 +60,8 @@ function Admin() {
       <AdminRound onChange={changed} />
       <hr />
       <AdminUniverse key={changes} />
+      <hr />
+      <AdminAccounts />
     </div>
   );
 }

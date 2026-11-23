@@ -5,7 +5,7 @@ import Form from "react-bootstrap/Form";
 import Button from "react-bootstrap/Button";
 import Alert from "react-bootstrap/Alert";
 import 'bootstrap/dist/css/bootstrap.css';
-import { login, logout } from "../auth";
+import { login, logout, deviceId } from "../auth";
 import "./login.css";
 
 function Login(props) {
@@ -21,14 +21,15 @@ function Login(props) {
     setBusy(true);
     fetch('/api/login', {
       method: 'post',
-      body: JSON.stringify({ 'username': username, 'password': password }),
-    }).then(r => r.json())
-      .then(session => {
+      body: JSON.stringify({ 'username': username, 'password': password, 'device': deviceId() }),
+    }).then(r => r.json().then(session => ({ status: r.status, session })))
+      .then(({ status, session }) => {
         if (session.accessToken) {
           login(session);
           navigate('/status');
         } else {
-          setMessage("Invalid username or password");
+          // 403 is a banned account (the server says why); anything else is a wrong name or password.
+          setMessage(status === 403 && session.message ? session.message : "Invalid username or password");
         }
       })
       .catch(() => setMessage("Could not reach the server, try again"))

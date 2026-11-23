@@ -38,6 +38,9 @@ FIELDS = {
     "is_verified": True,
     "email": None,
     "email_verified": False,
+    "banned_at": None,  # set with is_active False by an admin's ban (adminaccounts.py)
+    "ban_reason": None,
+    "seen": None,  # login signals: [{"kind": "ip" | "device", "hash", "first", "last"}] (adminaccounts.py)
 }
 
 
