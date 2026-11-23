@@ -595,7 +595,11 @@ def _validate_autofill_request(req, kd_info_parse):
     return True, ""
     
 
-def _autofill_attack(req, kd_id, target_kd):
+def _autofill_attack(req, kd_id, target_kd, available_units=None):
+    """
+    The army the attacker could send to beat ``target_kd``'s defense as far as the attacker knows it, plus the buffer.
+    ``available_units`` caps how many of each unit it may use (a scheduled attack's share); by default, all at home.
+    """
     app = flask.current_app
     defender_raw_values = req["defenderValues"]
     
@@ -669,11 +673,12 @@ def _autofill_attack(req, kd_id, target_kd):
     for key_unit in uas.AUTOFILL_PRIORITY:
         if remaining_defense == 0:
             attacker_units[key_unit] = 0
-        available_units = kd_info_parse["units"].get(key_unit, 0)
-        if available_units > 0:
+        at_home = kd_info_parse["units"].get(key_unit, 0)
+        usable = at_home if available_units is None else min(at_home, available_units.get(key_unit, 0))
+        if usable > 0:
             current_unit_attack = uag._calc_max_offense(
                 {
-                    key_unit: available_units,
+                    key_unit: usable,
                 },
                 military_bonus=float(current_bonuses['military_bonus'] or 0), 
                 other_bonuses=0,
@@ -686,11 +691,11 @@ def _autofill_attack(req, kd_id, target_kd):
             )
             if current_unit_attack > remaining_defense:
                 required_ratio = remaining_defense / current_unit_attack
-                units_fill = math.ceil(required_ratio * available_units)
+                units_fill = math.ceil(required_ratio * usable)
                 attacker_units[key_unit] = units_fill
                 remaining_defense = 0
             else:
-                attacker_units[key_unit] = available_units
+                attacker_units[key_unit] = usable
                 remaining_defense = remaining_defense - current_unit_attack
         else:
             attacker_units[key_unit] = 0
@@ -2357,6 +2362,23 @@ def auto_rob_primitives():
         return (flask.jsonify({"message": "The settings must be numbers"}), 400)
     return (flask.jsonify({"message": message, "status": "success"}), 200)
 
+# How a scheduled attack counts its share of attackers and flexers (``options["units_mode"]``):
+# SEND sends that share of the total army (at home plus out with generals), as far as the units at home allow;
+# SEND_UP_TO sends up to that share, counting units already out, so no more than the share is ever away.
+# An entry saved before the choice existed has no units_mode and is read as SEND_UP_TO, which is how it ran then.
+SCHEDULE_SEND = "send"
+SCHEDULE_SEND_UP_TO = "up_to"
+SCHEDULE_UNITS_MODES = (SCHEDULE_SEND, SCHEDULE_SEND_UP_TO)
+
+
+def _schedule_units_mode(options, default):
+    """The units_mode from a schedule request, or ``default`` when the request names none. Raises on any other value."""
+    mode = options.get("units_mode") or default
+    if mode not in SCHEDULE_UNITS_MODES:
+        raise ValueError("Choose how to count the units to send")
+    return mode
+
+
 def _validate_schedule_attack(
     options,
     kd_id,
@@ -2366,9 +2388,11 @@ def _validate_schedule_attack(
     if options["generals"] < 1 or options["generals"] > 4:
         return False, "Generals must be between 1 and 4"
     if options["pure_offense"] < 0 or options["pure_offense"] > 1:
-        return False, "Pure offense must be between 0% and 100%"
+        return False, "Attackers to send must be between 0% and 100%"
     if options["flex_offense"] < 0 or options["flex_offense"] > 1:
-        return False, "Pure offense must be between 0% and 100%"
+        return False, "Flexers to send must be between 0% and 100%"
+    if options["pure_offense"] == 0 and options["flex_offense"] == 0:
+        return False, "Send some attackers or flexers"
     if options["target"] == kd_id:
         return False, "You can not schedule an attack against yourself"
     
@@ -2384,6 +2408,12 @@ def _schedule_attack(
     options["pure_offense"] = float(options["pure_offense"] or 0) / 100
     options["flex_offense"] = float(options["flex_offense"] or 0) / 100
     options["autofill_buffer"] = float(options["autofill_buffer"] or 0) / 100
+    try:
+        options["units_mode"] = _schedule_units_mode(options, SCHEDULE_SEND)
+    except ValueError as error:
+        return False, {}, str(error)
+    # Off: with "Suggest the army" on and no military intel on the target when it runs, send nothing.
+    options["send_without_intel"] = bool(options.get("send_without_intel", True))
     valid_schedule, message = _validate_schedule_attack(options, kd_info["kdId"])
     if not valid_schedule:
         return False, {}, message
@@ -2403,10 +2433,12 @@ def _validate_schedule_attackprimitives(
     if options["generals"] < 1 or options["generals"] > 4:
         return False, "Generals must be between 1 and 4"
     if options["pure_offense"] < 0 or options["pure_offense"] > 1:
-        return False, "Pure offense must be between 0% and 100%"
+        return False, "Attackers to send must be between 0% and 100%"
     if options["flex_offense"] < 0 or options["flex_offense"] > 1:
-        return False, "Flex offense must be between 0% and 100%"
-    
+        return False, "Flexers to send must be between 0% and 100%"
+    if options["pure_offense"] == 0 and options["flex_offense"] == 0:
+        return False, "Send some attackers or flexers"
+
     return True, ""
 
 def _schedule_attackprimitives(
@@ -2418,6 +2450,10 @@ def _schedule_attackprimitives(
     options["generals"] = int(options["generals"] or 0)
     options["pure_offense"] = float(options["pure_offense"] or 0) / 100
     options["flex_offense"] = float(options["flex_offense"] or 0) / 100
+    try:
+        options["units_mode"] = _schedule_units_mode(options, SCHEDULE_SEND_UP_TO)
+    except ValueError as error:
+        return False, {}, str(error)
     valid_schedule, message = _validate_schedule_attackprimitives(options)
     if not valid_schedule:
         return False, {}, message

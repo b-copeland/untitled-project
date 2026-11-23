@@ -25,6 +25,7 @@ KINDS = [
     ("generals", "Generals", "Your kingdom"),
     ("spy_attempts", "Spy attempts", "Your kingdom"),
     ("auto_primitives", "Auto primitives", "Your kingdom"),
+    ("schedules", "Scheduled actions", "Your kingdom"),
     ("messages", "Messages", "Other players"),
     ("galaxy", "Galaxy", "Other players"),
     ("targets", "Empire targets", "Other players"),

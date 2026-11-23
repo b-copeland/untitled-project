@@ -15,7 +15,7 @@ import 'bootstrap/dist/css/bootstrap.css';
 import HelpButton from "../../components/helpbutton";
 
 // The kind of news an item is, as the server tags it. Items written before the tag existed have none.
-const NEWS_KINDS = { attack: "Attack", spy: "Spy", missiles: "Missiles", intel: "Intel", primitives: "Primitives", death: "Death", politics: "Politics", galaxy: "Galaxy" };
+const NEWS_KINDS = { attack: "Attack", spy: "Spy", missiles: "Missiles", intel: "Intel", primitives: "Primitives", death: "Death", politics: "Politics", galaxy: "Galaxy", schedule: "Schedule" };
 
 function getTimeSinceString(date) {
     if (date === undefined) {

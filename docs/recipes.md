@@ -108,7 +108,10 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
    `handler_funcs` in `add_schedule`.
 2. In `refresh.py`, a `_resolve_schedule_<type>(kd_info, schedule)` that returns `(function, args)` to run after the
    kingdom is written; add it to `schedule_funcs` in `_resolve_schedules`. It must run through the same code as the route,
-   so the action is checked again when it fires.
+   so the action is checked again when it fires. When the action can not run (nothing to send, the intel says it would
+   fail), raise `_ScheduleSkipped("<why>")`; when it is refused, return the route's `(kingdom, payload, status)`.
+   Either way `_resolve_schedules` puts the reason in the player's news. Read every option with `.get(key, default)`,
+   the default being how entries saved before the option existed ran.
 3. A card for it on the Schedule page (`src/pages/conquer/schedule.js`) and a line in its help page.
 4. Test: schedule it, move time past it, run the refresh, check it happened once.
 

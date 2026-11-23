@@ -1011,48 +1011,11 @@ def _resolve_auto_attack(kd_info_parse):
 
     req = {
         "attackerValues": {
-            "generals": kd_info_parse["generals_available"] - botbrain.reserved_generals(kd_info_parse)
+            "generals": kd_info_parse["generals_available"] - botbrain.reserved_generals(kd_info_parse),
+            # Up to the shares, counting units already out, so auto attack never leaves more than them away.
+            **_schedule_units(kd_info_parse, pure_pct, flex_pct, uac.SCHEDULE_SEND_UP_TO),
         }
     }
-    total_units = kd_info_parse["units"].copy()
-    total_general_units = {
-        k: 0
-        for k in uas.UNITS
-    }
-    for general_units in kd_info_parse["generals_out"]:
-        for key_unit, value_unit in general_units.items():
-            if key_unit == "return_time":
-                continue
-            total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
-            total_general_units[key_unit] += value_unit
-
-    pct_units_out = {
-        k: v / max(total_units.get(k, 0), 1)
-        for k, v in total_general_units.items()
-    }
-    pct_units_available_pure = {
-        k: max(pure_pct - v, 0)
-        for k, v in pct_units_out.items()
-    }
-    pct_units_available_flex = {
-        k: max(flex_pct - v, 0)
-        for k, v in pct_units_out.items()
-    }
-    
-    for key_unit, value_unit in kd_info_parse["units"].items():
-        if uas.UNITS[key_unit].get("offense", 0) == 0:
-            continue
-        else:
-            if uas.UNITS[key_unit].get("defense", 0) == 0:
-                req["attackerValues"][key_unit] = min(
-                    math.floor(pct_units_available_pure[key_unit] * total_units.get(key_unit, 0)),
-                    value_unit,
-                )
-            else:
-                req["attackerValues"][key_unit] = min(
-                    math.floor(pct_units_available_flex[key_unit] * total_units.get(key_unit, 0)),
-                    value_unit,
-                )
     # A refused attack comes back without a kingdom document, so keep using the one we have.
     _, payload, _ = uac._attack_primitives(req, kd_info_parse["kdId"])
     push(kd_info_parse["kdId"], "auto_primitives", payload["message"], status=payload.get("status", "info"),
@@ -1112,142 +1075,103 @@ def _resolve_auto_projects(kd_info_parse):
             kd_info_parse["projects_assigned"][key_project] += value_engineers
     return kd_info_parse
 
-def _resolve_schedule_attack(new_kd_info, schedule):
+class _ScheduleSkipped(Exception):
+    """A scheduled action that will not run. The message is the reason the player is told."""
 
-    req = {
-        "attackerValues": {
-            "generals": schedule["options"].get("generals", 0)
-        }
-    }
-    prefer_autofill = schedule["options"].get("prefer_autofill", False)
-    target_kd = schedule["options"]["target"]
-    use_autofill = False
-    if prefer_autofill:
+
+# What the news calls each kind of scheduled action.
+_SCHEDULE_NAMES = {
+    "attack": "attack",
+    "attackprimitives": "attack on the primitives",
+    "intelspy": "intel operation",
+    "aggressivespy": "hostile operation",
+    "missiles": "missile launch",
+}
+
+
+def _schedule_units(kd_info, pure_pct, flex_pct, units_mode):
+    """
+    The most of each attacking unit a scheduled attack may send: ``pure_pct`` of each unit with no defense (attackers)
+    and ``flex_pct`` of each unit with both (flexers), as a share of the total army (at home plus out with generals),
+    never more than are at home. With ``SCHEDULE_SEND_UP_TO`` the units already out count towards the share, so the
+    attack sends only the difference.
+    """
+    out = collections.Counter()
+    for general_units in kd_info.get("generals_out", []):
+        for key_unit, value_unit in general_units.items():
+            if key_unit in uas.UNITS:
+                out[key_unit] += value_unit
+
+    units = {}
+    for key_unit, at_home in kd_info["units"].items():
+        unit = uas.UNITS.get(key_unit, {})
+        if unit.get("offense", 0) == 0:
+            continue
+        share = pure_pct if unit.get("defense", 0) == 0 else flex_pct
+        allowed = math.floor(share * (at_home + out[key_unit]))
+        if units_mode != uac.SCHEDULE_SEND:
+            allowed -= out[key_unit]
+        units[key_unit] = max(min(allowed, at_home), 0)
+    return units
+
+
+def _schedule_options_units(kd_info, options):
+    # An entry saved before units_mode existed ran as "up to", so it still does.
+    return _schedule_units(
+        kd_info,
+        options.get("pure_offense", 0),
+        options.get("flex_offense", 0),
+        options.get("units_mode", uac.SCHEDULE_SEND_UP_TO),
+    )
+
+
+def _resolve_schedule_attack(new_kd_info, schedule):
+    options = schedule["options"]
+    target_kd = options["target"]
+    generals = options.get("generals", 0)
+    allowed = _schedule_options_units(new_kd_info, options)
+    units = allowed
+
+    # With "Suggest the army" and military intel on the target, send the army that should win, but never more than
+    # the share allows. Without the intel, send the share itself, unless the player chose not to (send_without_intel,
+    # which entries saved before it existed do not have: they always sent the share).
+    if options.get("prefer_autofill", False):
         revealed = uag._get_revealed(new_kd_info["kdId"])
-        if "military" in revealed["revealed"].get(target_kd, {}).keys():
-            use_autofill = True
+        if "military" in revealed["revealed"].get(target_kd, {}):
             autofill_req = {
                 "defenderValues": {
-                    **{
-                        key_unit: 0
-                        for key_unit in uas.UNITS.keys()
-                    },
+                    **{key_unit: 0 for key_unit in uas.UNITS},
                     "military_bonus": 25,
                     "shields": 10,
                 },
-                "buffer": schedule["options"].get("autofill_buffer", 0.01) * 100,
-                "generals": schedule["options"].get("generals", 0),
+                "buffer": options.get("autofill_buffer", 0.01) * 100,
+                "generals": generals,
             }
-            autofill_payload, _ = uac._autofill_attack(autofill_req, new_kd_info["kdId"], target_kd)
-            if "attacker_offense" not in autofill_payload:
-                # The autofill refused the request (fewer generals at home than the schedule asks for): do nothing.
-                return (lambda: None), ()
-            if autofill_payload["attacker_offense"] > autofill_payload["defender_defense"]:
-                for key_unit, value_unit in autofill_payload["attacker_units"].items():
-                    req["attackerValues"][key_unit] = value_unit
-            else:
-                # Not beatable with what is revealed now: do nothing. (This used to return the kingdom, which the
-                # caller then tried to run as an action.)
-                return (lambda: None), ()
-    
-    if not prefer_autofill or not use_autofill:
-        pure_pct = schedule["options"].get("pure_offense", 0)
-        flex_pct = schedule["options"].get("flex_offense", 0)
+            payload, status = uac._autofill_attack(autofill_req, new_kd_info["kdId"], target_kd, available_units=allowed)
+            if status != 200:
+                raise _ScheduleSkipped(payload["message"])
+            if payload["attacker_offense"] <= payload["defender_defense"]:
+                raise _ScheduleSkipped(
+                    "Your military intel shows it would fail even with all the attackers and flexers you allowed"
+                )
+            units = payload["attacker_units"]
+        elif not options.get("send_without_intel", True):
+            raise _ScheduleSkipped("You had no military intel on the target, and you chose not to attack without it")
 
-        total_units = new_kd_info["units"].copy()
-        total_general_units = {
-            k: 0
-            for k in uas.UNITS
-        }
-        for general_units in new_kd_info["generals_out"]:
-            for key_unit, value_unit in general_units.items():
-                if key_unit == "return_time":
-                    continue
-                total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
-                total_general_units[key_unit] += value_unit
+    if not any(units.values()):
+        raise _ScheduleSkipped("There were no attackers or flexers to send within the share you set")
+    req = {"attackerValues": {"generals": generals, **units}}
+    return uac._attack, (req, new_kd_info["kdId"], target_kd)
 
-        pct_units_out = {
-            k: v / max(total_units.get(k, 0), 1)
-            for k, v in total_general_units.items()
-        }
-        pct_units_available_pure = {
-            k: max(pure_pct - v, 0)
-            for k, v in pct_units_out.items()
-        }
-        pct_units_available_flex = {
-            k: max(flex_pct - v, 0)
-            for k, v in pct_units_out.items()
-        }
-        
-        for key_unit, value_unit in new_kd_info["units"].items():
-            if uas.UNITS[key_unit].get("offense", 0) == 0:
-                continue
-            else:
-                if uas.UNITS[key_unit].get("defense", 0) == 0:
-                    req["attackerValues"][key_unit] = min(
-                        math.floor(pct_units_available_pure[key_unit] * total_units.get(key_unit, 0)),
-                        value_unit,
-                    )
-                else:
-                    req["attackerValues"][key_unit] = min(
-                        math.floor(pct_units_available_flex[key_unit] * total_units.get(key_unit, 0)),
-                        value_unit,
-                    )
-    func = uac._attack
-    args = (req, new_kd_info["kdId"], target_kd)
-    return func, args
 
 def _resolve_schedule_attackprimitives(new_kd_info, schedule):
-    pure_pct = schedule["options"].get("pure_offense", 0)
-    flex_pct = schedule["options"].get("flex_offense", 0)
+    options = schedule["options"]
+    units = _schedule_options_units(new_kd_info, options)
+    if not any(units.values()):
+        raise _ScheduleSkipped("There were no attackers or flexers to send within the share you set")
+    req = {"attackerValues": {"generals": options.get("generals", 0), **units}}
+    return uac._attack_primitives, (req, new_kd_info["kdId"])
 
-    req = {
-        "attackerValues": {
-            "generals": schedule["options"].get("generals", 0)
-        }
-    }
-    total_units = new_kd_info["units"].copy()
-    total_general_units = {
-        k: 0
-        for k in uas.UNITS
-    }
-    for general_units in new_kd_info["generals_out"]:
-        for key_unit, value_unit in general_units.items():
-            if key_unit == "return_time":
-                continue
-            total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
-            total_general_units[key_unit] += value_unit
-
-    pct_units_out = {
-        k: v / max(total_units.get(k, 0), 1)
-        for k, v in total_general_units.items()
-    }
-    pct_units_available_pure = {
-        k: max(pure_pct - v, 0)
-        for k, v in pct_units_out.items()
-    }
-    pct_units_available_flex = {
-        k: max(flex_pct - v, 0)
-        for k, v in pct_units_out.items()
-    }
-    
-    for key_unit, value_unit in new_kd_info["units"].items():
-        if uas.UNITS[key_unit].get("offense", 0) == 0:
-            continue
-        else:
-            if uas.UNITS[key_unit].get("defense", 0) == 0:
-                req["attackerValues"][key_unit] = min(
-                    math.floor(pct_units_available_pure[key_unit] * total_units.get(key_unit, 0)),
-                    value_unit,
-                )
-            else:
-                req["attackerValues"][key_unit] = min(
-                    math.floor(pct_units_available_flex[key_unit] * total_units.get(key_unit, 0)),
-                    value_unit,
-                )
-    func = uac._attack_primitives
-    args = (req, new_kd_info["kdId"])
-    return func, args
 
 def _resolve_schedule_intelspy(new_kd_info, schedule):
     drones_pct = schedule["options"].get("drones_pct", 0)
@@ -1261,6 +1185,7 @@ def _resolve_schedule_intelspy(new_kd_info, schedule):
 
     def _loop_spies(kd_id, drones_pct, max_tries, shielded, operation, target_kd, share_to_galaxy):
         kd_info = uag._get_kd_info(kd_id)
+        outcomes = []
         for _ in range(max_tries):
             req = {
                 "drones": math.floor(drones_pct * kd_info["drones"]),
@@ -1270,8 +1195,10 @@ def _resolve_schedule_intelspy(new_kd_info, schedule):
                 "cut": cut,
             }
             new_kd_info, payload, status_code, success = uac._spy(req, kd_id, target_kd)
+            outcomes.append((new_kd_info, payload, status_code))
             if success:
                 break
+        return _first_run_or_refusal(outcomes)
     func = _loop_spies
     args = (new_kd_info["kdId"], drones_pct, max_tries, shielded, operation, target_kd, share_to_galaxy)
     return func, args
@@ -1285,6 +1212,7 @@ def _resolve_schedule_aggressivespy(new_kd_info, schedule):
 
     def _loop_spies(kd_id, drones_pct, attempts, shielded, operation, target_kd):
         kd_info = uag._get_kd_info(kd_id)
+        outcomes = []
         for _ in range(attempts):
             req = {
                 "drones": math.floor(drones_pct * kd_info["drones"]),
@@ -1292,27 +1220,59 @@ def _resolve_schedule_aggressivespy(new_kd_info, schedule):
                 "operation": operation
             }
             new_kd_info, payload, status_code, success = uac._spy(req, kd_id, target_kd)
+            outcomes.append((new_kd_info, payload, status_code))
+        return _first_run_or_refusal(outcomes)
     func = _loop_spies
     args = (new_kd_info["kdId"], drones_pct, attempts, shielded, operation, target_kd)
     return func, args
 
-def _resolve_schedule_missiles(new_kd_info, schedule):
-    planet_busters = schedule["options"].get("planet_busters", 0)
-    star_busters = schedule["options"].get("star_busters", 0)
-    galaxy_busters = schedule["options"].get("galaxy_busters", 0)
-    target_kd = schedule["options"].get("target", "")
 
+def _first_run_or_refusal(outcomes):
+    """Of a scheduled spy's attempts, one that ran (succeeded or was caught), else the first refusal, else None."""
+    for outcome in outcomes:
+        if outcome[2] == 200:
+            return outcome
+    return outcomes[0] if outcomes else None
+
+
+def _resolve_schedule_missiles(new_kd_info, schedule):
     req = {
         "attackerValues": {
-            "planet_busters": planet_busters,
-            "star_busters": star_busters,
-            "galaxy_busters": galaxy_busters,
+            "planet_busters": schedule["options"].get("planet_busters", 0),
+            "star_busters": schedule["options"].get("star_busters", 0),
+            "galaxy_busters": schedule["options"].get("galaxy_busters", 0),
         }
     }
-    new_kd_info, payload, status_code = uac._launch_missiles(req, new_kd_info["kdId"], target_kd)
-    func = uac._launch_missiles
-    args = (req, new_kd_info["kdId"], target_kd)
-    return func, args
+    # Only prepared here: the launch is the returned call. (This used to launch once here as well, so twice.)
+    return uac._launch_missiles, (req, new_kd_info["kdId"], schedule["options"].get("target", ""))
+
+
+def _schedule_refusal(result):
+    """The reason a scheduled action's call did nothing, from its ``(kingdom, payload, status)`` result, or None."""
+    if not isinstance(result, tuple) or len(result) < 3 or result[2] == 200:
+        return None
+    payload = result[1] if isinstance(result[1], dict) else {}
+    return payload.get("message") or "It was refused"
+
+
+def _tell_schedule_skipped(kd_id, schedule, reason):
+    """Tell the player a scheduled action did nothing, in their news (they may be offline) and as a notification."""
+    name = _SCHEDULE_NAMES.get(schedule.get("type"), "action")
+    message = f"Your scheduled {name} did not run. {reason.rstrip('.')}."
+    app = flask.current_app
+    REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/news',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps({
+            "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "from": "",
+            "news": message,
+            "kind": "schedule",
+        }),
+    )
+    uam._add_notifs(kd_id, ["news_kingdom"])
+    push(kd_id, "schedules", message, status="warning", update=["kingdom", "news"])
+
 
 def _is_schedule_due(schedule, time_update):
     return datetime.datetime.fromisoformat(schedule["time"]).astimezone(datetime.timezone.utc) < time_update
@@ -1327,8 +1287,9 @@ def _resolve_schedules(kd_id, time_update, kd_info=None):
 
     The due schedules are first taken off the kingdom with a version-checked write that changes nothing else, so of two
     overlapping ticks only one runs each schedule, and nothing the kingdom gained meanwhile (an action, an attack on it)
-    is overwritten. The actions run after that, each as the ordinary action it stands for. A schedule whose action can
-    not even be prepared is dropped and logged rather than retried every tick.
+    is overwritten. The actions run after that, each as the ordinary action it stands for, and each after the first
+    counts from a fresh read of the kingdom. A schedule that does nothing (it can not be prepared, its share sends no
+    units, or the action is refused) is dropped, not retried every tick, and the player is told why in their news.
     """
     if kd_info is not None and not any(_is_schedule_due(schedule, time_update) for schedule in kd_info["schedule"]):
         return False
@@ -1351,13 +1312,22 @@ def _resolve_schedules(kd_id, time_update, kd_info=None):
         "aggressivespy": _resolve_schedule_aggressivespy,
         "missiles": _resolve_schedule_missiles,
     }
-    for schedule in sorted(due, key=lambda x: -int(x.get("type", "") == "intelspy")):
+    for index, schedule in enumerate(sorted(due, key=lambda x: -int(x.get("type", "") == "intelspy"))):
+        if index > 0:
+            # The action before this one changed the kingdom (units sent, generals out), and this one counts from it.
+            kingdom = uag._get_kd_info(kd_id)
         try:
             func, args = schedule_funcs[schedule["type"]](kingdom, schedule)
+        except _ScheduleSkipped as skipped:
+            _tell_schedule_skipped(kd_id, schedule, str(skipped))
+            continue
         except Exception:
             flask.current_app.logger.exception("Could not prepare scheduled %s for kingdom %s", schedule.get("type"), kd_id)
+            _tell_schedule_skipped(kd_id, schedule, "Something went wrong preparing it")
             continue
-        func(*args)
+        refusal = _schedule_refusal(func(*args))
+        if refusal:
+            _tell_schedule_skipped(kd_id, schedule, refusal)
     return True
 
 def _claim_state(decide):

@@ -889,8 +889,8 @@ def test_a_scheduled_strike_asking_for_generals_that_are_not_home_does_nothing(a
     })
     schedule = {"type": "attack", "options": {"target": TARGET_ID, "generals": 4, "prefer_autofill": True, "autofill_buffer": 0.05}}
     with app.app_context():
-        action, arguments = refresh._resolve_schedule_attack(_get(f"/kingdom/{KD_ID}"), schedule)
-        assert action(*arguments) is None
+        with pytest.raises(refresh._ScheduleSkipped, match="generals"):
+            refresh._resolve_schedule_attack(_get(f"/kingdom/{KD_ID}"), schedule)
     assert _get(f"/kingdom/{KD_ID}")["generals_available"] == 1
     assert _get(f"/kingdom/{KD_ID}/attackhistory")["attack_history"] == []
 

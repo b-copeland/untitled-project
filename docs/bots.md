@@ -359,7 +359,9 @@ Not changed: these are balance and rules, which are the maintainer's call.
 - The auto builder divided by zero for a kingdom with none of the units it aims for, which skipped that kingdom on
   every tick.
 - An attack on a kingdom with no defense at all divided by zero.
-- A scheduled attack asking for more generals than were home raised `KeyError` in the refresh. It now does nothing.
+- A scheduled attack asking for more generals than were home raised `KeyError` in the refresh. It now does nothing,
+  and the kingdom's news says why.
+- A scheduled missile launch fired twice: `_resolve_schedule_missiles` launched while preparing the launch.
 - Universe votes cast by bots never counted: the tally is kept under `option_1` and `option_2`, and the bots sent `1`
   and `2`.
 - Earlier: `KeyError` in the refresh for a general carrying a unit the unit targets do not list; scheduled Intel Spy

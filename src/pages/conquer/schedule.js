@@ -37,11 +37,14 @@ function Schedule(props) {
 const KINDS = {
     attack: {
         title: "Attack", icon: GiCrossedSwords, blurb: "Attack a kingdom at a set time.",
-        start: { prefer_autofill: true, autofill_buffer: "1", target: null, pure_offense: "", flex_offense: "", generals: "1" },
+        start: {
+            prefer_autofill: true, autofill_buffer: "1", send_without_intel: true, target: null,
+            units_mode: "send", pure_offense: "", flex_offense: "", generals: "1",
+        },
     },
     attackprimitives: {
         title: "Attack primitives", icon: GiSpaceship, blurb: "Send part of your army at the primitives.",
-        start: { pure_offense: "", flex_offense: "", generals: "1" },
+        start: { units_mode: "up_to", pure_offense: "", flex_offense: "", generals: "1" },
     },
     intelspy: {
         title: "Gather intel", icon: GiMagnifyingGlass, blurb: "Spy on a kingdom to learn about it, retrying if it fails.",
@@ -56,6 +59,18 @@ const KINDS = {
         start: { target: null, planet_busters: "", star_busters: "", galaxy_busters: "" },
     },
 };
+
+// How an attack counts the share of attackers and flexers it sends (options.units_mode). The server holds the same two.
+export const UNITS_MODES = [
+    {
+        value: "send", label: "Send X% of total units",
+        hint: "Each attack sends that share of your whole army, as far as the units at home allow. Four attacks at 25% send four waves.",
+    },
+    {
+        value: "up_to", label: "Send up to X% of total units, including units already out on generals",
+        hint: "With 30% already out and 50% set, it sends 20%. With 50% or more out, it sends nothing.",
+    },
+];
 
 const INTEL_OPERATIONS = [
     { value: "spymilitary", label: "Spy on military" }, { value: "spykingdom", label: "Spy on kingdom" },
@@ -105,7 +120,10 @@ function problemsWith(kind, options, when, me) {
         found.push(percentProblem(options.autofill_buffer, "Suggestion margin"));
     }
     if ("pure_offense" in options) {
-        found.push(percentProblem(options.pure_offense, "Attackers to send"), percentProblem(options.flex_offense, "Flexers to send"));
+        // A slider at 0 leaves the box empty, which the server reads as 0%: only both at 0 is a problem.
+        const share = (value) => parseFloat(value) || 0;
+        found.push(percentProblem(share(options.pure_offense), "Attackers to send"), percentProblem(share(options.flex_offense), "Flexers to send"));
+        if (share(options.pure_offense) === 0 && share(options.flex_offense) === 0) found.push("Send some attackers or flexers");
     }
     if ("drones_pct" in options) found.push(percentProblem(options.drones_pct, "Drones to send"));
     if ("max_tries" in options) found.push(intProblem(options.max_tries, "Max tries", 1, 10));
@@ -154,6 +172,17 @@ function Add(props) {
             <Picker id="sched-target" options={kingdomOptions} value={options.target} onChange={(value) => set("target", value)} placeholder="Type a kingdom to filter" />
         </FieldRow>
     );
+    const unitsModeRow = (
+        <FieldRow label="How much to send">
+            <div role="radiogroup" aria-label="How much to send">
+                {UNITS_MODES.map((mode) => (
+                    <Form.Check key={mode.value} type="radio" name="units_mode" id={"sched-units-mode-" + mode.value}
+                        checked={options.units_mode === mode.value} onChange={() => set("units_mode", mode.value)}
+                        label={<>{mode.label}<div className="planner-hint-line">{mode.hint}</div></>} />
+                ))}
+            </div>
+        </FieldRow>
+    );
     const generalsRow = (
         <FieldRow label="Generals" hint="1 to 4" htmlFor="sched-generals">
             <AmountInput name="generals" id="sched-generals" label="Generals" value={options.generals} onChange={onText} max={4} />
@@ -196,12 +225,19 @@ function Add(props) {
                             <FieldRow label="Suggest the army" hint="Pick units that should win when it happens">
                                 <Form.Check type="switch" id="prefer-autofill-input" checked={Boolean(options.prefer_autofill)} onChange={(e) => set("prefer_autofill", e.target.checked)} />
                             </FieldRow>
-                            {percentRow("autofill_buffer", "Suggestion margin", "Extra offense the suggestion adds")}
-                            {percentRow("pure_offense", "Attackers to send", "Used when there is no military intel to suggest from")}
+                            {options.prefer_autofill ? <>
+                                {percentRow("autofill_buffer", "Suggestion margin", "Extra offense the suggestion adds")}
+                                <FieldRow label="Without military intel, send the share anyway" hint="Off: with no military intel when it runs, nothing is sent" htmlFor="sched-send-without-intel">
+                                    <Form.Check type="switch" id="sched-send-without-intel" checked={Boolean(options.send_without_intel)} onChange={(e) => set("send_without_intel", e.target.checked)} />
+                                </FieldRow>
+                            </> : null}
+                            {unitsModeRow}
+                            {percentRow("pure_offense", "Attackers to send", options.prefer_autofill ? "The most the suggested army may use" : undefined)}
                             {percentRow("flex_offense", "Flexers to send")}
                             {generalsRow}
                         </> : null}
                         {kind === "attackprimitives" ? <>
+                            {unitsModeRow}
                             {percentRow("pure_offense", "Attackers to send")}
                             {percentRow("flex_offense", "Flexers to send")}
                             {generalsRow}
@@ -271,10 +307,12 @@ export function Queue(props) {
         target: "Target", pure_offense: "Attackers", flex_offense: "Flexers", generals: "Generals", operation: "Operation", drones_pct: "Drones",
         shielded: "Shielded", max_tries: "Max tries", share_to_galaxy: "Share with galaxy", repeat: "Repeat", prefer_autofill: "Suggest the army",
         autofill_buffer: "Suggestion margin", attempts: "Attempts",
+        units_mode: "How much to send", send_without_intel: "Without military intel, send the share anyway",
     };
     const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
     const show = (key, value) => {
         if (key === "target") return kdLabel(value);
+        if (key === "units_mode") return UNITS_MODES.find((mode) => mode.value === value)?.label || value;
         if (["drones_pct", "pure_offense", "flex_offense", "autofill_buffer"].includes(key)) return displayPercent(value);
         if (typeof value === "boolean") return value ? "Yes" : "No";
         return String(prettyNames[value] || value);
