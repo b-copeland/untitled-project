@@ -363,7 +363,7 @@ def test_the_route_gives_a_new_kingdom_its_advice(app, client, jwt1):
     ids = [advice["id"] for advice in answer["advice"]]
     assert "defense_under_break_even" in ids
     advice = answer["advice"][ids.index("defense_under_break_even")]
-    assert advice["kind"] == "danger" and advice["hideable"] is False and advice["hidden"] is False
+    assert advice["kind"] == "danger" and advice["hideable"] is True and advice["hidden"] is False
     assert advice["links"][0] == {"label": "Train units", "to": "/military"}
 
 
@@ -401,12 +401,21 @@ def test_advisors_switched_off_give_nothing(app, client, jwt1, jwt2):
     assert client.get("/api/preferences", headers=_auth(jwt2)).get_json()["advisors"] == "on"
 
 
-def test_danger_can_not_be_hidden_and_unknown_advice_is_refused(app, client, jwt1):
+def test_unknown_advice_and_a_body_without_hidden_are_refused(app, client, jwt1):
     hide = lambda body: client.post("/api/advisors/hide", headers=_auth(jwt1), data=json.dumps(body))
-    assert hide({"id": "defense_under_break_even", "hidden": True}).status_code == 400
     assert hide({"id": "no_such_advice", "hidden": True}).status_code == 400
-    assert hide({"id": "defense_under_break_even"}).status_code == 400
+    assert hide({"id": "hangars_full"}).status_code == 400
     assert client.get("/api/preferences", headers=_auth(jwt1)).get_json()["hidden_advice"] == []
+
+
+def test_danger_can_be_hidden_for_good_too(app, client, jwt1):
+    _set_up()  # a new kingdom: under the break-even
+    response = client.post("/api/advisors/hide", headers=_auth(jwt1),
+                           data=json.dumps({"id": "defense_under_break_even", "hidden": True}))
+    assert response.status_code == 200, response.get_json()
+    advice = client.get("/api/advisors", headers=_auth(jwt1)).get_json()["advice"]
+    [item] = [item for item in advice if item["id"] == "defense_under_break_even"]
+    assert item["hideable"] is True and item["hidden"] is True
 
 
 def test_hidden_advice_is_kept_per_player_and_can_be_shown_again(app, client, jwt1, jwt2, monkeypatch):

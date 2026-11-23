@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { AdvisorsList } from "./advisors";
 
 const danger = {
-    id: "out_of_fuel", kind: "danger", text: "Your kingdom is out of fuel.", hideable: false, hidden: false,
+    id: "out_of_fuel", kind: "danger", text: "Your kingdom is out of fuel.", hideable: true, hidden: false,
     links: [{ label: "Build fuel plants", to: "/structures" }, { label: "Shields", to: "/shields" }],
 };
 const waste = {
@@ -21,13 +21,13 @@ test("each advice links to where it is fixed", () => {
     expect(screen.getByRole("link", { name: "Shields" }).getAttribute("href")).toBe("/shields");
 });
 
-test("danger can not be hidden; other advice can", () => {
+test("every advice can be hidden, danger included", () => {
     const onHide = jest.fn();
     show({ enabled: true, advice: [danger, waste] }, onHide);
     const buttons = screen.getAllByRole("button", { name: "Hide" });
-    expect(buttons).toHaveLength(1);
+    expect(buttons).toHaveLength(2);
     fireEvent.click(buttons[0]);
-    expect(onHide).toHaveBeenCalledWith("empty_stars", true);
+    expect(onHide).toHaveBeenCalledWith("out_of_fuel", true);
 });
 
 test("hidden advice waits behind a toggle and can be shown again", () => {
