@@ -19,7 +19,8 @@ Themes: Gray, Dark, Light, and a few colourful ones from four space palettes (Ec
   pointed at the theme's `--accent`.
 - **The device remembers the theme too** (`localStorage`), only so the page opens in the right colours before the
   preferences load and on the login page. The account's value wins once loaded.
-- Gray is the default.
+- Gray was the default at first; the maintainer made Twilight the default on 2026-11-23. The Settings page keeps its
+  order, so the default is named in `preferences.py` (`DEFAULT_THEME`) rather than being the first option.
 
 ## Rejected
 

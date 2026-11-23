@@ -18,7 +18,8 @@ from untitledapp.push import KINDS, MUTABLE
 
 bp = flask.Blueprint("preferences", __name__)
 
-# (value, label), in the order the Settings page shows them. The first is the default.
+# (value, label), in the order the Settings page shows them. The first is the default, except for the theme, whose
+# default is DEFAULT_THEME (the same as DEFAULT_THEME in src/theme.js).
 THEMES = [
     ("gray", "Gray"),
     ("dark", "Dark"),
@@ -28,6 +29,7 @@ THEMES = [
     ("planet", "Planet"),
     ("twilight", "Twilight"),
 ]
+DEFAULT_THEME = "twilight"
 # Whether the Status page's advisors give advice (advisors.py).
 ADVISORS = [("on", "On"), ("off", "Off")]
 # The guided tour (src/components/tour.js): offered on the player's first visit until they answer. "later" (Not now, or
@@ -35,7 +37,7 @@ ADVISORS = [("on", "On"), ("off", "Off")]
 # only the Settings page starts it.
 TOUR = [("offer", "Not answered"), ("later", "Later"), ("declined", "No thanks"), ("done", "Taken")]
 OPTIONS = {"theme": THEMES, "advisors": ADVISORS, "tour": TOUR}
-DEFAULTS = {key: options[0][0] for key, options in OPTIONS.items()}
+DEFAULTS = {**{key: options[0][0] for key, options in OPTIONS.items()}, "theme": DEFAULT_THEME}
 # Each advice the player hid is its own key, ``hide_advice_<id>: true``, so two hides at once (two tabs) can not undo
 # each other through the shallow merge; showing it again writes false. Read back as the list ``hidden_advice``.
 HIDDEN_ADVICE_PREFIX = "hide_advice_"
