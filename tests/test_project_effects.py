@@ -22,7 +22,7 @@ def _fuel_used(app, kd, unit):
 
 
 def _hangar_used(kd, units):
-    counts = {"current_total": units, "hour_24": {}}
+    counts = {"current_total": units, "queued": {}}
     return uag._calc_hangar_capacity(kd, counts)[1]
 
 
@@ -226,7 +226,7 @@ def test_the_fuel_plants_project_makes_fuel_plants_produce_more_fuel(app):
 
 def test_the_hangars_project_makes_each_hangar_hold_more_units():
     done, more = _done("hangars_bonus")
-    empty = {"current_total": {}, "hour_24": {}}
+    empty = {"current_total": {}, "queued": {}}
     plain, _ = uag._calc_hangar_capacity(kingdoms.kingdom(structures={"hangars": 100}), empty)
     boosted, _ = uag._calc_hangar_capacity(kingdoms.kingdom(structures={"hangars": 100}, **done), empty)
     assert plain == 100 * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]

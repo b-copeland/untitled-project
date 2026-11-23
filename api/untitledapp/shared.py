@@ -305,6 +305,12 @@ def per_hour(per_epoch):
 
 GAME_CONFIG = {
     "BASE_EPOCH_SECONDS": _epoch_seconds(),
+    # How far ahead the Status page shows queued units and structures, in epochs (1, 2, 4, 8 and 24 hours at the
+    # default epoch), so the columns follow the epoch length. Limits that count everything queued use "queued" instead.
+    "QUEUE_FORECAST_EPOCHS": [2, 4, 8, 16, 48],
+    # The galaxy board: the longest post, in characters, and how many posts it keeps (the oldest go first).
+    "GALAXY_BOARD_MAX_LENGTH": 500,
+    "GALAXY_BOARD_KEEP_POSTS": 100,
 
     "BASE_SETTLE_STARS_POWER": 0.5,
     "BASE_SETTLE_COST_CONSTANT": 50,
@@ -1274,6 +1280,7 @@ INITIAL_KINGDOM_STATE = {
         "news_galaxy": 0,
         "messages": 0,
         "shared": 0,
+        "galaxy_board": 0,
     },
     "history": {
         "history": {

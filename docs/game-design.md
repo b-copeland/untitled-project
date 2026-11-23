@@ -11,7 +11,7 @@ turns it into something a reviewer can check.
 
 | # | Tenet | What it means for a change |
 |---|---|---|
-| 1 | **Strategy beats activity.** One login every 12 hours with a good plan stays competitive. Rounds last a day, a week or a month. | Anything a player can do, they can also schedule or automate (Schedule page, auto spending, auto attack, auto rob). Nothing rewards being online at an exact moment or clicking fast. Timers are measured in epochs (30 minutes of game time), not seconds. |
+| 1 | **Strategy beats activity.** One login every 12 hours with a good plan stays competitive. Rounds last a day, a week or a month. | Anything a player can do, they can also schedule or automate (Schedule page, auto spending, auto attack, auto rob). Nothing rewards being online at an exact moment or clicking fast. Timers are measured in epochs (30 minutes of game time), not seconds. **Military strength never changes much in an instant:** whatever raises it takes time (training and upgrades go through the queue, a bonus grows), so no one can make an attack fail by acting the moment it is launched. A vote or policy that can switch does not raise a cap or strength at once either. |
 | 2 | **Moderate obscurity.** Fog of war and reveal timers, so outside tools cannot beat human judgment. Information only reachable through an external program is made available to everyone or no one. | The server filters every response by what the caller has revealed ([architecture.md](architecture.md#2-the-server-decides-what-a-player-can-see)). Do not add an endpoint that lets a script learn more, or faster, than the UI shows. If a script could compute something useful from visible data, show it in the UI. |
 | 3 | **Clear information at every decision point.** | Every action shows a forecast before it is sent and says why it would fail. Numbers shown are from the server. See [ux.md](ux.md). |
 | 4 | **Teams outperform individuals.** Three tiers of politics: galaxy, empire, universe. | Prefer features that reward cooperation (sharing intel, galaxy policies, empire war targets) over ones a lone player maximizes alone. |
@@ -20,7 +20,8 @@ turns it into something a reviewer can check.
 | 7 | **Minor comeback mechanics, and an early end if someone runs away with it.** Leaderboards reward contribution during the round over the snapshot at the end. | Scores accrue over time (`points` from the top 10 by networth, per epoch), not only at the end. |
 | 8 | **Simplicity over complexity.** Only add a feature if it is a net positive for the other tenets. | A proposal names the tenet it serves. Prefer changing a number over adding a system. |
 
-Not for version 1.0: a graphical map, and built-in chat beyond kingdom-to-kingdom messages.
+Not for version 1.0: a graphical map, and built-in chat beyond kingdom-to-kingdom messages and each galaxy's board (a
+place to agree a plan or share a Discord invite, not live chat).
 
 ## Does this feature belong? A checklist
 
@@ -29,11 +30,13 @@ building.
 
 1. Which tenet does it serve, and does it work against any of tenets 1 to 3?
 2. Can a player who logs in twice a day use it fully (schedule it, automate it, or it does not need attention)?
-3. What does it reveal, to whom, and for how long? Is that enforced on the server?
-4. Which playstyles does it help or hurt?
-5. Which documents does it write, and which one is the decision point? ([concurrency.md](concurrency.md))
-6. What does it cost per player per day in requests and database writes? ([cost.md](cost.md))
-7. Can it be explained in a few sentences on its help page?
+3. Does everything it does to military strength take time? Nothing may let a player, or a vote that switches, raise
+   strength or a cap at once.
+4. What does it reveal, to whom, and for how long? Is that enforced on the server?
+5. Which playstyles does it help or hurt?
+6. Which documents does it write, and which one is the decision point? ([concurrency.md](concurrency.md))
+7. What does it cost per player per day in requests and database writes? ([cost.md](cost.md))
+8. Can it be explained in a few sentences on its help page?
 
 ## Glossary
 
@@ -97,6 +100,7 @@ building.
 | Spying and robbing | `conquer.py` (`/api/spy/<target>`, `/api/calculatespy/<target>`, `/api/robprimitives`) | `BASE_SPY_*`, `BASE_DRONES_*`, `BASE_REVEAL_DURATION_MULTIPLIER` | `src/pages/help/conquer/spy.js` |
 | Intel market | `intel.py` (`/api/intel`, `/api/intel/*`); the cut of the spoils in `conquer._attack` and `_spoils_forecast` | `BASE_MAX_SHARE_CUT`, `BASE_MAX_TOTAL_SHARE_CUT`, `BASE_INTEL_BOUNTY_MAX_EPOCHS` | `src/pages/help/conquer/intel.js` |
 | Last-known intel | `lastknown.py`; recorded by `refresh._resolve_revealed` and `_record_ended_intel`, and by `misc.unshare_kd`; added to responses by `getters._get_max_kd_info`; shown with `src/components/lastknown.js` | `LAST_KNOWN_FRESH_EPOCHS`, `LAST_KNOWN_AGING_EPOCHS`, `REVEAL_FIELDS` | `src/pages/help/other/viewkingdom.js`, `src/pages/help/home/galaxy.js` |
+| Galaxy board | `board.py` (`/api/galaxyboard`, `/api/galaxyboard/*`) | `GALAXY_BOARD_MAX_LENGTH`, `GALAXY_BOARD_KEEP_POSTS` | `src/pages/help/home/message.js` |
 | Sharing your own kingdom with galaxymates | `misc.py` (`/api/share/<kingdom>`, `/api/unshare/<kingdom>`) | | `src/pages/help/other/viewkingdom.js` |
 | Schedule | `conquer.py` (`/api/schedule`), `refresh._resolve_schedules` | | `src/pages/help/conquer/schedule.js` |
 | Politics | `politics.py`, `refresh._begin_election`, `_resolve_election` | `UNIVERSE_POLICIES`, `BASE_VOTES_COST`, `AGGRO_*`, `DENOUNCE_*`, `PEACE_*`, `WAR_*` | `src/pages/help/politics/*.js` |

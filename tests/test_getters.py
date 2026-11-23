@@ -185,7 +185,7 @@ def test__calc_max_recruits():
         "population": population
     }
     units_max_recruits = {
-        "hour_24": {
+        "queued": {
             "recruits": 0,
         }
     }
@@ -197,7 +197,7 @@ def test__calc_max_recruits():
         "population": population
     }
     units_too_poor = {
-        "hour_24": {
+        "queued": {
             "recruits": 0,
         }
     }
@@ -208,7 +208,7 @@ def test__calc_max_recruits():
         "population": population
     }
     units_recruits_training = {
-        "hour_24": {
+        "queued": {
             "recruits": 10,
         }
     }
@@ -241,3 +241,27 @@ def test_the_projects_of_a_dead_kingdom_can_be_looked_at(app, client, jwt1):
 
     assert resp.status_code == 200, resp.get_data(as_text=True)
     assert set(resp.json["current_bonuses"].values()) == {0.0}
+
+
+def test_queue_forecasts_follow_the_epoch_length_and_queued_counts_everything(monkeypatch):
+    """The Status page's columns are epochs ahead, so a longer epoch looks further ahead; limits use "queued"."""
+    import datetime
+    import untitledapp.getters as getters
+
+    now = datetime.datetime(2030, 1, 1, tzinfo=datetime.timezone.utc)
+    at = lambda hours, **counts: {"time": (now + datetime.timedelta(hours=hours)).isoformat(), **counts}
+    queue = [at(0.5, homes=1), at(3, homes=2), at(30, homes=4)]
+
+    monkeypatch.setitem(app_shared.GAME_CONFIG, "BASE_EPOCH_SECONDS", 1800)
+    half_hour = getters._calc_structures(now, {"homes": 10}, queue)
+    assert [half_hour[f"future_{n}"]["homes"] for n in app_shared.GAME_CONFIG["QUEUE_FORECAST_EPOCHS"]] == [1, 1, 3, 3, 3]
+    assert half_hour["queued"]["homes"] == 7  # the entry 30 hours out is past the last column, but it is still queued
+
+    monkeypatch.setitem(app_shared.GAME_CONFIG, "BASE_EPOCH_SECONDS", 3600)
+    hour = getters._calc_structures(now, {"homes": 10}, queue)
+    assert [hour[f"future_{n}"]["homes"] for n in app_shared.GAME_CONFIG["QUEUE_FORECAST_EPOCHS"]] == [1, 3, 3, 3, 7]
+
+    units = getters._calc_units(now, {"recruits": 5}, [], [at(40, recruits=9)])
+    assert units["queued"]["recruits"] == 9 and units["future_2"]["recruits"] == 0
+    assert getters._calc_max_recruits({"money": 10 ** 9, "population": 1000}, units)[0] == (
+        app_shared.GAME_FUNCS["BASE_MAX_RECRUITS"](1000) - 9)

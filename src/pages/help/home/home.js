@@ -1,9 +1,10 @@
 import React from "react";
-import { HelpTable, Topic, config, num } from "../util";
+import { HelpTable, Topic, config, duration, num } from "../util";
 
 function Home(props) {
     const values = config(props.state).NETWORTH_VALUES || {};
     const names = props.state.pretty_names || {};
+    const horizons = config(props.state).QUEUE_FORECAST_EPOCHS || [];
     return (
         <Topic id="home" title="Status" lead="Your kingdom at a glance.">
             <ul>
@@ -16,6 +17,12 @@ function Home(props) {
                 <b>Max offense</b> and <b>max defense</b> on the Military tab assume your best case: military
                 efficiency and military shields at their maximum, all four generals sent, and fuel in stock.
             </p>
+            {horizons.length > 0 && (
+                <p>
+                    The Military and Structures tabs also show what you will have as training and building finish,
+                    from {duration(horizons[0], config(props.state))} to {duration(horizons[horizons.length - 1], config(props.state))} ahead.
+                </p>
+            )}
             <h4>Networth</h4>
             <p>Networth adds up the values below. It sets your rank on the Scores page, which earns points.</p>
             <HelpTable columns={[["Item"], ["Networth each", "right"]]}

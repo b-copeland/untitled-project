@@ -454,23 +454,7 @@ def _calc_units(
 
     units["current_total"] = current_total
 
-    # Each entry's time is parsed once, not once per horizon.
-    timed_mobis = [
-        (datetime.datetime.fromisoformat(mobi["time"]).astimezone(datetime.timezone.utc), mobi)
-        for mobi in mobis_units
-    ]
-    for hours in [1, 2, 4, 8, 24]:
-        hour_units = {
-            key: 0
-            for key in uas.UNITS.keys()
-        }
-        max_time = start_time + datetime.timedelta(hours=hours)
-        for mobi_time, mobi in timed_mobis:
-            if mobi_time < max_time:
-                for key_unit in hour_units.keys():
-                    hour_units[key_unit] += mobi.get(key_unit, 0)
-
-        units[f"hour_{hours}"] = hour_units
+    units.update(_queue_forecast(start_time, mobis_units, uas.UNITS.keys()))
     return units
 
 def _calc_max_offense(
@@ -561,7 +545,7 @@ def _calc_hangar_capacity(kd_info, units):
         * (uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"] + uas.project_increase(kd_info, "hangars_bonus"))
     )
     current_hangar_capacity = sum([
-        uas.unit_hangar_space(kd_info, key) * (units["current_total"].get(key, 0) + units["hour_24"].get(key, 0))
+        uas.unit_hangar_space(kd_info, key) * (units["current_total"].get(key, 0) + units["queued"].get(key, 0))
         for key, stat_map in uas.UNITS.items()
     ])
     return max_hangar_capacity, current_hangar_capacity
@@ -572,7 +556,7 @@ def _recruit_price(kd_info):
 
 
 def _calc_max_recruits(kd_info, units):
-    recruits_training = units["hour_24"]["recruits"]
+    recruits_training = units["queued"]["recruits"]
     max_total_recruits = uas.GAME_FUNCS["BASE_MAX_RECRUITS"](int(kd_info["population"]))
     max_available_recruits = max(max_total_recruits - recruits_training, 0)
     max_recruits_cost = _recruit_price(kd_info) * max_available_recruits
@@ -739,33 +723,31 @@ def mobis():
     return (flask.jsonify(payload), 200)
 
 
+def _queue_forecast(start_time, queue, keys, horizons=None):
+    """What a queue adds by each horizon: ``future_<n>`` for what lands within ``n`` epochs of ``start_time`` (one per
+    ``QUEUE_FORECAST_EPOCHS``), and ``queued`` for everything in it, which is what limits on training or building count."""
+    horizons = uas.GAME_CONFIG["QUEUE_FORECAST_EPOCHS"] if horizons is None else horizons
+    timed = [(uas.utc(entry["time"]), entry) for entry in queue]  # each entry's time parsed once, not once per horizon
+    forecast = {}
+    for epochs in horizons:
+        max_time = start_time + datetime.timedelta(seconds=epochs * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"])
+        forecast[f"future_{epochs}"] = {
+            key: sum(entry.get(key, 0) for entry_time, entry in timed if entry_time < max_time)
+            for key in keys
+        }
+    forecast["queued"] = {key: sum(entry.get(key, 0) for entry in queue) for key in keys}
+    return forecast
+
+
 def _calc_structures(
     start_time,
     current_structures,
     building_structures,
-    epochs=[1, 2, 4, 8, 24]
 ):
     structures = {
         "current": {k: current_structures.get(k, 0) for k in uas.STRUCTURES}
     }
-
-    timed_structures = [  # each entry's time parsed once, not once per horizon
-        (datetime.datetime.fromisoformat(entry["time"]).astimezone(datetime.timezone.utc), entry)
-        for entry in building_structures
-    ]
-    for hours in epochs:
-        epoch_seconds = hours * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
-        hour_structures = {
-            key: 0
-            for key in uas.STRUCTURES
-        }
-        max_time = start_time + datetime.timedelta(seconds=epoch_seconds)
-        for structure_time, building_structure in timed_structures:
-            if structure_time < max_time:
-                for key_structure in hour_structures.keys():
-                    hour_structures[key_structure] += building_structure.get(key_structure, 0)
-
-        structures[f"hour_{hours}"] = hour_structures
+    structures.update(_queue_forecast(start_time, building_structures, uas.STRUCTURES))
     return structures
 
 def _get_structure_price(kd_info, modifiers=None):
@@ -773,7 +755,7 @@ def _get_structure_price(kd_info, modifiers=None):
     return uas.GAME_FUNCS["BASE_STRUCTURE_COST"](int(kd_info["stars"])) * max(1 + uas.modifier(modifiers, "structure_cost"), 0)
 
 def _calc_available_structures(structure_price, kd_info, structures_info):
-    total_structures = math.ceil(sum(structures_info["current"].values()) + sum(structures_info["hour_24"].values()))
+    total_structures = math.ceil(sum(structures_info["current"].values()) + sum(structures_info["queued"].values()))
     max_available_structures = max(int(kd_info["stars"]) - total_structures, 0)
     max_structures_cost = structure_price * max_available_structures
     try:

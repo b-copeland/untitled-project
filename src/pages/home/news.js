@@ -15,7 +15,7 @@ import 'bootstrap/dist/css/bootstrap.css';
 import HelpButton from "../../components/helpbutton";
 
 // The kind of news an item is, as the server tags it. Items written before the tag existed have none.
-const NEWS_KINDS = { attack: "Attack", spy: "Spy", missiles: "Missiles", intel: "Intel" };
+const NEWS_KINDS = { attack: "Attack", spy: "Spy", missiles: "Missiles", intel: "Intel", primitives: "Primitives", death: "Death", politics: "Politics", galaxy: "Galaxy" };
 
 function getTimeSinceString(date) {
     if (date === undefined) {
@@ -107,7 +107,7 @@ function NewsContent(props) {
           <Galaxy kdNames={kdNames} galaxyMap={galaxyMap} galaxynews={props.data.galaxynews}/>
         </Tab>
         <Tab eventKey="empire" title="Empire">
-          <Empire kdNames={kdNames} galaxyMap={galaxyMap} empirenews={props.data.empirenews}/>
+          <Empire empirenews={props.data.empirenews}/>
         </Tab>
         <Tab eventKey="universe" title="Universe">
           <Universe universenews={props.data.universenews}/>
@@ -235,34 +235,34 @@ function Galaxy(props) {
     );
 }
 
-function Empire(props) {
-    if (props.empirenews.length === 0) {
-        return null;
+export function Empire(props) {
+    const news = props.empirenews || [];
+    if (news.length === 0) {
+        return <p className="text-muted">No empire news yet. Once your galaxy is in an empire, its joins, wars, surrenders and targets show here.</p>;
     }
-    const news = props.empirenews;
-    const newsRows = news.map((newsItem) =>
-        <tr key={newsItem.time}>
+    const newsRows = news.map((newsItem, index) =>
+        <tr key={`${newsItem.time}-${index}`}>
             <td>{getNiceTimeString(newsItem.time)}</td>
             <td>{getTimeSinceString(newsItem.time)}</td>
-            <td>{props.kdNames[newsItem.to]} ({props.galaxyMap[newsItem.to]})</td>
             <td>{newsItem.news}</td>
         </tr>
     );
     return (
         <div className="kingdom">
-            <Table hover>
-                <thead>
-                    <tr>
-                    <th>Time</th>
-                    <th>Time Since</th>
-                    <th>To</th>
-                    <th>News</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {newsRows}
-                </tbody>
-            </Table>
+            <div className="table-scroll">
+                <Table hover>
+                    <thead>
+                        <tr>
+                        <th>Time</th>
+                        <th>Time Since</th>
+                        <th>News</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {newsRows}
+                    </tbody>
+                </Table>
+            </div>
         </div>
     );
 }

@@ -1,0 +1,60 @@
+/* The galaxy board. Panels, buttons and colours come from styles/shared.css and the theme tokens. */
+
+.galaxy-board {
+    width: 100%;
+}
+
+.board-compose {
+    margin-bottom: 1rem;
+}
+
+.board-compose .form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.board-posts {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.board-post {
+    padding: 0.6rem 0;
+    border-top: 1px solid var(--row-divider);
+}
+
+.board-post:first-child {
+    border-top: none;
+}
+
+.board-post-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.board-post-head time {
+    margin-left: 0.5rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.85em;
+}
+
+.board-post-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.board-text {
+    margin: 0.25rem 0 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.board-empty {
+    margin: 0;
+}

@@ -25,7 +25,50 @@ function ThemePreview({ value }) {
     );
 }
 
-/** The Settings page: the player's own preferences, saved to their account. The colour theme for now. */
+/**
+ * Which notifications the panel shows: a switch for each kind, in the server's groups. Turning one off hides it on every
+ * device; what it would have refreshed still refreshes. Each change saves the whole list.
+ */
+function NotificationChoices({ preferences, updateData, setResults }) {
+    const options = preferences.options?.muted || [];
+    const [chosen, setChosen] = useState(null);
+    const muted = chosen || preferences.muted || [];
+    const groups = [...new Set(options.map((option) => option.group))];
+
+    const toggle = (kind) => {
+        const before = muted;
+        const next = muted.includes(kind) ? muted.filter((other) => other !== kind) : muted.concat(kind);
+        setChosen(next);
+        const updateFunc = () => authFetch("api/preferences", { method: "post", body: JSON.stringify({ muted: next }) })
+            .then(safeJson)
+            .then((r) => {
+                if (r.status !== "success") {
+                    setChosen(before);
+                    setResults((previous) => previous.concat(r));
+                }
+            });
+        updateData(["preferences"], [updateFunc]);
+    };
+
+    return (
+        <div className="notification-choices">
+            {groups.map((group) => (
+                <fieldset key={group} className="notification-group">
+                    <legend>{group}</legend>
+                    {options.filter((option) => option.group === group).map(({ value, label }) => (
+                        <div key={value} className="form-check form-switch">
+                            <input className="form-check-input" type="checkbox" role="switch" id={`notify-${value}`}
+                                checked={!muted.includes(value)} onChange={() => toggle(value)} />
+                            <label className="form-check-label" htmlFor={`notify-${value}`}>{label}</label>
+                        </div>
+                    ))}
+                </fieldset>
+            ))}
+        </div>
+    );
+}
+
+/** The Settings page: the player's own preferences, saved to their account. The colour theme and notifications. */
 function Settings(props) {
     const [results, setResults] = useState([]);
     const preferences = props.data.preferences || {};
@@ -67,6 +110,9 @@ function Settings(props) {
                         </button>
                     ))}
                 </div>
+            </Panel>
+            <Panel title="Notifications" hint="Turn off the kinds you do not want to see. The page still updates, and the news still has them.">
+                <NotificationChoices preferences={preferences} updateData={props.updateData} setResults={setResults} />
             </Panel>
             <HelpButton scrollTarget={"settings"} />
         </div>

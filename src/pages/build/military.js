@@ -94,7 +94,7 @@ function UnitsTable({ kdInfo, mobisInfo, units, lastHeader, last, extra = [], om
         { header: "Fuel", cell: (unit) => desc[unit.key]?.fuel || 0 },
         { header: "Have", cell: (unit) => (locked(unit) ? `Research "${unit.projectName}" to unlock` : whole(mobisInfo.units.current_total?.[unit.key])),
           span: (unit) => (locked(unit) && !omit.includes("Training") ? 2 : 1) },
-        { header: "Training", cell: (unit) => whole(mobisInfo.units.hour_24?.[unit.key]) },
+        { header: "Training", cell: (unit) => whole(mobisInfo.units.queued?.[unit.key]) },
         ...extra,
         { header: lastHeader, cell: (unit) => last(unit, locked(unit)) },
     ].filter((column) => !omit.includes(column.header));
@@ -158,7 +158,7 @@ function Recruits(props) {
                 </div>
                 <div className="text-box-item">
                     <span className="text-box-item-title">Training Recruits</span>
-                    <span className="text-box-item-value">{props.mobisInfo.units.hour_24.recruits?.toLocaleString()}</span>
+                    <span className="text-box-item-value">{props.mobisInfo.units.queued.recruits?.toLocaleString()}</span>
                 </div>
                 <br />
                 <div className="text-box-item">
