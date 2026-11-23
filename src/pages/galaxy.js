@@ -61,7 +61,7 @@ function Galaxy(props) {
     const [galaxyInput, setGalaxyInput] = useState();
     const [loading, setLoading] = useState(false);
     const [showShareInfo, setShowShareInfo] = useState(false);
-    const [query] = useSearchParams();
+    const [query, setQuery] = useSearchParams();
     const navigate = useNavigate();
     const fromHere = useFromHere();
     const [kdToShow, setKdToShow] = useState();
@@ -78,6 +78,18 @@ function Galaxy(props) {
         }
         fetchData();
     }, [galaxyIndex]);
+    // Another galaxy on screen goes in the address (?galaxy=1:3), so a page opened from here links back to it (#222).
+    // Your own galaxy is plain /galaxy, the address the guided tour and the side nav use.
+    const shownGalaxy = galaxyIndex >= 0 ? galaxiesArray[galaxyIndex] : undefined;
+    useEffect(() => {
+        if (!shownGalaxy) return;
+        const wanted = shownGalaxy === props.initialGalaxyId ? null : shownGalaxy;
+        if (query.get("galaxy") !== wanted) {
+            const next = new URLSearchParams(query);
+            if (wanted) next.set("galaxy", wanted); else next.delete("galaxy");
+            setQuery(next, { replace: true });
+        }
+    }, [shownGalaxy, query]);  // eslint-disable-line react-hooks/exhaustive-deps -- props.initialGalaxyId is fixed for the page
     if ((galaxyIndex === undefined) & galaxiesArray.length > 0) {
         // A galaxy chosen by the link here (/galaxy?galaxy=1:3, from Conquer), else your own.
         const asked = galaxiesArray.indexOf(query.get("galaxy") || "");

@@ -7,7 +7,7 @@ import Table from 'react-bootstrap/Table';
 import Toast from 'react-bootstrap/Toast';
 import ToastContainer from 'react-bootstrap/ToastContainer';
 import "./conquer.css";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { tradable } from "./intel.js";
 import { KingdomLink, kingdomPath, targetPath } from "../../components/kingdomlink";
 import { useFromHere } from "../../components/pagehead";
@@ -40,19 +40,18 @@ function ActionButton({ children, disabled, onClick }) {
 
 
 function ConquerContent(props) {
-    const [key, setKey] = useState('kingdom');
-
-    const handleNotifsSelect = (eventKey) => {
-        setKey(eventKey);
-    }
+    // The tab goes in the address (?tab=pinned), so a page opened from here links back to the same tab (#222).
+    const [params, setParams] = useSearchParams();
+    const tab = params.get("tab") === "pinned" ? "pinned" : "revealed";
+    const openTab = (key) => setParams(key === "revealed" ? {} : { tab: key }, { replace: true });
     return (
     <>
       <Tabs
-        id="controlled-tab-example"
+        id="conquer-tabs"
         data-tour="conquer-tabs"
-        defaultActiveKey="revealed"
+        activeKey={tab}
         variant="tabs"
-        onSelect={(k) => handleNotifsSelect(k)}
+        onSelect={openTab}
       >
         <Tab eventKey="revealed" title="Revealed">
           <Revealed

@@ -24,6 +24,10 @@ test("hostile operations are sent without asking too", () => {
     expect(spyNeedsConfirmation({ group: "Hostile", hasForecast: true, guessing: false, chance: 0.9 })).toBe(false);
 });
 
+test("a siphon on a kingdom you already siphon asks first, however good the chance (#220)", () => {
+    expect(spyNeedsConfirmation({ hasForecast: true, guessing: false, chance: 0.95, warning: "You already have a siphon on this kingdom" })).toBe(true);
+});
+
 test("only a known long shot asks first", () => {
     expect(spyNeedsConfirmation({ hasForecast: true, guessing: false, chance: 0.2 })).toBe(true);
     // A chance that is only a guess is not a reason to ask.

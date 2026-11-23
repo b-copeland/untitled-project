@@ -1788,6 +1788,7 @@ def calculate_spy(target_kd):
 
     damage_multiplier = _aggro_damage_multiplier(kd_info_parse, max_target_kd_info, war)
     message = f"The operation has a {spy_probability:.2%} chance of success. \n\nIf successful, {success_losses} drones will be lost. \nIf unsuccessful, {failure_losses} drones will be lost.\n"
+    warning = None
 
     if operation in uas.REVEAL_OPERATIONS:
         revealed_stat = ", ".join(uas.REVEAL_OPERATION_STATS[operation])
@@ -1799,6 +1800,7 @@ def calculate_spy(target_kd):
         siphon_seconds = uas.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"] * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
         siphon_hours = siphon_seconds / 3600
         message += f"If successful, you will siphon up to {siphon_damage} money over the next {siphon_hours} hours."
+        warning = _your_siphon_warning(kd_id, target_kd)
     if operation == "bombhomes":
         if "structures" in max_target_kd_info.keys():
             homes_damage = math.floor(min(math.floor(max_target_kd_info["structures"]["homes"] * uas.GAME_CONFIG["BASE_DRONES_MAX_HOME_DAMAGE"]), math.floor(drones / uas.GAME_CONFIG["BASE_DRONES_PER_HOME_DAMAGE"])) * damage_multiplier)
@@ -1842,8 +1844,38 @@ def calculate_spy(target_kd):
         "success_chance": spy_probability,
         "drone_losses": {"success": success_losses, "failure": failure_losses},
     }
+    if warning:
+        payload["warning"] = warning
     return (flask.jsonify(payload), 200)
-    
+
+
+def _your_siphon_warning(kd_id, target_kd):
+    """
+    A warning when the caller already has a siphon running on the target (#220), else None. A second one is allowed:
+    it runs alongside the first, but every siphon on a kingdom together takes at most BASE_MAX_SIPHON of its income.
+    Siphons on other kingdoms are no concern. Only the caller's own entries are looked at, so nothing about the
+    target's other siphoners is revealed.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+    yours = [
+        siphon for siphon in uag._get_siphons_out(target_kd)
+        if str(siphon.get("from")) == str(kd_id)
+        and datetime.datetime.fromisoformat(str(siphon["time"])).astimezone(datetime.timezone.utc) > now
+        and siphon.get("siphon", 0) > 0
+    ]
+    if not yours:
+        return None
+    left = math.floor(sum(siphon["siphon"] for siphon in yours))
+    ends = max(datetime.datetime.fromisoformat(str(siphon["time"])).astimezone(datetime.timezone.utc) for siphon in yours)
+    hours = (ends - now).total_seconds() / 3600
+    cap = uas.GAME_CONFIG["BASE_MAX_SIPHON"]
+    return (
+        f"You already have a siphon on this kingdom, with up to {left:,} money still to take over the next "
+        f"{hours:.1f} hours. Another one would run alongside it, but a kingdom loses at most {cap:.0%} of its income "
+        f"to all siphons together, and when they would take more the oldest is reduced first, so a new siphon can "
+        f"take from the one you already have."
+    )
+
 def _spy(req, kd_id, target_kd):
     
     
