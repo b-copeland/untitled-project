@@ -72,7 +72,7 @@ think a few at a time. Each think:
 | Read the news | An attack makes its sender a grudge and raises the defense the bot wants (it wears off); missiles raise the missile shields, caught spies the spy shields (`react`). |
 | Learn | A strike that failed widens the buffer it asks for, one that worked narrows it. A kingdom whose spies it keeps failing against is left alone for two days. A kingdom that has stopped growing settles harder and sends its army at primitives whatever its style (`learn`). |
 | Plan the economy | The auto builder's settings for the coming hours (`plan_economy`, below). |
-| Survive | An army the hangars and fuel plants can no longer keep (after losing stars) is disbanded, defenders last, before it empties the homes (`plan_survival`). |
+| Survive | After losing stars, an army over `HANGAR_SLACK` of its hangar room (units in training counted) with no empty star to build on gets room made for it: homes are razed (`RAZE_SHARE` of the land a think, never below `MIN_HOMES_SHARE` of it) and the auto builder puts hangars there. Homes, not mines: a home holds 50 people and a hangar 75 units that would each take a person's room, while a mine earns what 75 people do (razing mines first left attackers 8% smaller in simulations). What that can not house, and an army out of fuel, is disbanded, defenders last (`plan_survival`). |
 | Spend loose money | Settle, build and train engineers with money that is not in a funding category, as on the Build pages (`spend_money`). |
 | Politics | Below (`plan_politics`). |
 | Intel | Reveal a galaxy when it knows nobody; spy where it pays; buy the intel galaxymates list if it can use it (`plan_intel`, `accept_intel`). |
@@ -382,7 +382,7 @@ Not changed: these are balance and rules, which are the maintainer's call.
 
 - Surrender, peace and leaving an empire.
 - Marking empire targets, naming delegates and paying out spoils funds (bots only act on targets players set).
-- Messages, pinning, razing structures (a shrunken kingdom would raze mines for hangars before disbanding).
+- Messages, pinning, razing for anything but hangars after losing land.
 - A fifth archetype for the Fuzi (the missile race).
 - Reacting to what the galaxy's news says about galaxymates being attacked.
 

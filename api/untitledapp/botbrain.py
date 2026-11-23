@@ -871,39 +871,76 @@ def risk_floor(kd_id):
     return low + (high - low) * (zlib.crc32(str(kd_id).encode()) / 2 ** 32)
 
 
+# Hangars after losing land. A strike takes land and the structures on it but not the army, and every unit without a
+# hangar takes a person's room in the homes (units in training counted, as the game counts them). Past HANGAR_SLACK of
+# the room: with empty stars, the auto builder builds the hangars its target already asks for; with none, the bot razes
+# homes to make room for them, at most RAZE_SHARE of its land a think and never below MIN_HOMES_SHARE of its land in
+# homes. Homes, not mines: a home holds 50 people and a hangar 75 units, each of which would take a person's room, so
+# trading a home for a hangar gains room; a mine earns what 75 people do, so trading it gains nothing and costs the
+# rebuild (in simulations, razing mines first left attackers 8% smaller). Only an army still far over after that (or
+# no fuel) is disbanded.
+HANGAR_SLACK = 1.02     # TUNE: the advisors warn a player from the same point
+RAZE_SHARE = 0.05       # TUNE: share of the land razed in one think
+MIN_HOMES_SHARE = 0.15  # TUNE
+DISBAND_OVERFLOW = 0.15  # TUNE: overflow left, as a share of the room the army needs, that is disbanded
+
+
+def hangar_room(world):
+    """``(held, used, per_hangar)``: the hangar space the kingdom has, what its units take (in training too), and what
+    one hangar holds for it, as ``getters._calc_hangar_capacity`` counts them."""
+    me = world.me
+    units = {"current_total": strategy.all_units(me), "queued": world.units_training}
+    held, used = uag._calc_hangar_capacity(me, units, world.modifiers)
+    per_hangar = (uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"] + uas.project_increase(me, "hangars_bonus")) * max(
+        1 + uas.modifier(world.modifiers, "hangar_capacity"), 0)
+    return held, used, per_hangar
+
+
 def plan_survival(world, memory):
     """
     A kingdom that has lost stars can be left with an army its hangars and fuel plants can not keep: units without a
     hangar push people out of their homes (a kingdom with no people is dead), and without fuel everything weakens.
-    With no empty star to build on, the only way out is to disband what can not be kept: recruits first, then
-    offense, defenders last.
+    With no empty star to build hangars on, it razes homes to make room (above); what that can not fix is
+    disbanded: recruits first, then offense, defenders last.
     """
     me = world.me
-    if me["stars"] > sum(me["structures"].values()) + 1:
-        return []  # room to build hangars and fuel plants instead
-    units = strategy.all_units(me)
-    housed = sum(count * uas.UNITS[unit]["hangar_capacity"] for unit, count in units.items())
-    capacity = math.floor(me["structures"].get("hangars", 0)) * uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"]
-    overflow = housed - capacity
-    excess = overflow if overflow > 0.15 * max(housed, 1) else 0
+    decisions = []
+    excess = 0
+    held, used, per_hangar = hangar_room(world)
+    overflow = used - held
+    structures = me["structures"]
+    empty = me["stars"] - sum(structures.values())
+    if overflow > held * (HANGAR_SLACK - 1) and empty <= 1:
+        needed = math.ceil(overflow / max(per_hangar, 1))
+        room = max(math.floor(structures.get("homes", 0) - MIN_HOMES_SHARE * me["stars"]), 0)
+        count = min(needed, math.floor(RAZE_SHARE * me["stars"]), room)
+        if count > 0:
+            raze = {"homes": count}
+            if raze:
+                decisions.append(Decision("raze", raze, "more army than hangars after losing land: raze "
+                                          + ", ".join(f"{n:,} {key}" for key, n in raze.items()) + " for hangars"))
+        # What razing every star it may (over the coming thinks) can not house is disbanded now.
+        beyond = overflow - min(needed, room) * per_hangar
+        if beyond > DISBAND_OVERFLOW * max(used, 1):
+            excess = beyond
     fuel_net = (me.get("income") or {}).get("fuel", {}).get("net", 0)
     if me["fuel"] <= 0 and fuel_net < 0:
         excess = max(excess, -fuel_net * 1.1)
     if excess < 50:
-        return []
+        return decisions
     disband = {}
     for unit in ("recruits", "attack", "flex", "big_flex", "defense"):
-        size = uas.UNITS[unit]["hangar_capacity"]
+        size = uas.unit_hangar_space(me, unit) or 1
         count = int(min(me["units"].get(unit, 0), math.ceil(excess / size)))
         if count > 0:
             disband[unit] = count
             excess -= count * size
         if excess <= 0:
             break
-    if not disband:
-        return []
-    return [Decision("disband", disband, "more army than the hangars and fuel plants left can keep: disband "
-                     + ", ".join(f"{count:,} {unit}" for unit, count in disband.items()))]
+    if disband:
+        decisions.append(Decision("disband", disband, "more army than the hangars and fuel plants left can keep: "
+                                  "disband " + ", ".join(f"{count:,} {unit}" for unit, count in disband.items())))
+    return decisions
 
 
 def spend_money(world, personality, style, memory, settings):
@@ -1756,6 +1793,8 @@ def _do(kd_id, world, decision):
             return _answer(uab._build_missiles(kd_id, dict(options)))
         if kind == "disband":
             return _answer(uab._disband(kd_id, dict(options)))
+        if kind == "raze":
+            return _answer(uab._raze(kd_id, dict(options)))
         if kind == "buy_settle":
             return _answer(_buy_settle(kd_id, options["money"]))
         if kind == "buy_structures":

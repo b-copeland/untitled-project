@@ -693,20 +693,11 @@ def _validate_raze(kd_info, input):
         
     return True, ""
 
-@bp.route('/api/structures/raze', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-# @flask_praetorian.roles_required('verified')
-def raze_structures():
-    app = flask.current_app
-    req = flask.request.get_json(force=True)
-    req_input = {
-        k: int(v)
-        for k, v in req["input"].items()
-        if v not in ("", "0")
-    } 
-
-    kd_id = flask_praetorian.current_user().kd_id
+def _raze(kd_id, req_input):
+    """
+    Raze ``req_input`` (structure to count) of ``kd_id``'s structures, for a share of what each costs today
+    (``_raze_return``). Returns ``(payload, status_code)``. The route and the bots both come through here.
+    """
     modifiers = uag._get_modifiers(kd_id)
     raze_return = uag._raze_return(modifiers)
 
@@ -735,11 +726,25 @@ def raze_structures():
     try:
         occ.update(f'/kingdom/{kd_id}', decide)
     except occ.Rejected as rejection:
-        return (flask.jsonify({"message": rejection.message}), rejection.status)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return (flask.jsonify({"message": "Server is busy"}), 400)
-    
-    return (flask.jsonify({"message": "Razed structures", "status": "success"}), 200)
+        return {"message": "Server is busy"}, 400
+    return {"message": "Razed structures", "status": "success"}, 200
+
+
+@bp.route('/api/structures/raze', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+# @flask_praetorian.roles_required('verified')
+def raze_structures():
+    req = flask.request.get_json(force=True)
+    req_input = {
+        k: int(v)
+        for k, v in req["input"].items()
+        if v not in ("", "0")
+    }
+    payload, status = _raze(flask_praetorian.current_user().kd_id, req_input)
+    return flask.jsonify(payload), status
 
 
 def _validate_settles(settle_input, kd_info, settle_info, modifiers=None):

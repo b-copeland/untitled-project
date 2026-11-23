@@ -233,17 +233,32 @@ def test_spies_that_keep_failing_on_a_kingdom_leave_it_alone_for_a_while():
     assert old["spy_fails"] == {}
 
 
-def test_an_army_the_kingdom_can_no_longer_keep_is_disbanded_defenders_last():
+def test_after_losing_land_homes_are_razed_for_hangars_before_any_unit_is_disbanded():
     # After losing stars: every star is built on, the hangars hold 1,500, and 7,100 units need a place.
     shrunk = {"stars": 300, "structures": {"homes": 150, "mines": 80, "fuel_plants": 30, "hangars": 20,
                                            "drone_factories": 10, "missile_silos": 0, "workshops": 10}}
     (decision,) = brain.plan_survival(StubWorld(me=shrunk), {})
-    assert decision.kind == "disband"
-    assert decision.options == {"recruits": 100, "attack": 4000, "defense": 1500}
-    # With stars to build hangars on, or an army that fits, nothing is disbanded.
+    # 75 stars of hangars would house them; at most 5% of the land (15) a think, from the homes (never the mines).
+    assert decision.kind == "raze" and decision.options == {"homes": 15}
+    # With stars to build hangars on, or an army that fits, nothing is razed or disbanded.
     assert brain.plan_survival(StubWorld(me={**shrunk, "stars": 400}), {}) == []
     assert brain.plan_survival(StubWorld(me={"stars": 1000}), {}) == []
-    # Out of fuel and still burning more than it makes: the same way out.
+
+
+def test_homes_are_never_razed_below_their_floor_and_what_can_not_be_housed_is_disbanded():
+    few_homes = {"stars": 300, "structures": {"homes": 50, "mines": 100, "fuel_plants": 30, "hangars": 85,
+                                              "drone_factories": 15, "missile_silos": 0, "workshops": 20}}
+    (decision,) = brain.plan_survival(StubWorld(me=few_homes), {})
+    assert decision.options == {"homes": 5}  # 725 over needs 10 stars; homes may go down to 15% of 300 (45)
+    poor = {"stars": 300, "structures": {"homes": 45, "mines": 45, "fuel_plants": 30, "hangars": 20,
+                                         "drone_factories": 80, "missile_silos": 0, "workshops": 80}}
+    decisions = brain.plan_survival(StubWorld(me=poor), {})
+    # Homes are at their floor already: nothing razed; the army that can not be housed is disbanded.
+    assert [d.kind for d in decisions] == ["disband"]
+    assert decisions[0].options == {"recruits": 100, "attack": 4000, "defense": 1500}
+
+
+def test_out_of_fuel_and_still_burning_the_army_is_disbanded_defenders_last():
     dry = {"stars": 1000, "fuel": -50, "income": {"money": {"net": 1}, "fuel": {"net": -2000}}}
     (decision,) = brain.plan_survival(StubWorld(me=dry), {})
     assert decision.options == {"recruits": 100, "attack": 2100}
@@ -1129,3 +1144,19 @@ def test_a_galaxy_leader_bot_casts_its_galaxys_cluster_vote_once(app, client):
     assert (cluster.get("votes") or {}).get("1") == wanted
     assert _get(f"/kingdom/{KD_ID}")["bot"]["counts"].get("vote_cluster") == 1
     assert again == []  # voted already: nothing to do on the next think
+
+
+def test_a_raze_decision_goes_through_the_routes_function(app, client):
+    built = {"homes": 100, "mines": 100, "fuel_plants": 50, "hangars": 50, "drone_factories": 0, "missile_silos": 0,
+             "workshops": 0}
+    _make_kingdom_one_a_bot("attacker", structures=built)
+    before = _get(f"/kingdom/{KD_ID}")
+    mines = int(before["structures"]["mines"])
+    assert mines == 100
+    with app.app_context():
+        world = brain.World(KD_ID, before, datetime.datetime.now(datetime.timezone.utc))
+        outcome = brain._do(KD_ID, world, brain.Decision("raze", {"mines": min(5, mines)}, "test"))
+    after = _get(f"/kingdom/{KD_ID}")
+    assert outcome != "unknown"
+    assert after["structures"]["mines"] == mines - min(5, mines)
+    assert after["money"] > before["money"]  # the refund
