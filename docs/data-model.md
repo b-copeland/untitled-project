@@ -175,7 +175,7 @@ Created from `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`, which has the st
 | `status` | `Active` or `Dead` |
 | `stars`, `fuel`, `population`, `money`, `drones`, `networth`, `votes` | Resources and totals |
 | `last_income` | When income was last credited |
-| `income` | The last income breakdown, for display |
+| `income` | The last income breakdown, for display. Seeded when the kingdom is set up, so it shows before the first tick |
 | `next_resolve` | Per category, when the refresh next has work: `generals`, `spy_attempt`, `settles`, `mobis`, `missiles`, `engineers`, `structures`, `revealed`, `auto_spending`, and `galaxies_revealed` (only on kingdoms with Lumina Evolution: when to renew its reveal of every galaxy). Kingdoms made before the intel market also have `shared`, which their next refresh sets to never |
 | `spy_attempts` | Spy operations available now |
 | `generals_available`, `generals_out` | Generals home, and those on an attack with their return time and units |
