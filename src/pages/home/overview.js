@@ -6,6 +6,7 @@ import { Stats } from "../../components/planner";
 import { authFetch } from "../../auth";
 import { inOrder } from "../../order";
 import Advisors from "./advisors";
+import { TourReminder } from "../../components/tour";
 import "./overview.css";
 
 const SUMMARY_SERIES = [["stars", "Stars"], ["networth", "Networth"], ["population", "Population"],
@@ -149,9 +150,9 @@ function ago(date, now = Date.now()) {
 }
 
 /** A card on the dashboard: a title that links to where you act on it, then a few numbers and lines. */
-function Card({ title, to, className = "", children }) {
+function Card({ title, to, className = "", tour, children }) {
     return (
-        <section className={`overview-card ${className}`.trim()}>
+        <section className={`overview-card ${className}`.trim()} data-tour={tour}>
             <h3 className="overview-card-title">
                 {to ? <Link to={to}>{title}</Link> : title}
             </h3>
@@ -197,7 +198,9 @@ export function Overview({ data, loadSummary }) {
 
     return (
         <div className="overview">
-            <Card title="Advisors" className="overview-advisors">
+            <TourReminder className="overview-wide" />
+
+            <Card title="Advisors" className="overview-advisors" tour="status-advisors">
                 <Advisors />
             </Card>
 

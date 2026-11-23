@@ -2,6 +2,7 @@ import React from "react";
 import { MemoryRouter } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import { Overview } from "./overview";
+import { TourProvider } from "../../components/tour";
 
 // The advice itself is fetched by the Advisors component (advisors.test.js).
 jest.mock("./advisors", () => () => <p>advice goes here</p>);
@@ -53,4 +54,18 @@ test("an Advisors box comes first, with the advisors' advice in it", () => {
 test("nothing before the kingdom has loaded", () => {
     const { container } = show({ ...data(), kingdom: {} });
     expect(container.textContent).toBe("");
+});
+
+test("the guided tour's reminder is on the overview only after Not now", () => {
+    const withTour = (tour) => render(
+        <MemoryRouter><TourProvider data={{ preferences: { tour } }} updateData={() => {}}>
+            <Overview data={data()} loadSummary={noSummary} />
+        </TourProvider></MemoryRouter>
+    );
+    const { unmount } = withTour("later");
+    expect(screen.getByText("Guided tour")).toBeTruthy();
+    expect(document.querySelector('[data-tour="status-advisors"]')).toBeTruthy();
+    unmount();
+    withTour("done");
+    expect(screen.queryByText("Guided tour")).toBeNull();
 });

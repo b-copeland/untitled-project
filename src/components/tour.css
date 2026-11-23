@@ -1,0 +1,38 @@
+/* The guided tour (tour.js): its card above the help button, the outline on what a stop is about, and the Status
+ * page's reminder. */
+.tour-card {
+    position: fixed; right: 16px; bottom: 76px; z-index: 1045;  /* the help button is 48px high, 16px from the bottom */
+    width: min(26rem, calc(100vw - 32px));
+    padding: 0.85rem 1rem 0.75rem;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    background: var(--surface-raised);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.tour-card-head { display: flex; justify-content: space-between; align-items: center; }
+.tour-card-step { color: var(--bs-secondary-color); font-size: 0.85rem; }
+.tour-card-title { font-size: 1.05rem; margin: 0.25rem 0 0.35rem; }
+.tour-card-text { margin: 0 0 0.75rem; }
+.tour-card-actions { display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; }
+.tour-card-actions .btn-link { margin-right: auto; padding-left: 0; }
+
+/* Room under the page, so what a stop outlines can scroll clear of the card. */
+body.tour-running .router-body { padding-bottom: 18rem; }
+
+[data-tour-active] {
+    outline: 3px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: var(--radius);
+    transition: outline-color 0.2s;
+}
+
+.tour-reminder {
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem 1rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+}
+.tour-reminder-title { font-size: 1.1rem; margin: 0; }
+.tour-reminder-text { margin: 0.15rem 0 0; color: var(--bs-secondary-color); }
+.tour-reminder-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }

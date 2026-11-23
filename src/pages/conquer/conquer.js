@@ -49,6 +49,7 @@ function ConquerContent(props) {
     <>
       <Tabs
         id="controlled-tab-example"
+        data-tour="conquer-tabs"
         defaultActiveKey="revealed"
         variant="tabs"
         onSelect={(k) => handleNotifsSelect(k)}

@@ -92,7 +92,7 @@ function Build(props) {
                 value: Math.floor(props.data.kingdom.funding?.[key] || 0).toLocaleString(),
             }))} />
         </Panel>
-        <Accordion defaultActiveKey={['0']} alwaysOpen className="queue-accordion">
+        <Accordion defaultActiveKey={['0']} alwaysOpen className="queue-accordion" data-tour="build-queues">
             <Accordion.Item eventKey="0">
                 <Accordion.Header>Settle Queue ({(props.data.settle.total_queue || 0).toLocaleString()})</Accordion.Header>
                 <Accordion.Body>

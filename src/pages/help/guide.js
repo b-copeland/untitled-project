@@ -36,7 +36,8 @@ function Guide() {
                 safe to build.
             </p>
             <p>
-                Every page has a Help button at the bottom right that opens its topic here.
+                Every page has a Help button at the bottom right that opens its topic here. For a walk through the
+                main pages, take the guided tour from Settings.
             </p>
         </Topic>
     );

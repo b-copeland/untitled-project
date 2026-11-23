@@ -130,6 +130,9 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
    "seconds", "NaN" or "undefined".
 5. A Jest test next to the page. Mock `components/helpbutton`; set mock implementations in `beforeEach`. A page with
    links (`KingdomLink`, `useFromHere`) renders inside a `MemoryRouter`.
+6. If a new player should know the page, add a stop to the guided tour (`TOUR_STOPS` in `src/tour.js`), and mark
+   the part it is about with `data-tour="<name>"` (on a `Panel` or `Tabs`, or any element). Renaming or removing
+   a page or a marked part changes the tour too: `tour.test.js` fails when a stop points at a name no page has.
 
 The header strip and the title come from App.js (`label` in `routes.js`, or `title` for a page whose title depends on
 its address); a page linked to rather than listed goes in `linkedPages`.

@@ -24,6 +24,10 @@ function Settings() {
                 <b>Advisors</b> turns the advice on the Status page on or off. It is on to start with.
             </p>
             <p>
+                <b>Guided tour</b> starts the tour of the main pages again. It is offered on your first visit: Not now
+                keeps a reminder on the Status page, and No thanks or finishing the tour leaves it here only.
+            </p>
+            <p>
                 On a phone or tablet, swipe a notification or a result sideways, either way, to dismiss it.
             </p>
         </Topic>

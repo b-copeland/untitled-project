@@ -62,7 +62,7 @@ export function Shields(props) {
     return (
         <div className="shields panel-grid">
             <ResultToasts title="Shields" results={results} setResults={setResults} />
-            <Panel title="Shields">
+            <Panel title="Shields" data-tour="shields-panel">
                 {SHIELDS.map(([key, name, what]) => {
                     const most = Math.round((desc[key]?.max || 0) * 100);
                     return (
@@ -92,7 +92,7 @@ export function Shields(props) {
                     </SubmitButton>
                 </div>
             </Panel>
-            <Panel title="Fuel">
+            <Panel title="Fuel" data-tour="shields-fuel">
                 <Stats items={[
                     { label: "Fuel", value: whole(kingdom.fuel || 0) },
                     { label: "Net fuel per hour", value: whole(fuelNet) },

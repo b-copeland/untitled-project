@@ -14,6 +14,7 @@ import { publicRoutes, createKingdomRoute, gamePages, propsFor } from "./routes"
 import Header from "./components/header";
 import { PageContext, PageHead } from "./components/pagehead";
 import { useTheme } from "./theme";
+import { TourProvider, TourOffer } from "./components/tour";
 
 /**
  * A game page in its frame: the header strip, then the page's section and title (or the way back to the page that
@@ -29,6 +30,7 @@ function GamePage({ route, context }) {
       <Header data={context.data} />
       <PageHead section={route.section} title={title} />
       <Page {...propsFor(route, context)} />
+      <TourOffer />
     </PageContext.Provider>
   );
 }
@@ -87,6 +89,7 @@ function Content({ logged, session }) {
   };
 
   return (
+    <TourProvider data={data} updateData={updateData}>
     <div className="main">
       <div className="topbar d-lg-none">
         <Button variant="outline-secondary" aria-label="Open menu" onClick={() => setShowNav(true)}><FiMenu /></Button>
@@ -122,6 +125,7 @@ function Content({ logged, session }) {
         </div>
       </div>
     </div>
+    </TourProvider>
   );
 }
 
