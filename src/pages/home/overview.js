@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { displayNumber, displayPercent } from "../../format";
 import { rateTip } from "../../components/header";
 import { Stats } from "../../components/planner";
+import Advisors from "./advisors";
 import "./overview.css";
 
 /** "in 2h 05m" until ``date``, or "now" if it has passed. */
@@ -34,7 +35,7 @@ function Card({ title, to, className = "", children }) {
 }
 
 /**
- * The Status page's first tab: the advisors' notes on what may need fixing, then the four questions a returning player
+ * The Status page's first tab: the advisors' notes on what may need fixing (advisors.js, from the server), then the four questions a returning player
  * asks (is my economy healthy, am I safe and what is out, am I growing, is anyone after me), each a card that links to
  * where to act. Built only from data the other tabs already load.
  */
@@ -68,15 +69,10 @@ export function Overview({ data }) {
     const shields = kingdom.shields || {};
     const latest = [...(data.news || [])].sort((a, b) => Date.parse(b.time) - Date.parse(a.time))[0];
 
-    // Advisors: narrative advice on problems the player may want to fix. None are written yet.
-    const advice = [];
-
     return (
         <div className="overview">
             <Card title="Advisors" className="overview-advisors">
-                {advice.length > 0
-                    ? <ul className="overview-advice">{advice.map((line) => <li key={line}>{line}</li>)}</ul>
-                    : <p className="overview-line overview-muted">Your advisors have nothing to report.</p>}
+                <Advisors />
             </Card>
 
             <Card title="Economy" to="/automation?tab=spending">

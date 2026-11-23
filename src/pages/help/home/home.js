@@ -8,7 +8,7 @@ function Home(props) {
     return (
         <Topic id="home" title="Status" lead="Your kingdom at a glance.">
             <ul>
-                <li><b>Overview</b>: your economy, military, growth and threats on four cards. Each card's title links to the page where you act on it.</li>
+                <li><b>Overview</b>: first your advisors, then your economy, military, growth and threats on four cards. Each card's title links to the page where you act on it.</li>
                 <li><b>Kingdom</b>: your resources, income and population. Income adds up continuously, not in steps.</li>
                 <li><b>Military</b>: your units at home and with each general, and when each general returns.</li>
                 <li><b>Structures</b>: what is built and what is still being built.</li>
@@ -23,6 +23,14 @@ function Home(props) {
                     from {duration(horizons[0], config(props.state))} to {duration(horizons[horizons.length - 1], config(props.state))} ahead.
                 </p>
             )}
+            <h4>Advisors</h4>
+            <p>
+                Your advisors point out what in your kingdom may need fixing, most serious first, with links to where
+                you fix it. Warnings in red are about harm happening now, such as fuel running out or a defense so low
+                that attacking you pays better than attacking primitives; they go away once the problem is fixed.
+                Other advice can be hidden for good with <b>Hide</b>, and shown again from <b>Show hidden advice</b>.
+                You can turn the advisors off in Settings.
+            </p>
             <h4>Networth</h4>
             <p>Networth adds up the values below. It sets your rank on the Scores page, which earns points.</p>
             <HelpTable columns={[["Item"], ["Networth each", "right"]]}

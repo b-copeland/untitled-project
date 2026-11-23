@@ -1,6 +1,7 @@
 """
-A player's own settings, which belong to the player and not to a kingdom: the colour theme, and the kinds of
-notification they have turned off (``muted``, the kinds in push.py).
+A player's own settings, which belong to the player and not to a kingdom: the colour theme, the kinds of
+notification they have turned off (``muted``, the kinds in push.py), whether the advisors give advice, and the advice
+they have hidden (advisors.py).
 
 They live in ``preferences_<user_id>`` (docs/data-model.md), one document per user, which outlives a round. A user who
 has set nothing has no document and gets every default. The options and their defaults are here, and the Settings page
@@ -27,8 +28,13 @@ THEMES = [
     ("planet", "Planet"),
     ("twilight", "Twilight"),
 ]
-OPTIONS = {"theme": THEMES}
+# Whether the Status page's advisors give advice (advisors.py).
+ADVISORS = [("on", "On"), ("off", "Off")]
+OPTIONS = {"theme": THEMES, "advisors": ADVISORS}
 DEFAULTS = {key: options[0][0] for key, options in OPTIONS.items()}
+# Each advice the player hid is its own key, ``hide_advice_<id>: true``, so two hides at once (two tabs) can not undo
+# each other through the shallow merge; showing it again writes false. Read back as the list ``hidden_advice``.
+HIDDEN_ADVICE_PREFIX = "hide_advice_"
 
 
 def _path(user_id):
@@ -48,9 +54,27 @@ def _answer(stored):
     }
     stored_muted = stored.get("muted") if isinstance(stored.get("muted"), list) else []
     values["muted"] = [kind for kind, _, _ in KINDS if kind in stored_muted]
-    options = {key: [{"value": v, "label": label} for v, label in choices] for key, choices in OPTIONS.items()}
+    values["hidden_advice"] = sorted(
+        key[len(HIDDEN_ADVICE_PREFIX):] for key, value in stored.items()
+        if key.startswith(HIDDEN_ADVICE_PREFIX) and value is True
+    )
+    options ={key: [{"value": v, "label": label} for v, label in choices] for key, choices in OPTIONS.items()}
     options["muted"] = [{"value": kind, "label": label, "group": group} for kind, label, group in KINDS]
     return {**values, "options": options}
+
+
+def read(user_id):
+    """The user's preferences with the defaults filled in (one read; every default if it fails)."""
+    response = REQUESTS_SESSION.get(_path(user_id), headers=_headers())
+    return _answer(json.loads(response.text) if response.status_code == 200 else {})
+
+
+def set_advice_hidden(user_id, advice_id, hidden):
+    """Hide one advice for good, or show it again. A merge of one key of its own, so nothing to race. True if saved."""
+    response = REQUESTS_SESSION.patch(
+        _path(user_id), headers=_headers(), data=json.dumps({HIDDEN_ADVICE_PREFIX + advice_id: bool(hidden)})
+    )
+    return response.status_code < 300
 
 
 @bp.route("/api/preferences")
@@ -58,9 +82,7 @@ def _answer(stored):
 def get_preferences():
     """The preferences, and the player's username for the user menu (from the login token, so no extra read)."""
     user = flask_praetorian.current_user()
-    response = REQUESTS_SESSION.get(_path(user.id), headers=_headers())
-    stored = json.loads(response.text) if response.status_code == 200 else {}
-    return flask.jsonify({**_answer(stored), "username": user.username}), 200
+    return flask.jsonify({**read(user.id), "username": user.username}), 200
 
 
 @bp.route("/api/preferences", methods=["POST"])
