@@ -53,8 +53,9 @@ export function availableOperations(operations, kingdom, state) {
  * Spies are sent straight away, hostile operations too. The player is asked first only when the chance of success is
  * known and below 40%.
  */
-export function spyNeedsConfirmation({ hasForecast, guessing, chance }) {
-    return hasForecast && !guessing && chance < 0.4;
+export function spyNeedsConfirmation({ hasForecast, guessing, chance, warning }) {
+    // A warning from the forecast (a siphon of yours already on this kingdom, #220) always asks first.
+    return Boolean(warning) || (hasForecast && !guessing && chance < 0.4);
 }
 
 function Spy(props) {
@@ -108,6 +109,8 @@ function Spy(props) {
     const sendingDrones = parseInt(drones, 10) || 0;
     const hasForecast = forecast.success_chance !== undefined;
     const chance = hasForecast ? forecast.success_chance : 0;
+    // Only for the operation the forecast was made for: a stale siphon warning must not follow a switch to another operation.
+    const warning = hasForecast && operation === "siphonfunds" ? forecast.warning : undefined;
     // The server treats anything left blank as zero, which would read as "certain". Say so unless it is known or entered.
     const dronesKnown = targetKdInfo.drones !== undefined;
     const starsKnown = targetKdInfo.stars !== undefined;
@@ -214,9 +217,10 @@ function Spy(props) {
                             { label: "Drones lost if it fails", value: whole(forecast.drone_losses?.failure) },
                         ]} />
                         <div className="planner-notes">{forecast.message}</div>
+                        {warning ? <Alert variant="warning">{warning}</Alert> : null}
                     </> : null}
                     <div className="planner-send">
-                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance }) ? setConfirming(true) : send())}>
+                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance, warning }) ? setConfirming(true) : send())}>
                             Send spies
                         </Button>
                         {blocked ? <div className="planner-why">{blocked}</div> : null}
@@ -230,6 +234,7 @@ function Spy(props) {
                     <Modal.Header closeButton><Modal.Title>Run this operation?</Modal.Title></Modal.Header>
                     <Modal.Body>
                         <p>{chosen?.label} on <strong>{selected !== undefined ? kdLabel(selected) : ""}</strong> with {whole(sendingDrones)} drones{shieldDrones ? " (shielded)" : ""}. It uses one spy attempt.</p>
+                        {warning ? <Alert variant="warning">{warning}</Alert> : null}
                         {hasForecast && !guessing && chance < 1 ? <Alert variant={chance < 0.4 ? "danger" : "warning"}>About a {Math.round(chance * 100)}% chance of success with this many drones.</Alert> : null}
                     </Modal.Body>
                     <Modal.Footer>

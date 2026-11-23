@@ -61,7 +61,7 @@ function Galaxy(props) {
     const [galaxyInput, setGalaxyInput] = useState();
     const [loading, setLoading] = useState(false);
     const [showShareInfo, setShowShareInfo] = useState(false);
-    const [query] = useSearchParams();
+    const [query, setQuery] = useSearchParams();
     const navigate = useNavigate();
     const fromHere = useFromHere();
     const [kdToShow, setKdToShow] = useState();
@@ -78,6 +78,15 @@ function Galaxy(props) {
         }
         fetchData();
     }, [galaxyIndex]);
+    // The galaxy on screen goes in the address (?galaxy=1:3), so a page opened from here links back to this galaxy (#222).
+    const shownGalaxy = galaxyIndex >= 0 ? galaxiesArray[galaxyIndex] : undefined;
+    useEffect(() => {
+        if (shownGalaxy && query.get("galaxy") !== shownGalaxy) {
+            const next = new URLSearchParams(query);
+            next.set("galaxy", shownGalaxy);
+            setQuery(next, { replace: true });
+        }
+    }, [shownGalaxy, query]);
     if ((galaxyIndex === undefined) & galaxiesArray.length > 0) {
         // A galaxy chosen by the link here (/galaxy?galaxy=1:3, from Conquer), else your own.
         const asked = galaxiesArray.indexOf(query.get("galaxy") || "");
