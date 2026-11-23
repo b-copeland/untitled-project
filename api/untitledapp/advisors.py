@@ -32,8 +32,8 @@ from untitledapp import alive_required
 
 bp = flask.Blueprint("advisors", __name__)
 
-KINDS = ("danger", "waste", "team")
-HIDEABLE_KINDS = ("waste", "team")
+KINDS = ("danger", "waste", "team", "peer")
+HIDEABLE_KINDS = ("waste", "team", "peer")
 
 # Fuel that runs out within this many hours is worth a warning: a player who logs in twice a day (tenet 1) would
 # otherwise find it gone before they are back.
@@ -81,6 +81,9 @@ class Context:
     election_ends: datetime.datetime = None  # when the universe election that is open closes; None if none is open
     cast_universe_votes: bool = True         # the kingdom has votes in the open election
     war_targets: int = 0        # targets its empire has marked, while at war
+    # Peer comparisons: the kingdom's own measures, and the universe's ranges (both empty when there are none).
+    peer: dict = dataclasses.field(default_factory=dict)
+    peer_ranges: dict = dataclasses.field(default_factory=dict)
 
 
 def _hours(epochs):
@@ -407,23 +410,20 @@ IDS = {
 }
 
 
-def advise(ctx, checks=None):
-    """Every advice that applies, most serious kind first, then in the order of ``checks`` (``CHECKS`` by default)."""
-    found = [advice for advice in (check(ctx) for check in (CHECKS if checks is None else checks)) if advice is not None]
-    return sorted(found, key=lambda advice: KINDS.index(advice.kind))
+# -------------------------------------------------------------------------------------------------------------- peer
+# How a kingdom compares with everyone else in the universe, bots included (docs/advisors.md, "Peer comparisons").
+# Once per history mark the refresh works out, over every live kingdom, the PEER_LOW percentile and the median of each
+# measure (``peer_ranges``) and keeps them in the ``universe_stats`` document, which no route sends. The advice only ever
+# says "almost every kingdom...": never a figure, so it tells a player nothing about how defended anybody else is.
+
+PEER_LOW = 0.1           # "almost every kingdom": nine in ten have more
+PEER_MIN_KINGDOMS = 10   # fewer, and a comparison says too much about too few
+PEER_GAP = 0.75          # also under this share of the median: a kingdom a little below the rest is not worth a word
 
 
-def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, structures_queue=(),
-                galaxy_id=None, galaxy_votes=None, cluster=None, universe_votes=None, targets=None):
-    """The context for ``kd``, from documents the route has read. ``cluster`` (the cluster document) is only needed
-    for a galaxy leader, ``universe_votes`` while an election is open, ``targets`` (the empire's targets document)
-    while its empire is at war: the route reads each only then."""
-    now = now or datetime.datetime.now(datetime.timezone.utc)
-    game_start, game_end = uas.utc(state["state"]["game_start"]), uas.utc(state["state"]["game_end"])
-    epochs = strategy.epochs_since(now, game_start)
-    units = uag._calc_units(now, kd["units"], kd.get("generals_out", []), mobis_queue)
-    max_hangar, used_hangar = uag._calc_hangar_capacity(kd, units)
-    home_defense = uag._calc_max_defense(
+def home_defense(kd):
+    """The defense an attacker would face at home now, by the rules an attack uses."""
+    return uag._calc_max_defense(
         {key: value for key, value in kd["units"].items() if key in uas.UNITS},
         military_bonus=uas.project_bonuses(kd)["military_bonus"],
         other_bonuses=0,
@@ -431,6 +431,127 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, str
         fuelless=kd.get("fuel", 0) <= 0,
         gaian=kd.get("race") == "Gaian",
     )
+
+
+def _bonuses_filled(kd):
+    """How full the continuous project bonuses are, on average, from 0 to 1."""
+    points, maxes = kd.get("projects_points") or {}, kd.get("projects_max_points") or {}
+    shares = [min(points.get(key, 0) / max(maxes.get(key, 0), 1e-9), 1.0) for key in strategy.CONTINUOUS_PROJECTS]
+    return sum(shares) / max(len(shares), 1)
+
+
+def peer_measures(kd):
+    """The measures a kingdom is compared on, each per star or a share, so kingdoms of any size compare."""
+    stars = max(kd.get("stars", 0), 1)
+    income = ((kd.get("income") or {}).get("money") or {}).get("net") or 0
+    return {
+        "income_per_star": income / stars,
+        "defense_per_star": home_defense(kd) / stars,
+        "offense_per_star": strategy.raw_offense(strategy.all_units(kd)) / stars,
+        "drones_per_star": kd.get("drones", 0) / stars,
+        "bonuses_filled": _bonuses_filled(kd),
+    }
+
+
+def _percentile(ordered, share):
+    position = (len(ordered) - 1) * share
+    below = math.floor(position)
+    above = min(below + 1, len(ordered) - 1)
+    return ordered[below] + (ordered[above] - ordered[below]) * (position - below)
+
+
+def peer_ranges(kingdoms):
+    """Over every live, set-up kingdom: each measure's ``low`` (PEER_LOW percentile) and ``median``, and ``n``.
+    Empty with fewer than PEER_MIN_KINGDOMS. Plain function: the refresh passes the kingdoms it already holds."""
+    rows = []
+    for kd in kingdoms:
+        if not kd or not kd.get("race") or str(kd.get("status", "")).lower() == "dead":
+            continue
+        try:
+            rows.append(peer_measures(kd))
+        except (KeyError, TypeError, ValueError):
+            continue  # one odd kingdom must not stop the comparison for everyone
+    if len(rows) < PEER_MIN_KINGDOMS:
+        return {}
+    ranges = {}
+    for name in rows[0]:
+        ordered = sorted(row[name] for row in rows)
+        ranges[name] = {"low": _percentile(ordered, PEER_LOW), "median": _percentile(ordered, 0.5), "n": len(rows)}
+    return ranges
+
+
+# measure: (advice id, text, links). Only the low side: having more of any of these than most is a choice, not a risk.
+PEER_ADVICE = {
+    "income_per_star": (
+        "peer_income_low",
+        "Almost every kingdom earns more per star than yours. Income comes from mines and from people in homes: look "
+        "at what your land holds, and keep your fuel up.",
+        [("Structures", "/structures"), ("Spending", "/automation?tab=spending")],
+    ),
+    "defense_per_star": (
+        "peer_defense_low",
+        "Almost every kingdom keeps more defense per star at home than yours, which makes you one of the easier "
+        "kingdoms to attack.",
+        [("Train units", "/military"), ("Spending", "/automation?tab=spending")],
+    ),
+    "offense_per_star": (
+        "peer_offense_low",
+        "Almost every kingdom has more offense per star than yours. Offense takes stars from primitives and other "
+        "kingdoms; without it your land comes only from settling.",
+        [("Train units", "/military"), ("Primitives", "/primitives")],
+    ),
+    "drones_per_star": (
+        "peer_drones_low",
+        "Almost every kingdom has more drones per star than yours, so spying on you, robbing you and siphoning your "
+        "income is easier than on most. Drone factories make drones.",
+        [("Build drone factories", "/structures")],
+    ),
+    "bonuses_filled": (
+        "peer_bonuses_low",
+        "Almost every kingdom has fuller project bonuses than yours. Engineers fill them, and the bonuses add to your "
+        "income, people and army.",
+        [("Projects", "/projects")],
+    ),
+}
+
+
+def _peer_check(measure):
+    advice_id, text, links = PEER_ADVICE[measure]
+
+    def check(ctx):
+        spread = (ctx.peer_ranges or {}).get(measure)
+        if not spread or measure not in (ctx.peer or {}):
+            return None
+        value = ctx.peer[measure]
+        if value >= spread["low"] or value >= spread["median"] * PEER_GAP:
+            return None
+        return Advice(advice_id, "peer", text, links)
+
+    check.__name__ = advice_id
+    return check
+
+
+PEER_CHECKS = [_peer_check(measure) for measure in PEER_ADVICE]
+CHECKS.extend(PEER_CHECKS)
+IDS.update({advice_id: "peer" for advice_id, _, _ in PEER_ADVICE.values()})
+
+
+def advise(ctx, checks=None):
+    """Every advice that applies, most serious kind first, then in the order of ``checks`` (``CHECKS`` by default)."""
+    found = [advice for advice in (check(ctx) for check in (CHECKS if checks is None else checks)) if advice is not None]
+    return sorted(found, key=lambda advice: KINDS.index(advice.kind))
+
+
+def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, structures_queue=(),
+                galaxy_id=None, galaxy_votes=None, cluster=None, universe_votes=None, targets=None, peer_ranges=None):
+    """The context for ``kd``, from documents the route has read. ``cluster`` (the cluster document) is only needed
+    for a galaxy leader, ``universe_votes`` while an election is open, ``targets`` (the empire's targets document)
+    while its empire is at war: the route reads each only then. ``peer_ranges`` is the scores document's."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    game_start, game_end = uas.utc(state["state"]["game_start"]), uas.utc(state["state"]["game_end"])
+    epochs = strategy.epochs_since(now, game_start)
+    units = uag._calc_units(now, kd["units"], kd.get("generals_out", []), mobis_queue)
+    max_hangar, used_hangar = uag._calc_hangar_capacity(kd, units)
     kd_id = str(kd.get("kdId"))
     empire = empires_inverted.get(kd_id)
     at_war = bool(empire and empires.get(empire, {}).get("war"))
@@ -452,7 +573,9 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, str
         cast = any(kd_id in voters for options in (universe_votes or {}).get("votes", {}).values()
                    for voters in options.values())
     return Context(
-        kd=kd, now=now, epochs=epochs, max_hangar=max_hangar, used_hangar=used_hangar, home_defense=home_defense,
+        kd=kd, now=now, epochs=epochs, max_hangar=max_hangar, used_hangar=used_hangar, home_defense=home_defense(kd),
+        peer=peer_measures(kd) if peer_ranges else {},
+        peer_ranges=peer_ranges or {},
         at_war=at_war,
         epochs_left=max((game_end - now).total_seconds(), 0) / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"],
         progress=strategy.round_progress(now, game_start, game_end),
@@ -474,6 +597,11 @@ def election_open(state, now):
     if end == "" or now >= uas.utc(end):
         return None
     return uas.utc(end)
+
+
+def _peer_ranges_stored():
+    """The comparison the refresh keeps in ``universe_stats``; none if it is missing (so no peer advice)."""
+    return uag._get_universe_stats().get("peer_ranges") or {}
 
 
 @bp.route("/api/advisors")
@@ -512,7 +640,7 @@ def get_advisors():
         kd, state, uag._get_mobis_queue(kd_id), empires_inverted, empires, now,
         structures_queue=uag._get_structures_queue(kd_id),
         galaxy_id=galaxy_id, galaxy_votes=galaxy_votes, cluster=cluster, universe_votes=universe_votes,
-        targets=targets,
+        targets=targets, peer_ranges=_peer_ranges_stored(),
     )
     hidden = set(preferences["hidden_advice"])
     advice = [item.view(hidden=item.id in hidden and item.kind in HIDEABLE_KINDS) for item in advise(ctx)]

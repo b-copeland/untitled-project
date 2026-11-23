@@ -237,6 +237,111 @@ def test_context_reads_the_galaxy_policies_the_round_plays():
     assert uaadv.context_for(kd, state, [], {}, {}, NOW).galaxy_policies_active is None
 
 
+# ------------------------------------------------------------------------------------------------------------ peer
+
+def _kingdom(drones, income=1000, stars=100, race="Xo", status="Active"):
+    return {"kdId": "x", "race": race, "status": status, "stars": stars, "drones": drones, "fuel": 100,
+            "income": {"money": {"net": income}}, "units": {"defense": 10}, "shields": {}}
+
+
+def test_peer_ranges_need_enough_kingdoms_and_leave_out_the_dead_and_unset():
+    nine = [_kingdom(drones=d) for d in range(9)]
+    assert uaadv.peer_ranges(nine) == {}
+    assert uaadv.peer_ranges(nine + [_kingdom(1, status="Dead"), _kingdom(1, race=""), None]) == {}
+    ranges = uaadv.peer_ranges(nine + [_kingdom(drones=9)])
+    assert ranges["drones_per_star"] == {"low": pytest.approx(0.009), "median": pytest.approx(0.045), "n": 10}
+    assert set(ranges) == set(uaadv.PEER_ADVICE)
+
+
+def test_peer_advice_only_for_the_extreme_and_never_with_a_figure():
+    spread = {"drones_per_star": {"low": 2.0, "median": 4.0, "n": 50}}
+    advice = uaadv.advise(_ctx(peer={"drones_per_star": 1.0}, peer_ranges=spread))
+    assert [a.id for a in advice] == ["peer_drones_low"]
+    assert advice[0].kind == "peer" and advice[0].text.startswith("Almost every kingdom")
+    assert not any(ch.isdigit() for ch in advice[0].text)
+    assert _ids(_ctx(peer={"drones_per_star": 2.0}, peer_ranges=spread)) == []           # at the low percentile
+    tight = {"drones_per_star": {"low": 3.9, "median": 4.0, "n": 50}}
+    assert _ids(_ctx(peer={"drones_per_star": 3.5}, peer_ranges=tight)) == []            # only a little below
+    assert _ids(_ctx(peer={"drones_per_star": 1.0}, peer_ranges={})) == []               # no ranges yet
+
+
+def test_peer_advice_can_be_hidden(app, client, jwt1):
+    response = client.post("/api/advisors/hide", headers=_auth(jwt1),
+                           data=json.dumps({"id": "peer_drones_low", "hidden": True}))
+    assert response.status_code == 200
+
+
+def test_the_universe_stats_keep_peer_ranges_and_the_advice_has_no_figure(app, client, jwt1):
+    import untitledapp.refresh as refresh
+    from tests.test_concurrency import _get
+    _set_up(drones=0)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    others = [_kingdom(drones=d * 100 + 200) for d in range(12)]
+    with app.app_context():
+        context = refresh._RefreshContext(state=None)
+        context.kingdoms = {str(i): kd for i, kd in enumerate(others)}
+        refresh._resolve_universe_stats(context, now)
+    stored = _get("/universestats")
+    assert stored["peer_ranges"]["drones_per_star"]["n"] == 12 and stored["last_update"] == now.isoformat()
+    # The kingdom with no drones is told, in words.
+    advice = client.get("/api/advisors", headers=_auth(jwt1)).get_json()["advice"]
+    peers = {item["id"]: item for item in advice if item["kind"] == "peer"}
+    assert "peer_drones_low" in peers and peers["peer_drones_low"]["hideable"] is True
+    assert not any(ch.isdigit() for item in peers.values() for ch in item["text"])
+
+
+def test_without_universe_stats_there_is_no_peer_advice(app, client, jwt1):
+    _set_up(drones=0)
+    advice = client.get("/api/advisors", headers=_auth(jwt1)).get_json()["advice"]
+    assert not [item for item in advice if item["kind"] == "peer"]
+
+
+def _run_refresh(app, monkeypatch, next_history):
+    import untitledapp.refresh as refresh
+    seen = {}
+    monkeypatch.setattr(uaadv, "peer_ranges", lambda kingdoms: seen.setdefault("kingdoms", list(kingdoms)) and {})
+    monkeypatch.setattr(refresh.uag, "_update_universe_stats", lambda fields: seen.update(written=fields))
+    monkeypatch.setattr(refresh, "_resolve_scores", lambda scores, now, context=None: None)
+    monkeypatch.setattr(refresh, "_refresh_kd", lambda kd_id, state, now, history, context=None:
+                        context.kingdoms.update({kd_id: {"kdId": kd_id}}) or (1, 1))
+    monkeypatch.setattr(refresh, "_resolve_empires", lambda scores, now: None)
+    monkeypatch.setattr(refresh, "_resolve_clusters", lambda empires, now, context: None)
+    monkeypatch.setattr(refresh, "_take_history_mark", lambda now: True)
+    monkeypatch.setattr(refresh.uag, "_get_state", lambda: {"state": {
+        "game_start": "2000-01-01T00:00:00+00:00", "election_start": "", "election_end": "",
+        "next_history": next_history, "migrations_done": uaadv_migration_ids()}})
+    monkeypatch.setattr(refresh.uag, "_get_kingdoms", lambda: ["1", "2"])
+    monkeypatch.setenv("REFRESH_SECRET", "secret")
+    response = app.test_client().get("/api/refreshdata", headers={"Refresh-Secret": "secret"})
+    assert response.status_code == 200, response.get_data(as_text=True)
+    return seen
+
+
+def uaadv_migration_ids():
+    import untitledapp.migrations as migrations
+    return migrations.all_ids()
+
+
+def test_the_refresh_compares_the_kingdoms_it_holds_once_per_history_mark(app, monkeypatch):
+    seen = _run_refresh(app, monkeypatch, "2000-01-01T00:00:00+00:00")  # the mark is due
+    assert [kd["kdId"] for kd in seen["kingdoms"]] == ["1", "2"]
+    assert seen["written"]["peer_ranges"] == {}
+    assert "written" not in _run_refresh(app, monkeypatch, "2999-01-01T00:00:00+00:00")  # not due: nothing written
+
+
+def test_the_migration_makes_the_document_once_and_leaves_one_alone(app):
+    import untitledapp.migrations as migrations
+    from tests.test_concurrency import _get
+    with app.app_context():
+        migrations.universe_stats({})
+        stored = _get("/universestats")
+        assert stored["peer_ranges"] == {} and stored["last_update"] == ""
+        _create_item("universe_stats", {"peer_ranges": {"drones_per_star": {"low": 1}}, "last_update": "x"})
+        migrations.universe_stats({})  # again: changes nothing
+    assert _get("/universestats")["peer_ranges"] == {"drones_per_star": {"low": 1}}
+    assert "185_universe_stats" in migrations.all_ids()
+
+
 # ----------------------------------------------------------------------------------------------------------- route
 
 def _auth(jwt):

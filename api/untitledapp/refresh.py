@@ -12,6 +12,7 @@ import flask
 import flask_praetorian
 from flask_sock import Sock
 
+import untitledapp.advisors as uaadv
 import untitledapp.misc as uam
 import untitledapp.news as uan
 import untitledapp.occ as occ
@@ -1486,6 +1487,19 @@ def _resolve_scores(kd_scores, time_update, context=None):
 
     occ.update('/scores', decide)
 
+def _resolve_universe_stats(context, time_update):
+    """
+    The advisors' comparison of every kingdom (advisors.peer_ranges), from the kingdoms this tick already holds, written
+    to ``universe_stats`` once per history mark. Derived data, so a plain merge: an overlapping tick writes the same.
+    """
+    app = flask.current_app
+    try:
+        ranges = uaadv.peer_ranges(context.kingdoms.values())
+        uag._update_universe_stats({"peer_ranges": ranges, "last_update": time_update.isoformat()})
+    except Exception:  # the advisors can do without a comparison for an hour; the tick goes on
+        app.logger.exception("Refresh failed to write the universe stats for the advisors")
+
+
 def _update_history(
     kd_info,
     time_update,
@@ -1937,6 +1951,8 @@ def refresh_data():
     }
     _record_ended_intel(context)
     _resolve_scores(kd_scores_split, time_update, context)
+    if update_history:
+        _resolve_universe_stats(context, time_update)
     empires = _resolve_empires(kd_scores_split, time_update)
     try:
         _resolve_clusters(empires, time_update, context)

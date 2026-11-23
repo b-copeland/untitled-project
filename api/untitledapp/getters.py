@@ -97,6 +97,34 @@ def _round_is_over():
     return bool((state or {}).get("state", {}).get("game_over"))
 
 
+def _get_universe_stats():
+    """The ``universe_stats`` document (the advisors' comparison of every kingdom), ``{}`` if there is none yet or it
+    can not be read: the advisors then compare nothing."""
+    app = flask.current_app
+    response = REQUESTS_SESSION.get(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + '/universestats',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+    )
+    if response.status_code != 200:
+        return {}
+    try:
+        return json.loads(response.text)
+    except ValueError:
+        return {}
+
+
+def _update_universe_stats(fields):
+    """Merge ``fields`` into ``universe_stats`` (the refresh only: derived data, no version check)."""
+    app = flask.current_app
+    response = REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + '/universestats',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps(fields),
+    )
+    if response.status_code >= 300:
+        raise RuntimeError(f"Updating universe_stats failed with {response.status_code}: {response.text}")
+
+
 def _get_scores():
     app = flask.current_app
     get_response = REQUESTS_SESSION.get(
