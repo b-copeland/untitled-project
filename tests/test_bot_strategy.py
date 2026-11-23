@@ -215,6 +215,21 @@ def test_bigger_hangars_need_fewer_of_them():
     assert bigger["hangars"] < base["hangars"]
 
 
+def test_an_army_over_its_hangars_gets_hangars_first_on_new_land():
+    kd = kingdom(stars=1000, structures={"homes": 300, "mines": 300, "fuel_plants": 100, "hangars": 100,
+                                         "drone_factories": 50, "missile_silos": 0, "workshops": 50})
+    target = strategy.structures_plan(kd, LAND, {"defense": 0})
+    # 100 hangars hold 7,500; the army needs 9,000 after losing land: 20 more hangars before anything else.
+    first = strategy.hangars_first(target, kd, held=7500, used=9000, per_hangar=75)
+    assert first["hangars"] >= 0.12
+    for key in ("homes", "mines", "drone_factories", "workshops", "missile_silos"):
+        assert first[key] <= kd["structures"][key] / 1000 + 1e-9, key  # held at what is built: no gap
+    assert first["fuel_plants"] == target["fuel_plants"]
+    # Within the slack, or housed again: the plan as it was.
+    assert strategy.hangars_first(target, kd, held=7500, used=7600, per_hangar=75) == target
+    assert strategy.hangars_first(target, kd, held=9000, used=9000, per_hangar=75) == target
+
+
 def test_an_army_far_too_big_for_the_land_still_leaves_an_economy():
     target = strategy.structures_plan(kingdom(), LAND, {"defense": 500_000})
     assert target["homes"] + target["mines"] >= 0.29

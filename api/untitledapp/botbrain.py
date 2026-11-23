@@ -799,6 +799,10 @@ def plan_economy(world, personality, style, memory):
         1 + uas.modifier(world.modifiers, "hangar_capacity"), 0)
     structures_target = strategy.structures_plan(me, land, to_buy, shields_fuel, training=world.units_training,
                                                  per_hangar=per_hangar)
+    # An army over its hangars (after losing land) gets them first on any new land: settled, taken or freed.
+    held, used = uag._calc_hangar_capacity(
+        me, {"current_total": strategy.all_units(me), "queued": world.units_training}, world.modifiers)
+    structures_target = strategy.hangars_first(structures_target, me, held, used, per_hangar)
 
     key_projects = personality.key_projects + (("star_busters",) if style.get("bomber") else ())
     projects = strategy.projects_plan(me, personality.project_weights, key_projects,

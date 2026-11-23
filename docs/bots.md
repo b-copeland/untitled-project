@@ -136,6 +136,11 @@ hidden state.
   budget will buy, before they arrive, at what one hangar holds for this kingdom (projects and politics) and each
   unit's own hangar space. The game's overflow rule counts units in training, so a hangar plan without them left bots
   5-20% over capacity all round, paying for it in people (found by the advisors' tally, issue #185).
+- **Hangars first on new land** (`hangars_first`). After losing land the army stays and the hangars go with the land.
+  While the army is over `HANGAR_SLACK` of its hangar room, every structure but hangars and fuel plants is held at what
+  is built, so all new land (settled, taken, or emptied) gets hangars until the army fits. Nothing is razed for it: a
+  mine earns 150 an epoch, what the 75 people a hangar's room holds earn, and razing for hangars (mines or homes first)
+  left attackers 6-8% smaller over three seeds.
 - **Homes and mines by what the kingdom is short of** (`HOMES_RULE = "surplus"`). Homes earn less than mines but
   hold the people recruits and engineers are drafted from. The homes share moves up while money is left over (people
   are short) and down while the army is short of money, so both run out together.

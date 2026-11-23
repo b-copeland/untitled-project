@@ -857,7 +857,10 @@ def test_a_think_sets_up_the_kingdom_votes_and_remembers(app, client):
     assert kingdom_now["auto_spending_enabled"] is True and 0 < sum(kingdom_now["auto_spending"].values()) <= 1.0001
     assert kingdom_now["next_resolve"]["auto_spending"] < uas.DATE_SENTINEL  # switched on, so it has a time to run
     assert kingdom_now["recruits_before_units"] is False and kingdom_now["auto_rob_enabled"] is True
-    assert sum(kingdom_now["structures_target"].values()) > 0.99
+    # Its army has no hangars yet, so hangars (and fuel plants) come first; otherwise the target uses every star.
+    target = kingdom_now["structures_target"]
+    assert sum(target.values()) > 0.99 or {key for key, share in target.items() if share > 0} <= {"hangars", "fuel_plants"}
+    assert target["hangars"] > 0
     assert bot["phase"] == "early" and bot["style"]["army"] == "both" and bot["reserved_generals"] == 0
     assert datetime.datetime.fromisoformat(bot["next_think"]) > datetime.datetime.now(datetime.timezone.utc)
     assert any(entry["kind"] == "plan" and "spend settle" in entry["why"] for entry in bot["log"])
