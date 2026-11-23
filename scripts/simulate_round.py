@@ -335,6 +335,10 @@ class Simulation:
         self.flows = collections.defaultdict(collections.Counter)
         self.metric_samples = []  # (day, {kd_id: (type, metrics)})
         self.samples = []  # (day, {kd_id: (type, stars, networth)})
+        # The advisors (docs/advisors.md) run on every kingdom at every sample: (type, phase) to advice id to how many
+        # samples it fired in, and how many samples there were.
+        self.advice_fired = collections.defaultdict(collections.Counter)
+        self.advice_seen = collections.Counter()
 
     # ------------------------------------------------------------------------------------------------------ running
 
@@ -391,6 +395,43 @@ class Simulation:
                     kd.get("status"))
             for kd_id, kd in self.kingdoms().items() if kd.get("race")
         }))
+        self.sample_advice()
+
+    def sample_advice(self):
+        """Run the advisors' checks on every live kingdom, from the documents its player's request would read, and
+        count what fires. A check that fires on most well-run bots all round is drawn in the wrong place."""
+        import untitledapp.advisors as advisors
+        import untitledapp.botstrategy as strategy
+        import untitledapp.clusters as clusters
+
+        state = self.doc("state")
+        galaxies = self.doc("galaxies").get("galaxies", {})
+        galaxy_of = {kd: galaxy for galaxy, members in galaxies.items() for kd in members}
+        empires = self.doc("empires").get("empires", {})
+        empire_of_galaxy = {galaxy: eid for eid, info in empires.items() for galaxy in info.get("galaxies", [])}
+        empires_inverted = {kd: empire_of_galaxy[g] for kd, g in galaxy_of.items() if g in empire_of_galaxy}
+        universe_votes = self.doc("universe_votes")
+        game_start = self.uas.utc(state["state"]["game_start"])
+        game_end = self.uas.utc(state["state"]["game_end"])
+        phase = strategy.phase(strategy.round_progress(self.clock.now, game_start, game_end))
+        with self.app.app_context():
+            for kd_id, kd in self.kingdoms().items():
+                if not kd.get("race") or str(kd.get("status")).lower() == "dead":
+                    continue
+                kind = (kd.get("bot") or {}).get("type", "player")
+                galaxy = galaxy_of.get(kd_id)
+                empire = empires_inverted.get(kd_id)
+                ctx = advisors.context_for(
+                    kd, state, self.doc(f"mobis_{kd_id}").get("mobis", []), empires_inverted, empires, self.clock.now,
+                    structures_queue=self.doc(f"structures_{kd_id}").get("structures", []),
+                    galaxy_id=galaxy, galaxy_votes=self.doc(f"galaxy_votes_{galaxy}") if galaxy else {},
+                    cluster=self.doc(f"cluster_{clusters.cluster_of(galaxy)}") if galaxy else None,
+                    universe_votes=universe_votes,
+                    targets=self.doc(f"empire_targets_{empire}") if empire else None,
+                )
+                self.advice_seen[(kind, phase)] += 1
+                for advice in advisors.advise(ctx):
+                    self.advice_fired[(kind, phase)][advice.id] += 1
 
     def run(self, progress=None, sample_days=0.5, recorder=None):
         next_sample = 0.0
@@ -512,6 +553,8 @@ class Simulation:
             "epochs": self.days * 86400 / self.epoch,
             "samples": self.samples,
             "metrics": self.metric_samples,
+            "advice": {f"{kind}/{phase}": {"samples": seen, **self.advice_fired[(kind, phase)]}
+                       for (kind, phase), seen in self.advice_seen.items()},
         }
 
 
@@ -603,6 +646,21 @@ def report(results, out=sys.stdout, detail=False):
             failed = sum(v for k, v in counter.items() if k.startswith(operations) and k.endswith(" failed"))
             rates.append(f"{group} {ok / max(ok + failed, 1):.0%} of {ok + failed}")
         print(f"  {kind}: " + ", ".join(rates), file=out)
+
+    advice = results.get("advice") or {}
+    if advice:
+        print("\nAdvisors: share of samples each advice fired in, by playstyle (docs/advisors.md), then all by phase:", file=out)
+        totals = collections.defaultdict(collections.Counter)  # column -> id -> fired, plus "samples"
+        for key, counts in advice.items():
+            kind, phase = key.split("/")
+            for column in (kind, f"all {phase}"):
+                totals[column].update(counts)
+        columns = kinds + [f"all {phase}" for phase in ("early", "mid", "late") if f"all {phase}" in totals]
+        ids = sorted({advice_id for counts in totals.values() for advice_id in counts if advice_id != "samples"})
+        print(f"    {'':<32}" + "".join(f"{column:>11}" for column in columns), file=out)
+        for advice_id in ids:
+            cells = [totals[column][advice_id] / max(totals[column]["samples"], 1) for column in columns]
+            print(f"    {advice_id:<32}" + "".join(f"{value:>11.0%}" for value in cells), file=out)
 
     print("\nActions by playstyle:", file=out)
     for kind, counter in sorted(results["actions"].items()):

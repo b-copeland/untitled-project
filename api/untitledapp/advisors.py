@@ -72,8 +72,6 @@ class Context:
     epochs_left: float = 0.0    # until the round ends
     progress: float = 0.0       # how far through the round, 0 to 1
     structures_queued: float = 0
-    settles_queued: float = 0
-    expansionist: bool = False  # the galaxy's Expansionist option is active (cheaper settling)
     # Team: the galaxy's politics as the kingdom sees them on the Galaxy politics page.
     galaxy_votes_missing: list = dataclasses.field(default_factory=list)  # "leader" and/or "policies" not voted for
     galaxy_policies_active: int = None  # options in force in the galaxy now; None without a galaxy
@@ -129,26 +127,36 @@ def fuel_running_out(ctx):
     )
 
 
+# Each unit without a hangar takes the room of one person in the homes (refresh._calc_pop_change_per_epoch), so any
+# overflow costs people; past this share of the hangars' room (units in training counted, as the game counts them) it
+# is worth a warning. A hair over, while the next hangars are being built, is not.
+HANGAR_WARNING_SHARE = 1.02
+# Defense under this share of the break-even line. Bots aim at about the line (explorers on purpose, bots.md) and sit a
+# little under it without being hunted; well under it, a kingdom is clearly the better target.
+DEFENSE_WARNING_SHARE = 0.9
+
+
 def hangars_full(ctx):
-    if ctx.used_hangar <= ctx.max_hangar:
+    overflow = ctx.used_hangar - ctx.max_hangar
+    if overflow <= 0 or ctx.used_hangar <= ctx.max_hangar * HANGAR_WARNING_SHARE:
         return None
     return Advice(
         "hangars_full", "danger",
         f"Your units, with those in training, need {_number(ctx.used_hangar)} hangar space and your hangars hold "
-        f"{_number(ctx.max_hangar)}. Units without a hangar take room in your homes, so your population shrinks. "
-        "Build hangars.",
+        f"{_number(ctx.max_hangar)}. The {_number(overflow)} without a hangar take that much room from your homes, so "
+        "your population shrinks. Build hangars.",
         [("Build hangars", "/structures"), ("Military", "/military")],
     )
 
 
 def defense_under_break_even(ctx):
-    """Below this line, hitting the kingdom pays an attacker more than sending the same army at primitives (bots.md,
-    "what the simulations say", 2: bots that dropped to it were hunted at once)."""
+    """Below the line, hitting the kingdom pays an attacker more than sending the same army at primitives (bots.md,
+    "what the simulations say", 2). The warning starts at DEFENSE_WARNING_SHARE of it; the text gives the full line."""
     stars = ctx.kd.get("stars", 0)
     if stars <= 0:
         return None
     line = stars * strategy.break_even_per_star(ctx.epochs, war=ctx.at_war)
-    if ctx.home_defense >= line:
+    if ctx.home_defense >= line * DEFENSE_WARNING_SHARE:
         return None
     war = " Your empire is at war, which makes you worth more to its enemies." if ctx.at_war else ""
     return Advice(
@@ -164,23 +172,24 @@ def defense_under_break_even(ctx):
 # ------------------------------------------------------------------------------------------------------------- waste
 
 # A twentieth of the land with nothing on it and nothing on order is worth a word; a few stars waiting for the next
-# build are not.
+# build are not. Nor is land the auto builder will build on (after a big attack, the new stars arrive empty).
 EMPTY_STARS_SHARE = 0.05
 EMPTY_STARS_MIN = 10
-# Money and funding unspent for more than this many hours of income. Well-run bots keep about one hour's worth idle
-# (bots.md, "what the simulations say", 3); twelve leaves room for saving up, and matches twice-a-day logins.
-IDLE_MONEY_HOURS = 12
-# Settling counts as slow under this share of the most the queue may hold (BASE_MAX_SETTLE_CAP of the stars).
-SETTLE_SLOW_SHARE = 0.5
-# Unassigned engineers worth a word: this share of them, and at least this many.
-IDLE_ENGINEERS_SHARE = 0.05
-IDLE_ENGINEERS_MIN = 10
+# Money and funding unspent for more than this many epochs of income. Well-run bots keep about two epochs' worth idle
+# (bots.md, "what the simulations say", 3).
+IDLE_MONEY_EPOCHS = 6
+
+
+def _auto_builds_structures(kd):
+    """Auto spending is on, funds structures, and has structures to aim for: it will build on empty land."""
+    return bool(kd.get("auto_spending_enabled") and (kd.get("auto_spending") or {}).get("structures", 0) > 0
+                and sum((kd.get("structures_target") or {}).values()) > 0)
 
 
 def empty_stars(ctx):
     stars = ctx.kd.get("stars", 0)
     empty = stars - sum((ctx.kd.get("structures") or {}).values()) - ctx.structures_queued
-    if empty < max(stars * EMPTY_STARS_SHARE, EMPTY_STARS_MIN):
+    if empty < max(stars * EMPTY_STARS_SHARE, EMPTY_STARS_MIN) or _auto_builds_structures(ctx.kd):
         return None
     return Advice(
         "empty_stars", "waste",
@@ -195,9 +204,9 @@ def idle_money(ctx):
     if income <= 0:
         return None
     idle = max(ctx.kd.get("money", 0), 0) + sum((ctx.kd.get("funding") or {}).values())
-    hours = _hours(idle / income)
-    if hours <= IDLE_MONEY_HOURS:
+    if idle / income <= IDLE_MONEY_EPOCHS:
         return None
+    hours = _hours(idle / income)
     return Advice(
         "idle_money", "waste",
         f"You have {_number(idle)} money waiting to be spent, about {math.floor(hours)} hours of income. Money earns "
@@ -227,42 +236,31 @@ def auto_spending_without_targets(ctx):
     )
 
 
-def settling_slowly(ctx):
-    """Settling is where most of a kingdom's stars come from (bots.md, "what the simulations say", 1), and
-    ``settle_worth`` says whether a star still pays for itself before the round ends."""
-    kd = ctx.kd
-    stars = kd.get("stars", 0)
-    if stars <= 0 or not kd.get("race"):
-        return None
-    cap = uas.GAME_FUNCS["BASE_MAX_SETTLE"](stars)
-    if ctx.settles_queued >= cap * SETTLE_SLOW_SHARE:
-        return None
-    income = ((kd.get("income") or {}).get("money") or {}).get("net") or 0
-    worth = strategy.settle_worth(kd, ctx.epochs_left, ctx.expansionist, income / stars if income > 0 else None)
-    if worth <= 1:
-        return None
-    return Advice(
-        "settling_slowly", "waste",
-        f"You are settling {_number(ctx.settles_queued)} stars, and could have {_number(cap)} on the way. A new star "
-        "still pays for itself before the round ends, and settling is where most kingdoms get most of their land.",
-        [("Settle", "/settle"), ("Spending", "/automation?tab=spending")],
-    )
-
-
 def engineers_idle(ctx):
     kd = ctx.kd
     if kd.get("auto_assign_projects", True):
         return None
     engineers = (kd.get("units") or {}).get("engineers", 0)
     idle = engineers - sum((kd.get("projects_assigned") or {}).values())
-    if idle < max(engineers * IDLE_ENGINEERS_SHARE, IDLE_ENGINEERS_MIN):
+    if idle <= 0:
         return None
     return Advice(
         "engineers_idle", "waste",
-        f"{_number(idle)} of your engineers are not working on a project. Assign them, or let them be assigned "
-        "automatically.",
+        f"{_number(idle)} of your engineers {'is' if idle == 1 else 'are'} not working on a project. Assign them, or "
+        "let them be assigned automatically.",
         [("Projects", "/projects")],
     )
+
+
+# An army counts as one for attacking when at least this share of its units are pure attackers. A kingdom of flex units
+# (offense and defense both) or of defenders keeps them home on purpose.
+ATTACKERS_SHARE = 0.05
+
+
+def _attacker_army(units):
+    combat = sum(count for unit, count in units.items() if unit in uas.UNITS and unit not in ("recruits", "engineers"))
+    attackers = sum(units.get(unit, 0) for unit in uas.PURE_ATTACK_UNITS)
+    return attackers > 0 and attackers >= combat * ATTACKERS_SHARE
 
 
 def generals_idle(ctx):
@@ -273,7 +271,7 @@ def generals_idle(ctx):
         return None
     if any(str(entry.get("type", "")).startswith("attack") for entry in kd.get("schedule") or []):
         return None
-    if strategy.raw_offense(kd.get("units") or {}) <= 0:
+    if not _attacker_army(kd.get("units") or {}):
         return None
     return Advice(
         "generals_idle", "waste",
@@ -377,7 +375,6 @@ CHECKS = [
     empty_stars,
     idle_money,
     auto_spending_without_targets,
-    settling_slowly,
     engineers_idle,
     generals_idle,
     spy_attempts_full,
@@ -398,7 +395,6 @@ IDS = {
     "empty_stars": "waste",
     "idle_money": "waste",
     "auto_spending_without_targets": "waste",
-    "settling_slowly": "waste",
     "engineers_idle": "waste",
     "generals_idle": "waste",
     "spy_attempts_full": "waste",
@@ -417,7 +413,7 @@ def advise(ctx, checks=None):
     return sorted(found, key=lambda advice: KINDS.index(advice.kind))
 
 
-def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, structures_queue=(), settles_queue=(),
+def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, structures_queue=(),
                 galaxy_id=None, galaxy_votes=None, cluster=None, universe_votes=None, targets=None):
     """The context for ``kd``, from documents the route has read. ``cluster`` (the cluster document) is only needed
     for a galaxy leader, ``universe_votes`` while an election is open, ``targets`` (the empire's targets document)
@@ -438,7 +434,7 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, str
     kd_id = str(kd.get("kdId"))
     empire = empires_inverted.get(kd_id)
     at_war = bool(empire and empires.get(empire, {}).get("war"))
-    missing, active_count, expansionist = [], None, False
+    missing, active_count = [], None
     if galaxy_votes is not None:
         # The galaxy's policies as the tally has them now, for the policies this round plays (galaxypolicies.py).
         policies = uagp.round_policies(state["state"])
@@ -448,7 +444,6 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, str
         if policies and all(kd_id not in galaxy["votes"].get(policy, {}) for policy in policies):
             missing.append("policies")
         active_count = len(galaxy["active"])
-        expansionist = "expansionist" in galaxy["active"].values()
     galaxy_votes = galaxy_votes or {}
     is_leader = galaxy_votes.get("leader") == kd_id
     election_ends = election_open(state, now)
@@ -462,8 +457,6 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, str
         epochs_left=max((game_end - now).total_seconds(), 0) / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"],
         progress=strategy.round_progress(now, game_start, game_end),
         structures_queued=uag._queue_total(structures_queue),
-        settles_queued=uag._queue_total(settles_queue),
-        expansionist=expansionist,
         galaxy_votes_missing=missing,
         galaxy_policies_active=active_count,
         is_leader=is_leader,
@@ -517,7 +510,7 @@ def get_advisors():
                if empire and empires.get(empire, {}).get("war") and empires[empire].get("targets") else None)
     ctx = context_for(
         kd, state, uag._get_mobis_queue(kd_id), empires_inverted, empires, now,
-        structures_queue=uag._get_structures_queue(kd_id), settles_queue=uag._get_settle_queue(kd_id),
+        structures_queue=uag._get_structures_queue(kd_id),
         galaxy_id=galaxy_id, galaxy_votes=galaxy_votes, cluster=cluster, universe_votes=universe_votes,
         targets=targets,
     )

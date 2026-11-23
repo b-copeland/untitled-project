@@ -32,7 +32,7 @@ The steady load, without anyone acting:
 |---|---|
 | Each open game tab polls the kingdom and notifications | every 10 s, so about 12 requests a minute per player, each reaching the function app |
 | Each open game tab polls scores | every 60 s |
-| Opening the Status page fetches the advisors | nine reads each time (up to twelve for a galaxy leader, during an election or at war), one with the advisors off ([advisors.md](advisors.md)); not polled |
+| Opening the Status page fetches the advisors | eight reads each time (up to eleven for a galaxy leader, during an election or at war), one with the advisors off ([advisors.md](advisors.md)); not polled |
 | The refresh | every minute, reading and writing every kingdom and its due queues, plus scores, history and elections |
 | Bots | as many function calls as a player, on the refresh |
 | Repeating spy operations | nothing until one is due and a spy attempt is free (found in the kingdom the tick already read). Then two kingdom writes (claim, record), one revealed read for intel, and the spy operation itself (what a player clicking Spy costs). At most one spy attempt's worth per epoch per kingdom, since attempts come back once an epoch |

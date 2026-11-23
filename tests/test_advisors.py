@@ -27,7 +27,7 @@ def _ctx(**kd_fields):
           "structures": {"homes": 500, "mines": 500}, "units": {"attack": 0, "engineers": 0}, "spy_attempts": 2,
           **kd_fields}
     fields = {"epochs": 96, "max_hangar": 1000, "used_hangar": 500, "home_defense": 10 ** 6, "at_war": False,
-              "epochs_left": 240, "progress": 0.3, "settles_queued": 100,
+              "epochs_left": 240, "progress": 0.3,
               **ctx_fields}
     return uaadv.Context(kd=kd, now=NOW, **fields)
 
@@ -69,26 +69,26 @@ def test_a_kingdom_without_an_income_yet_is_not_warned_about_fuel():
     assert "fuel_running_out" not in _ids(_ctx(income={}))
 
 
-def test_hangars_full_counts_units_in_training():
-    assert _ids(_ctx(max_hangar=1000, used_hangar=1000)) == []
-    [advice] = uaadv.advise(_ctx(max_hangar=1000, used_hangar=1200))
+def test_hangars_full_past_two_percent_over():
+    assert _ids(_ctx(max_hangar=1000, used_hangar=1020)) == []
+    [advice] = uaadv.advise(_ctx(max_hangar=1000, used_hangar=1030))
     assert advice.id == "hangars_full"
-    assert "1,200" in advice.text and "1,000" in advice.text
+    assert "1,030" in advice.text and "1,000" in advice.text and "The 30 without a hangar" in advice.text
 
 
-def test_defense_under_the_break_even_with_primitives():
+def test_defense_well_under_the_break_even_with_primitives():
     line = 1000 * strategy.break_even_per_star(96)
-    assert _ids(_ctx(home_defense=line)) == []
-    [advice] = uaadv.advise(_ctx(home_defense=line - 1))
+    assert _ids(_ctx(home_defense=line * uaadv.DEFENSE_WARNING_SHARE)) == []
+    [advice] = uaadv.advise(_ctx(home_defense=line * uaadv.DEFENSE_WARNING_SHARE - 1))
     assert advice.id == "defense_under_break_even"
-    assert f"{int(line):,}" in advice.text
+    assert f"{int(line):,}" in advice.text  # the full line, not the warning point
     assert ("Train units", "/military") in advice.links
 
 
 def test_at_war_the_line_is_higher_and_the_advice_says_why():
-    peace_line = 1000 * strategy.break_even_per_star(96)
-    assert _ids(_ctx(home_defense=peace_line, at_war=False)) == []
-    [advice] = uaadv.advise(_ctx(home_defense=peace_line, at_war=True))
+    defense = 1000 * strategy.break_even_per_star(96) * uaadv.DEFENSE_WARNING_SHARE
+    assert _ids(_ctx(home_defense=defense, at_war=False)) == []
+    [advice] = uaadv.advise(_ctx(home_defense=defense, at_war=True))
     assert "at war" in advice.text
 
 
@@ -120,11 +120,18 @@ def test_empty_stars_count_what_is_on_order():
     assert _only(_ctx(structures={"homes": 900}, structures_queued=40), "empty_stars").text.startswith("60 of your stars")
 
 
-def test_idle_money_is_measured_in_hours_of_income():
-    # 5,000 an epoch is 10,000 an hour, so 12 hours is 120,000.
-    assert "idle_money" not in _ids(_ctx(money=100000, funding={"military": 20000}))
-    advice = _only(_ctx(money=130000, funding={"military": 20000}), "idle_money")
-    assert "150,000" in advice.text and "15 hours" in advice.text
+def test_empty_stars_say_nothing_while_the_auto_builder_will_build_on_them():
+    # Right after a big attack the new stars arrive empty; auto spending with structure targets builds on them.
+    builder = {"auto_spending_enabled": True, "auto_spending": {"structures": 0.3}, "structures_target": {"homes": 1}}
+    assert "empty_stars" not in _ids(_ctx(structures={"homes": 500}, **builder))
+    assert "empty_stars" in _ids(_ctx(structures={"homes": 500}, **{**builder, "auto_spending": {"structures": 0}}))
+
+
+def test_idle_money_past_six_epochs_of_income_said_in_hours():
+    # 5,000 an epoch: six epochs is 30,000.
+    assert "idle_money" not in _ids(_ctx(money=20000, funding={"military": 10000}))
+    advice = _only(_ctx(money=30000, funding={"military": 10000}), "idle_money")
+    assert "40,000" in advice.text and "4 hours" in advice.text and "epoch" not in advice.text
 
 
 def test_auto_spending_without_targets_names_what_is_missing():
@@ -135,16 +142,12 @@ def test_auto_spending_without_targets_names_what_is_missing():
     assert "auto_spending_without_targets" not in _ids(_ctx(**{**base, "units_target": {"attack": 1}}))
 
 
-def test_settling_slowly_only_while_a_star_still_pays():
-    assert "settling_slowly" in _ids(_ctx(settles_queued=10))      # the cap is 100
-    assert "settling_slowly" not in _ids(_ctx(settles_queued=50))
-    assert "settling_slowly" not in _ids(_ctx(settles_queued=10, epochs_left=0))  # no time left to earn it back
-
-
-def test_engineers_idle_only_without_auto_assign():
-    kd = {"units": {"engineers": 100}, "projects_assigned": {"pop_bonus": 50}}
+def test_engineers_idle_any_without_auto_assign():
+    kd = {"units": {"engineers": 100}, "projects_assigned": {"pop_bonus": 99}}
     assert "engineers_idle" not in _ids(_ctx(**kd))                  # auto assign is on by default
-    assert "engineers_idle" in _ids(_ctx(auto_assign_projects=False, **kd))
+    assert _only(_ctx(auto_assign_projects=False, **kd), "engineers_idle").text.startswith("1 of your engineers is not")
+    assert "engineers_idle" not in _ids(_ctx(auto_assign_projects=False, units={"engineers": 100},
+                                             projects_assigned={"pop_bonus": 100}))
 
 
 def test_generals_idle_needs_an_army_and_nothing_to_send_it():
@@ -154,6 +157,12 @@ def test_generals_idle_needs_an_army_and_nothing_to_send_it():
     assert "generals_idle" not in _ids(_ctx(**army, generals_out=[{"attack": 50}]))
     assert "generals_idle" not in _ids(_ctx(**army, schedule=[{"type": "attackprimitives"}]))
     assert "generals_idle" not in _ids(_ctx())                       # no offense to send
+
+
+def test_generals_idle_skips_an_army_of_flex_units_or_defenders():
+    assert "generals_idle" not in _ids(_ctx(units={"flex": 1000}))                     # all flex
+    assert "generals_idle" not in _ids(_ctx(units={"defense": 1000, "attack": 40}))    # 4% pure attackers
+    assert "generals_idle" in _ids(_ctx(units={"defense": 1000, "attack": 60}))        # 6%
 
 
 def test_spy_attempts_full():
