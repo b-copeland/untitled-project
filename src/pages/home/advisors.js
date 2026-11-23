@@ -34,7 +34,7 @@ function AdviceItem({ item, onHide, busy }) {
 
 /**
  * The list the server's advisors give (``GET /api/advisors``, docs/advisors.md): most serious first, each with links to
- * where it is fixed. Advice that is not about danger can be hidden for good; hidden advice waits behind a small toggle.
+ * where it is fixed. Any advice can be hidden for good; hidden advice waits behind a small toggle.
  */
 export function AdvisorsList({ answer, onHide, busy = false }) {
     const [showHidden, setShowHidden] = useState(false);

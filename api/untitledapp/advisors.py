@@ -9,11 +9,11 @@ plain inputs and the bot simulator can run them on every bot. Thresholds come fr
 
 Kinds, in the order the card shows them:
 
-* ``danger``: something is hurting the kingdom now. Can not be hidden.
+* ``danger``: something is hurting the kingdom now.
 * ``waste``: money, land or people doing nothing.
 * ``team``: something the galaxy, cluster, empire or universe is waiting on.
 
-A player can hide any advice that is not ``danger``, for good (it is stored in their preferences, so it stays hidden
+A player can hide any advice, danger included, for good (it is stored in their preferences, so it stays hidden
 in later rounds), and turn the advisors off in Settings.
 """
 import dataclasses
@@ -33,7 +33,9 @@ from untitledapp import alive_required
 bp = flask.Blueprint("advisors", __name__)
 
 KINDS = ("danger", "waste", "team", "peer")
-HIDEABLE_KINDS = ("waste", "team", "peer")
+# Every kind can be hidden, danger included: the player decides (a hidden warning stays one click away, behind the
+# card's "Show hidden advice").
+HIDEABLE_KINDS = KINDS
 
 # Fuel that runs out within this many hours is worth a warning: a player who logs in twice a day (tenet 1) would
 # otherwise find it gone before they are back.
@@ -657,8 +659,6 @@ def hide_advice():
     advice_id = req.get("id")
     if advice_id not in IDS:
         return flask.jsonify({"message": "There is no such advice"}), 400
-    if IDS[advice_id] not in HIDEABLE_KINDS:
-        return flask.jsonify({"message": "Warnings about danger to your kingdom can not be hidden"}), 400
     if not uapr.set_advice_hidden(flask_praetorian.current_user().id, advice_id, req["hidden"]):
         return flask.jsonify({"message": "Your advisors could not be updated. Try again."}), 503
     message = "Advice hidden" if req["hidden"] else "Advice shown again"

@@ -19,7 +19,7 @@ in `CHECKS` and answers the advice that applies, most serious kind first:
 
 ```json
 {"enabled": true, "advice": [{"id": "fuel_running_out", "kind": "danger", "text": "Your fuel runs out in about 5 hours: ...",
-  "links": [{"label": "Build fuel plants", "to": "/structures"}], "hideable": false, "hidden": false}]}
+  "links": [{"label": "Build fuel plants", "to": "/structures"}], "hideable": true, "hidden": false}]}
 ```
 
 The card fetches it each time the Status page opens, not with the rest of the game data, so a player who never opens
@@ -35,12 +35,12 @@ bot.
 
 ## Kinds
 
-| Kind | What | Can be hidden |
-|---|---|---|
-| `danger` | Something is hurting the kingdom now: out of fuel, fuel running out, hangars over capacity, defense so low that attacking it pays better than primitives | No |
-| `waste` | Money, land or people doing nothing | Yes |
-| `team` | Something the galaxy, cluster, empire or universe is waiting on. Advice only a galaxy leader can act on goes only to the leader | Yes |
-| `peer` | The kingdom is far below almost every other kingdom on a measure ([below](#peer-comparisons)) | Yes |
+| Kind | What |
+|---|---|
+| `danger` | Something is hurting the kingdom now: out of fuel, fuel running out, hangars over capacity, defense so low that attacking it pays better than primitives |
+| `waste` | Money, land or people doing nothing |
+| `team` | Something the galaxy, cluster, empire or universe is waiting on. Advice only a galaxy leader can act on goes only to the leader |
+| `peer` | The kingdom is far below almost every other kingdom on a measure ([below](#peer-comparisons)) |
 
 ## The advice
 
@@ -131,7 +131,7 @@ What it showed (seven days, 40 bots, three seeds), and what was done:
 
 ## Hiding and the switch
 
-- **Hide** on an advice that is not `danger` hides it for good, for the account: it stays hidden in later rounds. It
+- **Hide** on any advice, danger included (the maintainer's choice), hides it for good, for the account: it stays hidden in later rounds. It
   is stored as its own key, `hide_advice_<id>: true`, in `preferences_<user id>`, so two hides at once can not undo
   each other through the shallow merge. `POST /api/advisors/hide` with `{"id", "hidden"}`; `false` shows it again.
 - Hidden advice still comes back from the route, flagged `hidden`, and the card shows it only behind a small "Show

@@ -225,7 +225,7 @@ The rules are in [advisors.md](advisors.md).
    `None`. Its comment says where the threshold comes from (a formula in `shared.py`, a `botstrategy.py` sum and the
    [bots.md](bots.md) finding behind it, or a plain reason). If it needs something the `Context` lacks, add a field
    and fill it in `context_for` from what the route already reads; a new read is a cost ([cost.md](cost.md)).
-2. Add it to `CHECKS` and its id and kind to `IDS`. `danger` can not be hidden; use it only for harm happening now.
+2. Add it to `CHECKS` and its id and kind to `IDS`. Use `danger` only for harm happening now.
 3. The text follows [advisors.md](advisors.md#writing-the-text): hours not epochs, a link to where it is fixed, no
    figures about other kingdoms.
 4. Tests in `tests/test_advisors.py`: it fires on the case it is for, stays quiet on a healthy kingdom (`_ctx()`), and

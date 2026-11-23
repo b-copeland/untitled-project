@@ -35,7 +35,8 @@ function Home(props) {
                 galaxy, cluster, empire or the universe is waiting on, such as a vote. Advice only a galaxy leader can
                 act on goes only to the leader. And they tell you when your kingdom is far behind almost every other
                 kingdom in the universe on something that matters, such as income or defense per star, without saying
-                how anyone else stands. Other advice can be hidden for good with <b>Hide</b>, and shown again from <b>Show hidden advice</b>.
+                how anyone else stands. Any advice, red warnings included, can be hidden for good with <b>Hide</b>, and shown again from
+                <b>Show hidden advice</b>; a hidden warning stays hidden even when the problem comes back.
                 You can turn the advisors off in Settings.
             </p>
             <h4>Networth</h4>
