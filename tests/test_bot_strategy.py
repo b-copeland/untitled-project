@@ -200,6 +200,21 @@ def test_an_army_on_order_gets_its_hangars_before_it_arrives():
     assert coming["homes"] < now["homes"]
 
 
+def test_units_in_training_get_their_hangars_too():
+    """The game's overflow rule counts units in training, so the bots' hangars must too (docs/status.md, Advisors)."""
+    kd = kingdom()
+    without = strategy.structures_plan(kd, LAND, {"defense": 0})
+    training = strategy.structures_plan(kd, LAND, {"defense": 0}, training={"attack": 3000})
+    assert training["hangars"] > without["hangars"] and training["fuel_plants"] > without["fuel_plants"]
+
+
+def test_bigger_hangars_need_fewer_of_them():
+    kd = kingdom()
+    base = strategy.structures_plan(kd, LAND, {"defense": 3000})
+    bigger = strategy.structures_plan(kd, LAND, {"defense": 3000}, per_hangar=150)
+    assert bigger["hangars"] < base["hangars"]
+
+
 def test_an_army_far_too_big_for_the_land_still_leaves_an_economy():
     target = strategy.structures_plan(kingdom(), LAND, {"defense": 500_000})
     assert target["homes"] + target["mines"] >= 0.29

@@ -132,8 +132,10 @@ hidden state.
 - **Strength per recruit when people run short.** With money to spare, defense is bought as flexers, and big flexers
   once unlocked: twice and four times the strength for each recruit and hangar place. Otherwise defenders, the cheapest
   defense for the money.
-- **Land for the army on order** (`structures_plan`): hangars and fuel plants for the units the budget will buy, before
-  they arrive.
+- **Land for the army on order** (`structures_plan`): hangars and fuel plants for the units in training and those the
+  budget will buy, before they arrive, at what one hangar holds for this kingdom (projects and politics) and each
+  unit's own hangar space. The game's overflow rule counts units in training, so a hangar plan without them left bots
+  5-20% over capacity all round, paying for it in people (found by the advisors' tally, issue #185).
 - **Homes and mines by what the kingdom is short of** (`HOMES_RULE = "surplus"`). Homes earn less than mines but
   hold the people recruits and engineers are drafted from. The homes share moves up while money is left over (people
   are short) and down while the army is short of money, so both run out together.
@@ -190,6 +192,9 @@ hidden state.
   the one listed of each of the round's policies, wherever its vote is not that already (policy votes have no
   cooldown). And a **leader**: whoever the others back, and with no
   votes to go by, the strongest. (Everybody voting for today's strongest split the vote and elected nobody.)
+- **Cluster vote.** As galaxy leader, the galaxy's vote for the first benefit in `Personality.cluster_votes` (every
+  benefit, best first) that the round plays, when its vote is not that already and may change. Before this, no bot
+  ever voted, so clusters of bots got no benefits.
 - **Empires.** A galaxy leader joins the strongest empire that has room, or founds one; an empire leader admits who asks
   and invites galaxies without an empire. The game refuses a join that would give an empire more than 30% of the
   universe's kingdoms or 35% of its networth (`politics.empire_size_problem`; two galaxies may always ally), and the

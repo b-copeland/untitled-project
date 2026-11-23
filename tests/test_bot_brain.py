@@ -84,6 +84,8 @@ class StubWorld(brain.World):
             "attack_history": attack_history or [],
             "modifiers": {},  # what politics does to the bot (World.modifiers)
             "empire_targets": targets or {},  # the empire's targets: kingdom to the actions it is marked for
+            "units_training": {},  # nothing in the mobis queue
+            "cluster": {},  # its cluster: no votes yet
         }
 
     def target_info(self, target):
@@ -365,6 +367,12 @@ def test_every_playstyle_has_an_option_for_every_galaxy_policy():
     for name, personality in brain.PERSONALITIES.items():
         covered = sorted(uas.GALAXY_POLICY_OF_OPTION[option] for option in personality.galaxy_votes)
         assert covered == sorted(uas.GALAXY_POLICIES), name
+
+
+def test_every_playstyle_ranks_every_cluster_benefit():
+    for name, personality in brain.PERSONALITIES.items():
+        assert sorted(personality.cluster_votes) == sorted(uas.CLUSTER_BENEFITS), name
+        assert not brain.problems(personality), name
 
 
 def test_a_locked_leader_vote_waits_but_a_policy_vote_never_does():
@@ -900,8 +908,11 @@ def test_a_bot_votes_only_once_for_the_same_thing(app, client):
     with app.app_context():
         first = _think(random.Random(1))
         second = _think(random.Random(2))
+        third = _think(random.Random(3))
     assert sum(d.kind == "vote_galaxy" for d in first) == 4 and sum(d.kind == "vote_leader" for d in first) == 1
-    assert sum(d.kind.startswith("vote_") for d in second) == 0
+    # Elected by the first think, it casts its galaxy's cluster vote on the second as the new leader; then nothing.
+    assert [d.kind for d in second if d.kind.startswith("vote_")] in ([], ["vote_cluster"])
+    assert sum(d.kind.startswith("vote_") for d in third) == 0
 
 
 def test_loose_money_is_really_spent(app, client):
@@ -1101,3 +1112,20 @@ def test_homes_follow_whether_recruits_are_trained_flat_out(monkeypatch):
     brain.plan_economy(world, ATTACKER, style(), memory)
     brain.plan_economy(world, ATTACKER, style(), memory)
     assert memory["homes_shift"] == -brain.HOMES_STEP  # not training flat out: too many homes
+
+
+def test_a_galaxy_leader_bot_casts_its_galaxys_cluster_vote_once(app, client):
+    import untitledapp.clusters as uacl
+    _make_kingdom_one_a_bot("explorer", bot={"style": style(army="primitives")})
+    politics = _get("/galaxy/1/politics")
+    _create_item("galaxy_votes_1", {**politics, "leader": KD_ID})
+    with app.app_context():
+        _think()
+        world = brain.World(KD_ID, _get(f"/kingdom/{KD_ID}"), datetime.datetime.now(datetime.timezone.utc))
+        again = brain._plan_cluster_vote(world, brain.PERSONALITIES["explorer"])
+    playing = uacl.round_benefits(_get("/state")["state"])
+    wanted = next(b for b in brain.PERSONALITIES["explorer"].cluster_votes if b in playing)
+    cluster = _get(f"/cluster/{uacl.cluster_of('1')}")
+    assert (cluster.get("votes") or {}).get("1") == wanted
+    assert _get(f"/kingdom/{KD_ID}")["bot"]["counts"].get("vote_cluster") == 1
+    assert again == []  # voted already: nothing to do on the next think
