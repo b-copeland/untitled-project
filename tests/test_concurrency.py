@@ -98,8 +98,9 @@ def test_shield_changes_made_at_the_same_time_are_all_kept(app, client, jwt1):
     )
 
     assert [response.status_code for response in responses] == [200] * len(names)
-    shields = _get(f"/kingdom/{KD_ID}")["shields"]
-    assert {name: round(shields[name] * 100) for name in names} == wanted
+    # Each is a raise, so each climbs to its level: every one of them is kept.
+    climbs = _get(f"/kingdom/{KD_ID}")["shields_climb"]
+    assert {name: round(climbs[name]["to"] * 100) for name in names} == wanted
 
 
 def _post(app, jwt, path, body):

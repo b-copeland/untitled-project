@@ -184,7 +184,8 @@ Created from `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`, which has the st
 | `max_recruits`, `recruits_before_units` | Auto builder settings for recruits |
 | `structures` | Structures built |
 | `missiles` | Missiles held |
-| `shields` | `military`, `spy`, `spy_radar`, `missiles` levels |
+| `shields` | `military`, `spy`, `spy_radar`, `missiles` levels, as of the last write. Read them through `shared.shields_now`, which applies `shields_climb` |
+| `shields_climb` | Raised shields still climbing: `{kind: {from, to, since}}`. A raise climbs in a straight line from `from` to `to` over `BASE_SHIELDS_CLIMB_EPOCHS`; a cut is at once and drops the entry. The refresh folds a finished climb into `shields` and charges fuel on the average level since the last tick. Missing on kingdoms made before it (read as `{}`) |
 | `revealed_to` | Who currently sees this kingdom, for display |
 | `auto_spending_enabled`, `auto_spending`, `funding` | Auto builder switch, the income split, and the money set aside per category |
 | `auto_attack_enabled`, `auto_attack_settings` | Automatic attacks on primitives |

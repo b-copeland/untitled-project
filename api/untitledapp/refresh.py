@@ -481,9 +481,11 @@ def _kingdom_with_income(
         income["fuel"]["units"][key_unit] = value_units * uas.UNITS[key_unit]["fuel"] * unit_fuel
     income["fuel"]["population"] = kd_info_parse["population"] * uas.GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"]
     income["fuel"]["shields"] = {}
-    for kind in ("military", "spy", "spy_radar", "missiles"):
+    # Charged on each shield's average level since the last tick: a raise climbs, and costs more as it does.
+    shield_levels = uas.shields_average(kd_info_parse, time_last_income, time_now)
+    for kind in uas.SHIELD_KINDS:
         income["fuel"]["shields"][kind] = (
-            kd_info_parse["shields"][kind] * 100 * kd_info_parse["stars"] * uas.shield_fuel_per_pct(kind, modifiers)
+            shield_levels.get(kind, 0) * 100 * kd_info_parse["stars"] * uas.shield_fuel_per_pct(kind, modifiers)
         )
 
     income["fuel"]["empty_silos"] = empty_silos * uas.GAME_CONFIG["FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO"]
@@ -569,11 +571,13 @@ def _kingdom_with_income(
             k: v - structures_to_reduce.get(k, 0)
             for k, v in new_kd_info["structures"].items()
         }
+    new_kd_info["shields"], new_kd_info["shields_climb"] = uas.settle_shields(kd_info_parse, time_now)
     if new_kd_info["fuel"] <= 0:
         new_kd_info["shields"] = {
             k: 0
             for k in new_kd_info["shields"]
         }
+        new_kd_info["shields_climb"] = {}
 
     return new_kd_info
     
