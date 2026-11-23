@@ -9,9 +9,9 @@ function Settings() {
                 round to the next.
             </p>
             <p>
-                <b>Colour theme</b> changes the look of every page as soon as you pick one. Gray is the default, Dark is
-                nearly black, and Light has dark text on a light page. Eclipse, Nebula, Planet and Twilight are dark
-                themes in the colours of space. This device also remembers your theme, so the login page uses it too.
+                <b>Colour theme</b> changes the look of every page as soon as you pick one. Twilight, the default, and
+                Eclipse, Nebula and Planet are dark themes in the colours of space. Gray is dark but not black, Dark is
+                nearly black, and Light has dark text on a light page. This device also remembers your theme, so the login page uses it too.
             </p>
             <p>
                 <b>Notifications</b> has a switch for each kind of notification: finished settles, structures, military
