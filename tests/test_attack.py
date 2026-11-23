@@ -199,6 +199,28 @@ def test_missiles_damage_the_target_and_are_used_up(app, client, jwt1):
     assert len(_get(f"/kingdom/{KD_ID}/missilehistory")["missile_history"]) == 1
 
 
+def test_a_missile_launch_says_what_share_the_shields_stopped(app, client, jwt1):
+    _with_missiles(10)
+    target = _get(f"/kingdom/{TARGET_ID}")
+    _create_item(f"kingdom_{TARGET_ID}", {**target, "shields": {**(target.get("shields") or {}), "missiles": 0.4}})
+
+    body = _launch(client, jwt1, count=10).get_json()
+
+    assert body["status"] == "success", body
+    assert body["shields_stopped"] == 0.4
+    # 10 planet busters of 1 star each, less the 40% the shields stopped.
+    assert target["stars"] - _get(f"/kingdom/{TARGET_ID}")["stars"] == 6
+
+
+def test_a_missile_launch_against_no_shields_says_none_were_stopped(app, client, jwt1):
+    _with_missiles(5)
+
+    body = _launch(client, jwt1).get_json()
+
+    assert body["status"] == "success", body
+    assert body["shields_stopped"] == 0
+
+
 @pytest.mark.parametrize("repeat", range(3))
 def test_racing_duplicate_missile_launches_use_the_missiles_once(app, client, jwt1, repeat):
     _with_missiles(5)

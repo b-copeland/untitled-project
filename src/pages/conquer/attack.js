@@ -10,6 +10,7 @@ import Alert from 'react-bootstrap/Alert';
 import "./attack.css";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
+import { flourishResult } from "../../components/flourish";
 import { AmountInput, NumberControl } from "../../components/forms";
 import { Panel, FieldRow, UnitStat, Stats, VersusBar, Picker, useServerForecast, clockUntil } from "../../components/planner";
 import { displayPercent } from "../../format";
@@ -152,7 +153,7 @@ function Attack(props) {
         const updateFunc = async () => authFetch('api/attack/' + selected, {
             method: 'POST',
             body: JSON.stringify({ attackerValues }),
-        }).then(safeJson).then(r => { setAttackResults((previous) => previous.concat(r)); setForecast({}); });
+        }).then(safeJson).then(r => { setAttackResults((previous) => previous.concat(r)); setForecast({}); flourishResult("attack", r); });
         props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects', 'galaxynews'], [updateFunc]);
     };
 

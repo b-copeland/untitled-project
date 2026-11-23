@@ -1,0 +1,81 @@
+/* The short action animations (flourish.js). Colours come from the theme tokens, so every theme draws them. */
+
+.flourish-layer {
+    position: fixed; inset: 0; z-index: 1065;
+    pointer-events: none;
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: 18vh 16px 0;
+}
+
+.fl-stage {
+    position: relative;
+    width: min(100%, 440px);
+    background: var(--bs-body-bg);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+}
+.fl-svg { display: block; width: 100%; height: auto; }
+
+.fl-caption { padding: 0 12px 12px; text-align: center; font-weight: 600; letter-spacing: 0.02em; }
+.fl-caption-success { color: var(--bs-success); }
+.fl-caption-failure { color: var(--bs-danger); }
+
+/* Tones shared by bursts, glows and marks. */
+.fl-success { --fl-tone: var(--bs-success); }
+.fl-danger { --fl-tone: var(--bs-danger); }
+.fl-warning { --fl-tone: var(--bs-warning); }
+.fl-accent { --fl-tone: var(--accent); }
+
+.fl-star { fill: var(--bs-body-color); opacity: 0.45; }
+.fl-planet-body { fill: var(--surface-raised); stroke: var(--accent); stroke-width: 1.5; }
+.fl-planet-ring { fill: none; stroke: var(--accent); stroke-width: 1.2; opacity: 0.6; }
+.fl-glow { fill: none; stroke: var(--fl-tone); stroke-width: 3; }
+
+.fl-hull { fill: var(--bs-body-color); }
+.fl-engine { fill: var(--bs-warning); opacity: 0.85; }
+.fl-beam { stroke: var(--bs-danger); stroke-width: 1.4; stroke-linecap: round; }
+
+.fl-burst { fill: var(--fl-tone); opacity: 0.55; }
+.fl-burst-core { fill: var(--bs-warning); }
+.fl-spark { stroke: var(--fl-tone); stroke-width: 1.5; stroke-linecap: round; }
+
+.fl-drone-arm { stroke: var(--bs-body-color); stroke-width: 1.5; }
+.fl-drone-eye { fill: var(--accent); }
+.fl-scan { fill: var(--bs-success); }
+.fl-mark-ring { fill: rgba(var(--bs-body-bg-rgb), 0.9); stroke: var(--fl-tone); stroke-width: 1.5; }
+.fl-mark { fill: none; stroke: var(--fl-tone); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+.fl-missile { fill: var(--bs-warning); }
+.fl-trail { stroke: var(--bs-warning); stroke-width: 1.6; stroke-linecap: round; opacity: 0.6; }
+.fl-shield { fill: rgba(var(--accent-rgb), 0.08); stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
+
+/* The election: curtains part on the winning options. */
+.fl-stage-election { width: min(100%, 520px); }
+.fl-election { position: relative; min-height: 200px; }
+.fl-election-reveal {
+    padding: 44px 20px 24px; text-align: center;
+    background: radial-gradient(ellipse at 50% 30%, rgba(var(--accent-rgb), 0.22), transparent 70%);
+}
+.fl-election-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 10px; }
+.fl-election-line { margin: 4px 0; }
+.fl-curtain {
+    position: absolute; top: 0; bottom: 0; width: 50%;
+    background-color: var(--accent);
+    /* Folds: a shadow between each pair of pleats, and darker towards the floor. */
+    background-image:
+        linear-gradient(180deg, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.3)),
+        repeating-linear-gradient(90deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0.35) 11px, rgba(0, 0, 0, 0) 22px);
+}
+.fl-curtain-left { left: 0; border-right: 1px solid rgba(0, 0, 0, 0.3); }
+.fl-curtain-right { right: 0; border-left: 1px solid rgba(0, 0, 0, 0.3); }
+.fl-valance {
+    position: absolute; top: 0; left: 0; right: 0; height: 18px;
+    background: repeating-radial-gradient(circle at 12px -6px, rgba(var(--accent-rgb), 1) 0 14px, transparent 15px 24px);
+    background-size: 24px 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .flourish-layer { display: none; }
+}

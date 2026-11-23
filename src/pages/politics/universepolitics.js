@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { authFetch } from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
 import Button from 'react-bootstrap/Button';
@@ -9,6 +9,30 @@ import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { Panel } from "../../components/planner";
 import { useWait, waitText } from "../../components/wait";
+import { playFlourish } from "../../components/flourish";
+
+// The options in force this browser last revealed, so the curtains open once for each new result.
+const SEEN_KEY = "farsteel-seen-election";
+
+/** Opens the curtains on the options in force when they differ from what this browser last showed. */
+function useElectionReveal(active) {
+    const shown = active ? active.map((option) => option.key).sort().join(",") : null;
+    useEffect(() => {
+        if (!shown) {
+            return;
+        }
+        let seen = null;
+        try {
+            seen = window.localStorage.getItem(SEEN_KEY);
+            window.localStorage.setItem(SEEN_KEY, shown);
+        } catch (error) {
+            return;  // No storage (a private window): no way to show it only once, so do not show it.
+        }
+        if (seen !== shown) {
+            playFlourish({ kind: "election", lines: active.map((option) => `${option.policy_name}: ${option.name}`) });
+        }
+    }, [shown]); // eslint-disable-line react-hooks/exhaustive-deps
+}
 
 /**
  * Universe politics. The server sends the ballot (the open election's policies, or the next one's), this kingdom's own
@@ -22,6 +46,7 @@ function UniversePolitics(props) {
     const election = universe.election || {};
     const opensIn = useWait(election.open ? null : election.start);
     const closesIn = useWait(election.open ? election.end : null);
+    useElectionReveal(universe.active);
 
     const send = (path, body, keys) => {
         const updateFunc = () => authFetch(path, { method: 'post', body: JSON.stringify(body) })

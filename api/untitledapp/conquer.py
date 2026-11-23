@@ -2701,10 +2701,7 @@ def _calculate_missiles_damage(
     fuzi=False,
     damage_multiplier=1.0,
 ):
-    if fuzi:
-        adjusted_shields = min(defender_shields, 0.5)
-    else:
-        adjusted_shields = defender_shields
+    adjusted_shields = _missile_shields_stop(defender_shields, fuzi)
     damage_categories = {"stars_damage", "fuel_damage", "pop_damage"}
     damage = {}
     for damage_category in damage_categories:
@@ -2714,6 +2711,12 @@ def _calculate_missiles_damage(
         ])
     return damage
     
+
+def _missile_shields_stop(defender_shields, fuzi=False):
+    """The share of a strike's damage the target's missile shields stop: all of their level, but at most half against
+    Fuzi missiles."""
+    return min(defender_shields, 0.5) if fuzi else defender_shields
+
 
 def _missile_damage_multiplier(kd_info):
     """How much of its missiles' damage this kingdom deals: 1 is the base damage."""
@@ -2821,9 +2824,10 @@ def _launch_missiles(req, kd_id, target_kd):
             # The damage is worked out against the target as it is when the write lands.
             if target["status"].lower() == "dead":
                 raise occ.Rejected("You can't attack this kingdom because they are dead!")
+            shields = uas.shields_now(target)["missiles"]
             damage = _calculate_missiles_damage(
                 attacker_missiles,
-                uas.shields_now(target)["missiles"],
+                shields,
                 fuzi=kd_info_parse["race"] == "Fuzi",
                 damage_multiplier=_missile_damage_multiplier(kd_info_parse),
             )
@@ -2845,14 +2849,15 @@ def _launch_missiles(req, kd_id, target_kd):
                 "population": min(damage["pop_damage"], max(target["population"], 0)),
                 "fuel": damage["fuel_damage"],
             }
-            return changes, (damage, changes, destroyed)
+            stopped = _missile_shields_stop(shields, fuzi=kd_info_parse["race"] == "Fuzi")
+            return changes, (damage, changes, destroyed, stopped)
 
         def give_back_missiles(kd):
             return {"missiles": {k: v + attacker_missiles.get(k, 0) for k, v in kd["missiles"].items()}}, None
 
         occ.update(f'/kingdom/{kd_id}', launch, document=kd_info_parse)
         try:
-            missile_damage, defender_patch_payload, destroyed = occ.update(f'/kingdom/{target_kd}', strike, document=max_target_kd_info)
+            missile_damage, defender_patch_payload, destroyed, shields_stopped = occ.update(f'/kingdom/{target_kd}', strike, document=max_target_kd_info)
         except BaseException:
             occ.update(f'/kingdom/{kd_id}', give_back_missiles)
             raise
@@ -2931,7 +2936,11 @@ def _launch_missiles(req, kd_id, target_kd):
             **kd_patch_payload,
         }
         payload = {
+            "status": "success",
             "message": message,
+            # The share of the damage the target's shields stopped, for the launch animation's shot-down missiles. Not
+            # a secret: the attacker can work it out from the damage against the forecast for no shields.
+            "shields_stopped": round(shields_stopped, 3),
         }
     except occ.Rejected as rejection:
         return None, {"message": rejection.message}, rejection.status

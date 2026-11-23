@@ -1,7 +1,8 @@
 """
 A player's own settings, which belong to the player and not to a kingdom: the colour theme, the kinds of
 notification they have turned off (``muted``, the kinds in push.py), whether the advisors give advice, the advice
-they have hidden (advisors.py), and their answer to the guided tour (``tour``).
+they have hidden (advisors.py), their answer to the guided tour (``tour``), and whether actions play their short
+animations (``effects``, src/components/flourish.js).
 
 They live in ``preferences_<user_id>`` (docs/data-model.md), one document per user, which outlives a round. A user who
 has set nothing has no document and gets every default. The options and their defaults are here, and the Settings page
@@ -34,7 +35,10 @@ ADVISORS = [("on", "On"), ("off", "Off")]
 # left before the end) keeps a card on the Status page that starts it; after "declined" (No thanks) or "done" (finished)
 # only the Settings page starts it.
 TOUR = [("offer", "Not answered"), ("later", "Later"), ("declined", "No thanks"), ("done", "Taken")]
-OPTIONS = {"theme": THEMES, "advisors": ADVISORS, "tour": TOUR}
+# Whether attacks, spy operations, missile launches and election results play a short animation
+# (src/components/flourish.js). A device set to reduce motion never plays them.
+EFFECTS = [("on", "On"), ("off", "Off")]
+OPTIONS = {"theme": THEMES, "advisors": ADVISORS, "tour": TOUR, "effects": EFFECTS}
 DEFAULTS = {key: options[0][0] for key, options in OPTIONS.items()}
 # Each advice the player hid is its own key, ``hide_advice_<id>: true``, so two hides at once (two tabs) can not undo
 # each other through the shallow merge; showing it again writes false. Read back as the list ``hidden_advice``.
