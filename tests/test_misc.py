@@ -40,4 +40,5 @@ def test_set_shields(app, client, jwt1):
         data=json.dumps({"item": "kingdom_1"}),
     )
     assert resp.status_code == 200
-    assert result.json()["shields"]["military"] == 0.1
+    # A raise climbs to its level (tests/test_shields_climb.py).
+    assert result.json()["shields_climb"]["military"]["to"] == 0.1

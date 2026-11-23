@@ -555,7 +555,7 @@ class World:
             military_bonus=info["current_bonuses"]["military_bonus"] if "current_bonuses" in info
             else uas.PROJECTS["military_bonus"]["max_bonus"],
             other_bonuses=0,
-            shields=info["shields"]["military"] if "shields" in info else uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_MAX"],
+            shields=uas.shields_now(info)["military"] if "shields" in info else uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_MAX"],
             fuelless=info.get("fuel", 1) <= 0,
             gaian=self.me["race"] == "Gaian",
             peace=peace,
@@ -1309,7 +1309,7 @@ def plan_drones(world, personality, style, memory, rng):
         stars = known[kd][0]
         shields = 0.0
         if not vult and world.seconds_left(kd, "shields") > 0:
-            shields = world.target_info(kd).get("shields", {}).get("spy", 0.0)
+            shields = uas.shields_now(world.target_info(kd)).get("spy", 0.0)
         return strategy.spy_chance(sent, _guess_drones(world, kd, stars, memory), stars, shields)
 
     def learned_chance(kd, forecast):
@@ -1769,8 +1769,12 @@ def _write(kd_id, settings, scheduled, personality, style, memory, rng, now, log
                       + [_log_entry(now, d.kind, d.why, f"not scheduled: {m}") for d, m in refused])[-LOG_SIZE:]
         payload = {"schedule": schedule, "bot": bot}
         for field, value in settings.items():
-            if field == "shields" and kd_info["fuel"] <= 0:
-                continue  # as the Shields page: no fuel, no shields
+            if field == "shields":
+                if kd_info["fuel"] <= 0:
+                    continue  # as the Shields page: no fuel, no shields
+                # As the Shields page: a raise climbs, a cut is at once.
+                payload["shields"], payload["shields_climb"] = uas.change_shields(kd_info, value, now)
+                continue
             if field == "projects_assigned" and sum(value.values()) > kd_info["units"]["engineers"]:
                 continue
             payload[field] = value

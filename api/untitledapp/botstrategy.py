@@ -75,7 +75,7 @@ def all_units(kd):
 
 def defense_multiplier(kd):
     """What one point of raw defense at home is worth, with the kingdom's military bonus and shields."""
-    return (1 + bonuses(kd)["military_bonus"] + kd.get("shields", {}).get("military", 0)
+    return (1 + bonuses(kd)["military_bonus"] + uas.shields_now(kd).get("military", 0)
             - (CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"] if kd.get("fuel", 1) <= 0 else 0))
 
 
