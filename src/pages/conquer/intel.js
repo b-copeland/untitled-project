@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { authFetch } from "../../auth";
+import { markRead } from "../../data/notifs";
 import 'bootstrap/dist/css/bootstrap.css';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
@@ -533,9 +534,9 @@ function IntelMarket(props) {
     const { updateData } = props;
     useEffect(() => {
         if (notifs > 0) {
-            updateData(["notifs"], [() => authFetch("api/clearnotifs", { method: "POST", body: JSON.stringify({ categories: ["shared"] }) })]);
+            markRead(updateData, props.data.notifs, ["shared"], ["intel"]);
         }
-    }, [notifs, updateData]);
+    }, [notifs, updateData]); // eslint-disable-line react-hooks/exhaustive-deps
     if (props.loading.intel && !props.data.intel?.listings) {
         return <h2>Loading...</h2>;
     }

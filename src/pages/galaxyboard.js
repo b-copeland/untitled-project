@@ -3,6 +3,7 @@ import Form from "react-bootstrap/Form";
 import { BsPinAngle, BsPinAngleFill } from "react-icons/bs";
 import { FiTrash2 } from "react-icons/fi";
 import { authFetch } from "../auth";
+import { markRead } from "../data/notifs";
 import { IconButton } from "../components/iconbutton";
 import { KingdomLink } from "../components/kingdomlink";
 import { Panel } from "../components/planner";
@@ -58,10 +59,10 @@ function GalaxyBoard(props) {
     const posts = board.posts || [];
     const pinned = board.pinned || null;
 
+    const unread = props.data.notifs?.galaxy_board || 0;
     useEffect(() => {
-        const updateFunc = () => authFetch("api/clearnotifs", { method: "POST", body: JSON.stringify({ categories: ["galaxy_board"] }) });
-        props.updateData(["notifs"], [updateFunc]);
-    }, []);
+        if (unread > 0) markRead(props.updateData, props.data.notifs, ["galaxy_board"], ["galaxyboard"]);
+    }, [unread]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const send = (path, body, after) => {
         const updateFunc = async () => authFetch(path, { method: "POST", body: JSON.stringify(body || {}) })

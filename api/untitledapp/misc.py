@@ -650,12 +650,19 @@ def _add_notifs(kd_id, categories):
         data=json.dumps({"add_categories": categories}),
     )
 
-def _clear_notifs(kd_id, categories):
+def _clear_notifs(kd_id, categories, seen=None):
+    """
+    Mark ``categories`` read: up to the total in ``seen`` (``{category: <category>_total the page saw}``) where it has
+    one, so items that came in after the page loaded stay unread, and all of them otherwise. ``clear_categories``
+    goes too, for a function app from before the read cursor (funcapp/notifs.py).
+    """
     app = flask.current_app
-    clear_notifs_response = REQUESTS_SESSION.patch(
+    read = {category: int(seen[category]) for category in categories
+            if isinstance((seen or {}).get(category), int) and not isinstance(seen[category], bool)}
+    REQUESTS_SESSION.patch(
         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/notifs',
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps({"clear_categories": categories}),
+        data=json.dumps({"clear_categories": categories, **({"read": read} if read else {})}),
     )
 
 def _get_notifs(kd_id):
@@ -685,9 +692,10 @@ def clear_notifs():
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
 
-    categories = req.get("categories", [])
+    categories = [category for category in req.get("categories", []) if category in uas.INITIAL_KINGDOM_STATE["notifs"]]
+    seen = req.get("seen") if isinstance(req.get("seen"), dict) else None
     if categories:
-        _clear_notifs(kd_id, categories)
+        _clear_notifs(kd_id, categories, seen)
     
     return "Cleared", 200
 

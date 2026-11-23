@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
+import { markRead } from "../../data/notifs";
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import Table from 'react-bootstrap/Table';
@@ -59,18 +60,16 @@ const getNotifsSuffix = (notifs, categories) => {
 function NewsContent(props) {
     const [key, setKey] = useState('kingdom');
 
-    const clearNotifs = (categories) => {
-        const updateFunc = () => {
-            authFetch("api/clearnotifs", {
-                method: "POST",
-                body: JSON.stringify({"categories": categories})
-            });
-        }
-        props.updateData(['notifs'], [updateFunc])
-    }
+    // The open tab's news counts as read: when the page opens, when the tab changes, and when more comes in while it
+    // is open. Its list is refetched first, so what is marked read is on screen.
+    const LISTS = { kingdom: ["news_kingdom", "news"], galaxy: ["news_galaxy", "galaxynews"] };
+    const [category, listKey] = LISTS[key] || [];
+    const unread = category ? (props.data.notifs?.[category] || 0) : 0;
     useEffect(() => {
-        clearNotifs(["news_kingdom"])
-    }, [])
+        if (category && unread > 0) {
+            markRead(props.updateData, props.data.notifs, [category], [listKey]);
+        }
+    }, [key, unread]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (Object.keys(props.data.galaxies_inverted).length === 0) {
         return null;
@@ -78,18 +77,7 @@ function NewsContent(props) {
     if (Object.keys(props.data.kingdoms).length === 0) {
         return null;
     }
-    const handleNotifsSelect = (eventKey) => {
-        if (eventKey === "kingdom") {
-            if (props.data.notifs.news_kingdom > 0) {
-                clearNotifs(["news_kingdom"])
-            }
-        } else if (eventKey === "galaxy") {
-            if (props.data.notifs.news_galaxy > 0) {
-                clearNotifs(["news_galaxy"])
-            }
-        }
-        setKey(eventKey);
-    }
+    const handleNotifsSelect = (eventKey) => setKey(eventKey);
     const kdNames = props.data.kingdoms;
     const galaxyMap = props.data.galaxies_inverted;
     return (
