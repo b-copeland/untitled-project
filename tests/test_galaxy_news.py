@@ -79,13 +79,20 @@ def test_a_new_leader_and_a_new_policy_are_galaxy_news(app, client, jwt1, jwt2):
     assert client.post("/api/galaxypolitics/leader", json={"selected": "2"}, headers=_auth(jwt1)).status_code == 200
     # A second vote for the same leader changes nothing, so it is not news.
     assert client.post("/api/galaxypolitics/leader", json={"selected": "2"}, headers=_auth(jwt2)).status_code == 200
-    response = client.post("/api/galaxypolitics/policies", json={"policy": "policy_1", "option": "option_1"},
+    response = client.post("/api/galaxypolitics/policies", json={"policy": "growth_doctrine", "option": "expansionist"},
                            headers=_auth(jwt1))
     assert response.status_code == 200, response.get_json()
+    # A policy vote adopts nothing at once; the next tally does, and the refresh posts it.
+    assert [line["news"] for line in _galaxy_news("1:1")] == ["Bravo is now the galaxy leader"]
+    import datetime
+    import untitledapp.galaxypolicies as galaxypolicies
+    import untitledapp.refresh as refresh
+    after_tally = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=galaxypolicies.tally_seconds())
+    with app.app_context():
+        refresh._galaxy_tally_news(_get("/state"), refresh._RefreshContext(_get("/state")), after_tally)
 
     news = [line["news"] for line in _galaxy_news("1:1")]
-    assert len(news) == 2 and news[1] == "Bravo is now the galaxy leader"
-    assert news[0].startswith("The galaxy voted for the ") and news[0].endswith(" policy")
+    assert news == ["The galaxy voted for the Expansionist policy", "Bravo is now the galaxy leader"]
     assert _get("/kingdom/2/notifs")["news_galaxy"] == 2
 
 

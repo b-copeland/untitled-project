@@ -8,6 +8,7 @@ one, after a failure part way, and with the refresh ticking in between.
 """
 import datetime
 import json
+import random
 
 import pytest
 
@@ -149,6 +150,21 @@ def test_the_round_state_is_complete_and_starts_clean():
     assert state["election_end"] == "" and state["game_over"] == "" and state["active_policies"] == []
     assert state["next_history"] == state["game_start"] and state["rounds_archived"] == 4
     assert state["cluster_size"] == 3
+
+
+def test_a_new_round_draws_the_galaxy_policies_it_plays_once():
+    settings, _ = admin.check_new_round(new_round_body(), _now())
+    state = admin.round_state(settings, rounds_archived=0, rng=random.Random(5))
+    drawn = state["galaxy_policies"]
+    assert len(drawn) == len(set(drawn)) == uas.GAME_CONFIG["GALAXY_POLICIES_PER_ROUND"]
+    assert set(drawn) <= set(uas.GALAXY_POLICIES)
+    assert admin.round_state(settings, rounds_archived=0, rng=random.Random(5))["galaxy_policies"] == drawn
+
+
+def test_starting_a_round_stores_its_galaxy_policies(app, client):
+    _start(client)
+    drawn = _state()["galaxy_policies"]
+    assert len(drawn) == uas.GAME_CONFIG["GALAXY_POLICIES_PER_ROUND"] and set(drawn) <= set(uas.GALAXY_POLICIES)
 
 
 def _stored(**overrides):

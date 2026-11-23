@@ -48,10 +48,10 @@ def full_bonus(project):
     return {"completed_projects": [project]}, uas.PROJECTS[project]["bonus"]
 
 
-def income(app, kd, epochs=1.0, state=None, mobis=None):
+def income(app, kd, epochs=1.0, state=None, mobis=None, modifiers=None):
     """
-    The kingdom after ``epochs`` of income, as the refresh computes it. Sets up kingdom "1" in the store first, since
-    the income step reads its siphons.
+    The kingdom after ``epochs`` of income, as the refresh computes it, with what politics does to it (``modifiers``).
+    Sets up kingdom "1" in the store first, since the income step reads its siphons.
     """
     import untitledapp.refresh as refresh
 
@@ -60,4 +60,4 @@ def income(app, kd, epochs=1.0, state=None, mobis=None):
     kd = copy.deepcopy(kd)
     with app.app_context():
         _set_up_kingdom(0)
-        return refresh._kingdom_with_income(kd, uas.project_bonuses(kd), state, later, None, mobis or [])
+        return refresh._kingdom_with_income(kd, uas.project_bonuses(kd), state, later, None, mobis or [], modifiers)

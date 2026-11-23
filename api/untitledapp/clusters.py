@@ -227,11 +227,15 @@ def advance(document, member_galaxies, now):
 
 
 def modifiers(cluster):
-    """What the cluster's benefits are worth to its kingdoms now: effect to value (0.05 for 5%). From ``advance``."""
+    """
+    What the cluster's benefits are worth to its kingdoms now: effect to signed value, as policies give them
+    (``shared.EFFECTS``): a 5% discount on units is ``{"unit_cost": -0.05}``. From ``advance``.
+    """
     values = {}
     for key, benefit in uas.CLUSTER_BENEFITS.items():
         effect = benefit["effect"]
-        values[effect] = values.get(effect, 0.0) + cluster["levels"].get(key, 0.0) * benefit["max"]
+        sign = -1.0 if uas.EFFECTS[effect]["better"] == "lower" else 1.0
+        values[effect] = values.get(effect, 0.0) + sign * cluster["levels"].get(key, 0.0) * benefit["max"]
     return values
 
 

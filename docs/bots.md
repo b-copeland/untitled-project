@@ -186,7 +186,9 @@ hidden state.
 
 ### Politics
 
-- **Galaxy policies** by playstyle (`Personality.galaxy_votes`), and a **leader**: whoever the others back, and with no
+- **Galaxy policies** by playstyle: `Personality.galaxy_votes` lists one option of every policy, and the bot votes
+  the one listed of each of the round's policies, wherever its vote is not that already (policy votes have no
+  cooldown). And a **leader**: whoever the others back, and with no
   votes to go by, the strongest. (Everybody voting for today's strongest split the vote and elected nobody.)
 - **Empires.** A galaxy leader joins the strongest empire that has room, or founds one; an empire leader admits who asks
   and invites galaxies without an empire. The game refuses a join that would give an empire more than 30% of the

@@ -156,7 +156,7 @@ function AttackPrimitives(props) {
     );
 }
 
-function RobPrimitives(props) {
+export function RobPrimitives(props) {
     const [results, setResults] = useState([]);
     const [drones, setDrones] = useState("");
     const [shieldDrones, setShieldDrones] = useState(false);
@@ -165,7 +165,8 @@ function RobPrimitives(props) {
     const kingdom = props.data.kingdom;
     const maxDrones = Math.floor(kingdom.drones || 0);
     const sending = parseInt(drones, 10) || 0;
-    const perDrone = props.data.state.primitives_rob_per_drone || 4;
+    // The kingdom's own figure, after its policies; the universe's until that has loaded.
+    const perDrone = props.data.modifiers?.primitives_rob_per_drone || props.data.state.primitives_rob_per_drone || 4;
 
     const post = (path, body, refresh = ['kingdom']) => {
         const updateFunc = () => authFetch(path, { method: 'post', body: JSON.stringify(body) })

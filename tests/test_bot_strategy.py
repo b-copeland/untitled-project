@@ -126,12 +126,12 @@ def test_the_army_is_only_funded_as_fast_as_recruits_can_be_drafted():
 
 def test_settling_stops_paying_as_the_kingdom_grows_and_the_round_runs_out():
     small, big = kingdom(stars=300), kingdom(stars=20_000)
-    assert strategy.settle_worth(small, 300, False) > 1
-    assert strategy.settle_worth(small, 300, False) > strategy.settle_worth(big, 300, False)
-    assert strategy.settle_worth(big, 300, False) > strategy.settle_worth(big, 10, False)
-    assert strategy.settle_worth(big, 10, False) < 1
+    assert strategy.settle_worth(small, 300, 0.0) > 1
+    assert strategy.settle_worth(small, 300, 0.0) > strategy.settle_worth(big, 300, 0.0)
+    assert strategy.settle_worth(big, 300, 0.0) > strategy.settle_worth(big, 10, 0.0)
+    assert strategy.settle_worth(big, 10, 0.0) < 1
     # Gaians and Expansionist galaxies settle for less, so it pays them for longer.
-    assert strategy.settle_worth(small, 300, True) > strategy.settle_worth(kingdom(stars=300, race="Xo"), 300, False)
+    assert strategy.settle_worth(small, 300, -0.15) > strategy.settle_worth(kingdom(stars=300, race="Xo"), 300, 0.0)
 
 
 # ------------------------------------------------------------------------------------------------------- the army

@@ -180,3 +180,34 @@ This touches many places; search for an existing name (for example `drone_factor
 `funcapp/` and handle every hit. At least: `UNITS` or `STRUCTURES` or `MISSILES`, `INITIAL_KINGDOM_STATE` (counts and
 targets), `NETWORTH_VALUES`, `PRETTY_NAMES`, the formulas that use the others, the frontend lists (some pages still have
 their own, such as `STRUCTURES` in `structures.js`), the help pages, and a backfill for existing kingdoms.
+
+## 12. A galaxy policy, or a new kind of effect
+
+1. **An option whose effects exist** is an entry in `GALAXY_POLICIES` in `shared.py`: a policy is a `name` and two
+   `options`, each a `name` and `effects` (names from `EFFECTS`, signed values: `-0.15` is 15% less). Its sentence
+   is made from the effects; give a `desc` only where those read badly. The vote route, the Galaxy page, the help
+   page, the draw and the bots' validator all read the table. Add the option to every bot playstyle's `galaxy_votes`
+   (`botbrain.PERSONALITIES`): `tests/test_bot_brain.py` checks each lists one option of every policy.
+2. **A new kind of effect** is an entry in `EFFECTS` (`better`, and the `up` and `down` sentences), then one
+   `uas.modifier(modifiers, "<effect>")` where the rule lives. A request reads the kingdom's sum once with
+   `uag._get_modifiers(kd_id)` and passes it down; the refresh uses `context.modifiers(kd_id, time_update)`. Clamp
+   what it multiplies at zero (`max(1 + ..., 0)`).
+3. **Forecasts and pages show what the action charges**: put the effect in the helper both use (the price getters,
+   `_shielding_fuel`, `_reveal_seconds`), never in only one of them (recipe 9, step 4).
+4. **Tests**: the effect through its helper in `tests/test_policy_effects.py` (a test that would fail without it), and
+   `tests/test_galaxy_policies.py` fails if an effect is read nowhere. Say in the pull request that the numbers are
+   proposals.
+
+## 13. A change to what a document holds (a data migration)
+
+Players' data must survive the deploy with no manual step ([decisions/0015](decisions/0015-migrations-on-the-tick.md)).
+
+1. **Read both shapes.** Wherever the document is read, take the old shape as the new (see
+   `galaxypolicies.normalize`), so the game is right before the migration runs and any write in that window writes the
+   new shape without losing the old data.
+2. **Register a migration** in `api/untitledapp/migrations.py` with `@migration("<issue>_<what>")`: a function of the
+   state that changes each document with `occ.update`, leaving one already in the new shape alone. The refresh runs it
+   once, on the first tick after the deploy.
+3. **Test** (see `tests/test_migrate_168.py`): the old shape read right, an action before the migration losing
+   nothing, the migration's result, and a second run changing nothing.
+4. **Say so in the pull request**: what changes, that it runs on deploy, and when the old-shape reading can go.

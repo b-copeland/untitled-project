@@ -111,10 +111,27 @@ Found 2026-11-22, when the rule that strength never changes much in an instant j
   (`WAR_OFFENSE_INCREASE`) and peace (`PEACE_DEFENSE_BONUS`, 50% defense), in `getters.py`. Empire politics is likely
   to be cut back for launch, which may settle these.
 
+## Galaxy policies
+
+Added 2026-11-22 (issue #168, [decisions/0013](decisions/0013-galaxy-policy-tally.md)):
+
+- Every number is a placeholder for the maintainer to balance: each option's `effects` in `GALAXY_POLICIES`,
+  `GALAXY_POLICIES_PER_ROUND` (4) and `GALAXY_POLICY_TALLY_EPOCHS` (12).
+- Discounts from different sources add up with no floor (only below zero is cut off): settling can be cheaper by
+  Expansionist, the cluster, Gaian, Cheaper Exploring and Xo Evolution together.
+- Galaxies of a round made before this keep the options they had by name (Expansionist, Warlike, Intelligence,
+  Conscription, where their policy is in the draw) until a tally decides otherwise. Their old votes are read as new ones,
+  and the `168_galaxy_policies` migration writes them in the new shape on the first tick after the deploy. Once no
+  environment has a round from before #168, `galaxypolicies.LEGACY_VOTES` and the reading of `active_policies` can go.
+- A kingdom that dies keeps its policy votes, as it keeps its vote for leader.
+- Bots vote by a fixed list per playstyle; they do not weigh what the galaxy is short of.
+- A tally's news (the policy it adopted) is posted by the next refresh tick, and is missed for a galaxy whose
+  politics are written between the tally and that tick (a vote in that minute).
+
 ## Vote cooldown
 
-Added 2026-11-20: a changed galaxy vote (leader, either doctrine) holds for `BASE_GALAXY_VOTE_COOLDOWN_EPOCHS` (6, proposed
-by the maintainer). Galaxy `GET /api/galaxypolitics` carries `vote_unlocks_at` per vote. Cluster votes have the same rule
+Added 2026-11-20: a changed galaxy vote for leader holds for `BASE_GALAXY_VOTE_COOLDOWN_EPOCHS` (6, proposed
+by the maintainer; policy votes had one too until 2026-11-22, when the tally replaced it). Galaxy `GET /api/galaxypolitics` carries `vote_unlocks_at` per vote. Cluster votes have the same rule
 (`CLUSTER_VOTE_COOLDOWN_EPOCHS`) in the cluster politics PRs; once both are merged, the cluster code's own copies of the
 wait text (`clusters._wait_text`, and `waitText`/`useWait` on the cluster page) should be replaced by `shared.wait_text`
 and `src/components/wait.js`.

@@ -338,6 +338,15 @@ class Simulation:
 
     # ------------------------------------------------------------------------------------------------------ running
 
+    def _galaxy_policies(self, galaxy):
+        import untitledapp.galaxypolicies as galaxypolicies
+        import untitledapp.shared as uas
+
+        state = self.doc("state").get("state", {})
+        galaxy_policies = galaxypolicies.advance(self.doc(f"galaxy_votes_{galaxy}"), galaxypolicies.round_policies(state),
+                                                 uas.utc(state["game_start"]), self.clock.now)
+        return galaxypolicies.active_options(galaxy_policies)
+
     def doc(self, item):
         return self.container.docs.get(item, {})
 
@@ -494,8 +503,8 @@ class Simulation:
                               "denounced": e.get("denounced")} for eid, e in empires.items()},
             "universe_news": universe_news,
             "active_policies": self.doc("state").get("state", {}).get("active_policies"),
-            "galaxy_policies": {g: self.doc(f"galaxy_votes_{g}").get("active_policies")
-                                for g in self.doc("galaxies").get("galaxies", {})},
+            # Each galaxy's active policies as of the end, tallies since its last vote included.
+            "galaxy_policies": {g: self._galaxy_policies(g) for g in self.doc("galaxies").get("galaxies", {})},
             "failed_ticks": self.failed_ticks,
             "errors": dict(self.errors),
             "calls": dict(self.calls),

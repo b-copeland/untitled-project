@@ -5,6 +5,8 @@ import statistics
 import subprocess
 import sys
 
+import untitledapp.shared as uas
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
@@ -47,5 +49,7 @@ def test_a_day_of_bots_runs_clean_and_every_playstyle_grows(tmp_path):
     for action in ("attack primitives", "Rob Primitives", "did:intelspy", "did:vote_galaxy", "did:vote_leader",
                    "did:buy_settle", "did:reveal_galaxy"):
         assert did.get(action, 0) > 0, action
-    # Every galaxy elected a leader and voted its policies in.
-    assert all(len(policies) == 2 for policies in results["galaxy_policies"].values())
+    # Every galaxy voted its policies in: once a tally has passed, it has active options (a policy its playstyles
+    # split evenly on stays a tie, which keeps none), and never more than the round plays.
+    assert all(0 < len(policies) <= uas.GAME_CONFIG["GALAXY_POLICIES_PER_ROUND"]
+               for policies in results["galaxy_policies"].values())

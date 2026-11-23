@@ -32,6 +32,8 @@ def _set_up(galaxies=None, revealed_1=None, kingdom_1=None, kingdom_2=None):
     _create_item("state", {"state": {"game_start": game_start, "game_end": (NOW + datetime.timedelta(days=30)).isoformat(),
                                      "active_policies": []}})
     _create_item("galaxies", {"galaxies": galaxies or {"1:1": ["1"], "1:2": ["2"]}})
+    for galaxy in galaxies or {"1:1": ["1"], "1:2": ["2"]}:
+        _create_item(f"galaxy_votes_{galaxy}", {"votes": {"leader": {}}, "leader": ""})
     for kd_id, overrides in (("1", kingdom_1 or {}), ("2", kingdom_2 or {})):
         for table, initial_state in uas.INITIAL_KINGDOM_STATE.items():
             if table == "kingdom":
