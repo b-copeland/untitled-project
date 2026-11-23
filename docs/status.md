@@ -50,15 +50,18 @@ These pieces do not yet:
 
 Starting a round, its dates and bots were reworked on 2026-11-21 ([admin.md](admin.md)). Still open:
 
-- Not built yet from the issue: resetting a player's password, banning an account (`/api/disable_user` exists, with no
-  page, and a ban waits for the player's token to expire, decision 0005), rolling back to a backup, and spotting players
-  with several accounts.
+- Accounts, password resets, bans and login signals were added on 2026-11-22 ([admin.md](admin.md#accounts)). A ban
+  still waits for the player's token to expire (decision 0005).
+- Not built: rolling back to a backup (set aside by the maintainer, 2026-11-22).
+- There is no privacy notice in the app, though it stores emails and, since 2026-11-22, hashed login signals.
+- A player can not change their own password while signed in; only the email reset or the admin can.
 - A refresh already running when a new round pauses the game can finish its tick on the documents being reset. It
   starts no new work, and the new round's last write replaces the state, but such a tick can leave old kingdoms' entries
   in `scores`. Harmless to the pages, which list kingdoms from `kingdoms`; starting the round again clears them.
 - After a new round, a player's open page polls with an old token until the app reloads; `/api/kingdom` answers 500 for
   it rather than nothing, because the kingdom is gone.
-- Bot accounts from earlier rounds stay, without kingdoms; new bots are numbered on from them.
+- Bot accounts from earlier rounds stay, without kingdoms; new bots are numbered on from them. Left as it is
+  (2026-11-22): two small documents per bot, far inside the free tier's storage.
 
 ## Code health
 

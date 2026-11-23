@@ -57,4 +57,25 @@ const adminAuth = createAuthProvider({
     onHydratation: session => session,
     expirationThresholdMillisec: 1000 * 3600
 });
+const DEVICE_KEY = "FARSTEEL_DEVICE";
+
+/**
+ * A random id for this browser, sent with each login so the admin can see accounts that sign in from one device
+ * (docs/admin.md#accounts). The server keeps only a hash of it. "" when storage is unavailable.
+ */
+export const deviceId = () => {
+    try {
+        let id = window.localStorage.getItem(DEVICE_KEY);
+        if (!id) {
+            id = window.crypto && window.crypto.randomUUID
+                ? window.crypto.randomUUID()
+                : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+            window.localStorage.setItem(DEVICE_KEY, id);
+        }
+        return id;
+    } catch (e) {
+        return "";
+    }
+};
+
 export {useAuth, authFetch, storeNewTokens, login, logout, getSession, getSessionState, adminAuth}

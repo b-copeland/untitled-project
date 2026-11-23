@@ -183,7 +183,7 @@ def test_a_dead_kingdom_is_refused_by_alive_required(app, client, jwt1):
 # --- disabled users ----------------------------------------------------------------------------------------------
 
 def test_a_disabled_user_can_not_log_in_or_refresh(app, client, monkeypatch):
-    _add_user(app, "to_disable", password="pw")
+    disabled_id = _add_user(app, "to_disable", password="pw")
     _add_user(app, "still_active", password="pw")
     # A token can only be refreshed once its access part has expired, so hand out tokens that are born expired.
     monkeypatch.setattr(app.extensions["praetorian"], "access_lifespan", pendulum.duration(seconds=-5))
@@ -192,17 +192,11 @@ def test_a_disabled_user_can_not_log_in_or_refresh(app, client, monkeypatch):
     monkeypatch.undo()
 
     admin = _login(client, "admin", "admin").get_json()["accessToken"]
-    assert client.post("/api/disable_user", json={"username": "to_disable"}, headers=_auth(admin)).status_code == 200
+    assert client.post(f"/api/admin/accounts/{disabled_id}/ban", json={}, headers=_auth(admin)).status_code == 200
 
     assert _login(client, "to_disable", "pw").status_code == 403
     assert client.post("/api/refresh", headers=_auth(disabled_token)).status_code == 403
     assert client.post("/api/refresh", headers=_auth(active_token)).status_code == 200
-
-
-def test_disabling_someone_unknown_says_so(client):
-    admin = _login(client, "admin", "admin").get_json()["accessToken"]
-    response = client.post("/api/disable_user", json={"username": "nobody_here"}, headers=_auth(admin))
-    assert response.status_code == 400
 
 
 # --- email recovery gives nothing away ---------------------------------------------------------------------------

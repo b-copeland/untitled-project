@@ -9,6 +9,7 @@ from flask_praetorian.constants import AccessType
 
 from untitledapp import User, UserExists
 from untitledapp.users import issue_tokens, current_round, STALE_MESSAGE
+import untitledapp.adminaccounts as uaac
 import untitledapp.mailer as mailer
 import untitledapp.occ as occ
 
@@ -21,6 +22,12 @@ def login():
     username = req.get('username', None)
     password = req.get('password', None)
     user = guard.authenticate(username, password)
+    if not user.is_active:
+        # Only someone with the right password learns that the account is banned.
+        reason = f" Reason: {user.ban_reason}" if user.ban_reason else ""
+        return flask.jsonify({"message": f"This account is banned.{reason}"}), 403
+    if not str(user.username).startswith(uaac.BOT_PREFIX):
+        uaac.record_login(user, flask.request, req)
     return (flask.jsonify(issue_tokens(user)), 200)
 
 @bp.route('/api/refresh', methods=['POST'])
@@ -45,24 +52,6 @@ def refresh():
 def _rejected(rejection):
     return flask.jsonify({"message": rejection.message}), rejection.status
 
-
-@bp.route('/api/disable_user', methods=['POST'])
-@flask_praetorian.auth_required
-@flask_praetorian.roles_required('admin')
-def disable_user():
-    """
-    Disables a user in the data store
-    .. example::
-        $ curl http://localhost:5000/disable_user -X POST \
-          -H "Authorization: Bearer <your_token>" \
-          -d '{"username":"Walter"}'
-    """
-    req = flask.request.get_json(force=True)
-    usr = User.lookup(req.get('username', None))
-    if usr is None:
-        return flask.jsonify({"message": "No such user"}), 400
-    usr.save(is_active=False)
-    return flask.jsonify(message='disabled user {}'.format(usr.username))
 
 def _validate_signup(
     username,

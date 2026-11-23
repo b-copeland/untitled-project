@@ -171,6 +171,7 @@ def create_app(config_class='config.Config'):
 
     import untitledapp.account as uaa
     import untitledapp.admin as uaad
+    import untitledapp.adminaccounts as uaadac
     import untitledapp.board as uabo
     import untitledapp.build as uab
     import untitledapp.clusters as uacl
@@ -184,6 +185,7 @@ def create_app(config_class='config.Config'):
     import untitledapp.targets as uat
     app.register_blueprint(uaa.bp)
     app.register_blueprint(uaad.bp)
+    app.register_blueprint(uaadac.bp)
     app.register_blueprint(uab.bp)
     app.register_blueprint(uacl.bp)
     app.register_blueprint(uac.bp)
