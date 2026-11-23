@@ -1,6 +1,8 @@
 """Spy operations through the real route, including duplicate requests racing."""
 import pytest
 
+import untitledapp.shared as uas
+
 from tests.test_attack import TARGET_ID, _set_up_two_kingdoms
 from tests.test_concurrency import KD_ID, _create_item, _get, _run_together, _set_up_kingdom  # noqa: F401
 
@@ -65,7 +67,9 @@ def test_racing_robs_of_primitives_use_the_attempt_and_drones_once(app, client, 
     assert len(_get(f"/kingdom/{KD_ID}/spyhistory")["spy_history"]) == 1
 
 
-def test_scheduling_beyond_the_limit_of_ten_is_refused_even_when_racing(app, client, jwt1):
+def test_scheduling_beyond_the_limit_is_refused_even_when_racing(app, client, jwt1, monkeypatch):
+    # The real limit is only a guard against bloat (BASE_MAX_SCHEDULE_ENTRIES); a small one keeps the race short.
+    monkeypatch.setitem(uas.GAME_CONFIG, "BASE_MAX_SCHEDULE_ENTRIES", 10)
     _set_up_two_kingdoms()
     body = {"type": "attackprimitives", "time": _in_game_time(),
             "options": {"generals": 1, "pure_offense": 50, "flex_offense": 50}}
