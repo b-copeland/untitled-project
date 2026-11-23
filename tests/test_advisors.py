@@ -237,6 +237,81 @@ def test_context_reads_the_galaxy_policies_the_round_plays():
     assert uaadv.context_for(kd, state, [], {}, {}, NOW).galaxy_policies_active is None
 
 
+# ------------------------------------------------------------------------------------------------------------ peer
+
+def _kingdom(drones, income=1000, stars=100, race="Xo", status="Active"):
+    return {"kdId": "x", "race": race, "status": status, "stars": stars, "drones": drones, "fuel": 100,
+            "income": {"money": {"net": income}}, "units": {"defense": 10}, "shields": {}}
+
+
+def test_peer_ranges_need_enough_kingdoms_and_leave_out_the_dead_and_unset():
+    nine = [_kingdom(drones=d) for d in range(9)]
+    assert uaadv.peer_ranges(nine) == {}
+    assert uaadv.peer_ranges(nine + [_kingdom(1, status="Dead"), _kingdom(1, race=""), None]) == {}
+    ranges = uaadv.peer_ranges(nine + [_kingdom(drones=9)])
+    assert ranges["drones_per_star"] == {"low": pytest.approx(0.009), "median": pytest.approx(0.045), "n": 10}
+    assert set(ranges) == set(uaadv.PEER_ADVICE)
+
+
+def test_peer_advice_only_for_the_extreme_and_never_with_a_figure():
+    spread = {"drones_per_star": {"low": 2.0, "median": 4.0, "n": 50}}
+    advice = uaadv.advise(_ctx(peer={"drones_per_star": 1.0}, peer_ranges=spread))
+    assert [a.id for a in advice] == ["peer_drones_low"]
+    assert advice[0].kind == "peer" and advice[0].text.startswith("Almost every kingdom")
+    assert not any(ch.isdigit() for ch in advice[0].text)
+    assert _ids(_ctx(peer={"drones_per_star": 2.0}, peer_ranges=spread)) == []           # at the low percentile
+    tight = {"drones_per_star": {"low": 3.9, "median": 4.0, "n": 50}}
+    assert _ids(_ctx(peer={"drones_per_star": 3.5}, peer_ranges=tight)) == []            # only a little below
+    assert _ids(_ctx(peer={"drones_per_star": 1.0}, peer_ranges={})) == []               # no ranges yet
+
+
+def test_peer_advice_can_be_hidden(app, client, jwt1):
+    response = client.post("/api/advisors/hide", headers=_auth(jwt1),
+                           data=json.dumps({"id": "peer_drones_low", "hidden": True}))
+    assert response.status_code == 200
+
+
+def test_the_scores_keep_peer_ranges_and_neither_route_sends_a_figure(app, client, jwt1):
+    import untitledapp.refresh as refresh
+    from tests.test_concurrency import _get
+    _set_up(drones=0)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    _create_item("scores", {"points": {}, "stars": {}, "networth": {}, "galaxy_networth": {}, "last_update": now.isoformat()})
+    spread = {"drones_per_star": {"low": 2.0, "median": 4.0, "n": 50}}
+    with app.app_context():
+        context = refresh._RefreshContext(state=None)
+        context._galaxies_inverted, context._galaxies = {"1": "1"}, {"1": ["1"]}
+        refresh._resolve_scores({"stars": {"1": 300}, "networth": {"1": 10}}, now, context, peer_ranges=spread)
+    assert _get("/scores")["peer_ranges"] == spread
+    assert "peer_ranges" not in json.dumps(client.get("/api/scores", headers=_auth(jwt1)).get_json())
+    # The kingdom with no drones is told, in words.
+    advice = client.get("/api/advisors", headers=_auth(jwt1)).get_json()["advice"]
+    [peer] = [item for item in advice if item["kind"] == "peer"]
+    assert peer["id"] == "peer_drones_low" and peer["hideable"] is True
+    assert "2.0" not in json.dumps(advice) and "4.0" not in json.dumps(advice)
+
+
+def test_the_refresh_hands_its_kingdoms_to_the_comparison(app, monkeypatch):
+    import untitledapp.refresh as refresh
+    seen = {}
+    monkeypatch.setattr(uaadv, "peer_ranges", lambda kingdoms: seen.setdefault("kingdoms", list(kingdoms)) and {})
+    monkeypatch.setattr(refresh, "_resolve_scores",
+                        lambda scores, now, context=None, peer_ranges=None: seen.update(peer_ranges=peer_ranges))
+    monkeypatch.setattr(refresh, "_refresh_kd", lambda kd_id, state, now, history, context=None:
+                        context.kingdoms.update({kd_id: {"kdId": kd_id}}) or (1, 1))
+    monkeypatch.setattr(refresh, "_resolve_empires", lambda scores, now: None)
+    monkeypatch.setattr(refresh, "_resolve_clusters", lambda empires, now, context: None)
+    monkeypatch.setattr(refresh.uag, "_get_state", lambda: {"state": {
+        "game_start": "2000-01-01T00:00:00+00:00", "election_start": "", "election_end": "",
+        "next_history": "2999-01-01T00:00:00+00:00"}})
+    monkeypatch.setattr(refresh.uag, "_get_kingdoms", lambda: ["1", "2"])
+    monkeypatch.setenv("REFRESH_SECRET", "secret")
+    response = app.test_client().get("/api/refreshdata", headers={"Refresh-Secret": "secret"})
+    assert response.status_code == 200, response.get_data(as_text=True)
+    assert [kd["kdId"] for kd in seen["kingdoms"]] == ["1", "2"]
+    assert seen["peer_ranges"] == {}
+
+
 # ----------------------------------------------------------------------------------------------------------- route
 
 def _auth(jwt):

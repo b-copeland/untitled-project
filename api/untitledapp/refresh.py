@@ -12,6 +12,7 @@ import flask
 import flask_praetorian
 from flask_sock import Sock
 
+import untitledapp.advisors as uaadv
 import untitledapp.misc as uam
 import untitledapp.news as uan
 import untitledapp.occ as occ
@@ -1425,7 +1426,9 @@ def _resolve_election(state):
         uan.best_effort(uan.universe)(f"The universe election is over. The universe has chosen {policies}", election_end)
     return state
 
-def _resolve_scores(kd_scores, time_update, context=None):
+def _resolve_scores(kd_scores, time_update, context=None, peer_ranges=None):
+    """``peer_ranges`` (advisors.peer_ranges, from the kingdoms this tick holds) rides along in the same write: the
+    advisors compare each kingdom with them, and ``/api/scores`` never sends them."""
 
     app = flask.current_app
     if context is None:
@@ -1437,6 +1440,8 @@ def _resolve_scores(kd_scores, time_update, context=None):
             **scores,
             **kd_scores,
         }
+        if peer_ranges is not None:
+            new_scores["peer_ranges"] = peer_ranges
         time_last_update = datetime.datetime.fromisoformat(scores["last_update"]).astimezone(datetime.timezone.utc)
         seconds_elapsed = (time_update - time_last_update).total_seconds()
         epoch_elapsed = seconds_elapsed / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
@@ -1914,7 +1919,12 @@ def refresh_data():
         },
     }
     _record_ended_intel(context)
-    _resolve_scores(kd_scores_split, time_update, context)
+    try:
+        peer_ranges = uaadv.peer_ranges(context.kingdoms.values())
+    except Exception:
+        app.logger.exception("Refresh failed to compare kingdoms for the advisors")
+        peer_ranges = None
+    _resolve_scores(kd_scores_split, time_update, context, peer_ranges=peer_ranges)
     empires = _resolve_empires(kd_scores_split, time_update)
     try:
         _resolve_clusters(empires, time_update, context)

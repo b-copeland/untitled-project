@@ -40,6 +40,7 @@ bot.
 | `danger` | Something is hurting the kingdom now: out of fuel, fuel running out, hangars over capacity, defense so low that attacking it pays better than primitives | No |
 | `waste` | Money, land or people doing nothing | Yes |
 | `team` | Something the galaxy, cluster, empire or universe is waiting on. Advice only a galaxy leader can act on goes only to the leader | Yes |
+| `peer` | The kingdom is far below almost every other kingdom on a measure ([below](#peer-comparisons)) | Yes |
 
 ## The advice
 
@@ -61,6 +62,25 @@ bot.
 | `galaxy_without_empire` | team | the galaxy is in no empire, from the mid round; the leader only | |
 | `galaxy_votes_missing` | team | the kingdom has not voted for leader or policies | |
 | `galaxy_without_policies` | team | the galaxy has no policy in force | |
+| `peer_income_low`, `peer_defense_low`, `peer_offense_low`, `peer_drones_low`, `peer_bonuses_low` | peer | income, home defense, offense or drones per star, or how full the project bonuses are, under the universe's `PEER_LOW` percentile and under `PEER_GAP` of its median | the universe, live |
+
+## Peer comparisons
+
+Besides the formulas and the bots, advice can come from how everyone else in this round plays. The decisions behind it
+(issue #185):
+
+- **Compared with everyone**, bots included: one range per measure over every live, set-up kingdom. No groups by size
+  or playstyle. Each measure is per star or a share, so size matters less. With bots most of the universe, the ranges
+  are in effect what the bots do this round, under this round's rules: the bot evidence, kept up to date by itself.
+- **Qualitative only.** The advice says "almost every kingdom...", never a figure, a percentile or a range, so it tells
+  nobody how defended anybody else is (tenet 2). Only the low side warns: having more of these than most is a choice.
+- **Only the extreme**: under the `PEER_LOW` percentile (nine in ten have more) and under `PEER_GAP` of the median, so
+  a spread that is tight (the start of a round) says nothing. Fewer than `PEER_MIN_KINGDOMS` kingdoms, nothing.
+
+How: the refresh already holds every kingdom it refreshed (`_RefreshContext.kingdoms`). After the loop it calls
+`advisors.peer_ranges` on them and stores the result as `peer_ranges` in the scores document, in the write it makes
+every tick anyway: no new reads, writes or documents. `/api/scores` names the keys it sends and leaves it out; the
+advisors route reads it with the scores. A new measure is a line in `peer_measures` and an entry in `PEER_ADVICE`.
 
 ## Where a threshold may come from
 

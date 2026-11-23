@@ -559,7 +559,7 @@ def test_one_failing_kingdom_does_not_stop_the_rest_and_keeps_its_old_score(app,
 
     resolved = {}
     monkeypatch.setattr(refresh, "_refresh_kd", fake_refresh_kd)
-    monkeypatch.setattr(refresh, "_resolve_scores", lambda scores, now, context=None: resolved.update(scores=scores))
+    monkeypatch.setattr(refresh, "_resolve_scores", lambda scores, now, context=None, peer_ranges=None: resolved.update(scores=scores))
     monkeypatch.setattr(refresh, "_resolve_empires", lambda scores, now: None)
     monkeypatch.setattr(refresh, "_resolve_clusters", lambda empires, now, context: None)
 

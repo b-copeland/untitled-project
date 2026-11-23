@@ -428,6 +428,7 @@ class Simulation:
                     cluster=self.doc(f"cluster_{clusters.cluster_of(galaxy)}") if galaxy else None,
                     universe_votes=universe_votes,
                     targets=self.doc(f"empire_targets_{empire}") if empire else None,
+                    peer_ranges=self.doc("scores").get("peer_ranges"),
                 )
                 self.advice_seen[(kind, phase)] += 1
                 for advice in advisors.advise(ctx):
