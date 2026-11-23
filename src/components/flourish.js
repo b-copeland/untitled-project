@@ -323,7 +323,8 @@ function MissilesScene({ t, shieldsStopped }) {
     const ends = downs.map((down, i) => missileEnds(i, down));
     const flashOf = (times) => (times.length ? Math.max(...times.map((at) => span(t, at, at + 0.08) * (1 - span(t, at + 0.15, at + 0.6)))) : 0);
     const shieldFlash = flashOf(ends.filter((_, i) => downs[i]));
-    const shield = count > 0 ? span(t, 0.2, 0.6) * (1 - span(t, 4.5, 4.9)) : 0;
+    // The dome shows whatever the shields are, so it does not give away whether any missile will be stopped.
+    const shield = span(t, 0.2, 0.6) * (1 - span(t, 4.5, 4.9));
     return (
         <>
             <Planet {...MISSILE_PLANET} flash={flashOf(ends.filter((_, i) => !downs[i]))} tone="danger" />

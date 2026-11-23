@@ -154,3 +154,11 @@ test("every scene draws real numbers all the way through", () => {
         }
     });
 });
+
+test("the shield dome shows whether or not the shields stop anything, so it does not spoil the outcome", () => {
+    [0, 0.5, 1].forEach((shieldsStopped) => {
+        const { container, unmount } = render(<FlourishStage effect={{ kind: "missiles", outcome: "success", shieldsStopped }} t={1.5} />);
+        expect(container.querySelector(".fl-shield")).toBeTruthy();
+        unmount();
+    });
+});
