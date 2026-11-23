@@ -427,7 +427,7 @@ def home_defense(kd):
         {key: value for key, value in kd["units"].items() if key in uas.UNITS},
         military_bonus=uas.project_bonuses(kd)["military_bonus"],
         other_bonuses=0,
-        shields=kd.get("shields", {}).get("military", 0),
+        shields=uas.shields_now(kd).get("military", 0),  # as far as a raise has climbed
         fuelless=kd.get("fuel", 0) <= 0,
         gaian=kd.get("race") == "Gaian",
     )

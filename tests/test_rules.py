@@ -43,7 +43,7 @@ def _kingdom(**overrides):
     ({"kind": "rain"}, {"kind": "settings"}, "Choose what the rule reacts to"),
     ({"kind": "attacked"}, {"kind": "dance"}, "Choose what the rule does"),
     ({"kind": "fuel_low", "hours": 4}, {"kind": "spy_sender", "operation": "spymilitary", "drones_pct": 50},
-     "Low fuel has nobody to react against: switch settings instead"),
+     "Nobody did this to you, so there is nobody to react against: switch settings instead"),
     ({"kind": "attacked"}, {"kind": "settings", "hours": 4, "settings": {}}, "Choose at least one setting to switch"),
     ({"kind": "attacked"}, {"kind": "settings", "hours": 4, "settings": {"shields": {"military": 50}}},
      "Military shields must be at or below max shields value"),
@@ -253,3 +253,87 @@ def test_the_route_refuses_a_target_on_a_locked_unit(app, client, jwt1):
     body = {"when": {"kind": "attacked"}, "then": {"kind": "settings", "hours": 2, "settings": {"units_target": {locked: 50}}}}
     response = client.post("/api/rules", json=body, headers={"Authorization": f"Bearer {jwt1}"})
     assert response.status_code == 400 and response.get_json()["message"].startswith("Complete the")
+
+
+# --- conditions from the Status page's advice ------------------------------------------------------------------------
+
+import untitledapp.advisors as advisors  # noqa: E402
+import untitledapp.refresh as refresh  # noqa: E402
+
+
+def _switch_rob_off(kind):
+    return _rule({"kind": kind}, {"kind": "settings", "hours": 2, "settings": {"auto_rob_enabled": False}})
+
+
+def _defended(defenders):
+    return _kingdom(stars=100, auto_rob_enabled=True,
+                    units={**uas.INITIAL_KINGDOM_STATE["kingdom"]["units"], "defense": defenders})
+
+
+def test_low_defense_fires_when_the_advice_would_and_rearms_once_it_is_fixed():
+    rule = _switch_rob_off("defense_low")
+    facts = {"epochs": 48, "at_war": False}
+    weak = {**_defended(0), "rules": [rule]}
+    assert advisors.defense_under_break_even(advisors.Context(
+        kd=weak, now=NOW, epochs=48, max_hangar=0, used_hangar=0, home_defense=advisors.home_defense(weak))) is not None
+    changes, notes = rules.step(weak, NOW, HANDLERS, facts)
+    assert changes["auto_rob_enabled"] is False and "defense was low" in notes[0]
+    weak.update(changes)
+    # Still low: it does not fire again.
+    again, notes = rules.step(weak, NOW + datetime.timedelta(minutes=5), HANDLERS, facts)
+    assert notes == []
+    # Defended: it re-arms, without firing.
+    strong = {**weak, **again, "units": {**weak["units"], "defense": 10 ** 6}}
+    rearmed, notes = rules.step(strong, NOW + datetime.timedelta(minutes=10), HANDLERS, facts)
+    assert notes == [] and rearmed["rules"][0]["state"]["armed"] is True
+
+
+def test_full_hangars_follow_the_advice_threshold():
+    rule = _switch_rob_off("hangars_full")
+    kd = _kingdom(rules=[rule], auto_rob_enabled=True)
+    assert rules.step(kd, NOW, HANDLERS, {"hangar": (1000, 1000)})[1] == []  # full, but not over
+    over = 1000 * advisors.HANGAR_WARNING_SHARE + 10
+    changes, notes = rules.step(kd, NOW, HANDLERS, {"hangar": (over, 1000)})
+    assert changes["auto_rob_enabled"] is False and "hangars were full" in notes[0]
+
+
+def test_war_fires_when_it_starts():
+    rule = _switch_rob_off("at_war")
+    kd = _kingdom(rules=[rule], auto_rob_enabled=True)
+    assert rules.step(kd, NOW, HANDLERS, {"at_war": False})[1] == []
+    assert "went to war" in rules.step(kd, NOW, HANDLERS, {"at_war": True})[1][0]
+
+
+def test_a_condition_on_the_kingdom_can_only_switch_settings():
+    for kind in ("defense_low", "hangars_full", "at_war"):
+        rule, problem = rules.make_rule({"when": {"kind": kind}, "then": {"kind": "missiles_sender", "planet_busters": 1}}, NOW)
+        assert rule is None and problem.startswith("Nobody did this to you")
+
+
+def test_the_refresh_works_out_only_what_a_rule_needs():
+    assert rules.needs(_kingdom()) == set()
+    assert rules.needs(_kingdom(rules=[_switch_rob_off("attacked")])) == set()
+    assert rules.needs(_kingdom(rules=[_switch_rob_off("defense_low"), _switch_rob_off("hangars_full")])) == {"epochs", "at_war", "hangar"}
+
+
+def test_the_refresh_reads_the_empires_once_a_tick_and_only_when_asked(app, monkeypatch):
+    calls = []
+
+    def empires():
+        calls.append(1)
+        return {"7": "e1"}, {"empires": {"e1": {"war": ["e2"]}}}, {}, {}
+
+    monkeypatch.setattr(refresh.uag, "_get_empires_inverted", empires)
+    context = refresh._RefreshContext({"state": {}})
+    assert calls == []
+    assert context.at_war("7") is True and context.at_war("8") is False
+    assert calls == [1]
+
+
+def test_the_advice_counts_shields_as_far_as_they_have_climbed():
+    since = (NOW - datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] / 2)).isoformat()
+    kd = _defended(1000)
+    kd["shields"] = {**kd["shields"], "military": 0.0}
+    plain = advisors.home_defense(kd)
+    kd["shields_climb"] = {"military": {"from": 0.0, "to": 0.1, "since": since}}
+    assert advisors.home_defense(kd) > plain

@@ -702,3 +702,38 @@ def test_a_scheduled_spy_shares_its_intel_for_the_cut_asked(monkeypatch):
 
     assert [req["cut"] for req in sent] == [10.0, 0]
     assert all(req["share_to_galaxy"] for req in sent)
+
+
+# --- reactive rules in the tick --------------------------------------------------------------------------------------
+
+
+def _rob_off_rule(kind):
+    import untitledapp.rules as rules
+    rule, problem = rules.make_rule({"when": {"kind": kind}, "then": {"kind": "settings", "hours": 2,
+                                                                    "settings": {"auto_rob_enabled": False}}})
+    assert problem is None
+    return rule
+
+
+def test_a_rule_on_something_done_to_the_kingdom_costs_no_call(refresh_one):
+    _, session = refresh_one(rules=[_rob_off_rule("attacked")])
+    assert session.paths("GET") == ["/kingdom/1"] and session.paths("PATCH") == ["/kingdom/1"]
+
+
+def test_a_war_rule_fires_in_the_tick_write(refresh_one, monkeypatch):
+    monkeypatch.setattr(refresh._RefreshContext, "at_war", lambda self, kd_id: True)
+    told = []
+    monkeypatch.setattr(refresh, "_tell_rule", lambda kd_id, message: told.append(message))
+    _, session = refresh_one(rules=[_rob_off_rule("at_war")], auto_rob_enabled=True)
+    written = next(payload for method, path, payload in session.calls if method == "PATCH" and path == "/kingdom/1")
+    assert written["auto_rob_enabled"] is False
+    assert written["rules"][0]["state"]["fires"] == 1
+    assert "went to war" in told[0]
+
+
+def test_a_hangars_rule_reads_the_training_queue_once(refresh_one, session, monkeypatch):
+    session.docs["/kingdom/1/mobis"] = {"mobis": [], "_etag": '"0"'}
+    monkeypatch.setattr(refresh.uag, "_calc_units", lambda *args: {})
+    monkeypatch.setattr(refresh.uag, "_calc_hangar_capacity", lambda kd, units: (100, 50))  # room to spare
+    _, session = refresh_one(rules=[_rob_off_rule("hangars_full")], generals_out=[])
+    assert session.paths("GET").count("/kingdom/1/mobis") == 1
