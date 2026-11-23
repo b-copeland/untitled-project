@@ -74,6 +74,14 @@ class Context:
     epochs_left: float = 0.0    # until the round ends
     progress: float = 0.0       # how far through the round, 0 to 1
     structures_queued: float = 0
+    # What is on order, for the advice whose fix takes time to build or train: what it will be once the order is in,
+    # and how many epochs until the last of it is ready. None: nothing on order (and so no different from now).
+    max_hangar_built: float = None      # hangar space once the hangars on order are built
+    hangars_ready_epochs: float = 0.0
+    defense_trained: float = None       # defense at home once the units in training are trained
+    training_ready_epochs: float = 0.0
+    fuel_net_built: float = None        # fuel made less fuel used, per epoch, once the fuel plants on order are built
+    fuel_plants_ready_epochs: float = 0.0
     # Team: the galaxy's politics as the kingdom sees them on the Galaxy politics page.
     galaxy_votes_missing: list = dataclasses.field(default_factory=list)  # "leader" and/or "policies" not voted for
     galaxy_policies_active: int = None  # options in force in the galaxy now; None without a galaxy
@@ -100,17 +108,27 @@ def _percent(share):
     return f"{round(share * 100)}%"
 
 
+def _when(epochs):
+    """``within the hour`` or ``in about N hours``, for a time ``epochs`` from now."""
+    hours = _hours(epochs)
+    return "within the hour" if hours < 1 else f"in about {math.floor(hours)} hours"
+
+
 # ------------------------------------------------------------------------------------------------------------ danger
 
 def out_of_fuel(ctx):
     if ctx.kd.get("fuel", 0) > 0:
         return None
     config = uas.GAME_CONFIG
+    fix = "Build fuel plants, or use less fuel."
+    if ctx.fuel_net_built is not None and ctx.fuel_net_built > 0:
+        fix = (f"The fuel plants on order make more than you use {_when(ctx.fuel_plants_ready_epochs)}; until then, "
+               "use less fuel.")
     return Advice(
         "out_of_fuel", "danger",
         f"Your kingdom is out of fuel. Until it has fuel again your army is {_percent(config['BASE_FUELLESS_STRENGTH_REDUCTION'])} "
         f"weaker, your shields are off, your homes hold {_percent(config['BASE_FUELLESS_POP_CAP_REDUCTION'])} fewer people "
-        "and your population barely grows. Build fuel plants, or use less fuel.",
+        f"and your population barely grows. {fix}",
         [("Build fuel plants", "/structures"), ("Shields", "/shields")],
     )
 
@@ -120,14 +138,23 @@ def fuel_running_out(ctx):
     net = ((ctx.kd.get("income") or {}).get("fuel") or {}).get("net") or 0
     if fuel <= 0 or net >= 0:
         return None
-    hours_left = _hours(fuel / -net)
-    if hours_left > FUEL_WARNING_HOURS:
+    epochs_left = fuel / -net
+    if _hours(epochs_left) > FUEL_WARNING_HOURS:
         return None
-    when = "within the hour" if hours_left < 1 else f"in about {math.floor(hours_left)} hours"
+    cause, fix = "you use more than your fuel plants make", "Build fuel plants, or lower your shields."
+    if ctx.fuel_net_built is not None and ctx.fuel_net_built > net:
+        if ctx.fuel_net_built >= 0 and ctx.fuel_plants_ready_epochs <= epochs_left:
+            return None  # the fuel plants on order are built before the fuel runs out, and make enough
+        if ctx.fuel_net_built >= 0:
+            cause += f", and those on order are ready only {_when(ctx.fuel_plants_ready_epochs)}"
+            fix = "Lower your shields until they are built."
+        else:
+            cause += ", even with those on order"
+            fix = "Build more fuel plants, or lower your shields."
     return Advice(
         "fuel_running_out", "danger",
-        f"Your fuel runs out {when}: you use more than your fuel plants make. Without fuel your army is weaker and your "
-        "shields switch off. Build fuel plants, or lower your shields.",
+        f"Your fuel runs out {_when(epochs_left)}: {cause}. Without fuel your army is weaker and your shields switch "
+        f"off. {fix}",
         [("Build fuel plants", "/structures"), ("Shields", "/shields")],
     )
 
@@ -145,11 +172,18 @@ def hangars_full(ctx):
     overflow = ctx.used_hangar - ctx.max_hangar
     if overflow <= 0 or ctx.used_hangar <= ctx.max_hangar * HANGAR_WARNING_SHARE:
         return None
+    hold, fix = _number(ctx.max_hangar), "Build hangars."
+    if ctx.max_hangar_built is not None and ctx.max_hangar_built > ctx.max_hangar:
+        if ctx.used_hangar <= ctx.max_hangar_built * HANGAR_WARNING_SHARE:
+            return None  # the hangars on order make the room: the fix is under way
+        hold = (f"{hold} now and {_number(ctx.max_hangar_built)} {_when(ctx.hangars_ready_epochs)}, once the hangars "
+                "on order are built")
+        fix = "Build more hangars."
     return Advice(
         "hangars_full", "danger",
         f"Your units, with those in training, need {_number(ctx.used_hangar)} hangar space and your hangars hold "
-        f"{_number(ctx.max_hangar)}. The {_number(overflow)} without a hangar take that much room from your homes, so "
-        "your population shrinks. Build hangars.",
+        f"{hold}. The {_number(overflow)} without a hangar take that much room from your homes, so your population "
+        f"shrinks. {fix}",
         [("Build hangars", "/structures"), ("Military", "/military")],
     )
 
@@ -164,6 +198,27 @@ def defense_under_break_even(ctx):
     if ctx.home_defense >= line * DEFENSE_WARNING_SHARE:
         return None
     war = " Your empire is at war, which makes you worth more to its enemies." if ctx.at_war else ""
+    if ctx.defense_trained is not None and ctx.defense_trained > ctx.home_defense:
+        # The line climbs as the round goes on: compare with where it will be when the training is done.
+        later = ctx.training_ready_epochs
+        line = stars * strategy.break_even_per_star(ctx.epochs + later, war=ctx.at_war)
+        if ctx.defense_trained >= line:
+            return Advice(
+                "defense_under_break_even", "danger",
+                f"Your defense at home is {_number(ctx.home_defense)} right now, with the bonuses and shields you "
+                f"have, low enough that attacking you pays better than attacking primitives.{war} The units in "
+                f"training bring it to {_number(ctx.defense_trained)} {_when(later)}, enough to make you the worse "
+                "target. Until then, raise your shields or keep your units at home.",
+                [("Shields", "/shields"), ("Military", "/military")],
+            )
+        return Advice(
+            "defense_under_break_even", "danger",
+            f"Your defense at home is {_number(ctx.home_defense)} right now and {_number(ctx.defense_trained)} "
+            f"{_when(later)} once the units in training are ready, with the bonuses and shields you have: low enough "
+            f"that attacking you pays better than attacking primitives.{war} At least {_number(line)} would make you "
+            "the worse target. Train more defense, or keep more units at home.",
+            [("Train units", "/military"), ("Spending", "/automation?tab=spending")],
+        )
     return Advice(
         "defense_under_break_even", "danger",
         f"Your defense at home is {_number(ctx.home_defense)} right now, with the bonuses and shields you have, low "
@@ -569,6 +624,7 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, str
         active_count = len(galaxy["active"])
     galaxy_votes = galaxy_votes or {}
     is_leader = galaxy_votes.get("leader") == kd_id
+    on_order = _on_order(kd, units, structures_queue, mobis_queue, now)
     election_ends = election_open(state, now)
     cast = True
     if election_ends is not None:
@@ -582,6 +638,7 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, str
         epochs_left=max((game_end - now).total_seconds(), 0) / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"],
         progress=strategy.round_progress(now, game_start, game_end),
         structures_queued=uag._queue_total(structures_queue),
+        **on_order,
         galaxy_votes_missing=missing,
         galaxy_policies_active=active_count,
         is_leader=is_leader,
@@ -591,6 +648,40 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, str
         cast_universe_votes=cast,
         war_targets=len((targets or {}).get("targets") or {}) if at_war else 0,
     )
+
+
+def _ready_epochs(queue, keys, now):
+    """How many epochs from ``now`` until the last of ``keys`` on ``queue`` is ready (0 if none is on it)."""
+    times = [uas.utc(entry["time"]) for entry in queue if any(entry.get(key, 0) > 0 for key in keys)]
+    if not times:
+        return 0.0
+    return max((max(times) - now).total_seconds(), 0) / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+
+
+def _on_order(kd, units, structures_queue, mobis_queue, now):
+    """The ``Context`` fields for what is on order: hangar space and fuel once the structures being built are built,
+    defense at home once the units in training are trained, and when each is ready. By the same formulas as now."""
+    fields = {}
+    built = kd.get("structures") or {}
+    queued = uag._queue_forecast(now, structures_queue, uas.STRUCTURES, horizons=())["queued"]
+    if queued.get("hangars", 0) > 0:
+        structures = {**built, "hangars": built.get("hangars", 0) + queued["hangars"]}
+        fields["max_hangar_built"] = uag._calc_hangar_capacity({**kd, "structures": structures}, units)[0]
+        fields["hangars_ready_epochs"] = _ready_epochs(structures_queue, ["hangars"], now)
+    if queued.get("fuel_plants", 0) > 0:
+        fuel = (kd.get("income") or {}).get("fuel") or {}
+        plants = built.get("fuel_plants", 0)
+        made = ((math.floor(plants + queued["fuel_plants"]) - math.floor(plants))
+                * uas.GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"] * (1 + (fuel.get("bonus") or 0)))
+        fields["fuel_net_built"] = (fuel.get("net") or 0) + made
+        fields["fuel_plants_ready_epochs"] = _ready_epochs(structures_queue, ["fuel_plants"], now)
+    combat = [unit for unit in uas.UNITS if unit not in ("recruits", "engineers")]
+    if any(units["queued"].get(unit, 0) > 0 for unit in combat):
+        home = {key: value for key, value in kd["units"].items() if key in uas.UNITS}
+        trained = {unit: home.get(unit, 0) + units["queued"].get(unit, 0) for unit in uas.UNITS}
+        fields["defense_trained"] = home_defense({**kd, "units": trained})
+        fields["training_ready_epochs"] = _ready_epochs(mobis_queue, combat, now)
+    return fields
 
 
 def election_open(state, now):

@@ -31,6 +31,9 @@ function Home(props) {
                 Your advisors point out what in your kingdom may need fixing, most serious first, with links to where
                 you fix it. Warnings in red are about harm happening now, such as fuel running out or a defense so low
                 that attacking you pays better than attacking primitives; they go away once the problem is fixed.
+                They count what you have on order: hangars and fuel plants being built and units in training. A
+                warning that what is on order fixes goes away, or says when it will be fixed, and one that what is on
+                order only partly fixes says what you will have once it is ready.
                 The rest point out money, land, engineers, generals or spy attempts sitting idle, and things your
                 galaxy, cluster, empire or the universe is waiting on, such as a vote. Advice only a galaxy leader can
                 act on goes only to the leader. And they tell you when your kingdom is far behind almost every other
