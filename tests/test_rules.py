@@ -195,3 +195,61 @@ def test_the_number_of_rules_is_capped(app, client, jwt1, monkeypatch):
     assert client.post("/api/rules", json=body, headers=headers).status_code == 200
     response = client.post("/api/rules", json=body, headers=headers)
     assert response.status_code == 400 and "more than 1" in response.get_json()["message"]
+
+
+# --- build targets ---------------------------------------------------------------------------------------------------
+
+
+def _defensive_build(hours=6):
+    return {"kind": "settings", "hours": hours, "settings": {
+        "units_target": {"defense": 70, "flex": 30},
+        "structures_target": {"homes": 30, "hangars": 30, "fuel_plants": 40}}}
+
+
+def test_targets_are_stored_as_whole_splits():
+    rule = _rule({"kind": "attacked"}, _defensive_build())
+    units = rule["then"]["settings"]["units_target"]
+    assert units["defense"] == 0.7 and units["flex"] == 0.3 and units["attack"] == 0  # the rest is 0, not kept
+    assert set(rule["then"]["settings"]["structures_target"]) == set(uas.INITIAL_KINGDOM_STATE["kingdom"]["structures_target"])
+
+
+@pytest.mark.parametrize("settings, problem", [
+    ({"units_target": {"tanks": 10}}, "There is no tanks to target"),
+    ({"structures_target": {"homes": 60, "mines": 60}}, "The structure targets must be 0% to 100% and add up to at most 100%"),
+])
+def test_a_bad_target_is_refused(settings, problem):
+    assert rules.make_rule({"when": {"kind": "attacked"}, "then": {"kind": "settings", "hours": 2, "settings": settings}}, NOW) == (None, problem)
+
+
+def test_an_attack_switches_the_build_targets_and_they_go_back():
+    rule = _rule({"kind": "attacked"}, _defensive_build(hours=6))
+    before_units = {key: 0 for key in uas.INITIAL_KINGDOM_STATE["kingdom"]["units_target"]}
+    before_units["attack"] = 1.0
+    kd = _kingdom(rules=[rule], units_target=before_units, events=_attacked(NOW + datetime.timedelta(minutes=1)))
+    changes, _ = rules.step(kd, NOW + datetime.timedelta(minutes=2), HANDLERS)
+    assert changes["units_target"]["defense"] == 0.7 and changes["units_target"]["attack"] == 0
+    assert changes["structures_target"]["fuel_plants"] == 0.4
+    kd.update(changes)
+    back, _ = rules.step(kd, NOW + datetime.timedelta(hours=7), HANDLERS)
+    assert back["units_target"]["attack"] == 1.0 and back["units_target"]["defense"] == 0
+
+
+def test_a_target_on_something_locked_when_it_fires_is_left_and_the_news_says_why():
+    locked = next(unit for unit, info in uas.UNITS.items() if info.get("project"))
+    rule = _rule({"kind": "attacked"}, {"kind": "settings", "hours": 2, "settings": {
+        "units_target": {locked: 50}, "auto_rob_enabled": False}})
+    kd = _kingdom(rules=[rule], auto_rob_enabled=True, events=_attacked(NOW + datetime.timedelta(minutes=1)))
+    changes, notes = rules.step(kd, NOW + datetime.timedelta(minutes=2), HANDLERS)
+    assert "units_target" not in changes and changes["auto_rob_enabled"] is False
+    assert "unit targets not changed (Complete the" in notes[0]
+    kd.update(changes)
+    back, _ = rules.step(kd, NOW + datetime.timedelta(hours=3), HANDLERS)
+    assert back["auto_rob_enabled"] is True and "units_target" not in back
+
+
+def test_the_route_refuses_a_target_on_a_locked_unit(app, client, jwt1):
+    _set_up_two_kingdoms()
+    locked = next(unit for unit, info in uas.UNITS.items() if info.get("project"))
+    body = {"when": {"kind": "attacked"}, "then": {"kind": "settings", "hours": 2, "settings": {"units_target": {locked: 50}}}}
+    response = client.post("/api/rules", json=body, headers={"Authorization": f"Bearer {jwt1}"})
+    assert response.status_code == 400 and response.get_json()["message"].startswith("Complete the")

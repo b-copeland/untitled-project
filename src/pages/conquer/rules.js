@@ -19,6 +19,8 @@ const THEN = [
 ];
 const SHIELDS = [["military", "Military"], ["spy", "Spy"], ["spy_radar", "Spy radar"], ["missiles", "Missiles"]];
 const SPENDING = [["settle", "Settle"], ["structures", "Structures"], ["military", "Military"], ["engineers", "Engineers"]];
+// The build targets a rule can switch: each is a whole split, so any box left empty is 0.
+export const TARGETS = [["structures_target", "Structure targets"], ["units_target", "Unit targets"], ["projects_target", "Project targets"]];
 const MISSILES = [["planet_busters", "Planet busters"], ["star_busters", "Star busters"], ["galaxy_busters", "Galaxy busters"]];
 const INTEL = [
     { value: "spymilitary", label: "Spy on military" }, { value: "spykingdom", label: "Spy on kingdom" },
@@ -27,7 +29,9 @@ const INTEL = [
 ];
 const START = {
     when: "attacked", lost_only: false, fuel_hours: "6", then: "settings", hours: "12", cooldown: "6",
-    use: { shields: false, auto_spending: false, auto_attack_enabled: false, auto_rob_enabled: false },
+    use: { shields: false, auto_spending: false, auto_attack_enabled: false, auto_rob_enabled: false,
+        structures_target: false, units_target: false, projects_target: false },
+    targets: { structures_target: {}, units_target: {}, projects_target: {} },
     shields: { military: "", spy: "", spy_radar: "", missiles: "" },
     spending: { settle: "", structures: "", military: "", engineers: "" },
     auto_attack_enabled: false, auto_rob_enabled: false,
@@ -45,6 +49,9 @@ export function ruleRequest(form) {
         if (form.use.auto_spending) settings.auto_spending = form.spending;
         if (form.use.auto_attack_enabled) settings.auto_attack_enabled = form.auto_attack_enabled;
         if (form.use.auto_rob_enabled) settings.auto_rob_enabled = form.auto_rob_enabled;
+        TARGETS.forEach(([field]) => {
+            if (form.use[field]) settings[field] = Object.fromEntries(Object.entries(form.targets[field]).filter(([, v]) => v !== ""));
+        });
         then = { ...then, settings, hours: form.hours };
     } else if (form.then === "spy_sender") {
         then = { ...then, operation: form.operation, drones_pct: form.drones_pct };
@@ -65,6 +72,11 @@ export function ruleProblem(form) {
         if (form.use.auto_spending && SPENDING.reduce((sum, [key]) => sum + (parseFloat(form.spending[key]) || 0), 0) > 100) {
             return "The spending shares add up to more than 100%";
         }
+        for (const [field, name] of TARGETS) {
+            if (form.use[field] && Object.values(form.targets[field]).reduce((sum, v) => sum + (parseFloat(v) || 0), 0) > 100) {
+                return `The ${name.toLowerCase()} add up to more than 100%`;
+            }
+        }
     }
     if (form.then === "spy_sender") {
         const drones = parseFloat(form.drones_pct);
@@ -81,7 +93,7 @@ export function ruleProblem(form) {
 const pct = (share) => `${Math.round(share * 1000) / 10}%`;
 
 /** One line saying what a stored rule does. */
-export function describeRule(rule) {
+export function describeRule(rule, prettyNames = {}) {
     const phrases = { attacked: "I am attacked", spied: "I am spied on", missiles: "missiles hit me" };
     const condition = rule.when.kind === "fuel_low" ? `my fuel will run out within ${rule.when.hours} hours`
         : (phrases[rule.when.kind] || rule.when.kind) + (rule.when.lost_only ? " and it works against me" : "");
@@ -94,6 +106,11 @@ export function describeRule(rule) {
         if (s.auto_spending) parts.push("spending " + SPENDING.map(([k, name]) => `${name} ${pct(s.auto_spending[k] || 0)}`).join(", "));
         if ("auto_attack_enabled" in s) parts.push(`auto attack ${s.auto_attack_enabled ? "on" : "off"}`);
         if ("auto_rob_enabled" in s) parts.push(`auto rob ${s.auto_rob_enabled ? "on" : "off"}`);
+        TARGETS.forEach(([field, name]) => {
+            if (!s[field]) return;
+            const shares = Object.entries(s[field]).filter(([, v]) => v > 0).map(([k, v]) => `${prettyNames[k] || k} ${pct(v)}`);
+            parts.push(`${name.toLowerCase()} ${shares.length ? shares.join(", ") : "all 0%"}`);
+        });
         action = `switch ${parts.join("; ")} for ${then.hours} hours`;
     } else if (then.kind === "spy_sender") {
         action = `${(INTEL.find((op) => op.value === then.operation)?.label || then.operation).toLowerCase()} on whoever did it, with ${then.drones_pct}% of drones`;
@@ -111,6 +128,9 @@ export function Reactions(props) {
     const setIn = (group, name, value) => setForm((previous) => ({ ...previous, [group]: { ...previous[group], [name]: value } }));
     const blocked = ruleProblem(form);
     const rules = props.data.kingdom.rules || [];
+    const prettyNames = props.data.state?.pretty_names || {};
+    const setTarget = (field, key, value) => setForm((previous) => ({
+        ...previous, targets: { ...previous.targets, [field]: { ...previous.targets[field], [key]: value } } }));
 
     const send = (path, body) => {
         const updateFunc = async () => authFetch(path, { method: "POST", body: JSON.stringify(body) })
@@ -170,6 +190,19 @@ export function Reactions(props) {
                                 {form.use[key] ? <Form.Check type="switch" id={`rule-${key}`} label={form[key] ? "On" : "Off"} checked={form[key]} onChange={(e) => set(key, e.target.checked)} /> : null}
                             </FieldRow>
                         ))}
+                        {TARGETS.map(([field, name]) => (
+                            <React.Fragment key={field}>
+                                <FieldRow label={name} hint="The whole split: boxes left empty are 0%" htmlFor={`rule-use-${field}`}>
+                                    <Form.Check type="switch" id={`rule-use-${field}`} checked={form.use[field]} onChange={(e) => setIn("use", field, e.target.checked)} />
+                                </FieldRow>
+                                {form.use[field] ? Object.keys(props.data.kingdom[field] || {}).map((key) => (
+                                    <FieldRow key={key} label={prettyNames[key] || key} htmlFor={`rule-${field}-${key}`}>
+                                        <AmountInput name={key} id={`rule-${field}-${key}`} label={`${prettyNames[key] || key} ${name.toLowerCase()}`} suffix="%"
+                                            value={form.targets[field][key] ?? ""} onChange={(e) => setTarget(field, key, e.target.value)} max={100} />
+                                    </FieldRow>
+                                )) : null}
+                            </React.Fragment>
+                        ))}
                         <FieldRow label="For how many hours" hint="Then they go back, except any you changed yourself" htmlFor="rule-hours">
                             <AmountInput name="hours" id="rule-hours" label="For how many hours" value={form.hours} onChange={(e) => set("hours", e.target.value)} max={72} />
                         </FieldRow>
@@ -203,7 +236,7 @@ export function Reactions(props) {
                         <div key={rule.id} className="schedule-item">
                             <div className="schedule-item-head">
                                 <div>
-                                    <div>{describeRule(rule)}</div>
+                                    <div>{describeRule(rule, prettyNames)}</div>
                                     <div className="planner-hint-line">
                                         Fired {rule.state?.fires || 0} times
                                         {rule.state?.last ? `; last ${new Date(rule.state.last.time).toLocaleString()}: ${rule.state.last.outcome}` : ""}

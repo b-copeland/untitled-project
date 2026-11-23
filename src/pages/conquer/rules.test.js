@@ -44,6 +44,20 @@ test("the request carries only the settings chosen", () => {
     });
 });
 
+test("a rule can switch build targets, each a whole split", () => {
+    const request = ruleRequest({
+        when: "attacked", lost_only: false, then: "settings", hours: "6", cooldown: "6",
+        use: { shields: false, auto_spending: false, auto_attack_enabled: false, auto_rob_enabled: false, structures_target: false, units_target: true, projects_target: false },
+        shields: {}, spending: {}, targets: { structures_target: {}, units_target: { defense: "70", flex: "30", attack: "" }, projects_target: {} },
+    });
+    expect(request.then.settings).toEqual({ units_target: { defense: "70", flex: "30" } });
+    const base = { when: "attacked", then: "settings", hours: "6", cooldown: "6", spending: {}, shields: {},
+        use: { units_target: true }, targets: { units_target: { defense: "70", flex: "40" } } };
+    expect(ruleProblem(base)).toBe("The unit targets add up to more than 100%");
+    expect(describeRule({ when: { kind: "attacked" }, then: { kind: "settings", hours: 6, settings: { units_target: { defense: 0.7, attack: 0 } } } }, { defense: "Defenders" }))
+        .toBe("When I am attacked: switch unit targets Defenders 70% for 6 hours.");
+});
+
 test("the tab lists the rules with what they did and removes one", () => {
     render(<Reactions data={{ kingdom: { rules: [rule] } }} loading={{}} updateData={runAll} />);
     expect(screen.getByText(/Fired 1 times; last .*: settings switched for 12 hours/)).toBeTruthy();

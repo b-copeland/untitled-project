@@ -25,6 +25,7 @@ import uuid
 import flask
 import flask_praetorian
 
+import untitledapp.build as uab
 import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.shared as uas
@@ -34,7 +35,16 @@ bp = flask.Blueprint("rules", __name__)
 
 WHEN_KINDS = ("attacked", "spied", "missiles", "fuel_low")
 THEN_KINDS = ("settings", "spy_sender", "missiles_sender")
-SETTINGS_FIELDS = ("shields", "auto_spending", "auto_attack_enabled", "auto_rob_enabled")
+# The build targets a rule can switch, each a whole split (shares of 0 to 1 adding up to at most 1), and the check the
+# kingdom must pass when the rule fires: a unit or project can be locked, or a one-time project done, by then.
+TARGET_CHECKS = {
+    "structures_target": lambda target, kd: uab._validate_structures_target(target),
+    "units_target": uab._validate_mobis_target,
+    "projects_target": uab._validate_projects_target,
+}
+SETTINGS_FIELDS = ("shields", "auto_spending", "auto_attack_enabled", "auto_rob_enabled") + tuple(TARGET_CHECKS)
+TARGET_NAMES = {"structures_target": "structure targets", "units_target": "unit targets",
+                "projects_target": "project targets"}
 SPENDING_KEYS = ("settle", "structures", "military", "engineers")
 MISSILE_KEYS = ("planet_busters", "star_busters", "galaxy_busters")
 WHEN_TEXT = {
@@ -65,6 +75,16 @@ def _settings(raw):
             if not ok or not levels:
                 raise ValueError(message or "Choose the shields to set")
             settings[field] = levels
+        elif field in TARGET_CHECKS:
+            keys = uas.INITIAL_KINGDOM_STATE["kingdom"][field]
+            unknown = [key for key in (value or {}) if key not in keys]
+            if unknown:
+                raise ValueError(f"There is no {unknown[0]} to target")
+            # The whole split: anything not given is 0, so the rule means the same whatever the targets are then.
+            shares = {key: float((value or {}).get(key) or 0) / 100 for key in keys}
+            if any(share < 0 or share > 1 for share in shares.values()) or sum(shares.values()) > 1 + 1e-9:
+                raise ValueError(f"The {TARGET_NAMES[field]} must be 0% to 100% and add up to at most 100%")
+            settings[field] = shares
         elif field == "auto_spending":
             shares = {key: float(value.get(key) or 0) / 100 for key in SPENDING_KEYS}
             ok, message = uam._validate_spending(shares)
@@ -214,14 +234,23 @@ def step(kd, now, schedule_handlers):
         if fire and not cooling:
             outcome = None
             if then["kind"] == "settings":
-                if not state.get("until"):
+                fresh = not state.get("until")  # not already switched: what to go back to is what is set now
+                if fresh:
                     state["previous"] = {field: _current(view, field) for field in then["settings"]}
+                skipped = []
                 for field, value in then["settings"].items():
+                    if field in TARGET_CHECKS:
+                        ok, message = TARGET_CHECKS[field](value, view)
+                        if not ok:
+                            skipped.append(f"{TARGET_NAMES[field]} not changed ({message.rstrip('.')})")
+                            if fresh:
+                                state["previous"].pop(field, None)
+                            continue
                     _set(view, changes, field, value, now)
                     view = {**kd, **changes}
-                state["applied"] = {field: _current(view, field) for field in then["settings"]}
+                state["applied"] = {field: _current(view, field) for field in then["settings"] if field in state["previous"]}
                 state["until"] = (now + datetime.timedelta(hours=then["hours"])).isoformat()
-                outcome = f"settings switched for {then['hours']:g} hours"
+                outcome = f"settings switched for {then['hours']:g} hours" + "".join(f"; {why}" for why in skipped)
             elif not sender:
                 outcome = "nothing done: you do not know who it was"
             elif len(schedule) >= uas.GAME_CONFIG["BASE_MAX_SCHEDULE_ENTRIES"]:
@@ -268,6 +297,12 @@ def add_rule():
 
     def decide(kd_info):
         current = kd_info.get("rules") or []
+        # Checked now as well as when it fires, so a target on a locked unit or project is refused at once.
+        for field, value in rule["then"].get("settings", {}).items():
+            if field in TARGET_CHECKS:
+                ok, problem = TARGET_CHECKS[field](value, kd_info)
+                if not ok:
+                    raise occ.Rejected(problem)
         limit = uas.GAME_CONFIG["BASE_MAX_RULES"]
         if len(current) >= limit:
             raise occ.Rejected(f"You can not have more than {limit} rules")

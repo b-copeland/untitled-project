@@ -111,7 +111,6 @@ Added 2026-11-22 (issue #35). Not built yet:
 
 - Conditions from the advisors (#185, not merged yet): defense under the break-even line, hangars full, a known army
   that beats the kingdom's defense, war declared on the kingdom's empire.
-- Settings a rule can not switch yet: unit and structure targets, project targets.
 - Bots do not use rules; their brain reacts on its own (`botbrain.react`).
 
 ## Instant changes to military strength
