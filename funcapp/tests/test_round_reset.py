@@ -15,7 +15,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 from tests import fake_backend  # noqa: E402
 
 ENDPOINT = "http://funcapp/api"
-CORE = ("state", "kingdoms", "galaxies", "empires", "universe_news", "universe_votes", "accounts", "scores")
+CORE = ("state", "kingdoms", "galaxies", "empires", "universe_news", "universe_votes", "accounts", "scores", "universe_stats")
 
 
 @pytest.fixture

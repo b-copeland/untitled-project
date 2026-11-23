@@ -13,7 +13,7 @@ healthy kingdom looks like, and they stay quiet for a kingdom that is doing fine
 ## How it works
 
 `GET /api/advisors` reads the player's preferences, the state, their kingdom, its mobis and structures queues,
-the empires, the galaxies and the galaxy's politics (eight reads), plus the cluster for a galaxy leader, the universe
+the empires, the galaxies, the galaxy's politics and `universe_stats` (nine reads), plus the cluster for a galaxy leader, the universe
 votes while an election is open, and the empire's targets while it is at war. It builds a `Context`, runs every check
 in `CHECKS` and answers the advice that applies, most serious kind first:
 
@@ -78,9 +78,11 @@ Besides the formulas and the bots, advice can come from how everyone else in thi
   a spread that is tight (the start of a round) says nothing. Fewer than `PEER_MIN_KINGDOMS` kingdoms, nothing.
 
 How: the refresh already holds every kingdom it refreshed (`_RefreshContext.kingdoms`). After the loop it calls
-`advisors.peer_ranges` on them and stores the result as `peer_ranges` in the scores document, in the write it makes
-every tick anyway: no new reads, writes or documents. `/api/scores` names the keys it sends and leaves it out; the
-advisors route reads it with the scores. A new measure is a line in `peer_measures` and an entry in `PEER_ADVICE`.
+`advisors.peer_ranges` on them and, once per history mark, writes the result as `peer_ranges` to its own document,
+`universe_stats` (`refresh._resolve_universe_stats`): no new reads, one write per history period. No route sends it;
+the advisors route reads it. A game from before it gets the document from the `185_universe_stats` migration
+([recipes.md](recipes.md#13-a-change-to-what-a-document-holds-a-data-migration)); until the first history mark it is
+empty and there is no peer advice. A new measure is a line in `peer_measures` and an entry in `PEER_ADVICE`.
 
 ## Where a threshold may come from
 

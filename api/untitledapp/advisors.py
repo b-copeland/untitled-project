@@ -412,8 +412,8 @@ IDS = {
 
 # -------------------------------------------------------------------------------------------------------------- peer
 # How a kingdom compares with everyone else in the universe, bots included (docs/advisors.md, "Peer comparisons").
-# Every tick the refresh works out, over every live kingdom, the PEER_LOW percentile and the median of each measure
-# (``peer_ranges``) and keeps them in the scores document; ``/api/scores`` never sends them. The advice only ever
+# Once per history mark the refresh works out, over every live kingdom, the PEER_LOW percentile and the median of each
+# measure (``peer_ranges``) and keeps them in the ``universe_stats`` document, which no route sends. The advice only ever
 # says "almost every kingdom...": never a figure, so it tells a player nothing about how defended anybody else is.
 
 PEER_LOW = 0.1           # "almost every kingdom": nine in ten have more
@@ -600,11 +600,8 @@ def election_open(state, now):
 
 
 def _peer_ranges_stored():
-    """The scores document's ``peer_ranges``; none (so no comparisons) if it can not be read, rather than no advice."""
-    try:
-        return uag._get_scores().get("peer_ranges") or {}
-    except ValueError:
-        return {}
+    """The comparison the refresh keeps in ``universe_stats``; none if it is missing (so no peer advice)."""
+    return uag._get_universe_stats().get("peer_ranges") or {}
 
 
 @bp.route("/api/advisors")

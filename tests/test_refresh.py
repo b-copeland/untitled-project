@@ -10,6 +10,7 @@ import types
 import pytest
 
 import untitledapp.getters as getters
+import untitledapp.migrations as migrations
 import untitledapp.refresh as refresh
 import untitledapp.shared as shared
 
@@ -541,6 +542,7 @@ def test_one_failing_kingdom_does_not_stop_the_rest_and_keeps_its_old_score(app,
             "election_start": "2999-01-01T00:00:00+00:00",
             "election_end": "",
             "next_history": "2999-01-01T00:00:00+00:00",
+            "migrations_done": migrations.all_ids(),  # this test is about kingdoms, not migrations
         }
     }
     monkeypatch.setattr(getters, "_get_state", lambda: state)
@@ -559,7 +561,7 @@ def test_one_failing_kingdom_does_not_stop_the_rest_and_keeps_its_old_score(app,
 
     resolved = {}
     monkeypatch.setattr(refresh, "_refresh_kd", fake_refresh_kd)
-    monkeypatch.setattr(refresh, "_resolve_scores", lambda scores, now, context=None, peer_ranges=None: resolved.update(scores=scores))
+    monkeypatch.setattr(refresh, "_resolve_scores", lambda scores, now, context=None: resolved.update(scores=scores))
     monkeypatch.setattr(refresh, "_resolve_empires", lambda scores, now: None)
     monkeypatch.setattr(refresh, "_resolve_clusters", lambda empires, now, context: None)
 

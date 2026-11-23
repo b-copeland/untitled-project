@@ -53,6 +53,8 @@ def _core_documents():
             "points": {}, "stars": {}, "networth": {}, "galaxy_networth": {}, "galaxy_kingdoms_alive": {},
             "last_update": "",
         },
+        # The advisors' comparison of every kingdom (api/untitledapp/advisors.py); a new round starts it empty.
+        "universe_stats": {"peer_ranges": {}, "last_update": ""},
     }
 
 
@@ -2311,6 +2313,43 @@ def _merge_known(known, new_known):
                 target_known[category] = entry
         merged[str(target)] = target_known
     return merged
+
+
+# --- universe_stats: the advisors' comparison of every kingdom -----------------------------------------------------------
+# Written by the refresh only (derived data, last writer wins), read by the advisors. A core document: /init creates it
+# and a new round empties it. A game from before it reads empty until the refresh's migration or first write makes it.
+
+UNIVERSE_STATS_ID = "universe_stats"
+
+
+@APP.function_name(name="GetUniverseStats")
+@APP.route(route="universestats", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
+def get_universe_stats(req: func.HttpRequest) -> func.HttpResponse:
+    """The universe's stats, or ``{"id": ...}`` if there are none yet (nothing is written)."""
+    return _json_response(_read_or_none(UNIVERSE_STATS_ID) or {"id": UNIVERSE_STATS_ID})
+
+
+@APP.function_name(name="UpdateUniverseStats")
+@APP.route(route="universestats", auth_level=func.AuthLevel.ADMIN, methods=["PATCH"])
+@retry_on_conflict
+def update_universe_stats(req: func.HttpRequest) -> func.HttpResponse:
+    """Shallow merge of the body into the universe's stats (``id`` is never changed). Creates the document if missing."""
+    body = req.get_json()
+    if not isinstance(body, dict):
+        return func.HttpResponse("The body must be an object", status_code=400)
+    changes = {key: value for key, value in body.items() if key != "id" and not key.startswith("_")}
+    document = _read_or_none(UNIVERSE_STATS_ID)
+    try:
+        if document is None:
+            try:
+                CONTAINER.create_item({"id": UNIVERSE_STATS_ID, **changes})
+                return func.HttpResponse("Universe stats updated", status_code=200)
+            except CosmosResourceExistsError:  # another write created it first: merge into that one
+                document = CONTAINER.read_item(item=UNIVERSE_STATS_ID, partition_key=UNIVERSE_STATS_ID)
+        CONTAINER.replace_item(UNIVERSE_STATS_ID, {**document, **changes})
+    except CosmosAccessConditionFailedError:
+        return func.HttpResponse("Conflict", status_code=412)  # retry_on_conflict runs this again on the newer one
+    return func.HttpResponse("Universe stats updated", status_code=200)
 
 
 # --- preferences_<user_id>: a player's own settings ---------------------------------------------------------------------

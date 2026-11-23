@@ -271,45 +271,75 @@ def test_peer_advice_can_be_hidden(app, client, jwt1):
     assert response.status_code == 200
 
 
-def test_the_scores_keep_peer_ranges_and_neither_route_sends_a_figure(app, client, jwt1):
+def test_the_universe_stats_keep_peer_ranges_and_the_advice_has_no_figure(app, client, jwt1):
     import untitledapp.refresh as refresh
     from tests.test_concurrency import _get
     _set_up(drones=0)
     now = datetime.datetime.now(datetime.timezone.utc)
-    _create_item("scores", {"points": {}, "stars": {}, "networth": {}, "galaxy_networth": {}, "last_update": now.isoformat()})
-    spread = {"drones_per_star": {"low": 2.0, "median": 4.0, "n": 50}}
+    others = [_kingdom(drones=d * 100 + 200) for d in range(12)]
     with app.app_context():
         context = refresh._RefreshContext(state=None)
-        context._galaxies_inverted, context._galaxies = {"1": "1"}, {"1": ["1"]}
-        refresh._resolve_scores({"stars": {"1": 300}, "networth": {"1": 10}}, now, context, peer_ranges=spread)
-    assert _get("/scores")["peer_ranges"] == spread
-    assert "peer_ranges" not in json.dumps(client.get("/api/scores", headers=_auth(jwt1)).get_json())
+        context.kingdoms = {str(i): kd for i, kd in enumerate(others)}
+        refresh._resolve_universe_stats(context, now)
+    stored = _get("/universestats")
+    assert stored["peer_ranges"]["drones_per_star"]["n"] == 12 and stored["last_update"] == now.isoformat()
     # The kingdom with no drones is told, in words.
     advice = client.get("/api/advisors", headers=_auth(jwt1)).get_json()["advice"]
-    [peer] = [item for item in advice if item["kind"] == "peer"]
-    assert peer["id"] == "peer_drones_low" and peer["hideable"] is True
-    assert "2.0" not in json.dumps(advice) and "4.0" not in json.dumps(advice)
+    peers = {item["id"]: item for item in advice if item["kind"] == "peer"}
+    assert "peer_drones_low" in peers and peers["peer_drones_low"]["hideable"] is True
+    assert not any(ch.isdigit() for item in peers.values() for ch in item["text"])
 
 
-def test_the_refresh_hands_its_kingdoms_to_the_comparison(app, monkeypatch):
+def test_without_universe_stats_there_is_no_peer_advice(app, client, jwt1):
+    _set_up(drones=0)
+    advice = client.get("/api/advisors", headers=_auth(jwt1)).get_json()["advice"]
+    assert not [item for item in advice if item["kind"] == "peer"]
+
+
+def _run_refresh(app, monkeypatch, next_history):
     import untitledapp.refresh as refresh
     seen = {}
     monkeypatch.setattr(uaadv, "peer_ranges", lambda kingdoms: seen.setdefault("kingdoms", list(kingdoms)) and {})
-    monkeypatch.setattr(refresh, "_resolve_scores",
-                        lambda scores, now, context=None, peer_ranges=None: seen.update(peer_ranges=peer_ranges))
+    monkeypatch.setattr(refresh.uag, "_update_universe_stats", lambda fields: seen.update(written=fields))
+    monkeypatch.setattr(refresh, "_resolve_scores", lambda scores, now, context=None: None)
     monkeypatch.setattr(refresh, "_refresh_kd", lambda kd_id, state, now, history, context=None:
                         context.kingdoms.update({kd_id: {"kdId": kd_id}}) or (1, 1))
     monkeypatch.setattr(refresh, "_resolve_empires", lambda scores, now: None)
     monkeypatch.setattr(refresh, "_resolve_clusters", lambda empires, now, context: None)
+    monkeypatch.setattr(refresh, "_take_history_mark", lambda now: True)
     monkeypatch.setattr(refresh.uag, "_get_state", lambda: {"state": {
         "game_start": "2000-01-01T00:00:00+00:00", "election_start": "", "election_end": "",
-        "next_history": "2999-01-01T00:00:00+00:00"}})
+        "next_history": next_history, "migrations_done": uaadv_migration_ids()}})
     monkeypatch.setattr(refresh.uag, "_get_kingdoms", lambda: ["1", "2"])
     monkeypatch.setenv("REFRESH_SECRET", "secret")
     response = app.test_client().get("/api/refreshdata", headers={"Refresh-Secret": "secret"})
     assert response.status_code == 200, response.get_data(as_text=True)
+    return seen
+
+
+def uaadv_migration_ids():
+    import untitledapp.migrations as migrations
+    return migrations.all_ids()
+
+
+def test_the_refresh_compares_the_kingdoms_it_holds_once_per_history_mark(app, monkeypatch):
+    seen = _run_refresh(app, monkeypatch, "2000-01-01T00:00:00+00:00")  # the mark is due
     assert [kd["kdId"] for kd in seen["kingdoms"]] == ["1", "2"]
-    assert seen["peer_ranges"] == {}
+    assert seen["written"]["peer_ranges"] == {}
+    assert "written" not in _run_refresh(app, monkeypatch, "2999-01-01T00:00:00+00:00")  # not due: nothing written
+
+
+def test_the_migration_makes_the_document_once_and_leaves_one_alone(app):
+    import untitledapp.migrations as migrations
+    from tests.test_concurrency import _get
+    with app.app_context():
+        migrations.universe_stats({})
+        stored = _get("/universestats")
+        assert stored["peer_ranges"] == {} and stored["last_update"] == ""
+        _create_item("universe_stats", {"peer_ranges": {"drones_per_star": {"low": 1}}, "last_update": "x"})
+        migrations.universe_stats({})  # again: changes nothing
+    assert _get("/universestats")["peer_ranges"] == {"drones_per_star": {"low": 1}}
+    assert "185_universe_stats" in migrations.all_ids()
 
 
 # ----------------------------------------------------------------------------------------------------------- route

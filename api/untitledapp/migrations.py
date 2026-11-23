@@ -186,3 +186,15 @@ def universe_policies(state):
             return {"votes": int(kingdom.get("votes") or 0) + claimed["votes"]}, None
 
         occ.update(f'/kingdom/{claimed["kd_id"]}', pay)
+
+
+@migration("185_universe_stats")
+def universe_stats(state):
+    """
+    Issue #185: the advisors' comparison of every kingdom lives in its own document, ``universe_stats``. A game from
+    before it gets the document, empty; the refresh fills it at the next history mark. One already there is left alone.
+    """
+    if "peer_ranges" in uag._get_universe_stats():
+        return
+    uag._update_universe_stats({"peer_ranges": {}, "last_update": ""})
+

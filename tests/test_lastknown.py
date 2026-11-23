@@ -142,7 +142,7 @@ def test_the_tick_snapshots_each_target_as_it_left_it_without_reading_it_again(a
     monkeypatch.setattr(uag, "_get_kingdoms", lambda: ["1", "2"])
     monkeypatch.setattr(refresh, "_resolve_empires", lambda scores, now: None)
     monkeypatch.setattr(refresh, "_resolve_clusters", lambda empires, now, context: None)
-    monkeypatch.setattr(refresh, "_resolve_scores", lambda scores, now, context=None, peer_ranges=None: None)
+    monkeypatch.setattr(refresh, "_resolve_scores", lambda scores, now, context=None: None)
     calls = []
     original = REQUESTS_SESSION.request
 

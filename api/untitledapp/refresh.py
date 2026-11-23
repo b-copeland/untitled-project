@@ -1426,9 +1426,7 @@ def _resolve_election(state):
         uan.best_effort(uan.universe)(f"The universe election is over. The universe has chosen {policies}", election_end)
     return state
 
-def _resolve_scores(kd_scores, time_update, context=None, peer_ranges=None):
-    """``peer_ranges`` (advisors.peer_ranges, from the kingdoms this tick holds) rides along in the same write: the
-    advisors compare each kingdom with them, and ``/api/scores`` never sends them."""
+def _resolve_scores(kd_scores, time_update, context=None):
 
     app = flask.current_app
     if context is None:
@@ -1440,8 +1438,6 @@ def _resolve_scores(kd_scores, time_update, context=None, peer_ranges=None):
             **scores,
             **kd_scores,
         }
-        if peer_ranges is not None:
-            new_scores["peer_ranges"] = peer_ranges
         time_last_update = datetime.datetime.fromisoformat(scores["last_update"]).astimezone(datetime.timezone.utc)
         seconds_elapsed = (time_update - time_last_update).total_seconds()
         epoch_elapsed = seconds_elapsed / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
@@ -1473,6 +1469,19 @@ def _resolve_scores(kd_scores, time_update, context=None, peer_ranges=None):
         return new_scores, None
 
     occ.update('/scores', decide)
+
+def _resolve_universe_stats(context, time_update):
+    """
+    The advisors' comparison of every kingdom (advisors.peer_ranges), from the kingdoms this tick already holds, written
+    to ``universe_stats`` once per history mark. Derived data, so a plain merge: an overlapping tick writes the same.
+    """
+    app = flask.current_app
+    try:
+        ranges = uaadv.peer_ranges(context.kingdoms.values())
+        uag._update_universe_stats({"peer_ranges": ranges, "last_update": time_update.isoformat()})
+    except Exception:  # the advisors can do without a comparison for an hour; the tick goes on
+        app.logger.exception("Refresh failed to write the universe stats for the advisors")
+
 
 def _update_history(
     kd_info,
@@ -1919,12 +1928,9 @@ def refresh_data():
         },
     }
     _record_ended_intel(context)
-    try:
-        peer_ranges = uaadv.peer_ranges(context.kingdoms.values())
-    except Exception:
-        app.logger.exception("Refresh failed to compare kingdoms for the advisors")
-        peer_ranges = None
-    _resolve_scores(kd_scores_split, time_update, context, peer_ranges=peer_ranges)
+    _resolve_scores(kd_scores_split, time_update, context)
+    if update_history:
+        _resolve_universe_stats(context, time_update)
     empires = _resolve_empires(kd_scores_split, time_update)
     try:
         _resolve_clusters(empires, time_update, context)
