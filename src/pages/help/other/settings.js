@@ -25,7 +25,8 @@ function Settings() {
             </p>
             <p>
                 <b>Guided tour</b> starts the tour of the main pages again. It is offered on your first visit: Not now
-                keeps a reminder on the Status page, and No thanks or finishing the tour leaves it here only.
+                keeps a reminder on the Status page, and No thanks or finishing the tour leaves it here only. While the
+                tour runs, Send attack and Send spies are switched off.
             </p>
             <p>
                 On a phone or tablet, swipe a notification or a result sideways, either way, to dismiss it.

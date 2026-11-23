@@ -14,6 +14,7 @@ import { AmountInput, NumberControl } from "../../components/forms";
 import { Panel, FieldRow, UnitStat, Stats, VersusBar, Picker, useServerForecast, clockUntil } from "../../components/planner";
 import { displayPercent } from "../../format";
 import { TargetIntel } from "./intel.js";
+import { useTour, TOUR_NO_SEND } from "../../components/tour";
 
 /*
  * Every figure on this page that is a projection (offense, defense, losses, spoils, what is left at home) comes from
@@ -53,6 +54,7 @@ export function attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) {
 function Attack(props) {
     // The target comes as a prop, or with the link here (/attack?target=12: the Kingdom and Galaxy pages).
     const [query] = useSearchParams();
+    const tour = useTour();
     const initialKd = props.initialKd ?? query.get("target") ?? undefined;
     const [defenderValues, setDefenderValues] = useState(noDefender);
     const [attackerValues, setAttackerValues] = useState(noAttacker);
@@ -178,6 +180,7 @@ function Attack(props) {
         if ((parseInt(attackerValues[key], 10) || 0) > (myUnits[key] || 0)) problems.push(`You only have ${whole(myUnits[key])} ${name.toLowerCase()}`);
     });
     if (generals > (kingdom.generals_available || 0)) problems.push(`You only have ${kingdom.generals_available} generals`);
+    if (tour.running) problems.unshift(TOUR_NO_SEND);
     const blocked = problems[0];
 
     const unitStatus = (key) => (unitsKnown ? "revealed" : edited[key] ? "estimate" : "needed");

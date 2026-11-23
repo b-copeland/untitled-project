@@ -121,7 +121,8 @@ export const TOUR_STOPS = [
     {
         path: ({ demo }) => withTarget("/attack", demo), target: "attack-forecast", title: "Attack: forecast and send",
         text: "Before you send, the forecast shows your offense against their defense, whether the attack should "
-            + "succeed, and the units each side would lose. Nothing happens until you press Send attack.",
+            + "succeed, and the units each side would lose. Send attack is off while the tour runs: "
+            + "spy on a kingdom before you attack it.",
     },
     {
         path: ({ demo }) => withTarget("/spy", demo, "&op=spymilitary"), target: "spy-target", title: "Spy",
@@ -130,8 +131,8 @@ export const TOUR_STOPS = [
     },
     {
         path: ({ demo }) => withTarget("/spy", demo, "&op=spymilitary"), target: "spy-forecast", title: "Spy: forecast and send",
-        text: "The forecast shows your chance of success and the drones you would lose. Nothing is sent until you "
-            + "press Send spies.",
+        text: "The forecast shows your chance of success and the drones you would lose. Send spies is off while the tour "
+            + "runs.",
     },
     {
         path: "/intel", target: "intel-tabs", title: "Intel",

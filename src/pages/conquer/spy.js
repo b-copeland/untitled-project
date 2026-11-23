@@ -14,6 +14,7 @@ import { AmountInput, NumberControl } from "../../components/forms";
 import { Panel, FieldRow, Stats, Picker, useServerForecast, clockUntil } from "../../components/planner";
 import { alreadyRevealed, checkPercent } from "../../validation";
 import { TargetIntel } from "./intel.js";
+import { useTour, TOUR_NO_SEND } from "../../components/tour";
 
 const initialDefenderValues = { drones: "", stars: "", shields: "" };
 
@@ -62,6 +63,7 @@ function Spy(props) {
     // A target and operation come as props, or with the link here: /spy?target=12&op=spymilitary (the Kingdom and
     // Galaxy pages, and Attempt on an intel bounty: the operation that would reveal the intel asked for).
     const arrived = useLocation().state || {};
+    const tour = useTour();
     const [query] = useSearchParams();
     const initialKd = props.initialKd ?? query.get("target") ?? arrived.kdId;
     const [defenderValues, setDefenderValues] = useState(initialDefenderValues);
@@ -127,6 +129,7 @@ function Spy(props) {
     if (revealedProblem) problems.push(revealedProblem);
     const cutError = sharesResult && share ? checkPercent(cut, { max: (props.data.state.game_config?.BASE_MAX_SHARE_CUT || 0) * 100 }) : null;
     if (cutError) problems.push(cutError);
+    if (tour.running) problems.unshift(TOUR_NO_SEND);
     const blocked = problems[0];
     const intel = Object.entries((props.data.revealed?.revealed || {})[selected] || {});
     const operations = availableOperations(OPERATIONS, kingdom, props.data.state);
