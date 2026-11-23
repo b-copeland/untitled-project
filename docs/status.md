@@ -113,8 +113,8 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
 
 Added 2026-11-22 (issue #35). Not built yet:
 
-- Conditions from the advisors (#185, not merged yet): defense under the break-even line, hangars full, a known army
-  that beats the kingdom's defense, war declared on the kingdom's empire.
+- A condition on a known army that beats the kingdom's defense (what the bots do in `botbrain.note_threat`). It would
+  read the kingdom's revealed military intel every tick, for each kingdom with such a rule; not built for that cost.
 - Bots do not use rules; their brain reacts on its own (`botbrain.react`).
 
 ## Instant changes to military strength

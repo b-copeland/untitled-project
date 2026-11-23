@@ -33,7 +33,14 @@ from untitledapp import alive_required
 
 bp = flask.Blueprint("rules", __name__)
 
-WHEN_KINDS = ("attacked", "spied", "missiles", "fuel_low")
+EVENT_WHEN = ("attacked", "spied", "missiles")
+# Conditions on the kingdom itself, rather than on something someone did: a rule fires when one starts to hold, and
+# can fire again once it has stopped holding. Low defense and full hangars are the Status page's advice (advisors.py),
+# so a rule and the advice it answers always agree.
+LEVEL_WHEN = ("fuel_low", "defense_low", "hangars_full", "at_war")
+WHEN_KINDS = EVENT_WHEN + LEVEL_WHEN
+# What the refresh must work out for a condition (``facts``): only for kingdoms with such a rule.
+NEEDS = {"defense_low": ("epochs", "at_war"), "hangars_full": ("hangar",), "at_war": ("at_war",)}
 THEN_KINDS = ("settings", "spy_sender", "missiles_sender")
 # The build targets a rule can switch, each a whole split (shares of 0 to 1 adding up to at most 1), and the check the
 # kingdom must pass when the rule fires: a unit or project can be locked, or a one-time project done, by then.
@@ -50,6 +57,9 @@ MISSILE_KEYS = ("planet_busters", "star_busters", "galaxy_busters")
 WHEN_TEXT = {
     "attacked": "you were attacked", "spied": "you were spied on", "missiles": "missiles hit you",
     "fuel_low": "your fuel was running low",
+    "defense_low": "your defense was low enough to make you a target",
+    "hangars_full": "your hangars were full",
+    "at_war": "your empire went to war",
 }
 
 
@@ -105,13 +115,13 @@ def make_rule(req, now=None):
     try:
         if when.get("kind") not in WHEN_KINDS:
             raise ValueError("Choose what the rule reacts to")
-        clean_when = {"kind": when["kind"], "lost_only": bool(when.get("lost_only")) and when["kind"] != "fuel_low"}
+        clean_when = {"kind": when["kind"], "lost_only": bool(when.get("lost_only")) and when["kind"] in EVENT_WHEN}
         if when["kind"] == "fuel_low":
             clean_when["hours"] = _hours(when.get("hours"), 1, 72, "Fuel left")
         if then.get("kind") not in THEN_KINDS:
             raise ValueError("Choose what the rule does")
-        if then["kind"] != "settings" and when["kind"] == "fuel_low":
-            raise ValueError("Low fuel has nobody to react against: switch settings instead")
+        if then["kind"] != "settings" and when["kind"] in LEVEL_WHEN:
+            raise ValueError("Nobody did this to you, so there is nobody to react against: switch settings instead")
         clean_then = {"kind": then["kind"]}
         if then["kind"] == "settings":
             clean_then["settings"] = _settings(then.get("settings"))
@@ -182,14 +192,35 @@ def _same(a, b):
     return a == b
 
 
-def _triggered(rule, kd, now):
+def needs(kd):
+    """The facts (``NEEDS``) the kingdom's rules need the refresh to work out."""
+    return {fact for rule in kd.get("rules") or [] for fact in NEEDS.get(rule["when"]["kind"], ())}
+
+
+def _holds(when, kd, now, facts):
+    """Whether a condition on the kingdom itself holds now."""
+    import untitledapp.advisors as uaadv  # advisors reads the routes' getters; only needed here
+
+    kind = when["kind"]
+    if kind == "fuel_low":
+        hours = fuel_hours_left(kd)
+        return kd.get("fuel", 0) <= 0 or (hours is not None and hours < when["hours"])
+    if kind == "at_war":
+        return bool(facts.get("at_war"))
+    used, most = facts.get("hangar", (0.0, 0.0))
+    ctx = uaadv.Context(kd=kd, now=now, epochs=facts.get("epochs", 0.0), max_hangar=most, used_hangar=used,
+                        home_defense=uaadv.home_defense(kd), at_war=bool(facts.get("at_war")))
+    check = uaadv.defense_under_break_even if kind == "defense_low" else uaadv.hangars_full
+    return check(ctx) is not None
+
+
+def _triggered(rule, kd, now, facts):
     """``(fire, sender, state)``: whether the rule's condition has newly happened, who did it, and its new state."""
     state, when = dict(rule["state"]), rule["when"]
-    if when["kind"] == "fuel_low":
-        hours = fuel_hours_left(kd)
-        low = kd.get("fuel", 0) <= 0 or (hours is not None and hours < when["hours"])
-        fire = low and state.get("armed", True)
-        state["armed"] = not low
+    if when["kind"] in LEVEL_WHEN:
+        holds = _holds(when, kd, now, facts)
+        fire = holds and state.get("armed", True)
+        state["armed"] = not holds
         return fire, None, state
     event = (kd.get("events") or {}).get(when["kind"])
     if not event or not uas.is_after(event["at"], state.get("seen") or rule["created"]):
@@ -200,12 +231,14 @@ def _triggered(rule, kd, now):
     return True, event.get("by"), state
 
 
-def step(kd, now, schedule_handlers):
+def step(kd, now, schedule_handlers, facts=None):
     """
     The kingdom's rules at ``now``: ``(changes, notes)``, the fields to write with the tick and the lines for the
     player's news. ``schedule_handlers`` are the Schedule's ``_schedule_<type>`` functions, for reactions against a
-    sender. Pure: it reads nothing and writes nothing, so the refresh can run it again on a retry.
+    sender. ``facts`` holds what ``needs(kd)`` asked for: ``epochs`` since the round started, ``at_war``, and
+    ``hangar`` as ``(used, most)``. Pure: it reads nothing and writes nothing, so the refresh can run it again.
     """
+    facts = facts or {}
     rules = kd.get("rules") or []
     if not rules:
         return {}, []
@@ -228,7 +261,7 @@ def step(kd, now, schedule_handlers):
                 notes.append(f"Your rule for when {WHEN_TEXT[rule['when']['kind']]} has ended: settings are back as they were.")
             state.update(until=None, applied=None, previous=None)
 
-        fire, sender, new_state = _triggered(rule, view, now)
+        fire, sender, new_state = _triggered(rule, view, now, facts)
         state.update(new_state)
         cooling = state.get("fired_at") and now < uas.utc(state["fired_at"]) + datetime.timedelta(hours=rule["cooldown_hours"])
         if fire and not cooling:

@@ -11,7 +11,12 @@ const WHEN = [
     { value: "spied", label: "I am spied on" },
     { value: "missiles", label: "Missiles hit me" },
     { value: "fuel_low", label: "My fuel will run out soon" },
+    { value: "defense_low", label: "My defense makes me a better target than primitives" },
+    { value: "hangars_full", label: "My hangars are full" },
+    { value: "at_war", label: "My empire goes to war" },
 ];
+// Conditions on the kingdom itself: nobody did them, so a rule on one can only switch settings.
+export const LEVEL_WHEN = ["fuel_low", "defense_low", "hangars_full", "at_war"];
 const THEN = [
     { value: "settings", label: "Switch settings for a while" },
     { value: "spy_sender", label: "Spy on whoever did it" },
@@ -63,7 +68,7 @@ export function ruleRequest(form) {
 
 /** The first thing wrong with the form, or null. The server still decides. */
 export function ruleProblem(form) {
-    if (form.when === "fuel_low" && form.then !== "settings") return "Low fuel has nobody to react against: switch settings instead";
+    if (LEVEL_WHEN.includes(form.when) && form.then !== "settings") return "Nobody did this to you, so there is nobody to react against: switch settings instead";
     if (form.then === "settings") {
         if (!Object.values(form.use).some(Boolean)) return "Choose at least one setting to switch";
         const hours = parseFloat(form.hours);
@@ -94,7 +99,11 @@ const pct = (share) => `${Math.round(share * 1000) / 10}%`;
 
 /** One line saying what a stored rule does. */
 export function describeRule(rule, prettyNames = {}) {
-    const phrases = { attacked: "I am attacked", spied: "I am spied on", missiles: "missiles hit me" };
+    const phrases = {
+        attacked: "I am attacked", spied: "I am spied on", missiles: "missiles hit me",
+        defense_low: "my defense makes me a better target than primitives", hangars_full: "my hangars are full",
+        at_war: "my empire goes to war",
+    };
     const condition = rule.when.kind === "fuel_low" ? `my fuel will run out within ${rule.when.hours} hours`
         : (phrases[rule.when.kind] || rule.when.kind) + (rule.when.lost_only ? " and it works against me" : "");
     const then = rule.then;
@@ -157,6 +166,11 @@ export function Reactions(props) {
                         <FieldRow label="Fuel left, in hours" hint="At your fuel income now" htmlFor="rule-fuel-hours">
                             <AmountInput name="fuel_hours" id="rule-fuel-hours" label="Fuel left, in hours" value={form.fuel_hours} onChange={(e) => set("fuel_hours", e.target.value)} max={72} />
                         </FieldRow>
+                    ) : LEVEL_WHEN.includes(form.when) ? (
+                        <p className="planner-hint-line">
+                            {form.when === "at_war" ? "It fires when the war starts."
+                                : "It fires when this starts, the same moment the Status page's advisors warn about it, and can fire again once it has been fixed."}
+                        </p>
                     ) : (
                         <FieldRow label="Only when it works against me" htmlFor="rule-lost-only">
                             <Form.Check type="switch" id="rule-lost-only" checked={form.lost_only} onChange={(e) => set("lost_only", e.target.checked)} />

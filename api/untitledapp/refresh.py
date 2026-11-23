@@ -29,6 +29,7 @@ import untitledapp.botbrain as botbrain
 import untitledapp.roundend as uare
 import untitledapp.recurring as uarec
 import untitledapp.rules as uarules
+import untitledapp.botstrategy as uastrat
 from untitledapp import REQUESTS_SESSION
 from untitledapp.push import push
 
@@ -47,6 +48,7 @@ class _RefreshContext:
         self._galaxies = None
         self._galaxy_politics = {}
         self._clusters = {}
+        self._empires = None  # (empires_inverted, empires), read once a tick, and only if a rule needs it
         self._scores = None  # read once a tick, and only if a universe policy hits the leaders
         # Reveals that ended this tick, as (holder, target, category, ended), and each kingdom as the tick left it:
         # last-known intel is snapshotted from these once every kingdom is done (_record_ended_intel), so it costs
@@ -75,6 +77,14 @@ class _RefreshContext:
         if self._galaxies is None:
             self._galaxies_inverted, self._galaxies = uag._get_galaxies_inverted()
         return self._galaxies
+
+    def at_war(self, kd_id):
+        """Whether ``kd_id``'s empire is at war. The empires are read once per tick, and only if a rule asks."""
+        if self._empires is None:
+            self._empires = uag._get_empires_inverted()[:2]
+        empires_inverted, empires_info = self._empires
+        empire = empires_inverted.get(str(kd_id))
+        return bool(empire and empires_info["empires"].get(empire, {}).get("war"))
 
     def cluster_document(self, cluster_id):
         """The cluster's stored document (with its ``_etag``), read once per tick."""
@@ -1284,6 +1294,22 @@ def _tell_schedule_skipped(kd_id, schedule, reason):
 _RULE_SCHEDULERS = {"intelspy": uac._schedule_intelspy, "missiles": uac._schedule_missiles}
 
 
+def _rule_facts(kd, rule_needs, time_update, context, pending):
+    """What the kingdom's reactive rules need (``rules.NEEDS``), worked out only when one needs it."""
+    facts = {}
+    if "epochs" in rule_needs:
+        state = context.state if context.state is not None else uag._get_state()
+        start = ((state or {}).get("state") or {}).get("game_start")
+        facts["epochs"] = uastrat.epochs_since(time_update, uas.utc(start)) if start else 0.0
+    if "at_war" in rule_needs:
+        facts["at_war"] = context.at_war(kd["kdId"])
+    if "hangar" in rule_needs:
+        units = uag._calc_units(time_update, kd["units"], kd.get("generals_out", []), pending.get("mobis") or [])
+        most, used = uag._calc_hangar_capacity(kd, units)
+        facts["hangar"] = (used, most)
+    return facts
+
+
 def _tell_rule(kd_id, message):
     """A reactive rule fired or ended: the player's news, and a notification."""
     app = flask.current_app
@@ -1807,11 +1833,16 @@ def _refresh_kd_in(kd_id, state, time_update, update_history, context):
         for category, next_resolve_datetime in next_resolves.items():
             kd_info_parse["next_resolve"][category] = next_resolve_datetime.isoformat()
         # The mobis still to come, if this tick has read them (None: the population step reads them itself).
+        rule_needs = uarules.needs(kd_info_parse)
+        if "hangar" in rule_needs:
+            # Read once here and shared with the population step, which would read it anyway.
+            _pending_queue(kd_id, "mobis", _cursor(kd_info_parse, "mobis"), pending)
         new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update, effects, pending.get("mobis"),
                                            context.modifiers(kd_id, time_update),
                                            lambda siphoner: _is_dead(context.kingdom(siphoner)))
         # The player's reactive rules, on the kingdom about to be written: no read or write of their own.
-        rule_changes, rule_notes = uarules.step(new_kd_info, time_update, _RULE_SCHEDULERS)
+        rule_changes, rule_notes = uarules.step(new_kd_info, time_update, _RULE_SCHEDULERS,
+                                                _rule_facts(new_kd_info, rule_needs, time_update, context, pending))
         new_kd_info.update(rule_changes)
         for note in rule_notes:
             _defer(effects, lambda note=note: _tell_rule(kd_id, note))

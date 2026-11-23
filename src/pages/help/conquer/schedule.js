@@ -48,7 +48,11 @@ function Schedule() {
             </ul>
             <p>
                 <b>Reactions</b> are rules for when something happens to you: you are attacked, spied on or hit by
-                missiles (or only when it worked against you), or your fuel will run out within the hours you set.
+                missiles (or only when it worked against you), your fuel will run out within the hours you set, your
+                defense is low enough that attacking you pays better than attacking primitives, your hangars are full,
+                or your empire goes to war. The defense and hangars conditions fire at the same moment the advisors on
+                the Status page warn about them, and can fire again once you have fixed them. Nobody does these four
+                to you, so their rules can only switch settings.
             </p>
             <ul>
                 <li><b>Switch settings</b> for a number of hours: shields, auto spending, auto attack, auto rob, and

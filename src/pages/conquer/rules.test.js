@@ -23,10 +23,19 @@ test("a stored rule reads as a sentence", () => {
         .toBe("When my fuel will run out within 6 hours: fire 3 star busters at whoever did it.");
 });
 
+test("a condition on the kingdom itself reads as a sentence and can only switch settings", () => {
+    const settings = { kind: "settings", hours: 4, settings: { auto_rob_enabled: false } };
+    expect(describeRule({ when: { kind: "defense_low" }, then: settings }))
+        .toBe("When my defense makes me a better target than primitives: switch auto rob off for 4 hours.");
+    expect(describeRule({ when: { kind: "at_war" }, then: settings })).toBe("When my empire goes to war: switch auto rob off for 4 hours.");
+    const base = { when: "hangars_full", then: "spy_sender", hours: "4", cooldown: "6", use: {}, shields: {}, spending: {} };
+    expect(ruleProblem(base)).toBe("Nobody did this to you, so there is nobody to react against: switch settings instead");
+});
+
 test("the form says what is missing before it can be sent", () => {
     const base = { when: "attacked", then: "settings", hours: "12", cooldown: "6", use: { shields: false, auto_spending: false, auto_attack_enabled: false, auto_rob_enabled: false }, shields: {}, spending: {} };
     expect(ruleProblem(base)).toBe("Choose at least one setting to switch");
-    expect(ruleProblem({ ...base, when: "fuel_low", then: "spy_sender" })).toBe("Low fuel has nobody to react against: switch settings instead");
+    expect(ruleProblem({ ...base, when: "fuel_low", then: "spy_sender" })).toBe("Nobody did this to you, so there is nobody to react against: switch settings instead");
     expect(ruleProblem({ ...base, then: "spy_sender", drones_pct: "" })).toBe("Send between 1% and 100% of your drones");
     expect(ruleProblem({ ...base, use: { ...base.use, auto_rob_enabled: true } })).toBeNull();
 });
