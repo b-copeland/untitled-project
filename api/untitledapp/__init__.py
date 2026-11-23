@@ -170,6 +170,7 @@ def create_app(config_class='config.Config'):
     app.teardown_request(request_cache.end)
 
     import untitledapp.account as uaa
+    import untitledapp.advisors as uaadv
     import untitledapp.admin as uaad
     import untitledapp.adminaccounts as uaadac
     import untitledapp.board as uabo
@@ -180,7 +181,9 @@ def create_app(config_class='config.Config'):
     import untitledapp.misc as uam
     import untitledapp.politics as uap
     import untitledapp.preferences as uapr
+    import untitledapp.recurring as uarec
     import untitledapp.refresh as uar
+    import untitledapp.rules as uarules
     import untitledapp.roundend as uare
     import untitledapp.targets as uat
     app.register_blueprint(uaa.bp)
@@ -195,9 +198,12 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uap.bp)
     app.register_blueprint(uapr.bp)
     app.register_blueprint(uar.bp)
+    app.register_blueprint(uarec.bp)
+    app.register_blueprint(uarules.bp)
     app.register_blueprint(uare.bp)
     app.register_blueprint(uat.bp)
     app.register_blueprint(uabo.bp)
+    app.register_blueprint(uaadv.bp)
     app.before_request(uare.frozen_response)  # once the round is over, the game is read only
 
     limiter = Limiter(

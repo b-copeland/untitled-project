@@ -12,6 +12,7 @@ import flask
 import flask_praetorian
 from flask_sock import Sock
 
+import untitledapp.advisors as uaadv
 import untitledapp.misc as uam
 import untitledapp.news as uan
 import untitledapp.occ as occ
@@ -26,6 +27,8 @@ import untitledapp.lastknown as uala
 import untitledapp.shared as uas
 import untitledapp.botbrain as botbrain
 import untitledapp.roundend as uare
+import untitledapp.recurring as uarec
+import untitledapp.rules as uarules
 from untitledapp import REQUESTS_SESSION
 from untitledapp.push import push
 
@@ -481,9 +484,11 @@ def _kingdom_with_income(
         income["fuel"]["units"][key_unit] = value_units * uas.UNITS[key_unit]["fuel"] * unit_fuel
     income["fuel"]["population"] = kd_info_parse["population"] * uas.GAME_CONFIG["BASE_POP_FUEL_CONSUMPTION_PER_EPOCH"]
     income["fuel"]["shields"] = {}
-    for kind in ("military", "spy", "spy_radar", "missiles"):
+    # Charged on each shield's average level since the last tick: a raise climbs, and costs more as it does.
+    shield_levels = uas.shields_average(kd_info_parse, time_last_income, time_now)
+    for kind in uas.SHIELD_KINDS:
         income["fuel"]["shields"][kind] = (
-            kd_info_parse["shields"][kind] * 100 * kd_info_parse["stars"] * uas.shield_fuel_per_pct(kind, modifiers)
+            shield_levels.get(kind, 0) * 100 * kd_info_parse["stars"] * uas.shield_fuel_per_pct(kind, modifiers)
         )
 
     income["fuel"]["empty_silos"] = empty_silos * uas.GAME_CONFIG["FUZI_EVOLUTION_FUEL_PER_EMPTY_SILO"]
@@ -569,11 +574,13 @@ def _kingdom_with_income(
             k: v - structures_to_reduce.get(k, 0)
             for k, v in new_kd_info["structures"].items()
         }
+    new_kd_info["shields"], new_kd_info["shields_climb"] = uas.settle_shields(kd_info_parse, time_now)
     if new_kd_info["fuel"] <= 0:
         new_kd_info["shields"] = {
             k: 0
             for k in new_kd_info["shields"]
         }
+        new_kd_info["shields_climb"] = {}
 
     return new_kd_info
     
@@ -1274,6 +1281,22 @@ def _tell_schedule_skipped(kd_id, schedule, reason):
     push(kd_id, "schedules", message, status="warning", update=["kingdom", "news"])
 
 
+_RULE_SCHEDULERS = {"intelspy": uac._schedule_intelspy, "missiles": uac._schedule_missiles}
+
+
+def _tell_rule(kd_id, message):
+    """A reactive rule fired or ended: the player's news, and a notification."""
+    app = flask.current_app
+    REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/news',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps({"time": datetime.datetime.now(datetime.timezone.utc).isoformat(), "from": "", "news": message,
+                         "kind": "schedule"}),
+    )
+    uam._add_notifs(kd_id, ["news_kingdom"])
+    push(kd_id, "schedules", message, status="info", update=["kingdom", "news"])
+
+
 def _is_schedule_due(schedule, time_update):
     return datetime.datetime.fromisoformat(schedule["time"]).astimezone(datetime.timezone.utc) < time_update
 
@@ -1463,6 +1486,19 @@ def _resolve_scores(kd_scores, time_update, context=None):
         return new_scores, None
 
     occ.update('/scores', decide)
+
+def _resolve_universe_stats(context, time_update):
+    """
+    The advisors' comparison of every kingdom (advisors.peer_ranges), from the kingdoms this tick already holds, written
+    to ``universe_stats`` once per history mark. Derived data, so a plain merge: an overlapping tick writes the same.
+    """
+    app = flask.current_app
+    try:
+        ranges = uaadv.peer_ranges(context.kingdoms.values())
+        uag._update_universe_stats({"peer_ranges": ranges, "last_update": time_update.isoformat()})
+    except Exception:  # the advisors can do without a comparison for an hour; the tick goes on
+        app.logger.exception("Refresh failed to write the universe stats for the advisors")
+
 
 def _update_history(
     kd_info,
@@ -1774,6 +1810,11 @@ def _refresh_kd_in(kd_id, state, time_update, update_history, context):
         new_kd_info = _kingdom_with_income(kd_info_parse, current_bonuses, state, time_update, effects, pending.get("mobis"),
                                            context.modifiers(kd_id, time_update),
                                            lambda siphoner: _is_dead(context.kingdom(siphoner)))
+        # The player's reactive rules, on the kingdom about to be written: no read or write of their own.
+        rule_changes, rule_notes = uarules.step(new_kd_info, time_update, _RULE_SCHEDULERS)
+        new_kd_info.update(rule_changes)
+        for note in rule_notes:
+            _defer(effects, lambda note=note: _tell_rule(kd_id, note))
         kd_payload = json.dumps(new_kd_info, default=str)
         write_headers = {'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
         if etag:
@@ -1797,6 +1838,9 @@ def _refresh_kd_in(kd_id, state, time_update, update_history, context):
     # return it. Only read it again after a step that changes the kingdom, instead of after every step.
     new_kd_info = json.loads(kd_payload)
     if _resolve_schedules(kd_id, time_update, new_kd_info):
+        new_kd_info = uag._get_kd_info(kd_id)
+    # Repeating spy operations come before the auto rob, which only gets the attempts they leave.
+    if uarec.resolve_recurring(kd_id, time_update, new_kd_info):
         new_kd_info = uag._get_kd_info(kd_id)
     reserved_generals = botbrain.reserved_generals(new_kd_info)  # kept for the bot's own attacks
     if new_kd_info["auto_attack_enabled"] and new_kd_info["generals_available"] > reserved_generals:
@@ -1889,6 +1933,8 @@ def refresh_data():
     }
     _record_ended_intel(context)
     _resolve_scores(kd_scores_split, time_update, context)
+    if update_history:
+        _resolve_universe_stats(context, time_update)
     empires = _resolve_empires(kd_scores_split, time_update)
     try:
         _resolve_clusters(empires, time_update, context)

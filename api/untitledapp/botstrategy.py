@@ -75,7 +75,7 @@ def all_units(kd):
 
 def defense_multiplier(kd):
     """What one point of raw defense at home is worth, with the kingdom's military bonus and shields."""
-    return (1 + bonuses(kd)["military_bonus"] + kd.get("shields", {}).get("military", 0)
+    return (1 + bonuses(kd)["military_bonus"] + uas.shields_now(kd).get("military", 0)
             - (CONFIG["BASE_FUELLESS_STRENGTH_REDUCTION"] if kd.get("fuel", 1) <= 0 else 0))
 
 
@@ -332,17 +332,24 @@ def army_plan(kd, military_money, defense_deficit_units, offense_share, offense_
     return target, buy
 
 
-def structures_plan(kd, shares, units_to_buy, shields_fuel=0.0):
+def structures_plan(kd, shares, units_to_buy, shields_fuel=0.0, training=None, per_hangar=None):
     """
     The structures target (shares of all stars). ``shares`` gives the playstyle's ``workshops``, ``drone_factories``
     and ``missile_silos`` as shares of the kingdom and ``homes`` as the share of what is left over that is homes (the
-    rest is mines). Hangars and fuel plants are sized for the army as it will be once ``units_to_buy`` have arrived.
+    rest is mines). Hangars and fuel plants are sized for the army as it will be once the units in ``training`` (the
+    mobis queue: the game's overflow rule counts them, so they need a hangar as soon as they are ordered) and
+    ``units_to_buy`` have arrived. ``per_hangar`` is what one hangar holds for this kingdom (projects and politics
+    included; the base capacity if not given), and each unit takes its own hangar space (``unit_hangar_space``).
     """
     stars = max(kd["stars"], 1)
     units = all_units(kd)
-    housed = sum(count * uas.UNITS[unit]["hangar_capacity"] for unit, count in units.items())
-    housed += sum(count * uas.UNITS[unit]["hangar_capacity"] for unit, count in units_to_buy.items())
-    hangars = housed * 1.1 / CONFIG["BASE_HANGAR_CAPACITY"]
+    training = training or {}
+
+    def space(counts):
+        return sum(count * uas.unit_hangar_space(kd, unit) for unit, count in counts.items() if unit in uas.UNITS)
+
+    housed = space(units) + space(training) + space(units_to_buy)
+    hangars = housed * 1.1 / (per_hangar or CONFIG["BASE_HANGAR_CAPACITY"])
 
     fixed = {
         "workshops": shares.get("workshops", 0) * stars,
@@ -353,6 +360,7 @@ def structures_plan(kd, shares, units_to_buy, shields_fuel=0.0):
     engineers = max(units.get("engineers", 0), workshop_capacity(kd), fixed["workshops"] * CONFIG["BASE_WORKSHOP_CAPACITY"] * 0.8)
     fed = sum(count * uas.UNITS[unit]["fuel"] for unit, count in units.items() if unit != "engineers")
     fed += sum(count * uas.UNITS[unit]["fuel"] for unit, count in units_to_buy.items()) + engineers
+    fed += sum(count * uas.UNITS[unit]["fuel"] for unit, count in training.items() if unit in uas.UNITS and unit != "engineers")
     plant_output = CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"] * (
         1 + bonuses(kd)["fuel_bonus"] + (CONFIG["LUMINA_FUEL_PRODUCTION_INCREASE"] if kd["race"] == "Lumina" else 0))
     # People burn fuel too, and how many there are depends on the homes, which depend on what is left: solve for it.

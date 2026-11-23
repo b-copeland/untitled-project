@@ -29,6 +29,9 @@ def test_a_day_of_bots_runs_clean_and_every_playstyle_grows(tmp_path):
 
     # Nothing the game logs as an error: no bot failed to think, no kingdom was skipped by the refresh.
     assert results["errors"] == {} and results["failed_ticks"] == []
+    # The advisors ran on every playstyle at every sample (docs/advisors.md), from the documents a request would read.
+    assert {key.split("/")[0] for key in results["advice"]} == {"explorer", "attacker", "intel", "thief"}
+    assert all(counts["samples"] > 0 for counts in results["advice"].values())
     rows = results["rows"]
     assert len(rows) == 12 and all(str(row["status"]).lower() != "dead" for row in rows)
 

@@ -216,3 +216,18 @@ Players' data must survive the deploy with no manual step ([decisions/0015](deci
 3. **Test** (see `tests/test_migrate_168.py`): the old shape read right, an action before the migration losing
    nothing, the migration's result, and a second run changing nothing.
 4. **Say so in the pull request**: what changes, that it runs on deploy, and when the old-shape reading can go.
+
+## 14. An advisor
+
+The rules are in [advisors.md](advisors.md).
+
+1. Write the check in `advisors.py`: a function of the `Context` returning an `Advice(id, kind, text, links)` or
+   `None`. Its comment says where the threshold comes from (a formula in `shared.py`, a `botstrategy.py` sum and the
+   [bots.md](bots.md) finding behind it, or a plain reason). If it needs something the `Context` lacks, add a field
+   and fill it in `context_for` from what the route already reads; a new read is a cost ([cost.md](cost.md)).
+2. Add it to `CHECKS` and its id and kind to `IDS`. `danger` can not be hidden; use it only for harm happening now.
+3. The text follows [advisors.md](advisors.md#writing-the-text): hours not epochs, a link to where it is fixed, no
+   figures about other kingdoms.
+4. Tests in `tests/test_advisors.py`: it fires on the case it is for, stays quiet on a healthy kingdom (`_ctx()`), and
+   its edge.
+5. A line in the Status help topic if it is a new kind of advice.

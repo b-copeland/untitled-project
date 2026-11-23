@@ -182,7 +182,7 @@ def _home_defense(kd_info_parse, current_bonuses, units_sent):
         units_home,
         military_bonus=current_bonuses["military_bonus"],
         other_bonuses=0,
-        shields=kd_info_parse.get("shields", {}).get("military", 0),
+        shields=uas.shields_now(kd_info_parse).get("military", 0),
         fuelless=kd_info_parse["fuel"] <= 0,
         gaian=kd_info_parse["race"] == "Gaian",
     )
@@ -222,7 +222,7 @@ def attack_context(target_kd):
         "defense_now": _home_defense(kd_info_parse, current_bonuses, {}),
         "defense_if_all_sent": _home_defense(kd_info_parse, current_bonuses, all_out),
         "military_bonus": current_bonuses["military_bonus"],
-        "shields": kd_info_parse.get("shields", {}).get("military", 0),
+        "shields": uas.shields_now(kd_info_parse).get("military", 0),
         "generals_available": kd_info_parse["generals_available"],
     }
     # A stand-in for whatever is not revealed: an army as big as yours, with the largest bonus and shields there can be. It is a starting point to
@@ -478,7 +478,7 @@ def calculate_attack(target_kd):
         defender_military_bonus = float(defender_raw_values['military_bonus'] or 0) / 100
 
     if "shields" in max_target_kd_info:
-        defender_shields = max_target_kd_info["shields"]["military"]
+        defender_shields = uas.shields_now(max_target_kd_info)["military"]
     else:
         defender_shields = float(defender_raw_values['shields'] or 0) / 100
 
@@ -636,7 +636,7 @@ def _autofill_attack(req, kd_id, target_kd, available_units=None):
         defender_military_bonus = float(defender_raw_values['military_bonus'] or 0) / 100
 
     if "shields" in max_target_kd_info:
-        defender_shields = max_target_kd_info["shields"]["military"]
+        defender_shields = uas.shields_now(max_target_kd_info)["military"]
     else:
         defender_shields = float(defender_raw_values['shields'] or 0) / 100
 
@@ -948,7 +948,7 @@ def _attack(req, kd_id, target_kd):
                 defender_units,
                 military_bonus=target_current_bonuses['military_bonus'],
                 other_bonuses=0,
-                shields=target_doc["shields"]["military"],
+                shields=uas.shields_now(target_doc)["military"],
                 fuelless=target_doc["fuel"] <= 0,
                 gaian=departure["race"] == "Gaian",
                 peace=peace,
@@ -1057,6 +1057,9 @@ def _attack(req, kd_id, target_kd):
                 "target_name": target_doc["name"],
                 "target_dead": target_new.get("status") == "Dead",
             })
+            # For the defender's reactive rules: when it was attacked, by whom, and whether it lost.
+            target_new["events"] = uas.note_event(target_doc, "attacked", departure["time_now"], by=kd_id,
+                                                  lost=attack_status == "success")
             return target_new, outcome
 
         credit = _credit_spoils
@@ -1756,7 +1759,7 @@ def calculate_spy(target_kd):
         stars_revealed = False
 
     if "shields" in max_target_kd_info:
-        defender_shields = max_target_kd_info["shields"]["spy"]
+        defender_shields = uas.shields_now(max_target_kd_info)["spy"]
     else:
         defender_shields = float(defender_raw_values['shields'] or 0) / 100
     
@@ -1890,7 +1893,7 @@ def _spy(req, kd_id, target_kd):
         
         defender_drones = max_target_kd_info["drones"]
         defender_stars = max_target_kd_info["stars"]
-        defender_shields = max_target_kd_info["shields"]["spy"]
+        defender_shields = uas.shields_now(max_target_kd_info)["spy"]
 
         empires_inverted, empires_info, _, _ = uag._get_empires_inverted()
         attacker_empire = empires_inverted.get(kd_id)
@@ -1922,7 +1925,7 @@ def _spy(req, kd_id, target_kd):
         if (kd_info_parse["race"] == "Vult") and operation in uas.AGGRO_OPERATIONS:
             spy_radar_success = False
         else:
-            spy_radar_success = spy_radar_roll < max_target_kd_info["shields"]["spy_radar"]
+            spy_radar_success = spy_radar_roll < uas.shields_now(max_target_kd_info)["spy_radar"]
 
         time_now = datetime.datetime.now(datetime.timezone.utc)
         revealed_until = None
@@ -2103,6 +2106,11 @@ def _spy(req, kd_id, target_kd):
                 data=json.dumps(revealed_payload),
             )
             target_message += f" Their kingdom 'stats' and 'drones' will be revealed for {uas.GAME_CONFIG['BASE_EPOCH_SECONDS'] * uas.GAME_CONFIG['BASE_REVEAL_DURATION_MULTIPLIER'] / 3600} hours"
+
+        # For the target's reactive rules. Who sent it is known only when the target's news names them.
+        known_sender = kd_id if (not success or revealed) else None
+        occ.update(f'/kingdom/{target_kd}', lambda target: (
+            {"events": uas.note_event(target, "spied", time_now, by=known_sender, lost=success)}, None))
 
         if target_patch_payload:
             target_kd_patch_response = REQUESTS_SESSION.patch(
@@ -2607,8 +2615,9 @@ def add_schedule():
         if uas.utc(schedule_time) < uas.utc(state["state"]["game_start"]) or uas.utc(schedule_time) > uas.utc(state["state"]["game_end"]):
             raise occ.Rejected("Scheduled time occurs outside of game duration")
 
-        if len(kd_info["schedule"]) >= 10:
-            raise occ.Rejected("You can not schedule more than 10 actions")
+        limit = uas.GAME_CONFIG["BASE_MAX_SCHEDULE_ENTRIES"]
+        if len(kd_info["schedule"]) >= limit:
+            raise occ.Rejected(f"You can not schedule more than {limit} actions")
 
         handler_funcs = {
             "attack": _schedule_attack,
@@ -2749,7 +2758,7 @@ def calculate_missiles(target_kd):
     max_target_kd_info = uag._get_max_kd_info(target_kd, kd_id, revealed)
 
     if "shields" in max_target_kd_info:
-        defender_shields = max_target_kd_info["shields"]["missiles"]
+        defender_shields = uas.shields_now(max_target_kd_info)["missiles"]
     else:
         defender_shields = float(req['defenderShields'] or 0) / 100
     
@@ -2814,7 +2823,7 @@ def _launch_missiles(req, kd_id, target_kd):
                 raise occ.Rejected("You can't attack this kingdom because they are dead!")
             damage = _calculate_missiles_damage(
                 attacker_missiles,
-                target["shields"]["missiles"],
+                uas.shields_now(target)["missiles"],
                 fuzi=kd_info_parse["race"] == "Fuzi",
                 damage_multiplier=_missile_damage_multiplier(kd_info_parse),
             )
@@ -2828,6 +2837,8 @@ def _launch_missiles(req, kd_id, target_kd):
             }
             if target_stars <= 0 or target_pop <= 0:
                 changes["status"] = "Dead"
+            changes["events"] = uas.note_event(target, "missiles", datetime.datetime.now(datetime.timezone.utc), by=kd_id,
+                                               lost=damage["stars_damage"] > 0)
             # What was really destroyed (a strike can not take more than there is), for an empire target's points.
             destroyed = {
                 "stars": target["stars"] - changes["stars"],

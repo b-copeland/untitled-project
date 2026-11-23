@@ -214,6 +214,101 @@ def shield_fuel_per_pct(kind, modifiers=None):
     return GAME_CONFIG[constant] * max(1 + modifier(modifiers, effect) + modifier(modifiers, "shield_fuel"), 0)
 
 
+SHIELD_KINDS = tuple(SHIELD_FUEL)
+
+
+def _climb_seconds():
+    return GAME_CONFIG["BASE_SHIELDS_CLIMB_EPOCHS"] * GAME_CONFIG["BASE_EPOCH_SECONDS"]
+
+
+def _climb_level(climb, when):
+    """A climbing shield's level at ``when``: a straight line from ``from`` to ``to`` over the climb time."""
+    elapsed = (when - utc(climb["since"])).total_seconds()
+    share = min(max(elapsed / max(_climb_seconds(), 1e-9), 0.0), 1.0)
+    return climb["from"] + (climb["to"] - climb["from"]) * share
+
+
+def shields_now(kd, when=None):
+    """
+    The kingdom's shields at ``when`` (now by default). ``shields`` holds each level as of the last write;
+    ``shields_climb`` (``{kind: {from, to, since}}``, missing on kingdoms made before it) holds the raises still
+    climbing, and for those it is the climb that counts. Works on another kingdom's revealed fields too.
+    """
+    when = when or datetime.datetime.now(datetime.timezone.utc)
+    shields = dict(kd.get("shields") or {})
+    for kind, climb in (kd.get("shields_climb") or {}).items():
+        shields[kind] = _climb_level(climb, when)
+    return shields
+
+
+def shields_average(kd, start, end):
+    """Each shield's average level from ``start`` to ``end``: what the fuel for that time is charged on. A climb is a
+    straight line and then flat, so the average is exact however late the refresh runs."""
+    levels = shields_now(kd, end)
+    seconds = (end - start).total_seconds()
+    if seconds <= 0:
+        return levels
+    for kind, climb in (kd.get("shields_climb") or {}).items():
+        since, done = utc(climb["since"]), utc(climb["since"]) + datetime.timedelta(seconds=_climb_seconds())
+        total = 0.0
+        # Before the climb started (a refresh can not be that late, but be exact), during it, and after it.
+        for low, high in ((start, min(end, since)), (max(start, since), min(end, done)), (max(start, done), end)):
+            span = (high - low).total_seconds()
+            if span > 0:
+                total += span * (_climb_level(climb, low) + _climb_level(climb, high)) / 2
+        levels[kind] = total / seconds
+    return levels
+
+
+def change_shields(kd, requested, when=None):
+    """
+    ``(shields, shields_climb)`` to write when the kingdom asks for the ``requested`` levels: a raise starts climbing
+    from where the shield is now, a cut takes effect at once. Kinds not requested are left as they are.
+    """
+    when = when or datetime.datetime.now(datetime.timezone.utc)
+    shields = shields_now(kd, when)
+    climbs = {kind: dict(climb) for kind, climb in (kd.get("shields_climb") or {}).items()}
+    for kind, level in requested.items():
+        current = shields.get(kind, 0.0)
+        if kind in climbs and abs(climbs[kind]["to"] - level) < 1e-9:
+            continue  # already climbing there: the Shields page sends every shield, and that must not restart it
+        if level > current + 1e-9:
+            climbs[kind] = {"from": current, "to": level, "since": when.isoformat()}
+        else:
+            shields[kind] = level
+            climbs.pop(kind, None)
+    return shields, climbs
+
+
+def settle_shields(kd, when):
+    """``(shields, shields_climb)`` at ``when``, with the climbs that have reached their level folded into ``shields``.
+    The refresh writes these."""
+    shields = dict(kd.get("shields") or {})
+    climbs = {}
+    for kind, climb in (kd.get("shields_climb") or {}).items():
+        level = _climb_level(climb, when)
+        shields[kind] = level
+        if level < climb["to"] - 1e-12:
+            climbs[kind] = climb
+    return shields, climbs
+
+
+EVENT_KINDS = ("attacked", "spied", "missiles")
+
+
+def note_event(kd, kind, when, by=None, lost=False):
+    """
+    The kingdom's ``events`` with one more ``kind`` (``EVENT_KINDS``) at ``when``: the last time, who did it when the
+    kingdom can know (None otherwise), whether it lost, and a running count. The reactive rules read these
+    (``rules.py``), from the kingdom document the refresh already has. Missing on kingdoms made before it.
+    """
+    events = {key: dict(value) for key, value in (kd.get("events") or {}).items()}
+    old = events.get(kind) or {}
+    events[kind] = {"at": when.isoformat(), "by": str(by) if by else None, "lost": bool(lost),
+                    "count": int(old.get("count", 0)) + 1}
+    return events
+
+
 def self_destruct_share(units, stat):
     """The share of these units' raw ``stat`` ("offense" or "defense") that comes from self-destructing units, which is
     how much of ``SELF_DESTRUCT_LOSSES_INCREASE`` they add to the other side's losses. Zero if they have none."""
@@ -422,6 +517,9 @@ GAME_CONFIG = {
 
     "BASE_SPY_ATTEMPT_TIME_MULTIPLIER": 1,
     "BASE_SPY_ATTEMPTS_MAX": 10, 
+    # Not a gameplay limit: only a guard against a kingdom document grown huge by a script.
+    "BASE_MAX_SCHEDULE_ENTRIES": 200,
+    "BASE_MAX_RECURRING_ENTRIES": 50,
 
     "BASE_MILITARY_SHIELDS_MAX": 0.10, 
     "BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT": 0.1, 
@@ -429,7 +527,12 @@ GAME_CONFIG = {
     "BASE_SPY_SHIELDS_COST_PER_LAND_PER_PCT": 0.05, 
     "BASE_SPY_RADAR_MAX": 0.20, 
     "BASE_SPY_RADAR_COST_PER_LAND_PER_PCT": 0.05, 
-    "BASE_MISSILES_SHIELDS_MAX": 1.0, 
+    "BASE_MISSILES_SHIELDS_MAX": 1.0,
+    # Raised shields climb to the new level over this many epochs (lowered ones drop at once): strength never
+    # changes much in an instant (tenet 1).
+    "BASE_SHIELDS_CLIMB_EPOCHS": 1,
+    # Not a gameplay limit: only a guard against a kingdom document grown huge by a script.
+    "BASE_MAX_RULES": 20, 
     "BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT": 0.005, 
 
     "BASE_VOTES_COST": 10000,
@@ -1075,7 +1178,7 @@ REVEAL_FIELDS = {
     "kingdom": ["stars", "fuel", "population", "networth", "money", "missiles"],
     "military": ["units", "generals_available", "generals_out"],
     "structures": ["structures"],
-    "shields": ["shields"],
+    "shields": ["shields", "shields_climb"],
     "projects": ["projects_points", "projects_max_points", "projects_assigned", "completed_projects"],
     "drones": ["drones", "spy_attempts"],
 }
@@ -1256,8 +1359,12 @@ INITIAL_KINGDOM_STATE = {
             "spy_radar": 0.0,
             "missiles": 0.0
         },
+        "shields_climb": {},
+        "events": {},
+        "rules": [],
         "income": {},
         "schedule": [],
+        "recurring": [],
         "siphons": [],
     },
     "siphons_in": {"siphons_in": []},

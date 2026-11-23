@@ -99,6 +99,34 @@ def _round_is_over():
     return bool((state or {}).get("state", {}).get("game_over"))
 
 
+def _get_universe_stats():
+    """The ``universe_stats`` document (the advisors' comparison of every kingdom), ``{}`` if there is none yet or it
+    can not be read: the advisors then compare nothing."""
+    app = flask.current_app
+    response = REQUESTS_SESSION.get(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + '/universestats',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+    )
+    if response.status_code != 200:
+        return {}
+    try:
+        return json.loads(response.text)
+    except ValueError:
+        return {}
+
+
+def _update_universe_stats(fields):
+    """Merge ``fields`` into ``universe_stats`` (the refresh only: derived data, no version check)."""
+    app = flask.current_app
+    response = REQUESTS_SESSION.patch(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + '/universestats',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
+        data=json.dumps(fields),
+    )
+    if response.status_code >= 300:
+        raise RuntimeError(f"Updating universe_stats failed with {response.status_code}: {response.text}")
+
+
 def _get_scores():
     app = flask.current_app
     get_response = REQUESTS_SESSION.get(
@@ -548,6 +576,36 @@ def _calc_maxes(
     }
     return maxes
 
+def _strength_now(kd_info):
+    """
+    The kingdom's own strength at home right now, with what it really has: its military bonus, military shields,
+    fuel and race, and for offense the generals at home. ``maxes`` is the best case (full bonus and shields, every
+    general); this is what an attack on it would face, and what it could send. Bonuses that depend on the other side
+    (war, denouncing, peace) are left out.
+    """
+    units_home = {key: value for key, value in kd_info["units"].items() if key in uas.UNITS}
+    military_bonus = float(uas.project_bonuses(kd_info)["military_bonus"] or 0)
+    fuelless = kd_info.get("fuel", 0) <= 0
+    return {
+        "defense": _calc_max_defense(
+            units_home,
+            military_bonus=military_bonus,
+            other_bonuses=0,
+            shields=kd_info.get("shields", {}).get("military", 0),
+            fuelless=fuelless,
+            gaian=kd_info.get("race") == "Gaian",
+        ),
+        "offense": _calc_max_offense(
+            units_home,
+            military_bonus=military_bonus,
+            other_bonuses=0,
+            generals=int(kd_info.get("generals_available", 0) or 0),
+            fuelless=fuelless,
+            lumina=kd_info.get("race") == "Lumina",
+        ),
+    }
+
+
 def _calc_hangar_capacity(kd_info, units, modifiers=None):
     """The hangar space the kingdom has (after its projects and ``modifiers``) and the space its units take."""
     max_hangar_capacity = math.floor(
@@ -732,6 +790,7 @@ def _get_mobis(kd_id, kd_info=None, mobis_queue=None, state=None, modifiers=None
     payload = {
         'units': units,
         'maxes': maxes,
+        'now': _strength_now(kd_info_parse),
         'recruit_price': _recruit_price(kd_info_parse, modifiers),
         'recruit_time': recruit_time,
         'max_hangar_capacity': max_hangar_capacity,

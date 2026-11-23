@@ -51,6 +51,7 @@ import flask
 
 import untitledapp.botstrategy as strategy
 import untitledapp.build as uab
+import untitledapp.clusters as uacl
 import untitledapp.conquer as uac
 import untitledapp.galaxypolicies as uagp
 import untitledapp.universepolicies as uaup
@@ -63,7 +64,7 @@ import untitledapp.shared as uas
 import untitledapp.targets as uat
 
 LOG_SIZE = 40
-SCHEDULE_LIMIT = 10  # what the game allows
+SCHEDULE_LIMIT = uas.GAME_CONFIG["BASE_MAX_SCHEDULE_ENTRIES"]  # what the game allows
 EPOCH = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
 # Generals the auto attack of a bot made before bots set ``reserved_generals`` themselves leaves alone.
 RESERVED_GENERALS = 2
@@ -192,6 +193,9 @@ class Personality:
     # The galaxy policy options it votes for, one of each policy: in a round, it votes for the one listed of each of
     # the round's policies.
     galaxy_votes: tuple = ()
+    # The cluster benefits (CLUSTER_BENEFITS keys) a galaxy leader votes for, best first: as leader it casts its
+    # galaxy's vote for the first one the round plays.
+    cluster_votes: tuple = ()
     universe_votes: dict = dataclasses.field(default_factory=dict)
     vote_budget: float = 0.25
 
@@ -209,6 +213,7 @@ PERSONALITIES = {
         key_projects=("drone_gadgets", "big_flexers"), key_share=(0.4, 0.25, 0.15),
         intel_chance=0.15, share_chance=0.5,
         galaxy_votes=("expansionist", "drone_foundries", "conscription", "applied_research", "industrialists", "renovators", "mining_guilds", "civic_taxation", "fortification", "plunderers", "drone_recovery", "aegis", "fortress", "rapid_construction"),
+        cluster_votes=("settle_cost", "homes_capacity", "structure_time", "project_points", "workshop_capacity", "pop_growth", "unit_cost", "hangar_capacity", "shield_fuel", "fuel_storage", "recruit_cap", "recruit_cost", "drone_production", "missile_silo_capacity"),
         universe_votes={"rules_of_war": "ceasefire_accords", "espionage": "surveillance_act", "arms_control": "non_proliferation", "labor": "draft_limits", "environment": "carbon_cap", "primitives": "native_reserves", "diplomacy": "aggression_monitors", "secrecy": "classified", "wealth": "antitrust"},
     ),
     "attacker": Personality(
@@ -223,6 +228,7 @@ PERSONALITIES = {
         attack_buffer=(3.0, 9.0), player_edge=1.0,
         intel_chance=0.7, intel_ops=("spymilitary",), share_chance=0.2,
         galaxy_votes=("raiders", "warlike", "conscription", "applied_research", "industrialists", "shipwrights", "refineries", "efficiency", "offensive_arms", "infiltrators", "veteran_corps", "silo_programme", "fortress", "rapid_construction"),
+        cluster_votes=("unit_cost", "recruit_cost", "hangar_capacity", "recruit_cap", "settle_cost", "homes_capacity", "structure_time", "project_points", "pop_growth", "workshop_capacity", "fuel_storage", "shield_fuel", "missile_silo_capacity", "drone_production"),
         universe_votes={"rules_of_war": "land_tax", "espionage": "open_skies", "arms_control": "non_proliferation", "labor": "research_moratorium", "environment": "population_control", "primitives": "native_reserves", "diplomacy": "shield_levy", "secrecy": "transparency", "wealth": "progressive_tax"},
     ),
     "intel": Personality(
@@ -240,6 +246,7 @@ PERSONALITIES = {
         intel_tries=(1, 3), share_chance=0.95, share_cut=10.0,
         aggressive_chance=0.15, sabotage_chance=(0.0, 0.1, 0.5),
         galaxy_votes=("expansionist", "drone_foundries", "intelligence", "breakthroughs", "engineering_corps", "renovators", "mining_guilds", "civic_taxation", "fortification", "infiltrators", "drone_recovery", "aegis", "counter_intel", "population_boom"),
+        cluster_votes=("project_points", "settle_cost", "homes_capacity", "drone_production", "structure_time", "workshop_capacity", "pop_growth", "unit_cost", "hangar_capacity", "shield_fuel", "fuel_storage", "recruit_cost", "recruit_cap", "missile_silo_capacity"),
         universe_votes={"rules_of_war": "ceasefire_accords", "espionage": "open_skies", "arms_control": "treatied", "labor": "draft_limits", "environment": "carbon_cap", "primitives": "wilderness_protection", "diplomacy": "shield_levy", "secrecy": "transparency", "wealth": "progressive_tax"},
     ),
     "thief": Personality(
@@ -256,6 +263,7 @@ PERSONALITIES = {
         aggressive_chance=0.9, sabotage_chance=(0.0, 0.0, 0.1),
         sabotage_ops=("kidnappopulation", "bombhomes", "sabotagefuelplants", "kidnappopulation"),
         galaxy_votes=("expansionist", "drone_foundries", "intelligence", "applied_research", "industrialists", "renovators", "mining_guilds", "civic_taxation", "fortification", "plunderers", "drone_recovery", "aegis", "counter_intel", "population_boom"),
+        cluster_votes=("drone_production", "settle_cost", "homes_capacity", "structure_time", "project_points", "pop_growth", "workshop_capacity", "unit_cost", "hangar_capacity", "shield_fuel", "fuel_storage", "recruit_cost", "recruit_cap", "missile_silo_capacity"),
         universe_votes={"rules_of_war": "ceasefire_accords", "espionage": "open_skies", "arms_control": "treatied", "labor": "draft_limits", "environment": "carbon_cap", "primitives": "wilderness_protection", "diplomacy": "shield_levy", "secrecy": "transparency", "wealth": "progressive_tax"},
     ),
 }
@@ -294,6 +302,9 @@ def problems(personality):
     for unit in personality.offense_mix:
         if uas.UNITS.get(unit, {}).get("offense", 0) <= 0:
             found.append(f"{unit} is not a unit with offense")
+    for benefit in personality.cluster_votes:
+        if benefit not in uas.CLUSTER_BENEFITS:
+            found.append(f"{benefit} is not a cluster benefit")
     for project in personality.project_weights:
         if project not in strategy.CONTINUOUS_PROJECTS:
             found.append(f"{project} is not a continuous project")
@@ -429,6 +440,20 @@ class World:
         return self.galaxy_of.get(self.kd_id)
 
     @property
+    def cluster(self):
+        """Its galaxy's cluster document. One read."""
+        return self._lazy("cluster", lambda: uag._get_cluster_document(uacl.cluster_of(self.my_galaxy)))
+
+    @property
+    def units_training(self):
+        """Units in the mobis queue, by unit. One read."""
+        def read():
+            units = uag._calc_units(self.now, self.me["units"], self.me.get("generals_out", []),
+                                    uag._get_mobis_queue(self.kd_id))
+            return {unit: count for unit, count in units["queued"].items() if count}
+        return self._lazy("units_training", read)
+
+    @property
     def galaxy_politics(self):
         return self._lazy("galaxy_politics", lambda: uag._get_galaxy_politics(self.kd_id, self.my_galaxy)[0])
 
@@ -555,7 +580,7 @@ class World:
             military_bonus=info["current_bonuses"]["military_bonus"] if "current_bonuses" in info
             else uas.PROJECTS["military_bonus"]["max_bonus"],
             other_bonuses=0,
-            shields=info["shields"]["military"] if "shields" in info else uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_MAX"],
+            shields=uas.shields_now(info)["military"] if "shields" in info else uas.GAME_CONFIG["BASE_MILITARY_SHIELDS_MAX"],
             fuelless=info.get("fuel", 1) <= 0,
             gaian=self.me["race"] == "Gaian",
             peace=peace,
@@ -769,7 +794,11 @@ def plan_economy(world, personality, style, memory):
         taken += me["structures"].get("hangars", 0) + me["structures"].get("fuel_plants", 0)
         free = max(me["stars"] - taken, 1)
         land["homes"] = min(max(homes / free, 0.2), 0.9)
-    structures_target = strategy.structures_plan(me, land, to_buy, shields_fuel)
+    # Hangars for the units in training as well as those at home, out and to come: the game counts them all.
+    per_hangar = (uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"] + uas.project_increase(me, "hangars_bonus")) * max(
+        1 + uas.modifier(world.modifiers, "hangar_capacity"), 0)
+    structures_target = strategy.structures_plan(me, land, to_buy, shields_fuel, training=world.units_training,
+                                                 per_hangar=per_hangar)
 
     key_projects = personality.key_projects + (("star_busters",) if style.get("bomber") else ())
     projects = strategy.projects_plan(me, personality.project_weights, key_projects,
@@ -832,9 +861,8 @@ def recruits_training_share(world):
     """Recruits in training as a share of the most there can be (``BASE_MAX_RECRUITS_CAP`` of the people), as the
     Military page counts them. One read: the mobis queue."""
     me = world.me
-    units = uag._calc_units(world.now, me["units"], me.get("generals_out", []), uag._get_mobis_queue(world.kd_id))
     cap = uas.GAME_FUNCS["BASE_MAX_RECRUITS"](int(me.get("population", 0)))
-    return units["queued"].get("recruits", 0) / max(cap, 1)
+    return world.units_training.get("recruits", 0) / max(cap, 1)
 
 
 def risk_floor(kd_id):
@@ -908,6 +936,23 @@ def _election_on(world):
     return world.state["state"].get("election_end", "") not in ("", None)
 
 
+def _plan_cluster_vote(world, personality):
+    """As galaxy leader: the galaxy's cluster vote for the first benefit the playstyle likes that the round plays, when
+    the vote is not that already and may change (``CLUSTER_VOTE_COOLDOWN_EPOCHS``). One read, the cluster document."""
+    galaxy = world.my_galaxy
+    if galaxy is None:
+        return []
+    playing = uacl.round_benefits(world.state.get("state"))
+    choice = next((benefit for benefit in personality.cluster_votes if benefit in playing), None)
+    if choice is None:
+        return []
+    cluster = uacl.normalize(world.cluster)
+    if cluster["votes"].get(galaxy) == choice or uacl.vote_unlocks_at(cluster, galaxy, world.now):
+        return []
+    return [Decision("vote_cluster", {"benefit": choice},
+                     f"vote {uas.CLUSTER_BENEFITS[choice]['name']} for the cluster, as galaxy leader")]
+
+
 def plan_politics(world, personality, style, memory, rng):
     """
     Galaxy policies that suit the playstyle; the strongest galaxymate for leader; as leader, an empire (found one, or
@@ -945,6 +990,7 @@ def plan_politics(world, personality, style, memory, rng):
 
     if politics.get("leader") == world.kd_id:
         decisions.extend(_plan_empire(world, memory, rng))
+        decisions.extend(_plan_cluster_vote(world, personality))
 
     # The universe: buy votes with some of the loose money and spend them all, half on each doctrine.
     election = world.state["state"].get("election_end", "")
@@ -1309,7 +1355,7 @@ def plan_drones(world, personality, style, memory, rng):
         stars = known[kd][0]
         shields = 0.0
         if not vult and world.seconds_left(kd, "shields") > 0:
-            shields = world.target_info(kd).get("shields", {}).get("spy", 0.0)
+            shields = uas.shields_now(world.target_info(kd)).get("spy", 0.0)
         return strategy.spy_chance(sent, _guess_drones(world, kd, stars, memory), stars, shields)
 
     def learned_chance(kd, forecast):
@@ -1682,6 +1728,8 @@ def _do(kd_id, world, decision):
             return _answer(uap.cast_universe_votes(kd_id, options["policy"], options["option"], options["votes"]))
         if kind == "vote_leader":
             return _answer(uap.cast_leader_vote(kd_id, options["selected"]))
+        if kind == "vote_cluster":
+            return _answer(uacl.vote(world.kd_id, options["benefit"]))
         if kind == "buy_votes":
             return _answer(uap.buy_universe_votes(kd_id, options["votes"]))
         if kind == "empire_found":
@@ -1769,8 +1817,12 @@ def _write(kd_id, settings, scheduled, personality, style, memory, rng, now, log
                       + [_log_entry(now, d.kind, d.why, f"not scheduled: {m}") for d, m in refused])[-LOG_SIZE:]
         payload = {"schedule": schedule, "bot": bot}
         for field, value in settings.items():
-            if field == "shields" and kd_info["fuel"] <= 0:
-                continue  # as the Shields page: no fuel, no shields
+            if field == "shields":
+                if kd_info["fuel"] <= 0:
+                    continue  # as the Shields page: no fuel, no shields
+                # As the Shields page: a raise climbs, a cut is at once.
+                payload["shields"], payload["shields_climb"] = uas.change_shields(kd_info, value, now)
+                continue
             if field == "projects_assigned" and sum(value.values()) > kd_info["units"]["engineers"]:
                 continue
             payload[field] = value

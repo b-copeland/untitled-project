@@ -59,3 +59,18 @@ test("spending shares start at the current split, together stay within 100%, and
     fireEvent.click(screen.getByRole("button", { name: "Update" }));
     expect(lastBody()).toEqual({ settle: 40, structures: "", military: 0, engineers: "" });
 });
+
+test("a shield that is rising starts its slider where it is heading and says when it gets there", () => {
+    const climbing = {
+        ...data,
+        kingdom: { ...data.kingdom, shields: { military: 0.02, spy: 0.05 },
+            shields_climb: { military: { from: 0, to: 0.08, since: "2026-01-01T10:00:00+00:00" } } },
+    };
+    render(<ShieldsPage data={climbing} loading={{}} updateData={runAll} />);
+    expect(slider("Military shields").value).toBe("8");
+    expect(screen.getByText(/Now 2%.*Rising to 8%, reached at/)).toBeTruthy();
+    expect(screen.getByText(/rises to its new level over 60 minutes/)).toBeTruthy();
+    fireEvent.change(slider("Spy shields"), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Update" }));
+    expect(lastBody().military).toBe(8);                                  // the climb is sent as it is, not undone
+});

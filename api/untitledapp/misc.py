@@ -431,7 +431,7 @@ def set_shields():
     req_values = {
         k: float(v or 0) / 100
         for k, v in req.items()
-        if v != ""
+        if v != "" and k in uas.SHIELD_KINDS
     }
     valid_shields, error_message = _validate_shields(req_values)
     if not valid_shields:
@@ -444,7 +444,9 @@ def set_shields():
         # Decided against the kingdom as it is when the write lands, not against a read taken before the lock.
         if kd_info["fuel"] <= 0:
             raise occ.Rejected("You can't set shields without fuel")
-        return {"shields": {**kd_info["shields"], **req_values}}, None
+        # A raise climbs to its level over BASE_SHIELDS_CLIMB_EPOCHS; a cut is at once.
+        shields, climbs = uas.change_shields(kd_info, req_values)
+        return {"shields": shields, "shields_climb": climbs}, None
 
     # The legacy lock stays while other routes still write the kingdom without checking its version.
 

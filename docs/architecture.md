@@ -167,6 +167,8 @@ In game code take `kd_id` from `flask_praetorian.current_user()` and nothing els
 | Kingdom creation, shields, messages, spending, sharing, notifications | `misc.py` |
 | Settling, building, training, projects, missiles | `build.py` |
 | Attacks, spying, primitives, missiles launched, schedule, pinned | `conquer.py` |
+| Repeating spy operations | `recurring.py` |
+| Reactive rules | `rules.py` |
 | The galaxy's intel market: listings, bounties, free shares, exclusions, who earns which cut | `intel.py` |
 | Galaxy, empire and universe politics, votes, war, surrender | `politics.py` |
 | Cluster politics: a galaxy leader's vote, benefit levels, the cluster's empire alignment | `clusters.py` |
@@ -182,7 +184,8 @@ In game code take `kd_id` from `flask_praetorian.current_user()` and nothing els
 | Bots (archetypes, also the quick starts on Create Kingdom; what they decide) | `bots.py`, `botstrategy.py`, `botbrain.py`, [bots.md](bots.md) |
 | Route decorators `alive_required`, `start_required`, `before_start_required`, app factory, websocket | `api/untitledapp/__init__.py` |
 | Push notifications and their kinds | `push.py` |
-| A player's own settings (theme, muted notifications) | `preferences.py` |
+| A player's own settings (theme, muted notifications, advisors on or off, hidden advice) | `preferences.py` |
+| The Status page's advisors | `advisors.py`, [advisors.md](advisors.md) |
 | Email | `mailer.py`, [email.md](email.md) |
 | Function app routes, conditional writes, queue folding | `funcapp/function_app.py`, `funcapp/concurrency.py`, `funcapp/queues.py` |
 

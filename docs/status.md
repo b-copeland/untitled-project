@@ -97,7 +97,8 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
 - Not converted to check-before-sending: the politics forms.
 - UX proposals not built: see [decisions/0003-ux-review.md](decisions/0003-ux-review.md#proposed-not-built).
 - Spy attempts come back every epoch again (2026-11-17), so a player away for more than 10 epochs loses attempts.
-  Recurring scheduled siphons and intel are issue #137.
+  Repeating siphons and intel (issue #137, the Schedule page's Repeating tab) use them while the player is away.
+  Bots do not use repeating operations yet: they schedule one operation per think.
 - 2026-11-21, on production: right after making a kingdom, Status showed 0% of stars built and Structures had no
   rows, until a reload or an action that refetched `structures`. The server's data was right. Not reproduced
   locally. The likely cause is that the refetch of every key right after creation failed (a throttled or busy
@@ -108,14 +109,19 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   kingdoms made before the units and structures breakdowns, those changes count only from the first breakdown point, which the
   first history tick after the function app is published writes.
 
+## Reactive rules
+
+Added 2026-11-22 (issue #35). Not built yet:
+
+- Conditions from the advisors (#185, not merged yet): defense under the break-even line, hangars full, a known army
+  that beats the kingdom's defense, war declared on the kingdom's empire.
+- Bots do not use rules; their brain reacts on its own (`botbrain.react`).
+
 ## Instant changes to military strength
 
 Found 2026-11-22, when the rule that strength never changes much in an instant joined tenet 1
 ([game-design.md](game-design.md#the-tenets-in-order-of-priority)). These still break it. Not changed yet:
 
-- **Military shields** (`POST /api/shields`, `misc.set_shields`) apply the moment they are set: a defender can go from
-  0 to `BASE_MILITARY_SHIELDS_MAX` (10%) of extra defense as an attack comes in. Raising them could instead climb to the
-  new level over some hours, worked out from timestamps; lowering them can stay instant.
 - **Empire bonuses** apply as soon as their event happens: denouncing (`DENOUNCE_OFFENSE_BONUS`), war
   (`WAR_OFFENSE_INCREASE`) and peace (`PEACE_DEFENSE_BONUS`, 50% defense), in `getters.py`. Empire politics is likely
   to be cut back for launch, which may settle these.
@@ -263,3 +269,12 @@ Found by simulating rounds (2026-11-15), not changed because they are rules or b
 - An attack always takes at least `BASE_ATTACK_MIN_STARS_GAIN` stars, so a small kingdom can be ground down to nothing.
 - Details, and what else the simulations show, in
   [bots.md](bots.md#what-the-simulations-say-about-the-game-for-the-maintainer).
+
+## Advisors
+
+Issue #185, [advisors.md](advisors.md). Updated 2026-11-22.
+
+| Item | Status |
+|---|---|
+| Bots over their hangars after losing land | Since the bots plan hangars for units in training, the median bot holds about 90% of its hangar room, but about one attacker in ten runs 10-20% over late in the round, after strikes take its land. |
+| Thresholds | `DEFENSE_WARNING_SHARE`, `HANGAR_WARNING_SHARE`, `EMPTY_STARS_SHARE`, `IDLE_MONEY_EPOCHS`, `ATTACKERS_SHARE` are the maintainer's numbers, checked on bots only; no human rounds to check them against. |
