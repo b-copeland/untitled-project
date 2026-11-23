@@ -10,6 +10,14 @@ on:
       - main
   workflow_dispatch:
 
+# One run at a time. Two deploys that overlap make App Service answer 409 Conflict,
+# and a deploy that fails partway can leave wwwroot without api/ or antenv, so the
+# site does not start. A running deploy is never cancelled; a newer push waits, and
+# replaces any older run that is still waiting.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
