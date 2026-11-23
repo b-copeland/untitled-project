@@ -15,6 +15,7 @@ import untitledapp.getters as uag
 import untitledapp.lastknown as uala
 import untitledapp.news as uan
 import untitledapp.occ as occ
+import untitledapp.visits as uav
 from untitledapp import User, REQUESTS_SESSION, before_start_required, alive_required
 from untitledapp.push import push
 from untitledapp.users import issue_tokens
@@ -670,8 +671,11 @@ def _get_notifs(kd_id):
 @bp.route('/api/notifs', methods=['GET'])
 @flask_praetorian.auth_required
 def get_notifs():
+    """The unread counters. The page polls this while it is shown, so it also records that the player is here."""
     kd_id = flask_praetorian.current_user().kd_id
     notifs = _get_notifs(kd_id)
+    if isinstance(notifs, dict) and "_etag" in notifs:
+        notifs = uav.record(kd_id, notifs)
     return flask.jsonify(notifs), 200
 
 

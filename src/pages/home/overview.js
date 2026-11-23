@@ -3,8 +3,134 @@ import { Link } from "react-router-dom";
 import { displayNumber, displayPercent } from "../../format";
 import { rateTip } from "../../components/header";
 import { Stats } from "../../components/planner";
+import { authFetch } from "../../auth";
+import { inOrder } from "../../order";
 import Advisors from "./advisors";
 import "./overview.css";
+
+const SUMMARY_SERIES = [["stars", "Stars"], ["networth", "Networth"], ["population", "Population"],
+    ["drones", "Drones"], ["engineers", "Engineers"]];
+const EVENT_KINDS = [["attack", "attack", "attacks"], ["spy", "spy operation", "spy operations"],
+    ["missiles", "missile strike", "missile strikes"]];
+
+const fetchSummary = () => authFetch("api/history/summary").then((response) => (response.ok ? response.json() : null));
+
+/**
+ * The summary, fetched when the card opens and again whenever the tab is shown after being hidden: the server records
+ * the visit and decides what to count from, so a tab left open in the background starts a new visit when it comes back.
+ */
+function useSummary(load) {
+    const [summary, setSummary] = React.useState(undefined);
+    React.useEffect(() => {
+        let live = true;
+        const fetch = () => Promise.resolve().then(load)
+            .then((result) => { if (live) setSummary(result || null); })
+            .catch(() => { if (live) setSummary(null); });
+        const onShow = () => { if (document.visibilityState === "visible") fetch(); };
+        fetch();
+        document.addEventListener("visibilitychange", onShow);
+        return () => { live = false; document.removeEventListener("visibilitychange", onShow); };
+    }, [load]);
+    return summary;
+}
+
+/** "+12" or "-3" for a change in a count. */
+function change({ from, to }) {
+    const difference = (to || 0) - (from || 0);
+    return (difference >= 0 ? "+" : "-") + displayNumber(Math.abs(difference));
+}
+
+/** Later than ``since`` by more than a minute: the history does not go back that far. */
+const startsLater = (from, since) => !!from && Date.parse(from) > Date.parse(since) + 60 * 1000;
+
+function Breakdown({ title, changes, names, order, from, since }) {
+    const keys = inOrder(Object.keys(changes || {}), order);
+    if (keys.length === 0) return null;
+    return (
+        <div className="overview-breakdown">
+            <h4 className="overview-subtitle">
+                {title}{startsLater(from, since) ? <span className="overview-muted"> (since {ago(from)})</span> : null}
+            </h4>
+            <ul className="overview-changes">
+                {keys.map((key) => (
+                    <li key={key}>
+                        <span>{names[key] || key}</span>
+                        <span className={(changes[key].to || 0) < (changes[key].from || 0) ? "overview-down" : "overview-up"}>
+                            {change(changes[key])}
+                        </span>
+                        <span className="overview-muted">now {displayNumber(changes[key].to)}</span>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+/**
+ * "Since you were last here": what changed in the kingdom (stars, networth, population, drones, engineers, then each
+ * military unit and structure that changed) and what other kingdoms did to it. The server decides the time to count
+ * from (the end of the last visit, or an hour ago) and compares the history point nearest before it with the kingdom
+ * now; the events come from the news.
+ */
+export function SinceLastVisit({ data, load = fetchSummary }) {
+    const summary = useSummary(load);
+    const since = summary?.since;
+    const sinceVisit = !!summary?.since_visit;
+
+    const names = data.state?.pretty_names || {};
+    const order = data.state?.order || {};
+    const events = since ? (data.news || []).filter((item) => Date.parse(item.time) > Date.parse(since)) : [];
+    const counts = EVENT_KINDS.map(([kind, one, many]) => {
+        const count = events.filter((item) => item.kind === kind).length;
+        return count > 0 ? `${count} ${count === 1 ? one : many}` : null;
+    }).filter(Boolean);
+    const latest = [...events].sort((a, b) => Date.parse(b.time) - Date.parse(a.time)).slice(0, 3);
+
+    const changes = summary?.changes || {};
+    const shown = SUMMARY_SERIES.filter(([key]) => changes[key]);
+    const anyChange = shown.some(([key]) => changes[key].from !== changes[key].to)
+        || Object.keys(summary?.units || {}).length > 0 || Object.keys(summary?.structures || {}).length > 0;
+
+    return (
+        <Card title={sinceVisit ? `Since you were last here (${ago(since)})` : "The last hour"} className="overview-since">
+            {summary === undefined ? <p className="overview-line overview-muted">Loading...</p> : null}
+            {summary === null ? <p className="overview-line overview-muted">Could not load what changed.</p> : null}
+            {summary && shown.length === 0
+                ? <p className="overview-line overview-muted">Your kingdom has no history yet. It is recorded every half hour.</p>
+                : null}
+            {summary && shown.length > 0 ? (
+                <>
+                    {startsLater(summary.from, since)
+                        ? <p className="overview-line overview-muted">Your kingdom's history starts {ago(summary.from)}.</p>
+                        : null}
+                    <Stats items={shown.map(([key, label]) => ({
+                        label, value: change(changes[key]),
+                        tone: changes[key].to < changes[key].from ? "bad" : undefined,
+                    }))} />
+                    <div className="overview-breakdowns">
+                        <Breakdown title="Military units" changes={summary.units} names={names} order={order.units}
+                            from={summary.units_from} since={since} />
+                        <Breakdown title="Structures" changes={summary.structures} names={names} order={order.structures}
+                            from={summary.structures_from} since={since} />
+                    </div>
+                    {!anyChange ? <p className="overview-line overview-muted">Nothing in your kingdom changed.</p> : null}
+                </>
+            ) : null}
+            {summary ? (
+                <p className="overview-line">
+                    {counts.length > 0
+                        ? <>Against you: {counts.join(", ")}. <Link to="/news">See the news</Link></>
+                        : "No attacks, spy operations or missiles against you."}
+                </p>
+            ) : null}
+            {latest.length > 0 ? (
+                <ul className="overview-news">
+                    {latest.map((item, i) => <li key={i}>{item.news} <span className="overview-muted">({ago(item.time)})</span></li>)}
+                </ul>
+            ) : null}
+        </Card>
+    );
+}
 
 /** "in 2h 05m" until ``date``, or "now" if it has passed. */
 function until(date, now = Date.now()) {
@@ -39,7 +165,7 @@ function Card({ title, to, className = "", children }) {
  * asks (is my economy healthy, am I safe and what is out, am I growing, is anyone after me), each a card that links to
  * where to act. Built only from data the other tabs already load.
  */
-export function Overview({ data }) {
+export function Overview({ data, loadSummary }) {
     const kingdom = data.kingdom || {};
     const mobis = data.mobis || {};
     const structures = data.structures || {};
@@ -74,6 +200,8 @@ export function Overview({ data }) {
             <Card title="Advisors" className="overview-advisors">
                 <Advisors />
             </Card>
+
+            <SinceLastVisit data={data} {...(loadSummary ? { load: loadSummary } : {})} />
 
             <Card title="Economy" to="/automation?tab=spending">
                 <Stats items={[

@@ -1254,6 +1254,9 @@ def update_notifs(req: func.HttpRequest) -> func.HttpResponse:
     req_body = req.get_json()
     add_categories = req_body.get("add_categories", [])
     clear_categories = req_body.get("clear_categories", [])
+    # ``set``: plain fields written as given (the visit times, visits.py). Not the id or Cosmos's own fields.
+    set_fields = {key: value for key, value in (req_body.get("set") or {}).items()
+                  if key != "id" and not key.startswith("_")}
 
     kd_id = str(req.route_params.get('kdId'))
     item_id = f"notifs_{kd_id}"
@@ -1266,6 +1269,7 @@ def update_notifs(req: func.HttpRequest) -> func.HttpResponse:
             notifs[add_cat] = notifs.get(add_cat, 0) + 1  # a counter added after the kingdom was made starts at 0
         for clear_cat in clear_categories:
             notifs[clear_cat] = 0
+        notifs.update(set_fields)
         CONTAINER.replace_item(
             item_id,
             notifs,
@@ -1888,9 +1892,15 @@ def update_history(req: func.HttpRequest) -> func.HttpResponse:
         item=item_id,
         partition_key=item_id,
     )
+    # ``keep``: {series: n} keeps only the newest n points of those series. A series the document does not have yet
+    # starts empty, so a new series needs no migration of old documents.
+    keep = req_body.get("keep", {})
     try:
         for key_history, item_history in new_history.items():
-            history["history"][key_history].append(item_history)
+            series = history["history"].setdefault(key_history, [])
+            series.append(item_history)
+            if key_history in keep:
+                del series[:-int(keep[key_history])]
         CONTAINER.replace_item(
             item_id,
             history,

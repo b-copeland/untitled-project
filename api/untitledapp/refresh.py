@@ -1504,49 +1504,31 @@ def _update_history(
     kd_info,
     time_update,
 ):
+    """
+    Append this epoch's point to every history series. The ``units`` and ``structures`` breakdowns keep only the
+    newest ``HISTORY_BREAKDOWN_DAYS``: they are bigger than the other series, and only the summary of what changed
+    since a player's last visit reads them.
+    """
     app = flask.current_app
-    history_payload = {}
-
-    basic_kd_info_keys = ["networth", "stars", "drones", "population"]
-    for key_info in basic_kd_info_keys:
-        history_payload[key_info] = {
-            "time": time_update.isoformat(),
-            "value": kd_info[key_info],
-        }
-    history_payload["engineers"] = {
-        "time": time_update.isoformat(),
-        "value": kd_info["units"]["engineers"],
-    }
-        
-    total_units = kd_info["units"].copy()
-    total_general_units = {
-        k: 0
-        for k in uas.UNITS
-    }
-    for general_units in kd_info["generals_out"]:
-        for key_unit, value_unit in general_units.items():
-            if key_unit == "return_time":
-                continue
-            total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
-            total_general_units[key_unit] += value_unit
-        
-    offense = uag._calc_max_offense(total_units)
-    defense = uag._calc_max_defense(total_units)
-
-    history_payload["max_offense"] = {
-        "time": time_update.isoformat(),
-        "value": offense,
-    }
-    history_payload["max_defense"] = {
-        "time": time_update.isoformat(),
-        "value": defense,
-    }
-    update_response = REQUESTS_SESSION.patch(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_info["kdId"]}/history',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps({"history": history_payload})
-    )
+    values = uag._history_values(kd_info)
+    points = {key: {"time": time_update.isoformat(), "value": value} for key, value in values.items()}
+    url = app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_info["kdId"]}/history'
+    headers = {'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
+    keep = {key: _history_breakdown_points() for key in uag.HISTORY_BREAKDOWNS}
+    update_response = REQUESTS_SESSION.patch(url, headers=headers, data=json.dumps({"history": points, "keep": keep}))
+    if not 200 <= update_response.status_code < 300:
+        # A function app from before the breakdowns refuses a series the document does not have. Record the rest.
+        rest = {key: point for key, point in points.items() if key not in uag.HISTORY_BREAKDOWNS}
+        REQUESTS_SESSION.patch(url, headers=headers, data=json.dumps({"history": rest}))
     return None
+
+
+HISTORY_BREAKDOWN_DAYS = 7
+
+
+def _history_breakdown_points():
+    return max(int(HISTORY_BREAKDOWN_DAYS * 86400 / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]), 1)
+
 
 def _resolve_empires(
     kd_scores,

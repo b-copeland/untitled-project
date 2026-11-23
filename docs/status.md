@@ -104,6 +104,10 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   locally. The likely cause is that the refetch of every key right after creation failed (a throttled or busy
   backend). Failed fetches are now retried for about half a minute (`src/data/gameData.js`). If it happens again,
   look in the browser's network tab for a failing or empty `/api/structures`.
+- 2026-11-23, the Overview's "Since you were last here" (#206): a visit is recorded only while the page polls
+  `/api/notifs`, which it does while a tab is shown, so a tab left visible on an idle screen counts as being here. For
+  kingdoms made before the units and structures breakdowns, those changes count only from the first breakdown point, which the
+  first history tick after the function app is published writes.
 
 ## Reactive rules
 
