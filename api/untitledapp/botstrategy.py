@@ -386,6 +386,33 @@ def structures_plan(kd, shares, units_to_buy, shields_fuel=0.0, training=None, p
     return target
 
 
+# Over this share of its hangar room (units in training counted, as the game counts them) a kingdom builds hangars
+# first on any new land. The advisors warn a player from the same point.
+HANGAR_SLACK = 1.02
+# What stays on the target while hangars come first: fuel plants (the army burns fuel too); everything else waits.
+HANGARS_FIRST_KEEP = ("hangars", "fuel_plants")
+
+
+def hangars_first(target, kd, held, used, per_hangar):
+    """
+    ``target`` (structure shares) with hangars first on new land while the army is over its hangar room: after losing
+    land, the army stays and the hangars go with the land. Until the army fits again, every other structure's share
+    is held at what is built now, so the only gaps the auto builder (which builds in proportion to the gaps) sees are
+    hangars and fuel plants, and the hangars' share is raised to house the army. Nothing is razed: a mine earns what
+    the 75 people a hangar's room holds would, so trading land already built on does not pay (bots.md). With the army
+    housed, ``target`` is returned as it is.
+    """
+    if used <= held * HANGAR_SLACK:
+        return target
+    stars = max(kd["stars"], 1)
+    built = kd.get("structures") or {}
+    needed = math.ceil((used - held) / max(per_hangar, 1))
+    adjusted = {key: (share if key in HANGARS_FIRST_KEEP else min(share, built.get(key, 0) / stars))
+                for key, share in target.items()}
+    adjusted["hangars"] = max(adjusted.get("hangars", 0), (math.floor(built.get("hangars", 0)) + needed) / stars)
+    return {key: math.floor(value * 10000) / 10000 for key, value in adjusted.items()}
+
+
 def projects_plan(kd, weights, key_projects, key_share, growth_per_epoch=0.012):
     """
     How many engineers work on each project. A continuous bonus gets what keeps it full as the kingdom grows (its cap

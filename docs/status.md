@@ -272,5 +272,5 @@ Issue #185, [advisors.md](advisors.md). Updated 2026-11-22.
 
 | Item | Status |
 |---|---|
-| Bots over their hangars after losing land | Since the bots plan hangars for units in training, the median bot holds about 90% of its hangar room, but about one attacker in ten runs 10-20% over late in the round, after strikes take its land. |
+| Bots over their hangars after losing land | About one attacker in ten runs 10-20% over late in the round, after strikes take its land. Hangars now come first on any new land (`botstrategy.hangars_first`), but a shrunken attacker gets little new land, so the tail lasts. Razing for hangars fixed it and cost attackers 6-8% (branch `bots-hangars-after-loss`); the maintainer chose not to fix it at once. |
 | Thresholds | `DEFENSE_WARNING_SHARE`, `HANGAR_WARNING_SHARE`, `EMPTY_STARS_SHARE`, `IDLE_MONEY_EPOCHS`, `ATTACKERS_SHARE` are the maintainer's numbers, checked on bots only; no human rounds to check them against. |
