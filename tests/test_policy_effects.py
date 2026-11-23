@@ -327,7 +327,7 @@ def test_homes_capacity():
 
 def test_hangar_capacity():
     kd = kingdoms.kingdom(structures={"hangars": 100})
-    units = {"current_total": {}, "hour_24": {}}
+    units = {"current_total": {}, "queued": {}}
     plain, _ = uag._calc_hangar_capacity(kd, units)
     bigger, _ = uag._calc_hangar_capacity(kd, units, {"hangar_capacity": 0.1})
     assert bigger == int(plain * 1.1)
@@ -354,7 +354,7 @@ def test_fuel_storage(app):
 
 def test_recruit_cap_and_recruit_cost():
     kd = kingdoms.kingdom(population=100_000, money=10_000_000)
-    units = {"hour_24": {"recruits": 0}}
+    units = {"queued": {"recruits": 0}}
     plain_max, _ = uag._calc_max_recruits(kd, units)
     wider_max, _ = uag._calc_max_recruits(kd, units, {"recruit_cap": 0.15})
     assert wider_max == int(plain_max * 1.15)

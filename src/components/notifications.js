@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import useWebSocket from "react-use-websocket";
 
 import { useInterval } from "../hooks";
+import { useSwipeToDismiss } from "./swipe";
 import "./toasts.css";
 
 const MAX_KEPT = 50;
@@ -18,8 +19,11 @@ export function socketUrl() {
 /**
  * Listens for the server's push messages, collects them for the Notifications panel, and tells the caller which parts of the game data to
  * refresh. Registers the player's token on connect and every minute after, so the server keeps the socket mapped to them.
+ *
+ * ``muted`` is the kinds the player turned off in Settings (their preferences): those still refresh the data they name,
+ * but are not shown.
  */
-export function useNotifications({ logged, session, updateData }) {
+export function useNotifications({ logged, session, updateData, muted = [] }) {
   const [messages, setMessages] = useState([]);
   const { sendMessage, lastMessage } = useWebSocket(socketUrl());
 
@@ -31,7 +35,9 @@ export function useNotifications({ logged, session, updateData }) {
       if ((message.update || []).length > 0) {
         updateData(message.update);
       }
-      setMessages((previous) => [{ ...message, id: ++nextId, received: Date.now() }, ...previous.slice(0, MAX_KEPT - 1)]);
+      if (!muted.includes(message.kind)) {
+        setMessages((previous) => [{ ...message, id: ++nextId, received: Date.now() }, ...previous.slice(0, MAX_KEPT - 1)]);
+      }
     }
   }, [lastMessage]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -43,7 +49,11 @@ export function useNotifications({ logged, session, updateData }) {
 
   useInterval(register, 60000);
 
-  return { messages, clear: () => setMessages([]) };
+  return {
+    messages,
+    clear: () => setMessages([]),
+    remove: (id) => setMessages((previous) => previous.filter((message) => message.id !== id)),
+  };
 }
 
 /** "just now", "4 min ago", "2 h ago": how long ago a notification came in. */
@@ -56,10 +66,11 @@ export function ago(time, now = Date.now()) {
 
 /**
  * One notification in the list. Clicking the text copies it (so a result or an error can be pasted somewhere); the text
- * can still be selected normally.
+ * can still be selected normally. On a touch screen, swiping it sideways removes it.
  */
-function Notification({ message, now }) {
+function Notification({ message, now, onDismiss }) {
   const [copied, setCopied] = useState(false);
+  const swipe = useSwipeToDismiss(onDismiss);
 
   const copy = () => {
     // Selecting text to copy by hand is not a click to copy.
@@ -73,7 +84,8 @@ function Notification({ message, now }) {
   };
 
   return (
-    <li className={`notification notification-${message.status === "warning" ? "warning" : "info"}`}>
+    <li className={`notification notification-${message.status === "warning" ? "warning" : "info"} swipeable`}
+      {...swipe.handlers} style={swipe.style}>
       <div className="notification-meta">
         <span className="notification-category">{message.category}</span>
         <span className="notification-time">{copied ? <span className="copied">Copied</span> : ago(message.received, now)}</span>
@@ -90,9 +102,10 @@ const SHOWN = 3;
  * and then newest first: the first few,
  * and the rest behind "Show all". It closes itself a while after the last one came in (as long as the longest
  * notification asks to stay, at least 8 seconds), unless the pointer is over it or one of them needs attention (an
- * attack on you, say), in which case it stays until closed. Closing it clears the list.
+ * attack on you, say), in which case it stays until closed. Closing it clears the list; swiping one away removes just that
+ * one.
  */
-export function Notifications({ messages, clear }) {
+export function Notifications({ messages, clear, remove = () => {} }) {
   const [expanded, setExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -126,7 +139,7 @@ export function Notifications({ messages, clear }) {
         <button type="button" className="btn-close" aria-label="Close notifications" onClick={() => { clear(); setExpanded(false); }} />
       </header>
       <ul className="notifications-list">
-        {shown.map((message) => <Notification key={message.id} message={message} now={now} />)}
+        {shown.map((message) => <Notification key={message.id} message={message} now={now} onDismiss={() => remove(message.id)} />)}
       </ul>
       {messages.length > SHOWN ? (
         <button type="button" className="btn btn-link btn-sm notifications-more" onClick={() => setExpanded(!expanded)}>

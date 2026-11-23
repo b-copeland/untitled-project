@@ -16,7 +16,7 @@ const data = () => ({
                completed_projects: [], units_target: { attack: 0.5 } },
     mobis: {
         units_desc: { attack: unit(100, 5, 0), defense: unit(100, 0, 5), flex: unit(200, 4, 4), big_flex: { ...unit(500, 8, 8), project: "big_flexers" }, recruits: { offense: 0, defense: 1 } },
-        units: { current_total: { attack: 5, recruits: 50 }, hour_24: {}, current: { recruits: 50 } },
+        units: { current_total: { attack: 5, recruits: 50 }, queued: {}, current: { recruits: 50 } },
         current_hangar_capacity: 50, max_hangar_capacity: 100, recruit_price: 10, recruit_time: 3600,
         current_available_recruits: 10, max_available_recruits: 10,
     },

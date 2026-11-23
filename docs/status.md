@@ -64,9 +64,8 @@ Starting a round, its dates and bots were reworked on 2026-11-21 ([admin.md](adm
 
 - The function app's handlers catch everything with a bare `except` and answer `500`, which hides throttling (`429`) and
   real errors alike. Several `GET` handlers answer `201`.
-- A function app write route that cannot work (2026-11-14), uncalled: `PATCH /empire/<id>/news` reads `empire_<id>`
-  where the document is `empire_news_<id>`, so empire news is never written. Kingdoms made before the intel market
-  (2026-11-18) still have an unused `shared_<id>` document; a round reset removes it.
+- Kingdoms made before the intel market (2026-11-18) still have an unused `shared_<id>` document; a round reset
+  removes it.
 - `getters.py` and `conquer.py` are large and mix routes, formulas and storage calls.
 - Over a hundred raw `REQUESTS_SESSION` calls across the blueprints; the target is one storage module
   ([architecture.md](architecture.md#target-one-storage-module)).
@@ -99,6 +98,18 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   locally. The likely cause is that the refetch of every key right after creation failed (a throttled or busy
   backend). Failed fetches are now retried for about half a minute (`src/data/gameData.js`). If it happens again,
   look in the browser's network tab for a failing or empty `/api/structures`.
+
+## Instant changes to military strength
+
+Found 2026-11-22, when the rule that strength never changes much in an instant joined tenet 1
+([game-design.md](game-design.md#the-tenets-in-order-of-priority)). These still break it. Not changed yet:
+
+- **Military shields** (`POST /api/shields`, `misc.set_shields`) apply the moment they are set: a defender can go from
+  0 to `BASE_MILITARY_SHIELDS_MAX` (10%) of extra defense as an attack comes in. Raising them could instead climb to the
+  new level over some hours, worked out from timestamps; lowering them can stay instant.
+- **Empire bonuses** apply as soon as their event happens: denouncing (`DENOUNCE_OFFENSE_BONUS`), war
+  (`WAR_OFFENSE_INCREASE`) and peace (`PEACE_DEFENSE_BONUS`, 50% defense), in `getters.py`. Empire politics is likely
+  to be cut back for launch, which may settle these.
 
 ## Universe policies
 
@@ -133,7 +144,8 @@ Added 2026-11-22 (issue #168, [decisions/0013](decisions/0013-galaxy-policy-tall
   environment has a round from before #168, `galaxypolicies.LEGACY_VOTES` and the reading of `active_policies` can go.
 - A kingdom that dies keeps its policy votes, as it keeps its vote for leader.
 - Bots vote by a fixed list per playstyle; they do not weigh what the galaxy is short of.
-- The Galaxy page has not been checked in a browser.
+- A tally's news (the policy it adopted) is posted by the next refresh tick, and is missed for a galaxy whose
+  politics are written between the tally and that tick (a vote in that minute).
 
 ## Vote cooldown
 

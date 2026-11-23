@@ -267,3 +267,34 @@ def test_every_effect_is_read_somewhere_in_the_game():
     ) + pathlib.Path(uas.__file__).read_text(encoding="utf-8").split("EFFECTS = {", 1)[0]
     for effect in uas.EFFECTS:
         assert re.search(rf'["\']{effect}["\']', source), f"nothing reads {effect}"
+
+
+# --- the news of a tally -----------------------------------------------------------------------------------------------
+
+def test_the_last_tally_and_what_it_adopted():
+    assert gp.last_tally(START, START - HOUR) is None
+    assert gp.last_tally(START, START) == START
+    assert gp.last_tally(START, START + period() + HOUR) == START + period()
+    document = vote({}, START + HOUR, "1", "expansionist")
+    assert gp.adopted_at(document, POLICIES, START, START + period()) == {"growth_doctrine": "expansionist"}
+    assert gp.adopted_at(document, POLICIES, START, START + 2 * period()) == {}  # already active: nothing new
+
+
+def test_the_refresh_posts_what_a_tally_adopted_once(app):
+    import untitledapp.refresh as refresh
+    from tests.test_concurrency import _create_item, _get, _set_up_kingdom
+
+    _set_up_kingdom(money=0)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    start = now - 2 * period() - HOUR
+    state = _get("/state")["state"]
+    _create_item("state", {"state": {**state, "game_start": start.isoformat(), "galaxy_policies": POLICIES}})
+    _create_item("galaxies", {"galaxies": {"1:1": ["1"]}})
+    _create_item("galaxy_news_1:1", {"news": []})
+    _create_item("galaxy_votes_1:1", {"votes": {"leader": {}}, "policy_votes": {"industry": {"1": "industrialists"}},
+                                      "policy_active": {}, "policy_updated": (start + period() + HOUR).isoformat()})
+    with app.app_context():
+        for _ in range(2):  # a second tick finds the tally's news posted
+            refresh._galaxy_tally_news(_get("/state"), refresh._RefreshContext(_get("/state")), now)
+    news = [item["news"] for item in _get("/galaxy/1:1/news")["news"]]
+    assert news.count("The galaxy voted for the Industrialists policy") == 1

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { authFetch } from "../auth";
 import { useSearchParams } from "react-router-dom";
+import Tab from "react-bootstrap/Tab";
+import Tabs from "react-bootstrap/Tabs";
 import 'bootstrap/dist/css/bootstrap.css';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
@@ -9,6 +11,7 @@ import "./message.css";
 import HelpButton from "../components/helpbutton";
 import { ResultToasts, safeJson } from "../components/results";
 import { Picker } from "../components/planner";
+import GalaxyBoard from "./galaxyboard";
 
 const shortTime = (time) => {
     const date = new Date(time);
@@ -17,10 +20,10 @@ const shortTime = (time) => {
 };
 
 /**
- * Messages as a chat: your conversations on the left (newest first, with a preview), the chosen one on the right as
+ * Kingdom-to-kingdom messages as a chat: your conversations on the left (newest first, with a preview), the chosen one on the right as
  * bubbles with a box to write in at the bottom. On a phone it shows one at a time, with a back arrow.
  */
-function Message(props) {
+function Conversations(props) {
     // A conversation opened by a link (/message?to=12: the Galaxy page) or a prop.
     const [query] = useSearchParams();
     const [selected, setSelected] = useState(props.initialKd || query.get("to") || undefined);
@@ -129,8 +132,29 @@ function Message(props) {
                             </div>
                         </>}
                 </section>
-                <HelpButton scrollTarget={"message"}/>
             </div>
+        </>
+    );
+}
+
+const count = (notifs, key) => (notifs?.[key] > 0 ? ` (${notifs[key]})` : "");
+
+/** The Message page: your conversations, and your galaxy's board (``?tab=board``), each with its unread count. */
+function Message(props) {
+    const [params, setParams] = useSearchParams();
+    const tab = params.get("tab") === "board" ? "board" : "messages";
+    const openTab = (key) => {
+        const next = new URLSearchParams(params);
+        if (key === "board") next.set("tab", "board"); else next.delete("tab");
+        setParams(next, { replace: true });
+    };
+    return (
+        <>
+            <Tabs id="message-tabs" activeKey={tab} onSelect={openTab} variant="tabs" mountOnEnter>
+                <Tab eventKey="messages" title={`Messages${count(props.data.notifs, "messages")}`}><Conversations {...props} /></Tab>
+                <Tab eventKey="board" title={`Galaxy Board${count(props.data.notifs, "galaxy_board")}`}><GalaxyBoard {...props} /></Tab>
+            </Tabs>
+            <HelpButton scrollTarget={"message"}/>
         </>
     );
 }

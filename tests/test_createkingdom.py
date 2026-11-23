@@ -244,3 +244,20 @@ def test_a_disabled_player_keeps_a_token_already_issued(app, client, player):
     with app.app_context():
         _stored_user(app, name).save(is_active=False)
     assert client.get("/api/kingdomid", headers=headers).status_code == 200
+
+
+def test_a_new_kingdom_shows_its_income_before_the_first_tick(client, player, app):
+    """The Status and Shields pages read the income breakdown: a new player needs their fuel surplus to set shields."""
+    name, headers = player
+    assert client.post("/api/createkingdom", json={"kdName": "Fresh", "preset": "explorer"}, headers=headers).status_code == 200
+
+    kingdom = _get(f"/kingdom/{_user(app, name)[0]}")
+    income = kingdom["income"]
+    mines = int(kingdom["structures"]["mines"])
+    assert income["money"]["mines"] == mines * uas.GAME_CONFIG["BASE_MINES_INCOME_PER_EPOCH"]
+    assert income["money"]["net"] > 0
+    plants = int(kingdom["structures"]["fuel_plants"])
+    assert income["fuel"]["fuel_plants"] == plants * uas.GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"]
+    assert "net" in income["fuel"] and "drones" in income and "population" in income
+    # Only the breakdown is seeded: nothing is credited.
+    assert kingdom["money"] == uas.INITIAL_KINGDOM_STATE["kingdom"]["money"]

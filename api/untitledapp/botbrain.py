@@ -834,7 +834,7 @@ def recruits_training_share(world):
     me = world.me
     units = uag._calc_units(world.now, me["units"], me.get("generals_out", []), uag._get_mobis_queue(world.kd_id))
     cap = uas.GAME_FUNCS["BASE_MAX_RECRUITS"](int(me.get("population", 0)))
-    return units["hour_24"].get("recruits", 0) / max(cap, 1)
+    return units["queued"].get("recruits", 0) / max(cap, 1)
 
 
 def risk_floor(kd_id):
@@ -1641,7 +1641,7 @@ def _buy_structures(kd_id, money, target):
     if count < 1 or not target:
         return {"message": "nothing to build"}, 400
     stars = max(kingdom["stars"], 1)
-    have = {key: info["current"].get(key, 0) + info["hour_24"].get(key, 0) for key in uas.STRUCTURES}
+    have = {key: info["current"].get(key, 0) + info["queued"].get(key, 0) for key in uas.STRUCTURES}
     gaps = {key: max(target.get(key, 0) - have[key] / stars, 0) for key in uas.STRUCTURES}
     total = sum(gaps.values())
     if total <= 0:
