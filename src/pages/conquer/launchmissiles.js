@@ -8,6 +8,7 @@ import Alert from 'react-bootstrap/Alert';
 import "./launchmissiles.css";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
+import { flourishResult } from "../../components/flourish";
 import { AmountInput, NumberControl, useFormValues } from "../../components/forms";
 import { Panel, FieldRow, Stats, Picker, useServerForecast } from "../../components/planner";
 import { checkPercent } from "../../validation";
@@ -70,7 +71,10 @@ function LaunchMissiles(props) {
         const updateFunc = async () => authFetch('api/launchmissiles/' + selected, {
             method: 'POST',
             body: JSON.stringify({ attackerValues: form.values }),
-        }).then(safeJson).then((r) => { setResults((previous) => previous.concat(r)); form.reset(); });
+        }).then(safeJson).then((r) => {
+            form.reset();
+            return flourishResult("missiles", r).then(() => setResults((previous) => previous.concat(r)));
+        });
         props.updateData(['kingdom', 'missilehistory'], [updateFunc]);
     };
 

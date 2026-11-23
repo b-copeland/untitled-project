@@ -98,8 +98,35 @@ function AdvisorsChoice({ preferences, updateData, setResults }) {
     );
 }
 
-/** The Settings page: the player's own preferences, saved to their account. The colour theme, notifications and the
- * advisors, and a button that starts the guided tour. */
+/** Whether attacks, spy operations, missiles and election results play their short animation: one switch. */
+function EffectsChoice({ preferences, updateData, setResults }) {
+    const [chosen, setChosen] = useState(null);
+    const current = chosen || preferences.effects || "on";
+    const toggle = () => {
+        const before = current;
+        const next = current === "on" ? "off" : "on";
+        setChosen(next);
+        const updateFunc = () => authFetch("api/preferences", { method: "post", body: JSON.stringify({ effects: next }) })
+            .then(safeJson)
+            .then((r) => {
+                if (r.status !== "success") {
+                    setChosen(before);
+                    setResults((previous) => previous.concat(r));
+                }
+            });
+        updateData(["preferences"], [updateFunc]);
+    };
+    return (
+        <div className="form-check form-switch">
+            <input className="form-check-input" type="checkbox" role="switch" id="effects-on"
+                checked={current === "on"} onChange={toggle} />
+            <label className="form-check-label" htmlFor="effects-on">Play animations for attacks, spy operations, missiles and election results</label>
+        </div>
+    );
+}
+
+/** The Settings page: the player's own preferences, saved to their account. The colour theme, notifications, the
+ * advisors and the effects, and a button that starts the guided tour. */
 function Settings(props) {
     const [results, setResults] = useState([]);
     const tour = useTour();
@@ -148,6 +175,9 @@ function Settings(props) {
             </Panel>
             <Panel title="Advisors" hint="Your advisors point out what in your kingdom may need fixing. Advice you hide stays hidden; the Status page can show it again.">
                 <AdvisorsChoice preferences={preferences} updateData={props.updateData} setResults={setResults} />
+            </Panel>
+            <Panel title="Effects" hint="Short animations when an action lands. A device set to reduce motion never plays them.">
+                <EffectsChoice preferences={preferences} updateData={props.updateData} setResults={setResults} />
             </Panel>
             <Panel title="Guided tour" hint={`A walk through the main pages of the game, ${tourLength()}.`}>
                 <div className="form-actions"><Button variant="outline-primary" onClick={tour.start}>Take the tour</Button></div>

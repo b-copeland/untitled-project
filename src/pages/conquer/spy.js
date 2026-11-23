@@ -10,6 +10,7 @@ import ProgressBar from 'react-bootstrap/ProgressBar';
 import "./spy.css";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
+import { flourishResult } from "../../components/flourish";
 import { AmountInput, NumberControl } from "../../components/forms";
 import { Panel, FieldRow, Stats, Picker, useServerForecast, clockUntil } from "../../components/planner";
 import { alreadyRevealed, checkPercent } from "../../validation";
@@ -104,7 +105,10 @@ function Spy(props) {
         setConfirming(false);
         const body = { drones, shielded: shieldDrones, operation, share_to_galaxy: share, cut: cut === "" ? 0 : cut };
         const updateFunc = async () => authFetch('api/spy/' + selected, { method: 'POST', body: JSON.stringify(body) })
-            .then(safeJson).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); });
+            .then(safeJson).then(r => {
+                setForecast({});
+                return flourishResult("spy", r).then(() => setResults((previous) => previous.concat(r)));
+            });
         props.updateData(['kingdom', 'spyhistory', 'revealed', 'intel'], [updateFunc]);
     };
 

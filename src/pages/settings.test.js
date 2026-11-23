@@ -85,3 +85,12 @@ test("the advisors can be switched off, and are on until the player says so", ()
     expect(authFetch).toHaveBeenCalledWith("api/preferences", expect.objectContaining({ body: JSON.stringify({ advisors: "off" }) }));
     expect(toggle.checked).toBe(false);
 });
+
+test("the effects can be switched off, and are on until the player says so", () => {
+    renderPage();
+    const toggle = screen.getByRole("switch", { name: /Play animations/ });
+    expect(toggle.checked).toBe(true);
+    fireEvent.click(toggle);
+    expect(authFetch).toHaveBeenCalledWith("api/preferences", expect.objectContaining({ body: JSON.stringify({ effects: "off" }) }));
+    expect(toggle.checked).toBe(false);
+});

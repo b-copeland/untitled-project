@@ -78,3 +78,12 @@ def test_the_tour_is_offered_until_the_player_answers_and_the_answer_is_kept(app
     assert _get(client, jwt2).get_json()["tour"] == "offer"
     assert _post(client, jwt1, {"tour": "maybe"}).status_code == 400
     assert _get(client, jwt1).get_json()["tour"] == "done"
+
+
+def test_effects_are_on_until_the_player_turns_them_off(app, client, jwt1, jwt2):
+    assert _get(client, jwt1).get_json()["effects"] == "on"
+    assert _post(client, jwt1, {"effects": "off"}).status_code == 200
+    assert _get(client, jwt1).get_json()["effects"] == "off"
+    assert _get(client, jwt2).get_json()["effects"] == "on"
+    assert _post(client, jwt1, {"effects": "loud"}).status_code == 400
+    assert _get(client, jwt1).get_json()["effects"] == "off"

@@ -68,3 +68,21 @@ test("with no ballot drawn there is no ballot heading", () => {
     expect(screen.getByText("No election is planned.")).toBeTruthy();
     expect(screen.queryByText(/On the (next )?ballot/)).toBeNull();
 });
+
+test("a new result opens the curtains once in this browser, and again only when the result changes", () => {
+    const flourish = require("../../components/flourish");
+    const play = jest.spyOn(flourish, "playFlourish").mockImplementation(() => {});
+    window.localStorage.clear();
+
+    const first = show(universe());
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(play).toHaveBeenLastCalledWith({ kind: "election", lines: ["Rules of War: Land Tax", "Wealth: Progressive Tax"] });
+    first.unmount();
+
+    show(universe()).unmount();
+    expect(play).toHaveBeenCalledTimes(1);
+
+    show(universe({ active: [{ key: "free_trade", policy_name: "Wealth", name: "Free Trade", desc: "", hits_me: true }] }));
+    expect(play).toHaveBeenCalledTimes(2);
+    play.mockRestore();
+});
