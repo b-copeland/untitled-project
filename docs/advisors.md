@@ -12,8 +12,8 @@ healthy kingdom looks like, and they stay quiet for a kingdom that is doing fine
 
 ## How it works
 
-`GET /api/advisors` reads the player's preferences, the state, their kingdom, its mobis, structures and settles queues,
-the empires, the galaxies and the galaxy's politics (nine reads), plus the cluster for a galaxy leader, the universe
+`GET /api/advisors` reads the player's preferences, the state, their kingdom, its mobis and structures queues,
+the empires, the galaxies and the galaxy's politics (eight reads), plus the cluster for a galaxy leader, the universe
 votes while an election is open, and the empire's targets while it is at war. It builds a `Context`, runs every check
 in `CHECKS` and answers the advice that applies, most serious kind first:
 
@@ -47,14 +47,13 @@ bot.
 |---|---|---|---|
 | `out_of_fuel` | danger | fuel at or below zero | game rule (the fuelless penalties) |
 | `fuel_running_out` | danger | fuel falling, gone within `FUEL_WARNING_HOURS` | twice-a-day logins (tenet 1) |
-| `hangars_full` | danger | units at home, out and in training need more hangar space than there is, by more than `HANGAR_OVERFLOW_SHARE` of the homes' room | game rule (overflow takes room in homes); measured on the bots |
+| `hangars_full` | danger | units at home, out and in training need more than `HANGAR_WARNING_SHARE` of the hangar space there is | game rule (overflow takes room in homes) |
 | `defense_under_break_even` | danger | defense at home now under `DEFENSE_WARNING_SHARE` of `break_even_per_star` (at war, the war line) | bot sum; bots.md finding 2; measured on the bots |
-| `empty_stars` | waste | `EMPTY_STARS_SHARE` of the stars empty with nothing on order | the guide: empty stars earn nothing |
-| `idle_money` | waste | money and funding over `IDLE_MONEY_HOURS` of income | bots.md finding 3 (bots keep about an hour idle) |
+| `empty_stars` | waste | `EMPTY_STARS_SHARE` of the stars empty with nothing on order, and auto spending not set to build on them | the guide: empty stars earn nothing |
+| `idle_money` | waste | money and funding over `IDLE_MONEY_EPOCHS` of income | bots.md finding 3 (bots keep about two epochs idle) |
 | `auto_spending_without_targets` | waste | auto spending funds structures or units with no targets for them | game rule (nothing to build) |
-| `settling_slowly` | waste | settling queue under `SETTLE_SLOW_SHARE` of the cap while `settle_worth` is over 1 | bot sum; bots.md finding 1 |
-| `engineers_idle` | waste | auto assign off and `IDLE_ENGINEERS_SHARE` of engineers unassigned | game rule |
-| `generals_idle` | waste | all generals home, offense at home, no auto attack and no attack scheduled | bots.md finding 1 (primitives) |
+| `engineers_idle` | waste | auto assign off and any engineer unassigned | game rule |
+| `generals_idle` | waste | all generals home, at least `ATTACKERS_SHARE` of the army pure attackers, no auto attack and no attack scheduled | bots.md finding 1 (primitives) |
 | `spy_attempts_full` | waste | spy attempts at `BASE_SPY_ATTEMPTS_MAX`, auto rob off | game rule (attempts over the cap are lost) |
 | `empire_war_targets` | team | the empire is at war and has targets | |
 | `universe_election_open` | team | an election is open and the kingdom has no votes in it | |
@@ -97,16 +96,16 @@ something the bots also get wrong. Rerun it after changing a threshold or a bot 
 What it showed (seven days, 40 bots, three seeds), and what was done:
 
 - **Defense.** Fired on any shortfall, it caught 50-85% of attackers and explorers: they aim at about the break-even
-  on purpose and sit a little under it without being hunted. From `DEFENSE_WARNING_SHARE` (0.8) of the line it fires
-  on 0-30% by playstyle, mostly early in the round, while armies are still being built.
-- **Hangars.** Any overflow caught 93% of bots: they run 5-20% over capacity all round, counting units in training,
-  which the game's overflow rule counts and the bots' `structures_plan` does not. From `HANGAR_OVERFLOW_SHARE` of the
-  homes' room it still fires on about 80%. That is left as it is: by the game's rule those bots give up a twentieth or
-  more of their homes to units without hangars. It is a bot gap, listed in [status.md](status.md#advisors).
-- **Cluster vote.** Fires on every galaxy leader all round: the bots never cast a cluster vote. A bot gap.
+  on purpose and sit a little under it without being hunted. It now warns from `DEFENSE_WARNING_SHARE` of the line.
+- **Hangars.** Any overflow caught 93% of bots: they ran 5-20% over capacity all round, counting units in training,
+  which the game's overflow rule counts and the bots' hangar sizing did not: a bot gap ([status.md](status.md#advisors)). In
+  the players' advice the warning starts a hair over capacity (`HANGAR_WARNING_SHARE`), since every unit over costs a person.
+- **Cluster vote.** Fired on every galaxy-leader bot all round: the bots never cast a cluster vote. A bot gap.
+- **Settling slowly** was dropped: whether a star still pays depends on prices that climb fast as a kingdom grows, and
+  a nudge to settle more late in the round is more often wrong than right.
 - The rest fire on a minority, at the times one would expect: empty stars early (primitives bring land faster than it
-  is built on), settling slowly early and late, idle generals on bots whose style keeps the army home, full spy
-  attempts on thieves holding theirs for siphons.
+  is built on), idle generals on bots whose style keeps the army home, full spy attempts on thieves holding theirs for
+  siphons.
 
 ## Hiding and the switch
 

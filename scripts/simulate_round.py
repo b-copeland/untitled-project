@@ -424,7 +424,6 @@ class Simulation:
                 ctx = advisors.context_for(
                     kd, state, self.doc(f"mobis_{kd_id}").get("mobis", []), empires_inverted, empires, self.clock.now,
                     structures_queue=self.doc(f"structures_{kd_id}").get("structures", []),
-                    settles_queue=self.doc(f"settles_{kd_id}").get("settles", []),
                     galaxy_id=galaxy, galaxy_votes=self.doc(f"galaxy_votes_{galaxy}") if galaxy else {},
                     cluster=self.doc(f"cluster_{clusters.cluster_of(galaxy)}") if galaxy else None,
                     universe_votes=universe_votes,
