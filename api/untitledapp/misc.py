@@ -1,4 +1,5 @@
 import collections
+import copy
 import datetime
 import json
 import os
@@ -7,13 +8,15 @@ import uuid
 
 import flask
 import flask_praetorian
-from flask_sock import Sock, ConnectionClosed
+from flask_sock import Sock
 
 import untitledapp.shared as uas
 import untitledapp.getters as uag
 import untitledapp.lastknown as uala
+import untitledapp.news as uan
 import untitledapp.occ as occ
-from untitledapp import User, REQUESTS_SESSION, SOCK_HANDLERS, before_start_required, alive_required
+from untitledapp import User, REQUESTS_SESSION, before_start_required, alive_required
+from untitledapp.push import push
 from untitledapp.users import issue_tokens
 
 bp = flask.Blueprint("misc", __name__)
@@ -173,6 +176,40 @@ def _new_tokens(user_id):
     return issue_tokens(User.get(user_id))
 
 
+def _galaxy_news_for_all(galaxy_id, message, time_now=None, kind="", from_kd="", to_kd=""):
+    """A line in a galaxy's news, unread for every kingdom in it."""
+    galaxies = occ.read('/galaxies')["galaxies"]  # fresh: the request may have just changed the galaxy
+    uan.galaxy(galaxy_id, message, time_now, kind=kind, from_kd=from_kd, to_kd=to_kd)
+    for galaxymate in galaxies.get(galaxy_id, []):
+        _add_notifs(galaxymate, ["news_galaxy"])
+
+
+def _galaxy_of(kd_id):
+    galaxies = occ.read('/galaxies')["galaxies"]
+    return next((galaxy for galaxy, members in galaxies.items() if str(kd_id) in members), None)
+
+
+@uan.best_effort
+def announce_new_kingdom(kd_id, name):
+    """A kingdom was set up: its galaxy's news says so. Players and bots both come through here."""
+    galaxy = _galaxy_of(kd_id)
+    if galaxy is not None:
+        _galaxy_news_for_all(galaxy, f"{name or 'A new kingdom'} joined the galaxy", kind="galaxy", from_kd=str(kd_id))
+
+
+@uan.best_effort
+def _death_news(kd_id, killer=None):
+    """A kingdom died: its galaxy's news says so, and who killed it if anyone did."""
+    galaxy = _galaxy_of(kd_id)
+    if galaxy is None:
+        return
+    names = uag._get_kingdoms()
+    name = names.get(str(kd_id), f"Kingdom {kd_id}")
+    message = f"{name} has died" + (f", killed by {names.get(str(killer), killer)}" if killer is not None else "")
+    _galaxy_news_for_all(galaxy, message, kind="death", from_kd="" if killer is None else str(killer),
+                         to_kd=str(kd_id))
+
+
 def _finish_kingdom(kd_id, plan, user_id):
     """Set a freshly made kingdom up as the plan says, once. Returns the response."""
 
@@ -181,17 +218,19 @@ def _finish_kingdom(kd_id, plan, user_id):
             raise occ.Rejected("This kingdom has already been created")
         payload = _kingdom_setup_payload(kd_info, plan["units"], plan["structures"], plan["race"])
         payload.update(plan["settings"])
+        payload["income"] = _starting_income({**kd_info, **payload})
         if plan["settings"].get("auto_spending_enabled"):
             # Same as a player switching auto spending on: it first runs after one auto-spending interval.
             payload["next_resolve"]["auto_spending"] = (
                 datetime.datetime.now(datetime.timezone.utc)
                 + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] * uas.GAME_CONFIG["BASE_AUTO_SPENDING_TIME_MULTIPLIER"])
             ).isoformat()
-        return payload, None
+        return payload, kd_info.get("name", "")
 
     try:
         # The kingdom is only ever set up once: the second of two racing requests finds the race already chosen.
-        occ.update(f"/kingdom/{kd_id}", decide)
+        name = occ.update(f"/kingdom/{kd_id}", decide)
+        announce_new_kingdom(kd_id, name)
 
         User.get(user_id).save(kd_created=True)
     except occ.Rejected as rejection:
@@ -326,6 +365,20 @@ def _validate_kingdom_choices(
     
     return True, ""
 
+def _starting_income(kd_info):
+    """
+    The income a freshly set-up kingdom will earn, worked out the way the refresh works it out, so the Status and
+    Shields pages show its money, fuel and power before the first tick (or the round's start) has run. The refresh
+    replaces it on every tick. Nothing is credited and the refresh's effects are dropped.
+    """
+    import untitledapp.refresh as uar  # imports this module, so only once it is loaded
+
+    kd = copy.deepcopy(kd_info)
+    one_epoch_on = uas.utc(kd["last_income"]) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"])
+    return uar._kingdom_with_income(kd, uas.project_bonuses(kd), uag._get_state(), one_epoch_on,
+                                    effects=[], mobis_queue=[])["income"]
+
+
 def _kingdom_setup_payload(kd_info, unit_choices, structures_choices, race):
     """The fields that turn a freshly created kingdom into a playable one: the chosen units, structures and race."""
     payload = {}
@@ -443,17 +496,7 @@ def send_message(target_kd):
         data=json.dumps(payload_to)
     )
     _add_notifs(target_kd, ["messages"])
-    try:
-        ws = SOCK_HANDLERS[target_kd]
-        ws.send(json.dumps({
-            "message": f"New message from {kingdoms[kd_id]}!",
-            "status": "info",
-            "category": "Message",
-            "delay": 30000,
-            "update": ["messages"],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    push(target_kd, "messages", f"New message from {kingdoms[kd_id]}!", delay=30000, update=["messages"])
     return (flask.jsonify({"message": "Message sent!", "status": "success"}), 200)
 
 
@@ -651,16 +694,7 @@ def _mark_kingdom_death(kd_id, killer=None):
 
     uat.on_kingdom_death(kd_id, killer=killer)
     death_date = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    _death_news(kd_id, killer)
     for user in User.by_kd_id(kd_id):
         user.save(kd_death_date=death_date)
-    try:
-        ws = SOCK_HANDLERS[kd_id]
-        ws.send(json.dumps({
-            "message": f"You died!",
-            "status": "warning",
-            "category": "Dead",
-            "delay": 999999,
-            "update": [],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    push(kd_id, "dead", "You died!", status="warning", delay=999999)

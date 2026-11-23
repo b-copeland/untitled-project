@@ -56,12 +56,13 @@ import math
 
 import flask
 import flask_praetorian
-from flask_sock import ConnectionClosed
 
 import untitledapp.getters as uag
+import untitledapp.news as uan
 import untitledapp.occ as occ
 import untitledapp.shared as uas
-from untitledapp import REQUESTS_SESSION, SOCK_HANDLERS, alive_required
+from untitledapp import REQUESTS_SESSION, alive_required
+from untitledapp.push import push
 
 bp = flask.Blueprint("targets", __name__)
 
@@ -440,12 +441,7 @@ def _path(empire):
 
 
 def _send(kd_id, message, status="info", update=("empiretargets",)):
-    try:
-        SOCK_HANDLERS[kd_id].send(json.dumps({
-            "message": message, "status": status, "category": "Targets", "delay": 15000, "update": list(update),
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    push(kd_id, "targets", message, status=status, update=update)
 
 
 def _news(kd_id, message, time_now):
@@ -721,8 +717,23 @@ def _end_target(empire, target, reason, by, remains=None, check=None):
     shares = occ.update(_path(empire), decide)
     _change_hint(empire, remove=target)
     names = uag._get_kingdoms()
+    uan.empire([empire], ended_news(reason, names.get(target, target), names.get(by, by), shares), time_now)
     _pay(shares, names.get(target, target), time_now, final=True)
     return shares
+
+
+def ended_news(reason, target_name, by_name, shares):
+    """The empire's news line for a target that ended: why, and what its fund paid out."""
+    why = {
+        "removed": f"{by_name} removed the target {target_name}",
+        "killed": f"The target {target_name} is dead",
+        "war_ended": f"The target {target_name} ended with the war",
+    }.get(reason, f"The target {target_name} ended")
+    if not shares:
+        return f"{why}. Its spoils fund paid out nothing"
+    stars = sum(part["stars"] for part in shares.values())
+    money = sum(part["money"] for part in shares.values())
+    return f"{why}. Its spoils fund paid {stars:,} stars and {money:,} money to {len(shares)} kingdom(s)"
 
 
 # --- the routes ------------------------------------------------------------------------------------------------------
@@ -828,6 +839,7 @@ def add_target(kd_id, target, actions_value, fund_share_value):
         return {"message": rejection.message}, rejection.status
     except occ.Busy:
         return {"message": "Server is busy"}, 400
+    uan.empire([empire], f"{names.get(kd_id, kd_id)} marked {names.get(target, target)} as a target", now)
     for member in members:
         if member != kd_id:
             _send(member, f"{names.get(kd_id, kd_id)} marked {names.get(target, target)} as an empire target")

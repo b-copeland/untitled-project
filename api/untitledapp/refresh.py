@@ -10,9 +10,10 @@ import random
 
 import flask
 import flask_praetorian
-from flask_sock import Sock, ConnectionClosed
+from flask_sock import Sock
 
 import untitledapp.misc as uam
+import untitledapp.news as uan
 import untitledapp.occ as occ
 import untitledapp.build as uab
 import untitledapp.clusters as uacl
@@ -24,7 +25,8 @@ import untitledapp.lastknown as uala
 import untitledapp.shared as uas
 import untitledapp.botbrain as botbrain
 import untitledapp.roundend as uare
-from untitledapp import REQUESTS_SESSION, SOCK_HANDLERS
+from untitledapp import REQUESTS_SESSION
+from untitledapp.push import push
 
 bp = flask.Blueprint("refresh", __name__)
 
@@ -534,17 +536,7 @@ def _kingdom_with_income(
                 new_kd_info["completed_projects"].append(key_project)
                 new_kd_info["projects_assigned"][key_project] = 0
                 new_kd_info["projects_target"][key_project] = 0
-                try:
-                    ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-                    ws.send(json.dumps({
-                        "message": f"Completed project {uas.PROJECTS[key_project]['name']}!",
-                        "status": "info",
-                        "category": "Projects",
-                        "delay": 15000,
-                        "update": [],
-                    }))
-                except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-                    pass
+                push(kd_info_parse["kdId"], "projects", f"Completed project {uas.PROJECTS[key_project]['name']}!")
 
     if new_kd_info["auto_spending_enabled"]:
         pct_allocated = sum(new_kd_info["auto_spending"].values())
@@ -627,11 +619,11 @@ QUEUES = ("settles", "mobis", "structures", "missiles", "engineers")
 # Per queue: the websocket message when something in it finishes. Settles and engineers entries are
 # ``{"time", "amount"}``; the others are ``{"time", <unit or structure>: count, ...}``.
 _QUEUE_NOTICES = {
-    "settles": ("Settles", "Finished settling {} stars"),
-    "mobis": ("Mobis", "Finished mobilizing {} units"),
-    "structures": ("Structures", "Finished building {} structures"),
-    "missiles": ("Missiles", "Finished building {} missiles"),
-    "engineers": ("Engineers", "Finished training {} engineers"),
+    "settles": ("settles", "Finished settling {} stars"),
+    "mobis": ("military", "Finished mobilizing {} units"),
+    "structures": ("structures", "Finished building {} structures"),
+    "missiles": ("missiles", "Finished building {} missiles"),
+    "engineers": ("engineers", "Finished training {} engineers"),
 }
 _AMOUNT_QUEUES = ("settles", "engineers")
 
@@ -678,18 +670,8 @@ def _resolve_queue(kd_id, category, time_update, cursor=None, effects=None, pend
     _defer(effects, lambda: _trim_queue(path, category, time_update, document))
     count = ready if by_amount else sum(ready.values())
     if count:
-        notice_category, message = _QUEUE_NOTICES[category]
-        try:
-            ws = SOCK_HANDLERS[kd_id]
-            ws.send(json.dumps({
-                "message": message.format(count),
-                "status": "info",
-                "category": notice_category,
-                "delay": 5000,
-                "update": [],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
+        kind, message = _QUEUE_NOTICES[category]
+        push(kd_id, kind, message.format(count), delay=5000)
 
     return ready, next_resolve
 
@@ -774,19 +756,9 @@ def _resolve_generals(kd_info_parse, time_update):
 
     kd_info_parse["generals_out"] = generals_keep
     
-    try:
-        ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-        count_returning_units = sum(returning_units.values())
-        if count_returning_units:
-            ws.send(json.dumps({
-                "message": f"{returning_generals} generals returned with {count_returning_units} units",
-                "status": "info",
-                "category": "Generals",
-                "delay": 15000,
-                "update": [],
-            }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    count_returning_units = sum(returning_units.values())
+    if count_returning_units:
+        push(kd_info_parse["kdId"], "generals", f"{returning_generals} generals returned with {count_returning_units} units")
     return kd_info_parse, next_resolve
 
 
@@ -803,17 +775,7 @@ def _resolve_spy(kd_info_parse, time_update, current_bonuses, context=None):
     )
     if kd_info_parse["spy_attempts"] < uas.GAME_CONFIG["BASE_SPY_ATTEMPTS_MAX"]:
         kd_info_parse["spy_attempts"] += 1
-        try:
-            ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-            ws.send(json.dumps({
-                "message": f"A new spy attempt is available",
-                "status": "info",
-                "category": "Spy",
-                "delay": 15000,
-                "update": [],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
+        push(kd_info_parse["kdId"], "spy_attempts", "A new spy attempt is available")
     return kd_info_parse, next_resolve_time
 
 
@@ -873,7 +835,7 @@ def _resolve_auto_spending(
     structures_to_build = min(math.floor(structures_funding / structures_price), max_available_structures)
     if structures_to_build and sum(kd_info_parse["structures_target"].values()) > 0:
         structures_current = structures_info["current"]
-        structures_building = structures_info["hour_24"]
+        structures_building = structures_info["queued"]
         total_structures = {
             k: structures_current.get(k, 0) + structures_building.get(k, 0)
             for k in uas.STRUCTURES
@@ -925,7 +887,7 @@ def _resolve_auto_spending(
     recruit_time = mobis_info["recruit_time"]
     max_available_recruits = mobis_info["max_available_recruits"]
     current_units = mobis_info["units"]["current"]
-    building_units = mobis_info["units"]["hour_24"]
+    building_units = mobis_info["units"]["queued"]
     units_desc = mobis_info["units_desc"]
     military_funding = kd_info_parse["funding"]["military"]
 
@@ -1089,17 +1051,8 @@ def _resolve_auto_attack(kd_info_parse):
                 )
     # A refused attack comes back without a kingdom document, so keep using the one we have.
     _, payload, _ = uac._attack_primitives(req, kd_info_parse["kdId"])
-    try:
-        ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-        ws.send(json.dumps({
-            "message": payload["message"],
-            "status": payload.get("status", "info"),
-            "category": "Auto Primitives",
-            "delay": 15000,
-            "update": ["mobis", "attackhistory"],
-        }))
-    except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-        pass
+    push(kd_info_parse["kdId"], "auto_primitives", payload["message"], status=payload.get("status", "info"),
+         update=["mobis", "attackhistory"])
     return True
 
 def _resolve_auto_rob(kd_info_parse):
@@ -1114,17 +1067,8 @@ def _resolve_auto_rob(kd_info_parse):
             "shielded": shielded,
         }
         _, payload, _ = uac._rob_primitives(req, kd_info_parse["kdId"])
-        try:
-            ws = SOCK_HANDLERS[kd_info_parse["kdId"]]
-            ws.send(json.dumps({
-                "message": payload["message"],
-                "status": payload.get("status", "info"),
-                "category": "Auto Primitives",
-                "delay": 15000,
-                "update": ["spyhistory"],
-            }))
-        except (KeyError, ConnectionError, StopIteration, ConnectionClosed):
-            pass
+        push(kd_info_parse["kdId"], "auto_primitives", payload["message"], status=payload.get("status", "info"),
+             update=["spyhistory"])
         return True
     return False
 
@@ -1472,6 +1416,8 @@ def _begin_election(state):
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps(universe_politics_payload)
     )
+    uan.best_effort(uan.universe)(f"A universe election has begun. Voting closes in {uas.wait_text(election_end - election_start)}",
+                 election_start)
     return state
 
 def _resolve_election(state):
@@ -1511,6 +1457,8 @@ def _resolve_election(state):
 
     if _claim_state(decide):
         state["state"].update(result["state_payload"])
+        policies = " and ".join(result["state_payload"]["active_policies"])
+        uan.best_effort(uan.universe)(f"The universe election is over. The universe has chosen {policies}", election_end)
     return state
 
 def _resolve_scores(kd_scores, time_update, context=None):
@@ -1664,13 +1612,10 @@ def _resolve_empires(
                         empires_info["empires"][empire_id]["war"].append(other_empire_id)
                         empires_info["empires"][other_empire_id]["war"].append(empire_id)
 
-                        news_payload = {
-                            "news": {
-                                "time": time_update.isoformat(),
-                                "news": f"{empires_info['empires'][empire_id]['name']} declared war by aggression on {empires_info['empires'][other_empire_id]['name']}",
-                            }
-                        }
-                        news_items.append(news_payload)
+                        news_items.append((empire_id, other_empire_id, uan.item(
+                            f"{empires_info['empires'][empire_id]['name']} declared war by aggression on {empires_info['empires'][other_empire_id]['name']}",
+                            time_update,
+                        )))
             for other_empire_id in empires_info["empires"][empire_id]["aggression"]:
                 empires_info["empires"][empire_id]["aggression"][other_empire_id] = max(
                     empires_info["empires"][empire_id]["aggression"][other_empire_id] - decay,
@@ -1682,13 +1627,51 @@ def _resolve_empires(
         }, (news_items, empires_info["empires"])
 
     news_items, empires = occ.update('/empires', decide)
-    for news_payload in news_items:
-        REQUESTS_SESSION.patch(
-            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universenews',
-            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-            data=json.dumps(news_payload)
-        )
+    # One call per document however many wars started this tick: the universe's news, and each empire involved.
+    if news_items:
+        uan.universe_lines([line for _, _, line in news_items])
+        by_empire = collections.defaultdict(list)
+        for empire_id, other_empire_id, line in news_items:
+            by_empire[empire_id].append(line)
+            by_empire[other_empire_id].append(line)
+        uan.empire_lines(by_empire)
     return empires
+
+
+def _galaxy_tally_news(state, context, time_update):
+    """
+    Once a galaxy policy tally has passed, a line in the news of each galaxy whose policies it changed ("The galaxy
+    voted for the Expansionist policy"). The tally is claimed on the state (``galaxy_tally_news``), so of overlapping
+    ticks one posts it. Votes adopt nothing at once (galaxypolicies.py), so this is where adoption is news.
+    """
+    round_start = uag._round_start(state)
+    tally_time = uagp.last_tally(round_start, time_update)
+    if tally_time is None:
+        return
+
+    def claim(stored):
+        posted = stored.get("galaxy_tally_news")
+        if posted and _utc(posted) >= tally_time:
+            return None
+        return {"galaxy_tally_news": tally_time.isoformat()}
+
+    if not _claim_state(claim):
+        return
+    policies = uagp.round_policies(state.get("state"))
+    for galaxy_id in sorted(context.galaxies):
+        try:
+            document = context.galaxy_politics("", galaxy_id)
+        except Exception:  # noqa: BLE001 (one unreadable galaxy must not keep the others' news back)
+            flask.current_app.logger.exception("No politics for galaxy %s", galaxy_id)
+            continue
+        for policy, option in uagp.adopted_at(document, policies, round_start, tally_time).items():
+            name = uas.GALAXY_POLICIES[policy]["options"][option]["name"]
+            _tally_news(galaxy_id, f"The galaxy voted for the {name} policy", time_update)
+
+
+@uan.best_effort
+def _tally_news(galaxy_id, message, now):
+    uam._galaxy_news_for_all(galaxy_id, message, now, kind="politics")
 
 
 def _resolve_clusters(empires, time_update, context):
@@ -1970,6 +1953,10 @@ def refresh_data():
         _resolve_clusters(empires, time_update, context)
     except Exception:
         app.logger.exception("Refresh failed to resolve clusters")
+    try:
+        _galaxy_tally_news(state, context, time_update)
+    except Exception:
+        app.logger.exception("Refresh failed to post the galaxy policy tally news")
 
     if round_ending:
         uare.end_round(state, reason="The round reached its end time")

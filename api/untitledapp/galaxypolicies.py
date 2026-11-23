@@ -59,6 +59,21 @@ def tally_after(round_start, moment):
     return round_start + datetime.timedelta(seconds=periods * tally_seconds())
 
 
+def last_tally(round_start, moment):
+    """The latest tally at or before ``moment``, or None before the round's start."""
+    if moment < round_start:
+        return None
+    periods = math.floor((moment - round_start).total_seconds() / tally_seconds())
+    return round_start + datetime.timedelta(seconds=periods * tally_seconds())
+
+
+def adopted_at(document, policies, round_start, tally_time):
+    """The options the tally at ``tally_time`` made active that were not before it: policy to option."""
+    before = advance(document, policies, round_start, tally_time - datetime.timedelta(microseconds=1))["active"]
+    after = advance(document, policies, round_start, tally_time)["active"]
+    return {policy: option for policy, option in after.items() if before.get(policy) != option}
+
+
 def _options(policy):
     return uas.GALAXY_POLICIES[policy]["options"]
 

@@ -48,3 +48,31 @@ test("if the save fails, the theme goes back", async () => {
     await screen.findByText("Your settings could not be saved. Try again.");
     expect(document.documentElement.getAttribute("data-theme")).toBe("gray");
 });
+
+const muteOptions = [
+    { value: "settles", label: "Settles", group: "Your kingdom" },
+    { value: "generals", label: "Generals", group: "Your kingdom" },
+    { value: "attacked", label: "Attacks on you", group: "Against you" },
+];
+const renderWithMuted = (muted) => render(<Settings data={{ preferences: { theme: "gray", muted, options: { theme: options, muted: muteOptions } } }}
+    loading={{}} updateData={updateData} />);
+
+test("each kind of notification has a switch, in its group, on unless the player turned it off", () => {
+    renderWithMuted(["generals"]);
+    expect(screen.getByRole("group", { name: "Your kingdom" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Against you" })).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "Settles" }).checked).toBe(true);
+    expect(screen.getByRole("switch", { name: "Generals" }).checked).toBe(false);
+});
+
+test("turning a notification off saves the whole list, and a refusal turns it back on", async () => {
+    renderWithMuted(["generals"]);
+    fireEvent.click(screen.getByRole("switch", { name: "Settles" }));
+    expect(authFetch).toHaveBeenCalledWith("api/preferences", expect.objectContaining({ body: JSON.stringify({ muted: ["generals", "settles"] }) }));
+    expect(screen.getByRole("switch", { name: "Settles" }).checked).toBe(false);
+
+    answer({ status: "error", message: "Your settings could not be saved. Try again." });
+    fireEvent.click(screen.getByRole("switch", { name: "Attacks on you" }));
+    expect(await screen.findByText("Your settings could not be saved. Try again.")).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "Attacks on you" }).checked).toBe(true);
+});

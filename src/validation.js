@@ -90,3 +90,15 @@ export function alreadyRevealed(reveals, revealed = {}, sharesKingdom = false, n
     const known = sharesKingdom || reveals.every((category) => revealed[category] && new Date(revealed[category]).getTime() > now);
     return known ? `You already have their ${reveals.join(", ")} revealed` : null;
 }
+
+/** A galaxy board post: something to say, at most ``max`` characters once trimmed (as the server counts). */
+export function checkPost(text, max) {
+    const length = String(text ?? "").trim().length;
+    if (length === 0) {
+        return "Write something to post";
+    }
+    if (max && length > max) {
+        return `At most ${max.toLocaleString()} characters`;
+    }
+    return null;
+}

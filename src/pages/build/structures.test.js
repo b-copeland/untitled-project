@@ -9,7 +9,7 @@ jest.mock("../../auth", () => ({ authFetch: jest.fn(() => Promise.resolve({ json
 const zero = { homes: 0, mines: 0, fuel_plants: 0, hangars: 0, drone_factories: 0, missile_silos: 0, workshops: 0 };
 const data = {
     structures: {
-        current: { ...zero, homes: 100 }, hour_24: zero, price: 50, max_available_structures: 30, current_available_structures: 20,
+        current: { ...zero, homes: 100 }, queued: zero, price: 50, max_available_structures: 30, current_available_structures: 20,
     },
     kingdom: { stars: 300, money: 100000, structures: { ...zero, homes: 100 }, structures_target: { ...zero, homes: 0.6, mines: 0.3 } },
     state: { game_config: {}, pretty_names: {} },

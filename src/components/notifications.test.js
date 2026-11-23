@@ -69,3 +69,21 @@ test("how long ago reads in minutes, then hours", () => {
     expect(ago(now, now + 4 * 60000)).toBe("4 min ago");
     expect(ago(now, now + 130 * 60000)).toBe("2 h ago");
 });
+
+test("swiping one notification away removes just that one", () => {
+    window.PointerEvent = window.PointerEvent || class extends MouseEvent {
+        constructor(type, init = {}) { super(type, init); this.pointerType = init.pointerType; this.pointerId = init.pointerId; }
+    };
+    jest.useFakeTimers();
+    const remove = jest.fn();
+    render(<Notifications messages={[info(2, "second"), info(1, "first")]} clear={() => {}} remove={remove} />);
+    const item = screen.getByText("second").closest("li");
+    fireEvent.pointerDown(item, { clientX: 100, clientY: 10, pointerType: "touch", pointerId: 1 });
+    fireEvent.pointerMove(item, { clientX: 20, clientY: 10, pointerType: "touch", pointerId: 1 });
+    fireEvent.pointerMove(item, { clientX: -150, clientY: 10, pointerType: "touch", pointerId: 1 });
+    fireEvent.pointerUp(item, { clientX: -150, clientY: 10, pointerType: "touch", pointerId: 1 });
+    act(() => jest.advanceTimersByTime(500));
+
+    expect(remove).toHaveBeenCalledWith(2);
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+});

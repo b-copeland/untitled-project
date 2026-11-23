@@ -77,7 +77,7 @@ const NewKingdomRoute = ({ logged, kingdomid, children }) => {
 function Content({ logged, session }) {
   const [showNav, setShowNav] = React.useState(false);
   const { data, loading, updateData } = useGameData({ logged });
-  const notifications = useNotifications({ logged, session, updateData });
+  const notifications = useNotifications({ logged, session, updateData, muted: data.preferences?.muted });
   useTheme(logged ? data.preferences : null);
   const context = { logged, session, data, loading, updateData };
 
