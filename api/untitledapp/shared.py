@@ -422,6 +422,8 @@ GAME_CONFIG = {
 
     "BASE_SPY_ATTEMPT_TIME_MULTIPLIER": 1,
     "BASE_SPY_ATTEMPTS_MAX": 10, 
+    # Not a gameplay limit: only a guard against a kingdom document grown huge by a script.
+    "BASE_MAX_SCHEDULE_ENTRIES": 200,
 
     "BASE_MILITARY_SHIELDS_MAX": 0.10, 
     "BASE_MILITARY_SHIELDS_COST_PER_LAND_PER_PCT": 0.1, 

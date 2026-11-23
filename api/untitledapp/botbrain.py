@@ -63,7 +63,7 @@ import untitledapp.shared as uas
 import untitledapp.targets as uat
 
 LOG_SIZE = 40
-SCHEDULE_LIMIT = 10  # what the game allows
+SCHEDULE_LIMIT = uas.GAME_CONFIG["BASE_MAX_SCHEDULE_ENTRIES"]  # what the game allows
 EPOCH = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
 # Generals the auto attack of a bot made before bots set ``reserved_generals`` themselves leaves alone.
 RESERVED_GENERALS = 2

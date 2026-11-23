@@ -2607,8 +2607,9 @@ def add_schedule():
         if uas.utc(schedule_time) < uas.utc(state["state"]["game_start"]) or uas.utc(schedule_time) > uas.utc(state["state"]["game_end"]):
             raise occ.Rejected("Scheduled time occurs outside of game duration")
 
-        if len(kd_info["schedule"]) >= 10:
-            raise occ.Rejected("You can not schedule more than 10 actions")
+        limit = uas.GAME_CONFIG["BASE_MAX_SCHEDULE_ENTRIES"]
+        if len(kd_info["schedule"]) >= limit:
+            raise occ.Rejected(f"You can not schedule more than {limit} actions")
 
         handler_funcs = {
             "attack": _schedule_attack,
