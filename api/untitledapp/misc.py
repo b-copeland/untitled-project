@@ -1,4 +1,5 @@
 import collections
+import copy
 import datetime
 import json
 import os
@@ -217,6 +218,7 @@ def _finish_kingdom(kd_id, plan, user_id):
             raise occ.Rejected("This kingdom has already been created")
         payload = _kingdom_setup_payload(kd_info, plan["units"], plan["structures"], plan["race"])
         payload.update(plan["settings"])
+        payload["income"] = _starting_income({**kd_info, **payload})
         if plan["settings"].get("auto_spending_enabled"):
             # Same as a player switching auto spending on: it first runs after one auto-spending interval.
             payload["next_resolve"]["auto_spending"] = (
@@ -362,6 +364,20 @@ def _validate_kingdom_choices(
         return False, "You must select a valid race"
     
     return True, ""
+
+def _starting_income(kd_info):
+    """
+    The income a freshly set-up kingdom will earn, worked out the way the refresh works it out, so the Status and
+    Shields pages show its money, fuel and power before the first tick (or the round's start) has run. The refresh
+    replaces it on every tick. Nothing is credited and the refresh's effects are dropped.
+    """
+    import untitledapp.refresh as uar  # imports this module, so only once it is loaded
+
+    kd = copy.deepcopy(kd_info)
+    one_epoch_on = uas.utc(kd["last_income"]) + datetime.timedelta(seconds=uas.GAME_CONFIG["BASE_EPOCH_SECONDS"])
+    return uar._kingdom_with_income(kd, uas.project_bonuses(kd), uag._get_state(), one_epoch_on,
+                                    effects=[], mobis_queue=[])["income"]
+
 
 def _kingdom_setup_payload(kd_info, unit_choices, structures_choices, race):
     """The fields that turn a freshly created kingdom into a playable one: the chosen units, structures and race."""
