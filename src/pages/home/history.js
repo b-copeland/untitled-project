@@ -119,11 +119,11 @@ function Attack(props) {
                 style={{ width: '100%'}}
                 header={"Attack History"}
             >
-                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '60%' }}/>
-                {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
-                <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="time" header="Time" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="news" header="News" filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '60%', minWidth: '16rem' }}/>
+                {/* <Column field="day" header="Day" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '10%' }}/> */}
+                <Column field="to" header="To" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
+                <Column field="time_since" header="Hours Since" dataType="numeric" filter filterPlaceholder="At most" style={{ width: '10%' }}/>
             </DataTable>
         </div>
     );
@@ -169,12 +169,12 @@ function Spy(props) {
                 style={{ width: '100%'}}
                 header={"Spy History"}
             >
-                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '45%'}}/>
-                {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
-                <Column field="operation" header="Operation" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="time_since" header="Hours Since" dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="time" header="Time" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="news" header="News" filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '45%', minWidth: '16rem' }}/>
+                {/* <Column field="day" header="Day" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '10%' }}/> */}
+                <Column field="to" header="To" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
+                <Column field="operation" header="Operation" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="time_since" header="Hours Since" dataType="numeric" filter filterPlaceholder="At most" style={{ width: '10%' }}/>
             </DataTable>
         </div>
     );
@@ -218,11 +218,11 @@ function Missiles(props) {
                 style={{ width: '100%'}}
                 header={"Missile History"}
             >
-                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '60%' }}/>
-                {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
-                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="time" header="Time" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="news" header="News" filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '60%', minWidth: '16rem' }}/>
+                {/* <Column field="day" header="Day" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '10%' }}/> */}
+                <Column field="to" header="To" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
+                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter filterPlaceholder="At most" style={{ width: '10%' }}/>
             </DataTable>
         </div>
     );

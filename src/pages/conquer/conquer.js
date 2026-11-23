@@ -266,10 +266,10 @@ function Revealed(props) {
                 scrollable
                 
             >
-                <Column field="kingdom" header="Kingdom" filter frozen showFilterMenu={false} style={{ width: "15%" }}
+                <Column field="kingdom" header="Kingdom" filter filterPlaceholder="Search" frozen showFilterMenu={false} style={{ width: "15%" }}
                     body={(row) => <KingdomLink kdId={row.kdId} data={props.data}>{row.kingdom}</KingdomLink>}/>
                 <Column field="remaining" header="Remaining" style={{ width: "15%" }}/>
-                <Column field="galaxy" header="Galaxy" sortable filter showFilterMenu={false} style={{ width: "15%" }}/>
+                <Column field="galaxy" header="Galaxy" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: "15%" }}/>
                 {/* <Column field="empire" header="Empire" sortable showFilterMenu={false} filter style={{ width: '10%' }}/> */}
                 <Column field="stars" header="Stars" sortable /*filter*/ dataType="numeric" body={formatStars} style={{ width: "15%" , textAlign:"right"}}/>
                 {/* <Column field="networth" header="Networth" sortable filter body={formatScore} style={{ width: '10%' }}/> */}

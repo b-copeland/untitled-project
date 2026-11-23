@@ -37,7 +37,8 @@ what needs doing, and what is worth doing next.** Every page should answer its p
 
 | Need | Use | Where |
 |---|---|---|
-| A table | `GameTable` with column definitions, not hand-written `<tr>`s | `src/components/gametable.js` |
+| A table | `GameTable` with column definitions, not hand-written `<tr>`s. Mark a slider column `phoneRow: true`: on a phone it goes on its own full-width line under its row instead of a squeezed column. | `src/components/gametable.js` |
+| A long list to sort and filter (News, History, Conquer) | PrimeReact `DataTable` with `filterDisplay="row"`; give each filter a `filterPlaceholder`. It keeps a minimum width and scrolls sideways on a phone (`news.css`). | `src/pages/home/news.css` |
 | Form state | `useFormValues` | `src/components/forms.js` |
 | Choosing an amount | `AmountInput`: a slider with the chosen number on the left and the most possible on the right; give it `max` (what is left now) and `soloMax` (most if nothing else were chosen) so the slider never changes length. Your own amounts are sliders only; `box` (a number box and Max) is for figures with no known maximum. | `src/components/forms.js` |
 | Sliders that start at what the kingdom has now (shares, shields, engineers) | `useSliders(current)`: `value(key)` is the moved value or the current one, and a slider moved to 0 stays at 0; `body(keys)` sends only the moved ones (`""` keeps the server's value) | `src/components/forms.js` |

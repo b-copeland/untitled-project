@@ -86,7 +86,7 @@ function BuildStructures(props) {
         { header: "# Built", cell: ([key]) => whole(info.current[key]) },
         { header: "# Building", cell: ([key]) => whole(info.queued[key]) },
         {
-            header: "To Build", className: "structures-form-data",
+            header: "To Build", className: "structures-form-data", phoneRow: true,
             cell: ([key, label]) => <AmountInput name={key} label={label} id={`${key.replace("_", "-")}-input`} value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]} max={maxFor(key)} soloMax={soloMax} />,
         },
     ];
@@ -148,7 +148,7 @@ export function AllocateStructures(props) {
         { header: "# Building", cell: ([key]) => whole(info.queued[key]) },
         { header: "Current Allocation", cell: ([key]) => displayPercent(current[key] / 100) },
         {
-            header: "New Allocation", className: "structures-form-data",
+            header: "New Allocation", className: "structures-form-data", phoneRow: true,
             cell: ([key, label]) => <AmountInput name={key} label={label} suffix="%" value={String(sliders.value(key))} onChange={sliders.onChange}
                 soloMax={100} max={Math.max(100 - (total - sliders.value(key)), 0)} />,
         },
@@ -187,7 +187,7 @@ function RazeStructures(props) {
         { header: "% Built", cell: (key) => displayPercent((structures[key] || 0) / stars) },
         { header: "Available", cell: (key) => structures[key] || 0 },
         {
-            header: "To Raze",
+            header: "To Raze", phoneRow: true,
             cell: (key) => <AmountInput name={key} label={prettyNames[key] || key} id={"raze-" + key} value={form.values[key]} onChange={form.onChange} error={fieldErrors[key]} max={Math.floor(structures[key] || 0)} />,
         },
     ];
