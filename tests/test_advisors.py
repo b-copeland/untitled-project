@@ -28,8 +28,6 @@ def _ctx(**kd_fields):
           **kd_fields}
     fields = {"epochs": 96, "max_hangar": 1000, "used_hangar": 500, "home_defense": 10 ** 6, "at_war": False,
               "epochs_left": 240, "progress": 0.3, "settles_queued": 100,
-              "galaxy_votes": {"active_policies": ["Conscription"],
-                               "votes": {"leader": {"1": "1"}, "policy_1": {"1": 1}, "policy_2": {"1": 2}}},
               **ctx_fields}
     return uaadv.Context(kd=kd, now=NOW, **fields)
 
@@ -167,13 +165,16 @@ def test_spy_attempts_full():
 # ------------------------------------------------------------------------------------------------------------ team
 
 def test_galaxy_votes_missing_says_which():
-    [advice] = uaadv.advise(_ctx(galaxy_votes={"active_policies": ["x"], "votes": {"leader": {"1": "2"}}}))
+    [advice] = uaadv.advise(_ctx(galaxy_votes_missing=["policies"]))
     assert advice.id == "galaxy_votes_missing"
-    assert advice.text.startswith("You have not voted for your galaxy's policies.")
+    assert advice.text.startswith("You have not voted for all of your galaxy's policies.")
+    assert "leader and policies" in _only(_ctx(galaxy_votes_missing=["leader", "policies"]), "galaxy_votes_missing").text
 
 
 def test_a_galaxy_without_policies():
-    advice = _only(_ctx(galaxy_votes={"active_policies": [], "votes": {}}), "galaxy_without_policies")
+    advice = _only(_ctx(galaxy_policies_active=0), "galaxy_without_policies")
+    assert "galaxy_without_policies" not in _ids(_ctx(galaxy_policies_active=1))
+    assert "galaxy_without_policies" not in _ids(_ctx(galaxy_policies_active=None))  # no galaxy
     assert ("Galaxy politics", "/galaxypolitics") in advice.links
 
 
@@ -210,6 +211,21 @@ def test_context_reads_leadership_votes_and_targets():
     assert ctx.is_leader and not ctx.cluster_voted and ctx.in_empire and ctx.at_war and ctx.war_targets == 1
     assert ctx.election_ends is not None and not ctx.cast_universe_votes
     assert abs(ctx.progress - 1 / 7) < 0.01
+    assert ctx.galaxy_votes_missing == ["leader", "policies"] and ctx.galaxy_policies_active == 0
+
+
+def test_context_reads_the_galaxy_policies_the_round_plays():
+    import untitledapp.galaxypolicies as uagp
+    kd = {"kdId": "1", "race": "Xo", "stars": 300, "fuel": 100, "units": {}, "structures": {"hangars": 0}}
+    policy = uagp.round_policies({})[0]
+    option = next(iter(uas.GALAXY_POLICIES[policy]["options"]))
+    state = {"state": {"game_start": (NOW - datetime.timedelta(days=1)).isoformat(),
+                       "game_end": (NOW + datetime.timedelta(days=6)).isoformat(), "election_end": ""}}
+    document = {"votes": {"leader": {"1": "2"}}, "policy_votes": {policy: {"1": option}},
+                "policy_active": {policy: option}, "policy_updated": NOW.isoformat()}
+    ctx = uaadv.context_for(kd, state, [], {}, {}, NOW, galaxy_id="1:1", galaxy_votes=document)
+    assert ctx.galaxy_votes_missing == [] and ctx.galaxy_policies_active == 1
+    assert uaadv.context_for(kd, state, [], {}, {}, NOW).galaxy_policies_active is None
 
 
 # ----------------------------------------------------------------------------------------------------------- route
@@ -248,8 +264,8 @@ def test_the_route_reads_fuel_and_hangars_from_the_kingdom(app, client, jwt1):
 def test_the_route_tells_a_galaxy_leader_about_the_cluster_vote(app, client, jwt1):
     _set_up()
     _create_item("galaxies", {"galaxies": {"1:1": ["1"]}})
-    _create_item("galaxy_votes_1:1", {"active_policies": [], "leader": "1",
-                                      "votes": {"leader": {"1": "1"}, "policy_1": {}, "policy_2": {}}})
+    _create_item("galaxy_votes_1:1", {"leader": "1", "votes": {"leader": {"1": "1"}},
+                                      "policy_votes": {}, "policy_active": {}})
     ids = [advice["id"] for advice in client.get("/api/advisors", headers=_auth(jwt1)).get_json()["advice"]]
     assert "cluster_vote_missing" in ids
     assert "galaxy_votes_missing" in ids  # policies, not the leader

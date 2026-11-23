@@ -24,6 +24,7 @@ import flask
 import flask_praetorian
 
 import untitledapp.botstrategy as strategy
+import untitledapp.galaxypolicies as uagp
 import untitledapp.getters as uag
 import untitledapp.preferences as uapr
 import untitledapp.shared as uas
@@ -72,9 +73,10 @@ class Context:
     progress: float = 0.0       # how far through the round, 0 to 1
     structures_queued: float = 0
     settles_queued: float = 0
-    expansionist: bool = False  # the galaxy's Expansionist policy (cheaper settling)
+    expansionist: bool = False  # the galaxy's Expansionist option is active (cheaper settling)
     # Team: the galaxy's politics as the kingdom sees them on the Galaxy politics page.
-    galaxy_votes: dict = dataclasses.field(default_factory=dict)
+    galaxy_votes_missing: list = dataclasses.field(default_factory=list)  # "leader" and/or "policies" not voted for
+    galaxy_policies_active: int = None  # options in force in the galaxy now; None without a galaxy
     is_leader: bool = False     # the galaxy's leader
     cluster_voted: bool = True  # the galaxy has a cluster vote in (only looked up for the leader)
     in_empire: bool = True
@@ -296,13 +298,11 @@ def spy_attempts_full(ctx):
 # -------------------------------------------------------------------------------------------------------------- team
 
 def galaxy_votes_missing(ctx):
-    votes = ctx.galaxy_votes.get("votes") or {}
-    kd_id = str(ctx.kd.get("kdId"))
-    missing = [kind for kind in ("leader", "policy_1", "policy_2") if kd_id not in (votes.get(kind) or {})]
+    missing = ctx.galaxy_votes_missing
     if not missing:
         return None
     what = "a galaxy leader" if missing == ["leader"] else "your galaxy's leader and policies" if "leader" in missing \
-        else "your galaxy's policies"
+        else "all of your galaxy's policies"
     return Advice(
         "galaxy_votes_missing", "team",
         f"You have not voted for {what}. Your galaxy is your team: its leader speaks for it, and its policies help "
@@ -312,7 +312,7 @@ def galaxy_votes_missing(ctx):
 
 
 def galaxy_without_policies(ctx):
-    if not ctx.galaxy_votes or ctx.galaxy_votes.get("active_policies"):
+    if ctx.galaxy_policies_active is None or ctx.galaxy_policies_active > 0:
         return None
     return Advice(
         "galaxy_without_policies", "team",
@@ -438,6 +438,17 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, str
     kd_id = str(kd.get("kdId"))
     empire = empires_inverted.get(kd_id)
     at_war = bool(empire and empires.get(empire, {}).get("war"))
+    missing, active_count, expansionist = [], None, False
+    if galaxy_votes is not None:
+        # The galaxy's policies as the tally has them now, for the policies this round plays (galaxypolicies.py).
+        policies = uagp.round_policies(state["state"])
+        galaxy = uagp.advance(galaxy_votes, policies, game_start, now)
+        if kd_id not in ((galaxy_votes.get("votes") or {}).get("leader") or {}):
+            missing.append("leader")
+        if policies and all(kd_id not in galaxy["votes"].get(policy, {}) for policy in policies):
+            missing.append("policies")
+        active_count = len(galaxy["active"])
+        expansionist = "expansionist" in galaxy["active"].values()
     galaxy_votes = galaxy_votes or {}
     is_leader = galaxy_votes.get("leader") == kd_id
     election_ends = election_open(state, now)
@@ -452,8 +463,9 @@ def context_for(kd, state, mobis_queue, empires_inverted, empires, now=None, str
         progress=strategy.round_progress(now, game_start, game_end),
         structures_queued=uag._queue_total(structures_queue),
         settles_queued=uag._queue_total(settles_queue),
-        expansionist="Expansionist" in (galaxy_votes.get("active_policies") or []),
-        galaxy_votes=galaxy_votes,
+        expansionist=expansionist,
+        galaxy_votes_missing=missing,
+        galaxy_policies_active=active_count,
         is_leader=is_leader,
         cluster_voted=not is_leader or galaxy_id in ((cluster or {}).get("votes") or {}),
         in_empire=empire is not None,
