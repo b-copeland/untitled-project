@@ -20,6 +20,7 @@ The ideas, each of which is a rule a player could follow from the Help pages:
 
 All tunable numbers are in ``botbrain.Personality``; this module only has the game's own.
 """
+import datetime
 import math
 
 import untitledapp.shared as uas
@@ -475,3 +476,29 @@ def shields_plan(kd, phase_name, wants_spy_shields, under_missiles):
         + levels["spy_radar"] * CONFIG["BASE_SPY_RADAR_COST_PER_LAND_PER_PCT"]
         + levels["missiles"] * CONFIG["BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT"])
     return levels, cost
+
+
+# --- being kind to players ---------------------------------------------------------------------------------------
+
+HIT_LIMIT = 3          # TUNE: hostile bot actions (strikes, missiles, aggressive spying) a player takes in a window...
+HIT_WINDOW_EPOCHS = 12  # TUNE: ...of this many epochs, and then
+REST_EPOCHS = 24       # TUNE: no bot touches them for this many epochs
+
+
+def reserve_hit(pressure, now):
+    """
+    A bot wants to act against a player. ``pressure`` is the player's ``bot_pressure`` (``{"hits": [times],
+    "rest_until": time}``, or None). Returns the pressure to store with this action counted, or None when the player
+    is resting and no bot may act. The ``HIT_LIMIT``-th action in a window starts the rest (it is the last one allowed).
+    """
+    pressure = pressure or {}
+    rest_until = pressure.get("rest_until") or ""
+    if rest_until and uas.utc(rest_until) > now:
+        return None
+    window = HIT_WINDOW_EPOCHS * EPOCH
+    hits = [time for time in pressure.get("hits", []) if (now - uas.utc(time)).total_seconds() < window]
+    hits.append(now.isoformat())
+    if len(hits) >= HIT_LIMIT:
+        resting = now + datetime.timedelta(seconds=REST_EPOCHS * EPOCH)
+        return {"hits": [], "rest_until": resting.isoformat()}
+    return {"hits": hits, "rest_until": ""}

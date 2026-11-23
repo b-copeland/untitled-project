@@ -39,6 +39,7 @@ the intel revealed to it. Every decision is logged on the bot (``bot["log"]``, t
 **All numbers in ``Personality`` are ``TUNE`` values**, tuned with ``scripts/simulate_round.py``.
 ``problems(personality)`` checks them; ``tests/test_bot_brain.py`` runs it.
 """
+import collections
 import copy
 import dataclasses
 import datetime
@@ -109,6 +110,8 @@ BOMBER_KEEP = 1.5           # TUNE: epochs of income a bomber keeps as money for
 TARGET_SHARE = 0.5          # TUNE: the share of attacks, spy attempts and missile strikes a bot puts on its empire's
                             # targets, when it is equipped to (a beatable target, a fair chance)
 SUICIDE_TEAM = 8            # TUNE: how many kingdoms' worth of burning a bot counts on when it burns a leader's fuel
+BOT_VOTE_WEIGHT = 0.5       # TUNE: bots buy this share of the universe votes their playstyle would, so players' votes count for more
+HUMANS_REFRESH = 24         # epochs a bot remembers which of its galaxymates are players
 STALL_EPOCHS = 24
 STALL_GROWTH = 0.02
 E, M, L = 0, 1, 2
@@ -464,6 +467,20 @@ class World:
             kd_empire, info, galaxy_empire, _ = uag._get_empires_inverted()
             return kd_empire, info["empires"], galaxy_empire
         return self._lazy("empires", read)
+
+    def human_members(self, memory):
+        """
+        Galaxymates (not itself) that are players. One read each, so the answer is kept in the bot's memory for
+        ``HUMANS_REFRESH`` epochs (a galaxy's members change rarely).
+        """
+        saved = memory.get("humans") or {}
+        if saved.get("galaxy") == self.my_galaxy and self.epochs - saved.get("epochs", -1e9) < HUMANS_REFRESH:
+            return saved["ids"]
+        ids = [kd for kd in self.galaxies.get(self.my_galaxy, []) if kd != self.kd_id and not
+               uag._get_max_kd_info(kd, self.kd_id, self.revealed_info, max=True,
+                                    galaxies_inverted=self.galaxy_of).get("bot")]
+        memory["humans"] = {"galaxy": self.my_galaxy, "ids": ids, "epochs": self.epochs}
+        return ids
 
     @property
     def my_empire(self):
@@ -957,6 +974,23 @@ def _plan_cluster_vote(world, personality):
                      f"vote {uas.CLUSTER_BENEFITS[choice]['name']} for the cluster, as galaxy leader")]
 
 
+def _follow_players(world, memory, cast, preferred, valid=None):
+    """
+    Bots yield in politics. ``cast`` is who voted what on one question: if galaxymates that are players have voted,
+    the bot votes what most of them did (the first of them to say it, on a tie), and only with no player vote does it
+    vote its own preference. Without this, a galaxy of bots outvotes the one player in it.
+    """
+    voters = [voter for voter in cast if voter != world.kd_id and (valid is None or cast[voter] in valid)]
+    if not voters:
+        return preferred
+    humans = set(world.human_members(memory))
+    counts = collections.Counter(cast[voter] for voter in voters if voter in humans)
+    if not counts:
+        return preferred
+    top = max(counts.values())
+    return next(choice for choice in (cast[voter] for voter in voters if voter in humans) if counts[choice] == top)
+
+
 def plan_politics(world, personality, style, memory, rng):
     """
     Galaxy policies that suit the playstyle; the strongest galaxymate for leader; as leader, an empire (found one, or
@@ -972,6 +1006,7 @@ def plan_politics(world, personality, style, memory, rng):
     policy_votes = politics.get("policy_votes") or {}
     for policy in uagp.round_policies(world.state.get("state")):
         option = next((o for o in personality.galaxy_votes if uas.GALAXY_POLICY_OF_OPTION.get(o) == policy), None)
+        option = _follow_players(world, memory, (policy_votes.get(policy) or {}), option)
         if option and (policy_votes.get(policy) or {}).get(world.kd_id) != option:
             decisions.append(Decision("vote_galaxy", {"policy": policy, "option": option},
                                       f"vote {uas.GALAXY_POLICIES[policy]['options'][option]['name']} in the galaxy"))
@@ -989,6 +1024,7 @@ def plan_politics(world, personality, style, memory, rng):
         # A galaxy needs one leader more than it needs the best one: back whoever the others back, and only with no
         # votes to go by, the strongest. (Everybody voting for today's strongest splits the vote and elects nobody.)
         best = max(members, key=lambda kd: (tally.get(kd, 0), networth.get(kd, 0), -int(kd) if kd.isdigit() else 0))
+        best = _follow_players(world, memory, cast, best, valid=members)
         if cast.get(world.kd_id) != best and not uas.galaxy_vote_unlocks_at(politics, "leader", world.kd_id, world.now):
             decisions.append(Decision("vote_leader", {"selected": best}, f"vote {world.names.get(best, best)} for galaxy leader"))
 
@@ -1003,7 +1039,7 @@ def plan_politics(world, personality, style, memory, rng):
         # on the first doctrine listed (arms, where playstyles disagree) and a few on the others.
         buy = 0
         if memory.get("election") != election:
-            buy = int(me["money"] * personality.vote_budget // uas.GAME_CONFIG["BASE_VOTES_COST"])
+            buy = int(me["money"] * personality.vote_budget * BOT_VOTE_WEIGHT // uas.GAME_CONFIG["BASE_VOTES_COST"])
             memory["election"] = election
             if buy > 0:
                 decisions.append(Decision("buy_votes", {"votes": buy}, f"buy {buy} universe votes"))

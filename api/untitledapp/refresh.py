@@ -1327,6 +1327,30 @@ def _is_schedule_due(schedule, time_update):
     return datetime.datetime.fromisoformat(schedule["time"]).astimezone(datetime.timezone.utc) < time_update
 
 
+_HOSTILE_SCHEDULES = ("attack", "aggressivespy", "missiles")
+
+
+def _bot_may_act_on(kingdom, schedule, time_update):
+    """
+    False when a bot's hostile scheduled action is on a player who has had enough from bots lately
+    (``botstrategy.reserve_hit``). The check and the count are one write on the player's kingdom, so many bots
+    deciding at once still add up to the limit. Players, and bots acting on bots, are never held back.
+    """
+    target = (schedule.get("options") or {}).get("target")
+    if not kingdom.get("bot") or schedule.get("type") not in _HOSTILE_SCHEDULES or not target:
+        return True
+
+    def decide(target_kd):
+        if target_kd.get("bot"):
+            return None, True
+        pressure = uastrat.reserve_hit(target_kd.get("bot_pressure"), time_update)
+        if pressure is None:
+            return None, False
+        return {"bot_pressure": pressure}, True
+
+    return occ.update(f'/kingdom/{target}', decide)
+
+
 def _resolve_schedules(kd_id, time_update, kd_info=None):
     """
     Run the schedules that are due. Returns True if there were any, meaning the kingdom may have changed.
@@ -1373,6 +1397,9 @@ def _resolve_schedules(kd_id, time_update, kd_info=None):
         except Exception:
             flask.current_app.logger.exception("Could not prepare scheduled %s for kingdom %s", schedule.get("type"), kd_id)
             _tell_schedule_skipped(kd_id, schedule, "Something went wrong preparing it")
+            continue
+        if not _bot_may_act_on(kingdom, schedule, time_update):
+            _tell_schedule_skipped(kd_id, schedule, "That kingdom has had enough from bots for now")
             continue
         refusal = _schedule_refusal(func(*args))
         if refusal:

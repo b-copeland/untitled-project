@@ -191,6 +191,20 @@ hidden state.
   would give, since it also earns points), a fair chance for sabotage. A target it can not beat is left for the best
   one it can. The roll is only made when there is a marked target, so rounds without targets play as before.
 
+### Playing nicely with players
+
+- **A limit on hits.** Strikes, missiles and aggressive spying (siphons, sabotage) by bots on a player count in the
+  player's `bot_pressure`. The third within 12 epochs starts a 24-epoch rest in which no bot may act on that player: the
+  scheduled action does nothing, and the bot's news says so. The check and the count are one conditional write at the
+  place bots' schedules run (`refresh._bot_may_act_on`), so a hundred bots deciding at once still add up to three. It
+  was added after a late joiner, under the defense break-even from the start, was hit ten times. Bots on bots, and
+  players on anyone, are never limited. The numbers (`HIT_LIMIT`, `HIT_WINDOW_EPOCHS`, `REST_EPOCHS` in `botstrategy.py`)
+  are about bot manners, not game balance.
+- **Bots yield in politics.** In galaxy policy and leader votes a bot votes what the players in its galaxy voted (the
+  most common choice among them) and only with no player vote does it vote its own preference (`_follow_players`;
+  which galaxymates are players is remembered for `HUMANS_REFRESH` epochs, since finding out is a read each). In
+  universe elections bots buy only `BOT_VOTE_WEIGHT` (half) of the votes their playstyle would.
+
 ### Politics
 
 - **Galaxy policies** by playstyle: `Personality.galaxy_votes` lists one option of every policy, and the bot votes

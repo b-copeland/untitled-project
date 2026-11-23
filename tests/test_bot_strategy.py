@@ -318,3 +318,26 @@ def test_a_key_project_of_another_race_is_skipped_for_the_next_one():
     assert kd["race"] != "Fuzi"
     assigned = strategy.projects_plan(kd, WEIGHTS, ("fuzi_capstone", "big_flexers"), 0.2)
     assert assigned["fuzi_capstone"] == 0 and assigned["big_flexers"] > 0
+
+
+# ------------------------------------------------------------------------------------------ being kind to players
+
+def test_a_player_is_hit_three_times_and_then_left_alone():
+    pressure = None
+    for n in range(strategy.HIT_LIMIT):
+        now = START + datetime.timedelta(seconds=n * 60)
+        pressure = strategy.reserve_hit(pressure, now)
+        assert pressure is not None  # the last one allowed starts the rest
+    assert pressure["rest_until"]
+    assert strategy.reserve_hit(pressure, now + datetime.timedelta(seconds=60)) is None
+
+
+def test_the_rest_ends_and_old_hits_are_forgotten():
+    rest = strategy.reserve_hit({"hits": [START.isoformat()] * 2}, START)
+    after = START + datetime.timedelta(seconds=(strategy.REST_EPOCHS + 1) * strategy.EPOCH)
+    fresh = strategy.reserve_hit(rest, after)
+    assert fresh == {"hits": [after.isoformat()], "rest_until": ""}
+    # Hits older than the window do not count towards the limit.
+    old = {"hits": [START.isoformat()] * 2, "rest_until": ""}
+    later = START + datetime.timedelta(seconds=(strategy.HIT_WINDOW_EPOCHS + 1) * strategy.EPOCH)
+    assert strategy.reserve_hit(old, later)["rest_until"] == ""

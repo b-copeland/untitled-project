@@ -347,7 +347,8 @@ def test_it_votes_for_its_policies_and_backs_the_candidate_the_others_back():
                       state=ROUND_POLICIES,
                       politics={"policy_votes": {"growth_doctrine": {"1": "raiders"}, "tempo_doctrine": {"1": "warlike"}},
                                 "votes": {"leader": {"7": "8", "8": "8"}}})
-    (decision,) = brain.plan_politics(world, ATTACKER, style(), {}, random.Random(1))
+    memory = _knows_players(world, [])  # the others are bots
+    (decision,) = brain.plan_politics(world, ATTACKER, style(), memory, random.Random(1))
     assert decision.kind == "vote_leader" and decision.options == {"selected": "8"}
 
 
@@ -398,8 +399,8 @@ def test_in_an_election_it_buys_votes_once_and_casts_them_as_the_universe_page_d
     decisions = brain.plan_politics(world, ATTACKER, style(), memory, random.Random(1))
     bought = [d for d in decisions if d.kind == "buy_votes"]
     cast = [d for d in decisions if d.kind == "vote_universe"]
-    assert bought[0].options == {"votes": 10}   # a quarter of its money at 10,000 a vote
-    assert sum(d.options["votes"] for d in cast) == 12
+    assert bought[0].options == {"votes": 5}    # an eighth of its money at 10,000 a vote (a quarter, at half weight)
+    assert sum(d.options["votes"] for d in cast) == 7
     # Only the ballot's policies, with the options the attacker likes, most on the first.
     assert [(d.options["policy"], d.options["option"]) for d in cast] == [
         ("primitives", "native_reserves"), ("wealth", "progressive_tax")]
@@ -1132,3 +1133,26 @@ def test_a_galaxy_leader_bot_casts_its_galaxys_cluster_vote_once(app, client):
     assert (cluster.get("votes") or {}).get("1") == wanted
     assert _get(f"/kingdom/{KD_ID}")["bot"]["counts"].get("vote_cluster") == 1
     assert again == []  # voted already: nothing to do on the next think
+
+
+# ------------------------------------------------------------------------------------------ yielding to players
+
+def _knows_players(world, ids):
+    return {"humans": {"galaxy": "g1", "ids": ids, "epochs": world.epochs}}
+
+
+def test_a_bot_votes_what_the_players_in_its_galaxy_voted():
+    world = StubWorld()
+    memory = _knows_players(world, ["2"])
+    assert brain._follow_players(world, memory, {"2": "b", "9": "c"}, "a") == "b"
+    assert brain._follow_players(world, memory, {"9": "c"}, "a") == "a"  # only bots have voted
+    assert brain._follow_players(world, memory, {}, "a") == "a"
+
+
+def test_a_bot_follows_the_players_for_leader_too():
+    world = StubWorld()
+    world = StubWorld(stats={"2": (900, 400_000), "1": (1000, 500_000)}, galaxies={"g1": ["1", "2", "7"], "g2": ["3"]},
+                      politics={"votes": {"leader": {"2": "7", "7": "1"}}})
+    memory = _knows_players(world, ["2"])  # 2 is a player: its choice beats what the bot would pick
+    decisions = brain.plan_politics(world, ATTACKER, style(), memory, random.Random(1))
+    assert [d.options["selected"] for d in decisions if d.kind == "vote_leader"] == ["7"]
