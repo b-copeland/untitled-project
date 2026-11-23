@@ -51,6 +51,14 @@ test("an Advisors box comes first, with the advisors' advice in it", () => {
     expect(screen.getByText("advice goes here")).toBeTruthy();
 });
 
+test("Siphons on you counts the siphons on you, not the ones you run (#223)", () => {
+    // kingdom.siphons is what your own siphons paid you; siphonsout is the siphons other kingdoms run on you.
+    show({ ...data({ siphons: [{ from: 5, siphon: 10 }, { from: 6, siphon: 10 }] }), siphonsout: [{ time: "x", siphon: 99 }] });
+    const label = screen.getByText("Siphons on you");
+    expect(label.parentElement.textContent).toContain("1");
+    expect(label.parentElement.textContent).not.toContain("2");
+});
+
 test("nothing before the kingdom has loaded", () => {
     const { container } = show({ ...data(), kingdom: {} });
     expect(container.textContent).toBe("");

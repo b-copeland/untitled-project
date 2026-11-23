@@ -241,7 +241,9 @@
 .amount-input-suffix { color: var(--bs-secondary-color, #6c757d); }
 .amount-input-max { flex: 0 0 auto; }
 .amount-input-track { display: flex; align-items: center; gap: 8px; }
-.amount-input-cap { flex: 0 0 auto; min-width: 2.5ch; text-align: right; font-size: 0.8em; color: var(--bs-secondary-color, #6c757d); }
+/* The numbers beside a slider have a fixed width (displayShort keeps them to five characters, plus a "%"), so the
+   slider keeps its length and place while it is dragged. */
+.amount-input-cap { flex: 0 0 6.5ch; width: 6.5ch; text-align: right; font-size: 0.8em; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--bs-secondary-color, #6c757d); }
 .amount-input-slider { margin: 0; flex: 1 1 auto; min-width: 0; }
 /* Three tones: the accent up to what is chosen (--val), a pale accent for what is still free to choose, the theme's secondary background for what the other sliders have used up (--avail). Both are set inline. */
 .amount-input-slider::-webkit-slider-runnable-track {
@@ -259,7 +261,19 @@
 
 /* The slider-only form (the Build pages): the number on the left, the most you can choose on the right. */
 .amount-input-bare { min-width: 140px; }
-.amount-input-value { flex: 0 0 auto; min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; }
+/* In a table on a wider screen the slider's column would otherwise shrink to fit the others. */
+@media (min-width: 576px) {
+  .table .amount-input-bare { min-width: 240px; }
+}
+/* On a phone a table's slider is on its own line under its row (GameTable's phoneRow), across the whole width. The
+   two lines read as one row: no divider between them. */
+.game-table-phone > tbody > tr.game-table-row-head > * { border-bottom-width: 0; padding-bottom: 0.1rem; }
+.game-table-phone > tbody > tr.game-table-row-own > td { padding-top: 0; }
+.game-table-own-cell .amount-input { max-width: none; min-width: 0; margin-left: 0; }
+/* A table still wider than the phone scrolls sideways; its sliders stay the width of the card and in view. */
+.table-scroll-phone { container-type: inline-size; }
+.game-table-own-cell > div { position: sticky; left: 0; max-width: calc(100cqw - 1.25rem); }
+.amount-input-value { flex: 0 0 6ch; width: 6ch; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .amount-input-cap-button { background: none; border: 0; padding: 0; cursor: pointer; color: var(--bs-link-color, #0d6efd); }
 .amount-input-cap-button:hover:not(:disabled) { text-decoration: underline; }
 .amount-input-cap-button:disabled { color: var(--bs-secondary-color, #6c757d); cursor: default; }

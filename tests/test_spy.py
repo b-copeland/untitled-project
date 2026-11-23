@@ -6,6 +6,9 @@ import untitledapp.shared as uas
 from tests.test_attack import TARGET_ID, _set_up_two_kingdoms
 from tests.test_concurrency import KD_ID, _create_item, _get, _run_together, _set_up_kingdom  # noqa: F401
 
+FUTURE = "2999-01-01T00:00:00+00:00"
+PAST = "2000-01-01T00:00:00+00:00"
+
 
 def _spy(client, jwt, operation="suicidedrones", drones=100):
     return client.post(
@@ -158,6 +161,34 @@ def test_a_successful_siphon_stores_what_it_will_pay_each_epoch(app, client, jwt
     assert siphon["rate"] == total / shared.GAME_CONFIG["BASE_DRONES_SIPHON_TIME_MULTIPLIER"]
 
 
+def _siphon_forecast(client, jwt):
+    return client.post(
+        f"/api/calculatespy/{TARGET_ID}",
+        json={"drones": 100, "shielded": False, "operation": "siphonfunds",
+              "defenderValues": {"drones": "100", "stars": "100", "shields": "0"}},
+        headers={"Authorization": f"Bearer {jwt}"},
+    ).get_json()
+
+
+@pytest.mark.parametrize("siphons, warned", [
+    ([], False),
+    ([{"from": KD_ID, "time": FUTURE, "siphon": 500, "rate": 50}], True),       # yours, still running
+    ([{"from": int(KD_ID), "time": FUTURE, "siphon": 500, "rate": 50}], True),  # the same, with an int id
+    ([{"from": KD_ID, "time": PAST, "siphon": 500, "rate": 50}], False),        # yours, ended
+    ([{"from": "99", "time": FUTURE, "siphon": 500, "rate": 50}], False),       # someone else's
+], ids=["none", "yours", "yours-int-id", "yours-ended", "someone-elses"])
+def test_the_siphon_forecast_warns_when_you_already_siphon_that_kingdom(app, client, jwt1, siphons, warned):
+    """#220: a second siphon on the same kingdom is allowed but warned about; siphons elsewhere are not a concern."""
+    _set_up_two_kingdoms()
+    _create_item(f"siphons_out_{TARGET_ID}", {"siphons_out": siphons})
+
+    body = _siphon_forecast(client, jwt1)
+
+    assert ("warning" in body) is warned, body
+    if warned:
+        assert body["warning"].startswith("You already have a siphon on this kingdom, with up to 500 money")
+
+
 @pytest.mark.parametrize("cut, listed", [(10, True), (0, False)])
 def test_a_reveal_shared_from_the_spy_page_is_listed_for_a_cut_or_given_free(app, client, jwt1, monkeypatch, cut, listed):
     import untitledapp.conquer as conquer
@@ -182,10 +213,6 @@ def _revealed(kd_id, revealed=None, galaxymates=None):
     import untitledapp.shared as uas
     _create_item(f"revealed_{kd_id}", {**uas.INITIAL_KINGDOM_STATE["revealed"], "revealed": revealed or {},
                                       "revealed_galaxymates": galaxymates or []})
-
-
-FUTURE = "2999-01-01T00:00:00+00:00"
-PAST = "2000-01-01T00:00:00+00:00"
 
 
 @pytest.mark.parametrize("operation,revealed,galaxymates", [

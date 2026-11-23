@@ -48,6 +48,12 @@ started by hand from the Actions tab with "Run workflow").
 If the build job fails (any test suite, the frontend build, or `pip install`), nothing is deployed. The workflow runs on
 pushes to `main` only, not on pull requests.
 
+Only one run of the workflow goes at a time (`concurrency: deploy-production`). Overlapping deploys get
+`Conflict (CODE: 409)` from App Service, and a deploy that fails partway can leave the site without `api/` or `antenv`:
+the container then stops at startup with `Error: can't chdir to 'api'`. A newer push waits for the running deploy and
+replaces any older run still waiting, so the latest `main` is what ends up deployed. If the site is in that state, re-run
+the latest workflow run (or "Run workflow" on `main`) to deploy a complete package again.
+
 ### Required secret
 
 | GitHub secret | Purpose |

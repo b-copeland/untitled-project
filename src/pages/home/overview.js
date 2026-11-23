@@ -192,7 +192,8 @@ export function Overview({ data, loadSummary }) {
     const stars = kingdom.stars || 0;
 
     // Threats: siphons on you, your shields, and the latest thing that happened to your kingdom.
-    const siphons = kingdom.siphons || [];
+    // data.siphonsout is the siphons other kingdoms run on you; kingdom.siphons is what your own siphons paid you (#223).
+    const siphons = data.siphonsout || [];
     const shields = kingdom.shields || {};
     const latest = [...(data.news || [])].sort((a, b) => Date.parse(b.time) - Date.parse(a.time))[0];
 

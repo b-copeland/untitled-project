@@ -85,7 +85,7 @@ function Missiles(props) {
         { header: "Cost", cell: ({ key }) => Math.floor((info.desc[key].cost || 0) * info.cost_modifier).toLocaleString() },
         { header: "Fuel Cost", cell: ({ key }) => Math.floor((info.desc[key].fuel_cost || 0) * info.cost_modifier).toLocaleString() },
         {
-            header: "To Build",
+            header: "To Build", phoneRow: true,
             cell: (missile) => <AmountInput
                 name={missile.key} label={missile.label} id={missile.key.replace("_", "-") + "-input"}
                 value={form.values[missile.key]} onChange={form.onChange} error={fieldErrors[missile.key]}

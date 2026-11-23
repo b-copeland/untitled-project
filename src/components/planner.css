@@ -68,6 +68,9 @@
 .wide-layout { display: grid; grid-template-columns: 1fr; gap: 0 1rem; align-items: start; }
 @container (min-width: 700px) {
     .wide-layout { grid-template-columns: 1fr 1fr; }
+    /* A panel here is a narrow column: a slider goes under its label, across the panel, instead of beside it. */
+    .wide-layout .field-row:has(.amount-input) { grid-template-columns: 1fr; gap: 0.25rem; }
+    .wide-layout .field-row:has(.amount-input) .amount-input { max-width: none; margin-left: 0; }
 }
 @container (min-width: 1050px) {
     .wide-layout { gap: 0 1.25rem; }

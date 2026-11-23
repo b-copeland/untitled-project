@@ -157,12 +157,12 @@ function Kingdom(props) {
                 style={{ width: '100%'}}
                 header={"Kingdom News"}
             >
-                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="kind" header="Type" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '45%' }}/>
-                {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.fromId}>{row.from}</KingdomLink>}/>
-                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '15%' }}/>
+                <Column field="time" header="Time" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="kind" header="Type" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '45%', minWidth: '16rem' }}/>
+                {/* <Column field="day" header="Day" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '10%' }}/> */}
+                <Column field="from" header="From" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '15%' }} body={(row) => <KingdomLink kdId={row.fromId}>{row.from}</KingdomLink>}/>
+                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter filterPlaceholder="At most" style={{ width: '15%' }}/>
             </DataTable>
         </div>
     );
@@ -211,13 +211,13 @@ function Galaxy(props) {
                 style={{ width: '100%'}}
                 header={"Galaxy News"}
             >
-                <Column field="time" header="Time" sortable filter showFilterMenu={false} style={{ width: '15%' }}/>
-                <Column field="kind" header="Type" sortable filter showFilterMenu={false} style={{ width: '10%' }}/>
-                <Column field="news" header="News" filter showFilterMenu={false} style={{ width: '35%' }}/>
-                {/* <Column field="day" header="Day" sortable filter showFilterMenu={false} style={{ width: '10%' }}/> */}
-                <Column field="from" header="From" sortable filter showFilterMenu={false} style={{ width: '10%' }} body={(row) => <KingdomLink kdId={row.fromId}>{row.from}</KingdomLink>}/>
-                <Column field="to" header="To" sortable filter showFilterMenu={false} style={{ width: '10%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
-                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter style={{ width: '10%' }}/>
+                <Column field="time" header="Time" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '15%' }}/>
+                <Column field="kind" header="Type" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '10%' }}/>
+                <Column field="news" header="News" filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '35%', minWidth: '16rem' }}/>
+                {/* <Column field="day" header="Day" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '10%' }}/> */}
+                <Column field="from" header="From" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '10%' }} body={(row) => <KingdomLink kdId={row.fromId}>{row.from}</KingdomLink>}/>
+                <Column field="to" header="To" sortable filter filterPlaceholder="Search" showFilterMenu={false} style={{ width: '10%' }} body={(row) => <KingdomLink kdId={row.toId}>{row.to}</KingdomLink>}/>
+                <Column field="time_since" header="Hours Since" sortable dataType="numeric" filter filterPlaceholder="At most" style={{ width: '10%' }}/>
             </DataTable>
         </div>
     );

@@ -15,6 +15,7 @@ import { AmountInput, NumberControl } from "../../components/forms";
 import { Panel, FieldRow, Stats, Picker, useServerForecast, clockUntil } from "../../components/planner";
 import { alreadyRevealed, checkPercent } from "../../validation";
 import { TargetIntel } from "./intel.js";
+import { useTour, TOUR_NO_SEND } from "../../components/tour";
 
 const initialDefenderValues = { drones: "", stars: "", shields: "" };
 
@@ -54,14 +55,16 @@ export function availableOperations(operations, kingdom, state) {
  * Spies are sent straight away, hostile operations too. The player is asked first only when the chance of success is
  * known and below 40%.
  */
-export function spyNeedsConfirmation({ hasForecast, guessing, chance }) {
-    return hasForecast && !guessing && chance < 0.4;
+export function spyNeedsConfirmation({ hasForecast, guessing, chance, warning }) {
+    // A warning from the forecast (a siphon of yours already on this kingdom, #220) always asks first.
+    return Boolean(warning) || (hasForecast && !guessing && chance < 0.4);
 }
 
 function Spy(props) {
     // A target and operation come as props, or with the link here: /spy?target=12&op=spymilitary (the Kingdom and
     // Galaxy pages, and Attempt on an intel bounty: the operation that would reveal the intel asked for).
     const arrived = useLocation().state || {};
+    const tour = useTour();
     const [query] = useSearchParams();
     const initialKd = props.initialKd ?? query.get("target") ?? arrived.kdId;
     const [defenderValues, setDefenderValues] = useState(initialDefenderValues);
@@ -112,6 +115,8 @@ function Spy(props) {
     const sendingDrones = parseInt(drones, 10) || 0;
     const hasForecast = forecast.success_chance !== undefined;
     const chance = hasForecast ? forecast.success_chance : 0;
+    // Only for the operation the forecast was made for: a stale siphon warning must not follow a switch to another operation.
+    const warning = hasForecast && operation === "siphonfunds" ? forecast.warning : undefined;
     // The server treats anything left blank as zero, which would read as "certain". Say so unless it is known or entered.
     const dronesKnown = targetKdInfo.drones !== undefined;
     const starsKnown = targetKdInfo.stars !== undefined;
@@ -128,6 +133,7 @@ function Spy(props) {
     if (revealedProblem) problems.push(revealedProblem);
     const cutError = sharesResult && share ? checkPercent(cut, { max: (props.data.state.game_config?.BASE_MAX_SHARE_CUT || 0) * 100 }) : null;
     if (cutError) problems.push(cutError);
+    if (tour.running) problems.unshift(TOUR_NO_SEND);
     const blocked = problems[0];
     const intel = Object.entries((props.data.revealed?.revealed || {})[selected] || {});
     const operations = availableOperations(OPERATIONS, kingdom, props.data.state);
@@ -218,9 +224,10 @@ function Spy(props) {
                             { label: "Drones lost if it fails", value: whole(forecast.drone_losses?.failure) },
                         ]} />
                         <div className="planner-notes">{forecast.message}</div>
+                        {warning ? <Alert variant="warning">{warning}</Alert> : null}
                     </> : null}
                     <div className="planner-send">
-                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance }) ? setConfirming(true) : send())}>
+                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance, warning }) ? setConfirming(true) : send())}>
                             Send spies
                         </Button>
                         {blocked ? <div className="planner-why">{blocked}</div> : null}
@@ -234,6 +241,7 @@ function Spy(props) {
                     <Modal.Header closeButton><Modal.Title>Run this operation?</Modal.Title></Modal.Header>
                     <Modal.Body>
                         <p>{chosen?.label} on <strong>{selected !== undefined ? kdLabel(selected) : ""}</strong> with {whole(sendingDrones)} drones{shieldDrones ? " (shielded)" : ""}. It uses one spy attempt.</p>
+                        {warning ? <Alert variant="warning">{warning}</Alert> : null}
                         {hasForecast && !guessing && chance < 1 ? <Alert variant={chance < 0.4 ? "danger" : "warning"}>About a {Math.round(chance * 100)}% chance of success with this many drones.</Alert> : null}
                     </Modal.Body>
                     <Modal.Footer>

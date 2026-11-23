@@ -27,6 +27,12 @@ const FIND_FOR_MS = 6000;  // a page that loads its parts later (Attack, after t
 
 const TourContext = React.createContext({ running: false, choice: undefined, start: () => {}, answer: () => {} });
 
+/**
+ * Why Send attack and Send spies are off while the tour runs: the tour shows them, and a player's first attack should
+ * not be one sent on its example target without intel.
+ */
+export const TOUR_NO_SEND = "Sending is off while the tour runs";
+
 /** The tour's state and actions: `running`, `choice` (the saved answer), `start()`, `answer(choice)`. */
 export const useTour = () => React.useContext(TourContext);
 

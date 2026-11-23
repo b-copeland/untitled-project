@@ -6,7 +6,7 @@ import { useEffect } from "react";
  * so the page opens in the right colours before the preferences have loaded, and the login page has them too.
  */
 
-export const DEFAULT_THEME = "gray";
+export const DEFAULT_THEME = "twilight"; // the same as DEFAULT_THEME in api/untitledapp/preferences.py
 const STORAGE_KEY = "THEME";
 
 /** Shows the page in `theme` and remembers it on this device. */
