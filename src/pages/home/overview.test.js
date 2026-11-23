@@ -19,7 +19,8 @@ const data = (kingdom = {}) => ({
     news: [{ time: new Date(Date.now() - 3 * 3.6e6).toISOString(), news: "You were attacked by Delta" }],
     state: { game_config: { BASE_EPOCH_SECONDS: 1800 } },
 });
-const show = (d) => render(<MemoryRouter><Overview data={d} /></MemoryRouter>);
+const noSummary = () => new Promise(() => {});  // the summary card stays loading: these tests are about the others
+const show = (d) => render(<MemoryRouter><Overview data={d} loadSummary={noSummary} /></MemoryRouter>);
 
 test("the four cards answer the questions a returning player asks", () => {
     show(data());

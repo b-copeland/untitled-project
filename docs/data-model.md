@@ -33,7 +33,7 @@ Read the handler in `funcapp/function_app.py` before relying on one, but these a
 | | `/spyhistory`, `/attackhistory`, `/missilehistory` | The body is one item. |
 | **Special** | `/notifs` | `add_categories` adds one to each counter named; `clear_categories` zeroes them. |
 | | `/pinned` | `pinned` adds kingdom ids, `unpinned` removes them. |
-| | `/history` | `{"history": {series: value}}` appends one value to each series. |
+| | `/history` | `{"history": {series: value}, "keep": {series: n}}` appends one value to each series (a series the document lacks starts empty) and keeps only the newest `n` of the series in `keep`. |
 | | `/accounts` | Replaces the whole list. Nothing calls it any more (see `accounts` below). |
 
 Not retried, because they write several documents or create one: `/init`, `/deleteall`, `/resetstate`, `POST /kingdom`,
@@ -89,7 +89,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `spy_history_<id>`, `attack_history_<id>`, `missile_history_<id>` | Lists of past operations | eventual |
 | `messages_<id>` | `messages`: list | eventual |
 | `notifs_<id>` | Counters: `news_kingdom`, `news_galaxy`, `messages`, `shared` (intel market events for this kingdom: a sale, a bounty answered, free intel received), `galaxy_board` (galaxymates' posts on the galaxy board; kingdoms made before it lack it, and the first add starts it at 0) | eventual |
-| `history_<id>` | `history`: series of `networth`, `stars`, `population`, `drones`, `engineers`, `max_offense`, `max_defense` | eventual, written by the refresh once an epoch |
+| `history_<id>` | `history`: series of `{time, value}` for `networth`, `stars`, `population`, `drones`, `engineers`, `max_offense`, `max_defense` (the whole round), and `units` and `structures`, whose value is a dict of the non-zero counts (military units owned, at home and out, engineers left out; structures built), kept for the newest `HISTORY_BREAKDOWN_DAYS` (`refresh.py`). Documents from before the breakdowns lack those two series until the next point is written. Read by the History page and by `/api/history/summary` | eventual, written by the refresh once an epoch |
 
 The tiers are explained in [concurrency.md](concurrency.md#which-documents-need-strict-handling). In short: **strict**
 documents are read to decide whether something is allowed, so writes to them are conditional; **eventual** ones are only

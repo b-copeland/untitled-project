@@ -103,6 +103,10 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   locally. The likely cause is that the refetch of every key right after creation failed (a throttled or busy
   backend). Failed fetches are now retried for about half a minute (`src/data/gameData.js`). If it happens again,
   look in the browser's network tab for a failing or empty `/api/structures`.
+- 2026-11-22, the Overview's "Since you were last here" (#206): the last visit is kept in each browser
+  (`src/lastVisit.js`), so a player who switches devices sees the time since they last used that one. For kingdoms made
+  before the units and structures breakdowns, those changes count only from the first breakdown point, which the
+  first history tick after the function app is published writes.
 
 ## Instant changes to military strength
 

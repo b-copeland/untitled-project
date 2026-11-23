@@ -1295,6 +1295,8 @@ INITIAL_KINGDOM_STATE = {
             "engineers": [],
             "max_offense": [],
             "max_defense": [],
+            "units": [],
+            "structures": [],
         }
     },
 }

@@ -9,6 +9,7 @@ function Home(props) {
         <Topic id="home" title="Status" lead="Your kingdom at a glance.">
             <ul>
                 <li><b>Overview</b>: your economy, military, growth and threats on four cards. Each card's title links to the page where you act on it.</li>
+                <li><b>Since you were last here</b>: on the Overview, what changed while you were away: stars, networth, population, drones, engineers, each military unit and structure, and the attacks, spy operations and missiles against you. It counts from your last visit on this device when that was an hour or more ago, and covers the last hour otherwise. Your kingdom is recorded every half hour, so it counts from the record just before your visit, and units and structures go back a week at most.</li>
                 <li><b>Kingdom</b>: your resources, income and population. Income adds up continuously, not in steps.</li>
                 <li><b>Military</b>: your units at home and with each general, and when each general returns.</li>
                 <li><b>Structures</b>: what is built and what is still being built.</li>

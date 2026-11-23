@@ -1886,9 +1886,15 @@ def update_history(req: func.HttpRequest) -> func.HttpResponse:
         item=item_id,
         partition_key=item_id,
     )
+    # ``keep``: {series: n} keeps only the newest n points of those series. A series the document does not have yet
+    # starts empty, so a new series needs no migration of old documents.
+    keep = req_body.get("keep", {})
     try:
         for key_history, item_history in new_history.items():
-            history["history"][key_history].append(item_history)
+            series = history["history"].setdefault(key_history, [])
+            series.append(item_history)
+            if key_history in keep:
+                del series[:-int(keep[key_history])]
         CONTAINER.replace_item(
             item_id,
             history,

@@ -76,6 +76,7 @@ def get_state():
         # The objects above reach the browser with their keys sorted; this is the order the game lists them in.
         "order": {
             "units": list(uas.UNITS),
+            "structures": list(uas.STRUCTURES),
             "projects": list(uas.PROJECTS),
             "project_categories": list(uas.PROJECT_CATEGORIES),
             "cluster_benefits": list(uas.CLUSTER_BENEFITS),
@@ -1523,6 +1524,91 @@ def get_history():
 
     history = _get_history(kd_id)
     return flask.jsonify(history), 200
+
+
+# The history series that hold a dict of counts instead of one number. The refresh keeps only their newest week.
+HISTORY_BREAKDOWNS = ("units", "structures")
+# The single-number series the "since you were last here" summary compares. Max offense and defense are the best case,
+# not what the kingdom has now, so it leaves them out; the units breakdown shows the military instead.
+SUMMARY_SERIES = ("stars", "networth", "population", "drones", "engineers")
+
+
+def _history_values(kd_info):
+    """
+    What a history point records for ``kd_info``: the kingdom's numbers, its best-case max offense and defense with
+    every unit it owns, and the breakdowns: military units owned (at home and out with generals, engineers left out
+    as they have their own series) and structures built, without zero counts.
+    """
+    total_units = {key: value for key, value in kd_info["units"].items()}
+    for general_units in kd_info.get("generals_out", []):
+        for key_unit, value_unit in general_units.items():
+            if key_unit == "return_time":
+                continue
+            total_units[key_unit] = total_units.get(key_unit, 0) + value_unit
+    return {
+        "networth": kd_info["networth"],
+        "stars": kd_info["stars"],
+        "drones": kd_info["drones"],
+        "population": kd_info["population"],
+        "engineers": kd_info["units"]["engineers"],
+        "max_offense": _calc_max_offense(total_units),
+        "max_defense": _calc_max_defense(total_units),
+        "units": {key: int(value) for key, value in total_units.items()
+                  if key in uas.UNITS and key != "engineers" and value},
+        "structures": {key: int(value) for key, value in (kd_info.get("structures") or {}).items()
+                       if key in uas.STRUCTURES and value},
+    }
+
+
+def _baseline(series, since):
+    """The newest point at or before ``since``, or the oldest one if they are all later. None for an empty series."""
+    if not series:
+        return None
+    before = [point for point in series if uas.utc(point["time"]) <= since]
+    return max(before, key=lambda point: uas.utc(point["time"])) if before else min(
+        series, key=lambda point: uas.utc(point["time"]))
+
+
+def _history_summary(history, kd_info, since):
+    """
+    What changed since ``since``: each summary series and each unit and structure count, from the history point
+    nearest before it to the kingdom as it is now. ``from`` is when that point was taken (later than ``since`` when
+    the history does not go back that far: the round started later, or the breakdowns are kept only a week), None if
+    there is none yet. Counts that did not change are left out.
+    """
+    now = _history_values(kd_info)
+    summary = {"since": since.isoformat()}
+    first = _baseline(history.get("stars", []), since)
+    summary["from"] = first["time"] if first else None
+    summary["changes"] = {}
+    for key in SUMMARY_SERIES:
+        point = _baseline(history.get(key, []), since)
+        if point is not None:
+            summary["changes"][key] = {"from": point["value"], "to": now[key]}
+    for key in HISTORY_BREAKDOWNS:
+        point = _baseline(history.get(key, []), since)
+        summary[f"{key}_from"] = point["time"] if point else None
+        before = point["value"] if point else {}
+        changes = {}
+        for name in sorted(set(before) | set(now[key])):
+            if before.get(name, 0) != now[key].get(name, 0):
+                changes[name] = {"from": before.get(name, 0), "to": now[key].get(name, 0)}
+        summary[key] = changes if point else {}
+    return summary
+
+
+@bp.route('/api/history/summary', methods=['GET'])
+@flask_praetorian.auth_required
+def get_history_summary():
+    """``?since=<iso time>``: what changed in the caller's kingdom since then (``_history_summary``)."""
+    kd_id = flask_praetorian.current_user().kd_id
+    try:
+        since = uas.utc(flask.request.args["since"])
+    except (KeyError, ValueError, TypeError):
+        return flask.jsonify({"message": "since must be a time"}), 400
+    history = _get_history(kd_id)
+    kd_info = _get_kd_info(kd_id)
+    return flask.jsonify(_history_summary(history, kd_info, since)), 200
 
     
 @bp.route('/api/time')
