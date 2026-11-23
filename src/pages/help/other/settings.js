@@ -27,7 +27,7 @@ function Settings() {
                 <b>Effects</b> turns on or off the short animations that play when your attack lands, a spy operation
                 succeeds or fails, your missiles strike (some shot down if the target's shields stopped part of the
                 damage), and when you first see a new universe election result. They are on to start with, never play
-                on a device set to reduce motion, and a tap skips one.
+                on a device set to reduce motion, and a tap skips one. The result card appears when the animation ends.
             </p>
             <p>
                 <b>Guided tour</b> starts the tour of the main pages again. It is offered on your first visit: Not now

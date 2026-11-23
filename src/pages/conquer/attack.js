@@ -153,7 +153,11 @@ function Attack(props) {
         const updateFunc = async () => authFetch('api/attack/' + selected, {
             method: 'POST',
             body: JSON.stringify({ attackerValues }),
-        }).then(safeJson).then(r => { setAttackResults((previous) => previous.concat(r)); setForecast({}); flourishResult("attack", r); });
+        }).then(safeJson).then(r => {
+            setForecast({});
+            // The toast (and the refreshed numbers) wait for the animation, so neither gives the ending away.
+            return flourishResult("attack", r).then(() => setAttackResults((previous) => previous.concat(r)));
+        });
         props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects', 'galaxynews'], [updateFunc]);
     };
 

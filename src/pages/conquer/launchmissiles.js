@@ -71,7 +71,10 @@ function LaunchMissiles(props) {
         const updateFunc = async () => authFetch('api/launchmissiles/' + selected, {
             method: 'POST',
             body: JSON.stringify({ attackerValues: form.values }),
-        }).then(safeJson).then((r) => { setResults((previous) => previous.concat(r)); form.reset(); flourishResult("missiles", r); });
+        }).then(safeJson).then((r) => {
+            form.reset();
+            return flourishResult("missiles", r).then(() => setResults((previous) => previous.concat(r)));
+        });
         props.updateData(['kingdom', 'missilehistory'], [updateFunc]);
     };
 

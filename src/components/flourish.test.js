@@ -1,7 +1,8 @@
 import React from "react";
 import { render, screen, act } from "@testing-library/react";
 import {
-    FlourishLayer, FlourishStage, attackShip, flourishResult, playFlourish, shotDownCount, shotDownMissiles, spyDrone,
+    ATTACK, FlourishLayer, FlourishStage, SPY, fleetShip, flourishResult, playFlourish, searchlight, shotDownCount,
+    shotDownMissiles, spyDrone,
 } from "./flourish";
 
 const setReducedMotion = (reduce) => {
@@ -18,52 +19,95 @@ afterEach(() => {
 
 test("an attack's answer plays its effect over the page, and it goes away by itself", () => {
     render(<FlourishLayer enabled />);
-    act(() => flourishResult("attack", { status: "success", message: "You won" }));
+    act(() => { flourishResult("attack", { status: "success", message: "You won" }); });
     expect(screen.getByTestId("flourish").getAttribute("aria-hidden")).toBe("true");
     expect(screen.getByText("Attack won")).toBeTruthy();
 
-    act(() => { jest.advanceTimersByTime(3000); });
+    act(() => { jest.advanceTimersByTime(ATTACK.seconds * 1000); });
     expect(screen.queryByTestId("flourish")).toBeNull();
 });
 
 test("a refused request plays nothing", () => {
     render(<FlourishLayer enabled />);
-    act(() => flourishResult("attack", { message: "You do not have enough generals" }));
-    act(() => flourishResult("spy", { status: "error", message: "Server is busy" }));
+    act(() => { flourishResult("attack", { message: "You do not have enough generals" }); });
+    act(() => { flourishResult("spy", { status: "error", message: "Server is busy" }); });
     expect(screen.queryByTestId("flourish")).toBeNull();
 });
 
 test("nothing plays with Effects off or when the device asks to reduce motion", () => {
     const { rerender } = render(<FlourishLayer enabled={false} />);
-    act(() => playFlourish({ kind: "spy", outcome: "success" }));
+    act(() => { playFlourish({ kind: "spy", outcome: "success" }); });
     expect(screen.queryByTestId("flourish")).toBeNull();
 
     setReducedMotion(true);
     rerender(<FlourishLayer enabled />);
-    act(() => playFlourish({ kind: "spy", outcome: "success" }));
+    act(() => { playFlourish({ kind: "spy", outcome: "success" }); });
     expect(screen.queryByTestId("flourish")).toBeNull();
 });
 
 test("a tap skips the effect", () => {
     render(<FlourishLayer enabled />);
-    act(() => playFlourish({ kind: "spy", outcome: "failure" }));
+    act(() => { playFlourish({ kind: "spy", outcome: "failure" }); });
     expect(screen.getByText("Operation failed")).toBeTruthy();
     act(() => { window.dispatchEvent(new Event("pointerdown")); });
     expect(screen.queryByTestId("flourish")).toBeNull();
 });
 
-test("a won attack loses one ship and the rest fly on; a lost one loses them all", () => {
-    const after = 3;
-    expect([0, 1, 2, 3, 4].map((i) => attackShip(i, after, true).alive)).toEqual([true, true, true, false, true]);
-    expect([0, 1, 2, 3, 4].map((i) => attackShip(i, after, false).alive)).toEqual([false, false, false, false, false]);
-    // The survivors leave the stage on the right.
-    expect(attackShip(0, after, true).x).toBeGreaterThan(320);
+const fleet = (side, t, won) => [0, 1, 2, 3, 4].map((i) => {
+    const { x, y, angle, alive } = fleetShip(side, i, t, won);  // what is on screen, not the planned losses
+    return { x, y, angle, alive };
+});
+const alive = (ships) => ships.map((ship) => ship.alive);
+
+test("an attack opens the same way whatever happens, and reveals the outcome only after the pause", () => {
+    for (let t = 0; t < ATTACK.reveal; t += 0.1) {
+        expect(fleet("ours", t, true)).toEqual(fleet("ours", t, false));
+        expect(fleet("theirs", t, true)).toEqual(fleet("theirs", t, false));
+    }
+    expect(alive(fleet("ours", ATTACK.reveal, true))).toEqual([true, true, true, true, true]);
+    expect(alive(fleet("theirs", ATTACK.reveal, true))).toEqual([true, true, true, true, true]);
 });
 
-test("the spy drone gets away when the operation passes and is shot down when it fails", () => {
-    expect(spyDrone(1.8, true).alive).toBe(true);
-    expect(spyDrone(1.8, true).x).toBeGreaterThan(320);
-    expect(spyDrone(1.8, false).alive).toBe(false);
+test("a won attack destroys their fleet for one ship and flies on; a lost one loses ours", () => {
+    const end = ATTACK.seconds;
+    expect(alive(fleet("ours", end, true))).toEqual([true, true, true, false, true]);
+    expect(alive(fleet("theirs", end, true))).toEqual([false, false, false, false, false]);
+    expect(fleet("ours", end, true)[0].x).toBeGreaterThan(320);  // off the stage on the right
+    expect(alive(fleet("ours", end, false))).toEqual([false, false, false, false, false]);
+    expect(alive(fleet("theirs", end, false))).toEqual([true, false, true, true, true]);
+});
+
+test("a spy operation opens the same way either way; then the drone is spotted or gets away", () => {
+    for (let t = 0; t <= SPY.reveal; t += 0.1) {
+        expect(spyDrone(t, true)).toEqual(spyDrone(t, false));
+        expect(searchlight(t, true)).toBe(searchlight(t, false));
+    }
+    expect(searchlight(SPY.reveal + 0.5, false)).toBe(180);  // locked on the drone
+    expect(spyDrone(SPY.seconds, true).alive).toBe(true);
+    expect(spyDrone(SPY.seconds, true).x).toBeGreaterThan(320);
+    expect(spyDrone(SPY.seconds, false).alive).toBe(false);
+});
+
+test("the promise settles when the effect ends, is skipped, or does not play", async () => {
+    render(<FlourishLayer enabled />);
+    let done = false;
+    act(() => { playFlourish({ kind: "spy", outcome: "success" }).then(() => { done = true; }); });
+    await act(async () => { jest.advanceTimersByTime(1000); });
+    expect(done).toBe(false);
+    await act(async () => { jest.advanceTimersByTime(SPY.seconds * 1000); });
+    expect(done).toBe(true);
+
+    let skipped = false;
+    act(() => { playFlourish({ kind: "spy", outcome: "success" }).then(() => { skipped = true; }); });
+    await act(async () => { window.dispatchEvent(new Event("pointerdown")); });
+    expect(skipped).toBe(true);
+
+    await expect(flourishResult("attack", { message: "refused" })).resolves.toBeUndefined();
+});
+
+test("with Effects off the promise settles at once", async () => {
+    render(<FlourishLayer enabled={false} />);
+    await expect(playFlourish({ kind: "attack", outcome: "success" })).resolves.toBeUndefined();
 });
 
 test("the missiles shot down follow the share of the damage the shields stopped", () => {
@@ -74,7 +118,7 @@ test("the missiles shot down follow the share of the damage the shields stopped"
     expect(shotDownCount(0.98)).toBe(5);   // one still gets through
     expect(shotDownCount(1)).toBe(6);
     expect(shotDownMissiles(2).filter(Boolean)).toHaveLength(2);
-    expect(shotDownMissiles(2)[0]).toBe(false);  // spread through the salvo, not the first ones
+    expect(shotDownMissiles(2)).toEqual([false, false, false, false, true, true]);  // the first hit, the last are stopped
 });
 
 test("the missile caption says whether the shields stopped any", () => {

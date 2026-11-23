@@ -102,7 +102,10 @@ function Spy(props) {
         setConfirming(false);
         const body = { drones, shielded: shieldDrones, operation, share_to_galaxy: share, cut: cut === "" ? 0 : cut };
         const updateFunc = async () => authFetch('api/spy/' + selected, { method: 'POST', body: JSON.stringify(body) })
-            .then(safeJson).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); flourishResult("spy", r); });
+            .then(safeJson).then(r => {
+                setForecast({});
+                return flourishResult("spy", r).then(() => setResults((previous) => previous.concat(r)));
+            });
         props.updateData(['kingdom', 'spyhistory', 'revealed', 'intel'], [updateFunc]);
     };
 

@@ -83,7 +83,10 @@ function AttackPrimitives(props) {
     const send = () => {
         setConfirming(false);
         const updateFunc = async () => authFetch('api/attackprimitives', { method: 'POST', body: JSON.stringify({ attackerValues }) })
-            .then(safeJson).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); flourishResult("attack", r); });
+            .then(safeJson).then(r => {
+                setForecast({});
+                return flourishResult("attack", r).then(() => setResults((previous) => previous.concat(r)));
+            });
         props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects'], [updateFunc]);
     };
 

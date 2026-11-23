@@ -6,6 +6,9 @@
     display: flex; justify-content: center; align-items: flex-start;
     padding: 18vh 16px 0;
 }
+@media (min-width: 992px) {
+    .flourish-layer { padding-top: 12vh; }
+}
 
 .fl-stage {
     position: relative;
@@ -19,6 +22,12 @@
 .fl-svg { display: block; width: 100%; height: auto; }
 
 .fl-caption { padding: 0 12px 12px; text-align: center; font-weight: 600; letter-spacing: 0.02em; }
+
+/* On a desktop the scene is much larger. */
+@media (min-width: 992px) {
+    .fl-stage { width: min(100%, 720px); }
+    .fl-caption { font-size: 1.25rem; padding-bottom: 16px; }
+}
 .fl-caption-success { color: var(--bs-success); }
 .fl-caption-failure { color: var(--bs-danger); }
 
@@ -34,8 +43,10 @@
 .fl-glow { fill: none; stroke: var(--fl-tone); stroke-width: 3; }
 
 .fl-hull { fill: var(--bs-body-color); }
+.fl-hull-enemy { fill: var(--accent); }
 .fl-engine { fill: var(--bs-warning); opacity: 0.85; }
-.fl-beam { stroke: var(--bs-danger); stroke-width: 1.4; stroke-linecap: round; }
+.fl-beam { stroke: var(--fl-tone, var(--bs-danger)); stroke-width: 1.4; stroke-linecap: round; }
+.fl-searchlight { fill: var(--bs-warning); }
 
 .fl-burst { fill: var(--fl-tone); opacity: 0.55; }
 .fl-burst-core { fill: var(--bs-warning); }
@@ -53,6 +64,13 @@
 
 /* The election: curtains part on the winning options. */
 .fl-stage-election { width: min(100%, 520px); }
+@media (min-width: 992px) {
+    .fl-stage-election { width: min(100%, 720px); }
+    .fl-election { min-height: 280px; }
+    .fl-election-reveal { padding-top: 70px; }
+    .fl-election-title { font-size: 1.75rem; }
+    .fl-election-line { font-size: 1.15rem; }
+}
 .fl-election { position: relative; min-height: 200px; }
 .fl-election-reveal {
     padding: 44px 20px 24px; text-align: center;
