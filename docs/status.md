@@ -76,6 +76,8 @@ Starting a round, its dates and bots were reworked on 2026-11-21 ([admin.md](adm
 - Python 3.10 reached end of life in October 2026. The Create React App toolchain is old. GitHub reports many
   Dependabot alerts on `main`.
 - Unused leftovers: `adhoc/service_bus_testing.py`.
+- Scheduled attacks (2026-11-22): when military intel lacks the target's military bonus or shields, the suggested army
+  assumes 25% and 10% (`refresh._resolve_schedule_attack`), as the Attack page's autofill does with its boxes empty.
 
 ## Cost and efficiency
 

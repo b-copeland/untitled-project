@@ -1272,8 +1272,8 @@ def plan_attack(world, personality, style, memory, rng):
         edge, target, wait, count, offense, defense = best
         return [Decision("attack", {
             "target": target, "generals": count, "prefer_autofill": True, "autofill_buffer": buffer,
-            # Only used if the intel has gone by the time it runs, and then nothing is sent.
-            "pure_offense": 0, "flex_offense": 0,
+            # The suggested army may use everything at home; if the intel has gone by the time it runs, nothing is sent.
+            "pure_offense": 100, "flex_offense": 100, "units_mode": "send", "send_without_intel": False,
         }, f"attack {world.names[target]}: {offense:,.0f} offense vs {defense:,.0f} defense with a {buffer:.0f}% buffer, "
            f"{edge:.1f}x what primitives would give" + (f", in {wait / EPOCH:.1f} epochs" if wait else ""),
             at=wait + rng.uniform(0.05, 0.3) * EPOCH)]
@@ -1281,7 +1281,7 @@ def plan_attack(world, personality, style, memory, rng):
         target, offense, defense, count, wait = chip
         return [Decision("attack", {
             "target": target, "generals": count, "prefer_autofill": False, "autofill_buffer": 0,
-            "pure_offense": 100, "flex_offense": 50,
+            "pure_offense": 100, "flex_offense": 50, "units_mode": "up_to",
         }, f"wear down {world.names[target]}: {offense:,.0f} offense into {defense:,.0f} defense, to lose and cost them units",
             at=wait + rng.uniform(0.05, 0.3) * EPOCH)]
     if army_style in ("players", "both"):

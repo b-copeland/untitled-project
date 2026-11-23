@@ -82,7 +82,7 @@ finish times are rounded up to a grid of 0.1% of an epoch and entries on the sam
 | `settles_<id>`, `mobis_<id>`, `structures_<id>`, `missiles_<id>`, `engineers_<id>` | Build queues: a list of queue entries under the same name | strict-ish: appended by actions, trimmed by the refresh |
 | `siphons_out_<id>` | `siphons_out`: the siphons running on this kingdom, see [below](#siphons) | eventual: appended by Siphon Funds, settled by the refresh |
 | `siphons_in_<id>` | `siphons_in`: payments to this kingdom from its siphons, waiting for its next refresh | eventual: appended by the target's refresh, cleared by this kingdom's |
-| `news_<id>` | `news`: list of `{time, from, to, news, kind}` (`kind` is `attack`, `spy`, `missiles`, `intel`, `targets` or missing on old items) | eventual |
+| `news_<id>` | `news`: list of `{time, from, to, news, kind}` (`kind` is `attack`, `spy`, `missiles`, `intel`, `targets`, `schedule` (a scheduled action that did nothing, and why) or missing on old items) | eventual |
 | `revealed_<id>` | `revealed`: kd id to stat to expiry time; `galaxies`: galaxy id to expiry; `revealed_galaxymates`, `revealed_to_galaxymates` | eventual. The kingdom's `next_resolve.revealed` timer is lowered to the soonest expiry (`_lower_timer` in `conquer.py`) so the refresh expires them on time. |
 | `lastknown_<id>` | `known`: kd id to reveal category to `{ended, values}`: what that intel showed when it ended (the category's fields from `REVEAL_FIELDS`, projects without their zero entries and without the bonuses, which are worked out when read). Only kingdoms that have had intel end have one. See `lastknown.py` and [decisions/0009](decisions/0009-last-known-intel.md) | eventual: merged by the refresh when reveals expire, and by Unshare |
 | `pinned_<id>` | `pinned`: list of kd ids | eventual |
@@ -190,7 +190,7 @@ Created from `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`, which has the st
 | `auto_attack_enabled`, `auto_attack_settings` | Automatic attacks on primitives |
 | `auto_rob_enabled`, `auto_rob_settings` | Automatic robbing of primitives |
 | `projects_points`, `projects_max_points`, `projects_assigned`, `completed_projects`, `auto_assign_projects` | Projects: progress, caps, engineers assigned, unlocks done. One key per project in `PROJECTS`; a kingdom made before a unit or project existed lacks its keys until its next tick fills them (`with_new_fields` in `shared.py`), so read them with the helpers there. |
-| `schedule` | Scheduled actions waiting for their time |
+| `schedule` | Scheduled actions waiting for their time: `{id, time, type, options}`. An attack's `options` hold `pure_offense` and `flex_offense` (fractions of the whole army), `units_mode` (`send`: that share; `up_to`: up to that share, counting units already out), `prefer_autofill`, `autofill_buffer`, `send_without_intel` and `generals`. Entries saved before `units_mode` and `send_without_intel` existed lack them and run as `up_to` and true. |
 | `siphons` | Siphons this kingdom is running |
 
 Fields added after creation:
