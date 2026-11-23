@@ -272,7 +272,7 @@ def test_the_economy_plan_is_legal_and_leaves_nothing_idle(app):
                     assert sum(settings["structures_target"].values()) <= 1.0001
                     assert sum(settings["units_target"].values()) <= 1.0001
                     assert sum(settings["projects_assigned"].values()) == world.me["units"]["engineers"]
-                    assert settings["recruits_before_units"] is False and settings["max_recruits"] >= 50
+                    assert settings["recruits_before_units"] is True and settings["max_recruits"] == 99999
                     assert settings["auto_spending_enabled"] is True
 
 
@@ -856,7 +856,7 @@ def test_a_think_sets_up_the_kingdom_votes_and_remembers(app, client):
     bot = kingdom_now["bot"]
     assert kingdom_now["auto_spending_enabled"] is True and 0 < sum(kingdom_now["auto_spending"].values()) <= 1.0001
     assert kingdom_now["next_resolve"]["auto_spending"] < uas.DATE_SENTINEL  # switched on, so it has a time to run
-    assert kingdom_now["recruits_before_units"] is False and kingdom_now["auto_rob_enabled"] is True
+    assert kingdom_now["recruits_before_units"] is True and kingdom_now["auto_rob_enabled"] is True
     # Its army has no hangars yet, so hangars (and fuel plants) come first; otherwise the target uses every star.
     target = kingdom_now["structures_target"]
     assert sum(target.values()) > 0.99 or {key for key, share in target.items() if share > 0} <= {"hangars", "fuel_plants"}
