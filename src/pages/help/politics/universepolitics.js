@@ -23,7 +23,7 @@ function UniversePolitics(props) {
             <ul>
                 <li>Each election has {cfg.UNIVERSE_POLICIES_PER_ELECTION} policies on its ballot. The first always has Primitives, and no later one does. Each later ballot is drawn when the election before it closes, from the policies that were not on that one, so the page shows it days ahead.</li>
                 <li>Every option punishes a playstyle: the vote decides whose. Wealth's options hit only the leaders: the {cfg.UNIVERSE_WEALTH_TOP_KINGDOMS} kingdoms, or the kingdoms of the {cfg.UNIVERSE_WEALTH_TOP_GALAXIES} galaxies, with the most networth.</li>
-                <li>Buy votes with money, at {num(cfg.BASE_VOTES_COST)} each, and spend them on the ballot's options while voting is open, in any amounts. Spent votes can not be taken back; votes you did not spend carry over to the next election. Nobody sees how anyone else voted.</li>
+                <li>Buy votes with money, at {num(cfg.BASE_VOTES_COST)} each, and spend them on the ballot's options while voting is open, in any amounts. Spent votes can not be taken back; votes you did not spend carry over to the next election. Nobody sees how anyone else voted. Once an election closes, the Last election panel shows how many votes each option got in all, and how many were yours, until the one after it closes.</li>
                 <li>When voting closes, the option with the most votes in each policy wins. A tie, no votes at all included, is decided at random.</li>
             </ul>
             <HelpTable columns={[["Policy"], ["One option"], ["The other"]]} rows={rows} />

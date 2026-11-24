@@ -30,3 +30,6 @@
     max-width: 320px;
     margin-left: 0;
 }
+/* The last election's results: one small table per policy. */
+.election-result + .election-result { margin-top: 0.75rem; }
+.election-result-title { font-size: 0.95rem; font-weight: 600; margin: 0 0 0.25rem; }

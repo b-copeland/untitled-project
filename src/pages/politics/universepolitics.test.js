@@ -86,3 +86,22 @@ test("a new result opens the curtains once in this browser, and again only when 
     expect(play).toHaveBeenCalledTimes(2);
     play.mockRestore();
 });
+
+test("the last election shows each option's votes, its share, my votes and the winner (#241)", () => {
+    const results = [{ key: "labor", name: "Labor", votes: 14, options: [
+        { key: "draft_limits", name: "Draft Limits", votes: 9, my_votes: 2, won: true },
+        { key: "research_moratorium", name: "Research Moratorium", votes: 5, my_votes: 0, won: false },
+    ] }];
+    show(universe({ results }));
+    expect(screen.getByText("Last election")).toBeTruthy();
+    const winner = screen.getByText("Draft Limits").closest("tr");
+    expect(winner.textContent).toContain("Won");
+    expect(winner.textContent).toContain("9 (64.3%)");
+    expect(winner.textContent).toContain("2");
+    expect(screen.getByText("Research Moratorium").closest("tr").textContent).not.toContain("Won");
+});
+
+test("before any election has closed there is no results panel", () => {
+    show(universe({ results: [] }));
+    expect(screen.queryByText("Last election")).toBeNull();
+});

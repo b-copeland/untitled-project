@@ -1442,11 +1442,14 @@ def _begin_election(state):
         return state
     state["state"].update(state_payload)
 
-    # The new election's votes start empty (an effect of the decision above, so it happens once).
+    # The new election's votes start empty (an effect of the decision above, so it happens once). The last election's
+    # are kept as ``last_votes``, for its results on the Universe page: no vote can land on them between its close and
+    # now, since votes are only taken while an election is open.
+    previous = occ.read('/universevotes').get("votes") or {}
     REQUESTS_SESSION.patch(
         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/universepolitics',
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps({"votes": uaup.empty_votes(ballot)})
+        data=json.dumps({"votes": uaup.empty_votes(ballot), "last_votes": previous})
     )
     on_ballot = " and ".join(uas.UNIVERSE_POLICIES[policy]["name"] for policy in ballot)
     uan.best_effort(uan.universe)(f"A universe election has begun, on {on_ballot}. Voting closes in "
