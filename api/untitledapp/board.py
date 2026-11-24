@@ -95,30 +95,45 @@ def galaxy_board():
     return _answer({**board, "galaxy": galaxy, "can_moderate": politics.get("leader") == kd_id})
 
 
-@bp.route('/api/galaxyboard', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-def post_to_board():
-    kd_id = flask_praetorian.current_user().kd_id
-    body = flask.request.get_json(force=True, silent=True)
-    text = body.get("text") if isinstance(body, dict) else None
+def post_for(kd_id, text, pin=False):
+    """
+    Post ``text`` to ``kd_id``'s galaxy's board, and pin it if ``pin`` and ``kd_id`` leads the galaxy. The route and
+    the bots both use it. Returns ``(payload, status)``.
+    """
     text = text.strip() if isinstance(text, str) else text
     problem = text_problem(text)
     if problem:
-        return _answer({"message": problem}, 400)
-    galaxy, _ = _where(kd_id)
+        return {"message": problem}, 400
+    galaxy, politics = _where(kd_id)
     post = {
         "id": uuid.uuid4().hex,
         "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "from": kd_id,
         "text": text,
     }
-    answer = _decide_and_answer(galaxy, lambda board: with_post(board, post), "Posted")
-    if answer[1] == 200:
+    pinned = pin and politics.get("leader") == kd_id
+
+    def change(board):
+        board = with_post(board, post)
+        return {**board, "pinned": post} if pinned else board
+
+    payload, status = _decide_and_answer(galaxy, change, "Posted")
+    payload = payload.get_json()
+    if status == 200:
         for galaxymate in uag._get_galaxy_info().get(galaxy, []):
             if galaxymate != kd_id:
                 uam._add_notifs(galaxymate, ["galaxy_board"])
-    return answer
+    return payload, status
+
+
+@bp.route('/api/galaxyboard', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def post_to_board():
+    kd_id = flask_praetorian.current_user().kd_id
+    body = flask.request.get_json(force=True, silent=True)
+    payload, status = post_for(kd_id, body.get("text") if isinstance(body, dict) else None)
+    return _answer(payload, status)
 
 
 @bp.route('/api/galaxyboard/<post_id>/delete', methods=['POST'])

@@ -51,6 +51,7 @@ import zlib
 import flask
 
 import untitledapp.botstrategy as strategy
+import untitledapp.board as uaboard
 import untitledapp.build as uab
 import untitledapp.clusters as uacl
 import untitledapp.conquer as uac
@@ -108,7 +109,7 @@ HOMES_SPARE = 1.15          # TUNE: homes kept over what the recruits and engine
 ENGINEERS_PER_STAR = None   # TUNE: the most engineers a kingdom keeps per star (None: as many as the workshops hold)
 WAR_MARGIN = 1.3            # TUNE: how much more defense a kingdom whose empire is at war keeps
 BOMBER_KEEP = 1.5           # TUNE: epochs of income a bomber keeps as money for missiles
-TARGET_SHARE = 0.5          # TUNE: the share of attacks, spy attempts and missile strikes a bot puts on its empire's
+TARGET_SHARE = 0.8          # TUNE: the share of attacks, spy attempts and missile strikes a bot puts on its empire's
                             # targets, when it is equipped to (a beatable target, a fair chance)
 SUICIDE_TEAM = 8            # TUNE: how many kingdoms' worth of burning a bot counts on when it burns a leader's fuel
 BOT_VOTE_WEIGHT = 0.5       # TUNE: bots buy this share of the universe votes their playstyle would, so players' votes count for more
@@ -120,6 +121,7 @@ BOUNTY_CUT = 5.0            # TUNE: percent of the spoils a bot offers for intel
 WEAKNESS = 0.3              # TUNE: a target's worth rises by this much (times 0 to 2) for few fuel plants and homes
 WEAK_FUEL_SHARE = 0.06      # TUNE: below this share of its land in fuel plants a kingdom looks weak
 WEAK_HOMES_SHARE = 0.2      # TUNE: and below this share in homes
+PLAYERS_ONLY_EDGE = 0.5     # TUNE: a bot that hits only kingdoms still wants this share of what primitives would give (0: any win)
 STALL_EPOCHS = 24
 STALL_GROWTH = 0.02
 E, M, L = 0, 1, 2
@@ -252,7 +254,7 @@ PERSONALITIES = {
         army_targets={"none": 0.1, "primitives": 0.9}, drone_targets={"primitives": 0.6, "both": 0.4},
         bomber_chance=0.2,
         settle_drive=(1.0, 1.0, 0.8), military_drive=(0.4, 0.45, 0.6), defense_margin=1.15,
-        offense_share=(1.0, 0.9, 0.4),
+        offense_share=(1.0, 0.9, 0.4), settle_first=True,
         workshops=(0.07, 0.07, 0.08), drone_factories=0.06, homes=0.6,
         project_weights={"money_bonus": 1.0, "fuel_bonus": 0.5, "military_bonus": 0.7, "spy_bonus": 1.0},
         key_projects=("drone_gadgets", "big_flexers"), key_share=(0.6, 0.3, 0.15),
@@ -1134,16 +1136,11 @@ def _empire_networth(world, empire):
     return sum(galaxy_networth.get(galaxy, 0) for galaxy in empire.get("galaxies", []))
 
 
-# The usual way to kill a kingdom, in the order that works: strikes (and the intel for them) until its units overflow
-# its hangars, then kidnaps and bombed homes (its people fall below the overflow) and wrecked fuel plants, then missiles
-# to finish it. Each stage keeps the earlier actions and adds the next, with the new ones worth the most points.
-KILL_STAGE_EPOCHS = 12  # TUNE: how long a target stays at each stage of the kill chain
-KILL_CHAIN = (
-    {"intel": 1.0, "successful_attacks": 2.0},
-    {"intel": 1.0, "successful_attacks": 1.0, "kidnap": 2.0, "bomb_homes": 2.0, "sabotage_fuel_plants": 2.0},
-    {"intel": 1.0, "successful_attacks": 1.0, "kidnap": 1.0, "bomb_homes": 1.0, "sabotage_fuel_plants": 1.0,
-     "missiles": 2.0},
-)
+# A target is marked for everything at once: whatever a member can do to it with the resources it has (strikes and the
+# intel for them, kidnaps, bombed homes, wrecked fuel plants, missiles) goes to it, in whatever order the empire's
+# members get to it. Attacks and the points for them count most.
+KILL_CHAIN = {"intel": 1.0, "successful_attacks": 2.0, "kidnap": 2.0, "bomb_homes": 2.0, "sabotage_fuel_plants": 2.0,
+              "missiles": 2.0}
 TARGET_TRY_EPOCHS = 6   # TUNE: how long between a galaxy leader's tries at marking an empire target
 
 
@@ -1165,15 +1162,6 @@ def plan_targets(world, personality, style, memory, rng):
         return []
     memory["target_try"] = world.epochs
     targets = world.empire_targets
-    # Targets move on to the next stage of the chain as they age.
-    for kd, entry in world.empire_target_entries.items():
-        age = (world.now - _utc(entry["created_at"])).total_seconds() / EPOCH
-        stage = KILL_CHAIN[min(int(age // KILL_STAGE_EPOCHS), len(KILL_CHAIN) - 1)]
-        if dict(entry["actions"]) != stage:
-            return [Decision("update_target", {"target": kd, "actions": dict(stage)},
-                             f"move the target {world.names.get(kd, kd)} on to {', '.join(stage)}")]
-    if len(targets) >= len(world.empires[1][me_empire].get("galaxies", [])):
-        return []
     taken = {world.galaxy_of.get(kd) for kd in targets}
     known = world.known_stars()
     best, best_score = None, 0.0
@@ -1189,9 +1177,75 @@ def plan_targets(world, personality, style, memory, rng):
             best, best_score = kd, score
     if best is None:
         return []
-    return [Decision("mark_target", {"target": best, "actions": dict(KILL_CHAIN[0])},
+    return [Decision("mark_target", {"target": best, "actions": dict(KILL_CHAIN)},
                      f"mark {world.names[best]} as an empire target: {known[best][0]:,.0f} stars, "
                      f"{weakness(world.target_info(best)):.1f} of 2 weak")]
+
+
+def _plan_announce(world, memory, empire, empires):
+    """
+    A galaxy leader tells its galaxy, on the board (pinned), when its empire goes to war and whom it marks as a target,
+    so the players in it know what the empire is doing. Once for each war and each target.
+    """
+    told = memory.setdefault("announced", [])
+    decisions = []
+    for rival in empire.get("war", []):
+        key = f"war:{rival}"
+        if key not in told and rival in empires:
+            told.append(key)
+            decisions.append(Decision("board_post", {
+                "text": f"Our empire is at war with {empires[rival]['name']}. Watch the empire targets and keep your defense up.",
+                "pin": True}, f"tell the galaxy about the war with {empires[rival]['name']}"))
+    for kd in world.empire_targets:
+        key = f"target:{kd}"
+        if key not in told and kd in world.names:
+            told.append(key)
+            decisions.append(Decision("board_post", {
+                "text": f"{world.names[kd]} is an empire target: hit it with what you have (strikes, spies, missiles).",
+                "pin": False}, f"tell the galaxy that {world.names[kd]} is a target"))
+    del told[:-20]
+    return decisions[:2]
+
+
+SURRENDER_ACCEPT_EPOCHS = 24   # TUNE: a war this old is ended by the winning side for any offer (the war wears everybody down)
+SURRENDER_OFFER_EPOCHS = 48    # TUNE: a war this old can be ended by the weaker side offering to surrender...
+SURRENDER_RATIO = 1.5          # TUNE: ...when the enemy empire has this many times its networth
+
+
+def _plan_surrender(world, memory, mine, empire, empires, empire_politics):
+    """
+    Ending wars, as the ruling galaxy's leader. An offer to surrender is accepted when it gives up a share of stars, or
+    when the war is old; and an empire the enemy outweighs offers one (5% of its stars, 10% if outweighed three to
+    one): a war it is losing only feeds the enemy's targets. Wars are dated from when the bot first saw them.
+    """
+    since = memory.setdefault("war_since", {})
+    wars = empire.get("war", [])
+    for rival in list(since):
+        if rival not in wars:
+            del since[rival]
+    for rival in wars:
+        since.setdefault(rival, world.epochs)
+    decisions = []
+    sent = {entry.get("empire") for entry in empire_politics.get("surrender_offers_sent", [])}
+    for offer in empire_politics.get("surrender_offers_received", [])[:1]:
+        rival = offer.get("empire")
+        old = world.epochs - since.get(rival, world.epochs) >= SURRENDER_ACCEPT_EPOCHS
+        if rival in wars and (offer.get("value", 0) >= 0.05 or old):
+            decisions.append(Decision("accept_surrender", {"empire": rival, "type": offer["type"], "value": offer["value"]},
+                                      f"accept {empires[rival]['name']}'s offer to surrender ({offer['value']:.0%} of stars)"))
+            return decisions
+    for rival in wars:
+        if rival in sent or world.epochs - since.get(rival, world.epochs) < SURRENDER_OFFER_EPOCHS:
+            continue
+        mine_worth = max(_empire_networth(world, empire), 1)
+        ratio = _empire_networth(world, empires[rival]) / mine_worth
+        if ratio >= SURRENDER_RATIO:
+            value = 0.1 if ratio >= 3 else 0.05
+            decisions.append(Decision("offer_surrender", {"empire": rival, "type": "stars", "value": value},
+                                      f"offer {empires[rival]['name']} a surrender of {value:.0%} of stars: they have "
+                                      f"{ratio:.1f} times our networth"))
+            break
+    return decisions
 
 
 def _plan_empire(world, memory, rng):
@@ -1237,6 +1291,9 @@ def _plan_empire(world, memory, rng):
                 if galaxy not in galaxy_empire and world.galaxies[galaxy] and fits_in_empire(world, members, galaxy)]
         if free:
             decisions.append(Decision("empire_invite", {"galaxy": rng.choice(free)}, "invite a galaxy without an empire"))
+
+    decisions.extend(_plan_surrender(world, memory, mine, empire, empires, empire_politics))
+    decisions.extend(_plan_announce(world, memory, empire, empires))
 
     # The rival: the strongest other empire. Denounce it from the mid game (the aggression that follows can bring a
     # war without the penalty for a surprise), and declare war late if it has not come by itself.
@@ -1539,7 +1596,7 @@ def plan_attack(world, personality, style, memory, rng):
             break
     on_target = focus and best is not None and best[1] in marked
 
-    threshold = 0.0 if army_style == "players" or on_target else personality.player_edge
+    threshold = PLAYERS_ONLY_EDGE * personality.player_edge if army_style == "players" or on_target else personality.player_edge
     if best and best[0] >= threshold and (army_style in ("players", "both") or on_target):
         edge, target, wait, count, offense, defense = best
         return [Decision("attack", {
@@ -1980,8 +2037,12 @@ def _do(kd_id, world, decision):
             return _answer(uac._reveal_random_galaxy(kd_id))
         if kind == "accept_intel":
             return _answer(uai._buy(kd_id, options["listing"]))
-        if kind == "update_target":
-            return _answer(uat.update_target(kd_id, options["target"], options["actions"], None))
+        if kind == "board_post":
+            return _answer(uaboard.post_for(kd_id, options["text"], pin=options.get("pin", False)))
+        if kind == "offer_surrender":
+            return _answer(uap.offer_surrender_for(kd_id, options["empire"], options["type"], options["value"]))
+        if kind == "accept_surrender":
+            return _answer(uap.accept_surrender_offer_for(kd_id, options["empire"], options["type"], options["value"]))
         if kind == "mark_target":
             return _answer(uat.add_target(kd_id, options["target"], options["actions"], None))
         if kind == "fulfil_bounty":

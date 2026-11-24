@@ -583,12 +583,16 @@ def test_about_half_the_strikes_go_to_an_empire_target_it_can_beat():
     assert decision.options["target"] == "5"
 
 
-def test_a_bot_that_hits_both_only_takes_a_kingdom_that_beats_primitives():
+def test_a_bot_that_hits_both_only_takes_a_kingdom_that_beats_primitives(monkeypatch):
     # Early in the round primitives are easy: this kingdom would cost more offense per star than they do.
     world = StubWorld(day=0.5, revealed={"3": {"military": until(30)}}, stats={"3": (400, 60_000)},
                       info={"3": military(2000)})
     both = brain.plan_attack(world, ATTACKER, style(army="both"), {}, ChanceOf(0.0))
     assert [d.kind for d in both] != ["attack"]
+    # One that hits only kingdoms wants at least PLAYERS_ONLY_EDGE of what primitives give; at 0 it takes any win.
+    players = brain.plan_attack(world, ATTACKER, style(army="players"), {}, ChanceOf(0.0))
+    assert [d.kind for d in players] != ["attack"]
+    monkeypatch.setattr(brain, "PLAYERS_ONLY_EDGE", 0.0)
     players = brain.plan_attack(world, ATTACKER, style(army="players"), {}, ChanceOf(0.0))
     assert [d.kind for d in players] == ["attack"]
     # A bot that only hits primitives, or nothing, plans no strike at all.
@@ -1206,7 +1210,7 @@ def test_a_galaxy_leader_at_war_marks_the_easiest_enemy_for_the_whole_kill_chain
                          politics={"leader": "1"}, **kw)
     (decision,) = brain.plan_targets(world(), ATTACKER, style(), {}, random.Random(1))
     assert decision.kind == "mark_target" and decision.options["target"] == "5"  # as weak as 3, with more land
-    assert set(decision.options["actions"]) == {"successful_attacks", "intel"}  # strikes first
+    assert set(decision.options["actions"]) == set(brain.KILL_CHAIN) >= {"successful_attacks", "kidnap", "missiles", "intel"}
     # Not tried again at once; not by a bot that does not lead its galaxy; not without a war or with every slot used.
     memory = {}
     brain.plan_targets(world(), ATTACKER, style(), memory, random.Random(1))
@@ -1214,19 +1218,54 @@ def test_a_galaxy_leader_at_war_marks_the_easiest_enemy_for_the_whole_kill_chain
     other = StubWorld(revealed=INTEL_ON_ALL, stats={"5": (2500, 200_000)}, info={"5": military(1500)}, empires=AT_WAR,
                       politics={"leader": "2"})
     assert brain.plan_targets(other, ATTACKER, style(), {}, random.Random(1)) == []
-    assert brain.plan_targets(world(targets={"5": brain.KILL_CHAIN[0]}), ATTACKER, style(), {}, random.Random(1)) == []
+    assert brain.plan_targets(world(targets={"5": brain.KILL_CHAIN}), ATTACKER, style(), {}, random.Random(1)) == []
 
 
-def test_a_target_moves_on_through_the_kill_chain_as_it_ages():
-    first, second, third = brain.KILL_CHAIN
-    world = StubWorld(revealed=INTEL_ON_ALL, stats={"5": (2500, 200_000)}, info={"5": military(1500)}, empires=AT_WAR,
-                      politics={"leader": "1"}, targets={"5": first})
-    assert brain.plan_targets(world, ATTACKER, style(), {}, random.Random(1)) == []  # still at stage one, and fresh
-    age = lambda epochs: (NOW - epochs * EPOCH).isoformat()
-    for epochs, stage in ((brain.KILL_STAGE_EPOCHS + 1, second), (3 * brain.KILL_STAGE_EPOCHS, third)):
-        world = StubWorld(revealed=INTEL_ON_ALL, stats={"5": (2500, 200_000)}, info={"5": military(1500)}, empires=AT_WAR,
-                          politics={"leader": "1"}, targets={"5": first})
-        world._cache["empire_target_entries"]["5"]["created_at"] = age(epochs)
-        (decision,) = brain.plan_targets(world, ATTACKER, style(), {}, random.Random(1))
-        assert decision.kind == "update_target" and decision.options["actions"] == stage
-    assert "missiles" in third and "missiles" not in second and "kidnap" in second and "kidnap" not in first
+# ------------------------------------------------------------------------------------------ ending wars
+
+def _war_world(**kw):
+    empires = {"e1": {"galaxies": ["g1"], "war": ["e2"], "name": "Mine", "denounced": "", "peace": {}},
+               "e2": {"galaxies": ["g2", "g3"], "war": ["e1"], "name": "Theirs", "denounced": "", "peace": {}}}
+    world = StubWorld(empires=empires, politics=LEADER, **kw)
+    world._cache["scores"]["galaxy_networth"] = [("g1", 300_000), ("g2", 900_000), ("g3", 100_000)]
+    return world
+
+
+def _decisions(world, memory, monkeypatch, empire_politics=None):
+    monkeypatch.setattr(brain.uag, "_get_empire_politics", lambda empire_id: {
+        "leader": "g1", "empire_join_requests": [], "empire_invitations": [], **(empire_politics or {})})
+    return [(d.kind, d.options) for d in brain.plan_politics(world, ATTACKER, style(), memory, random.Random(1))
+            if d.kind.endswith("surrender")]
+
+
+def test_a_losing_empire_offers_to_surrender_once_the_war_is_old_and_the_winner_accepts_offers(monkeypatch):
+    world = _war_world()
+    memory = {}
+    assert _decisions(world, memory, monkeypatch) == []  # the war is new: seen now
+    memory["war_since"]["e2"] = world.epochs - brain.SURRENDER_OFFER_EPOCHS - 1
+    # Theirs is worth 1.0M against 0.3M: more than 3 to 1
+    assert _decisions(world, memory, monkeypatch) == [("offer_surrender", {"empire": "e2", "type": "stars", "value": 0.1})]
+    # An offer already sent is not sent again.
+    assert _decisions(world, memory, monkeypatch, {"surrender_offers_sent": [{"empire": "e2"}]}) == []
+    # The other side: an offer of stars is taken; a free one only once the war is old.
+    offer = {"empire": "e2", "type": "stars", "value": 0.05}
+    assert _decisions(world, {}, monkeypatch, {"surrender_offers_received": [offer]}) == [
+        ("accept_surrender", {"empire": "e2", "type": "stars", "value": 0.05})]
+    free = {"empire": "e2", "type": "stars", "value": 0}
+    assert _decisions(world, {}, monkeypatch, {"surrender_offers_received": [free]}) == []
+    old = {"war_since": {"e2": world.epochs - brain.SURRENDER_ACCEPT_EPOCHS - 1}}
+    assert [kind for kind, _ in _decisions(world, old, monkeypatch, {"surrender_offers_received": [free]})] == ["accept_surrender"]
+
+
+def test_a_galaxy_leader_tells_its_galaxy_about_a_war_and_a_target_once(monkeypatch):
+    world = _war_world(targets={"5": brain.KILL_CHAIN})
+    memory = {}
+    monkeypatch.setattr(brain.uag, "_get_empire_politics", lambda empire_id: {
+        "leader": "g1", "empire_join_requests": [], "empire_invitations": []})
+
+    def posts():
+        return [d for d in brain.plan_politics(world, ATTACKER, style(), memory, random.Random(1)) if d.kind == "board_post"]
+    first = posts()
+    assert [d.options["pin"] for d in first] == [True, False]
+    assert "Theirs" in first[0].options["text"] and "Kd5" in first[1].options["text"]
+    assert posts() == []

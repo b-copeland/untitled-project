@@ -190,6 +190,9 @@ hidden state.
   with the most stars for the army its networth could hide, or takes it from a galaxymate.
 - **Weak kingdoms are worth more** (`weakness`, `WEAKNESS`): few fuel plants (its fuel runs out, and its defense) and
   few homes (its people) raise a target's worth, when its structures are revealed.
+- **Kingdoms-only bots compare too** (`PLAYERS_ONLY_EDGE`): a bot that hits only kingdoms wants at least half of what
+  primitives would give for the same offense (it took any win before). Over three seeds: stars +2% overall, no more
+  deaths, and fewer pointless hits on kingdoms.
 - **Hit what pays** (`player_edge`). A target is worth its stars per point of offense, compared with primitives. A bot
   that hits both strikes only when the kingdom is the better deal; one that hits only kingdoms takes the best there is.
   Enemies at war, grudges and (late) leaders count for more. So a kingdom well defended against primitives is still hit
@@ -232,11 +235,16 @@ hidden state.
 
 - **Marking** (`plan_targets`): the galaxy leader of an empire at war marks the enemy kingdom with the most land for
   its defense (and weakness), at most one try in `TARGET_TRY_EPOCHS`. Only the emperor and delegates succeed; the rest
-  is refused and not retried for a while. The target then moves through the usual kill chain (`KILL_CHAIN`, a stage
-  every `KILL_STAGE_EPOCHS`): strikes and intel until its units overflow its hangars; then kidnaps, bombed homes and
-  wrecked fuel plants to take its people below the overflow; then missiles to finish it. Each stage keeps the earlier
-  actions and gives the new ones the most points. The bots then join in as before (`TARGET_SHARE`). The stages go by
-  time, not by what the bots can see of the target's population.
+  is refused and not retried for a while. A target is marked for every action (`KILL_CHAIN`) at once: members spend
+  what they have on it whenever there is something to do (about half of each kind of action, `TARGET_SHARE`), in
+  whatever order they get to it, so strikes, kidnaps, bombed homes, fuel plants and missiles all land on it.
+- **Ending wars** (`_plan_surrender`): the ruling galaxy's leader accepts an offer of stars (5% or more), or any offer
+  once the war is `SURRENDER_ACCEPT_EPOCHS` old; an empire the enemy outweighs 1.5 to 1 (`SURRENDER_RATIO`) offers a
+  surrender of 5% of its stars (10% at three to one) once the war is `SURRENDER_OFFER_EPOCHS` old. Wars are dated from
+  when the bot first saw them. A war it is losing only feeds the enemy's targets.
+- **Telling the galaxy** (`_plan_announce`): a galaxy leader posts (and pins) on the galaxy board when its empire goes
+  to war, and posts when a target is marked, once each, so the players in a galaxy led by a bot know what the empire
+  is doing.
 - **Bounties** (`answer_bounties`, `_post_bounty_for`): every bot answers galaxymates' bounties it has the intel for (the
   cut is free money), and a bot that strikes kingdoms but has no spy attempt asks the galaxy for military intel on the
   biggest kingdom it lacks (`BOUNTY_CUT`, at most `MAX_BOUNTIES` up).
@@ -452,12 +460,11 @@ Not changed: these are balance and rules, which are the maintainer's call.
 
 ### Not yet
 
-- Moving a target on by what it looks like (its overflow, its people) instead of by time.
-- Surrender, peace and leaving an empire.
+- Leaving an empire (a galaxy can not leave one at war, and bots never act against their own empire).
 - Marking empire targets, naming delegates and paying out spoils funds (bots only act on targets players set).
-- Messages, pinning, razing structures (a shrunken kingdom would raze mines for hangars before disbanding).
+- Razing structures (a shrunken kingdom would raze mines for hangars before disbanding; measured worse).
 - A fifth archetype for the Fuzi (the missile race).
-- Reacting to what the galaxy's news says about galaxymates being attacked.
+- Reacting to galaxymates being attacked: the galaxy news does not say (only primitives attacks and joins reach it); attacks on kingdoms are in the target's own news.
 
 ## Questions for Ben
 
