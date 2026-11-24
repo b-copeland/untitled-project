@@ -1,4 +1,4 @@
-import { displayPercent } from "../../format";
+import { displayDuration, displayPercent } from "../../format";
 import React, { useEffect, useRef, useState } from "react";
 import {login, authFetch, useAuth, logout, getSession, getSessionState} from "../../auth";
 import 'bootstrap/dist/css/bootstrap.css';
@@ -213,12 +213,26 @@ function blankValues(state) {
     return Object.fromEntries(Object.keys(state?.projects || {}).map((key) => [key, ""]));
 }
 
+/**
+ * How long until the project reaches its max points at the engineers on it now (``seconds`` from the server's
+ * ``seconds_left``: 0 once there, null with nobody on it). A continuous project's max points grow with stars, so its
+ * time is marked as an estimate. Nothing with nobody on it, for a locked or completed project, or before the server
+ * sends it.
+ */
+export function timeLeft(row, seconds) {
+    // With nobody on it the Assigned column already says so.
+    if (seconds === undefined || seconds === null || row.locked || (row.oneTime && row.completed)) return null;
+    if (seconds === 0) return row.oneTime ? null : "At its maximum";
+    return row.oneTime ? `Done in ${displayDuration(seconds)}` : `Maximum in about ${displayDuration(seconds)}`;
+}
+
 /** Points earned / needed, and what they are worth: the bonus for a continuous project, the progress for a one-time one. */
 function projectCells(row, kdInfo, engineersInfo, projectsInfo) {
     const points = projectsInfo.points?.[row.key] ?? kdInfo.projects_points?.[row.key] ?? 0;
     const maxPoints = projectsInfo.max_points?.[row.key] ?? kdInfo.projects_max_points?.[row.key] ?? 0;
     const assigned = kdInfo.projects_assigned?.[row.key] || 0;
     return {
+        timeLeft: timeLeft(row, projectsInfo.seconds_left?.[row.key]),
         assigned: `${assigned.toLocaleString()} (${displayPercent(assigned / (engineersInfo.current_engineers || 0))})`,
         points: `${Math.floor(points).toLocaleString()} / ${Math.floor(maxPoints).toLocaleString()}`,
         value: row.oneTime
@@ -277,7 +291,10 @@ function ProjectTables({ groups, valueHeader, kdInfo, engineersInfo, projectsInf
               cell: (row) => (row.locked
                   ? <span className="project-locked">{row.locked}</span>
                   : projectCells(row, kdInfo, engineersInfo, projectsInfo).assigned) },
-            { header: "Points", cell: (row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).points },
+            { header: "Points", cell: (row) => {
+                const cells = projectCells(row, kdInfo, engineersInfo, projectsInfo);
+                return <>{cells.points}{cells.timeLeft ? <small className="project-time-left">{cells.timeLeft}</small> : null}</>;
+            } },
             { header: valueHeader, cell:(row) => projectCells(row, kdInfo, engineersInfo, projectsInfo).value },
             ...inputHeaders.map((header, index) => ({ header, phoneRow: index === inputHeaders.length - 1, cell: (row) => inputs(row, blocked(row))[index] })),
         ];

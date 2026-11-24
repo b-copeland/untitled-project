@@ -110,3 +110,6 @@
     .project-desc { display: none; }
 }
 .project-locked { opacity: 0.5; font-style: italic; }
+
+/* Under a project's points: how long until it is done (or at its maximum) at the engineers on it now. */
+.project-time-left { display: block; color: var(--bs-secondary-color); font-size: 0.85em; }

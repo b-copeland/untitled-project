@@ -26,3 +26,15 @@ export const displayShort = (value) => {
     }
     return n.toLocaleString();
 };
+
+/** A length of time in seconds, short: "under a minute", "45m", "3h 20m", "2d 4h". */
+export const displayDuration = (seconds) => {
+    const s = Math.max(Number(seconds) || 0, 0);
+    if (s < 60) return "under a minute";
+    const minutes = Math.round(s / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return minutes % 60 ? `${hours}h ${minutes % 60}m` : `${hours}h`;
+    const days = Math.floor(hours / 24);
+    return hours % 24 ? `${days}d ${hours % 24}h` : `${days}d`;
+};

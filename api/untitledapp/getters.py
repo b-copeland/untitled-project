@@ -1341,6 +1341,19 @@ def projects():
             for project in uas.PROJECTS
         },
     }
+    # Each project's points an hour from the engineers on it now, and the seconds until it reaches its max points at
+    # that rate (None with nobody on it, 0 once there). A continuous project's max points grow with stars, so its
+    # time is an estimate at today's size.
+    per_epoch = uas.project_points_per_epoch(kd_info_parse, _get_modifiers(kd_id))
+    completed = kd_info_parse.get("completed_projects", [])
+    payload["points_per_hour"] = {
+        project: per_epoch.get(project, 0) * 3600 / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"] for project in uas.PROJECTS
+    }
+    payload["seconds_left"] = {
+        project: uas.project_seconds_left(payload["points"][project], payload["max_points"][project],
+                                          per_epoch.get(project, 0), done=project in completed)
+        for project in uas.PROJECTS
+    }
     return (flask.jsonify(payload), 200)
 
 

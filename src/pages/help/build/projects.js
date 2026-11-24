@@ -23,7 +23,7 @@ function Projects(props) {
         <Topic id="projects" title="Projects" lead="Engineers earn points that improve almost every part of your kingdom.">
             <ul>
                 <li><b>Train</b>: engineers cost {num(cfg.BASE_ENGINEER_COST)} and take {averageDuration(cfg.BASE_ENGINEER_TIME_MIN_MULTIPLIER, cfg.BASE_ENGINEER_TIME_MAX_MUTLIPLIER, cfg)} on average. You can train up to {pct(cfg.BASE_MAX_ENGINEERS_POP_CAP)} of your population at once, and each engineer needs room in a workshop.</li>
-                <li><b>Assign</b>: set how many engineers work on each project with its slider, then press Update. Each engineer earns {num(perHour(cfg.BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH, cfg))} points per hour.</li>
+                <li><b>Assign</b>: set how many engineers work on each project with its slider, then press Update. Each engineer earns {num(perHour(cfg.BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH, cfg))} points per hour. Under each project's points is how long it has left at the engineers on it now; for a continuous project that is an estimate, since the points needed grow as you gain stars.</li>
                 <li><b>Allocate</b>: give each project a share of your engineers and turn on auto assign. Every game update moves engineers to match the shares.</li>
             </ul>
             <h4>Two kinds of project</h4>
