@@ -158,3 +158,21 @@ What it showed (seven days, 40 bots, three seeds), and what was done:
 ## Adding an advice
 
 Recipe 14 in [recipes.md](recipes.md#14-an-advisor).
+
+## The Stats tab (issue #239)
+
+The figures the advice and the bots work from, shown to the player for their own kingdom so they need no calculator:
+`kingdom_stats` in `advisors.py`, a plain function of the kingdom and the round's age, answered by
+`GET /api/kingdomstats` and shown by the Stats tab on the Status page (`src/pages/home/stats.js`). It is fetched only
+while the tab is open: the kingdom, the state, the empires and galaxies, and the mobis queue (for hangar space).
+
+- **Sections**: military (offense of attackers, flexers and all units, home and out, with the kingdom's military
+  efficiency and one general; defense of defenders and of everything at home, as an attack faces it; each also per
+  star), economy (income per star, the share of stars that make money, income from people per home with and without the
+  fuel plants they need, income per mine, siphons per drone factory, drones per star), what the advisors look at (the
+  break-even line and the kingdom against it, fuel, hangars, idle money, project bonuses), and what the bots plan by
+  (primitives' defense per star, rob per drone, the deterrence line).
+- **The server writes the labels and tips**, the page only formats each value by its `format` (`number`, `decimal`,
+  `percent`, `hours`). A figure with nothing to divide by is `null` and shows as "--".
+- **Only the caller's own kingdom and the game's formulas.** The peer ranges stay on the server (tenet 2).
+- A new figure is a `_row` in `kingdom_stats`, with a tip saying how it is counted.

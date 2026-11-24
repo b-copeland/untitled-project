@@ -754,3 +754,155 @@ def hide_advice():
         return flask.jsonify({"message": "Your advisors could not be updated. Try again."}), 503
     message = "Advice hidden" if req["hidden"] else "Advice shown again"
     return flask.jsonify({"message": message, "status": "success"}), 200
+
+
+# ------------------------------------------------------------------------------------------------------------- stats
+# The figures the advisors and the bots work from, for the player's own kingdom, so they need no calculator (issue
+# #239): the Stats tab on the Status page. Only the caller's own kingdom and the game's own formulas, nothing about
+# anybody else (the peer ranges stay on the server, as above).
+
+FLEX_UNITS = [key for key, unit in uas.UNITS.items() if unit["offense"] > 0 and unit["defense"] > 0]
+
+
+def _row(key, label, value, form="number", tip=None):
+    """One figure: ``form`` says how the page writes it ("number", "decimal", "percent", "hours")."""
+    return {"key": key, "label": label, "value": value, "format": form, "tip": tip}
+
+
+def _per(value, count):
+    return value / count if count else None
+
+
+def kingdom_stats(kd, epochs, at_war=False, max_hangar=None, used_hangar=None):
+    """
+    ``[{"title", "rows": [row]}]`` for ``kd``: its strength by role, and per star; its economy per building; the
+    advisors' measures; and the sums the bots plan by. Rates are per hour. A plain function of the kingdom and the
+    round's age (``epochs``), so it is tested with plain inputs. A figure with nothing to divide by is None.
+    """
+    hour = 3600 / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]  # epochs in an hour
+    stars = kd.get("stars", 0) or 0
+    structures = kd.get("structures") or {}
+    money = (kd.get("income") or {}).get("money") or {}
+    fuel = (kd.get("income") or {}).get("fuel") or {}
+    military_bonus = uas.project_bonuses(kd)["military_bonus"]
+    fuelless = kd.get("fuel", 0) <= 0
+    army = strategy.all_units(kd)
+    home = {key: value for key, value in (kd.get("units") or {}).items() if key in uas.UNITS}
+
+    def offense(units):
+        # With the kingdom's military bonus, before the bonus for sending more than one general.
+        return uag._calc_max_offense(units, military_bonus=military_bonus, other_bonuses=0, generals=1,
+                                     fuelless=fuelless, lumina=kd.get("race") == "Lumina")
+
+    def defense(units):
+        return home_defense({**kd, "units": units})
+
+    def only(units, keys):
+        return {key: count for key, count in units.items() if key in keys}
+
+    pure_offense = offense(only(army, uas.PURE_ATTACK_UNITS))
+    flex_offense = offense(only(army, FLEX_UNITS))
+    total_offense = offense(army)
+    pure_defense = defense(only(home, uas.PURE_DEFENSE_UNITS))
+    total_defense = defense(home)
+    military = [
+        _row("pure_offense", "Attackers' offense", pure_offense,
+             tip="Your attackers, home and out, with your military efficiency, before the bonus for extra generals"),
+        _row("pure_offense_per_star", "Per star", _per(pure_offense, stars), "decimal"),
+        _row("flex_offense", "Flexers' offense", flex_offense, tip="Your flexers, home and out, counted the same way"),
+        _row("flex_offense_per_star", "Per star", _per(flex_offense, stars), "decimal"),
+        _row("total_offense", "Total offense", total_offense, tip="Every unit, home and out, counted the same way"),
+        _row("total_offense_per_star", "Per star", _per(total_offense, stars), "decimal"),
+        _row("pure_defense", "Defenders' defense", pure_defense,
+             tip="Your defenders at home, with your military efficiency and shields"),
+        _row("pure_defense_per_star", "Per star", _per(pure_defense, stars), "decimal"),
+        _row("total_defense", "Total defense at home", total_defense,
+             tip="What an attack on you faces now: every unit at home, with your military efficiency and shields"),
+        _row("total_defense_per_star", "Per star", _per(total_defense, stars), "decimal"),
+    ]
+
+    homes, mines = structures.get("homes", 0), structures.get("mines", 0)
+    money_bonus = 1 + (money.get("bonus") or 0)
+    pop_income_per_home = _per((money.get("population") or 0) * money_bonus * hour, homes)
+    fuel_per_plant = uas.GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"] * (1 + (fuel.get("bonus") or 0))
+    plants_per_home = _per(fuel.get("population") or 0, homes * fuel_per_plant)
+    economy = [
+        _row("income_per_star", "Income per star", _per((money.get("net") or 0) * hour, stars), "decimal",
+             tip="Money an hour, after siphons, for each star you have"),
+        _row("income_structures_share", "Stars with homes or mines", _per(homes + mines, stars), "percent",
+             tip="Homes (through the people in them) and mines are the structures that make money"),
+        _row("pop_income_per_home", "Income from people, per home", pop_income_per_home, "decimal",
+             tip="Money an hour from the people in each home, with your income bonus"),
+        _row("pop_income_per_home_fuelled", "The same, counting the fuel plants they need",
+             None if pop_income_per_home is None or plants_per_home is None
+             else pop_income_per_home / (1 + plants_per_home), "decimal",
+             tip="Income per home shared with the part of a fuel plant its people burn: what a star of homes really "
+                 "earns, to set against a mine"),
+        _row("mine_income_per_mine", "Income per mine", _per((money.get("mines") or 0) * money_bonus * hour, mines),
+             "decimal", tip="Money an hour from each mine, with your income bonus"),
+        _row("siphons_per_drone_factory", "Siphons per drone factory",
+             _per((money.get("siphons_in") or 0) * hour, structures.get("drone_factories", 0)), "decimal",
+             tip="Money an hour your siphons take from other kingdoms, for each drone factory you have"),
+        _row("drones_per_star", "Drones per star", _per(kd.get("drones", 0), stars), "decimal"),
+    ]
+
+    net_fuel = fuel.get("net") or 0
+    net_money = money.get("net") or 0
+    idle = max(kd.get("money", 0), 0) + sum((kd.get("funding") or {}).values())
+    line = strategy.break_even_per_star(epochs, war=at_war)
+    measures = peer_measures(kd)
+    war_note = " Your empire is at war, which raises it." if at_war else ""
+    advisors = [
+        _row("break_even_defense_per_star", "Defense per star where attacking you pays like primitives", line,
+             "decimal", tip=("Below this, a hit on you pays an attacker more than primitives would; the advisors warn "
+                             f"under {DEFENSE_WARNING_SHARE:.0%} of it.{war_note}")),
+        _row("defense_vs_break_even", "Your defense per star, against that", _per(measures["defense_per_star"], line),
+             "percent"),
+        _row("fuel_per_hour", "Fuel an hour", net_fuel * hour, "decimal", tip="Fuel made less fuel used"),
+        _row("fuel_hours_left", "Hours until your fuel runs out",
+             kd.get("fuel", 0) / (-net_fuel * hour) if net_fuel < 0 else None, "hours",
+             tip="At the fuel you make and use now; none while it is not falling"),
+        _row("hangar_used", "Hangar space used", _per(used_hangar, max_hangar) if used_hangar is not None else None,
+             "percent", tip="Units at home, out and in training"),
+        _row("idle_money_hours", "Hours of income unspent", _per(idle, net_money * hour) if net_money > 0 else None,
+             "hours", tip=("Money and funding waiting to be spent; the advisors speak up over "
+                           f"{_hours(IDLE_MONEY_EPOCHS):g} hours")),
+        _row("bonuses_filled", "Project bonuses filled", measures["bonuses_filled"], "percent",
+             tip="How full your continuous project bonuses are, on average"),
+    ]
+
+    bots = [
+        _row("primitives_defense_per_star", "Primitives' defense per star", strategy.primitives_defense_per_star(epochs),
+             "decimal", tip="What an attack on primitives faces for each star they hold; it grows through the round"),
+        _row("rob_per_drone", "Money a drone robs from primitives", strategy.rob_per_drone(epochs), "decimal"),
+        _row("deterrence_per_star", "Defense per star that never pays to attack", strategy.deterrence_per_star(epochs),
+             "decimal", tip="The line above for an enemy at war with you: the bots keep their defense over it"),
+    ]
+    return [
+        {"title": "Military", "rows": military},
+        {"title": "Economy", "rows": economy},
+        {"title": "What the advisors look at", "rows": advisors},
+        {"title": "What the bots plan by", "rows": bots},
+    ]
+
+
+@bp.route("/api/kingdomstats")
+@flask_praetorian.auth_required
+@alive_required
+def get_kingdom_stats():
+    """``{"sections": kingdom_stats(...)}`` for the caller's own kingdom; none before the round starts or without one."""
+    kd_id = flask_praetorian.current_user().kd_id
+    state = uag._get_state()
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if kd_id is None or now < uas.utc(state["state"]["game_start"]):
+        return flask.jsonify({"sections": []}), 200
+    kd = uag._get_kd_info(kd_id)
+    if not kd.get("race"):  # never set up
+        return flask.jsonify({"sections": []}), 200
+    empires_inverted, empire_infos, _, _ = uag._get_empires_inverted()
+    empire = empires_inverted.get(str(kd_id))
+    at_war = bool(empire and empire_infos["empires"].get(empire, {}).get("war"))
+    units = uag._calc_units(now, kd["units"], kd.get("generals_out", []), uag._get_mobis_queue(kd_id))
+    max_hangar, used_hangar = uag._calc_hangar_capacity(kd, units)
+    epochs = strategy.epochs_since(now, uas.utc(state["state"]["game_start"]))
+    return flask.jsonify({"sections": kingdom_stats(kd, epochs, at_war, max_hangar, used_hangar)}), 200
