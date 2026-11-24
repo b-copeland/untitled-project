@@ -1933,6 +1933,22 @@ def refresh_data():
     if headers.get("Refresh-Secret", "") != os.environ["REFRESH_SECRET"]:
         return ("Not Authorized", 401)
     
+    tick = _tick_start()
+    if isinstance(tick, tuple):
+        return tick
+    context = _RefreshContext(tick["state"])
+    kd_scores, failed_kd_ids = _refresh_kingdoms(list(tick["kingdoms"]), tick, context)
+    return _tick_finish(tick, kd_scores, failed_kd_ids, context)
+
+
+# A tick is three steps, so that the middle one (every kingdom) can be split up: scripts/simulate_round.py runs it on
+# several processes at once (--workers). The route runs them one after the other.
+
+def _tick_start():
+    """
+    What comes before the kingdoms: migrations, the election, the history mark. Returns ``(response, status)`` when
+    there is nothing to refresh, else the tick: ``{state, kingdoms, time_update, update_history, round_ending}``.
+    """
     state = uag._get_state()
     # Data migrations a deploy brought, once, before anything else (migrations.py). Nothing happens when none is due.
     uamig.run_pending(state, _claim_state)
@@ -1952,24 +1968,35 @@ def refresh_data():
 
     history_datetime = datetime.datetime.fromisoformat(state["state"]["next_history"]).astimezone(datetime.timezone.utc)
     update_history = history_datetime < time_update and _take_history_mark(time_update)
+    return {"state": state, "kingdoms": kingdoms, "time_update": time_update, "update_history": update_history,
+            "round_ending": round_ending}
 
-    context = _RefreshContext(state)
+
+def _refresh_kingdoms(kd_ids, tick, context):
+    """Refresh ``kd_ids``. Returns ``({kd_id: (stars, networth)}, [kd_ids that failed])``."""
+    app = flask.current_app
     kd_scores = {}
     failed_kd_ids = []
-    for kd_id in kingdoms:
+    for kd_id in kd_ids:
         # One kingdom with bad data must not stop everyone after it from being refreshed.
         try:
             kd_scores[kd_id] = _refresh_kd(
                 kd_id,
-                state,
-                time_update,
-                update_history,
+                tick["state"],
+                tick["time_update"],
+                tick["update_history"],
                 context,
             )
         except Exception:
             app.logger.exception("Refresh failed for kingdom %s", kd_id)
             failed_kd_ids.append(kd_id)
+    return kd_scores, failed_kd_ids
 
+
+def _tick_finish(tick, kd_scores, failed_kd_ids, context):
+    """What comes after the kingdoms: scores, universe stats, empires, clusters, the end of the round."""
+    app = flask.current_app
+    time_update, update_history = tick["time_update"], tick["update_history"]
     if failed_kd_ids:
         # Scores are replaced as a whole, so keep each failed kingdom's last known values rather than dropping it.
         previous_scores = uag._get_scores()
@@ -1999,12 +2026,12 @@ def refresh_data():
     except Exception:
         app.logger.exception("Refresh failed to resolve clusters")
     try:
-        _galaxy_tally_news(state, context, time_update)
+        _galaxy_tally_news(tick["state"], context, time_update)
     except Exception:
         app.logger.exception("Refresh failed to post the galaxy policy tally news")
 
-    if round_ending:
-        uare.end_round(state, reason="The round reached its end time")
+    if tick["round_ending"]:
+        uare.end_round(tick["state"], reason="The round reached its end time")
 
     if failed_kd_ids:
         return f"Refreshed, but {len(failed_kd_ids)} kingdoms failed: {failed_kd_ids}", 200

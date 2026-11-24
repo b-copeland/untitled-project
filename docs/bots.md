@@ -284,7 +284,16 @@ python scripts/simulate_many.py --seeds 1,2,3 --variant "off=--set ECON_PROJECTS
 
 `simulate_many.py` plays every variant and seed as its own `simulate_round.py` process, several at once (half the cores
 by default, `--workers`), and prints each variant's mean over the seeds. Six rounds of 100 bots for a week take about
-20 minutes on eight workers. One round is not parallel: it is one process on one in-memory store.
+20 minutes on eight workers.
+
+**One round on several processes**: `simulate_round.py --workers 12`. The documents live in store processes of their
+own (`scripts/sim_parallel.py`, split by document id, one for every two workers), which only keep each document's
+bytes and version; each tick the main process runs the start and end of the refresh (`refresh._tick_start`,
+`_tick_finish`) and hands the kingdoms to the workers in small chunks (`_refresh_kingdoms`), each tick one request
+with its read cache, as the route is. A week of 100 bots takes about two minutes on 12 workers, against 10 to 20 in
+one process. The catch: the order of the writes within a tick depends on timing, so **a seed no longer plays exactly
+the same round**: compare variants over more seeds, or use the one-process mode for small differences. Use it for
+long rounds and for looking at one round; `simulate_many.py` (one process a round) for comparing.
 
 ```
 python scripts/simulate_round.py --days 7 --bots 40 --galaxies 4 --seed 1 --detail

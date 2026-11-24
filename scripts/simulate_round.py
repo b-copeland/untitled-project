@@ -223,26 +223,89 @@ def apply_overrides(overrides):
     return applied
 
 
-class Simulation:
-    def __init__(self, mix, galaxies=4, days=7.0, tick_epochs=0.5, seed=1, election_day=2.0, quiet=True, overrides=None):
-        os.environ.pop("EPOCH_SECONDS", None)  # the real epoch: time is simulated instead of shortened
-        os.environ.setdefault("REFRESH_SECRET", "simulate")
-        for path in (str(ROOT / "api"), str(ROOT)):
-            if path not in sys.path:
-                sys.path.insert(0, path)
-        os.chdir(ROOT / "api")
-        random.seed(seed)
+def _prepare_paths():
+    os.environ.pop("EPOCH_SECONDS", None)  # the real epoch: time is simulated instead of shortened
+    os.environ.setdefault("REFRESH_SECRET", "simulate")
+    for path in (str(ROOT / "api"), str(ROOT), str(ROOT / "scripts")):
+        if path not in sys.path:
+            sys.path.insert(0, path)
+    os.chdir(ROOT / "api")
 
+
+class Simulation:
+    def __init__(self, mix, galaxies=4, days=7.0, tick_epochs=0.5, seed=1, election_day=2.0, quiet=True, overrides=None,
+                 workers=0):
+        _prepare_paths()
+        random.seed(seed)
+        self.seed = seed
+        self.pool = None
         from tests import fake_backend
+
+        if workers:
+            # One round on several processes (sim_parallel.py): the documents in a process of their own.
+            import sim_parallel
+
+            # The store is split by document id over a process for every two workers: one process answering every
+            # call was the limit at about 25,000 calls a second.
+            self.store, address, authkey = sim_parallel.start_store(max(workers // 2, 1))
+            container = sim_parallel.RemoteContainer(address, authkey)
+        else:
+            container = fake_backend.FakeContainer(latency=0)
+        self._build(container, quiet, overrides)
         import untitledapp
+        self.tick_seconds = tick_epochs * self.epoch
+        self.days = days
+
+        with self.app.app_context():
+            untitledapp.seed_testing_users()
+        login = self.client.post("/api/adminlogin", json={"username": "admin", "password": "admin"})
+        admin = {"Authorization": "Bearer " + login.json["accessToken"]}
+        self.end = self.start + datetime.timedelta(days=days)
+        started = self.client.post("/api/admin/newround", headers=admin, json={
+            "game_start": (self.start - datetime.timedelta(seconds=1)).isoformat(),
+            "game_end": self.end.isoformat(),
+            # none in a round shorter than the wait for the first election
+            "election_start": (self.start + datetime.timedelta(days=election_day)).isoformat() if election_day < days else "",
+            "num_galaxies": galaxies,
+        })
+        assert started.status_code == 200, started.get_data(as_text=True)
+        created = self.client.post("/api/admin/bots", json=mix, headers=admin)
+        assert created.status_code == 201, created.get_data(as_text=True)
+        self.refresh_headers = {"Refresh-Secret": os.environ["REFRESH_SECRET"]}
+        self.failed_ticks = []
+        # Per kingdom, summed over the round: money by where it came from and where the auto builder sent it.
+        self.flows = collections.defaultdict(collections.Counter)
+        self.metric_samples = []  # (day, {kd_id: (type, metrics)})
+        self.samples = []  # (day, {kd_id: (type, stars, networth)})
+        # The advisors (docs/advisors.md) run on every kingdom at every sample: (type, phase) to advice id to how many
+        # samples it fired in, and how many samples there were.
+        self.advice_fired = collections.defaultdict(collections.Counter)
+        self.advice_seen = collections.Counter()
+        if workers:
+            self.pool = sim_parallel.Workers(workers, address, authkey, {"quiet": quiet, "overrides": overrides})
+
+    @classmethod
+    def worker(cls, container, options):
+        """The game in a worker process of a parallel round: no round of its own, the shared documents."""
+        _prepare_paths()
+        self = cls.__new__(cls)
+        self.pool = None
+        self._build(container, options["quiet"], options["overrides"])
+        return self
+
+    def close(self):
+        if self.pool:
+            self.pool.close()
+
+    def _build(self, container, quiet, overrides):
+        """The Flask app and the function app on ``container``, the clock, and the bots' random numbers."""
+        from tests import fake_backend
         from untitledapp import create_app, REQUESTS_SESSION
         import untitledapp.shared as uas
 
         self.uas = uas
         self.epoch = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
-        self.tick_seconds = tick_epochs * self.epoch
-        self.days = days
-        self.container = fake_backend.FakeContainer(latency=0)
+        self.container = container
         session = fake_backend.FakeSession(fake_backend.load_function_app(self.container))
         # Every function app call is counted, and those made while a bot thinks are counted apart, for the cost of
         # the bots (docs/cost.md).
@@ -314,31 +377,6 @@ class Simulation:
         self.clock.install()
         self.start = self.clock.now
 
-        with self.app.app_context():
-            untitledapp.seed_testing_users()
-        login = self.client.post("/api/adminlogin", json={"username": "admin", "password": "admin"})
-        admin = {"Authorization": "Bearer " + login.json["accessToken"]}
-        self.end = self.start + datetime.timedelta(days=days)
-        started = self.client.post("/api/admin/newround", headers=admin, json={
-            "game_start": (self.start - datetime.timedelta(seconds=1)).isoformat(),
-            "game_end": self.end.isoformat(),
-            # none in a round shorter than the wait for the first election
-            "election_start": (self.start + datetime.timedelta(days=election_day)).isoformat() if election_day < days else "",
-            "num_galaxies": galaxies,
-        })
-        assert started.status_code == 200, started.get_data(as_text=True)
-        created = self.client.post("/api/admin/bots", json=mix, headers=admin)
-        assert created.status_code == 201, created.get_data(as_text=True)
-        self.refresh_headers = {"Refresh-Secret": os.environ["REFRESH_SECRET"]}
-        self.failed_ticks = []
-        # Per kingdom, summed over the round: money by where it came from and where the auto builder sent it.
-        self.flows = collections.defaultdict(collections.Counter)
-        self.metric_samples = []  # (day, {kd_id: (type, metrics)})
-        self.samples = []  # (day, {kd_id: (type, stars, networth)})
-        # The advisors (docs/advisors.md) run on every kingdom at every sample: (type, phase) to advice id to how many
-        # samples it fired in, and how many samples there were.
-        self.advice_fired = collections.defaultdict(collections.Counter)
-        self.advice_seen = collections.Counter()
 
     # ------------------------------------------------------------------------------------------------------ running
 
@@ -352,6 +390,8 @@ class Simulation:
         return galaxypolicies.active_options(galaxy_policies)
 
     def doc(self, item):
+        if hasattr(self.container, "doc"):  # the documents are in another process (--workers)
+            return self.container.doc(item)
         return self.container.docs.get(item, {})
 
     def kingdoms(self):
@@ -360,9 +400,14 @@ class Simulation:
     def tick(self):
         self.calls["ticks"] += 1
         self.clock.advance(self.tick_seconds)
-        result = self.client.get("/api/refreshdata", headers=self.refresh_headers)
-        text = result.get_data(as_text=True)
-        if result.status_code != 200 or "failed" in text:
+        if self.pool:
+            text = self._parallel_refresh()
+        else:
+            result = self.client.get("/api/refreshdata", headers=self.refresh_headers)
+            text = result.get_data(as_text=True)
+            if result.status_code != 200:
+                text = "failed " + text
+        if "failed" in text:
             self.failed_ticks.append((self.day(), text[:200]))
         epochs = self.tick_seconds / self.epoch
         for kd_id, kd in self.kingdoms().items():
@@ -378,6 +423,22 @@ class Simulation:
             for key in ("settle", "structures", "military", "engineers"):
                 flow[f"to {key}"] += net * spending.get(key, 0) if kd.get("auto_spending_enabled") else 0
             flow["to money"] += net * (1 - sum(spending.values()) if kd.get("auto_spending_enabled") else 1)
+
+    def _parallel_refresh(self):
+        """The refresh route's three steps, with the kingdoms refreshed on the workers at once."""
+        import untitledapp.refresh as refresh
+        import untitledapp.request_cache as request_cache
+
+        with self.app.test_request_context(), request_cache.scope():
+            tick = refresh._tick_start()
+            if isinstance(tick, tuple):
+                return tick[0]
+            scores, failed, errors, calls = self.pool.refresh(self.clock.now, tick, list(tick["kingdoms"]),
+                                                              f"{self.seed}:{self.calls['ticks']}")
+            self.errors.update(errors)
+            self.calls.update(calls)
+            text, _ = refresh._tick_finish(tick, scores, failed, refresh._RefreshContext(tick["state"]))
+            return text
 
     def day(self):
         return (self.clock.now - self.start).total_seconds() / 86400
@@ -719,6 +780,9 @@ def main():
     parser.add_argument("--json", help="write the results to this file")
     parser.add_argument("--replay", help="write a page to watch the round back (HTML, opens from disk)")
     parser.add_argument("--errors", action="store_true", help="let the game log its errors")
+    parser.add_argument("--workers", type=int, default=0,
+                        help="refresh the kingdoms on this many processes at once (sim_parallel.py); a seed then no "
+                             "longer plays exactly the same round")
     parser.add_argument("--set", action="append", default=[], metavar="NAME=VALUE", dest="overrides",
                         help="try a bot number without editing the code (see above); may be repeated")
     args = parser.parse_args()
@@ -728,15 +792,19 @@ def main():
     real_stdout, sys.stdout = sys.stdout, open(os.devnull, "w")  # the game code prints as it goes
     try:
         sim = Simulation(mix, galaxies=args.galaxies, days=args.days, tick_epochs=args.tick, seed=args.seed,
-                         election_day=args.election_day, quiet=not args.errors, overrides=args.overrides)
+                         election_day=args.election_day, quiet=not args.errors, overrides=args.overrides,
+                         workers=args.workers)
 
         def progress(sim):
             stars = sorted((s for (_, s, _, _) in sim.samples[-1][1].values()), reverse=True)
             print(f"  day {sim.day():4.1f}  {time.time() - started:5.0f}s  top stars {stars[:3]}", file=real_stdout, flush=True)
 
         recorder = Recorder(sim) if args.replay else None
-        sim.run(progress=progress, recorder=recorder)
-        results = sim.results()
+        try:
+            sim.run(progress=progress, recorder=recorder)
+            results = sim.results()
+        finally:
+            sim.close()
         if recorder:
             recorder.write(args.replay)
     finally:

@@ -56,3 +56,20 @@ def test_a_day_of_bots_runs_clean_and_every_playstyle_grows(tmp_path):
     # split evenly on stays a tie, which keeps none), and never more than the round plays.
     assert all(0 < len(policies) <= uas.GAME_CONFIG["GALAXY_POLICIES_PER_ROUND"]
                for policies in results["galaxy_policies"].values())
+
+
+def test_a_round_on_several_processes_plays_the_same_game(tmp_path):
+    """--workers: the kingdoms refreshed on worker processes against a store in a process of its own."""
+    out = tmp_path / "round.json"
+    done = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "simulate_round.py"), "--days", "0.5",
+         "--mix", "explorer=2,attacker=2,intel=2,thief=2", "--galaxies", "2", "--seed", "5", "--json", str(out),
+         "--workers", "2"],
+        cwd=ROOT, capture_output=True, text=True, timeout=300,
+    )
+    assert done.returncode == 0, done.stderr[-2000:]
+    results = json.loads(out.read_text(encoding="utf-8"))
+    assert results["errors"] == {} and results["failed_ticks"] == []
+    rows = results["rows"]
+    assert len(rows) == 8 and all(row["stars"] > 300 for row in rows)  # every kingdom was refreshed and grew
+    assert results["calls"]["thinks"] > 0  # the bots thought on the workers
