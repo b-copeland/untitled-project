@@ -1232,7 +1232,7 @@ def utc(value):
     UTC). Compare, sort and take the min or max of times through this, never as strings: two strings for the same
     instant can differ ("+00:00" or "Z", with or without microseconds, another zone), so string order is not time order.
     """
-    if isinstance(value, datetime.datetime):
+    if not isinstance(value, str):  # a datetime (the simulator's clock is a subclass, so not an isinstance test)
         parsed = value
     else:
         text = value.strip()
