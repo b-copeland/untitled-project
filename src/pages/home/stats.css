@@ -1,0 +1,4 @@
+/* The Stats tab on the Status page (stats.js). */
+.stats-table thead { display: none; }
+.stats-sub { padding-left: 1rem; color: var(--bs-secondary-color); }
+.stats-label.has-tip { cursor: help; text-decoration: underline dotted var(--border-subtle); text-underline-offset: 3px; }

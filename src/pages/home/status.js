@@ -14,6 +14,7 @@ import "./status.css";
 import HelpButton from "../../components/helpbutton";
 import { KingdomLink } from "../../components/kingdomlink";
 import Overview from "./overview";
+import { KingdomStats } from "./stats";
 
 function StatusContent(props) {
     const [key, setKey] = useState('overview');
@@ -47,6 +48,10 @@ function StatusContent(props) {
         </Tab>
         <Tab eventKey="structures" title="Structures">
           <Structures kingdom={props.data.kingdom} structures={props.data.structures} state={props.data.state}/>
+        </Tab>
+        <Tab eventKey="stats" title="Stats">
+          {/* Asked for only while the tab is open. */}
+          {key === "stats" ? <KingdomStats /> : null}
         </Tab>
       </Tabs>
       <HelpButton scrollTarget={"home"}/>
