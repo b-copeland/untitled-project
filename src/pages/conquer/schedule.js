@@ -16,6 +16,7 @@ import { displayPercent } from "../../format";
 import { availableOperations } from "./spy";
 import { Repeating } from "./recurring";
 import { Reactions } from "./rules";
+import { targetOptions, teamOptionLabel, TeammateWarning } from "../../components/teammates";
 
 function Schedule(props) {
     return (
@@ -149,8 +150,7 @@ function Add(props) {
     const [results, setResults] = useState([]);
 
     const me = props.data.kingdomid?.kd_id;
-    const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
-    const kingdomOptions = Object.keys(props.data.kingdoms).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
+    const kingdomOptions = targetOptions(props.data);
 
     const choose = (key) => { setKind(key); setOptions(JSON.parse(JSON.stringify(KINDS[key].start))); };
     const set = (name, value) => setOptions((previous) => ({ ...previous, [name]: value }));
@@ -177,7 +177,9 @@ function Add(props) {
     );
     const targetRow = (
         <FieldRow label="Target" htmlFor="sched-target">
-            <Picker id="sched-target" options={kingdomOptions} value={options.target} onChange={(value) => set("target", value)} placeholder="Type a kingdom to filter" />
+            <Picker id="sched-target" options={kingdomOptions} value={options.target} onChange={(value) => set("target", value)}
+                placeholder="Type a kingdom to filter" formatOptionLabel={teamOptionLabel} />
+            {kind !== "intelspy" ? <TeammateWarning data={props.data} target={options.target} doing="Scheduling this against them" /> : null}
         </FieldRow>
     );
     const unitsModeRow = (

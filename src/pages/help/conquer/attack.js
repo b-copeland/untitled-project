@@ -7,10 +7,10 @@ function Attack(props) {
         <Topic id="attack" title="Attack" lead="Send your army at another kingdom to take its stars.">
             <h4>How to attack</h4>
             <ol>
-                <li><b>Choose a target.</b> The page fills in everything your intel reveals about it.</li>
+                <li><b>Choose a target.</b> The page fills in everything your intel reveals about it. Kingdoms in your own galaxy or empire are shaded and tagged in the list, with a warning when you choose one.</li>
                 <li><b>Check their defense.</b> Each number shows whether it is revealed, your estimate, or still needed. Fill in what is missing. The forecast is only as good as these numbers, so get military intel first if you can.</li>
                 <li><b>Choose your attack.</b> The page suggests units that should win, with the margin you set. Change them freely, or press Suggest again.</li>
-                <li><b>Check the forecast and send.</b> It updates as you type. It asks you to confirm if their units are a guess or the forecast says you would lose.</li>
+                <li><b>Check the forecast and send.</b> It updates as you type. It asks you to confirm if their units are a guess, the forecast says you would lose, or the target is on your own team.</li>
             </ol>
             <p>
                 If you have to guess, assume the worst: maximum military efficiency and shields.

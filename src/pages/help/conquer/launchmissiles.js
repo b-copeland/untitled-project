@@ -5,7 +5,7 @@ function LaunchMissiles() {
     return (
         <Topic id="launchmissiles" title="Launch Missiles" lead="Fire your missiles at another kingdom.">
             <ol>
-                <li>Choose a target.</li>
+                <li>Choose a target. Kingdoms in your own galaxy or empire are shaded and tagged, with a warning when you choose one.</li>
                 <li>Choose how many of each missile to send.</li>
                 <li>Check the forecast and launch. You are asked to confirm first.</li>
             </ol>

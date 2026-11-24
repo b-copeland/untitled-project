@@ -96,9 +96,12 @@ const pick = {
     }),
     placeholder: (base) => ({ ...base, color: "var(--bs-secondary-color)" }),
     input: (base) => ({ ...base, color: "var(--bs-body-color)" }),
+    // An option with a ``team`` (a galaxymate or empire-mate, components/teammates.js) is shaded, so it stands out.
     option: (base, state) => ({
         ...base,
-        backgroundColor: state.isFocused ? "var(--bs-primary-bg-subtle)" : "var(--bs-body-bg)",
+        backgroundColor: state.isFocused
+            ? "var(--bs-primary-bg-subtle)"
+            : state.data?.team ? "rgba(var(--bs-info-rgb), 0.12)" : "var(--bs-body-bg)",
         color: "var(--bs-body-color)",
     }),
     menu: (base) => ({ ...base, zIndex: 1050 }),
@@ -106,8 +109,8 @@ const pick = {
     singleValue: (base) => ({ ...base, color: "var(--bs-body-color)" }),
 };
 
-/** The type-to-filter picker, in the page's colours. ``options`` are {value, label}. */
-export function Picker({ options, value, onChange, placeholder, autoFocus = false, searchable = true, id }) {
+/** The type-to-filter picker, in the page's colours. ``options`` are {value, label}; ``formatOptionLabel`` draws one. */
+export function Picker({ options, value, onChange, placeholder, autoFocus = false, searchable = true, id, formatOptionLabel }) {
     return (
         <Select
             inputId={id}
@@ -118,6 +121,7 @@ export function Picker({ options, value, onChange, placeholder, autoFocus = fals
             placeholder={placeholder}
             autoFocus={autoFocus}
             isSearchable={searchable}
+            formatOptionLabel={formatOptionLabel}
             menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
             styles={{ ...pick, menuPortal: (base) => ({ ...base, zIndex: 2000 }) }}
         />

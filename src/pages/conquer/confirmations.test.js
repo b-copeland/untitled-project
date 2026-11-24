@@ -33,3 +33,11 @@ test("only a known long shot asks first", () => {
     // A chance that is only a guess is not a reason to ask.
     expect(spyNeedsConfirmation({ hasForecast: true, guessing: true, chance: 0.2 })).toBe(false);
 });
+
+test("an attack on your own galaxy or empire always asks first, however good the forecast (#236)", () => {
+    expect(attackNeedsConfirmation({ unitsKnown: true, hasForecast: true, wins: true, teammate: true })).toBe(true);
+});
+
+test("a hostile operation on your own team always asks first (#236)", () => {
+    expect(spyNeedsConfirmation({ hasForecast: true, guessing: false, chance: 0.95, hostileOnTeammate: true })).toBe(true);
+});
