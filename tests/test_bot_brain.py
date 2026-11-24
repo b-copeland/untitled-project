@@ -84,6 +84,8 @@ class StubWorld(brain.World):
             "attack_history": attack_history or [],
             "modifiers": {},  # what politics does to the bot (World.modifiers)
             "empire_targets": targets or {},  # the empire's targets: kingdom to the actions it is marked for
+            "empire_target_entries": {kd: {"actions": dict(actions), "created_at": NOW.isoformat()}
+                                      for kd, actions in (targets or {}).items()},
             "units_training": {},  # nothing in the mobis queue
             "cluster": {},  # its cluster: no votes yet
         }
@@ -1204,7 +1206,7 @@ def test_a_galaxy_leader_at_war_marks_the_easiest_enemy_for_the_whole_kill_chain
                          politics={"leader": "1"}, **kw)
     (decision,) = brain.plan_targets(world(), ATTACKER, style(), {}, random.Random(1))
     assert decision.kind == "mark_target" and decision.options["target"] == "5"  # as weak as 3, with more land
-    assert set(decision.options["actions"]) >= {"successful_attacks", "kidnap", "missiles", "intel"}
+    assert set(decision.options["actions"]) == {"successful_attacks", "intel"}  # strikes first
     # Not tried again at once; not by a bot that does not lead its galaxy; not without a war or with every slot used.
     memory = {}
     brain.plan_targets(world(), ATTACKER, style(), memory, random.Random(1))
@@ -1212,4 +1214,19 @@ def test_a_galaxy_leader_at_war_marks_the_easiest_enemy_for_the_whole_kill_chain
     other = StubWorld(revealed=INTEL_ON_ALL, stats={"5": (2500, 200_000)}, info={"5": military(1500)}, empires=AT_WAR,
                       politics={"leader": "2"})
     assert brain.plan_targets(other, ATTACKER, style(), {}, random.Random(1)) == []
-    assert brain.plan_targets(world(targets={"5": {"intel": 1.0}}), ATTACKER, style(), {}, random.Random(1)) == []
+    assert brain.plan_targets(world(targets={"5": brain.KILL_CHAIN[0]}), ATTACKER, style(), {}, random.Random(1)) == []
+
+
+def test_a_target_moves_on_through_the_kill_chain_as_it_ages():
+    first, second, third = brain.KILL_CHAIN
+    world = StubWorld(revealed=INTEL_ON_ALL, stats={"5": (2500, 200_000)}, info={"5": military(1500)}, empires=AT_WAR,
+                      politics={"leader": "1"}, targets={"5": first})
+    assert brain.plan_targets(world, ATTACKER, style(), {}, random.Random(1)) == []  # still at stage one, and fresh
+    age = lambda epochs: (NOW - epochs * EPOCH).isoformat()
+    for epochs, stage in ((brain.KILL_STAGE_EPOCHS + 1, second), (3 * brain.KILL_STAGE_EPOCHS, third)):
+        world = StubWorld(revealed=INTEL_ON_ALL, stats={"5": (2500, 200_000)}, info={"5": military(1500)}, empires=AT_WAR,
+                          politics={"leader": "1"}, targets={"5": first})
+        world._cache["empire_target_entries"]["5"]["created_at"] = age(epochs)
+        (decision,) = brain.plan_targets(world, ATTACKER, style(), {}, random.Random(1))
+        assert decision.kind == "update_target" and decision.options["actions"] == stage
+    assert "missiles" in third and "missiles" not in second and "kidnap" in second and "kidnap" not in first

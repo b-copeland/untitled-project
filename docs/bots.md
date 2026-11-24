@@ -231,10 +231,12 @@ hidden state.
 ### Empire targets and the intel board
 
 - **Marking** (`plan_targets`): the galaxy leader of an empire at war marks the enemy kingdom with the most land for
-  its defense (and weakness) for every action (`KILL_CHAIN`: intel, kidnaps, bombed homes, fuel plants, missiles,
-  attacks), at most one try in `TARGET_TRY_EPOCHS`. Only the emperor and delegates succeed; the rest is refused and
-  not retried for a while. The bots then join in as before (`TARGET_SHARE`). The steps are not ordered: a player's
-  usual kill is strikes that overfill hangars, then kidnaps, then galaxy busters, and bots do all of them at once.
+  its defense (and weakness), at most one try in `TARGET_TRY_EPOCHS`. Only the emperor and delegates succeed; the rest
+  is refused and not retried for a while. The target then moves through the usual kill chain (`KILL_CHAIN`, a stage
+  every `KILL_STAGE_EPOCHS`): strikes and intel until its units overflow its hangars; then kidnaps, bombed homes and
+  wrecked fuel plants to take its people below the overflow; then missiles to finish it. Each stage keeps the earlier
+  actions and gives the new ones the most points. The bots then join in as before (`TARGET_SHARE`). The stages go by
+  time, not by what the bots can see of the target's population.
 - **Bounties** (`answer_bounties`, `_post_bounty_for`): every bot answers galaxymates' bounties it has the intel for (the
   cut is free money), and a bot that strikes kingdoms but has no spy attempt asks the galaxy for military intel on the
   biggest kingdom it lacks (`BOUNTY_CUT`, at most `MAX_BOUNTIES` up).
@@ -441,7 +443,7 @@ Not changed: these are balance and rules, which are the maintainer's call.
 
 ### Not yet
 
-- A kill chain in order (strikes, then kidnaps, then missiles) instead of everything at once.
+- Moving a target on by what it looks like (its overflow, its people) instead of by time.
 - Surrender, peace and leaving an empire.
 - Marking empire targets, naming delegates and paying out spoils funds (bots only act on targets players set).
 - Messages, pinning, razing structures (a shrunken kingdom would raze mines for hangars before disbanding).

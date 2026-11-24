@@ -544,16 +544,21 @@ class World:
         return self.empires[2].get(self.my_galaxy)
 
     @property
-    def empire_targets(self):
-        """The empire's targets, as the Targets tab shows them to a member: kingdom to the actions it is marked for.
-        Read only when the empire has any."""
+    def empire_target_entries(self):
+        """The empire's targets in full (actions, when marked, points...): kingdom to entry. Read only when the empire
+        has any."""
         def read():
             mine = self.my_empire
             if mine is None or not self.empires[1].get(mine, {}).get("targets"):
                 return {}
-            document = uat.normalize(occ.read(uat._path(mine)))
-            return {kd: dict(entry["actions"]) for kd, entry in document["targets"].items()}
-        return self._lazy("empire_targets", read)
+            return uat.normalize(occ.read(uat._path(mine)))["targets"]
+        return self._lazy("empire_target_entries", read)
+
+    @property
+    def empire_targets(self):
+        """The empire's targets, as the Targets tab shows them to a member: kingdom to the actions it is marked for."""
+        return self._lazy("empire_targets", lambda: {kd: dict(entry["actions"])
+                                                     for kd, entry in self.empire_target_entries.items()})
 
     def marked_for(self, *actions):
         """The empire's targets marked for any of ``actions``, while their empire is at war with the bot's (only then do
@@ -1129,8 +1134,16 @@ def _empire_networth(world, empire):
     return sum(galaxy_networth.get(galaxy, 0) for galaxy in empire.get("galaxies", []))
 
 
-KILL_CHAIN = {"intel": 1.0, "successful_attacks": 1.0, "kidnap": 1.0, "bomb_homes": 1.0, "sabotage_fuel_plants": 1.0,
-              "missiles": 1.0}
+# The usual way to kill a kingdom, in the order that works: strikes (and the intel for them) until its units overflow
+# its hangars, then kidnaps and bombed homes (its people fall below the overflow) and wrecked fuel plants, then missiles
+# to finish it. Each stage keeps the earlier actions and adds the next, with the new ones worth the most points.
+KILL_STAGE_EPOCHS = 12  # TUNE: how long a target stays at each stage of the kill chain
+KILL_CHAIN = (
+    {"intel": 1.0, "successful_attacks": 2.0},
+    {"intel": 1.0, "successful_attacks": 1.0, "kidnap": 2.0, "bomb_homes": 2.0, "sabotage_fuel_plants": 2.0},
+    {"intel": 1.0, "successful_attacks": 1.0, "kidnap": 1.0, "bomb_homes": 1.0, "sabotage_fuel_plants": 1.0,
+     "missiles": 2.0},
+)
 TARGET_TRY_EPOCHS = 6   # TUNE: how long between a galaxy leader's tries at marking an empire target
 
 
@@ -1152,6 +1165,13 @@ def plan_targets(world, personality, style, memory, rng):
         return []
     memory["target_try"] = world.epochs
     targets = world.empire_targets
+    # Targets move on to the next stage of the chain as they age.
+    for kd, entry in world.empire_target_entries.items():
+        age = (world.now - _utc(entry["created_at"])).total_seconds() / EPOCH
+        stage = KILL_CHAIN[min(int(age // KILL_STAGE_EPOCHS), len(KILL_CHAIN) - 1)]
+        if dict(entry["actions"]) != stage:
+            return [Decision("update_target", {"target": kd, "actions": dict(stage)},
+                             f"move the target {world.names.get(kd, kd)} on to {', '.join(stage)}")]
     if len(targets) >= len(world.empires[1][me_empire].get("galaxies", [])):
         return []
     taken = {world.galaxy_of.get(kd) for kd in targets}
@@ -1169,7 +1189,7 @@ def plan_targets(world, personality, style, memory, rng):
             best, best_score = kd, score
     if best is None:
         return []
-    return [Decision("mark_target", {"target": best, "actions": dict(KILL_CHAIN)},
+    return [Decision("mark_target", {"target": best, "actions": dict(KILL_CHAIN[0])},
                      f"mark {world.names[best]} as an empire target: {known[best][0]:,.0f} stars, "
                      f"{weakness(world.target_info(best)):.1f} of 2 weak")]
 
@@ -1960,6 +1980,8 @@ def _do(kd_id, world, decision):
             return _answer(uac._reveal_random_galaxy(kd_id))
         if kind == "accept_intel":
             return _answer(uai._buy(kd_id, options["listing"]))
+        if kind == "update_target":
+            return _answer(uat.update_target(kd_id, options["target"], options["actions"], None))
         if kind == "mark_target":
             return _answer(uat.add_target(kd_id, options["target"], options["actions"], None))
         if kind == "fulfil_bounty":
