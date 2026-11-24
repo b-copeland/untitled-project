@@ -11,6 +11,7 @@ import Alert from 'react-bootstrap/Alert';
 import "./primitives.css";
 import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
+import { flourishResult } from "../../components/flourish";
 import { AmountInput, NumberControl, useSliders } from "../../components/forms";
 import { Panel, FieldRow, UnitStat, Stats, useServerForecast } from "../../components/planner";
 import { displayPercent } from "../../format";
@@ -82,7 +83,10 @@ function AttackPrimitives(props) {
     const send = () => {
         setConfirming(false);
         const updateFunc = async () => authFetch('api/attackprimitives', { method: 'POST', body: JSON.stringify({ attackerValues }) })
-            .then(safeJson).then(r => { setResults((previous) => previous.concat(r)); setForecast({}); });
+            .then(safeJson).then(r => {
+                setForecast({});
+                return flourishResult("attack", r).then(() => setResults((previous) => previous.concat(r)));
+            });
         props.updateData(['kingdom', 'projects', 'attackhistory', 'mobis', 'settle', 'structures', 'projects'], [updateFunc]);
     };
 

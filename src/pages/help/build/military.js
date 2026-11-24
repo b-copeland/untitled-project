@@ -28,7 +28,7 @@ function Military(props) {
             <ul>
                 <li><b>Train</b>: turn recruits into units, in {averageDuration(cfg.BASE_SPECIALIST_TIME_MIN_MULTIPLIER, cfg.BASE_SPECIALIST_TIME_MAX_MUTLIPLIER, cfg)} on average.</li>
                 <li><b>Upgrade</b>: turn units at home into the next unit of their line, for the difference in cost. One step at a time (Attackers to Heavy, Heavy to Elite), never back down, and never from one playstyle unit to the other. The units leave at once, take as long as training, and do not fight meanwhile.</li>
-                <li><b>Allocate</b>: the mix of units auto spending trains, by number of units, not cost. It trains whatever is furthest below its share, counting units in training. Once the mix is met it keeps training in the same proportions. The switch sets whether it trains recruits first.</li>
+                <li><b>Allocate</b>: the mix of units auto spending trains, by number of units, not cost. It trains whatever is furthest below its share, counting units in training. Once the mix is met it keeps training in the same proportions. The switch sets whether it trains recruits first. Max Recruits stops it drafting more once you have that many recruits, counting those in training. Recruits take the longest to arrive, so the quick-start plans train them first with no maximum: your population is the limit, and their homes are sized for the recruits their spending can turn into units.</li>
                 <li><b>Disband</b>: turn units (or recruits) back into population for {pct(cfg.BASE_DISBAND_COST_RETURN)} of their cost. Use it to get back under your hangar space, or to save a kingdom about to run out of population. Engineers can not be disbanded.</li>
             </ul>
             <h4>Hangars</h4>

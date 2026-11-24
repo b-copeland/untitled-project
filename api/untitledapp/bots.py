@@ -56,8 +56,6 @@ class Archetype:
     structures_target: dict
     units_target: dict
     projects_target: dict
-    recruits_before_units: bool = True
-    max_recruits: int = 99999
 
     # TUNE: share of units sent out each time generals are free (None: auto attack stays off).
     auto_attack: dict = None
@@ -69,6 +67,10 @@ class Archetype:
     # What a new player sees on the kingdom creator, where the same archetypes are offered as quick starts.
     label: str = ""
 
+
+# Recruits take the longest to arrive, so every plan drafts them first, with no cap of its own: the game's (a share of the
+# people) is the limit, and the homes target is sized to the people the plan's spending can turn into units.
+NO_RECRUIT_CAP = 99999
 
 ARCHETYPES = {
     # The starts share one idea, which the simulations bore out at every step: an army can only grow as fast as
@@ -86,11 +88,10 @@ ARCHETYPES = {
         structures_choices={"homes": 112, "mines": 92, "fuel_plants": 32, "hangars": 48, "drone_factories": 4,
                             "missile_silos": 0, "workshops": 12},
         auto_spending={"settle": 0.35, "structures": 0.35, "military": 0.2, "engineers": 0.1},
-        structures_target={"homes": 0.36, "mines": 0.3, "fuel_plants": 0.1, "hangars": 0.11, "drone_factories": 0.06,
+        structures_target={"homes": 0.15, "mines": 0.51, "fuel_plants": 0.1, "hangars": 0.11, "drone_factories": 0.06,
                            "workshops": 0.06},
         units_target={"defense": 0.75, "attack": 0.25},
         projects_target={"money_bonus": 0.3, "military_bonus": 0.2, "fuel_bonus": 0.15, "drone_gadgets": 0.35},
-        recruits_before_units=False, max_recruits=500,
         auto_attack={"pure": 1.0, "flex": 0.0},
         auto_rob={"drones": 0.9, "shielded": False, "keep": 2},
         shields={"military": 0.05},
@@ -104,11 +105,10 @@ ARCHETYPES = {
         structures_choices={"homes": 105, "mines": 80, "fuel_plants": 32, "hangars": 54, "drone_factories": 13,
                             "missile_silos": 0, "workshops": 16},
         auto_spending={"settle": 0.15, "structures": 0.3, "military": 0.45, "engineers": 0.1},
-        structures_target={"homes": 0.34, "mines": 0.24, "fuel_plants": 0.11, "hangars": 0.16, "drone_factories": 0.08,
+        structures_target={"homes": 0.25, "mines": 0.33, "fuel_plants": 0.11, "hangars": 0.16, "drone_factories": 0.08,
                            "workshops": 0.07},
         units_target={"attack": 0.65, "defense": 0.25, "flex": 0.1},
         projects_target={"military_bonus": 0.2, "casualties_bonus": 0.2, "money_bonus": 0.1, "big_flexers": 0.5},
-        recruits_before_units=False, max_recruits=800,
         auto_attack={"pure": 1.0, "flex": 0.5},
         auto_rob={"drones": 0.9, "shielded": False, "keep": 3},
         shields={"military": 0.05},
@@ -122,11 +122,10 @@ ARCHETYPES = {
         structures_choices={"homes": 112, "mines": 88, "fuel_plants": 22, "hangars": 42, "drone_factories": 21,
                             "missile_silos": 0, "workshops": 15},
         auto_spending={"settle": 0.3, "structures": 0.35, "military": 0.2, "engineers": 0.15},
-        structures_target={"homes": 0.34, "mines": 0.27, "fuel_plants": 0.07, "hangars": 0.09, "drone_factories": 0.15,
+        structures_target={"homes": 0.15, "mines": 0.46, "fuel_plants": 0.07, "hangars": 0.09, "drone_factories": 0.15,
                            "workshops": 0.07},
         units_target={"defense": 0.6, "attack": 0.4},
         projects_target={"money_bonus": 0.2, "military_bonus": 0.1, "fuel_bonus": 0.1, "drone_gadgets": 0.6},
-        recruits_before_units=False, max_recruits=500,
         auto_attack={"pure": 1.0, "flex": 0.0},
         auto_rob={"drones": 0.9, "shielded": False, "keep": 4},
         shields={"spy": 0.1, "spy_radar": 0.1},
@@ -140,11 +139,10 @@ ARCHETYPES = {
         structures_choices={"homes": 112, "mines": 85, "fuel_plants": 24, "hangars": 43, "drone_factories": 26,
                             "missile_silos": 0, "workshops": 10},
         auto_spending={"settle": 0.3, "structures": 0.35, "military": 0.2, "engineers": 0.15},
-        structures_target={"homes": 0.33, "mines": 0.25, "fuel_plants": 0.08, "hangars": 0.08, "drone_factories": 0.2,
+        structures_target={"homes": 0.15, "mines": 0.43, "fuel_plants": 0.08, "hangars": 0.08, "drone_factories": 0.2,
                            "workshops": 0.06},
         units_target={"defense": 0.6, "attack": 0.4},
         projects_target={"money_bonus": 0.2, "military_bonus": 0.1, "fuel_bonus": 0.1, "drone_gadgets": 0.6},
-        recruits_before_units=False, max_recruits=500,
         auto_attack={"pure": 1.0, "flex": 0.0},
         auto_rob={"drones": 0.9, "shielded": False, "keep": 3},
         shields={"spy": 0.1, "spy_radar": 0.05},
@@ -229,8 +227,8 @@ def settings_for(archetype, rng):
         "units_target": vary(archetype.units_target, rng),
         "projects_target": vary(archetype.projects_target, rng),
         "auto_assign_projects": True,
-        "recruits_before_units": archetype.recruits_before_units,
-        "max_recruits": archetype.max_recruits,
+        "recruits_before_units": True,
+        "max_recruits": NO_RECRUIT_CAP,
         # All four, as the shields route keeps them: income reads every one.
         "shields": {"military": 0.0, "spy": 0.0, "spy_radar": 0.0, "missiles": 0.0, **archetype.shields},
     }
@@ -257,8 +255,8 @@ def player_settings(archetype, auto_builder):
         "structures_target": dict(archetype.structures_target),
         "units_target": dict(archetype.units_target),
         "projects_target": dict(archetype.projects_target),
-        "recruits_before_units": archetype.recruits_before_units,
-        "max_recruits": archetype.max_recruits,
+        "recruits_before_units": True,
+        "max_recruits": NO_RECRUIT_CAP,
     }
     if archetype.auto_attack:
         settings["auto_attack_settings"] = dict(archetype.auto_attack)

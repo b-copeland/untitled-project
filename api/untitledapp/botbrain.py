@@ -88,8 +88,8 @@ SIPHON_MEMORY = 0.8         # TUNE: how much of what was seen of a target's spie
 THREAT_MARGIN = 1.05        # TUNE: defense wanted over the strongest offense an outsider is known to have
 THREAT_CAP = 2.0            # TUNE: but never more than this many times the deterrence line
 THREAT_EPOCHS = 24          # TUNE: how long a threat seen is remembered
-HOMES_RULE = "surplus"      # TUNE: "surplus" moves the homes share with money to spare (more homes) or short (more
-                            #       mines); "people" sizes homes for the recruits the money could buy (it did worse);
+HOMES_RULE = "people"       # TUNE: "surplus" moves the homes share with money to spare (more homes) or short (more
+                            #       mines); "people" sizes homes for the recruits and engineers the money buys;
                             #       "training" moves it by whether recruits are being trained at the cap
 MIN_DEFENSE = 0.0           # TUNE: the least defense any bot keeps home, in times the peacetime break-even with
                             #       primitives (1.1: a hit on it pays less than primitives, though it still hurts an
@@ -103,6 +103,7 @@ DEFENSE_RISK_MODE = "floor"  # TUNE: with DEFENSE_RISK, "floor" raises the defen
                             #       (above or below what its playstyle would keep)
 DEFENSE_RISK = None         # TUNE: (low, high): each bot keeps at least this range of the break-even with primitives,
                             #       where in it fixed per kingdom (its riskiness); None: off
+HOMES_FLOOR = 0.05          # TUNE: "people": the least of the free land that is homes
 HOMES_SPARE = 1.15          # TUNE: homes kept over what the recruits and engineers need
 ENGINEERS_PER_STAR = None   # TUNE: the most engineers a kingdom keeps per star (None: as many as the workshops hold)
 WAR_MARGIN = 1.3            # TUNE: how much more defense a kingdom whose empire is at war keeps
@@ -810,7 +811,7 @@ def plan_economy(world, personality, style, memory):
         taken = sum(land[key] for key in ("workshops", "drone_factories", "missile_silos")) * me["stars"]
         taken += me["structures"].get("hangars", 0) + me["structures"].get("fuel_plants", 0)
         free = max(me["stars"] - taken, 1)
-        land["homes"] = min(max(homes / free, 0.2), 0.9)
+        land["homes"] = min(max(homes / free, HOMES_FLOOR), 0.9)
     # Hangars for the units in training as well as those at home, out and to come: the game counts them all.
     per_hangar = (uas.GAME_CONFIG["BASE_HANGAR_CAPACITY"] + uas.project_increase(me, "hangars_bonus")) * max(
         1 + uas.modifier(world.modifiers, "hangar_capacity"), 0)
@@ -848,9 +849,10 @@ def plan_economy(world, personality, style, memory):
         keep("projects_target", projects_target, uab._validate_projects_target(projects_target, me))
         settings["auto_assign_projects"] = True
     settings["auto_spending_enabled"] = True
-    # Recruits are only worth drafting as fast as the money turns them into units; the rest would sit in the hangars.
-    settings["recruits_before_units"] = False
-    settings["max_recruits"] = int(max(sum(to_buy.values()) * 1.2, 50))
+    # Recruits take longest to arrive, so they are drafted first, with no cap of their own: the game's (a share of the
+    # people) is the limit, and the homes are sized for the people the money can turn into units (HOMES_RULE).
+    settings["recruits_before_units"] = True
+    settings["max_recruits"] = 99999
 
     # Auto attack on primitives: every pure attacker goes (they are no use at home), and the flex units the home
     # defense can spare. Off while the army is being held for a strike on a kingdom.

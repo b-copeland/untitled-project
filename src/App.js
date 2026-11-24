@@ -14,6 +14,7 @@ import { publicRoutes, createKingdomRoute, gamePages, propsFor } from "./routes"
 import Header from "./components/header";
 import { PageContext, PageHead } from "./components/pagehead";
 import { useTheme } from "./theme";
+import { FlourishLayer } from "./components/flourish";
 import { TourProvider, TourOffer } from "./components/tour";
 
 /**
@@ -99,6 +100,7 @@ function Content({ logged, session }) {
 
       <div className="main-body">
         <Notifications {...notifications} />
+        <FlourishLayer enabled={logged && data.preferences?.effects !== "off"} />
         <SideNavbar logged={logged} showNav={showNav} setShowNav={setShowNav} notifs={data.notifs} hasKingdom={hasKingdom(data.kingdomid)}
           kingdomName={data.kingdom?.name} galaxy={data.galaxies_inverted?.[data.kingdomid?.kd_id]}/>
         <div className="router">

@@ -44,6 +44,13 @@ shields, auto attack and auto rob enabled. So an edit to an archetype changes wh
 what bots start with; `bots.problems(archetype)` still has to pass (`tests/test_bots.py`). A player gets the starting
 plan only: the brain does not run for players.
 
+Because nothing adjusts a player's plan, it has to keep working as the kingdom grows. Every plan drafts recruits first
+with no cap of its own (`NO_RECRUIT_CAP`): recruits take longest to arrive, and a small cap choked the army within hours.
+The game's own limit (a share of the people in training at once) is the cap, so the homes target is sized to the people
+the plan's military and engineer spending can turn into units and engineers (`homes_for_people`, with some spare), and
+the rest of the homes-and-mines land is mines. That need is the same share of stars at any size, since income grows
+with the land. More homes than that only adds recruits who wait for money, and a home earns less than a mine.
+
 ### Creating them
 
 As an admin (log in at `/admin` or with the `admin` account):
@@ -127,8 +134,8 @@ hidden state.
   (`defense_margin` 0.85 of a line that counts war gains): they grew 27%, are still almost never hit, and attackers,
   who lose fewer stars to each other, 11%. The universe ended 3% larger. Intel bots keep their margin.
 - **The rest of the army money is offense** (`army_plan`, `offense_share`), sent at primitives by the auto attack with
-  every pure attacker (`pure` is 100%: they are no use at home). Recruits are drafted only as fast as the money turns
-  them into units (`max_recruits`, units before recruits).
+  every pure attacker (`pure` is 100%: they are no use at home). Recruits are drafted before units, with no cap of
+  their own: the homes are what limits them (below).
 - **Strength per recruit when people run short.** With money to spare, defense is bought as flexers, and big flexers
   once unlocked: twice and four times the strength for each recruit and hangar place. Otherwise defenders, the cheapest
   defense for the money.
@@ -141,18 +148,25 @@ hidden state.
   is built, so all new land (settled, taken, or emptied) gets hangars until the army fits. Nothing is razed for it: a
   mine earns 150 an epoch, what the 75 people a hangar's room holds earn, and razing for hangars (mines or homes first)
   left attackers 6-8% smaller over three seeds.
-- **Homes and mines by what the kingdom is short of** (`HOMES_RULE = "surplus"`). Homes earn less than mines but
-  hold the people recruits and engineers are drafted from. The homes share moves up while money is left over (people
-  are short) and down while the army is short of money, so both run out together.
-  The other rule, `"people"` (`homes_for_people`), sizes homes directly: at most 12% of the people can be recruits in
-  training, for about 12 epochs, so `n` units an epoch need `100 n` people. It did worse. Sized from the army's share of
-  the spending plan, which is itself capped by how fast recruits can be drafted, homes and army shrank each other
-  (armies a quarter the size); sized from all the money the other categories leave, it overbuilt homes for intel bots
-  and thieves (about half their homes-and-mines land) and the universe ended 6% smaller.
+- **Homes for the people the money needs** (`HOMES_RULE = "people"`, `homes_for_people`). Homes earn less than mines
+  (50 people paying 2 an epoch, against 150) but hold the people recruits and engineers are drafted from. At most 12%
+  of the people can be recruits in training, for about 12 epochs, so `n` units an epoch need `100 n` people; engineers
+  (5%) need 240 for each one an epoch. Homes are sized for all the money the other categories leave (the army's share
+  of the spending plan is itself capped by how fast recruits can be drafted, so sizing from it would shrink both in
+  turn), 15% over (`HOMES_SPARE`), never under `HOMES_FLOOR` of the free land; mines take the rest.
+  Measured over three seeds of 100 bots for a week, with recruits first and uncapped: 14% more stars and 6% more
+  networth than the old rule (units first, recruits capped at 1.2 times what the horizon's money buys, homes by
+  `"surplus"`), every playstyle larger, deaths unchanged. Some recruits still wait for money (a third of the army by
+  the end of the week); a floor of 0 to 20% and a spare of 1 or 1.15 made little difference.
+  Uncapped recruits with `"surplus"` homes did worse than the old rule (5% fewer stars): recruits took the money and
+  were a third to a half of the army. When recruits were capped and drafted after units, `"people"` lost (6% smaller): the cap
+  left the extra homes nothing to draft.
+  `"surplus"` moves the homes share up while money is left over (people are short) and down while the army is short of
+  money, so both run out together.
   `"training"` moves the homes share by whether recruits are trained at the cap (`recruits_training_share`, one read of
   the mobis queue): fewer homes while they are not. It fell into the same trap: a bot drafts recruits only as fast as
   its money turns them into units, so it is never training flat out, and its homes went to the floor (armies a quarter
-  the size, the universe 4% smaller).
+  the size, the universe 4% smaller). With recruits uncapped it did no better: 9% fewer stars than the old rule.
 - **Engineers where a bonus is slipping** (`projects_plan`): a continuous bonus gets what keeps it full as the kingdom
   grows; a share works on the playstyle's unlock (Drone Gadgets, Big Flexers, Star Busters for bombers), which also
   takes whoever the bonuses do not need.

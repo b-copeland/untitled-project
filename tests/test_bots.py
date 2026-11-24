@@ -29,6 +29,24 @@ def test_the_four_playstyles_have_their_races():
         "explorer": "Gaian", "attacker": "Xo", "intel": "Lumina", "thief": "Vult"}
 
 
+@pytest.mark.parametrize("key", sorted(bots.ARCHETYPES))
+def test_a_plans_homes_hold_the_people_its_spending_drafts_without_many_to_spare(key):
+    """Recruits are uncapped, so the homes target is what limits them: too few and the army waits for people, too many
+    and recruits wait for money on land a mine would earn more from. The need is the same share at any size."""
+    import untitledapp.botstrategy as strategy
+
+    archetype = bots.ARCHETYPES[key]
+    stars = 1000
+    income = strategy.guess_income(stars)
+    average_unit = (strategy.unit_cost("attack") + strategy.unit_cost("defense")) / 2
+    needed = strategy.homes_for_people(
+        archetype.auto_spending["military"] * income / average_unit,
+        archetype.auto_spending["engineers"] * income / uas.GAME_CONFIG["BASE_ENGINEER_COST"],
+        vult=archetype.race == "Vult") / stars
+    # At least the spare the bots keep (botbrain.HOMES_SPARE); a player's plan does not adjust, so a little more is fine.
+    assert needed * 1.15 <= archetype.structures_target["homes"] <= needed * 2
+
+
 def test_an_illegal_edit_is_caught(app):
     import dataclasses
 
@@ -66,7 +84,8 @@ def test_a_created_bot_is_a_playable_kingdom_with_the_builder_on(app, client):
     assert attacker["auto_attack_enabled"] is True and attacker["auto_attack_settings"]["pure"] > 0
     assert sum(attacker["auto_spending"].values()) <= 1.0001
     assert attacker["next_resolve"]["auto_spending"] < uas.DATE_SENTINEL
-    assert attacker["recruits_before_units"] is False  # or recruits take all the army's money (see docs/bots.md)
+    # Recruits first and uncapped: the homes target is sized to the people the plan can train (docs/bots.md).
+    assert attacker["recruits_before_units"] is True and attacker["max_recruits"] == 99999
     # What the brain needs: what this bot hits, an empty memory, and a first think within its first interval.
     bot = attacker["bot"]
     assert bot["type"] == "attacker" and bot["style"]["army"] in ("primitives", "players", "both")
