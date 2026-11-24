@@ -1156,3 +1156,60 @@ def test_a_bot_follows_the_players_for_leader_too():
     memory = _knows_players(world, ["2"])  # 2 is a player: its choice beats what the bot would pick
     decisions = brain.plan_politics(world, ATTACKER, style(), memory, random.Random(1))
     assert [d.options["selected"] for d in decisions if d.kind == "vote_leader"] == ["7"]
+
+
+# ------------------------------------------------------------------------------------------ bots differ
+
+def test_bots_of_a_playstyle_differ_in_taste_skill_and_what_they_like():
+    styles = [brain.roll_style(ATTACKER, random.Random(seed)) for seed in range(60)]
+    versions = [brain.personalize(ATTACKER, style) for style in styles]
+    assert len({v.workshops for v in versions}) > 40 and len({v.defense_margin for v in versions}) > 40
+    assert min(s["skill"] for s in styles) < 0.6 and max(s["skill"] for s in styles) > 0.9
+    # The same bot is the same every think; a low skill thinks less often and sets wider buffers.
+    assert brain.personalize(ATTACKER, styles[0]) == versions[0]
+    slow = brain.personalize(ATTACKER, {**styles[0], "skill": 0.35})
+    assert slow.think_epochs[0] > ATTACKER.think_epochs[0] and slow.attack_buffer[0] > ATTACKER.attack_buffer[0]
+    # A bot from before styles had seeds plays its playstyle as it is.
+    assert brain.personalize(ATTACKER, {"army": "both"}) is ATTACKER
+    assert brain.problems(versions[0]) == []
+
+
+def test_bots_like_different_targets_the_same_way_every_time():
+    liked = brain.personalize(ATTACKER, brain.roll_style(ATTACKER, random.Random(3)))
+    other = brain.personalize(ATTACKER, brain.roll_style(ATTACKER, random.Random(4)))
+    tastes = [brain._taste(liked, str(kd)) for kd in range(30)]
+    assert max(tastes) > 1.1 and min(tastes) < 0.9 and brain._taste(liked, "7") == brain._taste(liked, "7")
+    assert tastes != [brain._taste(other, str(kd)) for kd in range(30)]
+
+
+# ------------------------------------------------------------------------------------------ the intel board
+
+def test_a_bot_answers_the_bounties_it_has_the_intel_for_and_asks_when_it_has_no_spy_attempts():
+    bounty = {"id": "b1", "requester": "2", "target": "3", "category": "military", "cut": 0.05, "problem": None, "have": True}
+    cannot = {**bounty, "id": "b2", "have": False}
+    world = StubWorld(intel={"listings": [], "bounties": [bounty, cannot], "accepted": [], "cuts": {}, "my_intel": [],
+                             "exclusions": [], "history": []})
+    (decision,) = brain.answer_bounties(world, ATTACKER, style(), {})
+    assert decision.kind == "fulfil_bounty" and decision.options == {"bounty": "b1"}
+
+    world = StubWorld(me={"spy_attempts": 0}, stats={"3": (800, 200_000), "4": (500, 100_000)})
+    (ask,) = brain.plan_intel(world, ATTACKER, style(), {}, random.Random(1), want_military=True)
+    assert ask.kind == "post_bounty" and ask.options["target"] == "3" and ask.options["category"] == "military"
+
+
+def test_a_galaxy_leader_at_war_marks_the_easiest_enemy_for_the_whole_kill_chain():
+    def world(**kw):
+        return StubWorld(revealed=INTEL_ON_ALL, stats={"3": (2000, 150_000), "4": (5000, 900_000), "5": (2500, 200_000)},
+                         info={"3": military(1500), "4": military(60_000), "5": military(1500)}, empires=AT_WAR,
+                         politics={"leader": "1"}, **kw)
+    (decision,) = brain.plan_targets(world(), ATTACKER, style(), {}, random.Random(1))
+    assert decision.kind == "mark_target" and decision.options["target"] == "5"  # as weak as 3, with more land
+    assert set(decision.options["actions"]) >= {"successful_attacks", "kidnap", "missiles", "intel"}
+    # Not tried again at once; not by a bot that does not lead its galaxy; not without a war or with every slot used.
+    memory = {}
+    brain.plan_targets(world(), ATTACKER, style(), memory, random.Random(1))
+    assert brain.plan_targets(world(), ATTACKER, style(), memory, random.Random(1)) == []
+    other = StubWorld(revealed=INTEL_ON_ALL, stats={"5": (2500, 200_000)}, info={"5": military(1500)}, empires=AT_WAR,
+                      politics={"leader": "2"})
+    assert brain.plan_targets(other, ATTACKER, style(), {}, random.Random(1)) == []
+    assert brain.plan_targets(world(targets={"5": {"intel": 1.0}}), ATTACKER, style(), {}, random.Random(1)) == []

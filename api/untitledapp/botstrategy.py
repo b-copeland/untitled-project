@@ -502,3 +502,50 @@ def reserve_hit(pressure, now):
         resting = now + datetime.timedelta(seconds=REST_EPOCHS * EPOCH)
         return {"hits": [], "rest_until": resting.isoformat()}
     return {"hits": hits, "rest_until": ""}
+
+
+# --- projects that pay for themselves ----------------------------------------------------------------------------
+
+ENGINEER_EPOCH_COST = 1.0   # money an engineer-epoch is worth: the person in a home who could be earning
+RECRUIT_SPEND_SHARE = 0.25  # about what share of the military budget goes on recruits
+ECONOMIC_PROJECTS = ("mines_bonus", "recruit_cost_bonus", "settle_cost_bonus", "hangars_bonus")
+
+
+def project_gain(kd, project, income, shares, per_hangar=None):
+    """
+    What a one-time project would add per epoch, in money, for this kingdom as it is. Only the economic ones are
+    valued (money from each mine; half the recruit bill; a tenth of the settle bill; hangars that free land for mines).
+    """
+    structures = kd.get("structures", {})
+    if project == "mines_bonus":
+        return uas.PROJECTS[project]["increase"] * structures.get("mines", 0)
+    if project == "recruit_cost_bonus":
+        return uas.PROJECTS[project]["bonus"] * RECRUIT_SPEND_SHARE * shares.get("military", 0) * income
+    if project == "settle_cost_bonus":
+        return uas.PROJECTS[project]["bonus"] * shares.get("settle", 0) * income
+    if project == "hangars_bonus":
+        capacity = per_hangar or CONFIG["BASE_HANGAR_CAPACITY"]
+        freed = structures.get("hangars", 0) * uas.PROJECTS[project]["increase"] / capacity
+        return freed * CONFIG["BASE_MINES_INCOME_PER_EPOCH"]
+    return 0.0
+
+
+def economic_projects(kd, income, shares, epochs_left, per_hangar=None):
+    """
+    The economic one-time projects worth the engineers' time, best first: those that, once finished (the points
+    cost, with every engineer on them), still have time to earn back more than the engineers cost, ordered by that
+    return for each point.
+    """
+    engineers = max(int(kd["units"].get("engineers", 0)), 1)
+    completed = kd.get("completed_projects", [])
+    ranked = []
+    for project in ECONOMIC_PROJECTS:
+        if project in completed or uas.project_locked_reason(kd, project) is not None:
+            continue
+        points = kd["projects_max_points"].get(project) or uas.PROJECTS_FUNCS[project](kd["stars"])
+        done_in = max(points - kd.get("projects_points", {}).get(project, 0), 0) / engineers
+        earned = project_gain(kd, project, income, shares, per_hangar) * max(epochs_left - done_in, 0)
+        net = earned - points * ENGINEER_EPOCH_COST
+        if net > 0:
+            ranked.append((net / points, project))
+    return [project for _, project in sorted(ranked, reverse=True)]

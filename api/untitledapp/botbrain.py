@@ -113,6 +113,13 @@ TARGET_SHARE = 0.5          # TUNE: the share of attacks, spy attempts and missi
 SUICIDE_TEAM = 8            # TUNE: how many kingdoms' worth of burning a bot counts on when it burns a leader's fuel
 BOT_VOTE_WEIGHT = 0.5       # TUNE: bots buy this share of the universe votes their playstyle would, so players' votes count for more
 HUMANS_REFRESH = 24         # epochs a bot remembers which of its galaxymates are players
+ECON_PROJECTS = True        # TUNE: engineers go first to one-time projects that pay for themselves (strategy.economic_projects)
+BOUNTIES_PER_THINK = 2      # TUNE: bounties a bot answers in one think
+MAX_BOUNTIES = 2            # TUNE: bounties a bot keeps up at once
+BOUNTY_CUT = 5.0            # TUNE: percent of the spoils a bot offers for intel it asks for
+WEAKNESS = 0.3              # TUNE: a target's worth rises by this much (times 0 to 2) for few fuel plants and homes
+WEAK_FUEL_SHARE = 0.06      # TUNE: below this share of its land in fuel plants a kingdom looks weak
+WEAK_HOMES_SHARE = 0.2      # TUNE: and below this share in homes
 STALL_EPOCHS = 24
 STALL_GROWTH = 0.02
 E, M, L = 0, 1, 2
@@ -202,6 +209,11 @@ class Personality:
     cluster_votes: tuple = ()
     universe_votes: dict = dataclasses.field(default_factory=dict)
     vote_budget: float = 0.25
+
+    # Set per bot by ``personalize``, never in PERSONALITIES: how much each bot's liking of a particular target differs
+    # (a share of the edge), and the seed that makes the same bot like the same targets every time.
+    taste: float = 0.0
+    taste_seed: int = 0
 
 
 PERSONALITIES = {
@@ -345,8 +357,52 @@ def roll_style(personality, rng):
         "drones": draw(personality.drone_targets),
         "bomber": rng.random() < personality.bomber_chance,
         # A cautious bot (below 1) keeps more defense and spends less on offense; a bold one the other way.
-        "temper": round(rng.uniform(0.85, 1.15), 3),
+        "temper": round(rng.uniform(*TEMPER_RANGE), 3),
+        # How well it plays (1 is the playstyle as tuned) and the seed its preferences and tastes come from.
+        "skill": round(rng.triangular(*SKILL_RANGE), 3),
+        "seed": rng.randrange(1 << 30),
     }
+
+
+SKILL_RANGE = (0.35, 1.0, 0.8)  # TUNE: (lowest, highest, most common) skill a new bot draws
+TEMPER_RANGE = (0.7, 1.3)       # TUNE: how bold or cautious a new bot can be
+PREFERENCE_RANGE = (0.5, 1.7)   # TUNE: how far a bot's liking for a building, unit, project or action strays from its playstyle's
+TASTE = 0.25                    # TUNE: how much a bot's liking for particular targets changes their worth to it (share)
+DIVERSITY = 1.0                 # TUNE: 0 makes every bot of a playstyle alike (the old bots), 1 the full ranges above
+
+
+def personalize(personality, style):
+    """
+    This bot's own version of its playstyle: what it likes (buildings, units, projects, which operations), how well it
+    plays (``skill``: a low one thinks less often, keeps its defense and attack buffers less well judged) and which
+    particular targets it favours. All drawn from the style's ``seed``, so the same bot is the same every think. A
+    style without a seed (a bot from before this existed) plays its playstyle as it is.
+    """
+    seed = style.get("seed")
+    if seed is None or not DIVERSITY:
+        return personality
+    rng = random.Random(f"{seed}")
+    low, high = PREFERENCE_RANGE
+    wide = lambda: 1.0 + (math.exp(rng.uniform(math.log(low), math.log(high))) - 1.0) * DIVERSITY
+    skill = style.get("skill", 1.0)
+    blur = (1.0 - skill) * 0.8 * DIVERSITY  # a bot's judgment of how much defense it wants, off by up to this
+    changes = {
+        "think_epochs": tuple(gap / (0.4 + 0.6 * skill) for gap in personality.think_epochs),
+        "workshops": tuple(round(min(share * wide(), 0.15), 4) for share in personality.workshops),
+        "drone_factories": round(min(personality.drone_factories * wide(), 0.3), 4),
+        "homes": round(min(max(personality.homes + (wide() - 1.0) * 0.15, 0.2), 0.9), 3),
+        "defense_margin": round(personality.defense_margin * rng.uniform(1.0 - blur, 1.0 + blur), 3),
+        "offense_mix": {unit: weight * wide() for unit, weight in personality.offense_mix.items()},
+        "intel_chance": min(personality.intel_chance * wide(), 1.0),
+        "aggressive_chance": min(personality.aggressive_chance * wide(), 1.0),
+        "sabotage_chance": tuple(min(chance * wide(), 1.0) for chance in personality.sabotage_chance),
+        "share_chance": min(personality.share_chance * wide(), 1.0),
+        "project_weights": {project: weight * wide() for project, weight in personality.project_weights.items()},
+        "attack_buffer": tuple(buffer / max(skill, 0.2) for buffer in personality.attack_buffer),
+        "taste": TASTE * DIVERSITY,
+        "taste_seed": rng.randrange(1 << 30),
+    }
+    return dataclasses.replace(personality, **changes)
 
 
 def _style(bot, personality):
@@ -823,6 +879,9 @@ def plan_economy(world, personality, style, memory):
     structures_target = strategy.hangars_first(structures_target, me, held, used, per_hangar)
 
     key_projects = personality.key_projects + (("star_busters",) if style.get("bomber") else ())
+    if ECON_PROJECTS:
+        # Projects that pay for themselves come before the playstyle's unlock.
+        key_projects = tuple(strategy.economic_projects(me, income, shares, world.epochs_left, per_hangar)) + key_projects
     projects = strategy.projects_plan(me, personality.project_weights, key_projects,
                                       _by_phase(personality.key_share, phase_name), growth_per_epoch=growth)
 
@@ -1070,6 +1129,51 @@ def _empire_networth(world, empire):
     return sum(galaxy_networth.get(galaxy, 0) for galaxy in empire.get("galaxies", []))
 
 
+KILL_CHAIN = {"intel": 1.0, "successful_attacks": 1.0, "kidnap": 1.0, "bomb_homes": 1.0, "sabotage_fuel_plants": 1.0,
+              "missiles": 1.0}
+TARGET_TRY_EPOCHS = 6   # TUNE: how long between a galaxy leader's tries at marking an empire target
+
+
+def plan_targets(world, personality, style, memory, rng):
+    """
+    An emperor (or its delegate) marks the empire's targets, as a player would: at war, the kingdom of an enemy empire
+    that is the easiest to take apart, marked for every action so the whole empire joins in (strikes to fill its
+    hangars with more than its homes hold, kidnaps and bombed homes to shrink its people, sabotaged fuel plants,
+    missiles, and intel the empire shares). Easiest means most land for the defense it has, more for few fuel plants
+    and homes (``weakness``). Only a galaxy leader tries, only when the empire is at war and has a free target, and a
+    refusal (it is not the emperor) is simply not tried again for a while.
+    """
+    me_empire = world.my_empire
+    if me_empire is None or world.phase == "early" or world.galaxy_politics.get("leader") != world.kd_id:
+        return []
+    if not world.empires[1].get(me_empire, {}).get("war"):
+        return []
+    if world.epochs - memory.get("target_try", -1e9) < TARGET_TRY_EPOCHS:
+        return []
+    memory["target_try"] = world.epochs
+    targets = world.empire_targets
+    if len(targets) >= len(world.empires[1][me_empire].get("galaxies", [])):
+        return []
+    taken = {world.galaxy_of.get(kd) for kd in targets}
+    known = world.known_stars()
+    best, best_score = None, 0.0
+    for kd, (stars, _) in known.items():
+        if kd in targets or world.galaxy_of.get(kd) in taken or not world.relation(kd)[0]:
+            continue
+        info = world.target_info(kd)
+        defense = world.defense_of(kd, info)
+        if defense is None:
+            continue
+        score = stars * (1 + WEAKNESS * weakness(info)) / max(defense, 1.0)
+        if score > best_score:
+            best, best_score = kd, score
+    if best is None:
+        return []
+    return [Decision("mark_target", {"target": best, "actions": dict(KILL_CHAIN)},
+                     f"mark {world.names[best]} as an empire target: {known[best][0]:,.0f} stars, "
+                     f"{weakness(world.target_info(best)):.1f} of 2 weak")]
+
+
 def _plan_empire(world, memory, rng):
     """What a galaxy leader does about empires."""
     decisions = []
@@ -1180,9 +1284,18 @@ def plan_intel(world, personality, style, memory, rng, want_military=False):
     if not want_military and rng.random() >= personality.intel_chance:
         return []
     attempts = _attempts_free(world, memory)
-    if attempts < 1 or (world.me.get("drones") or 0) < 100:
+    if (world.me.get("drones") or 0) < 100:
         return []
     known = world.known_stars()
+    if attempts < 1:
+        # No spy attempt to spend: ask the galaxy (a cut of its spoils) for the military intel a strike needs.
+        if want_military and known:
+            category = "military"
+            lacking = [kd for kd in known if world.seconds_left(kd, category) <= EPOCH
+                       and kd in world.outsiders()]
+            if lacking:
+                return _post_bounty_for(world, memory, max(lacking, key=lambda kd: known[kd][0]), category)
+        return []
     window = personality.think_epochs[1] * EPOCH + EPOCH
     if len(known) < 3:
         hidden = [galaxy for galaxy in world.galaxies if galaxy != world.my_galaxy
@@ -1250,6 +1363,34 @@ def accept_intel(world, personality, style, memory):
     return decisions
 
 
+def answer_bounties(world, personality, style, memory):
+    """
+    Galaxymates' bounties it can fill from intel it already has: the requester gets the reveal, the bot a cut of every
+    spoil from attacks on that target while it lasts. It costs nothing, so every bot does it, and an intel bot's
+    reveals (which it makes for the galaxy anyway) are what the board is for.
+    """
+    decisions = []
+    for bounty in world.intel.get("bounties") or []:
+        if bounty.get("problem") is None and bounty.get("have"):
+            decisions.append(Decision("fulfil_bounty", {"bounty": bounty["id"]},
+                                      f"answer a bounty for {bounty['category']} intel on "
+                                      f"{world.names.get(bounty['target'], bounty['target'])} ({bounty['cut']:.0%} cut)"))
+        if len(decisions) >= BOUNTIES_PER_THINK:
+            break
+    return decisions
+
+
+def _post_bounty_for(world, memory, target, category):
+    """A bounty for ``category`` intel on ``target`` if the bot has not one up already and has room for another."""
+    mine = [b for b in world.intel.get("bounties") or [] if b.get("requester") == world.kd_id]
+    if len(mine) >= MAX_BOUNTIES or any(b["target"] == target and b["category"] == category for b in mine):
+        return []
+    if not [m for m in world.galaxies.get(world.my_galaxy, []) if m != world.kd_id]:
+        return []  # nobody to answer
+    return [Decision("post_bounty", {"target": target, "category": category, "cut": BOUNTY_CUT},
+                     f"ask the galaxy for {category} intel on {world.names.get(target, target)} for a {BOUNTY_CUT:g}% cut")]
+
+
 def _sendable(world, units_home, flex_share):
     return {"attack": units_home.get("attack", 0), "big_flex": units_home.get("big_flex", 0),
             "flex": math.floor(units_home.get("flex", 0) * flex_share)}
@@ -1268,6 +1409,28 @@ def _army_timeline(world):
         wait = max((_utc(general["return_time"]) - world.now).total_seconds(), 0.0)
         timeline.append((wait + 0.05 * EPOCH, dict(units), generals))
     return timeline
+
+
+def weakness(info):
+    """
+    How exposed a kingdom looks from what is revealed of its structures, 0 to 2: few fuel plants (its fuel runs out
+    and its defense with it) and few homes (its people, and so recruits, and its room for units). 0 when nothing of its
+    structures is revealed.
+    """
+    structures, stars = info.get("structures"), info.get("stars")
+    if not isinstance(structures, dict) or not stars:
+        return 0.0
+    fuel = max(0.0, 1.0 - structures.get("fuel_plants", 0) / stars / WEAK_FUEL_SHARE)
+    homes = max(0.0, 1.0 - structures.get("homes", 0) / stars / WEAK_HOMES_SHARE)
+    return min(fuel, 1.0) + min(homes, 1.0)
+
+
+def _taste(personality, target):
+    """How much this bot likes this target, by itself: 1 plus or minus ``taste``, the same every time."""
+    if not personality.taste:
+        return 1.0
+    roll = random.Random(f"{personality.taste_seed}:{target}").uniform(-1.0, 1.0)
+    return 1.0 + personality.taste * roll
 
 
 def _best_strike(world, personality, pool, known, leaders, timeline, max_wait, window, buffer, grudges, late, me):
@@ -1298,6 +1461,7 @@ def _best_strike(world, personality, pool, known, leaders, timeline, max_wait, w
                 # Stars taken from a leader count twice in the race for points: once gained, once lost by a rival.
                 edge *= 2.0 if target in leaders else 1.0
                 edge /= 1 + wait / (24 * EPOCH)  # an army held back is an army not at the primitives
+                edge *= _taste(personality, target) * (1 + WEAKNESS * weakness(info))
                 if best is None or edge > best[0]:
                     best = (edge, target, wait, count, offense, defense)
                 break
@@ -1649,7 +1813,9 @@ def plan(world, personality, style, memory, rng):
     decisions.extend(plan_survival(world, memory))
     decisions.extend(spend_money(world, personality, style, memory, settings))
     decisions.extend(plan_politics(world, personality, style, memory, rng))
+    decisions.extend(plan_targets(world, personality, style, memory, rng))
     decisions.extend(accept_intel(world, personality, style, memory))
+    decisions.extend(answer_bounties(world, personality, style, memory))
 
     pending = len(world.me.get("schedule", []))
     room = max(min(personality.max_pending - pending, SCHEDULE_LIMIT - pending, personality.max_new), 0)
@@ -1794,6 +1960,12 @@ def _do(kd_id, world, decision):
             return _answer(uac._reveal_random_galaxy(kd_id))
         if kind == "accept_intel":
             return _answer(uai._buy(kd_id, options["listing"]))
+        if kind == "mark_target":
+            return _answer(uat.add_target(kd_id, options["target"], options["actions"], None))
+        if kind == "fulfil_bounty":
+            return _answer(uai._fulfil(kd_id, options["bounty"]))
+        if kind == "post_bounty":
+            return _answer(uai._post_bounty(kd_id, options["target"], options["category"], options["cut"], None))
         if kind == "build_missiles":
             return _answer(uab._build_missiles(kd_id, dict(options)))
         if kind == "disband":
@@ -1891,6 +2063,7 @@ def think(kd_id, now=None, rng=None, state=None, me=None):
         return []
     personality = PERSONALITIES[bot["type"]]
     style = _style(bot, personality)
+    personality = personalize(personality, style)
     memory = copy.deepcopy(bot.get("memory") or {})
 
     world = World(kd_id, me, now, state=state)

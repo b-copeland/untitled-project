@@ -341,3 +341,17 @@ def test_the_rest_ends_and_old_hits_are_forgotten():
     old = {"hits": [START.isoformat()] * 2, "rest_until": ""}
     later = START + datetime.timedelta(seconds=(strategy.HIT_WINDOW_EPOCHS + 1) * strategy.EPOCH)
     assert strategy.reserve_hit(old, later)["rest_until"] == ""
+
+
+# --------------------------------------------------------------------------------------- projects that pay for themselves
+
+def test_projects_that_pay_for_themselves_are_chosen_best_first_and_dropped_when_the_round_runs_out():
+    kd = kingdom(stars=1000, structures={"mines": 600, "hangars": 100, "homes": 200},
+                 units={"engineers": 3000, "attack": 0, "defense": 0, "flex": 0, "big_flex": 0, "recruits": 0})
+    kd["projects_max_points"] = uas.projects_max_points(1000)
+    shares = {"military": 0.4, "settle": 0.2}
+    early = strategy.economic_projects(kd, 80_000, shares, epochs_left=300)
+    assert "mines_bonus" in early and "recruit_cost_bonus" in early
+    assert strategy.economic_projects(kd, 80_000, shares, epochs_left=20) == []
+    kd["completed_projects"] = ["mines_bonus"]
+    assert "mines_bonus" not in strategy.economic_projects(kd, 80_000, shares, epochs_left=300)
