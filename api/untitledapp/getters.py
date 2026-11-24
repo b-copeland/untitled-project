@@ -1519,8 +1519,12 @@ def universe_politics():
     inner = state.get("state", {})
     galaxy_id = _get_galaxies_inverted()[0].get(str(kd_id))
     # Only this kingdom's own votes: nobody sees the tally until the election closes.
-    tally = (_get_universe_politics().get("votes") or {}) if inner.get("election_end") else {}
+    election_open = bool(inner.get("election_end"))
     active = uaup.active_options(inner)
+    # The votes document is read while an election is open (this kingdom's votes in it) and once one has closed (the
+    # last one's results); before the first has closed, nothing in it is worth reading.
+    document = _get_universe_politics() if election_open or active else {}
+    tally = (document.get("votes") or {}) if election_open else {}
     scores = _get_scores_shared() if uaup.needs_scores(active) else None
     ballot = uaup.ballot_of(inner)
     payload = {
@@ -1546,6 +1550,8 @@ def universe_politics():
         # In force now, and whether each hits this kingdom.
         "active": [{**uaup.describe(option), "hits_me": uaup.applies(option, kd_id, galaxy_id, scores)}
                    for option in active],
+        # The last closed election: each option's total votes and this kingdom's own. None before the first closes.
+        "results": uaup.results(uaup.last_votes(document, election_open), active, kd_id) if active else [],
         "votes_cost": uas.GAME_CONFIG["BASE_VOTES_COST"],
     }
     return (flask.jsonify(payload), 200)

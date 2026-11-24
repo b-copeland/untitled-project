@@ -10,6 +10,35 @@ import { ResultToasts } from "../../components/results";
 import { Panel } from "../../components/planner";
 import { useWait, waitText } from "../../components/wait";
 import { playFlourish } from "../../components/flourish";
+import { GameTable } from "../../components/gametable";
+import { displayPercent } from "../../format";
+
+/**
+ * The last closed election (``results`` from the server): each policy's options with their total votes and share,
+ * the player's own votes, and which won. Only totals: nobody sees how anyone else voted.
+ */
+export function ElectionResults({ results }) {
+    if (!results || results.length === 0) return null;
+    const columns = (policy) => [
+        { header: "Option", align: "left", cell: (option) => (
+            <>{option.name}{option.won ? <span className="status-tag tag-revealed">Won</span> : null}</>
+        ) },
+        { header: "Votes", cell: (option) => (
+            `${option.votes.toLocaleString()}${policy.votes > 0 ? ` (${displayPercent(option.votes / policy.votes)})` : ""}`
+        ) },
+        { header: "Your votes", cell: (option) => option.my_votes.toLocaleString() },
+    ];
+    return (
+        <Panel title="Last election">
+            {results.map((policy) => (
+                <div key={policy.key} className="election-result">
+                    <h4 className="election-result-title">{policy.name}</h4>
+                    <GameTable columns={columns(policy)} rows={policy.options} />
+                </div>
+            ))}
+        </Panel>
+    );
+}
 
 // The options in force this browser last revealed, so the curtains open once for each new result.
 const SEEN_KEY = "farsteel-seen-election";
@@ -90,6 +119,7 @@ function UniversePolitics(props) {
                         </p>))
                     : <p className="text-muted">Nothing yet: the first election decides.</p>}
             </Panel>
+            <ElectionResults results={universe.results} />
             <Panel title="Your votes">
                 <p>Buy votes to take part. Each costs {voteCost.toLocaleString()} money. You have {unusedVotes.toLocaleString()} to spend.</p>
                 <label className="universe-votes-label" htmlFor="buy-votes-input">Votes to buy</label>

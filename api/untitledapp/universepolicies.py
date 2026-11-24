@@ -86,6 +86,33 @@ def tally(votes, ballot, seed):
     return winners
 
 
+def last_votes(document, election_open):
+    """
+    The votes of the last election that closed, from the ``universe_votes`` document: its ``votes`` until the next
+    election opens, then the ``last_votes`` the opening kept. Empty if there are none.
+    """
+    return ((document or {}).get("last_votes") if election_open else (document or {}).get("votes")) or {}
+
+
+def results(votes, active, kd_id):
+    """
+    The last closed election, for the pages: each of its policies with every option's total votes, the caller's own
+    votes, and which won (``active``, the options in force). Policies and options no longer in the game are left out.
+    Only totals and the caller's own votes: nobody sees how anybody else voted.
+    """
+    kd_id = str(kd_id)
+    policies = []
+    for policy in _ordered(key for key in votes if key in uas.UNIVERSE_POLICIES):
+        options = []
+        for option in uas.UNIVERSE_POLICIES[policy]["options"]:
+            voters = (votes.get(policy) or {}).get(option) or {}
+            options.append({**describe(option), "votes": sum(voters.values()), "my_votes": voters.get(kd_id, 0),
+                            "won": option in active})
+        policies.append({"key": policy, "name": uas.UNIVERSE_POLICIES[policy]["name"], "options": options,
+                         "votes": sum(option["votes"] for option in options)})
+    return policies
+
+
 def vote_problem(ballot, policy, option, election_open):
     """Why votes can not be cast for ``option`` of ``policy`` now, or None."""
     if not election_open:

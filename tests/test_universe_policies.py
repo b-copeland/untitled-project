@@ -295,3 +295,58 @@ def test_two_kingdoms_voting_at_once_both_count(app, jwt1, jwt2):
 
     assert [r.status_code for r in _run_together(app, 2, vote)] == [200, 200]
     assert _get("/universevotes")["votes"]["labor"]["draft_limits"] == {KD_ID: 5, "2": 5}
+
+
+# --- the last election's results (#241) --------------------------------------------------------------------------------
+
+LAST = {"labor": {"draft_limits": {"1": 2, "2": 7}, "research_moratorium": {"3": 5}},
+        "secrecy": {"classified": {"1": 3}, "transparency": {}}}
+
+
+def test_the_results_give_each_options_total_my_votes_and_the_winner():
+    results = up.results(LAST, ["draft_limits", "classified"], "1")
+    assert [policy["key"] for policy in results] == ["labor", "secrecy"]
+    labor = {option["key"]: option for option in results[0]["options"]}
+    assert (labor["draft_limits"]["votes"], labor["draft_limits"]["my_votes"], labor["draft_limits"]["won"]) == (9, 2, True)
+    assert (labor["research_moratorium"]["votes"], labor["research_moratorium"]["my_votes"]) == (5, 0)
+    assert labor["research_moratorium"]["won"] is False and results[0]["votes"] == 14
+    # Policies no longer in the game (an old round's shape) are left out.
+    assert up.results({"policy_1": {"x": {"1": 1}}, **LAST}, [], "1")[0]["key"] == "labor"
+
+
+def test_the_last_votes_are_the_votes_until_the_next_election_opens_then_what_it_kept():
+    document = {"votes": {"wealth": {}}, "last_votes": LAST}
+    assert up.last_votes(document, election_open=False) == {"wealth": {}}
+    assert up.last_votes(document, election_open=True) == LAST
+    assert up.last_votes({}, election_open=True) == {}
+
+
+def test_opening_an_election_keeps_the_last_ones_votes(app):
+    past = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=5)).isoformat()
+    _create_item("state", {"state": {"game_start": past, "election_start": past, "election_end": "",
+                                     "active_policies": ["draft_limits", "classified"], "ballot": ["wealth", "secrecy"],
+                                     "next_history": past}})
+    _create_item("universe_votes", {"votes": LAST})
+    with app.app_context():
+        refresh._begin_election(_get("/state"))
+    stored = _get("/universevotes")
+    assert stored["votes"] == up.empty_votes(["wealth", "secrecy"]) and stored["last_votes"] == LAST
+
+
+def test_the_page_shows_the_last_elections_totals_and_my_votes_but_nobody_elses(app, client, jwt1):
+    _set_up_kingdom(money=0)
+    _universe(active=["draft_limits", "classified"], open_=False)
+    _create_item("universe_votes", {"votes": LAST})
+    page = client.get("/api/universepolitics", headers=_auth(jwt1)).get_json()
+    labor = page["results"][0]["options"]
+    assert [(o["key"], o["votes"], o["my_votes"], o["won"]) for o in labor] == [
+        ("draft_limits", 9, 2, True), ("research_moratorium", 5, 0, False)]
+    assert '"2"' not in json.dumps(page["results"]) and '"3"' not in json.dumps(page["results"])
+    # While the next election is open, the results come from what its opening kept.
+    _universe(active=["draft_limits", "classified"], ballot=("wealth", "secrecy"))
+    _create_item("universe_votes", {"votes": up.empty_votes(["wealth", "secrecy"]), "last_votes": LAST})
+    page = client.get("/api/universepolitics", headers=_auth(jwt1)).get_json()
+    assert page["results"][0]["key"] == "labor" and page["results"][0]["votes"] == 14
+    # Before the first election has closed there are none.
+    _universe(active=[], open_=True)
+    assert client.get("/api/universepolitics", headers=_auth(jwt1)).get_json()["results"] == []
