@@ -180,14 +180,6 @@ def _calc_pop_change_per_epoch(
     
     return pop_change, pop_capacity_less_overflow
 
-def _project_points_multiplier(project, modifiers=None):
-    """How many points an engineer earns on ``project`` for each base point, after the kingdom's ``modifiers``: the
-    continuous projects (those with a ``max_bonus``) and the one-time ones each have their own effect."""
-    entry = uas.PROJECTS.get(project, {})
-    effect = "project_points_continuous" if "max_bonus" in entry else "project_points_one_time"
-    return max(1 + uas.modifier(modifiers, effect) + uas.modifier(modifiers, "project_points"), 0)
-
-
 def _open_hangar_money(kd_info_parse, mobis_queue, modifiers=None):
     """Money per epoch from Xo Evolution: for each hangar space not taken by a unit (trained, out, or in training)."""
     if not uas.has_project(kd_info_parse, "xo_evolution"):
@@ -539,11 +531,8 @@ def _kingdom_with_income(
     structures_to_reduce = _calc_structures_losses(kd_info_parse, epoch_elapsed)
 
     new_project_points = {
-        key_project: (
-            assigned_engineers * uas.GAME_CONFIG["BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH"] * epoch_elapsed
-            * _project_points_multiplier(key_project, modifiers)
-        )
-        for key_project, assigned_engineers in kd_info_parse["projects_assigned"].items()
+        key_project: per_epoch * epoch_elapsed
+        for key_project, per_epoch in uas.project_points_per_epoch(kd_info_parse, modifiers).items()
     }
     new_kd_info = kd_info_parse.copy()
     for key_project, new_points in new_project_points.items():

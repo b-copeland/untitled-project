@@ -1418,6 +1418,34 @@ KINGDOM_CREATOR_POINTS = {
     "engineers": 10,
 }
 
+def project_points_multiplier(project, modifiers=None):
+    """How many points an engineer earns on ``project`` for each base point, after the kingdom's ``modifiers``: the
+    continuous projects (those with a ``max_bonus``) and the one-time ones each have their own effect."""
+    entry = PROJECTS.get(project, {})
+    effect = "project_points_continuous" if "max_bonus" in entry else "project_points_one_time"
+    return max(1 + modifier(modifiers, effect) + modifier(modifiers, "project_points"), 0)
+
+
+def project_points_per_epoch(kd_info, modifiers=None):
+    """Points each project earns an epoch from the engineers assigned to it now: ``{project: points}``."""
+    return {
+        project: engineers * GAME_CONFIG["BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH"] * project_points_multiplier(project, modifiers)
+        for project, engineers in (kd_info.get("projects_assigned") or {}).items()
+    }
+
+
+def project_seconds_left(points, max_points, per_epoch, done=False):
+    """
+    Seconds until a project reaches its max points at ``per_epoch``: 0 if it has, None if nothing is earning. A
+    continuous project's max points grow with stars, so for one that is an estimate at today's size.
+    """
+    if done or points >= max_points:
+        return 0
+    if per_epoch <= 0:
+        return None
+    return (max_points - points) / per_epoch * GAME_CONFIG["BASE_EPOCH_SECONDS"]
+
+
 # What policies and cluster benefits can change, by name. A policy option or a benefit says how much of each effect it
 # has as a signed share: +0.15 makes the thing 15% bigger, -0.15 makes it 15% smaller. The game reads them through
 # ``modifier`` where the rule lives; several sources of one effect add up. ``better`` says which way helps the

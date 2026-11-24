@@ -118,3 +118,23 @@ test("when a tick moves the kingdom's project points, the page refetches its bon
     expect(updateData).toHaveBeenCalledTimes(1);
     expect(updateData).toHaveBeenCalledWith(["projects"]);
 });
+
+test("each project says how long it has left at the engineers on it now (#238)", () => {
+    const { timeLeft } = require("./projects");
+    const oneTime = { oneTime: true, completed: false };
+    const continuous = { oneTime: false };
+    expect(timeLeft(oneTime, 3 * 3600)).toBe("Done in 3h");
+    expect(timeLeft(continuous, 90 * 60)).toBe("Maximum in about 1h 30m");
+    expect(timeLeft(continuous, 0)).toBe("At its maximum");
+    expect(timeLeft(oneTime, null)).toBeNull();
+    expect(timeLeft({ ...oneTime, completed: true }, 0)).toBeNull();
+    expect(timeLeft({ ...oneTime, locked: "Complete X first" }, null)).toBeNull();
+    expect(timeLeft(oneTime, undefined)).toBeNull();
+
+    const withTimes = data();
+    withTimes.projects.seconds_left = { money_bonus: 7200, big_flexers: null, warp: null, xo_thing: null };
+    render(<ProjectsContent data={withTimes} loading={{}} updateData={jest.fn()} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Assign" }));
+    expect(screen.getAllByText("Maximum in about 2h").length).toBeGreaterThan(0);
+    expect(screen.queryByText("No engineers on it")).toBeNull();
+});

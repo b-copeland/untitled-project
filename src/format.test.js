@@ -9,3 +9,12 @@ test("displayShort is exact below 10,000 and short above, rounded down, in at mo
     for (const [value, shown] of cases) expect(displayShort(value)).toBe(shown);
     for (let n = 1; n < 1e12; n *= 7) expect(displayShort(n).length).toBeLessThanOrEqual(5);
 });
+
+test("durations are short and in real time", () => {
+    const { displayDuration } = require("./format");
+    expect(displayDuration(30)).toBe("under a minute");
+    expect(displayDuration(45 * 60)).toBe("45m");
+    expect(displayDuration(3 * 3600 + 20 * 60)).toBe("3h 20m");
+    expect(displayDuration(5 * 3600)).toBe("5h");
+    expect(displayDuration(52 * 3600)).toBe("2d 4h");
+});

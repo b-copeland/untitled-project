@@ -227,3 +227,33 @@ def test_a_projects_target_can_be_lowered_to_zero_and_an_empty_box_keeps_its_tar
     targets = _get("/kingdom/1")["projects_target"]
     assert targets["money_bonus"] == 0
     assert targets["pop_bonus"] == 0.25
+
+
+# --- time left (#238) ---------------------------------------------------------------------------------------------------
+
+def test_seconds_left_is_the_points_still_needed_at_the_rate_earned_now():
+    epoch = uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+    assert uas.project_seconds_left(40, 100, 20) == 3 * epoch
+    assert uas.project_seconds_left(100, 100, 20) == 0
+    assert uas.project_seconds_left(10, 100, 20, done=True) == 0
+    assert uas.project_seconds_left(10, 100, 0) is None
+
+
+def test_points_per_epoch_follow_the_engineers_and_the_modifiers():
+    kd = {"projects_assigned": {"money_bonus": 10, "big_flexers": 4}}
+    base = uas.GAME_CONFIG["BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH"]
+    assert uas.project_points_per_epoch(kd) == {"money_bonus": 10 * base, "big_flexers": 4 * base}
+    faster = uas.project_points_per_epoch(kd, {"project_points_one_time": 0.5})
+    assert faster == {"money_bonus": 10 * base, "big_flexers": 4 * base * 1.5}
+
+
+def test_the_projects_route_says_how_long_each_project_has_left(app, client, jwt1):
+    _set_up_kingdom(
+        0, race="Xo", units={**uas.INITIAL_KINGDOM_STATE["kingdom"]["units"], "engineers": 10},
+        projects_assigned={"big_flexers": 10}, projects_points={"big_flexers": 0}, projects_max_points={"big_flexers": 1000},
+    )
+    payload = client.get("/api/projects", headers={"Authorization": f"Bearer {jwt1}"}).get_json()
+    per_epoch = 10 * uas.GAME_CONFIG["BASE_ENGINEER_PROJECT_POINTS_PER_EPOCH"]
+    assert payload["points_per_hour"]["big_flexers"] == per_epoch * 3600 / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+    assert payload["seconds_left"]["big_flexers"] == 1000 / per_epoch * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+    assert payload["seconds_left"]["money_bonus"] is None  # nobody on it
