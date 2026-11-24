@@ -1440,6 +1440,17 @@ def accept_intel(world, personality, style, memory):
     return decisions
 
 
+def share_kingdom(world):
+    """
+    Every bot shows its own kingdom to each galaxymate it does not share with yet, so players can plan around it.
+    Nothing is read for it (the bot's revealed document is already in ``world``), and a galaxymate is shared with once:
+    a player who joins the galaxy later is shared with on the bot's next think.
+    """
+    sharing = set(world.revealed_info.get("revealed_to_galaxymates") or [])
+    return [Decision("share_kingdom", {"to": kd}, f"share the kingdom with {world.names.get(kd, kd)}")
+            for kd in world.galaxymates() if kd not in sharing]
+
+
 def answer_bounties(world, personality, style, memory):
     """
     Galaxymates' bounties it can fill from intel it already has: the requester gets the reveal, the bot a cut of every
@@ -1893,6 +1904,7 @@ def plan(world, personality, style, memory, rng):
     decisions.extend(plan_targets(world, personality, style, memory, rng))
     decisions.extend(accept_intel(world, personality, style, memory))
     decisions.extend(answer_bounties(world, personality, style, memory))
+    decisions.extend(share_kingdom(world))
 
     pending = len(world.me.get("schedule", []))
     room = max(min(personality.max_pending - pending, SCHEDULE_LIMIT - pending, personality.max_new), 0)
@@ -2037,6 +2049,8 @@ def _do(kd_id, world, decision):
             return _answer(uac._reveal_random_galaxy(kd_id))
         if kind == "accept_intel":
             return _answer(uai._buy(kd_id, options["listing"]))
+        if kind == "share_kingdom":
+            return _answer(uam.share_with(world.kd_id, options["to"]))
         if kind == "board_post":
             return _answer(uaboard.post_for(kd_id, options["text"], pin=options.get("pin", False)))
         if kind == "offer_surrender":
