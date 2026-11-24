@@ -737,3 +737,29 @@ def test_a_hangars_rule_reads_the_training_queue_once(refresh_one, session, monk
     monkeypatch.setattr(refresh.uag, "_calc_hangar_capacity", lambda kd, units: (100, 50))  # room to spare
     _, session = refresh_one(rules=[_rob_off_rule("hangars_full")], generals_out=[])
     assert session.paths("GET").count("/kingdom/1/mobis") == 1
+
+
+# --- bots and players ------------------------------------------------------------------------------------------------
+
+
+def _bot_gate(app, session, target_doc, kingdom=None, schedule_type="attack"):
+    session.docs["/kingdom/9"] = {"kdId": "9", "_etag": '"0"', **target_doc}
+    bot = kingdom if kingdom is not None else {"kdId": "1", "bot": {"type": "attacker"}}
+    with app.app_context():
+        return refresh._bot_may_act_on(bot, {"type": schedule_type, "options": {"target": "9"}}, NOW)
+
+
+def test_bots_may_hit_a_player_three_times_then_not(app, session):
+    session.docs["/kingdom/9"] = {"kdId": "9", "_etag": '"0"'}
+    results = []
+    with app.app_context():
+        for _ in range(5):
+            results.append(refresh._bot_may_act_on(
+                {"kdId": "1", "bot": {"type": "attacker"}}, {"type": "attack", "options": {"target": "9"}}, NOW))
+    assert results == [True, True, True, False, False]
+
+
+def test_bots_are_not_held_back_from_bots_and_players_are_not_held_back_at_all(app, session):
+    assert all(_bot_gate(app, session, {"bot": {"type": "thief"}}) for _ in range(6))
+    assert all(_bot_gate(app, session, {}, kingdom={"kdId": "2"}) for _ in range(6))
+    assert all(_bot_gate(app, session, {}, schedule_type="intelspy") for _ in range(6))

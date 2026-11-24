@@ -1327,6 +1327,30 @@ def _is_schedule_due(schedule, time_update):
     return datetime.datetime.fromisoformat(schedule["time"]).astimezone(datetime.timezone.utc) < time_update
 
 
+_HOSTILE_SCHEDULES = ("attack", "aggressivespy", "missiles")
+
+
+def _bot_may_act_on(kingdom, schedule, time_update):
+    """
+    False when a bot's hostile scheduled action is on a player who has had enough from bots lately
+    (``botstrategy.reserve_hit``). The check and the count are one write on the player's kingdom, so many bots
+    deciding at once still add up to the limit. Players, and bots acting on bots, are never held back.
+    """
+    target = (schedule.get("options") or {}).get("target")
+    if not kingdom.get("bot") or schedule.get("type") not in _HOSTILE_SCHEDULES or not target:
+        return True
+
+    def decide(target_kd):
+        if target_kd.get("bot"):
+            return None, True
+        pressure = uastrat.reserve_hit(target_kd.get("bot_pressure"), time_update)
+        if pressure is None:
+            return None, False
+        return {"bot_pressure": pressure}, True
+
+    return occ.update(f'/kingdom/{target}', decide)
+
+
 def _resolve_schedules(kd_id, time_update, kd_info=None):
     """
     Run the schedules that are due. Returns True if there were any, meaning the kingdom may have changed.
@@ -1373,6 +1397,9 @@ def _resolve_schedules(kd_id, time_update, kd_info=None):
         except Exception:
             flask.current_app.logger.exception("Could not prepare scheduled %s for kingdom %s", schedule.get("type"), kd_id)
             _tell_schedule_skipped(kd_id, schedule, "Something went wrong preparing it")
+            continue
+        if not _bot_may_act_on(kingdom, schedule, time_update):
+            _tell_schedule_skipped(kd_id, schedule, "That kingdom has had enough from bots for now")
             continue
         refusal = _schedule_refusal(func(*args))
         if refusal:
@@ -1906,6 +1933,22 @@ def refresh_data():
     if headers.get("Refresh-Secret", "") != os.environ["REFRESH_SECRET"]:
         return ("Not Authorized", 401)
     
+    tick = _tick_start()
+    if isinstance(tick, tuple):
+        return tick
+    context = _RefreshContext(tick["state"])
+    kd_scores, failed_kd_ids = _refresh_kingdoms(list(tick["kingdoms"]), tick, context)
+    return _tick_finish(tick, kd_scores, failed_kd_ids, context)
+
+
+# A tick is three steps, so that the middle one (every kingdom) can be split up: scripts/simulate_round.py runs it on
+# several processes at once (--workers). The route runs them one after the other.
+
+def _tick_start():
+    """
+    What comes before the kingdoms: migrations, the election, the history mark. Returns ``(response, status)`` when
+    there is nothing to refresh, else the tick: ``{state, kingdoms, time_update, update_history, round_ending}``.
+    """
     state = uag._get_state()
     # Data migrations a deploy brought, once, before anything else (migrations.py). Nothing happens when none is due.
     uamig.run_pending(state, _claim_state)
@@ -1925,24 +1968,35 @@ def refresh_data():
 
     history_datetime = datetime.datetime.fromisoformat(state["state"]["next_history"]).astimezone(datetime.timezone.utc)
     update_history = history_datetime < time_update and _take_history_mark(time_update)
+    return {"state": state, "kingdoms": kingdoms, "time_update": time_update, "update_history": update_history,
+            "round_ending": round_ending}
 
-    context = _RefreshContext(state)
+
+def _refresh_kingdoms(kd_ids, tick, context):
+    """Refresh ``kd_ids``. Returns ``({kd_id: (stars, networth)}, [kd_ids that failed])``."""
+    app = flask.current_app
     kd_scores = {}
     failed_kd_ids = []
-    for kd_id in kingdoms:
+    for kd_id in kd_ids:
         # One kingdom with bad data must not stop everyone after it from being refreshed.
         try:
             kd_scores[kd_id] = _refresh_kd(
                 kd_id,
-                state,
-                time_update,
-                update_history,
+                tick["state"],
+                tick["time_update"],
+                tick["update_history"],
                 context,
             )
         except Exception:
             app.logger.exception("Refresh failed for kingdom %s", kd_id)
             failed_kd_ids.append(kd_id)
+    return kd_scores, failed_kd_ids
 
+
+def _tick_finish(tick, kd_scores, failed_kd_ids, context):
+    """What comes after the kingdoms: scores, universe stats, empires, clusters, the end of the round."""
+    app = flask.current_app
+    time_update, update_history = tick["time_update"], tick["update_history"]
     if failed_kd_ids:
         # Scores are replaced as a whole, so keep each failed kingdom's last known values rather than dropping it.
         previous_scores = uag._get_scores()
@@ -1972,12 +2026,12 @@ def refresh_data():
     except Exception:
         app.logger.exception("Refresh failed to resolve clusters")
     try:
-        _galaxy_tally_news(state, context, time_update)
+        _galaxy_tally_news(tick["state"], context, time_update)
     except Exception:
         app.logger.exception("Refresh failed to post the galaxy policy tally news")
 
-    if round_ending:
-        uare.end_round(state, reason="The round reached its end time")
+    if tick["round_ending"]:
+        uare.end_round(tick["state"], reason="The round reached its end time")
 
     if failed_kd_ids:
         return f"Refreshed, but {len(failed_kd_ids)} kingdoms failed: {failed_kd_ids}", 200

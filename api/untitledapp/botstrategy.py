@@ -20,6 +20,7 @@ The ideas, each of which is a rule a player could follow from the Help pages:
 
 All tunable numbers are in ``botbrain.Personality``; this module only has the game's own.
 """
+import datetime
 import math
 
 import untitledapp.shared as uas
@@ -475,3 +476,76 @@ def shields_plan(kd, phase_name, wants_spy_shields, under_missiles):
         + levels["spy_radar"] * CONFIG["BASE_SPY_RADAR_COST_PER_LAND_PER_PCT"]
         + levels["missiles"] * CONFIG["BASE_MISSILES_SHIELDS_COST_PER_LAND_PER_PCT"])
     return levels, cost
+
+
+# --- being kind to players ---------------------------------------------------------------------------------------
+
+HIT_LIMIT = 3          # TUNE: hostile bot actions (strikes, missiles, aggressive spying) a player takes in a window...
+HIT_WINDOW_EPOCHS = 12  # TUNE: ...of this many epochs, and then
+REST_EPOCHS = 24       # TUNE: no bot touches them for this many epochs
+
+
+def reserve_hit(pressure, now):
+    """
+    A bot wants to act against a player. ``pressure`` is the player's ``bot_pressure`` (``{"hits": [times],
+    "rest_until": time}``, or None). Returns the pressure to store with this action counted, or None when the player
+    is resting and no bot may act. The ``HIT_LIMIT``-th action in a window starts the rest (it is the last one allowed).
+    """
+    pressure = pressure or {}
+    rest_until = pressure.get("rest_until") or ""
+    if rest_until and uas.utc(rest_until) > now:
+        return None
+    window = HIT_WINDOW_EPOCHS * EPOCH
+    hits = [time for time in pressure.get("hits", []) if (now - uas.utc(time)).total_seconds() < window]
+    hits.append(now.isoformat())
+    if len(hits) >= HIT_LIMIT:
+        resting = now + datetime.timedelta(seconds=REST_EPOCHS * EPOCH)
+        return {"hits": [], "rest_until": resting.isoformat()}
+    return {"hits": hits, "rest_until": ""}
+
+
+# --- projects that pay for themselves ----------------------------------------------------------------------------
+
+ENGINEER_EPOCH_COST = 1.0   # money an engineer-epoch is worth: the person in a home who could be earning
+RECRUIT_SPEND_SHARE = 0.25  # about what share of the military budget goes on recruits
+ECONOMIC_PROJECTS = ("mines_bonus", "recruit_cost_bonus", "settle_cost_bonus", "hangars_bonus")
+
+
+def project_gain(kd, project, income, shares, per_hangar=None):
+    """
+    What a one-time project would add per epoch, in money, for this kingdom as it is. Only the economic ones are
+    valued (money from each mine; half the recruit bill; a tenth of the settle bill; hangars that free land for mines).
+    """
+    structures = kd.get("structures", {})
+    if project == "mines_bonus":
+        return uas.PROJECTS[project]["increase"] * structures.get("mines", 0)
+    if project == "recruit_cost_bonus":
+        return uas.PROJECTS[project]["bonus"] * RECRUIT_SPEND_SHARE * shares.get("military", 0) * income
+    if project == "settle_cost_bonus":
+        return uas.PROJECTS[project]["bonus"] * shares.get("settle", 0) * income
+    if project == "hangars_bonus":
+        capacity = per_hangar or CONFIG["BASE_HANGAR_CAPACITY"]
+        freed = structures.get("hangars", 0) * uas.PROJECTS[project]["increase"] / capacity
+        return freed * CONFIG["BASE_MINES_INCOME_PER_EPOCH"]
+    return 0.0
+
+
+def economic_projects(kd, income, shares, epochs_left, per_hangar=None):
+    """
+    The economic one-time projects worth the engineers' time, best first: those that, once finished (the points
+    cost, with every engineer on them), still have time to earn back more than the engineers cost, ordered by that
+    return for each point.
+    """
+    engineers = max(int(kd["units"].get("engineers", 0)), 1)
+    completed = kd.get("completed_projects", [])
+    ranked = []
+    for project in ECONOMIC_PROJECTS:
+        if project in completed or uas.project_locked_reason(kd, project) is not None:
+            continue
+        points = kd["projects_max_points"].get(project) or uas.PROJECTS_FUNCS[project](kd["stars"])
+        done_in = max(points - kd.get("projects_points", {}).get(project, 0), 0) / engineers
+        earned = project_gain(kd, project, income, shares, per_hangar) * max(epochs_left - done_in, 0)
+        net = earned - points * ENGINEER_EPOCH_COST
+        if net > 0:
+            ranked.append((net / points, project))
+    return [project for _, project in sorted(ranked, reverse=True)]

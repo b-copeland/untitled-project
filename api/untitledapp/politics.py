@@ -929,12 +929,15 @@ def _validate_offer_surrender(empire_politics, kd_id, kd_galaxy_politics, kd_gal
 @start_required
 # @flask_praetorian.roles_required('verified')
 def offer_surrender(target_empire):
-    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
-    surrender_type = req.get("type")
-    surrender_value = req.get("value")
+    payload, status = offer_surrender_for(kd_id, target_empire, req.get("type"), req.get("value"))
+    return flask.jsonify(payload), status
 
+
+def offer_surrender_for(kd_id, target_empire, surrender_type, surrender_value):
+    """Offer ``target_empire`` a surrender, as ``kd_id``, the leader of its empire's ruling galaxy. The route and the
+    bots both use it. Returns ``(payload, status)``."""
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
     empires_inverted, empires_info, galaxy_empires, _ = uag._get_empires_inverted()
     kd_empire = empires_inverted.get(kd_id)
@@ -955,7 +958,7 @@ def offer_surrender(target_empire):
         surrender_value
     )
     if not valid_request:
-        return flask.jsonify({"message": message}), 400
+        return {"message": message}, 400
         
         
     _replace_entries(
@@ -969,7 +972,7 @@ def offer_surrender(target_empire):
         add={"type": surrender_type, "value": surrender_value, "empire": target_empire},
     )
 
-    return flask.jsonify({"message": "Surrender offer sent", "status": "success"}), 200
+    return {"message": "Surrender offer sent", "status": "success"}, 200
 
 @bp.route('/api/empire/<target_empire>/cancelsurrenderoffer', methods=['POST'])
 @flask_praetorian.auth_required
@@ -1078,9 +1081,13 @@ def _surrender(
 def accept_offer_surrender(target_empire):
     kd_id = flask_praetorian.current_user().kd_id
     req = flask.request.get_json(force=True)
-    surrender_type = req.get("type")
-    surrender_value = req.get("value")
+    payload, status = accept_surrender_offer_for(kd_id, target_empire, req.get("type"), req.get("value"))
+    return flask.jsonify(payload), status
 
+
+def accept_surrender_offer_for(kd_id, target_empire, surrender_type, surrender_value):
+    """Accept ``target_empire``'s offer to surrender, as ``kd_id``, the leader of the empire's ruling galaxy. The route
+    and the bots both use it. Returns ``(payload, status)``."""
     kd_galaxy_politics, kd_galaxy_id = uag._get_galaxy_politics(kd_id)
     empires_inverted, empires_info, galaxy_empires, galaxy_info = uag._get_empires_inverted()
     kd_empire = empires_inverted.get(kd_id)
@@ -1110,7 +1117,7 @@ def accept_offer_surrender(target_empire):
             surrender_value
         )
         if not valid_request:
-            return flask.jsonify({"message": message}), 400
+            return {"message": message}, 400
         
         expected_surrender_offer = {
             "empire": target_empire,
@@ -1131,10 +1138,10 @@ def accept_offer_surrender(target_empire):
             surrender_value,
         )
     except occ.Rejected as rejection:
-        return flask.jsonify({"message": rejection.message}), rejection.status
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return flask.jsonify({"message": "Server is busy"}), 400
-    return flask.jsonify({"message": "Surrender offer has been accepted", "status": "success"}), 200
+        return {"message": "Server is busy"}, 400
+    return {"message": "Surrender offer has been accepted", "status": "success"}, 200
 
 @bp.route('/api/empire/<target_empire>/acceptsurrenderrequest', methods=['POST'])
 @flask_praetorian.auth_required

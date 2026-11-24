@@ -32,7 +32,9 @@ type are not a hundred copies, and between them they use every action:
 | `army` | `none`, `primitives`, `players`, `both` | What its army hits. Most attackers hit both; a quarter hit only kingdoms and a quarter only primitives. A tenth of the others hit nothing. |
 | `drones` | `primitives`, `players`, `both` | Whether its drones rob primitives, work on kingdoms (siphons), or whichever pays more. |
 | `bomber` | true or false | Builds missile silos from the mid game, researches Star Busters, and fires at whoever hit it, or at the leader. |
-| `temper` | 0.85 to 1.15 | Bold bots keep less defense and buy more offense; cautious ones the other way. |
+| `temper` | 0.7 to 1.3 | Bold bots keep less defense and buy more offense; cautious ones the other way. |
+| `skill` | 0.35 to 1.0 | A low skill thinks less often, misjudges how much defense it wants and asks wider attack buffers. |
+| `seed` | any | Fixes the bot's own preferences (`botbrain.personalize`): how much land goes to workshops, drone factories and homes, which units it favours, how often it spies, sabotages and offers intel, how much each project matters to it, and which particular targets it likes (`taste`). The same bot is the same every think; a bot from before seeds plays its playstyle as it is. |
 
 ### Also the players' quick starts
 
@@ -167,6 +169,11 @@ hidden state.
   the mobis queue): fewer homes while they are not. It fell into the same trap: a bot drafts recruits only as fast as
   its money turns them into units, so it is never training flat out, and its homes went to the floor (armies a quarter
   the size, the universe 4% smaller). With recruits uncapped it did no better: 9% fewer stars than the old rule.
+- **Projects that pay for themselves come first** (`ECON_PROJECTS`, `botstrategy.economic_projects`). A one-time
+  project (Mines Bonus, Cheaper Recruits, Cheaper Exploring, Hangars Bonus) is worth what it earns a hour after it is
+  finished, over the rest of the round, less the engineers' time (a point costs about one money). Those that pay go
+  ahead of the playstyle's unlock. Measured (3 seeds, 100 bots, 7 days): stars +11%, networth +15%, every playstyle up.
+  A longer round favours it more.
 - **Engineers where a bonus is slipping** (`projects_plan`): a continuous bonus gets what keeps it full as the kingdom
   grows; a share works on the playstyle's unlock (Drone Gadgets, Big Flexers, Star Busters for bombers), which also
   takes whoever the bonuses do not need.
@@ -181,6 +188,11 @@ hidden state.
 
 - **Never blind.** A strike needs military intel that outlasts the wait. Without it, the bot spies for it, on the kingdom
   with the most stars for the army its networth could hide, or takes it from a galaxymate.
+- **Weak kingdoms are worth more** (`weakness`, `WEAKNESS`): few fuel plants (its fuel runs out, and its defense) and
+  few homes (its people) raise a target's worth, when its structures are revealed.
+- **Kingdoms-only bots compare too** (`PLAYERS_ONLY_EDGE`): a bot that hits only kingdoms wants at least half of what
+  primitives would give for the same offense (it took any win before). Over three seeds: stars +2% overall, no more
+  deaths, and fewer pointless hits on kingdoms.
 - **Hit what pays** (`player_edge`). A target is worth its stars per point of offense, compared with primitives. A bot
   that hits both strikes only when the kingdom is the better deal; one that hits only kingdoms takes the best there is.
   Enemies at war, grudges and (late) leaders count for more. So a kingdom well defended against primitives is still hit
@@ -204,6 +216,38 @@ hidden state.
   empire's targets marked for them (only targets in an empire it is at war with: nothing else counts), when it is equipped to: a target its army can beat (taken whatever primitives
   would give, since it also earns points), a fair chance for sabotage. A target it can not beat is left for the best
   one it can. The roll is only made when there is a marked target, so rounds without targets play as before.
+
+### Playing nicely with players
+
+- **A limit on hits.** Strikes, missiles and aggressive spying (siphons, sabotage) by bots on a player count in the
+  player's `bot_pressure`. The third within 12 epochs starts a 24-epoch rest in which no bot may act on that player: the
+  scheduled action does nothing, and the bot's news says so. The check and the count are one conditional write at the
+  place bots' schedules run (`refresh._bot_may_act_on`), so a hundred bots deciding at once still add up to three. It
+  was added after a late joiner, under the defense break-even from the start, was hit ten times. Bots on bots, and
+  players on anyone, are never limited. The numbers (`HIT_LIMIT`, `HIT_WINDOW_EPOCHS`, `REST_EPOCHS` in `botstrategy.py`)
+  are about bot manners, not game balance.
+- **Bots yield in politics.** In galaxy policy and leader votes a bot votes what the players in its galaxy voted (the
+  most common choice among them) and only with no player vote does it vote its own preference (`_follow_players`;
+  which galaxymates are players is remembered for `HUMANS_REFRESH` epochs, since finding out is a read each). In
+  universe elections bots buy only `BOT_VOTE_WEIGHT` (half) of the votes their playstyle would.
+
+### Empire targets and the intel board
+
+- **Marking** (`plan_targets`): the galaxy leader of an empire at war marks the enemy kingdom with the most land for
+  its defense (and weakness), at most one try in `TARGET_TRY_EPOCHS`. Only the emperor and delegates succeed; the rest
+  is refused and not retried for a while. A target is marked for every action (`KILL_CHAIN`) at once: members spend
+  what they have on it whenever there is something to do (about half of each kind of action, `TARGET_SHARE`), in
+  whatever order they get to it, so strikes, kidnaps, bombed homes, fuel plants and missiles all land on it.
+- **Ending wars** (`_plan_surrender`): the ruling galaxy's leader accepts an offer of stars (5% or more), or any offer
+  once the war is `SURRENDER_ACCEPT_EPOCHS` old; an empire the enemy outweighs 1.5 to 1 (`SURRENDER_RATIO`) offers a
+  surrender of 5% of its stars (10% at three to one) once the war is `SURRENDER_OFFER_EPOCHS` old. Wars are dated from
+  when the bot first saw them. A war it is losing only feeds the enemy's targets.
+- **Telling the galaxy** (`_plan_announce`): a galaxy leader posts (and pins) on the galaxy board when its empire goes
+  to war, and posts when a target is marked, once each, so the players in a galaxy led by a bot know what the empire
+  is doing.
+- **Bounties** (`answer_bounties`, `_post_bounty_for`): every bot answers galaxymates' bounties it has the intel for (the
+  cut is free money), and a bot that strikes kingdoms but has no spy attempt asks the galaxy for military intel on the
+  biggest kingdom it lacks (`BOUNTY_CUT`, at most `MAX_BOUNTIES` up).
 
 ### Politics
 
@@ -240,7 +284,24 @@ In the kingdom document, under `bot` (read it with `GET /kingdom/<id>` on the fu
 
 Bots made before styles and memory existed get a default style and an empty memory on their next think.
 
-## Tuning: `scripts/simulate_round.py`
+## Tuning: `scripts/simulate_many.py`, `scripts/simulate_round.py`
+
+```
+python scripts/simulate_many.py --seeds 1,2,3 --variant "off=--set ECON_PROJECTS=False" --variant "on="
+```
+
+`simulate_many.py` plays every variant and seed as its own `simulate_round.py` process, several at once (half the cores
+by default, `--workers`), and prints each variant's mean over the seeds. Six rounds of 100 bots for a week take about
+20 minutes on eight workers.
+
+**One round on several processes**: `simulate_round.py --workers 12`. The documents live in store processes of their
+own (`scripts/sim_parallel.py`, split by document id, one for every two workers), which only keep each document's
+bytes and version; each tick the main process runs the start and end of the refresh (`refresh._tick_start`,
+`_tick_finish`) and hands the kingdoms to the workers in small chunks (`_refresh_kingdoms`), each tick one request
+with its read cache, as the route is. A week of 100 bots takes about two minutes on 12 workers, against 10 to 20 in
+one process. The catch: the order of the writes within a tick depends on timing, so **a seed no longer plays exactly
+the same round**: compare variants over more seeds, or use the one-process mode for small differences. Use it for
+long rounds and for looking at one round; `simulate_many.py` (one process a round) for comparing.
 
 ```
 python scripts/simulate_round.py --days 7 --bots 40 --galaxies 4 --seed 1 --detail
@@ -399,11 +460,11 @@ Not changed: these are balance and rules, which are the maintainer's call.
 
 ### Not yet
 
-- Surrender, peace and leaving an empire.
+- Leaving an empire (a galaxy can not leave one at war, and bots never act against their own empire).
 - Marking empire targets, naming delegates and paying out spoils funds (bots only act on targets players set).
-- Messages, pinning, razing structures (a shrunken kingdom would raze mines for hangars before disbanding).
+- Razing structures (a shrunken kingdom would raze mines for hangars before disbanding; measured worse).
 - A fifth archetype for the Fuzi (the missile race).
-- Reacting to what the galaxy's news says about galaxymates being attacked.
+- Reacting to galaxymates being attacked: the galaxy news does not say (only primitives attacks and joins reach it); attacks on kingdoms are in the target's own news.
 
 ## Questions for Ben
 

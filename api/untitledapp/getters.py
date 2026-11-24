@@ -1,4 +1,5 @@
 import copy
+import bisect
 import datetime
 import json
 import math
@@ -818,15 +819,20 @@ def _queue_forecast(start_time, queue, keys, horizons=None):
     """What a queue adds by each horizon: ``future_<n>`` for what lands within ``n`` epochs of ``start_time`` (one per
     ``QUEUE_FORECAST_EPOCHS``), and ``queued`` for everything in it, which is what limits on training or building count."""
     horizons = uas.GAME_CONFIG["QUEUE_FORECAST_EPOCHS"] if horizons is None else horizons
-    timed = [(uas.utc(entry["time"]), entry) for entry in queue]  # each entry's time parsed once, not once per horizon
+    # Entries in time order with running totals, so each horizon is one search instead of a pass over the queue.
+    timed = sorted(((uas.utc(entry["time"]), entry) for entry in queue), key=lambda item: item[0])
+    times = [entry_time for entry_time, _ in timed]
+    running = {key: [0] for key in keys}
+    for _, entry in timed:
+        for key in keys:
+            totals = running[key]
+            totals.append(totals[-1] + entry.get(key, 0))
     forecast = {}
     for epochs in horizons:
         max_time = start_time + datetime.timedelta(seconds=epochs * uas.GAME_CONFIG["BASE_EPOCH_SECONDS"])
-        forecast[f"future_{epochs}"] = {
-            key: sum(entry.get(key, 0) for entry_time, entry in timed if entry_time < max_time)
-            for key in keys
-        }
-    forecast["queued"] = {key: sum(entry.get(key, 0) for entry in queue) for key in keys}
+        landed = bisect.bisect_left(times, max_time)  # the entries before max_time
+        forecast[f"future_{epochs}"] = {key: running[key][landed] for key in keys}
+    forecast["queued"] = {key: running[key][-1] for key in keys}
     return forecast
 
 

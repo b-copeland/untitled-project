@@ -318,3 +318,40 @@ def test_a_key_project_of_another_race_is_skipped_for_the_next_one():
     assert kd["race"] != "Fuzi"
     assigned = strategy.projects_plan(kd, WEIGHTS, ("fuzi_capstone", "big_flexers"), 0.2)
     assert assigned["fuzi_capstone"] == 0 and assigned["big_flexers"] > 0
+
+
+# ------------------------------------------------------------------------------------------ being kind to players
+
+def test_a_player_is_hit_three_times_and_then_left_alone():
+    pressure = None
+    for n in range(strategy.HIT_LIMIT):
+        now = START + datetime.timedelta(seconds=n * 60)
+        pressure = strategy.reserve_hit(pressure, now)
+        assert pressure is not None  # the last one allowed starts the rest
+    assert pressure["rest_until"]
+    assert strategy.reserve_hit(pressure, now + datetime.timedelta(seconds=60)) is None
+
+
+def test_the_rest_ends_and_old_hits_are_forgotten():
+    rest = strategy.reserve_hit({"hits": [START.isoformat()] * 2}, START)
+    after = START + datetime.timedelta(seconds=(strategy.REST_EPOCHS + 1) * strategy.EPOCH)
+    fresh = strategy.reserve_hit(rest, after)
+    assert fresh == {"hits": [after.isoformat()], "rest_until": ""}
+    # Hits older than the window do not count towards the limit.
+    old = {"hits": [START.isoformat()] * 2, "rest_until": ""}
+    later = START + datetime.timedelta(seconds=(strategy.HIT_WINDOW_EPOCHS + 1) * strategy.EPOCH)
+    assert strategy.reserve_hit(old, later)["rest_until"] == ""
+
+
+# --------------------------------------------------------------------------------------- projects that pay for themselves
+
+def test_projects_that_pay_for_themselves_are_chosen_best_first_and_dropped_when_the_round_runs_out():
+    kd = kingdom(stars=1000, structures={"mines": 600, "hangars": 100, "homes": 200},
+                 units={"engineers": 3000, "attack": 0, "defense": 0, "flex": 0, "big_flex": 0, "recruits": 0})
+    kd["projects_max_points"] = uas.projects_max_points(1000)
+    shares = {"military": 0.4, "settle": 0.2}
+    early = strategy.economic_projects(kd, 80_000, shares, epochs_left=300)
+    assert "mines_bonus" in early and "recruit_cost_bonus" in early
+    assert strategy.economic_projects(kd, 80_000, shares, epochs_left=20) == []
+    kd["completed_projects"] = ["mines_bonus"]
+    assert "mines_bonus" not in strategy.economic_projects(kd, 80_000, shares, epochs_left=300)

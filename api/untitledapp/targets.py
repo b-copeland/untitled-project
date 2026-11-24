@@ -308,7 +308,7 @@ def record_intel(entry, categories, until, kd_id, now):
     for category in categories:
         stored = entry["intel"].get(category)
         if stored is None or _utc(until) > _utc(stored):
-            entry["intel"][category] = until.isoformat() if isinstance(until, datetime.datetime) else until
+            entry["intel"][category] = until.isoformat() if hasattr(until, "isoformat") else until
     earned = record_damage(entry, "intel", {"categories": len(new)}, None, kd_id)
     return earned, new
 
@@ -617,7 +617,7 @@ def share_intel(empire, target, kd_id, categories, until, empires_info, galaxy_i
     if earned is None:
         return 0
     app = flask.current_app
-    until_iso = until.isoformat() if isinstance(until, datetime.datetime) else until
+    until_iso = until.isoformat() if hasattr(until, "isoformat") else until
     names = uag._get_kingdoms()
     for member in _empire_kingdoms(empire, empires_info, galaxy_info):
         if member == kd_id:
@@ -856,20 +856,16 @@ def add_target_route():
     return _answer(payload, status)
 
 
-@bp.route('/api/empiretargets/<target>/update', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-def update_target_route(target):
-    kd_id = flask_praetorian.current_user().kd_id
-    body = _body()
+def update_target(kd_id, target, actions_value, fund_share_value):
+    """Change the actions and fund share of one of the empire's targets. Returns ``(payload, status)``. The route and the bots both use it."""
     try:
-        actions = parse_actions(body.get("actions"))
-        fund_share = parse_fund_share(body.get("fund_share"))
+        actions = parse_actions(actions_value)
+        fund_share = parse_fund_share(fund_share_value)
     except (TypeError, ValueError) as error:
-        return _answer({"message": str(error)}, 400)
+        return {"message": str(error)}, 400
     empire, is_emperor, _, _, _ = _context(kd_id)
     if empire is None:
-        return _answer({"message": "You are not in an empire"}, 400)
+        return {"message": "You are not in an empire"}, 400
 
     def decide(document):
         document = normalize(document)
@@ -884,10 +880,20 @@ def update_target_route(target):
     try:
         occ.update(_path(empire), decide)
     except occ.Rejected as rejection:
-        return _refusal(rejection)
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return _answer({"message": "Server is busy"}, 400)
-    return _answer({"message": "Target updated", "status": "success"})
+        return {"message": "Server is busy"}, 400
+    return {"message": "Target updated", "status": "success"}, 200
+
+
+@bp.route('/api/empiretargets/<target>/update', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def update_target_route(target):
+    body = _body()
+    payload, status = update_target(flask_praetorian.current_user().kd_id, target, body.get("actions"),
+                                    body.get("fund_share"))
+    return _answer(payload, status)
 
 
 @bp.route('/api/empiretargets/<target>/remove', methods=['POST'])
