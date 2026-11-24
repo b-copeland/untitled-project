@@ -16,6 +16,7 @@ import { Panel, FieldRow, UnitStat, Stats, VersusBar, Picker, useServerForecast,
 import { displayPercent } from "../../format";
 import { TargetIntel } from "./intel.js";
 import { useTour, TOUR_NO_SEND } from "../../components/tour";
+import { targetOptions, teamOptionLabel, teamOf, TeammateWarning, TEAM_TAGS } from "../../components/teammates";
 
 /*
  * Every figure on this page that is a projection (offense, defense, losses, spoils, what is left at home) comes from
@@ -46,10 +47,11 @@ const planFor = (selected, attacker, defender, units) => ({
 
 /**
  * An attack is sent straight away unless something about it is troublesome: their army is not revealed (the forecast is
- * a guess), there is no forecast yet, or the forecast says it would fail. Then the player is asked first.
+ * a guess), there is no forecast yet, the forecast says it would fail, or the target is on the player's own team. Then
+ * the player is asked first.
  */
-export function attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) {
-    return !unitsKnown || !hasForecast || !wins;
+export function attackNeedsConfirmation({ unitsKnown, hasForecast, wins, teammate = false }) {
+    return teammate || !unitsKnown || !hasForecast || !wins;
 }
 
 function Attack(props) {
@@ -164,7 +166,8 @@ function Attack(props) {
     };
 
     const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
-    const options = Object.keys(props.data.kingdoms).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
+    const options = targetOptions(props.data);
+    const team = teamOf(props.data, selected);
 
     const unitsKnown = Boolean(context?.revealed.units);
     const bonusKnown = Boolean(context?.revealed.military_bonus);
@@ -198,7 +201,8 @@ function Attack(props) {
 
                 <Panel className="area-target" title="1. Choose a target" data-tour="attack-target">
                     <Picker id="attack-target" options={options} value={selected} onChange={loadTarget}
-                        placeholder="Type a kingdom to filter" autoFocus={selected === undefined} />
+                        placeholder="Type a kingdom to filter" autoFocus={selected === undefined} formatOptionLabel={teamOptionLabel} />
+                    <TeammateWarning data={props.data} target={selected} doing="Attacking them" />
                     {loadingTarget ? <p className="planner-hint-line">Loading what is known about them...</p> : null}
                     {intel.length > 0
                         ? <Stats items={intel.map(([what, until]) => ({ label: `${what} revealed for`, value: clockUntil(until) }))} />
@@ -297,7 +301,7 @@ function Attack(props) {
                     </> : null}
                     <div className="planner-send">
                         <Button variant={wins || !hasForecast ? "primary" : "danger"} size="lg" disabled={Boolean(blocked) || props.loading.kingdom}
-                            title={blocked} onClick={() => (attackNeedsConfirmation({ unitsKnown, hasForecast, wins }) ? setConfirming(true) : send())}>
+                            title={blocked} onClick={() => (attackNeedsConfirmation({ unitsKnown, hasForecast, wins, teammate: Boolean(team) }) ? setConfirming(true) : send())}>
                             Send attack
                         </Button>
                         {blocked ? <div className="planner-why">{blocked}</div> : null}
@@ -312,6 +316,7 @@ function Attack(props) {
                         <p>
                             Send {whole(sending)} units and {generals} general{generals === 1 ? "" : "s"} at <strong>{selected !== undefined ? kdLabel(selected) : ""}</strong>.
                         </p>
+                        {team ? <Alert variant="danger">{TEAM_TAGS[team]}: this attack is on your own team.</Alert> : null}
                         {hasForecast
                             ? <Alert variant={wins ? "success" : "danger"}>
                                 {wins ? "Forecast: it should succeed." : "Forecast: it would fail."} Your {whole(forecast.attacker_offense)} offense against their {whole(forecast.defender_defense)} defense.

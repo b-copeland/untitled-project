@@ -26,7 +26,7 @@ function Spy(props) {
                 <li>Choose a target and an operation.</li>
                 <li>Choose how many drones to send, and whether to shield them.</li>
                 <li>Fill in what you know of their drones and shields, if it is not revealed.</li>
-                <li>Check the forecast and send. It asks you to confirm when the chance of success is low.</li>
+                <li>Check the forecast and send. It asks you to confirm when the chance of success is low, or before a hostile operation on a kingdom in your own galaxy or empire (shaded and tagged in the target list).</li>
             </ol>
             <h4>Success</h4>
             <ul>

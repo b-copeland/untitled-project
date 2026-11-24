@@ -98,3 +98,5 @@
 
 /* The send button closes the forecast it acts on (Attack, Spy, Launch Missiles). */
 .planner-send { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--row-divider, var(--bs-border-color)); }
+/* A galaxymate or empire-mate in a target picker (components/teammates.js). */
+.tag-team { background: rgba(var(--bs-info-rgb), 0.18); color: var(--bs-info-text-emphasis); }

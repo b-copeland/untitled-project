@@ -14,6 +14,7 @@ import { Panel, FieldRow, Stats, Picker, useServerForecast } from "../../compone
 import { checkPercent } from "../../validation";
 import { displayNumber } from "../../format";
 import { TargetIntel } from "./intel.js";
+import { targetOptions, teamOptionLabel, teamOf, TeammateWarning, TEAM_TAGS } from "../../components/teammates";
 
 const MISSILES = [
     { key: "planet_busters", label: "Planet Buster" },
@@ -42,7 +43,8 @@ function LaunchMissiles(props) {
     const have = props.data.kingdom.missiles || {};
     const desc = props.data.missiles?.desc || {};
     const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
-    const options = Object.keys(props.data.kingdoms).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
+    const options = targetOptions(props.data);
+    const team = teamOf(props.data, selected);
 
     const shieldsKnown = targetKdInfo.shields !== undefined;
     const shieldsError = shieldsKnown ? null : checkPercent(shields);
@@ -86,8 +88,9 @@ function LaunchMissiles(props) {
                     <Panel title="1. Target">
                         <FieldRow label="Target" htmlFor="missile-target">
                             <Picker id="missile-target" options={options} value={selected} onChange={onPickTarget}
-                                placeholder="Type a kingdom to filter" autoFocus={selected === undefined} />
+                                placeholder="Type a kingdom to filter" autoFocus={selected === undefined} formatOptionLabel={teamOptionLabel} />
                         </FieldRow>
+                        <TeammateWarning data={props.data} target={selected} doing="Launching missiles at them" />
                         <FieldRow label="Their missile shields" status={shieldsKnown ? "revealed" : shields !== "" ? "estimate" : "optional"} htmlFor="missile-shields">
                             {shieldsKnown
                                 ? <span className="known-value">{Math.round(targetKdInfo.shields.missiles * 100)}%</span>
@@ -141,6 +144,7 @@ function LaunchMissiles(props) {
                     <Modal.Header closeButton><Modal.Title>Launch these missiles?</Modal.Title></Modal.Header>
                     <Modal.Body>
                         <p>At <strong>{selected !== undefined ? kdLabel(selected) : ""}</strong>. Missiles that are launched are used up.</p>
+                        {team ? <Alert variant="danger">{TEAM_TAGS[team]}: these missiles are aimed at your own team.</Alert> : null}
                         <Stats items={MISSILES.filter(({ key }) => sending[key] > 0).map(({ key, label }) => ({ label, value: displayNumber(sending[key]) }))} />
                         {forecast.damage ? <Stats items={[
                             { label: "Stars", value: displayNumber(forecast.damage.stars) },

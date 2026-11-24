@@ -16,6 +16,7 @@ import { Panel, FieldRow, Stats, Picker, useServerForecast, clockUntil } from ".
 import { alreadyRevealed, checkPercent } from "../../validation";
 import { TargetIntel } from "./intel.js";
 import { useTour, TOUR_NO_SEND } from "../../components/tour";
+import { targetOptions, teamOptionLabel, teamOf, TeammateWarning, TEAM_TAGS } from "../../components/teammates";
 
 const initialDefenderValues = { drones: "", stars: "", shields: "" };
 
@@ -52,10 +53,11 @@ export function availableOperations(operations, kingdom, state) {
 }
 
 /**
- * Spies are sent straight away, hostile operations too. The player is asked first only when the chance of success is
- * known and below 40%.
+ * Spies are sent straight away, hostile operations too. The player is asked first when the chance of success is known
+ * and below 40%, and before a hostile operation on their own team.
  */
-export function spyNeedsConfirmation({ hasForecast, guessing, chance, warning }) {
+export function spyNeedsConfirmation({ hasForecast, guessing, chance, warning, hostileOnTeammate = false }) {
+    if (hostileOnTeammate) return true;
     // A warning from the forecast (a siphon of yours already on this kingdom, #220) always asks first.
     return Boolean(warning) || (hasForecast && !guessing && chance < 0.4);
 }
@@ -90,7 +92,8 @@ function Spy(props) {
     const maxDrones = Math.floor(kingdom.drones || 0);
     const sharesResult = (props.data.state.reveal_operations || []).includes(operation);
     const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
-    const options = Object.keys(props.data.kingdoms).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
+    const options = targetOptions(props.data);
+    const team = teamOf(props.data, selected);
 
     // The forecast comes from the server, a moment after the player stops changing things.
     const [forecast, forecasting, setForecast] = useServerForecast(
@@ -138,6 +141,7 @@ function Spy(props) {
     const intel = Object.entries((props.data.revealed?.revealed || {})[selected] || {});
     const operations = availableOperations(OPERATIONS, kingdom, props.data.state);
     const chosen = operations.find((op) => op.value === operation);
+    const hostileOnTeam = Boolean(team) && chosen?.group === "Hostile";
 
     const setDefender = (key) => (e) => setDefenderValues((previous) => ({ ...previous, [key]: e.target.value }));
     const entered = (key) => String(defenderValues[key]).trim() !== "";
@@ -153,12 +157,14 @@ function Spy(props) {
                     <Panel className="area-target" title="1. Target and operation" data-tour="spy-target">
                         <FieldRow label="Target" htmlFor="spy-target">
                             <Picker id="spy-target" options={options} value={selected} onChange={onPickTarget}
-                                placeholder="Type a kingdom to filter" autoFocus={selected === undefined} />
+                                placeholder="Type a kingdom to filter" autoFocus={selected === undefined} formatOptionLabel={teamOptionLabel} />
                         </FieldRow>
                         <FieldRow label="Operation" htmlFor="spy-operation">
                             <Picker id="spy-operation" options={operations} value={operation} onChange={setOperation}
                                 placeholder="Choose an operation" searchable={false} />
                         </FieldRow>
+                        {/* Gathering intel on a teammate does them no harm; only a hostile operation warns. */}
+                        {hostileOnTeam ? <TeammateWarning data={props.data} target={selected} doing={`${chosen.label} on them`} /> : null}
                         {intel.length > 0
                             ? <Stats items={intel.map(([what, until]) => ({ label: `${what} revealed for`, value: clockUntil(until) }))} />
                             : null}
@@ -227,7 +233,7 @@ function Spy(props) {
                         {warning ? <Alert variant="warning">{warning}</Alert> : null}
                     </> : null}
                     <div className="planner-send">
-                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance, warning }) ? setConfirming(true) : send())}>
+                        <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance, warning, hostileOnTeammate: hostileOnTeam }) ? setConfirming(true) : send())}>
                             Send spies
                         </Button>
                         {blocked ? <div className="planner-why">{blocked}</div> : null}
@@ -241,6 +247,7 @@ function Spy(props) {
                     <Modal.Header closeButton><Modal.Title>Run this operation?</Modal.Title></Modal.Header>
                     <Modal.Body>
                         <p>{chosen?.label} on <strong>{selected !== undefined ? kdLabel(selected) : ""}</strong> with {whole(sendingDrones)} drones{shieldDrones ? " (shielded)" : ""}. It uses one spy attempt.</p>
+                        {hostileOnTeam ? <Alert variant="danger">{TEAM_TAGS[team]}: this hostile operation is on your own team.</Alert> : null}
                         {warning ? <Alert variant="warning">{warning}</Alert> : null}
                         {hasForecast && !guessing && chance < 1 ? <Alert variant={chance < 0.4 ? "danger" : "warning"}>About a {Math.round(chance * 100)}% chance of success with this many drones.</Alert> : null}
                     </Modal.Body>
