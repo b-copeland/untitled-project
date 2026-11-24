@@ -230,6 +230,10 @@ hidden state.
   most common choice among them) and only with no player vote does it vote its own preference (`_follow_players`;
   which galaxymates are players is remembered for `HUMANS_REFRESH` epochs, since finding out is a read each). In
   universe elections bots buy only `BOT_VOTE_WEIGHT` (half) of the votes their playstyle would.
+- **Bots share their kingdom with their galaxy** (`share_kingdom`, through `misc.share_with`, the share route's
+  function): each think, a bot shares with every galaxymate it does not share with yet, so the players beside it can
+  plan around its army and economy. It reads nothing more (its revealed document is already in the `World`), and each
+  galaxymate costs two appends once.
 
 ### Empire targets and the intel board
 

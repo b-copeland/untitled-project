@@ -19,7 +19,8 @@ function Galaxy(props) {
             <h4>Sharing your kingdom</h4>
             <p>
                 In your own galaxy, the share button on a galaxymate shows them almost everything about your kingdom
-                for as long as you share. Only share with galaxymates you trust. Press it again to stop.
+                for as long as you share. Only share with galaxymates you trust. Press it again to stop. Bots in your
+                galaxy share their kingdoms with you on their own.
             </p>
         </Topic>
     );

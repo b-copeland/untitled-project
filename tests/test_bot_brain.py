@@ -1269,3 +1269,27 @@ def test_a_galaxy_leader_tells_its_galaxy_about_a_war_and_a_target_once(monkeypa
     assert [d.options["pin"] for d in first] == [True, False]
     assert "Theirs" in first[0].options["text"] and "Kd5" in first[1].options["text"]
     assert posts() == []
+
+
+# ------------------------------------------------------------------------------------------ sharing its kingdom (#237)
+
+def test_a_bot_shares_its_kingdom_with_each_galaxymate_it_does_not_share_with_yet():
+    world = StubWorld(galaxies={"g1": ["1", "2", "7"], "g2": ["3"]})
+    world.revealed_info["revealed_to_galaxymates"] = ["2"]
+    (decision,) = brain.share_kingdom(world)
+    assert decision.kind == "share_kingdom" and decision.options == {"to": "7"}
+    world.revealed_info["revealed_to_galaxymates"] = ["2", "7"]
+    assert brain.share_kingdom(world) == []
+
+
+def test_a_think_shares_the_bots_kingdom_with_its_galaxymates_once(app, client):
+    _make_kingdom_one_a_bot("explorer")
+    _create_item("galaxies", {"galaxies": {"1": [KD_ID, TARGET_ID]}})
+    with app.app_context():
+        first = _think(random.Random(1))
+        second = _think(random.Random(2))
+    assert [d.options for d in first if d.kind == "share_kingdom"] == [{"to": TARGET_ID}]
+    assert not any(d.kind == "share_kingdom" for d in second)
+    assert _get(f"/kingdom/{KD_ID}/revealed")["revealed_to_galaxymates"] == [TARGET_ID]
+    assert _get(f"/kingdom/{TARGET_ID}/revealed")["revealed_galaxymates"] == [KD_ID]
+    assert any(e["kind"] == "share_kingdom" and e["outcome"] == "done" for e in _get(f"/kingdom/{KD_ID}")["bot"]["log"])

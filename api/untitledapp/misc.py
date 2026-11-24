@@ -584,14 +584,20 @@ def spending():
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def share_kd(share_to):
-    app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
+    payload, status = share_with(kd_id, share_to)
+    return flask.jsonify(payload), status
 
 
-
+def share_with(kd_id, share_to):
+    """
+    Show ``share_to`` (a galaxymate) everything about ``kd_id`` until it stops sharing. Two appends, one to each
+    kingdom's revealed document. Returns ``(payload, status)``; the route and the bots both come through here.
+    """
+    app = flask.current_app
     galaxies_inverted, _ = uag._get_galaxies_inverted()
-    if galaxies_inverted[kd_id] != galaxies_inverted[share_to]:
-        return flask.jsonify("You can only share your kingdom to galaxymates"), 400
+    if share_to == kd_id or galaxies_inverted.get(kd_id) != galaxies_inverted.get(share_to):
+        return "You can only share your kingdom to galaxymates", 400
 
     kd_payload = {
         "new_revealed_to_galaxymates": [share_to]
@@ -609,7 +615,7 @@ def share_kd(share_to):
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
         data=json.dumps(share_to_payload),
     )
-    return (flask.jsonify(kd_response.text)), 200
+    return kd_response.text, 200
 
 @bp.route('/api/unshare/<share_to>', methods=['POST'])
 @flask_praetorian.auth_required
