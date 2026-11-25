@@ -45,7 +45,7 @@ function ManageAccount({ account, send, onClose }) {
                         <Form.Label htmlFor="admin-ban-reason">{account.banned ? "Banned" : "Ban"}{account.banned && account.banned_at ? ` since ${showTime(account.banned_at)}` : ""}</Form.Label>
                         <Form.Control id="admin-ban-reason" className="mb-1" type="text" maxLength={200} placeholder="Reason (the player sees it)"
                             value={reason} onChange={(e) => setReason(e.target.value)} />
-                        <Form.Text className="d-block mb-2">They can not log in again, and are signed out within a day when their token expires. Their kingdom stays.</Form.Text>
+                        <Form.Text className="d-block mb-2">They can not log in again, and are signed out within seconds. Their kingdom stays.</Form.Text>
                         <div className="form-actions">
                             {account.banned ? <Button variant="secondary" onClick={() => send(`${url}/unban`)}>Unban</Button> : null}
                             <Button type="submit" variant="danger">{account.banned ? "Change the reason" : "Ban"}</Button>

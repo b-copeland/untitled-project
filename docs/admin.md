@@ -86,10 +86,12 @@ password or ban it.
 - **Setting a password** stores the new one at once; the admin tells the player. Any email reset link the player had
   stops working, as after every password change. A login token the player already has keeps working until it expires.
 - **A ban** sets `is_active` false with `banned_at` and `ban_reason` on the user. The player can not log in (the login
-  page shows the reason, but only to someone who typed the right password) or renew their token, so they are signed
-  out when the token expires, at most a day later ([decisions/0005](decisions/0005-kingdom-in-the-token.md)). Their
-  kingdom stays in the round. Banning again changes only the reason. An account with the `admin` role can not be
-  banned here, so the admin can not lock themselves out. Unbanning clears all three.
+  page shows the reason, but only to someone who typed the right password) or renew their token. A token they already
+  have stops working at once: every action reads the account (`refuse_banned` in `api/untitledapp/__init__.py`), and
+  the ban marks their kingdom `banned` so the kingdom poll (also made when the app loads) answers 401 within seconds.
+  A 401 signs them out. Their notification sockets are closed. Their kingdom stays in the round. Banning again
+  changes only the reason. An account with the `admin` role can not be banned here, so the admin can not lock
+  themselves out. Unbanning clears all three and the kingdom's mark.
 - **Login signals.** Each player login (not bots, not `/api/adminlogin`) stores in the user's `seen` list a keyed
   hash of the address it came from and of the browser's device id: a random id the login page keeps in local storage
   (`deviceId` in `src/auth/index.js`). The address is the last entry of `X-Forwarded-For`, which App Service's front

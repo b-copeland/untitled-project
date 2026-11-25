@@ -196,3 +196,24 @@ def test_a_new_round_drops_signals_older_than_the_limit(app, client):
     _add_user(app, "lapsed", seen=[old, fresh])
     _start(client)
     assert [e["hash"] for e in _stored_user(app, "lapsed").seen] == ["fresh"]
+
+
+def test_a_ban_stops_a_token_already_issued_at_once(app, client):
+    """Decision 0005 let a token run for its day; a ban now signs the player out on their next poll or action."""
+    from tests.test_concurrency import _set_up_kingdom
+    _set_up_kingdom(money=1000)
+    user_id = _add_user(app, "naughty", kd_id="1", kd_created=True)
+    token = {"Authorization": f"Bearer {_login(client, 'naughty').get_json()['accessToken']}"}
+    assert client.get("/api/kingdom", headers=token).status_code == 200
+
+    assert client.post(f"/api/admin/accounts/{user_id}/ban", json={}, headers=_admin(client)).status_code == 200
+
+    for response in (
+        client.post("/api/shields", json={"military": "10"}, headers=token),
+        client.get("/api/kingdom", headers=token),
+    ):
+        assert response.status_code == 401 and response.get_json()["message"] == "This account is banned."
+
+    assert client.post(f"/api/admin/accounts/{user_id}/unban", headers=_admin(client)).status_code == 200
+    assert client.get("/api/kingdom", headers=token).status_code == 200
+    assert client.post("/api/shields", json={"military": "10"}, headers=token).status_code != 401

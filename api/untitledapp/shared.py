@@ -1412,7 +1412,7 @@ INITIAL_KINGDOM_STATE = {
 # Kingdom fields that only some kingdoms have, written after the kingdom is made (docs/data-model.md, "Fields added
 # after creation"). With the starting fields, every field a kingdom document can have: a write of any other field to a
 # kingdom is refused (``check_function_url`` in __init__.py), so a new kingdom field goes in one of the two.
-KINGDOM_FIELDS_ADDED_LATER = ("queues_resolved_until", "bot", "bot_pressure")
+KINGDOM_FIELDS_ADDED_LATER = ("queues_resolved_until", "bot", "bot_pressure", "banned")
 KINGDOM_FIELDS = frozenset(INITIAL_KINGDOM_STATE["kingdom"]) | frozenset(KINGDOM_FIELDS_ADDED_LATER)
 
 KINGDOM_CREATOR_STARTING_POINTS = 20000
