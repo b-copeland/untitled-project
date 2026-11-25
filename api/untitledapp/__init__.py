@@ -1,5 +1,7 @@
 import datetime
 import os
+import re
+import urllib.parse
 import requests
 import json
 import time
@@ -19,13 +21,88 @@ guard = flask_praetorian.Praetorian()
 cors = flask_cors.CORS()
 mail = Mail()
 
+class UnsafePath(ValueError):
+    """A function app URL with something in it other than plain path segments (see ``_FunctionAppSession``)."""
+
+
+# Every function app route is plain segments: names, numbers, galaxy ids ("1:2") and the hex of a username (users.py).
+_SAFE_SEGMENT = re.compile(r"^[A-Za-z0-9_:-]+$")
+# What Cosmos adds to every document, and the `type` the function app gives each document of a kingdom when it makes
+# it (`create_kingdom`): a write of a whole document read back carries them along.
+_COSMOS_FIELDS = {"id", "type", "_etag", "_ts", "_rid", "_self", "_attachments"}
+
+
+def check_function_url(url, method="GET", data=None):
+    """
+    Refuse a function app URL that is not plain path segments, and return the body to send: for a write to a kingdom
+    document, without any field kingdoms do not have.
+
+    Ids from a request go into these URLs, and Flask decodes the URL before the route sees it, so an id of
+    ``29%3Fx`` arrives as ``29?x``. Pasted into ``/kingdom/29?x/messages`` it would cut the path short, and the
+    write meant for kingdom 29's messages would land on kingdom 29's own document (issue #219). Routes check their
+    ids too; this is the backstop for every call, whatever the route forgot. Query strings go in ``params=``.
+
+    An unknown kingdom field is dropped and logged rather than refused, so a kingdom that already carries one (written
+    before this check) can still be written whole. With ``STRICT_KINGDOM_FIELDS`` (the tests) it raises, so a new
+    field missing from ``KINGDOM_FIELDS`` fails a test instead of being dropped.
+    """
+    parts = urllib.parse.urlsplit(url)
+    if parts.query or parts.fragment or "?" in url or "#" in url:
+        raise UnsafePath(f"Function app URL with a query or fragment: {url!r}")
+    segments = parts.path.strip("/").split("/")
+    if not all(_SAFE_SEGMENT.match(segment) for segment in segments):
+        raise UnsafePath(f"Function app URL with an unsafe segment: {url!r}")
+    if method != "PATCH" or len(segments) < 2 or segments[-2] != "kingdom" or not data:
+        return data
+    from untitledapp.shared import KINGDOM_FIELDS
+    try:
+        fields = json.loads(data)
+    except (TypeError, ValueError):
+        return data
+    if not isinstance(fields, dict):
+        return data
+    unknown = sorted(set(fields) - KINGDOM_FIELDS - _COSMOS_FIELDS)
+    if not unknown:
+        return data
+    if flask.has_app_context() and flask.current_app.config.get("STRICT_KINGDOM_FIELDS"):
+        raise UnsafePath(f"Kingdom write with fields kingdoms do not have: {unknown}")
+    logging.warning("Dropped fields kingdoms do not have from a write to %s: %s", parts.path, unknown)
+    return json.dumps({key: value for key, value in fields.items() if key not in unknown})
+
+
+def _refuse_unsafe_path_ids():
+    """For ``before_request``: a 404 for a route whose id from the path is not a plain id. Flask has decoded the path
+    by now, so ``%3F`` is a ``?`` here; see ``check_function_url``. Only API routes: the static files' paths have
+    dots and slashes."""
+    if not flask.request.path.startswith("/api/"):
+        return None
+    for value in (flask.request.view_args or {}).values():
+        if isinstance(value, str) and not _SAFE_SEGMENT.match(value):
+            return flask.jsonify({"message": "There is nothing here by that name"}), 404
+    return None
+
+
+def _unsafe_path_response(error):
+    logging.warning("Refused an unsafe function app call: %s", error)
+    return flask.jsonify({"message": "That request is not valid"}), 400
+
+
 class _FunctionAppSession(requests.Session):
-    """The session every module uses to call the function app. A write drops what this request has cached of the
-    document it changes (see request_cache.py), before it is sent and again after, so no read in between or after
-    sees the old version."""
+    """The session every module uses to call the function app. Every URL is checked first (``check_function_url``).
+    A write drops what this request has cached of the document it changes (see request_cache.py), before it is sent
+    and again after, so no read in between or after sees the old version."""
+
+    def get(self, url, **kwargs):
+        check_function_url(url)
+        kwargs.setdefault("allow_redirects", True)
+        return self.request("GET", url, **kwargs)
 
     def _write(self, method, url, **kwargs):
         from untitledapp import request_cache
+        if "data" in kwargs:
+            kwargs["data"] = check_function_url(url, method, kwargs["data"])
+        else:
+            check_function_url(url, method)
         request_cache.invalidate(url)
         try:
             return self.request(method, url, **kwargs)
@@ -208,6 +285,8 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uabo.bp)
     app.register_blueprint(uaadv.bp)
     app.before_request(uare.frozen_response)  # once the round is over, the game is read only
+    app.before_request(_refuse_unsafe_path_ids)
+    app.register_error_handler(UnsafePath, _unsafe_path_response)
 
     limiter = Limiter(
         _custom_limit_key_func,

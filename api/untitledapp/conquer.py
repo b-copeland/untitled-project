@@ -1877,9 +1877,12 @@ def _your_siphon_warning(kd_id, target_kd):
     )
 
 def _spy(req, kd_id, target_kd):
-    
-    
     app = flask.current_app
+    # The target must be a kingdom in a galaxy, by its exact id. Every write and every read below uses this id, so an id
+    # that only resembles a kingdom's could land the damage on one kingdom and the news on another (issue #219).
+    target_kd = str(target_kd)
+    if target_kd not in uag._get_galaxies_inverted()[0]:
+        return None, {"message": "There is no kingdom with that id"}, 400, False
     try:
         drones = int(req.get("drones", 0) or 0)
         shielded = req["shielded"]

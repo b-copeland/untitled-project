@@ -200,7 +200,10 @@ Created from `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`, which has the st
 | `siphons` | The payments from this kingdom's siphons that its last refresh collected (`siphons_in` entries) |
 | `siphons_running` | The siphons this kingdom runs on others, keyed by target and end time, each `{from, until, rate}`: updated from each payment's `rate` and pruned as they end, so siphon income per hour is steady between payments (the Stats tab). Read with `.get` |
 
-Fields added after creation:
+Fields added after creation (`KINGDOM_FIELDS_ADDED_LATER` in `shared.py`). A write to a kingdom with a field that is
+neither a starting field nor one of these is refused before it is sent (`check_function_url` in
+`api/untitledapp/__init__.py`), so a new kingdom field goes in `INITIAL_KINGDOM_STATE` or in this table and that tuple:
+
 
 | Field | Meaning |
 |---|---|
