@@ -53,18 +53,33 @@ def _rejected(rejection):
     return flask.jsonify({"message": rejection.message}), rejection.status
 
 
+MAX_USERNAME_LENGTH = 32
+# Hashing is slow on purpose and slower the longer the password: a cap keeps one sign-up or login from costing much.
+MAX_PASSWORD_LENGTH = 256
+
+
 def _validate_signup(
     username,
     password,
 ):
     if not isinstance(username, str) or not isinstance(password, str):
         return False, "Username and password are required"
-    if User.lookup(username) is not None:
-        return False, "Account already exists"
     if len(username) == 0:
         return False, "Username must be at least 1 character"
+    if len(username) > MAX_USERNAME_LENGTH:
+        return False, f"Username must be at most {MAX_USERNAME_LENGTH} characters"
+    if not username.isprintable() or username != username.strip():
+        # Hidden characters (zero-width spaces and the like) and edge spaces make names that look like others.
+        return False, "Username can only have visible characters, with no spaces at either end"
+    if username.lower().startswith(uaac.BOT_PREFIX):
+        # Kept for the game's own bots (bots.py), which the admin page and the login signals treat apart (issue #219).
+        return False, f"Usernames starting with {uaac.BOT_PREFIX} are kept for the game's bots"
     if len(password) == 0:
         return False, "Password must be at least 1 character"
+    if len(password) > MAX_PASSWORD_LENGTH:
+        return False, f"Password must be at most {MAX_PASSWORD_LENGTH} characters"
+    if User.lookup(username) is not None:
+        return False, "Account already exists"
 
     return True, ""
 

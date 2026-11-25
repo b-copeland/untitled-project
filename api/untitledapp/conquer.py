@@ -14,6 +14,7 @@ import untitledapp.misc as uam
 import untitledapp.news as uan
 import untitledapp.occ as occ
 import untitledapp.getters as uag
+import untitledapp.inputs as uin
 import untitledapp.intel as uai
 import untitledapp.shared as uas
 import untitledapp.targets as uat
@@ -141,6 +142,17 @@ def _lower_timer(kd_id, field, when):
 
 def _lower_reveal_timer(kd_id, revealed_until):
     _lower_timer(kd_id, "revealed", revealed_until)
+
+def _clean_attacker_values(req, keys, name="unit"):
+    """
+    ``req["attackerValues"]`` with only ``keys`` (and generals), each a whole number of at least 0 (issue #219). Other
+    keys are dropped, not refused: the attack page also sends its suggestion margin (``buffer``) here.
+    """
+    values = uin.body_field(req, "attackerValues")
+    allowed = list(keys) + ["generals"]
+    return uin.keyed({key: value for key, value in values.items() if key in allowed}, allowed, name, minimum=0,
+                     integer=True, blank=0)
+
 
 def _validate_attack_request(
     attacker_raw_values,
@@ -1254,7 +1266,8 @@ def _attack(req, kd_id, target_kd):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def attack(target_kd):
-    req = flask.request.get_json(force=True)
+    req = uin.body(flask.request)
+    req = {**req, "attackerValues": _clean_attacker_values(req, uas.TRAINABLE_UNITS)}
     kd_id = flask_praetorian.current_user().kd_id
     if str(target_kd) == str(kd_id):
         return (flask.jsonify({"message": "You cannot attack yourself!"}), 400)
@@ -1585,8 +1598,9 @@ def _validate_auto_attack_settings(req_settings):
 
 
 def _given(value, current):
-    """A setting from a request: an empty box (or none) keeps ``current``; 0 is a value like any other."""
-    return current if value in ("", None) else value
+    """A setting from a request: an empty box (or none) keeps ``current``; 0 is a value like any other. Anything else
+    must be a finite number (``NaN`` once passed every range check)."""
+    return current if value in ("", None) else uin.number(value, "That setting")
 
 
 @bp.route('/api/attackprimitives/auto', methods=['POST'])
@@ -1598,7 +1612,7 @@ def auto_attack_primitives():
     kd_id = flask_praetorian.current_user().kd_id
 
     if req.get("enabled", None) != None:
-        enabled = req["enabled"]
+        enabled = uin.flag(req["enabled"], "enabled")
 
         def switch(kd_info_parse):
             if kd_info_parse["auto_attack_settings"].get("pure", 0) == 0 and kd_info_parse["auto_attack_settings"].get("flex", 0) == 0:
@@ -1876,6 +1890,26 @@ def _your_siphon_warning(kd_id, target_kd):
         f"take from the one you already have."
     )
 
+SPY_OPERATIONS = uas.REVEAL_OPERATIONS + uas.AGGRO_OPERATIONS
+
+
+def _clean_spy_request(req):
+    """A spy request with only what an operation uses, each checked (issue #219)."""
+    operation = req.get("operation")
+    if not operation:
+        return {**req, "operation": operation}
+    cleaned = {
+        "operation": uin.one_of(operation, SPY_OPERATIONS, "operation"),
+        "drones": uin.number(req.get("drones"), "Drones", minimum=0, integer=True, blank=0),
+        "shielded": uin.flag(req.get("shielded", False), "shielded"),
+    }
+    if "share_to_galaxy" in req:
+        cleaned["share_to_galaxy"] = uin.flag(req["share_to_galaxy"], "share_to_galaxy")
+    if "cut" in req:
+        cleaned["cut"] = uin.number(req["cut"], "Cut", minimum=0, blank=0)
+    return cleaned
+
+
 def _spy(req, kd_id, target_kd):
     app = flask.current_app
     # The target must be a kingdom in a galaxy, by its exact id. Every write and every read below uses this id, so an id
@@ -1883,6 +1917,9 @@ def _spy(req, kd_id, target_kd):
     target_kd = str(target_kd)
     if target_kd not in uag._get_galaxies_inverted()[0]:
         return None, {"message": "There is no kingdom with that id"}, 400, False
+    if req.get("operation") not in SPY_OPERATIONS:
+        # Before anything is charged: an unknown operation used to fail after the drones and the attempt were spent.
+        return None, {"message": "Choose an operation from the list"}, 400, False
     try:
         drones = int(req.get("drones", 0) or 0)
         shielded = req["shielded"]
@@ -2235,7 +2272,7 @@ def _spy(req, kd_id, target_kd):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def spy(target_kd):
-    req = flask.request.get_json(force=True)
+    req = _clean_spy_request(uin.body(flask.request))
 
     kd_id = flask_praetorian.current_user().kd_id
     if str(target_kd) == str(kd_id):
@@ -2369,7 +2406,7 @@ def auto_rob_primitives():
     kd_id = flask_praetorian.current_user().kd_id
 
     if req.get("enabled", None) != None:
-        enabled = req["enabled"]
+        enabled = uin.flag(req["enabled"], "enabled")
 
         def switch(kd_info_parse):
             if kd_info_parse["auto_rob_settings"].get("drones", 0) == 0:
@@ -2628,20 +2665,71 @@ def _schedule_missiles(
     return True, new_schedule, ""
     
 
+# The options each kind of schedule keeps; anything else a request sends is dropped (issue #219). Numbers are as the
+# player typed them (percentages, counts); the handlers above rescale them.
+SCHEDULE_OPTION_KEYS = {
+    "attack": ("target", "generals", "pure_offense", "flex_offense", "autofill_buffer", "units_mode",
+               "send_without_intel", "prefer_autofill"),
+    "attackprimitives": ("generals", "pure_offense", "flex_offense", "units_mode"),
+    "intelspy": ("target", "operation", "max_tries", "drones_pct", "shielded", "share_to_galaxy", "cut"),
+    "aggressivespy": ("target", "operation", "attempts", "drones_pct", "shielded"),
+    "missiles": ("target", "planet_busters", "star_busters", "galaxy_busters"),
+}
+_SCHEDULE_FLAGS = ("send_without_intel", "prefer_autofill", "shielded", "share_to_galaxy")
+_SCHEDULE_NUMBERS = ("generals", "pure_offense", "flex_offense", "autofill_buffer", "max_tries", "drones_pct", "cut",
+                     "attempts", "planet_busters", "star_busters", "galaxy_busters")
+
+
+def _clean_schedule_options(schedule_type, options):
+    """
+    The options of a new schedule: only the keys its type uses, a target that is a kingdom, an operation from the
+    lists, finite numbers and true-or-false switches. A number left out or empty is 0, a target left out is None (the
+    handlers refuse both with their own message).
+    """
+    if options is None:
+        options = {}
+    if not isinstance(options, dict):
+        raise uin.BadInput("Send the schedule's options as an object")
+    cleaned = {}
+    for key in SCHEDULE_OPTION_KEYS[schedule_type]:
+        value = options.get(key)
+        if key == "target":
+            if value in (None, ""):
+                cleaned[key] = None
+            elif str(value) in uag._get_galaxies_inverted()[0]:
+                cleaned[key] = str(value)
+            else:
+                raise uin.BadInput("There is no kingdom with that id")
+        elif key == "operation":
+            cleaned[key] = None if value in (None, "") else uin.one_of(value, SPY_OPERATIONS, "operation")
+        elif key == "units_mode":
+            if value not in (None, ""):
+                cleaned[key] = uin.text(value, key, max_length=20)  # the handler checks it against the modes
+        elif key in _SCHEDULE_FLAGS:
+            if value is not None:
+                cleaned[key] = uin.flag(value, key)
+        elif key in _SCHEDULE_NUMBERS:
+            cleaned[key] = uin.number(value, key, blank=0)
+    return cleaned
+
+
 @bp.route('/api/schedule', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def add_schedule():
     app = flask.current_app
-    req = flask.request.get_json(force=True)
+    req = uin.body(flask.request)
 
     kd_id = flask_praetorian.current_user().kd_id
     
 
-    schedule_type = req.get("type")
-    schedule_time = uas.utc(req["time"]).isoformat()
-    schedule_options = req.get("options", {})
+    schedule_type = uin.one_of(req.get("type"), SCHEDULE_OPTION_KEYS, "schedule type")
+    try:
+        schedule_time = uas.utc(uin.text(req.get("time"), "time", max_length=64)).isoformat()
+    except ValueError:
+        raise uin.BadInput("Choose when it should happen")
+    schedule_options = _clean_schedule_options(schedule_type, req.get("options"))
     schedule_id = str(uuid.uuid4())
 
     def decide(kd_info):
@@ -2989,7 +3077,9 @@ def _launch_missiles(req, kd_id, target_kd):
 @start_required
 # @flask_praetorian.roles_required('verified')
 def launch_missiles(target_kd):
-    req = flask.request.get_json(force=True)
+    req = uin.body(flask.request)
+    req = {**req, "attackerValues": {key: value for key, value in _clean_attacker_values(req, uas.MISSILES, "missile").items()
+                                      if key != "generals"}}
 
     kd_id = flask_praetorian.current_user().kd_id
     if str(target_kd) == str(kd_id):
@@ -3004,15 +3094,19 @@ def launch_missiles(target_kd):
 # @flask_praetorian.roles_required('verified')
 def update_pinned():
     app = flask.current_app
-    req = flask.request.get_json(force=True)
-    
+    req = uin.body(flask.request)
+    kingdoms = uag._get_kingdoms()
+    # Only the two lists the function app reads, of kingdoms that exist (issue #219): the body used to be passed on whole.
+    change = {field: uin.ids(req[field], kingdoms) for field in ("pinned", "unpinned") if field in req}
+    if not change:
+        raise uin.BadInput("Choose kingdoms to pin or unpin")
+
     kd_id = flask_praetorian.current_user().kd_id
-    
-    
+
     pinned_patch_response = REQUESTS_SESSION.patch(
         app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/pinned',
         headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']},
-        data=json.dumps(req),
+        data=json.dumps(change),
     )
     return (flask.jsonify(pinned_patch_response.text), 200)
 
