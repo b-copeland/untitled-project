@@ -13,7 +13,7 @@ function Home(props) {
                 <li><b>Kingdom</b>: your resources, income and population. Income adds up continuously, not in steps.</li>
                 <li><b>Military</b>: your units at home and with each general, and when each general returns.</li>
                 <li><b>Structures</b>: what is built and what is still being built.</li>
-                <li><b>Stats</b>: figures worked out for you: your offense and defense by kind of unit and per star, income per star, per home and per mine (and per home once the fuel plants its people need are counted), what your siphons earn per drone factory, and the lines your advisors and the bots go by. Hover over a figure's name to see how it is counted.</li>
+                <li><b>Stats</b>: figures worked out for you: your offense and defense by kind of unit and per star, income per star, per home and per mine (and per home once the fuel plants its people need are counted), your siphon income in all and per drone factory, and what your advisors watch, such as the defense per star you need to make attacking you pay worse than attacking primitives. Attackers, defenders and flexers of every kind (heavy, elite and so on) count together. Hover over a figure's name to see how it is counted.</li>
             </ul>
             <p>
                 <b>Max offense</b> and <b>max defense</b> on the Military tab assume your best case: military

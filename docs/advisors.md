@@ -161,17 +161,21 @@ Recipe 14 in [recipes.md](recipes.md#14-an-advisor).
 
 ## The Stats tab (issue #239)
 
-The figures the advice and the bots work from, shown to the player for their own kingdom so they need no calculator:
-`kingdom_stats` in `advisors.py`, a plain function of the kingdom and the round's age, answered by
+The figures behind the advice, shown to the player for their own kingdom so they need no calculator:
+`kingdom_stats` in `advisors.py`, a plain function of the kingdom, the round's age and the time, answered by
 `GET /api/kingdomstats` and shown by the Stats tab on the Status page (`src/pages/home/stats.js`). It is fetched only
 while the tab is open: the kingdom, the state, the empires and galaxies, and the mobis queue (for hangar space).
 
 - **Sections**: military (offense of attackers, flexers and all units, home and out, with the kingdom's military
   efficiency and one general; defense of defenders and of everything at home, as an attack faces it; each also per
-  star), economy (income per star, the share of stars that make money, income from people per home with and without the
-  fuel plants they need, income per mine, siphons per drone factory, drones per star), what the advisors look at (the
-  break-even line and the kingdom against it, fuel, hangars, idle money, project bonuses), and what the bots plan by
-  (primitives' defense per star, rob per drone, the deterrence line).
+  star; upgraded units count with their line), economy (income per star, the share of stars with income structures:
+  homes, mines and drone factories; population income per home, with and without the fuel plants its people need;
+  income per mine; siphon income, in all and per drone factory; drones per star), and what your advisors watch (the
+  defense per star needed, which is the break-even line, and the kingdom against it; fuel, hangars, unspent money,
+  project bonuses). The bots' own sums are not shown: they are how the bots play, not something a player needs.
+- **Siphon income** comes from the rates of the siphons running (`siphons_running`, kept by the refresh from each
+  payment), not from `income.money.siphons_in`: payments land whenever each target refreshes, so the money credited
+  per tick jumps about.
 - **The server writes the labels and tips**, the page only formats each value by its `format` (`number`, `decimal`,
   `percent`, `hours`). A figure with nothing to divide by is `null` and shows as "--".
 - **Only the caller's own kingdom and the game's formulas.** The peer ranges stay on the server (tenet 2).
