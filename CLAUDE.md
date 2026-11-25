@@ -77,6 +77,10 @@ frontend (`src/`) gets each data key from its own route and reads game constants
 
 ## Workflow
 
+- **Every change in its own git worktree** (`git worktree add ../untitled-project-<topic> -b <branch> origin/main`),
+  never by switching branches in the main checkout. Several sessions work in this repository at once; in a shared
+  checkout one session's uncommitted files end up in another's commit. The main checkout stays on `main`. Remove the
+  worktree once its pull request is merged.
 - Before a pull request, run the three test suites (backend, function app, frontend; no stack needed):
   `.\scripts\check.ps1` on Windows, or the plain commands in [docs/testing.md](docs/testing.md#the-suites) anywhere.
   CI runs the same suites only after merge, on `main`, and a failure stops the deploy.
