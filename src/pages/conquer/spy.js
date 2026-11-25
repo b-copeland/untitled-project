@@ -16,7 +16,8 @@ import { Panel, FieldRow, Stats, Picker, useServerForecast, clockUntil } from ".
 import { alreadyRevealed, checkPercent } from "../../validation";
 import { TargetIntel } from "./intel.js";
 import { useTour, TOUR_NO_SEND } from "../../components/tour";
-import { targetOptions, teamOptionLabel, teamOf, TeammateWarning, TEAM_TAGS } from "../../components/teammates";
+import { teamOf, TEAM_TAGS } from "../../components/teammates";
+import { KingdomPicker } from "../../components/kingdompicker";
 
 const initialDefenderValues = { drones: "", stars: "", shields: "" };
 
@@ -92,7 +93,6 @@ function Spy(props) {
     const maxDrones = Math.floor(kingdom.drones || 0);
     const sharesResult = (props.data.state.reveal_operations || []).includes(operation);
     const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
-    const options = targetOptions(props.data);
     const team = teamOf(props.data, selected);
 
     // The forecast comes from the server, a moment after the player stops changing things.
@@ -156,15 +156,14 @@ function Spy(props) {
                 <div className="wide-layout spy-layout">
                     <Panel className="area-target" title="1. Target and operation" data-tour="spy-target">
                         <FieldRow label="Target" htmlFor="spy-target">
-                            <Picker id="spy-target" options={options} value={selected} onChange={onPickTarget}
-                                placeholder="Type a kingdom to filter" autoFocus={selected === undefined} formatOptionLabel={teamOptionLabel} />
+                            {/* Gathering intel on a teammate does them no harm, so the warning waits for a hostile operation. */}
+                            <KingdomPicker id="spy-target" data={props.data} value={selected} onChange={onPickTarget}
+                                autoFocus={selected === undefined} harm={hostileOnTeam ? `${chosen.label} on them` : null} />
                         </FieldRow>
                         <FieldRow label="Operation" htmlFor="spy-operation">
                             <Picker id="spy-operation" options={operations} value={operation} onChange={setOperation}
                                 placeholder="Choose an operation" searchable={false} />
                         </FieldRow>
-                        {/* Gathering intel on a teammate does them no harm; only a hostile operation warns. */}
-                        {hostileOnTeam ? <TeammateWarning data={props.data} target={selected} doing={`${chosen.label} on them`} /> : null}
                         {intel.length > 0
                             ? <Stats items={intel.map(([what, until]) => ({ label: `${what} revealed for`, value: clockUntil(until) }))} />
                             : null}

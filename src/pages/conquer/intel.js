@@ -19,6 +19,7 @@ import { GameTable } from "../../components/gametable";
 import { IconButton } from "../../components/iconbutton";
 import { Panel, FieldRow, Picker, clockUntil } from "../../components/planner";
 import { NumberControl } from "../../components/forms";
+import { KingdomPicker } from "../../components/kingdompicker";
 import { displayPercent } from "../../format";
 import { checkCount, checkPercent, firstError } from "../../validation";
 
@@ -45,7 +46,6 @@ export function intelOf(data) {
 const config = (data) => data.state?.game_config || {};
 const maxCutPercent = (data) => (config(data).BASE_MAX_SHARE_CUT || 0) * 100;
 const kdName = (data, kdId) => data.kingdoms?.[kdId] || `Kingdom ${kdId}`;
-const kdLabel = (data, kdId) => `${kdName(data, kdId)} (${data.galaxies_inverted?.[kdId] || "?"})`;
 const myKd = (data) => String(data.kingdomid?.kd_id ?? data.kingdom?.kdId ?? "");
 const myGalaxymates = (data) => (data.galaxies?.[data.galaxies_inverted?.[myKd(data)]] || []).map(String);
 const forTarget = (items, target) => (target === undefined ? items : items.filter((item) => String(item.target) === String(target)));
@@ -246,8 +246,7 @@ export function BountyForm({ target, send, ask, ...props }) {
     }, [askKey]);  // eslint-disable-line react-hooks/exhaustive-deps
     const maxHours = bountyMaxHours(props.data);
     const mates = new Set(myGalaxymates(props.data));
-    const kingdomOptions = Object.keys(props.data.kingdoms || {}).filter((kdId) => !mates.has(String(kdId)))
-        .map((kdId) => ({ value: kdId, label: kdLabel(props.data, kdId) }));
+    const askable = Object.keys(props.data.kingdoms || {}).filter((kdId) => !mates.has(String(kdId)));
     const categoryOptions = categoriesOf(props.data).map((name) => ({ value: name, label: name }));
     const cutError = checkPercent(cut, { max: maxCutPercent(props.data) });
     const hoursError = checkCount(hours, { max: maxHours, noun: "hours" });
@@ -262,7 +261,7 @@ export function BountyForm({ target, send, ask, ...props }) {
         <div className="intel-form" ref={form}>
             {target === undefined ? (
                 <FieldRow label="Kingdom" htmlFor="bounty-kingdom">
-                    <Picker id="bounty-kingdom" options={kingdomOptions} value={chosen} onChange={setChosen} placeholder="Choose a kingdom" />
+                    <KingdomPicker id="bounty-kingdom" data={props.data} only={askable} value={chosen} onChange={setChosen} placeholder="Choose a kingdom" />
                 </FieldRow>
             ) : null}
             <FieldRow label="Intel" htmlFor="bounty-category">
