@@ -62,6 +62,7 @@ import untitledapp.intel as uai
 import untitledapp.misc as uam
 import untitledapp.occ as occ
 import untitledapp.politics as uap
+import untitledapp.recurring as uar
 import untitledapp.shared as uas
 import untitledapp.targets as uat
 
@@ -81,6 +82,8 @@ SPY_FORGET_EPOCHS = 48      # TUNE: and for how long
 MAX_SIPHONS_PER_THINK = 3   # TUNE: siphons scheduled in one think, on different kingdoms
 SIPHON_KEEP_ATTEMPTS = 8    # TUNE: spy attempts kept from the auto rob while there are kingdoms worth siphoning
 SIPHON_ALL_DRONES = True    # TUNE: send every drone on a siphon, not only as many as the target's income can pay
+RECURRING_SIPHONS = 4       # TUNE: standing (Repeating tab) siphons a bot keeps, on the kingdoms most worth it
+RECURRING_CHANCE = 0.5      # TUNE: the least chance a try must have to make a siphon a standing one
 SIPHON_REVEAL_BELOW = 4     # TUNE: a siphoning bot reveals a galaxy when it has fewer kingdoms than this to siphon
 SIPHON_PICK = "spread"      # TUNE: "spread" draws siphon targets in proportion to their worth; "best" takes the best
 SIPHON_SHARPNESS = 1.0      # TUNE: siphon targets are drawn in proportion to worth ** this (higher: the best more often)
@@ -117,7 +120,7 @@ HUMANS_REFRESH = 24         # epochs a bot remembers which of its galaxymates ar
 ECON_PROJECTS = True        # TUNE: engineers go first to one-time projects that pay for themselves (strategy.economic_projects)
 BOUNTIES_PER_THINK = 2      # TUNE: bounties a bot answers in one think
 MAX_BOUNTIES = 2            # TUNE: bounties a bot keeps up at once
-BOUNTY_CUT = 5.0            # TUNE: percent of the spoils a bot offers for intel it asks for
+BOUNTY_CUT = 10.0           # TUNE: percent of the spoils a bot offers for intel it asks for
 WEAKNESS = 0.3              # TUNE: a target's worth rises by this much (times 0 to 2) for few fuel plants and homes
 WEAK_FUEL_SHARE = 0.06      # TUNE: below this share of its land in fuel plants a kingdom looks weak
 WEAK_HOMES_SHARE = 0.2      # TUNE: and below this share in homes
@@ -1308,7 +1311,10 @@ def _plan_empire(world, memory, rng):
     return decisions
 
 
-def _attempts_free(world, memory):
+def _attempts_free(world, memory, intel=False):
+    """Spy attempts to spend. A Lumina kingdom's intel operations cost none, so for those it always has enough."""
+    if intel and world.me.get("race") == "Lumina":
+        return 3
     return int(world.me.get("spy_attempts") or 0)
 
 
@@ -1321,8 +1327,8 @@ def _spy_decision(world, personality, target, operation, stars, drones_known, rn
     tries = _whole_between(rng, personality.intel_tries) if chance < 0.8 else 1
     return Decision("intelspy", {
         "target": target, "operation": operation, "drones_pct": round(percent, 1),
-        "max_tries": max(1, min(tries, _attempts_free(world, None))), "shielded": False,
-        "share_to_galaxy": share, "cut": personality.share_cut if share else 0,
+        "max_tries": max(1, min(tries, _attempts_free(world, None, intel=True))), "shielded": False,
+        "share_to_galaxy": share, "cut": _cut_for(world, personality.share_cut, target) if share else 0,
     }, f"{why} ({chance:.0%} a try with {percent:.0f}% of the drones)"), chance
 
 
@@ -1360,7 +1366,7 @@ def plan_intel(world, personality, style, memory, rng, want_military=False):
     """
     if not want_military and rng.random() >= personality.intel_chance:
         return []
-    attempts = _attempts_free(world, memory)
+    attempts = _attempts_free(world, memory, intel=True)
     if (world.me.get("drones") or 0) < 100:
         return []
     known = world.known_stars()
@@ -1468,6 +1474,17 @@ def answer_bounties(world, personality, style, memory):
     return decisions
 
 
+def _cut_for(world, base, target):
+    """
+    The cut of the spoils offered for intel on ``target``, in percent: the playstyle's own, more the likelier the intel
+    is to lead to a hit (up to the game's most for a marked empire target, or one with little fuel or few homes).
+    """
+    top = uas.GAME_CONFIG["BASE_MAX_SHARE_CUT"] * 100
+    if target in world.marked_for("intel"):
+        return top
+    return round(min(base + (top - base) * min(weakness(world.target_info(target)) / 2, 1.0), top), 1)
+
+
 def _post_bounty_for(world, memory, target, category):
     """A bounty for ``category`` intel on ``target`` if the bot has not one up already and has room for another."""
     mine = [b for b in world.intel.get("bounties") or [] if b.get("requester") == world.kd_id]
@@ -1475,8 +1492,9 @@ def _post_bounty_for(world, memory, target, category):
         return []
     if not [m for m in world.galaxies.get(world.my_galaxy, []) if m != world.kd_id]:
         return []  # nobody to answer
-    return [Decision("post_bounty", {"target": target, "category": category, "cut": BOUNTY_CUT},
-                     f"ask the galaxy for {category} intel on {world.names.get(target, target)} for a {BOUNTY_CUT:g}% cut")]
+    cut = _cut_for(world, BOUNTY_CUT, target)
+    return [Decision("post_bounty", {"target": target, "category": category, "cut": cut},
+                     f"ask the galaxy for {category} intel on {world.names.get(target, target)} for a {cut:g}% cut")]
 
 
 def _sendable(world, units_home, flex_share):
@@ -1704,9 +1722,10 @@ def plan_drones(world, personality, style, memory, rng):
         running = memory.setdefault("siphons", {})
         for kd in [kd for kd, until in running.items() if _utc(until) <= world.now]:
             del running[kd]
+        standing = {e["target"] for e in world.me.get("recurring") or [] if e.get("operation") == "siphonfunds"}
         options = []
         for kd, (stars, _networth) in known.items():
-            if kd in running or memory.get("spy_fails", {}).get(kd, 0) >= SPY_FAILS:
+            if kd in running or kd in standing or memory.get("spy_fails", {}).get(kd, 0) >= SPY_FAILS:
                 continue
             # The richer the target the more there is to take: income from its structures if they are revealed.
             revealed = world.seconds_left(kd, "structures") > 0 or world.seconds_left(kd, "kingdom") > 0
@@ -1718,11 +1737,19 @@ def plan_drones(world, personality, style, memory, rng):
             chance = learned_chance(kd, chance_against(kd, sent))
             options.append((chance * strategy.siphon_take(sent, income), kd, sent, chance))
         threshold = rob * personality.siphon_edge if drone_style == "both" else 0.0
-        spare = max(attempts - len(decisions) - 1, 1)
+        spare = max(attempts - len([d for d in decisions if d.kind != "recurring_siphon"]) - 1, 1)
         # Siphons on one kingdom are held to its 15%, and a new one cuts the oldest for good, so thieves that all pick
         # the best target take from each other. Spread them: each pick is drawn in proportion to what it is worth,
         # among those worth more than robbing.
         worth = sorted((option for option in options if option[0] > threshold and option[3] >= 0.2), reverse=True)
+        # The best of them, large kingdoms with few drones to stop the spies, go on the Repeating tab: they siphon
+        # again each time the last one runs out, with no think needed, and take the spy attempts before the auto rob.
+        for value, target, sent, chance in [o for o in worth if o[3] >= RECURRING_CHANCE][:max(RECURRING_SIPHONS - len(standing), 0)]:
+            worth = [o for o in worth if o[1] != target]
+            decisions.append(Decision("recurring_siphon", {
+                "type": "siphon", "target": target, "drones_pct": round(min(max(sent / drones * 100, 1.0), 100.0), 1),
+                "shielded": False, "stop_after_fails": 3,
+            }, f"siphon {world.names[target]} on repeat: worth about {value:,.0f} a time ({chance:.0%} to work)"))
         memory["siphon_options"] = len(worth)
         if len(options) < SIPHON_REVEAL_BELOW:
             # Siphons need kingdoms to see: one attempt shows a whole galaxy for longer than a siphon runs.
@@ -1921,7 +1948,8 @@ def plan(world, personality, style, memory, rng):
         settings["auto_attack_enabled"] = False  # the army waits at home for the strike
 
     # Spy attempts the scheduled operations will need are kept back from the auto rob.
-    needed = sum(d.options.get("max_tries", d.options.get("attempts", 1)) for d in scheduled if d.kind in ("intelspy", "aggressivespy"))
+    spending = ("aggressivespy",) if world.me.get("race") == "Lumina" else ("intelspy", "aggressivespy")
+    needed = sum(d.options.get("max_tries", d.options.get("attempts", 1)) for d in scheduled if d.kind in spending)
     keep = min(needed + (1 if personality.intel_chance >= 0.5 else 0), 8)
     if style.get("drones") in ("players", "both") and memory.get("siphon_options"):
         # A siphon is worth more than a rob, so with kingdoms worth siphoning the attempts wait for the next think
@@ -2057,6 +2085,8 @@ def _do(kd_id, world, decision):
             return _answer(uap.offer_surrender_for(kd_id, options["empire"], options["type"], options["value"]))
         if kind == "accept_surrender":
             return _answer(uap.accept_surrender_offer_for(kd_id, options["empire"], options["type"], options["value"]))
+        if kind == "recurring_siphon":
+            return _answer(uar.add_for(kd_id, dict(options)))
         if kind == "mark_target":
             return _answer(uat.add_target(kd_id, options["target"], options["actions"], None))
         if kind == "fulfil_bounty":

@@ -207,6 +207,10 @@ hidden state.
   thieves that all pick the richest target take from each other. Each target is drawn in proportion to what it is worth (`SIPHON_PICK`; drawing by worth cubed,
   `SIPHON_SHARPNESS = 3`, did worse), its income worked out from its
   structures when they are revealed (`income_from_intel`), so a kingdom of mines is worth more than one of homes.
+- **The best siphons repeat** (`RECURRING_SIPHONS`, `RECURRING_CHANCE`): the kingdoms most worth siphoning that a try is
+  likely to work on (large, with few drones) go on the Repeating tab (`recurring.add_for`, the route's own code), the way
+  a player sets them up. A standing siphon fires again each time the last one runs out, with no think needed, and takes
+  attempts before the auto rob. Those kingdoms are left out of the bot's own one-off picks.
 - **And learn who catches them** (`note_siphons`): every siphon's outcome, from the spy history, is counted per
   target with the older ones counting less (`SIPHON_MEMORY`), and blended with the forecast (`SIPHON_PRIOR`). A
   kingdom with more drones than its stars suggest, a thief for example, is tried less and less, without anybody being
@@ -252,6 +256,13 @@ hidden state.
 - **Bounties** (`answer_bounties`, `_post_bounty_for`): every bot answers galaxymates' bounties it has the intel for (the
   cut is free money), and a bot that strikes kingdoms but has no spy attempt asks the galaxy for military intel on the
   biggest kingdom it lacks (`BOUNTY_CUT`, at most `MAX_BOUNTIES` up).
+  The cut offered for intel, on a bounty or by an intel bot sharing what it learned, starts at `BOUNTY_CUT` (the
+  playstyle's own `share_cut`) and rises to the game's most (15%) for a marked empire target or a kingdom with little
+  fuel or few homes (`_cut_for`): the intel most likely to lead to a hit pays best. A Lumina bot's intel operations cost
+  no spy attempt, so it plans them whatever attempts it has, and keeps its attempts for siphons. Intel bots that siphon with their
+  attempts (drones `players` or `both`, `aggressive_chance` 0.9) and run more drones (4,500, factories on 19% of land)
+  did far worse in the simulator (7 days, 3 seeds: stars 7,200 to 4,800 with the siphoning alone, 3,400 with the
+  drones too, and 13-27% of them died), so they stay as they were: they mostly rob primitives and siphon rarely.
 
 ### Politics
 

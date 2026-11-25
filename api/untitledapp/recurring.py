@@ -111,21 +111,17 @@ def make_entry(req, kd_id, now=None):
     }, None
 
 
-@bp.route('/api/recurring', methods=['POST'])
-@flask_praetorian.auth_required
-@alive_required
-def add_recurring():
-    kd_id = flask_praetorian.current_user().kd_id
-    req = flask.request.get_json(force=True) or {}
+def add_for(kd_id, req):
+    """Add a repeating operation for ``kd_id``. ``(payload, status)`` as the route answers; bots call it too."""
     entry, message = make_entry(req, kd_id)
     if entry is None:
-        return flask.jsonify({"message": message}), 400
+        return {"message": message}, 400
     galaxies_inverted, _ = uag._get_galaxies_inverted()
     entry["target_name"] = uag._get_kingdoms().get(entry["target"], entry["target"])
     if entry["target"] not in galaxies_inverted:
-        return flask.jsonify({"message": "There is no such kingdom"}), 400
+        return {"message": "There is no such kingdom"}, 400
     if galaxies_inverted[entry["target"]] == galaxies_inverted.get(str(kd_id)):
-        return flask.jsonify({"message": "You can not spy on a galaxymate"}), 400
+        return {"message": "You can not spy on a galaxymate"}, 400
 
     def decide(kd_info):
         current = entries(kd_info)
@@ -139,10 +135,18 @@ def add_recurring():
     try:
         occ.update(f'/kingdom/{kd_id}', decide)
     except occ.Rejected as rejection:
-        return flask.jsonify({"message": rejection.message}), rejection.status
+        return {"message": rejection.message}, rejection.status
     except occ.Busy:
-        return flask.jsonify({"message": "Server is busy"}), 400
-    return flask.jsonify({"message": "It will repeat whenever a spy attempt is free", "status": "success"}), 200
+        return {"message": "Server is busy"}, 400
+    return {"message": "It will repeat whenever a spy attempt is free", "status": "success"}, 200
+
+
+@bp.route('/api/recurring', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def add_recurring():
+    payload, status = add_for(flask_praetorian.current_user().kd_id, flask.request.get_json(force=True) or {})
+    return flask.jsonify(payload), status
 
 
 @bp.route('/api/recurring/cancel', methods=['POST'])
