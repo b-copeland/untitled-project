@@ -12,7 +12,6 @@ import flask_praetorian
 import flask_cors
 from flask_mail import Mail
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from flask_sock import Sock
 
 guard = flask_praetorian.Praetorian()
@@ -104,12 +103,50 @@ import untitledapp.getters as uag
 import untitledapp.shared as uas
 import untitledapp.sockets as untitledapp_sockets
 
-def _custom_limit_key_func():
+# Every route together, per address: a page load is a few dozen requests and a household may share an address.
+ADDRESS_LIMIT = "600 per minute"
+# Routes with a tighter limit of their own. Logging in hashes the password (slow on purpose, so a flood of logins is a
+# flood of CPU), and signing up or the email routes create accounts or send mail.
+ROUTE_LIMITS = (
+    ("account.login", "10 per minute"),
+    ("account.refresh", "10 per minute"),
+    ("account.signup", "5 per hour"),
+    ("admin.admin_login", "5 per minute"),
+    ("account.forgot_password", "5 per minute"),
+    ("account.forgot_username", "5 per minute"),
+    ("account.reset_password", "10 per minute"),
+    ("account.verify_email", "10 per minute"),
+    ("account.set_email", "5 per minute"),
+    ("account.resend_verification", "5 per minute"),
+    ("board.post_to_board", "10 per minute"),
+)
+
+
+def _address_key():
+    """The caller's address (the last ``X-Forwarded-For`` entry, the one App Service adds; see ``client_address``)."""
+    from untitledapp.adminaccounts import client_address
+    request = flask.request
+    return "address:" + (client_address(request.headers.get("X-Forwarded-For"), request.remote_addr) or "unknown")
+
+
+def _limit_key():
+    """
+    Who a request counts against: the user of a valid, unexpired login token, else the caller's address.
+
+    Not the token itself: anyone can make up a token string, and a logged-in player can mint new ones with
+    ``/api/refresh``, so a key per token gave every request a fresh allowance (issue #219). Checking the signature is
+    a hash, no read. The result is kept for the request, as each limit asks for it.
+    """
+    if "limit_key" in flask.g:
+        return flask.g.limit_key
+    key = None
     try:
         token = guard.read_token_from_header()
-    except:
-        token = get_remote_address()
-    return token
+        key = f"user:{guard.extract_jwt_token(token)['id']}"
+    except Exception:  # no token, or a forged, expired or malformed one
+        key = _address_key()
+    flask.g.limit_key = key
+    return key
 
 def _ensure_user(username, password, **fields):
     """Create the user unless the name is taken. Safe when several processes start at once: one claim wins."""
@@ -209,23 +246,25 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uaadv.bp)
     app.before_request(uare.frozen_response)  # once the round is over, the game is read only
 
+    # Limits (docs/architecture.md#rate-limits): each route allows 100 a minute per user (per address without a
+    # login), and every route together allows ADDRESS_LIMIT per address, however many accounts or tokens it uses. The
+    # tick (`refreshdata`) is called by the scheduler with its own secret and is not limited.
     limiter = Limiter(
-        _custom_limit_key_func,
+        _limit_key,
         app=app,
         default_limits=["100 per minute",],
         storage_uri="memory://",
     )
 
     app.extensions["limiter_ref"] = limiter  # the per-route limits below hold only a weak reference to it
-    for endpoint, limit in (
-        ("account.forgot_password", "5 per minute"),
-        ("account.forgot_username", "5 per minute"),
-        ("account.reset_password", "10 per minute"),
-        ("account.verify_email", "10 per minute"),
-        ("account.set_email", "5 per minute"),
-        ("board.post_to_board", "10 per minute"),
-    ):
+    for endpoint, limit in ROUTE_LIMITS:
         app.view_functions[endpoint] = limiter.limit(limit)(app.view_functions[endpoint])
+    address_limit = limiter.shared_limit(ADDRESS_LIMIT, scope="address", key_func=_address_key, override_defaults=False)
+    for endpoint, view in list(app.view_functions.items()):
+        if endpoint == "refresh.refresh_data":
+            app.view_functions[endpoint] = limiter.exempt(view)
+        elif endpoint != "static":
+            app.view_functions[endpoint] = address_limit(view)
 
     def kingdom_for_token(token):
         """The kingdom of a valid, unexpired login token's user (one read: the socket outlives any request cache)."""

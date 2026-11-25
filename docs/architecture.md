@@ -94,6 +94,23 @@ An action that spends or changes something picks the one document that holds wha
 `kingdom_<id>`) and makes its decision there, with `occ.update`. Everything else it causes (news, history,
 notifications, queue entries) is written after, as appends. See the tiers in [concurrency.md](concurrency.md).
 
+## Rate limits
+
+Flask-Limiter, set up in `create_app` (`api/untitledapp/__init__.py`):
+
+- A request counts against its **user** when it carries a valid, unexpired login token, and against its **address**
+  otherwise (`_limit_key`). Never against the token string: anyone can make one up, and `/api/refresh` mints new
+  ones. The address is the last `X-Forwarded-For` entry, the one App Service adds (`client_address` in
+  `adminaccounts.py`); a proxy in front (issue #173) changes which entry that is.
+- Each route allows 100 a minute per key. All routes together allow `ADDRESS_LIMIT` per address, whatever tokens it
+  sends.
+- `ROUTE_LIMITS` holds the tighter ones: logging in (it hashes the password, slow on purpose), refreshing a token,
+  signing up, the admin login, and the routes that send email or post to the galaxy board.
+- `/api/refreshdata` is not limited: the scheduler calls it with its own secret.
+- A new route that is expensive (many function app calls), creates accounts, or sends mail gets a line in
+  `ROUTE_LIMITS`.
+- The counts are in process memory (`memory://`), so with more than one process each has its own (docs/status.md).
+
 ## Portability
 
 The project should be able to move to another cloud, database or web framework without rewriting the game. The seams:

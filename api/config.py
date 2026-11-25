@@ -30,3 +30,7 @@ class TestingConfig(Config):
     FRONTEND_URL = 'http://frontend.test'
     AZURE_FUNCTION_ENDPOINT = "http://localhost:7071/api"
     AZURE_FUNCTION_KEY = ""
+
+class RateLimitTestingConfig(TestingConfig):
+    """The tests' config with the rate limits on, for the tests of the limits themselves (tests/test_rate_limits.py)."""
+    RATELIMIT_ENABLED = True
