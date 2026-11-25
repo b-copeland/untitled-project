@@ -1442,11 +1442,17 @@ def _get_max_kingdoms(kd_id, kingdoms):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def max_kingdoms():
-    req = flask.request.get_json(force=True)
-    kingdoms = req["kingdoms"]
+    """Body ``{"kingdoms": [ids]}``: each kingdom as the caller sees it. Each id is one read, so only kingdoms that
+    exist are read, each once (issue #219): a request costs at most one read per kingdom in the universe."""
+    req = flask.request.get_json(force=True, silent=True)
+    kingdoms = req.get("kingdoms") if isinstance(req, dict) else None
+    if not isinstance(kingdoms, list):
+        return flask.jsonify({"message": "Send the kingdoms as a list of ids"}), 400
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    wanted = list(dict.fromkeys(str(other) for other in kingdoms if str(other) in galaxies_inverted))
 
     kd_id = flask_praetorian.current_user().kd_id
-    payload = _get_max_kingdoms(kd_id, kingdoms)
+    payload = _get_max_kingdoms(kd_id, wanted)
     return (flask.jsonify(payload), 200)
 
 def _get_galaxy_politics(kd_id, galaxy_id=None):

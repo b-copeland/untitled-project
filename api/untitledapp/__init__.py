@@ -196,6 +196,8 @@ ROUTE_LIMITS = (
     ("account.set_email", "5 per minute"),
     ("account.resend_verification", "5 per minute"),
     ("board.post_to_board", "10 per minute"),
+    # One read per kingdom asked for: the Conquer page asks twice when it opens.
+    ("getters.max_kingdoms", "20 per minute"),
 )
 
 
