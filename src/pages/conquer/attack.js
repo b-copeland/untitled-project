@@ -12,11 +12,12 @@ import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { flourishResult } from "../../components/flourish";
 import { AmountInput, NumberControl } from "../../components/forms";
-import { Panel, FieldRow, UnitStat, Stats, VersusBar, Picker, useServerForecast, clockUntil } from "../../components/planner";
+import { Panel, FieldRow, UnitStat, Stats, VersusBar, useServerForecast, clockUntil } from "../../components/planner";
 import { displayPercent } from "../../format";
 import { TargetIntel } from "./intel.js";
 import { useTour, TOUR_NO_SEND } from "../../components/tour";
-import { targetOptions, teamOptionLabel, teamOf, TeammateWarning, TEAM_TAGS } from "../../components/teammates";
+import { teamOf, TEAM_TAGS } from "../../components/teammates";
+import { KingdomPicker } from "../../components/kingdompicker";
 
 /*
  * Every figure on this page that is a projection (offense, defense, losses, spoils, what is left at home) comes from
@@ -166,7 +167,6 @@ function Attack(props) {
     };
 
     const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
-    const options = targetOptions(props.data);
     const team = teamOf(props.data, selected);
 
     const unitsKnown = Boolean(context?.revealed.units);
@@ -200,9 +200,8 @@ function Attack(props) {
                 <div className="wide-layout attack-layout">
 
                 <Panel className="area-target" title="1. Choose a target" data-tour="attack-target">
-                    <Picker id="attack-target" options={options} value={selected} onChange={loadTarget}
-                        placeholder="Type a kingdom to filter" autoFocus={selected === undefined} formatOptionLabel={teamOptionLabel} />
-                    <TeammateWarning data={props.data} target={selected} doing="Attacking them" />
+                    <KingdomPicker id="attack-target" data={props.data} value={selected} onChange={loadTarget}
+                        autoFocus={selected === undefined} harm="Attacking them" />
                     {loadingTarget ? <p className="planner-hint-line">Loading what is known about them...</p> : null}
                     {intel.length > 0
                         ? <Stats items={intel.map(([what, until]) => ({ label: `${what} revealed for`, value: clockUntil(until) }))} />

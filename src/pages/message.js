@@ -11,7 +11,7 @@ import { FiSend, FiArrowLeft, FiEdit } from "react-icons/fi";
 import "./message.css";
 import HelpButton from "../components/helpbutton";
 import { ResultToasts, safeJson } from "../components/results";
-import { Picker } from "../components/planner";
+import { KingdomPicker } from "../components/kingdompicker";
 import GalaxyBoard from "./galaxyboard";
 
 const shortTime = (time) => {
@@ -38,8 +38,6 @@ function Conversations(props) {
         if (unread > 0) markRead(props.updateData, props.data.notifs, ["messages"], ["messages"]);
     }, [unread]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
-    const options = Object.keys(props.data.kingdoms).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
 
     // Group every message by who it was with, oldest first inside a conversation, newest conversation first.
     const byPerson = {};
@@ -83,7 +81,7 @@ function Conversations(props) {
                         </Button>
                     </div>
                     {composing
-                        ? <div className="messenger-new"><Picker id="message-new" options={options} onChange={open} placeholder="Who to write to?" autoFocus /></div>
+                        ? <div className="messenger-new"><KingdomPicker id="message-new" data={props.data} onChange={open} placeholder="Who to write to?" autoFocus /></div>
                         : null}
                     <ul className="messenger-people">
                         {people.length === 0 && !composing ? <li className="messenger-empty">No messages yet. Press New to write to someone.</li> : null}

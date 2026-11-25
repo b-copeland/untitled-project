@@ -11,7 +11,8 @@ import { useFromHere } from "../../components/pagehead";
 import { GameTable } from "../../components/gametable";
 import { NumberControl, SubmitButton } from "../../components/forms";
 import { IconButton } from "../../components/iconbutton";
-import { Panel, Picker, Stats } from "../../components/planner";
+import { Panel, Stats } from "../../components/planner";
+import { KingdomPicker } from "../../components/kingdompicker";
 import { ResultToasts, safeJson } from "../../components/results";
 import { displayNumber, displayPercent } from "../../format";
 import { checkDecimal, checkPercent, firstError } from "../../validation";
@@ -161,9 +162,7 @@ function AddTarget({ data, targets, members, send, loading }) {
     // Kingdoms already targets, or removed too recently to be marked again (``removed``: kingdom to when it can be), are not offered.
     const taken = new Set((targets.targets || []).map((item) => String(item.target))
         .concat(Object.keys(targets.removed || {}).filter((kdId) => Date.parse(targets.removed[kdId]) > Date.now())));
-    const options = warKingdoms(data, targets)
-        .filter((kdId) => !members.includes(kdId) && !taken.has(kdId))
-        .map((kdId) => ({ value: kdId, label: kdLabel(data, kdId) }));
+    const options = warKingdoms(data, targets).filter((kdId) => !members.includes(kdId) && !taken.has(kdId));
     const errors = targetFormErrors(form, targets);
     const noWar = (targets.at_war_with || []).length ? null
         : "Your empire is not at war. Only kingdoms of an empire you are at war with can be targets";
@@ -177,7 +176,7 @@ function AddTarget({ data, targets, members, send, loading }) {
     return (
         <Form onSubmit={submit} className="targets-form">
             <Form.Label htmlFor="targets-new-target">Kingdom</Form.Label>
-            <Picker id="targets-new-target" options={options} value={target} onChange={setTarget} placeholder="Choose a kingdom" />
+            <KingdomPicker id="targets-new-target" data={data} only={options} value={target} onChange={setTarget} placeholder="Choose a kingdom" />
             <TargetFields form={form} setForm={setForm} targets={targets} errors={errors} idPrefix="targets-new" />
             <SubmitButton loading={loading} blocked={blocked}>Mark as a target</SubmitButton>
             {blocked && (target || noWar) ? <p className="planner-why">{blocked}</p> : null}
@@ -284,8 +283,7 @@ function TargetCard({ target, targets, data, send, loading, open }) {
 function Delegates({ data, targets, members, send, loading }) {
     const [choice, setChoice] = useState(undefined);
     const current = (targets.delegates || []).map((delegate) => String(delegate.kd_id));
-    const options = members.filter((kdId) => kdId !== myKd(data) && !current.includes(kdId))
-        .map((kdId) => ({ value: kdId, label: kdLabel(data, kdId) }));
+    const options = members.filter((kdId) => kdId !== myKd(data) && !current.includes(kdId));
     const full = current.length >= (targets.max_delegates || 0) ? `You can name at most ${targets.max_delegates} delegate(s)` : null;
     const save = (delegates, after) => send("delegates", { delegates }, after);
     return (
@@ -306,7 +304,7 @@ function Delegates({ data, targets, members, send, loading }) {
             </GameTable>
             <Form className="targets-form" onSubmit={(event) => { event.preventDefault(); save(current.concat(choice), () => setChoice(undefined)); }}>
                 <Form.Label htmlFor="targets-new-delegate">Name a delegate</Form.Label>
-                <Picker id="targets-new-delegate" options={options} value={choice} onChange={setChoice} placeholder="Choose a kingdom in your empire" />
+                <KingdomPicker id="targets-new-delegate" data={data} only={options} value={choice} onChange={setChoice} placeholder="Choose a kingdom in your empire" />
                 <SubmitButton loading={loading} blocked={full || (choice ? null : "Choose a kingdom")}>Add delegate</SubmitButton>
             </Form>
         </>

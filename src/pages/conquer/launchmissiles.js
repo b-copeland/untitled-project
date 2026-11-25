@@ -10,11 +10,12 @@ import HelpButton from "../../components/helpbutton";
 import { ResultToasts, safeJson } from "../../components/results";
 import { flourishResult } from "../../components/flourish";
 import { AmountInput, NumberControl, useFormValues } from "../../components/forms";
-import { Panel, FieldRow, Stats, Picker, useServerForecast } from "../../components/planner";
+import { Panel, FieldRow, Stats, useServerForecast } from "../../components/planner";
 import { checkPercent } from "../../validation";
 import { displayNumber } from "../../format";
 import { TargetIntel } from "./intel.js";
-import { targetOptions, teamOptionLabel, teamOf, TeammateWarning, TEAM_TAGS } from "../../components/teammates";
+import { teamOf, TEAM_TAGS } from "../../components/teammates";
+import { KingdomPicker } from "../../components/kingdompicker";
 
 const MISSILES = [
     { key: "planet_busters", label: "Planet Buster" },
@@ -43,7 +44,6 @@ function LaunchMissiles(props) {
     const have = props.data.kingdom.missiles || {};
     const desc = props.data.missiles?.desc || {};
     const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
-    const options = targetOptions(props.data);
     const team = teamOf(props.data, selected);
 
     const shieldsKnown = targetKdInfo.shields !== undefined;
@@ -87,10 +87,9 @@ function LaunchMissiles(props) {
                 <div className="wide-layout missiles-layout">
                     <Panel title="1. Target">
                         <FieldRow label="Target" htmlFor="missile-target">
-                            <Picker id="missile-target" options={options} value={selected} onChange={onPickTarget}
-                                placeholder="Type a kingdom to filter" autoFocus={selected === undefined} formatOptionLabel={teamOptionLabel} />
+                            <KingdomPicker id="missile-target" data={props.data} value={selected} onChange={onPickTarget}
+                                autoFocus={selected === undefined} harm="Launching missiles at them" />
                         </FieldRow>
-                        <TeammateWarning data={props.data} target={selected} doing="Launching missiles at them" />
                         <FieldRow label="Their missile shields" status={shieldsKnown ? "revealed" : shields !== "" ? "estimate" : "optional"} htmlFor="missile-shields">
                             {shieldsKnown
                                 ? <span className="known-value">{Math.round(targetKdInfo.shields.missiles * 100)}%</span>

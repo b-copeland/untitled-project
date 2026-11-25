@@ -4,7 +4,8 @@ import Button from "react-bootstrap/Button";
 import { authFetch } from "../../auth";
 import { ResultToasts, safeJson } from "../../components/results";
 import { AmountInput } from "../../components/forms";
-import { Panel, FieldRow, Picker } from "../../components/planner";
+import { Panel, FieldRow } from "../../components/planner";
+import { KingdomPicker } from "../../components/kingdompicker";
 import { displayPercent } from "../../format";
 
 // The intel operations a repeating entry can run. The server holds the same list (REVEAL_OPERATIONS).
@@ -44,7 +45,6 @@ export function Repeating(props) {
     const siphonHours = (config.BASE_DRONES_SIPHON_TIME_MULTIPLIER || 0) * (config.BASE_EPOCH_SECONDS || 0) / 3600;
     const me = props.data.kingdomid?.kd_id;
     const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
-    const kingdomOptions = Object.keys(props.data.kingdoms || {}).map((kdId) => ({ value: kdId, label: kdLabel(kdId) }));
     const set = (name, value) => setOptions((previous) => ({ ...previous, [name]: value }));
     const onText = (event) => set(event.target.name, event.target.value);
     const blocked = recurringProblems(options, me, maxCut)[0];
@@ -81,7 +81,9 @@ export function Repeating(props) {
                         </div>
                     </FieldRow>
                     <FieldRow label="Target" htmlFor="recurring-target">
-                        <Picker id="recurring-target" options={kingdomOptions} value={options.target} onChange={(value) => set("target", value)} placeholder="Type a kingdom to filter" />
+                        {/* A repeating siphon on a teammate takes their money; intel on them does no harm. */}
+                        <KingdomPicker id="recurring-target" data={props.data} value={options.target} onChange={(value) => set("target", value)}
+                            harm={options.type === "siphon" ? "Siphoning their income" : null} />
                     </FieldRow>
                     {options.type === "intel" ? (
                         <FieldRow label="Operation" htmlFor="recurring-operation">
