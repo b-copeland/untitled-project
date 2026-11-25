@@ -225,6 +225,35 @@ def test_siphons_out_are_paid_to_the_receiver_and_the_remainder_kept(app, sessio
     assert len(kept) == 1 and kept[0]["from"] == 2 and kept[0]["siphon"] < 10.0
 
 
+def test_a_siphon_payment_carries_the_rate_of_what_is_left(app, session, monkeypatch):
+    out = [{"from": 2, "time": FUTURE, "siphon": 10.0}]
+    _siphons(monkeypatch, siphons_out=out, siphons_in=[])
+    session.docs["/kingdom/1/siphonsout"] = {"siphons_out": list(out), "_etag": '"s0"'}
+
+    with app.app_context():
+        refresh._resolve_siphons(100, 1, NOW, 1.0)
+
+    (payment,) = [body["new_siphons"] for method, path, body in session.calls if path == "/kingdom/2/siphonsin"]
+    epochs_left = 3600 / shared.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+    assert payment["rate"] == pytest.approx(payment["remaining_siphon"] / epochs_left)
+
+
+def test_the_siphons_running_keep_each_rate_between_payments_and_drop_ended_ones():
+    later = (NOW + datetime.timedelta(hours=2)).isoformat()
+    ended = (NOW - datetime.timedelta(minutes=1)).isoformat()
+    previous = {f"3|{later}": {"from": 3, "until": later, "rate": 4.0}, f"4|{ended}": {"from": 4, "until": ended, "rate": 9.0}}
+    payments = [{"from": 2, "siphon": 1.0, "time": FUTURE, "remaining_siphon": 6.0, "rate": 3.0}]
+    running = refresh._siphons_running(previous, payments, NOW)
+    # Siphon 3 paid nothing this tick but keeps its rate; siphon 4 has ended; siphon 2 is added.
+    assert {entry["from"]: entry["rate"] for entry in running.values()} == {3: 4.0, 2: 3.0}
+    # A payment from before the rate was sent: what is left over the time left (an hour here).
+    old = refresh._siphons_running({}, [{"from": 5, "siphon": 1.0, "time": FUTURE, "remaining_siphon": 6.0}], NOW)
+    assert list(old.values())[0]["rate"] == pytest.approx(6.0 / (3600 / shared.GAME_CONFIG["BASE_EPOCH_SECONDS"]))
+    # A second payment from the same siphon replaces its entry.
+    again = refresh._siphons_running(running, [{**payments[0], "rate": 2.5}], NOW)
+    assert len(again) == 2 and again[f"2|{FUTURE}"]["rate"] == 2.5
+
+
 def test_siphon_payments_wait_for_the_kingdom_to_be_written_and_are_not_repeated_when_the_tick_restarts(app, session, monkeypatch):
     out = [{"from": 2, "time": FUTURE, "siphon": 10.0}]
     _siphons(monkeypatch, siphons_out=out, siphons_in=[])

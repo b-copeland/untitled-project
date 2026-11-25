@@ -86,6 +86,24 @@ for a planner page.
   `src/components/lastknown.js`), with its age in the tooltip.
 - One spacing scale and one table style, from `shared.css`.
 
+## Sliders on a phone
+
+Sliders let a player set every amount without the keypad, which is why `AmountInput` is a slider first. On a touch
+screen only its thumb takes a touch, as on iOS: tapping the track does nothing, and a scroll that starts on the track
+scrolls the page instead of moving the slider to the finger. The thumb is larger there, to be easy to grab. This is CSS
+only (`pointer: coarse` in `shared.css`); do not add touch handlers to a slider.
+
+Sliders suit approximate amounts (shares that add up to 100%, shield levels) better than exact counts (engineers,
+units), where landing on one number by dragging is fiddly. Options considered for exact counts, not built:
+
+- **− and + buttons beside the slider**: drag near, tap to fine-tune. The usual pattern in mobile strategy games
+  alongside Max, and the first choice if exact counts become a complaint.
+- **Preset buttons** (25%, 50%, 75%, Max): fast and hard to press by mistake, but coarse.
+- **A stepper alone**: exact but slow for large numbers unless holding it speeds up.
+- **Waiting for a sideways drag before moving** (Android's approach): needs touch handling in JavaScript, and the
+  browser has already moved the thumb on the first touch.
+- **Tap to unlock a slider**: safe, but a tap more for every change.
+
 ## Building and checking a page
 
 How data reaches a page (`data`, `loading`, `updateData`), the code conventions and the Jest setup are in

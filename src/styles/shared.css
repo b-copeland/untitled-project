@@ -252,6 +252,13 @@
 .amount-input-slider::-moz-range-track {
   background: linear-gradient(to right, var(--bs-primary) 0, var(--bs-primary) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--val, 0%), var(--bs-primary-border-subtle, #9ec5fe) var(--avail, 100%), var(--bs-secondary-bg) var(--avail, 100%), var(--bs-secondary-bg) 100%);
 }
+/* On a touch screen only the thumb takes a touch (as on iOS): a scroll that starts on the track scrolls the page
+   instead of jumping the slider to the finger (#249). The thumb is larger, to be easy to grab. */
+@media (pointer: coarse) {
+  .amount-input-slider { pointer-events: none; height: 2rem; }
+  .amount-input-slider::-webkit-slider-thumb { pointer-events: auto; width: 1.5rem; height: 1.5rem; margin-top: -0.5rem; }
+  .amount-input-slider::-moz-range-thumb { pointer-events: auto; width: 1.5rem; height: 1.5rem; }
+}
 .amount-input-error { color: var(--bs-danger, #dc3545); font-size: 0.8em; text-align: right; }
 .table > :not(caption) > * > * { vertical-align: middle; }
 

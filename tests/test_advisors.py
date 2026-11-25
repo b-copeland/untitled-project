@@ -522,37 +522,49 @@ def test_the_stats_split_strength_by_role_and_per_star():
           "units": {"attack": 10, "defense": 20, "flex": 5, "recruits": 0, "engineers": 0},
           "generals_out": [{"attack": 10, "return_time": "x"}],
           "structures": {"homes": 40, "mines": 30, "fuel_plants": 10, "drone_factories": 5},
-          "income": {"money": {"net": 1000, "population": 400, "mines": 300, "bonus": 0.0, "siphons_in": 50},
+          "income": {"money": {"net": 1000, "population": 400, "mines": 300, "bonus": 0.0, "siphons_in": 999},
                      "fuel": {"net": -10, "population": 40, "bonus": 0.0}},
-          "projects_points": {}, "projects_max_points": {}, "funding": {"settle": 0}}
-    stats = _stats_by_key(uaadv.kingdom_stats(kd, epochs=48, max_hangar=100, used_hangar=25))
+          "projects_points": {}, "projects_max_points": {}, "funding": {"settle": 0},
+          "siphons_running": {
+              "7|a": {"from": "7", "until": (NOW + datetime.timedelta(hours=3)).isoformat(), "rate": 10},
+              "8|b": {"from": "8", "until": (NOW + datetime.timedelta(hours=1)).isoformat(), "rate": 20},
+              "9|c": {"from": "9", "until": (NOW - datetime.timedelta(minutes=1)).isoformat(), "rate": 500},  # ended
+          }}
+    stats = _stats_by_key(uaadv.kingdom_stats(kd, epochs=48, now=NOW, max_hangar=100, used_hangar=25))
     attack, flex = uas.UNITS["attack"]["offense"], uas.UNITS["flex"]["offense"]
     assert stats["pure_offense"] == 20 * attack  # home and out
     assert stats["flex_offense"] == 5 * flex
     assert stats["total_offense"] == 20 * attack + 5 * flex
+    # Upgraded units count with their line: heavy attackers with attackers, big flexers with flexers.
+    upgraded = _stats_by_key(uaadv.kingdom_stats({**kd, "units": {**kd["units"], "heavy_attack": 4, "big_flex": 2}},
+                                                 epochs=48, now=NOW))
+    assert upgraded["pure_offense"] == 20 * attack + 4 * uas.UNITS["heavy_attack"]["offense"]
+    assert upgraded["flex_offense"] == 5 * flex + 2 * uas.UNITS["big_flex"]["offense"]
     assert stats["total_offense_per_star"] == stats["total_offense"] / 100
     assert stats["pure_defense"] == uaadv.home_defense({**kd, "units": {"defense": 20}})
     assert stats["total_defense"] == uaadv.home_defense(kd)
     assert stats["income_per_star"] == 1000 * hour / 100
-    assert stats["income_structures_share"] == 0.7
+    assert stats["income_structures_share"] == 0.75  # homes, mines and drone factories
     assert stats["pop_income_per_home"] == 400 * hour / 40
     fuel_plant = uas.GAME_CONFIG["BASE_FUEL_PLANTS_INCOME_PER_EPOCH"]
     assert stats["pop_income_per_home_fuelled"] == pytest.approx(400 * hour / 40 / (1 + 40 / (40 * fuel_plant)))
     assert stats["mine_income_per_mine"] == 300 * hour / 30
-    assert stats["siphons_per_drone_factory"] == 50 * hour / 5
+    # From the rates of the siphons still running, not the payments credited at the last tick (siphons_in).
+    assert stats["siphon_income"] == pytest.approx(30 * hour)
+    assert stats["siphon_income_per_drone_factory"] == pytest.approx(30 * hour / 5)
     assert stats["fuel_hours_left"] == pytest.approx(1000 / (10 * hour))
     assert stats["hangar_used"] == 0.25
     assert stats["idle_money_hours"] == pytest.approx(500 / (1000 * hour))
     assert stats["break_even_defense_per_star"] == strategy.break_even_per_star(48)
-    assert stats["primitives_defense_per_star"] == strategy.primitives_defense_per_star(48)
+    assert "primitives_defense_per_star" not in stats
 
 
 def test_a_figure_with_nothing_to_divide_by_is_left_empty():
     kd = {"kdId": "1", "race": "Xo", "stars": 0, "fuel": 10, "money": 0, "units": {}, "structures": {},
           "income": {"money": {"net": 0}, "fuel": {"net": 5}}, "projects_points": {}, "projects_max_points": {}}
-    stats = _stats_by_key(uaadv.kingdom_stats(kd, epochs=0))
+    stats = _stats_by_key(uaadv.kingdom_stats(kd, epochs=0, now=NOW))
     for key in ("total_offense_per_star", "pop_income_per_home", "pop_income_per_home_fuelled",
-                "mine_income_per_mine", "siphons_per_drone_factory", "fuel_hours_left", "hangar_used", "idle_money_hours"):
+                "mine_income_per_mine", "siphon_income_per_drone_factory", "fuel_hours_left", "hangar_used", "idle_money_hours"):
         assert stats[key] is None, key
 
 
@@ -560,7 +572,7 @@ def test_the_stats_route_answers_for_the_callers_own_kingdom(app, client, jwt1):
     _set_up()
     answer = client.get("/api/kingdomstats", headers=_auth(jwt1)).get_json()
     titles = [section["title"] for section in answer["sections"]]
-    assert titles == ["Military", "Economy", "What the advisors look at", "What the bots plan by"]
+    assert titles == ["Military", "Economy", "What your advisors watch"]
     rows = [row for section in answer["sections"] for row in section["rows"]]
     assert all(set(row) == {"key", "label", "value", "format", "tip"} for row in rows)
     assert _stats_by_key(answer["sections"])["break_even_defense_per_star"] > 0

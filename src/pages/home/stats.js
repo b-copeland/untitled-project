@@ -28,9 +28,9 @@ export function formatStat(value, format) {
 }
 
 /**
- * The figures the advisors and the bots work from, for the player's own kingdom (``GET /api/kingdomstats``): strength
- * by role and per star, income per building, and the lines the advisors and the bots draw. All from the server; a
- * row's tip says how it is counted.
+ * The figures behind the advice, for the player's own kingdom (``GET /api/kingdomstats``): strength by kind of unit
+ * and per star, income per structure, and what the advisors watch. All from the server; a row's tip says how it is
+ * counted.
  */
 export function KingdomStats() {
     const { data, isError } = useQuery({ queryKey: STATS_KEY, queryFn: fetchStats, staleTime: 0, refetchOnMount: "always" });

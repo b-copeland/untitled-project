@@ -111,8 +111,9 @@ Each tick, `_settle_siphons` in `refresh.py` pays each siphon its `rate` for the
 more than its `siphon`. If the rates together exceed `BASE_MAX_SIPHON` of the target's gross income, it cuts the
 soonest to end first. It then writes each siphon's lowered `siphon` and `rate` back, and drops siphons that have ended
 or have nothing left. Each payment is appended to the siphoner's `siphons_in` as `{from, siphon, time,
-remaining_siphon}`: `from` is the target, `siphon` the money paid, and `time` and `remaining_siphon` say when the
-siphon ends and what it still has to take. The siphoner's next refresh credits the payments and clears them. A siphon
+remaining_siphon, rate}`: `from` is the target, `siphon` the money paid, `time` and `remaining_siphon` say when the
+siphon ends and what it still has to take, and `rate` is what is left over the epochs left. The siphoner's next refresh
+credits the payments and clears them, and keeps each siphon's `rate` in its `siphons_running`. A siphon
 whose siphoner is dead (or no longer exists) ends at the target's next tick: it pays nothing, does not count towards
 the cap, and is dropped. The refresh knows the siphoner's status from the kingdoms it has already refreshed that tick,
 or reads it once.
@@ -196,7 +197,8 @@ Created from `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`, which has the st
 | `projects_points`, `projects_max_points`, `projects_assigned`, `completed_projects`, `auto_assign_projects` | Projects: progress, caps, engineers assigned, unlocks done. One key per project in `PROJECTS`; a kingdom made before a unit or project existed lacks its keys until its next tick fills them (`with_new_fields` in `shared.py`), so read them with the helpers there. |
 | `schedule` | Scheduled actions waiting for their time: `{id, time, type, options}`. An attack's `options` hold `pure_offense` and `flex_offense` (fractions of the whole army), `units_mode` (`send`: that share; `up_to`: up to that share, counting units already out), `prefer_autofill`, `autofill_buffer`, `send_without_intel` and `generals`. Entries saved before `units_mode` and `send_without_intel` existed lack them and run as `up_to` and true. |
 | `recurring` | Repeating spy operations (issue #137, `recurring.py`): `{id, type, target, target_name, operation, drones_pct, shielded, share_to_galaxy, cut, stop_after_fails, until, next, fails, refused, runs, last}`. `type` is `siphon` or `intel`; `next` is the earliest time it runs again; `last` is `{time, status, message}` of the last run. Missing on kingdoms made before it (read as `[]`) |
-| `siphons` | Siphons this kingdom is running |
+| `siphons` | The payments from this kingdom's siphons that its last refresh collected (`siphons_in` entries) |
+| `siphons_running` | The siphons this kingdom runs on others, keyed by target and end time, each `{from, until, rate}`: updated from each payment's `rate` and pruned as they end, so siphon income per hour is steady between payments (the Stats tab). Read with `.get` |
 
 Fields added after creation:
 

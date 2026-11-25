@@ -266,6 +266,26 @@ def _is_dead(kd_info):
 def _siphon_expiry(siphon):
     return datetime.datetime.fromisoformat(siphon["time"]).astimezone(datetime.timezone.utc)
 
+def _siphons_running(previous, payments, now):
+    """
+    The siphons this kingdom runs on others, as ``{"<target>|<ends>": {"from", "until", "rate"}}``: ``previous`` updated
+    with the ``payments`` collected this tick, without those that have ended by ``now``. Payments land whenever each
+    target refreshes, so the money credited per tick jumps about; this keeps each siphon's rate between payments, for a
+    steady siphon income (the Stats tab). A payment from before ``rate`` was sent gives what is left over the time left.
+    """
+    running = {key: entry for key, entry in (previous or {}).items() if uas.utc(entry["until"]) > now}
+    for payment in payments or []:
+        until = uas.utc(payment["time"])
+        if until <= now:
+            continue
+        rate = payment.get("rate")
+        if rate is None:
+            epochs_left = (until - now).total_seconds() / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+            rate = payment.get("remaining_siphon", 0) / epochs_left
+        running[f'{payment["from"]}|{payment["time"]}'] = {"from": payment["from"], "until": payment["time"], "rate": rate}
+    return running
+
+
 def _siphon_rate(siphon, window_start):
     """
     Money per epoch the siphon pays. Entries made before the rate was stored have only what they still have and their
@@ -343,6 +363,11 @@ def _resolve_siphons(
     dead = {siphon["from"] for siphon in siphons_out if is_dead is not None and is_dead(siphon["from"])}
     live = [siphon for siphon in siphons_out if siphon["from"] not in dead]
     paid, keep_siphons = _settle_siphons(live, gross_income, time_update, epoch_elapsed)
+    def rate_from_now(siphon, remaining):
+        # What the rest of the siphon pays per epoch, for the siphoner's steady figure (``siphons_running``).
+        epochs_left = (_siphon_expiry(siphon) - time_update).total_seconds() / uas.GAME_CONFIG["BASE_EPOCH_SECONDS"]
+        return remaining / epochs_left if epochs_left > 0 else 0
+
     payments = [
         (siphon["from"], {
             "new_siphons": {
@@ -350,6 +375,7 @@ def _resolve_siphons(
                 "siphon": money,
                 "time": _siphon_expiry(siphon).isoformat(),
                 "remaining_siphon": remaining,
+                "rate": rate_from_now(siphon, remaining),
             }
         })
         for siphon, money, remaining in paid
@@ -563,6 +589,7 @@ def _kingdom_with_income(
         total_units,
     ))
     new_kd_info["siphons"] = siphons_in
+    new_kd_info["siphons_running"] = _siphons_running(kd_info_parse.get("siphons_running"), siphons_in, time_now)
 
     if new_kd_info["population"] <= 0:
         new_kd_info["status"] = "Dead"

@@ -1366,6 +1366,7 @@ INITIAL_KINGDOM_STATE = {
         "schedule": [],
         "recurring": [],
         "siphons": [],
+        "siphons_running": {},
     },
     "siphons_in": {"siphons_in": []},
     "siphons_out": {"siphons_out": []},
