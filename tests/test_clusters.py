@@ -421,3 +421,30 @@ def test_a_new_round_draws_the_cluster_benefits_it_plays():
     state = admin.round_state(settings, rounds_archived=0, rng=random.Random(2))
     assert len(state["cluster_benefits"]) == uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]
     assert set(state["cluster_benefits"]) <= set(uas.CLUSTER_BENEFITS)
+
+
+# --- every cluster (#242) -----------------------------------------------------------------------------------------
+
+def test_a_summary_gives_each_benefits_value_and_level_and_their_average_but_no_votes():
+    document = {"levels": {key: 0.0 for key in uas.CLUSTER_BENEFITS}, "votes": {"1:1": "unit_cost"}}
+    benefits = list(uas.CLUSTER_BENEFITS)[:2]
+    document["levels"][benefits[0]] = 0.5
+    row = clusters.summary(clusters.normalize(document), "1", ["1:1", "1:2"], benefits)
+    assert row["cluster"] == "1" and row["galaxies"] == 2
+    assert row["benefits"][benefits[0]] == {"value": 0.5 * uas.CLUSTER_BENEFITS[benefits[0]]["max"], "level": 0.5}
+    assert row["average_level"] == 0.25
+    assert "votes" not in row and "unit_cost" not in str(row).replace(f"'{benefits[0]}'", "").replace(f"'{benefits[1]}'", "")
+
+
+def test_the_clusters_route_lists_every_cluster_most_built_up_first(app, client, jwt1):
+    _cluster_of_two_galaxies()
+    benefit = clusters.round_benefits(_get("/state").get("state"))[0]
+    levels = {key: 0.0 for key in uas.CLUSTER_BENEFITS}
+    _create_item("cluster_2", {"levels": {**levels, benefit: 0.8}, "votes": {"2:1": benefit},
+                               "last_update": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+    answer = client.get("/api/clusters", headers=_auth(jwt1)).get_json()
+    assert answer["mine"] == "1"
+    assert [row["cluster"] for row in answer["clusters"]] == ["2", "1"]
+    assert answer["clusters"][0]["benefits"][benefit]["level"] == pytest.approx(0.8, abs=0.01)
+    assert set(answer["order"]) == set(answer["names"]) and len(answer["order"]) == uas.GAME_CONFIG["CLUSTER_BENEFITS_PER_ROUND"]
+    assert all("votes" not in row for row in answer["clusters"])

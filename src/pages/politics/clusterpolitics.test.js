@@ -139,3 +139,30 @@ test("a kingdom in no galaxy sees why", () => {
     render(<ClusterPolitics data={data({ cluster: { message: "You are not in a galaxy" } })} loading={{}} updateData={jest.fn()} />);
     expect(screen.getByText("You are not in a galaxy")).toBeTruthy();
 });
+
+test("all clusters are listed with each benefit's value, yours marked, and fetched only when asked (#242)", async () => {
+    const { AllClusters } = require("./clusterpolitics");
+    const { QueryClient, QueryClientProvider } = require("@tanstack/react-query");
+    const answer = {
+        mine: "1", order: ["unit_cost", "settle_cost"], names: { unit_cost: "Cheaper Units", settle_cost: "Cheaper Settling" },
+        max: { unit_cost: 0.05, settle_cost: 0.1 },
+        clusters: [
+            { cluster: "2", galaxies: 3, average_level: 0.6, benefits: { unit_cost: { value: 0.04, level: 0.8 }, settle_cost: { value: 0.04, level: 0.4 } } },
+            { cluster: "1", galaxies: 2, average_level: 0.1, benefits: { unit_cost: { value: 0.01, level: 0.2 }, settle_cost: { value: 0, level: 0 } } },
+        ],
+    };
+    authFetch.mockImplementation(() => Promise.resolve({ status: 200, json: () => Promise.resolve(answer) }));
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AllClusters /></QueryClientProvider>);
+    expect(await screen.findByText("1 (yours)")).toBeTruthy();
+    expect(authFetch).toHaveBeenCalledWith("api/clusters");
+    const top = screen.getAllByRole("row")[1];
+    expect(within(top).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["2", "3", "4.00%", "4.00%", "60%"]);
+    expect(screen.getByText("Cheaper Settling")).toBeTruthy();
+});
+
+test("the cluster page does not ask for every cluster until that tab is opened", () => {
+    authFetch.mockClear();
+    render(<ClusterPolitics data={data()} loading={{}} updateData={jest.fn()} />);
+    expect(screen.getByRole("tab", { name: "All clusters" })).toBeTruthy();
+    expect(authFetch).not.toHaveBeenCalledWith("api/clusters");
+});

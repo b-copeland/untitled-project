@@ -434,3 +434,48 @@ def post_vote():
     body = body if isinstance(body, dict) else {}
     payload, status = vote(_me(), body.get("benefit"))
     return flask.jsonify(payload), status
+
+
+# --- every cluster (#242) -----------------------------------------------------------------------------------------
+
+def summary(cluster, cluster_id, member_galaxies, benefits):
+    """
+    What another cluster has built up, for the All clusters tab: each of the round's ``benefits`` as its value and
+    level now, and their average level. Not its votes, nor which galaxy voted for what: those are the cluster's own
+    business. ``cluster`` is from ``advance``.
+    """
+    values = {
+        key: {"value": cluster["levels"][key] * uas.CLUSTER_BENEFITS[key]["max"], "level": cluster["levels"][key]}
+        for key in benefits
+    }
+    return {
+        "cluster": cluster_id,
+        "galaxies": len(member_galaxies),
+        "benefits": values,
+        "average_level": sum(entry["level"] for entry in values.values()) / len(values) if values else 0.0,
+    }
+
+
+@bp.route('/api/clusters', methods=['GET'])
+@flask_praetorian.auth_required
+def get_clusters():
+    """
+    ``{"mine", "order", "names", "clusters"}``: every cluster's benefits now, most built up first. One read per
+    cluster, so the page asks only while its tab is open.
+    """
+    galaxies_inverted, galaxies = uag._get_galaxies_inverted()
+    benefits = [key for key in uas.CLUSTER_BENEFITS if key in round_benefits(uag._get_state().get("state"))]
+    now = _now()
+    rows = []
+    for cluster_id in clusters(galaxies):
+        member_galaxies = members(galaxies, cluster_id)
+        rows.append(summary(advance(uag._get_cluster_document(cluster_id), member_galaxies, now),
+                            cluster_id, member_galaxies, benefits))
+    rows.sort(key=lambda row: -row["average_level"])
+    return flask.jsonify({
+        "mine": cluster_of(galaxies_inverted.get(_me())),
+        "order": benefits,
+        "names": {key: uas.CLUSTER_BENEFITS[key]["name"] for key in benefits},
+        "max": {key: uas.CLUSTER_BENEFITS[key]["max"] for key in benefits},
+        "clusters": rows,
+    }), 200
