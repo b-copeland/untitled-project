@@ -63,7 +63,10 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
    (`_get_max_kd_info`, without `max=True`). Never return a raw document of another kingdom.
 3. Keep round trips down: one request per document, none inside a loop over kingdoms if you can read a list instead.
 4. Add the key to `ENDPOINTS` and `initGlobalData` in `src/data/gameData.js`. If a `next_resolve` timer produces this
-   data, add it to `RESOLVE_KEYS_MAP`.
+   data, add it to `RESOLVE_KEYS_MAP`. If it is computed from kingdom fields that a tick changes without a timer
+   (project points, say), follow `api/projects`: `useGameData` marks the key stale when those fields change, which
+   sends nothing, and each page that shows it calls a hook like `useProjectsFollowKingdom` to refetch it on opening
+   and on each tick while open.
 5. Test the route in `tests/test_getters.py`, including that hidden fields are absent for an unrevealed kingdom.
 
 ## 3. A new field on the kingdom document

@@ -18,26 +18,7 @@ import HelpButton from "../../components/helpbutton";
 import { ResultToasts } from "../../components/results";
 import { GameTable } from "../../components/gametable";
 import { inOrder, entriesInOrder } from "../../order";
-
-/**
- * Project points grow on every tick and trained engineers arrive, which the kingdom poll sees, but the bonuses, free
- * engineers and locks on this page come from ``api/projects``. Refetch it when the kingdom's project fields change,
- * only while this page is open, so it costs nothing elsewhere (one request a tick at most).
- */
-function useProjectsFollowKingdom(kdInfo, updateData) {
-    const signature = kdInfo.projects_points === undefined ? null : JSON.stringify([
-        kdInfo.projects_points, kdInfo.projects_assigned, kdInfo.completed_projects, kdInfo.units?.engineers, kdInfo.stars,
-    ]);
-    const last = useRef(signature);
-    useEffect(() => {
-        if (signature !== null && last.current !== null && signature !== last.current) {
-            updateData(["projects"]);
-        }
-        if (signature !== null) {
-            last.current = signature;
-        }
-    }, [signature, updateData]);
-}
+import { useProjectsFollowKingdom } from "../../data/gameData";
 
 function ProjectsContent(props) {
     const kdInfo = props.data.kingdom;

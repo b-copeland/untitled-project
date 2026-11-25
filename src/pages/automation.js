@@ -13,7 +13,17 @@ import { Allocate as UnitTargets, trainableUnits } from "./build/military";
 import { Allocate as ProjectTargets } from "./build/projects";
 import { AutoAttack, AutoRob } from "./conquer/primitives";
 import { Queue } from "./conquer/schedule";
+import { useProjectsFollowKingdom } from "../data/gameData";
 import "./automation.css";
+
+/** The Project targets tab shows each project's bonus and time left, so it keeps them current while it is open. */
+function ProjectTargetsTab({ data, loading, updateData }) {
+    useProjectsFollowKingdom(data.kingdom, updateData);
+    return (
+        <ProjectTargets state={data.state} kdInfo={data.kingdom} engineersInfo={data.engineers || {}}
+            projectsInfo={data.projects || {}} loading={loading} updateData={updateData} />
+    );
+}
 
 const SPENDING_NAMES = { settle: "settling", structures: "structures", military: "military", engineers: "engineers" };
 
@@ -153,8 +163,7 @@ function Automation(props) {
                     {units.length ? <UnitTargets units={units} kdInfo={data.kingdom} mobisInfo={data.mobis} loading={loading} updateData={updateData} /> : null}
                 </Tab>
                 <Tab eventKey="projects" title="Project targets">
-                    <ProjectTargets state={data.state} kdInfo={data.kingdom} engineersInfo={data.engineers || {}}
-                        projectsInfo={data.projects || {}} loading={loading} updateData={updateData} />
+                    <ProjectTargetsTab {...shared} />
                 </Tab>
                 <Tab eventKey="primitives" title="Primitives">
                     <div className="panel-grid automation-primitives">
