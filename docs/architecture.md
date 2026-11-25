@@ -42,7 +42,7 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
 - **The frontend** fetches each data key (`kingdom`, `structures`, ...) from its own `/api/<key>` route
   (`src/data/gameData.js`), polls the kingdom every 10 seconds, and refetches what an action changed. Game constants come
   from the server (`data.state.game_config`, `data.state.pretty_names`), not from copies in the browser.
-- **Live notifications** use a websocket at `/ws/listen`. `SOCKETS` (`sockets.py`) holds each kingdom's open sockets, one per tab or device: a socket is registered once it sends a valid token, and removed when it closes, goes quiet or fails, with caps per kingdom and per process. Send one
+- **Live notifications** use a websocket at `/ws/listen`. `SOCKETS` (`sockets.py`) holds each kingdom's open sockets, one per tab or device: a socket is registered once it sends a valid token, and removed when it closes, goes quiet or fails, with caps per kingdom and per process, on sockets still waiting for their token, and per address (a socket holds a server thread from the moment it opens). Send one
   with `push(kd_id, kind, message)` in `push.py`; every `kind` is in its `KINDS`, which the Settings page lists so a
   player can turn kinds off. The browser does the hiding, so a push costs no read of the player's preferences.
 

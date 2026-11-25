@@ -237,7 +237,9 @@ def create_app(config_class='config.Config'):
     @sock.route('/ws/listen')
     def listen(ws):
         """Notification pushes (push.py). The browser sends ``{"jwt": ...}`` on opening and every minute after."""
-        untitledapp_sockets.serve(ws, SOCKETS, kingdom_for_token, logger=sock.app.logger)
+        from untitledapp.adminaccounts import client_address
+        address = client_address(flask.request.headers.get("X-Forwarded-For"), flask.request.remote_addr)
+        untitledapp_sockets.serve(ws, SOCKETS, kingdom_for_token, logger=sock.app.logger, address=address)
 
 
     @app.route('/', defaults={'path': ''})

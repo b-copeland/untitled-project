@@ -28,7 +28,7 @@ These pieces do not yet:
 | Piece | Problem | Direction |
 |---|---|---|
 | The `accounts` document (2026-11-14) | The last copy of the SQLite users. Nothing writes it since users moved to `user_` documents; `adhoc/migrate_users_to_cosmos.py` reads it. `/resetstate` still clears kingdom fields in it, and `GET`/`PATCH /accounts` still exist. | Kept as a backup until the migration has run in production and been checked, then remove the document, the routes, and its place in `/init` and `/resetstate` |
-| `SOCKETS` (websocket registry, `sockets.py`) | A push only reaches sockets on the process that raised it. Each open socket also holds a server thread for its lifetime: capped at 50 of the 100, and closed after 3 quiet minutes. | A pub/sub service, or polling notifications |
+| `SOCKETS` (websocket registry, `sockets.py`) | A push only reaches sockets on the process that raised it. Each open socket also holds a server thread for its lifetime: capped at 50 registered plus 10 waiting for a token, 10 per address, and closed after 3 quiet minutes. | A pub/sub service, or polling notifications |
 | Rate limiter (`memory://`) | Limits are per process | Shared storage for the limiter |
 | The refresh | One request loops over every kingdom in turn. Two overlapping refreshes are safe (every step is version-checked), but one long tick is still one request | Split the tick per kingdom |
 

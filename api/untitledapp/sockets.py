@@ -9,7 +9,11 @@ while production runs one process. Within that, this keeps the registry correct 
 * it is removed when it closes, when a send to it fails, or when it has sent no valid token for ``IDLE_SECONDS``
   (the browser sends one every minute);
 * there are at most ``PER_KINGDOM`` per kingdom (the oldest is closed for a new one) and ``TOTAL`` in all, because
-  each open socket holds one of the web server's threads for as long as it is open.
+  each open socket holds one of the web server's threads for as long as it is open;
+* a socket holds its thread from the moment it opens, before it has sent a token, so at most ``PENDING`` may be
+  waiting for one at a time, and one address may have at most ``PER_ADDRESS`` open, waiting or registered. Without
+  these, opening sockets and never sending a token took every thread and stopped the site (issue #219). With them the
+  sockets can hold at most ``TOTAL + PENDING`` threads, and the pages keep the rest.
 
 The registry is one dict keyed by socket. Its single operations are atomic in CPython, and the sends iterate over a
 copy, so concurrent request threads need no lock. The caps are checked without one, so a burst may pass them by a few.
@@ -19,18 +23,41 @@ import time
 
 from flask_sock import ConnectionClosed
 
-AUTH_SECONDS = 10
+AUTH_SECONDS = 5  # the browser sends its token as soon as the socket opens
 IDLE_SECONDS = 3 * 60
 PER_KINGDOM = 5
 TOTAL = 50  # of the web server's 100 threads (the gunicorn command in docs/deployment.md)
+PENDING = 10  # sockets open but not yet sent a valid token
+PER_ADDRESS = 10  # a household with a few players, each with a tab or two
 
 
 class Registry:
-    def __init__(self, per_kingdom=PER_KINGDOM, total=TOTAL, clock=time.monotonic):
+    def __init__(self, per_kingdom=PER_KINGDOM, total=TOTAL, clock=time.monotonic, pending=PENDING,
+                 per_address=PER_ADDRESS):
         self._sockets = {}  # ws -> (kd_id, registered at)
+        self._open = {}  # ws -> address, for every socket from opening to closing, registered or not
         self.per_kingdom = per_kingdom
         self.total = total
         self.clock = clock
+        self.pending = pending
+        self.per_address = per_address
+
+    def admit(self, ws, address):
+        """
+        Count ``ws`` as open, from ``address``. False if ``pending`` sockets are already waiting for a token, or the
+        address already has ``per_address`` open. ``leave`` when it closes.
+        """
+        open_sockets = list(self._open.items())
+        if sum(1 for other, _ in open_sockets if other not in self._sockets) >= self.pending:
+            return False
+        if address and sum(1 for _, other in open_sockets if other == address) >= self.per_address:
+            return False
+        self._open[ws] = address
+        return True
+
+    def leave(self, ws):
+        self._open.pop(ws, None)
+        self.unregister(ws)
 
     def kingdom_sockets(self, kd_id):
         """The kingdom's sockets, oldest first."""
@@ -92,11 +119,26 @@ def _kingdom_of(data, kingdom_for_token):
         return None
 
 
-def serve(ws, registry, kingdom_for_token, logger=None, auth_seconds=AUTH_SECONDS, idle_seconds=IDLE_SECONDS):
+def serve(ws, registry, kingdom_for_token, logger=None, auth_seconds=AUTH_SECONDS, idle_seconds=IDLE_SECONDS,
+          address=""):
     """
     Run one socket: wait for a valid token, register it, then keep it while valid tokens keep coming. Returns when the
-    socket closes or goes quiet, having removed it.
+    socket closes or goes quiet, having removed it. ``address`` is the caller's, for ``PER_ADDRESS``.
     """
+    if not registry.admit(ws, address):
+        if logger:
+            logger.warning("Refused a notification socket before its token: %s open", len(registry._open))
+        _close(ws, 1013, "Too many connections, try again later")
+        return
+    try:
+        _serve(ws, registry, kingdom_for_token, logger, auth_seconds, idle_seconds)
+    except ConnectionClosed:
+        pass  # closed before it sent a token
+    finally:
+        registry.leave(ws)
+
+
+def _serve(ws, registry, kingdom_for_token, logger, auth_seconds, idle_seconds):
     kd_id = _kingdom_of(ws.receive(timeout=auth_seconds), kingdom_for_token)
     if kd_id is None:
         _close(ws, 1008, "Send a valid token first")
