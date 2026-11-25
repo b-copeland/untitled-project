@@ -50,7 +50,7 @@ function ClusterPolitics(props) {
             </ul>
             <p>
                 The Benefits tab shows each benefit's level, how fast it is changing, and your galaxy's vote. The
-                Galaxies tab shows how each galaxy is voting. Prices, times and capacities elsewhere already include
+                Galaxies tab shows how each galaxy is voting. The All clusters tab shows what every cluster has built up, most first: each benefit's value, but not how any other cluster voted. Prices, times and capacities elsewhere already include
                 the cluster's benefits.
             </p>
         </Topic>

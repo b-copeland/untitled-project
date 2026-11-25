@@ -4,6 +4,7 @@ import Form from 'react-bootstrap/Form';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
+import { useQuery } from "@tanstack/react-query";
 import { authFetch } from "../../auth";
 import HelpButton from "../../components/helpbutton";
 import { GameTable } from "../../components/gametable";
@@ -93,6 +94,45 @@ function GalaxiesTable({ cluster, data }) {
     );
 }
 
+/** Fetched when the All clusters tab opens (one read per cluster on the server), not with the rest of the game data. */
+export const CLUSTERS_KEY = ["game", "allclusters"];
+
+const fetchClusters = () => authFetch("api/clusters").then((r) => {
+    if (r.status >= 500) {
+        throw new Error(`api/clusters answered ${r.status}`);
+    }
+    return r.json();
+});
+
+/**
+ * Every cluster's benefits now, most built up first (``GET /api/clusters``): each benefit's value, and how full they
+ * are on average. Only what each cluster has, never how it voted.
+ */
+export function AllClusters() {
+    const { data, isError } = useQuery({ queryKey: CLUSTERS_KEY, queryFn: fetchClusters, staleTime: 0, refetchOnMount: "always" });
+    if (isError) return <p className="page-note">The clusters could not be loaded. Try again in a moment.</p>;
+    if (!data) return <p className="page-note">Loading the clusters...</p>;
+    const order = data.order || [];
+    return (
+        <div className="table-scroll">
+            <GameTable
+                className="game-table cluster-table all-clusters-table"
+                rows={(data.clusters || []).map((row) => ({ ...row, key: row.cluster }))}
+                rowClassName={(row) => (row.cluster === data.mine ? "cluster-row-mine" : undefined)}
+                columns={[
+                    { header: "Cluster", align: "left", cell: (row) => (row.cluster === data.mine ? `${row.cluster} (yours)` : row.cluster) },
+                    { header: "Galaxies", cell: (row) => row.galaxies },
+                    ...order.map((key) => ({
+                        header: data.names?.[key] || key,
+                        cell: (row) => <span title={`${percent(row.benefits?.[key]?.level, 0)} of its max (${percent(data.max?.[key], 0)})`}>{percent(row.benefits?.[key]?.value)}</span>,
+                    })),
+                    { header: "Built up", cell: (row) => percent(row.average_level, 0) },
+                ]}
+            />
+        </div>
+    );
+}
+
 /** Whether this kingdom leads its galaxy, and so casts its vote. The server checks it again when the vote is sent. */
 export const leadsGalaxy = (data) => {
     const leader = data.galaxypolitics?.leader;
@@ -159,7 +199,8 @@ function ClusterPolitics(props) {
                     { label: "Galaxies", value: (cluster.galaxies || []).length },
                     { label: "Your galaxy votes for", value: myVote ? myVote.name : "Nothing" },
                 ]} />
-                <Tabs id="cluster-tabs" defaultActiveKey="benefits" variant="tabs">
+                {/* mountOnEnter: the All clusters tab asks the server only once it is opened. */}
+                <Tabs id="cluster-tabs" defaultActiveKey="benefits" variant="tabs" mountOnEnter>
                     <Tab eventKey="benefits" title="Benefits">
                         <Panel title="What the cluster has built up"
                             hint={epochSeconds
@@ -175,6 +216,11 @@ function ClusterPolitics(props) {
                     <Tab eventKey="galaxies" title={`Galaxies (${(cluster.galaxies || []).length})`}>
                         <Panel title="Galaxies in your cluster">
                             <GalaxiesTable cluster={cluster} data={props.data} />
+                        </Panel>
+                    </Tab>
+                    <Tab eventKey="all" title="All clusters">
+                        <Panel title="What every cluster has built up" hint="Each benefit's value now. Hover over one for how full it is.">
+                            <AllClusters />
                         </Panel>
                     </Tab>
                 </Tabs>
