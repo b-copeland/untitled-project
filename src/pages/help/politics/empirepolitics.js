@@ -10,7 +10,9 @@ function EmpirePolitics(props) {
             <p>
                 A galaxy leader can found an Empire, ask to join one, or accept an invitation. The leader of the
                 Empire's ruling galaxy (the emperor) invites galaxies, accepts requests, and makes every decision of war
-                and peace below. A galaxy can leave its Empire, but not during a war.
+                and peace below. A galaxy can leave its Empire, but not during a war. A galaxy can make
+                {" "}{num(cfg.GALAXY_DIPLOMACY_ACTIONS_PER_HOUR)} requests, invitations, cancellations of either, or
+                foundings an hour in all.
             </p>
             <p>
                 A galaxy can not join if the Empire would then hold more than {pct(cfg.EMPIRE_MAX_KINGDOMS_SHARE)} of
