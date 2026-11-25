@@ -91,6 +91,24 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   route; this is what the storage module ([architecture.md](architecture.md#target-one-storage-module)) would allow.
 - **Siphons are read on every tick for every kingdom** (`siphons_in` and `siphons_out`, two calls), almost always to
   find them empty. Skipping them needs a marker on the kingdom document, which is a document shape change.
+- **Function app executions are about half the spend** (2026-11-25, the maintainer: about 60,000 executions an hour
+  with 70 bots and 10 players, against about $13 a month for B1). The tick makes nearly all of them: about 12 calls per
+  kingdom per minute, bots included, while a player's open tab adds about 13 a minute. Running the handlers in the
+  Flask process (`api/untitledapp/inprocess.py`, built and tested, not wired in) would remove them. Not switched,
+  because it is the maintainer's call ([architecture.md](architecture.md#why-there-is-a-function-app)) and because
+  these come first:
+  - **Pace the tick.** Cosmos's "Normalized RU Consumption (max)" peaks at 45-60% of the 1000 RU/s today, from the tick's
+    burst of writes. The function app's latency spreads that burst; in-process the same writes land in a few seconds
+    and would throttle players' requests too.
+  - **Settings and packages.** `azure-functions` and `azure-cosmos` pinned in `requirements.txt`; the web app given the
+    Cosmos settings the function app has (`COSMOS_ENDPOINT`, `COSMOS_KEY`, `COSMOS_DATABASE_NAME`,
+    `COSMOS_CONTAINER_NAME`) and a setting that chooses the backend, so going back is one setting.
+  - **Route constraints in the tests.** The in-process session refuses `empire/e1/news` as the host does
+    (`{empireId:int}`), but the tests' fake turns that check off, because `tests/test_politics.py` and a few others
+    name empires `e1`, `e2`. Give them numeric ids, as production has, then drop `check_constraints=False` from
+    `tests/fake_backend.py`.
+  - **Measure first.** Each tick logs `Tick: <n> kingdoms in <s> s ...` (`refresh.refresh_data`); the log stream shows
+    how close a tick is to a minute before and after.
 
 ## Frontend
 

@@ -103,7 +103,7 @@ The project should be able to move to another cloud, database or web framework w
 | Storage access | Blueprints call the function app directly through `REQUESTS_SESSION` (over a hundred call sites) | New code goes through a small number of helpers (`occ.read`, `occ.update`, and the getters in `getters.py`). The target is one storage module, see below. |
 | Optimistic concurrency | Cosmos `_etag` with `If-Match` | Every serious store has the same thing: Postgres row versions, DynamoDB conditional writes, Firestore preconditions. Keep the `decide` pattern, never the Cosmos details, in game code. |
 | Game rules | `shared.py` constants and formulas spread through the blueprints | Pure functions with no framework imports. |
-| Azure SDKs | Only in `funcapp/` | Keep it that way. Nothing in `api/` imports `azure.*`. |
+| Azure SDKs | Only in `funcapp/`, plus `api/untitledapp/inprocess.py`, which imports them only when it loads the function app's handlers | Keep it that way. Nothing else in `api/` imports `azure.*`. |
 | Identity | flask-praetorian over `users.User`, documents behind the function app | Game code needs only `current_user().kd_id`. Keep it to that, so the user store can move again. The token's copy can be a day old: a route that decides something from the user (creating or resetting a kingdom) reads the document. |
 | Scheduling | An App Service WebJob calls `/api/refreshdata` (configured in the portal) | The tick is a plain authenticated HTTP call, so any scheduler works. |
 | Configuration | Environment variables (`api/config.py`, function app settings) | Keep it that way. No settings in code, no cloud-specific config files read by game code. |
@@ -137,6 +137,11 @@ Two things to know when working with it:
   every route or editing every call site. `store.py` is what makes the swap real: one module in front, any backend
   behind (the function app, a database SDK called in-process, another database). The in-memory test backend
   (`tests/fake_backend.py`) already shows a second backend is possible.
+- **The handlers can run without the hop.** `api/untitledapp/inprocess.py` is a session that answers the same calls as
+  `REQUESTS_SESSION` by running `funcapp/function_app.py`'s handlers, unchanged, in the Flask process: same routes, same
+  route constraints, same version checks, a `500` when a handler raises, as the host answers. Every Flask test runs
+  through it (on an in-memory container), so it is tested as much as the function app is. Production does not use it:
+  nothing wires it in yet (see [status.md](status.md#cost-and-efficiency) for what switching would take).
 - **The hop has costs.** Each document read or write is a network round trip and a function execution; the Consumption
   plan has cold starts; `funcapp/` deploys separately and must go out first; and the handlers do merging and I/O, not
   game computation, so little CPU moves off the web server. This is why round trips are counted ([cost.md](cost.md)).

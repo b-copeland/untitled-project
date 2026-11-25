@@ -1952,12 +1952,22 @@ def refresh_data():
     if headers.get("Refresh-Secret", "") != os.environ["REFRESH_SECRET"]:
         return ("Not Authorized", 401)
     
+    started = time.monotonic()
     tick = _tick_start()
     if isinstance(tick, tuple):
         return tick
     context = _RefreshContext(tick["state"])
     kd_scores, failed_kd_ids = _refresh_kingdoms(list(tick["kingdoms"]), tick, context)
-    return _tick_finish(tick, kd_scores, failed_kd_ids, context)
+    kingdoms_done = time.monotonic()
+    response = _tick_finish(tick, kd_scores, failed_kd_ids, context)
+    # How long a tick takes, in the log stream: a tick that nears a minute starts to overlap the next one, and the
+    # time spent on storage is what a change of storage backend would change (docs/cost.md).
+    finished = time.monotonic()
+    app.logger.info(
+        "Tick: %d kingdoms in %.1f s (kingdoms %.1f s, the rest %.1f s), %d failed",
+        len(kd_scores), finished - started, kingdoms_done - started, finished - kingdoms_done, len(failed_kd_ids),
+    )
+    return response
 
 
 # A tick is three steps, so that the middle one (every kingdom) can be split up: scripts/simulate_round.py runs it on

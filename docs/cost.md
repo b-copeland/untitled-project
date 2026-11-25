@@ -52,7 +52,8 @@ The steady load, without anyone acting:
      letting it read again ([concurrency.md](concurrency.md#writing-an-action), rule 5).
    - Measure, do not guess: `python scripts/profile_calls.py` runs a game of bots in-process (no stack, no Azure) and
      prints the function app calls, Cosmos reads and writes, and bytes written per route and per refresh tick;
-     `--sites` shows which function made each call. `tests/test_efficiency.py` pins the counts for the hot paths.
+     `--sites` shows which function made each call. `tests/test_efficiency.py` pins the counts for the hot paths. In
+     production, each tick logs how many kingdoms it refreshed and how long it took (`Tick: ...`).
 2. **Write less.** Writes cost ten times reads. Batch eventual writes (several news lines in one append). Do not write a
    document that did not change. Derived data (scores, aggregates) is computed by the refresh, never written by actions.
 3. **Keep documents small.** A write costs more the bigger the document. Trim lists that grow forever (news, history),
@@ -72,6 +73,8 @@ The steady load, without anyone acting:
 - One storage module in Flask ([architecture.md](architecture.md#target-one-storage-module)) makes it possible to batch
   reads, and to measure a backend without the function app's network hop and execution per call. Whether to change the
   backend is the maintainer's call ([why there is a function app](architecture.md#why-there-is-a-function-app)).
+- The function app's handlers can already run in the Flask process (`api/untitledapp/inprocess.py`), which would remove
+  every execution without rewriting a call site. What switching needs first is in [status.md](status.md#cost-and-efficiency).
 - Fewer, larger reads: a single route that returns what a page needs, instead of a page firing many keys.
 - Linux Consumption is being retired by Azure (announced for 2028-09-30); its replacement (Flex Consumption) is priced
   differently. Check it before the move.
