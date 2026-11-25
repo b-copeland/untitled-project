@@ -255,6 +255,20 @@ export function useGameData({ logged }) {
     }
   }, [nextResolve, updateData]);
 
+  // A tick moves project points and trained engineers arrive, which the kingdom poll sees, but the bonuses come from
+  // api/projects. Only mark it stale, which sends nothing: a page that shows it refetches when it opens (see
+  // useProjectsFollowKingdom), so a player who never looks at projects pays nothing.
+  const projectsKey = projectsSignature(data.kingdom);
+  const lastProjectsKey = useRef(projectsKey);
+  useEffect(() => {
+    if (projectsKey !== null && lastProjectsKey.current !== null && projectsKey !== lastProjectsKey.current) {
+      queryClient.invalidateQueries({ queryKey: gameQueryKey("projects"), refetchType: "none" });
+    }
+    if (projectsKey !== null) {
+      lastProjectsKey.current = projectsKey;
+    }
+  }, [projectsKey, queryClient]);
+
   // A new player's data was fetched before their kingdom existed (so it is empty or an error), and kingdom polling was
   // off. The moment the kingdom is made, fetch everything again. The same goes after Reset Kingdom.
   const created = data.kingdomid.created;
@@ -275,4 +289,37 @@ export function useGameData({ logged }) {
   }, [fetching, pending]);
 
   return { data, loading, updateData };
+}
+
+/** The kingdom fields that ``api/projects`` is computed from, or null before the kingdom has loaded. */
+export function projectsSignature(kdInfo) {
+  return kdInfo?.projects_points === undefined
+    ? null
+    : JSON.stringify([
+        kdInfo.projects_points, kdInfo.projects_assigned, kdInfo.completed_projects, kdInfo.units?.engineers, kdInfo.stars,
+      ]);
+}
+
+/**
+ * For a page that shows project bonuses, free engineers or locks: when the page opens, refetch ``api/projects`` if a
+ * tick has moved the kingdom's project fields since it was fetched, and refetch on each such tick while it is open. At
+ * most one request per visit or per tick, and only while such a page is open.
+ */
+export function useProjectsFollowKingdom(kdInfo, updateData) {
+  const queryClient = useQueryClient();
+  const signature = projectsSignature(kdInfo);
+  const last = useRef(null);
+  useEffect(() => {
+    const previous = last.current;
+    if (signature === null) {
+      return;
+    }
+    last.current = signature;
+    // This page's effects run before useGameData's, so on the render where a tick lands the query is not marked yet:
+    // compare signatures for that, and use the mark only for what changed before the page opened.
+    const opening = previous === null;
+    if ((opening && queryClient.getQueryState(gameQueryKey("projects"))?.isInvalidated) || (!opening && signature !== previous)) {
+      updateData(["projects"]);
+    }
+  }, [signature, updateData, queryClient]);
 }

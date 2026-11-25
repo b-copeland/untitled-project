@@ -3,7 +3,7 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 
 import { authFetch } from "../auth";
-import { createQueryClient, useGameData, fetchGameKey, retryDelay, RETRIES, GAME_KEYS, ENDPOINTS, initGlobalData } from "./gameData";
+import { createQueryClient, useGameData, fetchGameKey, retryDelay, RETRIES, GAME_KEYS, ENDPOINTS, initGlobalData, gameQueryKey } from "./gameData";
 
 jest.mock("../auth", () => ({ authFetch: jest.fn() }));
 
@@ -200,6 +200,21 @@ test("refetches what a kingdom timer produced when that timer rolls over", async
     await result.current.updateData(["kingdom"]);
   });
   await waitFor(() => expect(callsTo("api/mobis")).toBe(2));
+});
+
+test("a tick that moves project points marks the projects stale without fetching them (#52)", async () => {
+  responses[KINGDOM] = { projects_points: { money_bonus: 50 } };
+  const { client, result } = setup();
+  await waitFor(() => expect(result.current.loading.projects).toBe(false));
+  const projects = () => client.getQueryState(gameQueryKey("projects"));
+  expect(projects().isInvalidated).toBe(false);
+
+  responses[KINGDOM] = { projects_points: { money_bonus: 51.5 } };
+  await act(async () => {
+    await result.current.updateData(["kingdom"]);
+  });
+  await waitFor(() => expect(projects().isInvalidated).toBe(true));
+  expect(callsTo("api/projects")).toBe(1);
 });
 
 test("everything is fetched again the moment a new player's kingdom is created, and again after a reset", async () => {

@@ -1,6 +1,8 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createQueryClient } from "../data/gameData";
 import Automation, { automations, spendingSummary } from "./automation";
 
 jest.mock("../components/header", () => () => null);
@@ -21,7 +23,7 @@ const kingdom = {
 
 const renderPage = () => {
     const updateData = jest.fn((keys, funcs) => funcs.forEach((f) => f()));
-    render(<MemoryRouter><Automation data={{ kingdom }} loading={{}} updateData={updateData} /></MemoryRouter>);
+    render(<QueryClientProvider client={createQueryClient()}><MemoryRouter><Automation data={{ kingdom }} loading={{}} updateData={updateData} /></MemoryRouter></QueryClientProvider>);
     return updateData;
 };
 

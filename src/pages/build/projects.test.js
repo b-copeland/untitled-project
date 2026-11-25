@@ -1,12 +1,17 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render as rtlRender, screen, fireEvent } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createQueryClient, gameQueryKey } from "../../data/gameData";
 import ProjectsContent, { projectRows, projectSections } from "./projects";
 import { authFetch } from "../../auth";
 
 jest.mock("../../components/header", () => () => null);
 jest.mock("../../components/helpbutton", () => () => null);
 jest.mock("../../auth", () => ({ authFetch: jest.fn() }));
+let client;
+const render = (ui) => rtlRender(ui, { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> });
 beforeEach(() => {
+    client = createQueryClient();
     authFetch.mockImplementation(() => Promise.resolve({ json: () => Promise.resolve({ status: "success", message: "ok" }) }));
 });
 
@@ -137,4 +142,19 @@ test("each project says how long it has left at the engineers on it now (#238)",
     fireEvent.click(screen.getByRole("tab", { name: "Assign" }));
     expect(screen.getAllByText("Maximum in about 2h").length).toBeGreaterThan(0);
     expect(screen.queryByText("No engineers on it")).toBeNull();
+});
+
+test("opening the page refetches the bonuses only if a tick moved the project points since they were fetched (#52)", () => {
+    client.setQueryData(gameQueryKey("projects"), data().projects);
+    const fresh = jest.fn();
+    const { unmount } = render(<ProjectsContent data={data()} loading={{}} updateData={fresh} />);
+    expect(fresh).not.toHaveBeenCalled();
+    unmount();
+
+    // What useGameData does when the kingdom poll shows a tick, while the player is on another page.
+    client.invalidateQueries({ queryKey: gameQueryKey("projects"), refetchType: "none" });
+    const stale = jest.fn();
+    render(<ProjectsContent data={data()} loading={{}} updateData={stale} />);
+    expect(stale).toHaveBeenCalledTimes(1);
+    expect(stale).toHaveBeenCalledWith(["projects"]);
 });
