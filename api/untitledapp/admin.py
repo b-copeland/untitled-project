@@ -462,10 +462,20 @@ def admin_universe():
 @bp.route('/api/admin/kingdom/<kd_id>', methods=["GET"])
 @flask_praetorian.roles_required('admin')
 def admin_kingdom(kd_id):
-    """One kingdom in full, with its bot's style, phase, memory and decisions if it is a bot, and its latest news."""
+    """One kingdom in full, with its bot's style, phase, memory and decisions if it is a bot, its latest news, and what
+    the admin's tools act on: its messages, its galaxy board posts and any fields kingdoms do not have."""
     kingdom = uag._get_kd_info(kd_id)
     if not kingdom or "kdId" not in kingdom:
         return flask.jsonify({"message": "No such kingdom"}), 400
+    import untitledapp.adminkingdoms as uaak
+    import untitledapp.board as uabo
+    stray = uaak.stray_fields(kingdom)
     kingdom = {key: value for key, value in kingdom.items() if not key.startswith("_")}
     news = occ.read(f'/kingdom/{kd_id}/news').get("news", [])
-    return flask.jsonify({"kingdom": kingdom, "news": news[-20:]}), 200
+    # What the admin's tools act on (adminkingdoms.py): its messages, its posts on its galaxy's board, stray fields.
+    messages = occ.read(f'/kingdom/{kd_id}/messages').get("messages", [])
+    galaxy = uag._get_galaxies_inverted()[0].get(str(kd_id))
+    board = uabo.normalize(occ.read(f'/galaxy/{galaxy}/board')) if galaxy else {"posts": [], "pinned": None}
+    posts = [post for post in board["posts"] if post.get("from") == str(kd_id)]
+    return flask.jsonify({"kingdom": kingdom, "news": news[-20:], "messages": messages, "board_posts": posts,
+                          "stray_fields": stray}), 200

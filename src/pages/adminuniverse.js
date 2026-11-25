@@ -69,6 +69,7 @@ function AdminUniverse() {
         </Table>
       </div>
       {details && <KingdomDetails details={details} />}
+      {details && selected && <KingdomTools kdId={selected} details={details} onChanged={() => { open(selected); load(); }} />}
     </div>
   );
 }
@@ -102,6 +103,57 @@ function KingdomDetails({ details }) {
       )}
       <h5>News</h5>
       <ul>{[...details.news].reverse().map((item, i) => <li key={i}><code>{item.time}</code> {item.news}</li>)}</ul>
+    </div>
+  );
+}
+
+// The admin's tools for the open kingdom (adminkingdoms.py): rename it, delete one of its messages or board posts, and
+// clear fields from its document that kingdoms do not have.
+function KingdomTools({ kdId, details, onChanged }) {
+  const [name, setName] = useState("");
+  const [result, setResult] = useState("");
+  const act = (path, body) => adminAuth.authFetch(`api/admin/kingdom/${kdId}/${path}`, {
+    method: "POST", body: JSON.stringify(body || {}),
+  }).then(r => r.json()).then(r => { setResult(r.message || ""); if (r.status === "success") onChanged(); })
+    .catch(() => setResult("That did not work. Try again."));
+  const messages = details.messages || [];
+  const posts = details.board_posts || [];
+  const stray = details.stray_fields || [];
+  return (
+    <div className="admin-kingdom-tools">
+      <h5>Tools</h5>
+      {result && <p role="status">{result}</p>}
+      <Form className="d-flex gap-2 mb-2" onSubmit={e => { e.preventDefault(); act("rename", { name }); }}>
+        <Form.Control size="sm" style={{ maxWidth: "16rem" }} aria-label="New name" placeholder="New name" value={name}
+          onChange={e => setName(e.target.value)} />
+        <Button size="sm" type="submit" disabled={!name.trim()}>Rename</Button>
+      </Form>
+      <p>
+        <strong>Fields kingdoms do not have:</strong> {stray.length ? stray.join(", ") : "none"}{" "}
+        {stray.length > 0 && <Button size="sm" variant="warning" onClick={() => act("clearfields")}>Clear them</Button>}
+      </p>
+      <h6>Messages (newest first)</h6>
+      {messages.length === 0 ? <p>None</p> : (
+        <ul className="admin-messages">
+          {messages.map((m, i) => (
+            <li key={i}>
+              <code>{m.time}</code> {m.from ? "to" : "from"} {m.with}: {m.message}{" "}
+              <Button size="sm" variant="outline-danger" onClick={() => act("messages/delete", { message: m })}>Delete</Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <h6>Galaxy board posts</h6>
+      {posts.length === 0 ? <p>None</p> : (
+        <ul className="admin-posts">
+          {posts.map(post => (
+            <li key={post.id}>
+              <code>{post.time}</code> {post.text}{" "}
+              <Button size="sm" variant="outline-danger" onClick={() => act(`board/${post.id}/delete`)}>Delete</Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

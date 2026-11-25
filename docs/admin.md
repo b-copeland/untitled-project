@@ -24,6 +24,7 @@ Admin routes are under `/api/admin/` and need the `admin` role. They stay open w
 | Add bots | `POST /api/admin/bots` | `{"total": n}` in the default mix (`bots.mix_for`), or counts per type. At most 200 per call. Needs galaxies. See [bots.md](bots.md#creating-them). |
 | End the round now | `POST /api/admin/endround` | Archives the round and makes the game read only, as when `game_end` passes. Only a new round undoes it. |
 | Watch the round | `GET /api/admin/universe`, `/api/admin/kingdom/<id>` | Every kingdom at a glance, and one in full with its bot's decisions. See [bots.md](bots.md). |
+| Fix one kingdom | `POST /api/admin/kingdom/<id>/rename`, `/messages/delete`, `/board/<post>/delete`, `/clearfields` | On the Watch tab, under the open kingdom. See [One kingdom's tools](#one-kingdoms-tools). |
 | Accounts | `GET /api/admin/accounts` | Every account (bots hidden unless asked for) with its kingdom, email, ban, last login and the accounts it shares a login signal with. One query over the users and the cached `kingdoms` document. See [Accounts](#accounts). |
 | Set a password | `POST /api/admin/accounts/<id>/password` | `{"password"}`. For a player without a confirmed email, who can not use the email reset. |
 | Ban, unban | `POST /api/admin/accounts/<id>/ban`, `/unban` | `{"reason"}` (optional, at most 200 characters, shown to the player when they try to log in). |
@@ -107,6 +108,22 @@ last entry the proxy's, and every account would share one address, so check `cli
 - **Reading them.** Two accounts that share a signal are listed together, saying whether it was the address, the
   device or both. A shared device is the stronger sign; a shared address can be a household, a school or a phone
   network. Why it is built this way: [decisions/0016](decisions/0016-login-signals.md).
+
+## One kingdom's tools
+
+Under a kingdom opened on the Watch tab (`adminkingdoms.py`, issue #219). Each is safe to repeat.
+
+- **Rename** with the rules a player's choice follows (at most 24 visible characters, not a name in use, case aside).
+  The `kingdoms` list and the kingdom's own `name` change; news already posted keeps the old name.
+- **Delete a message.** The kingdom's messages are listed. A deletion takes the entry out of this kingdom's messages
+  and the matching copy (same text and time, the other direction) out of the other kingdom's.
+- **Delete a galaxy board post** by this kingdom, as the galaxy's leader could, unpinning it if it was pinned.
+- **Clear stray fields.** Fields on the kingdom document that are neither a starting field nor one of
+  `KINGDOM_FIELDS_ADDED_LATER` are listed. A write made before those were checked could have left them, and a big one
+  makes every read and write of the kingdom cost more. Clearing them goes through the function app's
+  `POST /kingdom/<id>/removefields`, since the kingdom PATCH only merges. It never removes the ids or Cosmos's fields.
+
+Rolling a kingdom back to an earlier state is not offered: there are no snapshots to roll back to.
 
 ## Running it from a script
 
