@@ -668,8 +668,26 @@ def test_late_in_the_round_a_leader_it_can_not_beat_is_worn_down_only_if_asked()
 
 # ------------------------------------------------------------------------------------------------------------ drones
 
+def test_a_thief_puts_its_best_siphons_on_repeat(monkeypatch):
+    monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 0)
+    world = StubWorld(day=5, stats={"3": (3000, 400_000), "4": (500, 40_000)})
+    thief = dataclasses.replace(brain.PERSONALITIES["thief"], sabotage_chance=(0.0, 0.0, 0.0))
+    decisions = brain.plan_drones(world, thief, style(drones="both"), {}, ChanceOf(0.0))
+    standing = [d for d in decisions if d.kind == "recurring_siphon"]
+    assert {d.options["target"] for d in standing} == {"3", "4"}
+    assert all(d.options["type"] == "siphon" for d in standing)
+    # Not again for a kingdom that already has a standing siphon, and never more than RECURRING_SIPHONS.
+    world.me["recurring"] = [{"target": "3", "operation": "siphonfunds"}]
+    decisions = brain.plan_drones(world, thief, style(drones="both"), {}, ChanceOf(0.0))
+    assert [d.options["target"] for d in decisions if d.kind in ("recurring_siphon", "aggressivespy")] == ["4"]
+    monkeypatch.setattr(brain, "RECURRING_SIPHONS", 1)
+    decisions = brain.plan_drones(world, thief, style(drones="both"), {}, ChanceOf(0.0))
+    assert not [d for d in decisions if d.kind == "recurring_siphon"]
+
+
 def test_a_thief_siphons_when_that_beats_robbing_primitives(monkeypatch):
     monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 0)
+    monkeypatch.setattr(brain, "RECURRING_SIPHONS", 0)
     stats = {"3": (3000, 400_000), "4": (500, 40_000)}
     world = StubWorld(day=5, stats=stats)  # primitives are robbed half bare by now
     THIEF = dataclasses.replace(brain.PERSONALITIES["thief"], sabotage_chance=(0.0, 0.0, 0.0))  # siphons only, here
@@ -700,6 +718,7 @@ def test_a_thief_can_send_all_its_drones_on_a_siphon(monkeypatch):
 
 
 def test_a_thief_short_of_kingdoms_to_siphon_reveals_a_galaxy(monkeypatch):
+    monkeypatch.setattr(brain, "RECURRING_SIPHONS", 0)
     world = StubWorld(day=5, stats={"4": (500, 40_000)}, me={"drones": 20_000})
     thief = dataclasses.replace(brain.PERSONALITIES["thief"], sabotage_chance=(0.0, 0.0, 0.0))
     monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 0)
@@ -794,6 +813,7 @@ def test_the_schedule_is_never_overfilled_and_actions_are_spread_out():
 
 
 def test_a_thief_with_kingdoms_worth_siphoning_keeps_its_attempts_from_the_auto_rob(monkeypatch):
+    monkeypatch.setattr(brain, "RECURRING_SIPHONS", 0)
     monkeypatch.setattr(brain, "SIPHON_KEEP_ATTEMPTS", 8)
     world = StubWorld(stats={"3": (2000, 150_000)}, day=9)
     settings, _, _ = brain.plan(world, THIEF, style(drones="both"), {"siphon_options": 2}, ChanceOf(0.0))
@@ -1039,6 +1059,7 @@ def test_auto_spending_copes_with_a_kingdom_that_has_none_of_the_units_it_aims_f
 
 
 def test_siphons_are_spread_over_kingdoms_in_proportion_to_their_worth(monkeypatch):
+    monkeypatch.setattr(brain, "RECURRING_SIPHONS", 0)
     monkeypatch.setattr(brain, "SIPHON_REVEAL_BELOW", 0)  # two kingdoms are enough here
     stats = {"3": (3000, 400_000), "4": (2500, 300_000)}
     thief = dataclasses.replace(THIEF, sabotage_chance=(0.0, 0.0, 0.0))
@@ -1201,6 +1222,26 @@ def test_a_bot_answers_the_bounties_it_has_the_intel_for_and_asks_when_it_has_no
     world = StubWorld(me={"spy_attempts": 0}, stats={"3": (800, 200_000), "4": (500, 100_000)})
     (ask,) = brain.plan_intel(world, ATTACKER, style(), {}, random.Random(1), want_military=True)
     assert ask.kind == "post_bounty" and ask.options["target"] == "3" and ask.options["category"] == "military"
+
+
+def test_the_cut_offered_for_intel_rises_with_how_likely_it_is_to_lead_to_a_hit():
+    top = brain.uas.GAME_CONFIG["BASE_MAX_SHARE_CUT"] * 100
+    plain = StubWorld(stats={"3": (2000, 150_000)}, info={"3": {"stars": 2000, "structures": {"fuel_plants": 200, "homes": 500}}})
+    weak = StubWorld(stats={"3": (2000, 150_000)}, info={"3": {"stars": 2000, "structures": {"fuel_plants": 0, "homes": 0}}})
+    assert brain._cut_for(plain, 10.0, "3") == 10.0
+    assert brain._cut_for(weak, 10.0, "3") == top  # no fuel and no homes: as weak as it gets
+    marked = StubWorld(stats={"3": (2000, 150_000)}, targets={"3": {"intel": 1.0}}, empires=AT_WAR)
+    assert brain._cut_for(marked, 10.0, "3") == top
+    # A bounty asks for the same, from BOUNTY_CUT up.
+    (ask,) = brain._post_bounty_for(weak, {}, "3", "military")
+    assert ask.options["cut"] == top
+
+
+def test_a_lumina_bot_can_plan_intel_with_no_spy_attempts_left_for_it():
+    lumina = StubWorld(me={"spy_attempts": 0, "race": "Lumina"}, stats={"3": (800, 200_000), "4": (500, 100_000)})
+    assert brain._attempts_free(lumina, {}, intel=True) > 0 and brain._attempts_free(lumina, {}) == 0
+    other = StubWorld(me={"spy_attempts": 0}, stats={"3": (800, 200_000)})
+    assert brain._attempts_free(other, {}, intel=True) == 0
 
 
 def test_a_galaxy_leader_at_war_marks_the_easiest_enemy_for_the_whole_kill_chain():
