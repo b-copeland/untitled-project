@@ -14,7 +14,7 @@ from azure.cosmos.exceptions import (
     CosmosResourceNotFoundError,
 )
 
-from concurrency import ConditionalContainer, Refused, TooBusy, change_document, retry_on_conflict
+from concurrency import SYSTEM_FIELDS, ConditionalContainer, Refused, TooBusy, change_document, retry_on_conflict
 from queues import coalesce
 import notifs as notifs_counts
 
@@ -871,6 +871,37 @@ def update_kingdom(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+@APP.function_name(name="RemoveKingdomFields")
+@APP.route(route="kingdom/{kdId:int}/removefields", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+@retry_on_conflict
+def remove_kingdom_fields(req: func.HttpRequest) -> func.HttpResponse:
+    """
+    Body ``{"fields": [names]}``: take those fields out of ``kingdom_<id>``. The kingdom PATCH only merges, so it can
+    not remove a field; the admin uses this to clear fields a kingdom should not have (adminkingdoms.py). The id, the
+    kingdom's id and Cosmos's own fields are never removed.
+    """
+    try:
+        body = req.get_json()
+    except ValueError:
+        body = None
+    fields = body.get("fields") if isinstance(body, dict) else None
+    if not isinstance(fields, list) or not all(isinstance(field, str) for field in fields):
+        return func.HttpResponse("The body must be {\"fields\": [names]}", status_code=400)
+    item_id = f"kingdom_{req.route_params.get('kdId')}"
+    kd = _read_or_none(item_id)
+    if kd is None:
+        return func.HttpResponse("No such kingdom", status_code=404)
+    kept = {"id", "kdId", *SYSTEM_FIELDS}
+    removed = [field for field in fields if field in kd and field not in kept]
+    for field in removed:
+        del kd[field]
+    try:
+        CONTAINER.replace_item(item_id, kd)
+    except CosmosAccessConditionFailedError:
+        return func.HttpResponse("Conflict", status_code=412)
+    return func.HttpResponse(json.dumps({"removed": removed}), status_code=200)
+
+
 @APP.function_name(name="GetSiphonsIn")
 @APP.route(route="kingdom/{kdId:int}/siphonsin", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
 def get_siphons_in(req: func.HttpRequest) -> func.HttpResponse:
@@ -1217,7 +1248,10 @@ def update_messages(req: func.HttpRequest) -> func.HttpResponse:
         partition_key=item_id,
     )
     try:
-        if isinstance(new_messages, dict):
+        if isinstance(new_messages, dict) and isinstance(new_messages.get("remove"), list):
+            # The admin deleting messages (adminkingdoms.py): each entry equal to one listed is taken out.
+            messages["messages"] = [entry for entry in messages["messages"] if entry not in new_messages["remove"]]
+        elif isinstance(new_messages, dict):
             messages["messages"] = [new_messages] + messages["messages"][0:99]
         else:
             messages["messages"] = new_messages + messages["messages"][0:99]

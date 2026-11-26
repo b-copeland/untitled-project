@@ -44,3 +44,27 @@ test("a galaxy can be picked out", async () => {
     expect(screen.queryByText("bot_thief_1")).toBeNull();
     expect(screen.getByText("Mine")).toBeTruthy();
 });
+
+
+test("the tools rename the kingdom and delete a message", async () => {
+    const withTools = {...kingdom, messages: [{time: "t3", with: "1", from: true, message: "rude"}], board_posts: [],
+                       stray_fields: ["junk"]};
+    adminAuth.authFetch.mockImplementation((url) => Promise.resolve({
+        json: () => Promise.resolve(url === "api/admin/universe" ? universe
+            : url.startsWith("api/admin/kingdom/2/") ? {message: "Done", status: "success"} : withTools),
+    }));
+    render(<AdminUniverse/>);
+    await waitFor(() => screen.getByText("bot_thief_1"));
+    fireEvent.click(screen.getByText("bot_thief_1"));
+    await waitFor(() => screen.getByText(/rude/));
+    expect(screen.getByText(/junk/)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("New name"), {target: {value: "Polite"}});
+    fireEvent.click(screen.getByText("Rename"));
+    await waitFor(() => expect(adminAuth.authFetch).toHaveBeenCalledWith("api/admin/kingdom/2/rename",
+        {method: "POST", body: JSON.stringify({name: "Polite"})}));
+
+    fireEvent.click(screen.getByText("Delete"));
+    await waitFor(() => expect(adminAuth.authFetch).toHaveBeenCalledWith("api/admin/kingdom/2/messages/delete",
+        {method: "POST", body: JSON.stringify({message: {time: "t3", with: "1", from: true, message: "rude"}})}));
+});
