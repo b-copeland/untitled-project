@@ -110,7 +110,18 @@ def _unsafe_path_response(error):
 class _FunctionAppSession(requests.Session):
     """The session every module uses to call the function app. Every URL is checked first (``check_function_url``).
     A write drops what this request has cached of the document it changes (see request_cache.py), before it is sent
-    and again after, so no read in between or after sees the old version."""
+    and again after, so no read in between or after sees the old version.
+
+    ``backend`` is where the calls go: ``None`` sends them over HTTP to the function app; an ``InProcessSession``
+    (``inprocess.py``) runs the function app's handlers in this process instead. ``configure_storage`` sets it from
+    ``STORAGE_BACKEND``; the tests set it to their in-memory one. The checks above apply to both."""
+
+    backend = None
+
+    def request(self, method, url, *args, **kwargs):
+        if self.backend is not None:
+            return self.backend.request(method, url, *args, **kwargs)
+        return super().request(method, url, *args, **kwargs)
 
     def get(self, url, **kwargs):
         check_function_url(url)
@@ -143,6 +154,32 @@ class _FunctionAppSession(requests.Session):
 
 
 REQUESTS_SESSION = _FunctionAppSession()
+
+# The function app's address when its handlers run in this process. Nothing listens there: the URL only names the
+# route, as the call sites build it from ``AZURE_FUNCTION_ENDPOINT``.
+INPROCESS_ENDPOINT = "http://inprocess.invalid/api"
+STORAGE_BACKENDS = ("functionapp", "inprocess")
+
+
+def configure_storage(app):
+    """
+    Send storage calls where ``STORAGE_BACKEND`` says: ``functionapp`` (the default) over HTTP, or ``inprocess``,
+    the function app's handlers run here over Cosmos (``inprocess.py``), which needs the function app's Cosmos settings
+    (``COSMOS_ENDPOINT``, ``COSMOS_KEY``, ``COSMOS_DATABASE_NAME``, ``COSMOS_CONTAINER_NAME``) in this process.
+    Leaves the session alone when the tests have already given it a backend.
+    """
+    choice = app.config.get("STORAGE_BACKEND") or "functionapp"
+    if choice not in STORAGE_BACKENDS:
+        raise ValueError(f"STORAGE_BACKEND must be one of {STORAGE_BACKENDS}, not {choice!r}")
+    if choice == "functionapp" or REQUESTS_SESSION.backend is not None:
+        return
+    missing = [name for name in ("COSMOS_ENDPOINT", "COSMOS_KEY") if not os.environ.get(name)]
+    if missing:
+        raise RuntimeError(f"STORAGE_BACKEND=inprocess needs {', '.join(missing)} set")
+    from untitledapp import inprocess
+    REQUESTS_SESSION.backend = inprocess.InProcessSession(inprocess.load_function_app())
+    app.config["AZURE_FUNCTION_ENDPOINT"] = app.config.get("AZURE_FUNCTION_ENDPOINT") or INPROCESS_ENDPOINT
+    app.logger.info("Storage: the function app's handlers run in this process")
 
 from untitledapp.sockets import Registry  # noqa: E402
 
@@ -301,6 +338,7 @@ def create_app(config_class='config.Config'):
     mail.init_app(app)
 
     sock = Sock(app)
+    configure_storage(app)  # before the first storage call, just below
     if config_class.lower() == "config.config":
         with app.app_context():
             _ensure_user("admin", os.environ["ADMIN_PASSWORD"], roles="operator,admin", kd_created=True)
