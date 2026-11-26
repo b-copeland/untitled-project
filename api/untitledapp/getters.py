@@ -946,21 +946,25 @@ def _get_kd_info(kd_id):
     return kd_info_parse
 
 
-def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inverted=None, last_known=None):
+def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inverted=None, last_known=None,
+                     document=None):
     """
     Another kingdom as ``kd_id`` sees it: the fields of what ``revealed_info`` reveals now. With ``last_known`` (the
     caller's last-known intel, ``lastknown.read``), also ``last_known``: the snapshots of the categories not revealed
-    now. ``max=True`` returns the whole kingdom, for server-side calculations only.
+    now. ``max=True`` returns the whole kingdom, for server-side calculations only. ``document`` is the kingdom as the
+    caller has already read it (``_read_kingdom_documents``), to filter instead of reading it again.
     """
     app = flask.current_app
     if galaxies_inverted == None:
         galaxies_inverted, _ = _get_galaxies_inverted()
-    kd_info = REQUESTS_SESSION.get(
-        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{other_kd_id}',
-        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
-    )
-    
-    kd_info_parse = json.loads(kd_info.text)
+    if document is not None:
+        kd_info_parse = document
+    else:
+        kd_info = REQUESTS_SESSION.get(
+            app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{other_kd_id}',
+            headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
+        )
+        kd_info_parse = json.loads(kd_info.text)
     if max:
         return kd_info_parse
 
@@ -1420,15 +1424,43 @@ def _military_estimate(info):
     }
 
 
+def _read_kingdom_documents(kd_ids):
+    """``{kd_id: document}`` for ``kd_ids``, in one function app call: a kingdom that does not exist is left out.
+    The documents are whole, so they go through ``_get_max_kd_info`` before any reaches a response.
+
+    A function app published before the route existed answers 404; then each kingdom is read on its own, as before,
+    so the web app can go out first (docs/deployment.md)."""
+    kd_ids = list(dict.fromkeys(str(kd_id) for kd_id in kd_ids))
+    if not kd_ids:
+        return {}
+    app = flask.current_app
+    headers = {'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
+    response = REQUESTS_SESSION.post(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + '/kingdomdocuments', headers=headers, data=json.dumps({"ids": kd_ids}),
+    )
+    if response.status_code == 404:
+        documents = {}
+        for kd_id in kd_ids:
+            one = REQUESTS_SESSION.get(app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}', headers=headers)
+            if one.status_code < 300:
+                documents[kd_id] = json.loads(one.text)
+        return documents
+    if response.status_code >= 300:
+        raise RuntimeError(f"Reading {len(kd_ids)} kingdoms failed with {response.status_code}: {response.text}")
+    return json.loads(response.text)["kingdoms"]
+
+
 def _get_max_kingdoms(kd_id, kingdoms):
     revealed_info = _get_revealed(kd_id)
     galaxies_inverted, _ = _get_galaxies_inverted()
     last_known = uala.read(kd_id)
+    documents = _read_kingdom_documents(kingdoms)
 
     payload = {
         other_kd_id: _get_max_kd_info(other_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted,
-                                      last_known=last_known)
+                                      last_known=last_known, document=documents[str(other_kd_id)])
         for other_kd_id in kingdoms
+        if str(other_kd_id) in documents
     }
     for info in payload.values():
         # Only from the army (military intel): projects intel reveals the engineers alone, which says nothing of it.
@@ -1448,8 +1480,8 @@ def _get_max_kingdoms(kd_id, kingdoms):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def max_kingdoms():
-    """Body ``{"kingdoms": [ids]}``: each kingdom as the caller sees it. Each id is one read, so only kingdoms that
-    exist are read, each once (issue #219): a request costs at most one read per kingdom in the universe."""
+    """Body ``{"kingdoms": [ids]}``: each kingdom as the caller sees it. Only kingdoms that exist are read, each once
+    (issue #219), all in one function app call."""
     req = flask.request.get_json(force=True, silent=True)
     kingdoms = req.get("kingdoms") if isinstance(req, dict) else None
     if not isinstance(kingdoms, list):

@@ -80,6 +80,15 @@ def test_a_page_load_reads_each_shared_document_once(app, client, jwt1, calls):
     assert _count(calls, "GET", "/galaxies") == 1  # and the next request reads it afresh
 
 
+def test_the_galaxy_page_reads_its_kingdoms_in_one_call(app, client, jwt1, calls):
+    _set_up_two_kingdoms()
+    calls.clear()
+    response = client.get("/api/galaxy/1", headers={"Authorization": f"Bearer {jwt1}"})
+    assert response.status_code == 200 and response.json
+    assert _count(calls, "POST", "/kingdomdocuments") == 1
+    assert not [path for method, path in calls if method == "GET" and path.startswith("/kingdom/") and path.count("/") == 2]
+
+
 def test_nothing_is_cached_outside_a_request(app, calls):
     _set_up_kingdom(money=0)
     with app.app_context():
@@ -225,3 +234,19 @@ def test_a_finished_queue_is_read_once_and_trimmed_without_reading_it_again(app,
     assert _count(calls, "PATCH", f"/kingdom/{KD_ID}/settles") == 1
     assert _get(f"/kingdom/{KD_ID}/settles")["settles"] == [{"time": future, "amount": 2}]
     assert _get(f"/kingdom/{KD_ID}")["stars"] == kd["stars"] + 3
+
+
+def test_kingdoms_are_read_one_by_one_from_a_function_app_without_the_batch_route(app, client, jwt1, calls, monkeypatch):
+    """A function app published before /kingdomdocuments answers 404: the page still works, one read per kingdom."""
+    _set_up_two_kingdoms()
+    original = REQUESTS_SESSION.request
+
+    def request(method, url, *args, **kwargs):
+        if url.endswith("/kingdomdocuments"):
+            import types
+            return types.SimpleNamespace(status_code=404, text="Not found", headers={})
+        return original(method, url, *args, **kwargs)
+
+    monkeypatch.setattr(REQUESTS_SESSION, "request", request)
+    response = client.get("/api/galaxy/1", headers={"Authorization": f"Bearer {jwt1}"})
+    assert response.status_code == 200 and response.json

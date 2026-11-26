@@ -21,8 +21,11 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
 
 - **Flask owns the rules.** Every decision (can you afford it, does the attack win, what does the player see) is made in
   `api/untitledapp/`. Blueprints: `account`, `admin`, `adminaccounts`, `board`, `build`, `conquer`, `getters`, `intel`, `misc`, `politics`, `refresh`, `targets`.
-- **The function app owns storage, nothing else.** Each route reads or writes one Cosmos document. It does no game
-  logic. Its `update_*` handlers merge or append into the newest version of the document (see [data-model.md](data-model.md)).
+- **The function app owns storage, nothing else.** Each route reads or writes one Cosmos document, except
+  `/kingdomdocuments` (a POST), which reads several kingdoms in one query for the pages that show them
+  (`getters._read_kingdom_documents`; the documents are whole, so they go through `_get_max_kd_info` like any other). It
+  does no game logic. Its `update_*` handlers merge or append into the newest version of the document (see
+  [data-model.md](data-model.md)).
 - **Identity is in Cosmos, through the function app.** Each user is a `user_<id>` document (login, roles, `kd_id`), read
   by `users.User`, which flask-praetorian logs in with. The login token carries the kingdom id, whether the
   kingdom was created, and the round ([decisions/0005](decisions/0005-kingdom-in-the-token.md)), so `current_user()`

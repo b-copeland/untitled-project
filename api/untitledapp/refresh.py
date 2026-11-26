@@ -1066,7 +1066,7 @@ def _resolve_auto_rob(kd_info_parse):
             "drones": math.floor(drones_pct * kd_info_parse["drones"]),
             "shielded": shielded,
         }
-        _, payload, _ = uac._rob_primitives(req, kd_info_parse["kdId"])
+        _, payload, _ = uac._rob_primitives(req, kd_info_parse["kdId"], document=kd_info_parse)
         push(kd_info_parse["kdId"], "auto_primitives", payload["message"], status=payload.get("status", "info"),
              update=["spyhistory"])
         return True
@@ -1912,8 +1912,15 @@ def _refresh_kd_in(kd_id, state, time_update, update_history, context):
         effect()
 
     # What was just written is the kingdom (the PATCH sends the whole document), in exactly the form a read would
-    # return it. Only read it again after a step that changes the kingdom, instead of after every step.
+    # return it. Only read it again after a step that changes the kingdom, instead of after every step. The write
+    # answers with the document's new version, so a step can decide against this copy without reading it
+    # (``occ.update(document=...)``); without one, a step that passes it on just reads it first.
     new_kd_info = json.loads(kd_payload)
+    new_etag = (getattr(kd_patch_response, "headers", None) or {}).get("ETag")
+    if new_etag:
+        new_kd_info["_etag"] = new_etag
+    else:
+        new_kd_info.pop("_etag", None)
     if _resolve_schedules(kd_id, time_update, new_kd_info):
         new_kd_info = uag._get_kd_info(kd_id)
     # Repeating spy operations come before the auto rob, which only gets the attempts they leave.

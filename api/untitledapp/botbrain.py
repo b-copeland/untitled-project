@@ -529,15 +529,15 @@ class World:
 
     def human_members(self, memory):
         """
-        Galaxymates (not itself) that are players. One read each, so the answer is kept in the bot's memory for
-        ``HUMANS_REFRESH`` epochs (a galaxy's members change rarely).
+        Galaxymates (not itself) that are players. One read of them all, and the answer is kept in the bot's memory
+        for ``HUMANS_REFRESH`` epochs (a galaxy's members change rarely). Only whether each is a bot is used.
         """
         saved = memory.get("humans") or {}
         if saved.get("galaxy") == self.my_galaxy and self.epochs - saved.get("epochs", -1e9) < HUMANS_REFRESH:
             return saved["ids"]
-        ids = [kd for kd in self.galaxies.get(self.my_galaxy, []) if kd != self.kd_id and not
-               uag._get_max_kd_info(kd, self.kd_id, self.revealed_info, max=True,
-                                    galaxies_inverted=self.galaxy_of).get("bot")]
+        mates = [kd for kd in self.galaxies.get(self.my_galaxy, []) if kd != self.kd_id]
+        documents = uag._read_kingdom_documents(mates)
+        ids = [kd for kd in mates if str(kd) in documents and not documents[str(kd)].get("bot")]
         memory["humans"] = {"galaxy": self.my_galaxy, "ids": ids, "epochs": self.epochs}
         return ids
 

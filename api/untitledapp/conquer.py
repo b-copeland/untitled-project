@@ -2284,7 +2284,9 @@ def spy(target_kd):
 
     return (flask.jsonify(payload), status_code)
 
-def _rob_primitives(req, kd_id):
+def _rob_primitives(req, kd_id, document=None):
+    """``document``: the kingdom as the caller has just read or written it, with its ``_etag``, to decide against
+    first instead of reading it again (``occ.update``). The refresh's auto rob passes it."""
     app = flask.current_app
 
     drones = int(req["drones"])
@@ -2341,7 +2343,7 @@ def _rob_primitives(req, kd_id):
         return kd_patch_payload, (kd_info_parse, kd_patch_payload, message, status)
 
     try:
-        kd_info_parse, kd_patch_payload, message, status = occ.update(f'/kingdom/{kd_id}', decide)
+        kd_info_parse, kd_patch_payload, message, status = occ.update(f'/kingdom/{kd_id}', decide, document=document)
 
         time_now = datetime.datetime.now(datetime.timezone.utc)
         history_payload = {
