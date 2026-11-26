@@ -16,6 +16,7 @@ This file is the rules and the map. The detail is in `docs/`. Read the doc for y
 | Designing a feature or changing a rule | [docs/game-design.md](docs/game-design.md): tenets in priority order, glossary, "does it belong" checklist |
 | A route, a refresh step, a page, a document, a constant | [docs/recipes.md](docs/recipes.md): step-by-step checklists |
 | Anything that writes game state | [docs/concurrency.md](docs/concurrency.md) |
+| A route, a field, a list, or anything a player can repeat | [docs/security.md](docs/security.md): what a hostile player can send, and the checklist for a new route |
 | Document shapes and how the function app writes them | [docs/data-model.md](docs/data-model.md) |
 | A page or form | [docs/ux.md](docs/ux.md) |
 | The Status page's advisors: adding or changing advice | [docs/advisors.md](docs/advisors.md) |
@@ -52,7 +53,7 @@ frontend (`src/`) gets each data key from its own route and reads game constants
 8. **Ask before** changing balance numbers or the tenets, adding a paid service or tier, changing a document's shape in
    a way existing data must migrate to, or touching anything in Azure.
 
-## Top 10 pitfalls
+## Top pitfalls
 
 1. **Read, decide, write without a condition.** Two overlapping requests both pass the check: one payment, two builds.
    Use `occ.update`. Validation goes inside `decide`, and `decide` has no side effects because it can run several times.
@@ -72,7 +73,10 @@ frontend (`src/`) gets each data key from its own route and reads game constants
 8. **Extra keys on queue entries.** The refresh credits every key except `time`. Entries carry only `time` and counts.
 9. **Counting ticks.** The refresh can run late, or twice. Compute from elapsed time and use cursors
    (`queues_resolved_until`) so nothing is credited twice.
-10. **`USE_EMULATOR=1` wipes data.** The test setup calls `/deleteall` on whatever container the function app points at.
+10. **Trusting the request.** Ids, keys and values come from a script as often as from the page. Check ids against
+    their list, read values through `inputs.py` (NaN passes `<` and `>`), store only what the game uses, and bound
+    anything a player can repeat for free. See [docs/security.md](docs/security.md).
+11. **`USE_EMULATOR=1` wipes data.** The test setup calls `/deleteall` on whatever container the function app points at.
     Only with `COSMOS_ENDPOINT` set to `https://localhost:8081`.
 
 ## Workflow
