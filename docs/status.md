@@ -113,10 +113,6 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   - **Settings and packages.** `azure-functions` and `azure-cosmos` pinned in `requirements.txt`; the web app given the
     Cosmos settings the function app has (`COSMOS_ENDPOINT`, `COSMOS_KEY`, `COSMOS_DATABASE_NAME`,
     `COSMOS_CONTAINER_NAME`) and a setting that chooses the backend, so going back is one setting.
-  - **Route constraints in the tests.** The in-process session refuses `empire/e1/news` as the host does
-    (`{empireId:int}`), but the tests' fake turns that check off, because `tests/test_politics.py` and a few others
-    name empires `e1`, `e2`. Give them numeric ids, as production has, then drop `check_constraints=False` from
-    `tests/fake_backend.py`.
   - **Measure first.** Each tick logs `Tick: <n> kingdoms in <s> s ...` (`refresh.refresh_data`); the log stream shows
     how close a tick is to a minute before and after.
 

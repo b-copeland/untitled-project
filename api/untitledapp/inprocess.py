@@ -71,14 +71,13 @@ def _parameter(match):
 
 
 class _Route:
-    def __init__(self, pattern, methods, handler, check_constraints=True):
+    def __init__(self, pattern, methods, handler):
         self.pattern = pattern
         self.methods = {method.upper() for method in methods}
         self.handler = handler
         self.names = re.findall(r"\{(\w+)(?::\w+)?\}", pattern)
         escaped = re.escape(pattern).replace(r"\{", "{").replace(r"\}", "}")
-        parameter = _parameter if check_constraints else (lambda match: f"(?P<{match[1]}>{_CONSTRAINTS[None]})")
-        self.regex = re.compile("^" + re.sub(r"\{(\w+)(?::(\w+))?\}", parameter, escaped) + "$")
+        self.regex = re.compile("^" + re.sub(r"\{(\w+)(?::(\w+))?\}", _parameter, escaped) + "$")
 
 
 class Response:
@@ -101,17 +100,15 @@ class Response:
 class InProcessSession:
     """Quacks like the ``requests.Session`` the Flask code uses, but calls the function app's handlers directly."""
 
-    def __init__(self, function_app, raise_errors=False, check_constraints=True):
+    def __init__(self, function_app, raise_errors=False):
         # The Functions host answers 500 when a handler raises, and so does this session, unless ``raise_errors``
-        # (the tests set it, so a handler's exception shows where it happened). ``check_constraints=False`` lets any
-        # value fill a constrained parameter, which the host would refuse: only for tests whose made-up ids are not
-        # numbers (docs/status.md).
+        # (the tests set it, so a handler's exception shows where it happened).
         self.raise_errors = raise_errors
         self.routes = []
         for function in function_app.APP.get_functions():
             route = next(b for b in function.get_bindings() if getattr(b, "route", None) is not None)
             methods = [str(m.value) if hasattr(m, "value") else str(m) for m in route.methods]
-            self.routes.append(_Route(route.route, methods, function.get_user_function(), check_constraints))
+            self.routes.append(_Route(route.route, methods, function.get_user_function()))
         # A literal route must win over a parameterised one of the same shape (``kingdom/new`` before ``kingdom/{id}``).
         self.routes.sort(key=lambda r: len(r.names))
 

@@ -216,11 +216,7 @@ def load_function_app(container):
 
 
 class FakeSession(inprocess.InProcessSession):
-    """
-    The session production would use in-process (``untitledapp/inprocess.py``), raising a handler's exception. It does
-    not check route constraints yet: some tests name empires ``e1``, which ``empire/{empireId:int}/news`` refuses.
-    ``tests/test_inprocess.py`` covers the check.
-    """
+    """The session production would use in-process (``untitledapp/inprocess.py``), raising a handler's exception."""
 
     def __init__(self, function_app):
-        super().__init__(function_app, raise_errors=True, check_constraints=False)
+        super().__init__(function_app, raise_errors=True)
