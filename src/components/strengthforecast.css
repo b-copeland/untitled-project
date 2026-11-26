@@ -1,0 +1,20 @@
+.strength-forecast .strength-settings {
+    max-width: 32rem;
+    margin-bottom: 0.75rem;
+}
+
+.strength-forecast .strength-timeline h4 {
+    font-size: 1rem;
+    margin: 0.75rem 0 0.25rem;
+}
+
+.strength-forecast .strength-kind {
+    display: block;
+    font-weight: normal;
+    color: var(--bs-secondary-color);
+}
+
+.strength-forecast .strength-table th,
+.strength-forecast .strength-table td {
+    white-space: nowrap;
+}

@@ -12,6 +12,7 @@ function Spy(props) {
         spystructures: "Reveals structures",
         spyprojects: "Reveals projects",
         spydrones: "Reveals drones and spy attempts",
+        spyproduction: "Reveals what the kingdom has in production: units in training, structures being built, engineers in training, stars being settled and missiles being built, and when they arrive",
         spyall: "Reveals all of the above at once. Vult kingdoms with Vult Evolution only, in place of the other intel operations",
         siphonfunds: `Steals up to ${num(cfg.BASE_DRONES_SIPHON_PER_DRONE)} money per drone, paid evenly over the next ${duration(cfg.BASE_DRONES_SIPHON_TIME_MULTIPLIER, cfg)}. A kingdom loses at most ${pct(cfg.BASE_MAX_SIPHON)} of its income to all siphons together. When the siphons on it would take more, the oldest siphon is reduced first, then the next oldest, until they fit, and the newer ones pay in full. A reduced siphon stays reduced, and what it could not take is lost. If the siphoning kingdom dies, its siphons end. The forecast warns you when you already have a siphon running on the kingdom you choose; siphons on different kingdoms are no concern.`,
         bombhomes: `Destroys 1 home per ${num(cfg.BASE_DRONES_PER_HOME_DAMAGE)} drones, up to ${pct(cfg.BASE_DRONES_MAX_HOME_DAMAGE)} of the target's homes`,

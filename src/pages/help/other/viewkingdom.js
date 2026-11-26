@@ -1,12 +1,13 @@
 import React from "react";
 import { Topic, config } from "../util";
+import { StrengthHelp } from "../home/home";
 
 function ViewKingdom(props) {
     return (
         <Topic id="viewkingdom" title="Kingdom page" lead="Everything you know about one kingdom.">
             <p>
-                Every kingdom name in the game links to its page. Its tabs (Kingdom, Military, Structures, Projects and
-                Shields) show only what you have revealed by spying, received from galaxymates, or been shown by a
+                Every kingdom name in the game links to its page. Its tabs (Kingdom, Military, Structures, Production,
+                Projects and Shields) show only what you have revealed by spying, received from galaxymates, or been shown by a
                 galaxymate who shares their kingdom with you. Unknown values show as "?". The buttons at the top open
                 Attack, Spy or Launch Missiles with this kingdom chosen.
             </p>
@@ -15,6 +16,18 @@ function ViewKingdom(props) {
                 lack offers to spy for it, buy it, or ask the galaxy for it. Each kind you have offers to share it (see
                 Intel).
             </p>
+            <p>
+                The Production tab, filled by Spy on Production, shows what the kingdom has in production: units in
+                training, structures being built, engineers in training, stars being settled and missiles being built,
+                with how many arrive within each time shown and how many are queued in all. Last-known intel does not
+                keep it, since it changes as things arrive.
+            </p>
+            <p>
+                With their military revealed, the Military tab forecasts their strength over time. With their
+                production revealed too, it adds their training as it arrives. Military shields and military
+                efficiency you have not revealed start at the most there can be.
+            </p>
+            <StrengthHelp />
             <LastKnownHelp state={props.state} />
         </Topic>
     );

@@ -29,6 +29,7 @@ const OPERATIONS = [
     { value: "spyprojects", label: "Spy on projects", group: "Gather intel" },
     { value: "spystructures", label: "Spy on structures", group: "Gather intel" },
     { value: "spydrones", label: "Spy on drones", group: "Gather intel" },
+    { value: "spyproduction", label: "Spy on production", group: "Gather intel" },
     // Only for kingdoms that have completed the project (state.operation_projects says which).
     { value: "spyall", label: "Full infiltration (everything)", group: "Gather intel" },
     { value: "siphonfunds", label: "Siphon funds", group: "Hostile" },

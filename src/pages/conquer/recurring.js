@@ -13,6 +13,7 @@ export const INTEL_OPERATIONS = [
     { value: "spymilitary", label: "Spy on military" }, { value: "spykingdom", label: "Spy on kingdom" },
     { value: "spyshields", label: "Spy on shields" }, { value: "spyprojects", label: "Spy on projects" },
     { value: "spystructures", label: "Spy on structures" }, { value: "spydrones", label: "Spy on drones" },
+    { value: "spyproduction", label: "Spy on production" },
     { value: "spyall", label: "Full infiltration (everything)" },
 ];
 const START = { type: "siphon", target: null, operation: null, drones_pct: "", shielded: false, share_to_galaxy: false, cut: "", stop_after_fails: "3", until: "" };

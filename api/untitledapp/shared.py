@@ -1169,11 +1169,12 @@ REVEAL_OPERATIONS = [
     "spyprojects",
     "spystructures",
     "spydrones",
+    "spyproduction",
     "spyall",
 ]
 # What each intel operation reveals: its name without "spy", except Full Infiltration, which reveals everything.
 REVEAL_OPERATION_STATS = {operation: [operation.replace("spy", "")] for operation in REVEAL_OPERATIONS}
-REVEAL_OPERATION_STATS["spyall"] = ["kingdom", "military", "shields", "projects", "structures", "drones"]
+REVEAL_OPERATION_STATS["spyall"] = ["kingdom", "military", "shields", "projects", "structures", "drones", "production"]
 # The kingdom fields each kind of intel reveals (``revealed_fields``). Name, race, status and coordinate are public.
 PUBLIC_KINGDOM_FIELDS = ("name", "race", "status", "coordinate")
 REVEAL_FIELDS = {
@@ -1184,7 +1185,12 @@ REVEAL_FIELDS = {
     "shields": ["shields", "shields_climb"],
     "projects": ["projects_points", "projects_max_points", "projects_assigned", "completed_projects"],
     "drones": ["drones", "spy_attempts"],
+    # Production is the build queues, which are documents of their own, not kingdom fields: the kingdom page reads them
+    # (getters._get_production) only when this is revealed, and last-known intel does not keep them.
+    "production": [],
 }
+# The queues production intel reveals, as the queue documents name them.
+PRODUCTION_QUEUES = ("mobis", "structures", "engineers", "settles", "missiles")
 
 
 def revealed_fields(kd_info, categories, public=True, derived=True):
@@ -1863,6 +1869,7 @@ PRETTY_NAMES = {
     "spyprojects": "Spy on Projects",
     "spystructures": "Spy on Structures",
     "spydrones": "Spy on Drones",
+    "spyproduction": "Spy on Production",
     "spyall": "Full Infiltration",
     "siphonfunds": "Siphon Funds",
     "bombhomes": "Bomb Homes",

@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { Military, Structures, horizonLabel } from "./status";
 
 jest.mock("../../components/helpbutton", () => () => null);
+jest.mock("../../components/strengthforecast", () => ({ StrengthForecast: () => <div>strength forecast</div> }));
 
 const state = (epochSeconds) => ({
     game_config: { BASE_EPOCH_SECONDS: epochSeconds, QUEUE_FORECAST_EPOCHS: [2, 4, 8, 16, 48] },
@@ -35,6 +36,5 @@ test("the mobilization table uses the same horizons", () => {
     render(<Military mobis={mobis} state={state(1800)} />);
     const attackers = screen.getAllByRole("row", { name: /Attackers/ }).pop();
     expect(within(attackers).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["Attackers", "5", "7", "5", "5", "5", "9"]);
-    const offense = screen.getAllByRole("row", { name: /Max offense/ }).pop();
-    expect(within(offense).getAllByRole("cell")[2].textContent).toBe("70");
+    expect(screen.getByText("strength forecast")).toBeTruthy();  // offense and defense come from the server
 });

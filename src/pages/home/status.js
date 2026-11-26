@@ -15,6 +15,10 @@ import HelpButton from "../../components/helpbutton";
 import { KingdomLink } from "../../components/kingdomlink";
 import Overview from "./overview";
 import { KingdomStats } from "./stats";
+import { ForecastHead, ForecastRow, horizonLabel } from "../../components/forecast";
+import { StrengthForecast } from "../../components/strengthforecast";
+
+export { horizonLabel };
 
 function StatusContent(props) {
     const [key, setKey] = useState('overview');
@@ -363,49 +367,11 @@ function unitKeys(counts, state) {
     return all.filter((key) => !state?.units?.[key]?.project || (counts?.[key] || 0) > 0);
 }
 
-/** A column heading for a forecast that many epochs ahead, in real time: "30m", "1h", "24h". */
-export function horizonLabel(epochs, cfg) {
-    const seconds = (epochs || 0) * (cfg?.BASE_EPOCH_SECONDS || 0);
-    if (seconds > 0 && seconds < 3600) {
-        return `${Math.round(seconds / 60)}m`;
-    }
-    return `${Math.round((seconds / 3600) * 10) / 10}h`;
-}
-
-function ForecastHead({ horizons, cfg }) {
-    return (
-        <thead>
-            <tr>
-                <th style={{textAlign: "right"}}></th>
-                <th style={{textAlign: "right"}}>Now</th>
-                {horizons.map((epochs) => <th key={epochs} style={{textAlign: "right"}}>{horizonLabel(epochs, cfg)}</th>)}
-            </tr>
-        </thead>
-    );
-}
-
-const wholeNumber = (value) => Math.floor(value || 0).toLocaleString();
-
-/** One row: the amount now, then now plus what the queue adds by each horizon (``future_<epochs>`` from the API). */
-function ForecastRow({ label, now, horizons, at, show = wholeNumber }) {
-    return (
-        <tr>
-            <td style={{textAlign: "left"}}>{label}</td>
-            <td style={{textAlign: "right"}}>{show(now || 0)}</td>
-            {horizons.map((epochs) => (
-                <td key={epochs} style={{textAlign: "right"}}>{show((now || 0) + (at(`future_${epochs}`) || 0))}</td>
-            ))}
-        </tr>
-    );
-}
-
 export function Military(props) {
     if (Object.keys(props.mobis).length === 0) {
         return null;
     }
     const units = props.mobis?.units || {};
-    const maxOffense = props.mobis?.maxes?.offense || {};
-    const maxDefense = props.mobis?.maxes?.defense || {};
     const cfg = props.state?.game_config || {};
     const horizons = cfg.QUEUE_FORECAST_EPOCHS || [];
     return (
@@ -441,42 +407,6 @@ export function Military(props) {
                         ))}
                     </tbody>
                 </Table>
-                <Table hover className="army-table" size="sm">
-                    <thead>
-                        <tr>
-                        <th colSpan={2}></th>
-                        <th colSpan={4}>Generals</th>
-                        </tr>
-                    </thead>
-                    <thead>
-                        <tr>
-                            <th style={{textAlign: "right"}}></th>
-                            <th style={{textAlign: "right"}}>Home</th>
-                            <th style={{textAlign: "right"}}>{getTimeString(units.general_0?.return_time)}</th>
-                            <th style={{textAlign: "right"}}>{getTimeString(units.general_1?.return_time)}</th>
-                            <th style={{textAlign: "right"}}>{getTimeString(units.general_2?.return_time)}</th>
-                            <th style={{textAlign: "right"}}>{getTimeString(units.general_3?.return_time)}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Max offense</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(maxOffense.current || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxOffense.current || 0) + (maxOffense.general_0 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxOffense.current || 0) + (maxOffense.general_0 || 0) + (maxOffense.general_1 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxOffense.current || 0) + (maxOffense.general_0 || 0) + (maxOffense.general_1 || 0) + (maxOffense.general_2 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxOffense.current || 0) + (maxOffense.general_0 || 0) + (maxOffense.general_1 || 0) + (maxOffense.general_2 || 0) + (maxOffense.general_3 || 0)).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                            <td style={{textAlign: "left"}}>Max defense</td>
-                            <td style={{textAlign: "right"}}>{Math.floor(maxDefense.current || 0).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxDefense.current || 0) + (maxDefense.general_0 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxDefense.current || 0) + (maxDefense.general_0 || 0) + (maxDefense.general_1 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxDefense.current || 0) + (maxDefense.general_0 || 0) + (maxDefense.general_1 || 0) + (maxDefense.general_2 || 0)).toLocaleString()}</td>
-                            <td style={{textAlign: "right"}}>{Math.floor((maxDefense.current || 0) + (maxDefense.general_0 || 0) + (maxDefense.general_1 || 0) + (maxDefense.general_2 || 0) + (maxDefense.general_3 || 0)).toLocaleString()}</td>
-                        </tr>
-                    </tbody>
-                </Table>
             </div>
             <div className="col-center-card mobi-info">
                 <h2>Mobilization</h2>
@@ -491,15 +421,9 @@ export function Military(props) {
                         </tbody>
                     </Table>
                 </div>
-                <div className="table-scroll">
-                    <Table hover className="mobis-table" size="sm">
-                        <ForecastHead horizons={horizons} cfg={cfg} />
-                        <tbody>
-                            <ForecastRow label="Max offense" now={maxOffense.current_total} horizons={horizons} at={(name) => maxOffense[name]} />
-                            <ForecastRow label="Max defense" now={maxDefense.current_total} horizons={horizons} at={(name) => maxDefense[name]} />
-                        </tbody>
-                    </Table>
-                </div>
+            </div>
+            <div className="strength-info">
+                <StrengthForecast state={props.state} />
             </div>
         </div>
     )
