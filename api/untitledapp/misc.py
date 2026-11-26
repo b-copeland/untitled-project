@@ -469,6 +469,9 @@ def send_message(target_kd):
     req = flask.request.get_json(force=True)
 
     kingdoms = uag._get_kingdoms()
+    target_kd = str(target_kd)
+    if target_kd not in kingdoms:
+        return flask.jsonify({"message": "There is no kingdom with that id"}), 400
 
     if len(req.get("message", "")) > 1024:
         return flask.jsonify({"message": "Messages must be less than 1024 characters"}), 400

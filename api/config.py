@@ -26,6 +26,7 @@ class TestingConfig(Config):
     MAIL_PASSWORD = os.environ.get('SENDGRID_API_KEY')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
     EMAIL_BACKEND = 'memory'
+    STRICT_KINGDOM_FIELDS = True  # a kingdom write with an unknown field raises instead of dropping it (check_function_url)
     RATELIMIT_ENABLED = False  # tests make hundreds of requests a second from one address
     FRONTEND_URL = 'http://frontend.test'
     AZURE_FUNCTION_ENDPOINT = "http://localhost:7071/api"
