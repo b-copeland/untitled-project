@@ -210,6 +210,7 @@ neither a starting field nor one of these is refused before it is sent (`check_f
 | `queues_resolved_until` | Per queue, the time up to which finished entries have been credited, so a repeated refresh never credits twice |
 | `bot` | Only on bots run by the bot brain: `type`, `style`, `next_think`, `phase`, `log`, `counts`, `memory`, `reserved_generals` (see [bots.md](bots.md#the-bots-own-record)). Read each with `.get`: bots made earlier have only the first, third and fifth. |
 | `bot_pressure` | Only on players that bots have acted on: `hits` (times of recent hostile bot actions) and `rest_until`. Three bot strikes, missiles or aggressive spy attempts in 12 epochs start a rest of 24 epochs in which no bot may act on the player (`refresh._bot_may_act_on`, `botstrategy.reserve_hit`). Read with `.get`. |
+| `banned` | True while the kingdom's account is banned (`adminaccounts.ban`), false after an unban. The kingdom poll answers 401 for it, which signs the player out. Read with `.get` |
 
 ## Users
 

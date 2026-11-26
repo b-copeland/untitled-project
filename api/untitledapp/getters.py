@@ -203,6 +203,10 @@ def kingdom():
     )
     
     kd_info_parse = json.loads(kd_info.text)
+    if kd_info_parse.get("banned"):
+        # The poll every few seconds: a banned player is signed out at once, without a read of the account.
+        from untitledapp import BANNED_MESSAGE
+        return flask.jsonify({"message": BANNED_MESSAGE}), 401
     return (flask.jsonify(kd_info_parse), 200)
 
 

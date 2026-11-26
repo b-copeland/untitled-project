@@ -81,6 +81,27 @@ def _refuse_unsafe_path_ids():
     return None
 
 
+BANNED_MESSAGE = "This account is banned."
+
+
+def refuse_banned():
+    """
+    For ``before_request``: a 401 for an action (anything but a read) by a banned account, whose token is otherwise
+    good for up to a day (decision 0005, D4). One read of the user, which the action decorators reuse (the request
+    cache), so most actions pay nothing extra. A 401 signs the player out in the browser.
+    """
+    if flask.request.method in ("GET", "HEAD", "OPTIONS") or not flask.request.path.startswith("/api/"):
+        return None
+    try:
+        claims = guard.extract_jwt_token(guard.read_token_from_header())
+    except Exception:  # no token or a bad one: the route's own check answers
+        return None
+    user = User.read(claims.get("id"))
+    if user is not None and not user.is_active:
+        return flask.jsonify({"message": BANNED_MESSAGE}), 401
+    return None
+
+
 def _unsafe_path_response(error):
     logging.warning("Refused an unsafe function app call: %s", error)
     return flask.jsonify({"message": "That request is not valid"}), 400
@@ -325,6 +346,7 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uaadv.bp)
     app.before_request(uare.frozen_response)  # once the round is over, the game is read only
     app.before_request(_refuse_unsafe_path_ids)
+    app.before_request(refuse_banned)
     app.register_error_handler(UnsafePath, _unsafe_path_response)
 
     # Limits (docs/architecture.md#rate-limits): each route allows 100 a minute per user (per address without a

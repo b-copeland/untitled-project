@@ -9,6 +9,7 @@ for ``SEEN_DAYS`` is dropped at the user's next login or the next new round, and
 """
 import datetime
 import hashlib
+import json
 import hmac
 import ipaddress
 
@@ -227,8 +228,9 @@ def set_password(user_id):
 @flask_praetorian.roles_required('admin')
 def ban(user_id):
     """
-    Body ``{"reason"}`` (optional). The account can not log in or renew its token; a token already issued works until
-    it expires, at most a day (decision 0005). Its kingdom stays. An admin account can not be banned here.
+    Body ``{"reason"}`` (optional). The account can not log in or renew its token, and a token already issued stops
+    working at once: actions read the account (``refuse_banned``), and the kingdom poll sees the kingdom marked banned.
+    Its kingdom stays in the round. An admin account can not be banned here.
     """
     reason = (flask.request.get_json(force=True, silent=True) or {}).get("reason") or ""
     if not isinstance(reason, str) or len(reason) > MAX_REASON_LENGTH:
@@ -249,7 +251,29 @@ def ban(user_id):
         return flask.jsonify({"message": rejection.message}), rejection.status
     except occ.Busy:
         return flask.jsonify({"message": "Server is busy"}), 400
+    _mark_kingdom(user, True)
     return _reply(f"{user.username} is banned", user)
+
+
+def _mark_kingdom(user, banned):
+    """
+    Mark the account's kingdom as banned or not, so the kingdom poll (every few seconds) signs the player out at once
+    with no read of its own, and close this process's notification sockets for it. A merge of one field.
+    """
+    kd_id = getattr(user, "kd_id", None)
+    if kd_id in (None, ""):
+        return
+    from untitledapp import REQUESTS_SESSION, SOCKETS
+    REQUESTS_SESSION.patch(
+        flask.current_app.config["AZURE_FUNCTION_ENDPOINT"] + f"/kingdom/{kd_id}",
+        headers={"x-functions-key": flask.current_app.config["AZURE_FUNCTION_KEY"]},
+        data=json.dumps({"banned": banned}),
+    )
+    if banned:
+        from untitledapp.sockets import _close
+        for ws in SOCKETS.kingdom_sockets(str(kd_id)):
+            SOCKETS.unregister(ws)
+            _close(ws, 1008, "This account is banned")
 
 
 @bp.route('/api/admin/accounts/<int:user_id>/unban', methods=["POST"])
@@ -260,4 +284,5 @@ def unban(user_id):
         user.save(is_active=True, ban_reason=None, banned_at=None)
     except occ.Busy:
         return flask.jsonify({"message": "Server is busy"}), 400
+    _mark_kingdom(user, False)
     return _reply(f"{user.username} can log in again", user)

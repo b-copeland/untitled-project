@@ -48,6 +48,11 @@ Two facts make this less simple than adding a claim:
   at most 24 hours. Accepted: disabling is rare and an admin action, and the game has no money or private data at
   stake beyond the kingdom. The same goes for roles: an `admin` removed from `rls` keeps admin routes for the same
   window: praetorian reads roles from the token, as it always did, and that is kept.
+  **Changed for bans (issue #219, 2026-11-25):** before a round with strangers, a day of a banned player still acting
+  was too long. A ban now stops a live token at once without a read on every poll: actions (any non-GET request)
+  read the account, which most already did; and the ban marks the kingdom `banned`, which the kingdom poll (every 10
+  seconds, and when the app loads) already reads. Other polls still answer until the player is signed out, which the
+  first 401 does. Removed roles still last until the token expires.
 
 ## Rejected
 
