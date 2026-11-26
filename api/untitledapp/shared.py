@@ -568,6 +568,9 @@ GAME_CONFIG = {
     "TARGET_MAX_FUND_SHARE": 0.50,  # the most leadership can set the fund share to
     "TARGET_MAX_POINTS_MULTIPLIER": 5.0,  # leadership can scale each action's points from 0 up to this many times
     "TARGET_HISTORY_LENGTH": 20,  # ended targets kept in the empire's history
+    # A galaxy leader's empire requests, invitations, their cancellations and empire foundings, together, per hour
+    # (politics.spend_diplomacy). Each posts empire news or makes documents, so a loop of them must stop somewhere.
+    "GALAXY_DIPLOMACY_ACTIONS_PER_HOUR": 10,
     "TARGET_REMARK_COOLDOWN_EPOCHS": 24,  # a kingdom removed as a target can be marked again by that empire after this
     # A dead target's land and money go into the fund in proportion to the empire's points on it, all of it once it has
     # this many points for every star the target had when it was marked; the rest leaves the game.
@@ -1408,6 +1411,12 @@ INITIAL_KINGDOM_STATE = {
         }
     },
 }
+
+# Kingdom fields that only some kingdoms have, written after the kingdom is made (docs/data-model.md, "Fields added
+# after creation"). With the starting fields, every field a kingdom document can have: a write of any other field to a
+# kingdom is refused (``check_function_url`` in __init__.py), so a new kingdom field goes in one of the two.
+KINGDOM_FIELDS_ADDED_LATER = ("queues_resolved_until", "bot", "bot_pressure", "banned")
+KINGDOM_FIELDS = frozenset(INITIAL_KINGDOM_STATE["kingdom"]) | frozenset(KINGDOM_FIELDS_ADDED_LATER)
 
 KINGDOM_CREATOR_STARTING_POINTS = 20000
 KINGDOM_CREATOR_POINTS = {

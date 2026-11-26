@@ -159,3 +159,38 @@ def test_the_news_of_an_ended_target_says_why_and_what_was_paid():
         "The target Bravo is dead. Its spoils fund paid 12 stars and 1,500 money to 2 kingdom(s)")
     assert targets.ended_news("war_ended", "Bravo", None, {}) == (
         "The target Bravo ended with the war. Its spoils fund paid out nothing")
+
+
+def test_a_galaxy_can_ask_and_cancel_only_so_many_times_an_hour(app, client, jwt1):
+    """Asking to join and cancelling is free and posts empire news: a loop of it must stop (issue #219)."""
+    import untitledapp.shared as uas
+    _galaxy_outside_an_empire()
+    limit = uas.GAME_CONFIG["GALAXY_DIPLOMACY_ACTIONS_PER_HOUR"]
+
+    statuses = []
+    for i in range(limit + 2):
+        path = "/api/empire/e2/join" if i % 2 == 0 else "/api/empire/e2/canceljoin"
+        statuses.append(client.post(path, headers=_auth(jwt1)))
+
+    assert [response.status_code for response in statuses[:limit]] == [200] * limit
+    refused = statuses[limit]
+    assert refused.status_code == 400 and "an hour" in refused.get_json()["message"]
+    assert len(_news("e2")) == limit // 2
+
+
+def test_the_hourly_allowance_frees_up_as_actions_age(app, client, jwt1):
+    import untitledapp.shared as uas
+    _galaxy_outside_an_empire()
+    old = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=61)).isoformat()
+    _create_item("galaxy_votes_1:1", {**_galaxy_politics(leader=KD_ID),
+                                     "diplomacy_actions": [old] * uas.GAME_CONFIG["GALAXY_DIPLOMACY_ACTIONS_PER_HOUR"]})
+
+    assert client.post("/api/empire/e2/join", headers=_auth(jwt1)).status_code == 200
+    assert _get("/galaxy/1:1/politics")["diplomacy_actions"] != [old] * uas.GAME_CONFIG["GALAXY_DIPLOMACY_ACTIONS_PER_HOUR"]
+    assert len(_get("/galaxy/1:1/politics")["diplomacy_actions"]) == 1
+
+
+def test_a_join_request_to_an_empire_that_does_not_exist_is_refused(app, client, jwt1):
+    _galaxy_outside_an_empire()
+    assert client.post("/api/empire/e9/join", headers=_auth(jwt1)).status_code == 404  # politics._known_targets
+    assert client.post("/api/empire/e2/canceljoin", headers=_auth(jwt1)).status_code == 400

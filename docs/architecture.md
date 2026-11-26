@@ -42,7 +42,7 @@ browser ──/api/*, /ws──▶ Flask (rules, identity) ──HTTP, x-functio
 - **The frontend** fetches each data key (`kingdom`, `structures`, ...) from its own `/api/<key>` route
   (`src/data/gameData.js`), polls the kingdom every 10 seconds, and refetches what an action changed. Game constants come
   from the server (`data.state.game_config`, `data.state.pretty_names`), not from copies in the browser.
-- **Live notifications** use a websocket at `/ws/listen`. `SOCKETS` (`sockets.py`) holds each kingdom's open sockets, one per tab or device: a socket is registered once it sends a valid token, and removed when it closes, goes quiet or fails, with caps per kingdom and per process. Send one
+- **Live notifications** use a websocket at `/ws/listen`. `SOCKETS` (`sockets.py`) holds each kingdom's open sockets, one per tab or device: a socket is registered once it sends a valid token, and removed when it closes, goes quiet or fails, with caps per kingdom and per process, on sockets still waiting for their token, and per address (a socket holds a server thread from the moment it opens). Send one
   with `push(kd_id, kind, message)` in `push.py`; every `kind` is in its `KINDS`, which the Settings page lists so a
   player can turn kinds off. The browser does the hiding, so a push costs no read of the player's preferences.
 
@@ -78,6 +78,10 @@ caller has revealed: `_get_max_kd_info` in `getters.py` holds the whitelist of f
 with `max=True` returns the whole kingdom, which is for server-side calculations (an attack's real outcome) and must
 never reach a response. Bots follow the same rule: they decide only from what a player in their position could see.
 
+The other side of the same rule: anything in a request can be written by a script. An id, a key or a value from the
+request is checked before it is used, only what the game uses is stored, and nothing a player can repeat for free grows
+without end. See [security.md](security.md).
+
 ### 3. Rules live in one place
 
 - Game numbers live in `shared.py` (`GAME_CONFIG`, `GAME_FUNCS`, `UNITS`, `PROJECTS`, ...). Never repeat a number in
@@ -93,6 +97,23 @@ never reach a response. Bots follow the same rule: they decide only from what a 
 An action that spends or changes something picks the one document that holds what is at stake (usually
 `kingdom_<id>`) and makes its decision there, with `occ.update`. Everything else it causes (news, history,
 notifications, queue entries) is written after, as appends. See the tiers in [concurrency.md](concurrency.md).
+
+## Rate limits
+
+Flask-Limiter, set up in `create_app` (`api/untitledapp/__init__.py`):
+
+- A request counts against its **user** when it carries a valid, unexpired login token, and against its **address**
+  otherwise (`_limit_key`). Never against the token string: anyone can make one up, and `/api/refresh` mints new
+  ones. The address is the last `X-Forwarded-For` entry, the one App Service adds (`client_address` in
+  `adminaccounts.py`); a proxy in front (issue #173) changes which entry that is.
+- Each route allows 100 a minute per key. All routes together allow `ADDRESS_LIMIT` per address, whatever tokens it
+  sends.
+- `ROUTE_LIMITS` holds the tighter ones: logging in (it hashes the password, slow on purpose), refreshing a token,
+  signing up, the admin login, and the routes that send email or post to the galaxy board.
+- `/api/refreshdata` is not limited: the scheduler calls it with its own secret.
+- A new route that is expensive (many function app calls), creates accounts, or sends mail gets a line in
+  `ROUTE_LIMITS`.
+- The counts are in process memory (`memory://`), so with more than one process each has its own (docs/status.md).
 
 ## Portability
 

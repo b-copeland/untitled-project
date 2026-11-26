@@ -15,7 +15,7 @@ of a username (issues #12 and #13).
 
 **Only a confirmed address can recover an account.** Otherwise anyone could type your username's owner's address at
 sign-up time and reset passwords with it. The recovery endpoints answer identically for unknown, unconfirmed and
-confirmed addresses, so they can not be used to find out who plays. They are rate limited (5 per minute per client).
+confirmed addresses, so they can not be used to find out who plays. They are rate limited (5 per minute per user, or per address without a login; see [architecture.md](architecture.md#rate-limits)).
 
 Links are signed with `SECRET_KEY` (itsdangerous), so nothing about them is stored on the server. A reset link includes a
 fingerprint of the current password hash, which is why it stops working the moment the password changes. **Rotating

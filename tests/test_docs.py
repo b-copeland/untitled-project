@@ -61,6 +61,15 @@ def test_data_model_lists_every_kingdom_field():
     assert not missing, f"docs/data-model.md does not describe these kingdom fields: {missing}"
 
 
+def test_the_kingdom_fields_added_later_are_the_ones_the_data_model_lists():
+    """A kingdom write may only carry known fields (issue #219), so the table of fields added after creation and
+    ``KINGDOM_FIELDS_ADDED_LATER`` must agree: a field in one and not the other is refused, or undocumented."""
+    text = (ROOT / "docs" / "data-model.md").read_text(encoding="utf-8")
+    table = text.split("Fields added after creation", 1)[1].split("\n## ", 1)[0]
+    listed = set(re.findall(r"^\| `(\w+)` \|", table, re.MULTILINE))
+    assert listed == set(uas.KINGDOM_FIELDS_ADDED_LATER)
+
+
 def test_data_model_lists_every_kingdom_document():
     text = (ROOT / "docs" / "data-model.md").read_text(encoding="utf-8")
     missing = [name for name in uas.INITIAL_KINGDOM_STATE if f"`{name}_<id>`" not in text]

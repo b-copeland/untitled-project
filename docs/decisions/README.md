@@ -22,6 +22,7 @@ the other docs; they are not instructions themselves. Read one before arguing to
 | [0015](0015-migrations-on-the-tick.md) | Data migrations run on the refresh tick, behind code that reads both shapes |
 | [0016](0016-login-signals.md) | Login signals are keyed hashes on the user document, kept for 90 days |
 | [0017](0017-unread-cursors.md) | Unread counts are a running total and a read cursor, marked read up to what the page showed |
+| [0018](0018-untrusted-requests.md) | Every request is untrusted: ids checked with a session backstop, known kingdom fields, one input checker, bounded growth, limits per user or address |
 
 To add one: copy the shape below into the next number, and link it from this table.
 

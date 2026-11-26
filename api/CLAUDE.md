@@ -12,7 +12,7 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
 - One blueprint per area: `account`, `admin`, `build`, `conquer`, `getters`, `misc`, `politics`, `refresh`, and
   `intel`, `clusters`, `targets`, `roundend`, `board` (the galaxy board). Which area
   holds what is in [docs/architecture.md](../docs/architecture.md#where-things-are).
-- `shared.py`: every game constant and formula (`GAME_CONFIG`, `GAME_FUNCS`, `UNITS`, `PROJECTS`, policies,
+- `inputs.py`: checking request values (above). `shared.py`: every game constant and formula (`GAME_CONFIG`, `GAME_FUNCS`, `UNITS`, `PROJECTS`, policies,
   `INITIAL_KINGDOM_STATE`). `occ.py`: optimistic concurrency. `news.py`: posting to an empire's news and the
   universe news.
 - `api/config.py`: `Config` reads environment variables; `TestingConfig` is what the tests use.
@@ -22,6 +22,15 @@ Rules for working in the Flask app. The root `CLAUDE.md` and `docs/` still apply
 - Routes: `@bp.route(...)`, then `@flask_praetorian.auth_required` (or `roles_required('admin')`), then
   `@alive_required` and, if needed, `@start_required`. The player's kingdom is `flask_praetorian.current_user().kd_id` (from the login token, no read).
 - Parse and type-check the request body first, and answer `400` with a message for bad input before touching state.
+  Read every value through `inputs.py` (`uin.number`, `flag`, `one_of`, `keyed`, `ids`, `text`): finite numbers (NaN
+  passes `<` and `>` checks), keys from the game's own lists (`uas.STRUCTURES`, `TRAINABLE_UNITS`, `MISSILES`,
+  `PROJECTS`, the spy operations), real true/false switches. Store what they return, never the request's own dict:
+  a key the game does not use is dropped or refused, never written. A `BadInput` is a 400 with its message.
+- An id from the request (in the path or the body) is checked against the list it belongs to (`_get_kingdoms`,
+  `_get_galaxies_inverted`, `_get_empire_info`) before it is used, and used as that checked string. Flask decodes the
+  path, so `/api/spy/5%3Fx` hands the route `5?x`. `REQUESTS_SESSION` refuses a function app URL that is not plain
+  path segments (`check_function_url`) and API paths with such an id get a 404, but those are the backstop, not the
+  check.
 - Responses: `flask.jsonify({"message": "...", "status": "success"}), 200` on success; `{"message": "<why>"}` with `400`
   on a refusal. Messages are short sentences the player reads in a toast.
 - State changes: `occ.update(path, decide)`; see [docs/concurrency.md](../docs/concurrency.md). Raise `occ.Rejected` for a

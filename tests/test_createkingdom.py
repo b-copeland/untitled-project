@@ -238,12 +238,13 @@ def test_a_token_from_before_a_round_reset_stops_working(app, client, player, mo
     assert client.get("/api/kingdomid", headers={"Authorization": f"Bearer {fresh}"}).status_code == 200
 
 
-def test_a_disabled_player_keeps_a_token_already_issued(app, client, player):
-    """The accepted trade-off of decision 0005: disabling takes effect when the token is renewed."""
+def test_a_disabled_player_can_read_but_not_act_with_a_token_already_issued(app, client, player):
+    """Decision 0005 as changed for bans (issue #219): reads that do not read the account still answer, actions do not."""
     name, headers = player
     with app.app_context():
         _stored_user(app, name).save(is_active=False)
     assert client.get("/api/kingdomid", headers=headers).status_code == 200
+    assert client.post("/api/createkingdom", json={"kdName": "Fresh", "preset": "explorer"}, headers=headers).status_code == 401
 
 
 def test_a_new_kingdom_shows_its_income_before_the_first_tick(client, player, app):

@@ -50,6 +50,9 @@ The steady load, without anyone acting:
      queue, the state or the galaxy's politics when the caller already has them. The refresh passes what it has read.
    - If a route reads a document and then decides on it, pass the copy to `occ.update(..., document=copy)` instead of
      letting it read again ([concurrency.md](concurrency.md#writing-an-action), rule 5).
+   - A list from the request that turns into reads (ids to look up) is checked against what exists and de-duplicated
+     first, so a request costs at most one read per real item, however long the list a script sends
+     (`/api/kingdomsinfo`). Such a route also gets a tighter rate limit in `create_app`.
    - Measure, do not guess: `python scripts/profile_calls.py` runs a game of bots in-process (no stack, no Azure) and
      prints the function app calls, Cosmos reads and writes, and bytes written per route and per refresh tick;
      `--sites` shows which function made each call. `tests/test_efficiency.py` pins the counts for the hot paths. In

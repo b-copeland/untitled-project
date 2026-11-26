@@ -247,3 +247,29 @@ def test_a_galaxymate_who_stops_sharing_leaves_a_snapshot_of_everything(app, cli
     ended = known["drones"]["ended"]
     client.post("/api/unshare/2", headers={"Authorization": f"Bearer {jwt1}"})
     assert _last_known("2")["1"]["drones"]["ended"] == ended
+
+
+def test_kingdoms_info_reads_each_kingdom_that_exists_once_however_many_ids_are_sent(app, client, jwt1, monkeypatch):
+    """Each id is a read, so a long list of repeats and made-up ids must not mean as many reads (issue #219)."""
+    _set_up()
+    calls = []
+    original = REQUESTS_SESSION.request
+
+    def request(method, url, *args, **kwargs):
+        calls.append((method.upper(), url.split("/api", 1)[1].split("?")[0]))
+        return original(method, url, *args, **kwargs)
+
+    monkeypatch.setattr(REQUESTS_SESSION, "request", request)
+    response = client.post("/api/kingdomsinfo", json={"kingdoms": ["2"] * 500 + [str(i) for i in range(100, 600)]},
+                           headers={"Authorization": f"Bearer {jwt1}"})
+
+    assert response.status_code == 200 and set(response.json) == {"2"}
+    assert calls.count(("GET", "/kingdom/2")) == 1
+    made_up = {f"/kingdom/{i}" for i in range(100, 600)}
+    assert not any(path in made_up for _, path in calls)
+
+
+def test_kingdoms_info_needs_a_list(app, client, jwt1):
+    _set_up()
+    response = client.post("/api/kingdomsinfo", json={"kingdoms": "2"}, headers={"Authorization": f"Bearer {jwt1}"})
+    assert response.status_code == 400

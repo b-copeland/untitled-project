@@ -23,8 +23,10 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
    def <name>():
        app = flask.current_app
        kd_id = flask_praetorian.current_user().kd_id
-       req = flask.request.get_json(force=True)
-       # parse and type-check the input here; reject bad input with a 400 before touching state
+       req = uin.body(flask.request)           # untitledapp/inputs.py
+       # check every id against its list and read every value through uin (number, flag, one_of, keyed, ids);
+       # a BadInput is a 400. Build what you store from the checked values, never from req itself.
+       count = uin.number(req.get("count"), "Count", minimum=0, integer=True)
 
        def decide(kd_info):
            # read anything else needed with occ.read(...) here, so it is fresh on each attempt
@@ -52,7 +54,11 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
    - the pure helpers, with plain asserts;
    - the route through `client.post(..., headers={"Authorization": f"Bearer {jwt1}"})`, after `_set_up_kingdom(...)`
      (from `tests/test_concurrency.py`): the success case, each rejection, and the document after;
-   - a race: `_run_together(app, 6, ...)` with identical requests; exactly one succeeds and the kingdom is charged once.
+   - a race: `_run_together(app, 6, ...)` with identical requests; exactly one succeeds and the kingdom is charged once;
+   - the requests a script would send: an unknown key, `"nan"`, a list for a number, an id that does not exist or has
+     `%3F` in it. Each is refused and the documents are unchanged ([security.md](security.md#testing-the-hostile-request)).
+   - If it costs nothing and writes something, what stops a script repeating it for ever ([security.md](security.md),
+     rule 3)?
 6. **Frontend:** the form (recipe 7), with the limits mirrored in `src/validation.js`, and the help page updated.
 
 ## 2. A read route and a frontend data key
@@ -62,6 +68,7 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
 2. **If it returns anything about another kingdom,** filter it through what the caller has revealed
    (`_get_max_kd_info`, without `max=True`). Never return a raw document of another kingdom.
 3. Keep round trips down: one request per document, none inside a loop over kingdoms if you can read a list instead.
+   A list of ids from the request is checked against what exists and de-duplicated before anything is read.
 4. Add the key to `ENDPOINTS` and `initGlobalData` in `src/data/gameData.js`. If a `next_resolve` timer produces this
    data, add it to `RESOLVE_KEYS_MAP`. If it is computed from kingdom fields that a tick changes without a timer
    (project points, say), follow `api/projects`: `useGameData` marks the key stale when those fields change, which
@@ -71,7 +78,9 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
 
 ## 3. A new field on the kingdom document
 
-1. Add it with its starting value to `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`.
+1. Add it with its starting value to `INITIAL_KINGDOM_STATE["kingdom"]` in `shared.py`. A field only some kingdoms
+   get, written later, goes in `KINGDOM_FIELDS_ADDED_LATER` instead, with a row in the data model's table of fields
+   added after creation. A kingdom write with a field in neither is refused under the tests and dropped in production.
 2. **Existing kingdoms do not have it.** Read it with `kd_info.get("field", default)` everywhere, or write a one-off
    backfill in `adhoc/` and say in the pull request that it must be run. Prefer `.get`.
 3. Add it to the table in [data-model.md](data-model.md#the-kingdom-document) (`tests/test_docs.py` checks this).
@@ -86,10 +95,12 @@ Example to read: `build_structures` in `api/untitledapp/build.py` (`POST /api/st
 2. **Per-kingdom:** add the type to the list in `create_kingdom` (function app) and to `INITIAL_KINGDOM_STATE` (Flask).
    **Global:** create it in `init_state`, and decide whether `reset_state` keeps it (`RESET_KEEP_IDS`).
 3. Existing games do not have it: handle a missing document, or backfill.
-4. Add it to [data-model.md](data-model.md) with its writers and tier.
-5. Tests: `funcapp/tests` for the handler (append and replace both land under concurrency), and a Flask test through
-   the fake backend, which runs the real handlers.
-6. Deploy the function app before the Flask change that needs it ([deployment.md](deployment.md)).
+4. **A list in it has a cap,** where it is written (the function app's `NEWS_LENGTH` and the like, or the Flask code
+   that decides it), so no repeated action grows it towards the 2 MB item limit ([security.md](security.md), rule 3).
+5. Add it to [data-model.md](data-model.md) with its writers and tier.
+6. Tests: `funcapp/tests` for the handler (append and replace both land under concurrency, the cap holds), and a Flask
+   test through the fake backend, which runs the real handlers.
+7. Deploy the function app before the Flask change that needs it ([deployment.md](deployment.md)).
 
 ## 5. A step in the refresh
 

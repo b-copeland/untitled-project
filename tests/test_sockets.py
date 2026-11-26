@@ -136,3 +136,91 @@ def test_invalid_tokens_keep_a_socket_only_until_the_idle_time(monkeypatch):
 
     assert ws.incoming == [hello("good-7")]  # gave up after 300 s of invalid tokens
     assert len(registry) == 0
+
+
+# --- sockets that never send a token (issue #219) --------------------------------------------------------------------
+
+
+class WaitingSocket(FakeSocket):
+    """A socket that has opened and not sent anything yet: ``receive`` blocks until ``release``."""
+
+    def __init__(self):
+        super().__init__()
+        import threading
+        self.gate = threading.Event()
+
+    def receive(self, timeout=None):
+        self.gate.wait(5)
+        raise ConnectionClosed(1000, "gone")
+
+
+def _hold_open(registry, count, address):
+    """``count`` sockets from ``address`` that opened and are waiting to send a token, each in its own thread."""
+    import threading
+    sockets = [WaitingSocket() for _ in range(count)]
+    threads = [threading.Thread(target=serve, args=(ws, registry, kingdom_for_token), kwargs={"address": address})
+               for ws in sockets]
+    for thread in threads:
+        thread.start()
+    return sockets, threads
+
+
+def _wait_until(condition):
+    import time
+    for _ in range(200):
+        if condition():
+            return
+        time.sleep(0.01)
+    raise AssertionError("timed out")
+
+
+def test_only_so_many_sockets_may_wait_for_a_token_at_once():
+    registry = Registry(pending=3, per_address=100)
+    waiting, threads = _hold_open(registry, 3, "203.0.113.1")
+    _wait_until(lambda: len(registry._open) == 3)
+
+    late = FakeSocket([hello("good-7")])
+    serve(late, registry, kingdom_for_token, address="203.0.113.2")
+
+    assert late.closed[0] == 1013 and registry.kingdom_sockets("7") == []
+    for ws in waiting:
+        ws.gate.set()
+    for thread in threads:
+        thread.join()
+    assert registry._open == {}
+
+
+def test_one_address_may_only_hold_so_many_sockets():
+    registry = Registry(pending=100, per_address=2)
+    waiting, threads = _hold_open(registry, 2, "203.0.113.1")
+    _wait_until(lambda: len(registry._open) == 2)
+
+    same = FakeSocket([hello("good-7")])
+    serve(same, registry, kingdom_for_token, address="203.0.113.1")
+    assert same.closed[0] == 1013
+
+    other = FakeSocket([hello("good-8")])
+    registry_seen = []
+
+    def receive(timeout=None):
+        if other.incoming:
+            return other.incoming.pop(0)
+        registry_seen.append(registry.kingdom_sockets("8"))
+        raise ConnectionClosed(1000, "gone")
+
+    other.receive = receive
+    serve(other, registry, kingdom_for_token, address="203.0.113.9")
+    assert registry_seen == [[other]]
+    for ws in waiting:
+        ws.gate.set()
+    for thread in threads:
+        thread.join()
+
+
+def test_a_socket_leaves_the_counts_when_it_closes():
+    registry = Registry(pending=1, per_address=1)
+    for _ in range(3):
+        ws = FakeSocket([hello("good-7")])
+        serve(ws, registry, kingdom_for_token, address="203.0.113.1")
+        assert ws.closed[0] != 1013
+    assert registry._open == {} and len(registry) == 0

@@ -68,3 +68,7 @@ A change is done when:
 3. A UI change has been looked at in a browser at desktop and phone width, or the pull request says it has not.
 4. The pull request says what was tested and what was not, and anything the maintainer must do (publish the function
    app, run a backfill, set a setting).
+5. A route that takes input has tests for what a script could send, not only what the page sends
+   ([security.md](security.md#testing-the-hostile-request)).
+6. **When it removes a defence, it says so.** A change that skips a check from [security.md](security.md) (an id used as
+   given, a list without a cap, a free action that can be repeated) says why in the code and the pull request.

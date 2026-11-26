@@ -12,6 +12,7 @@ from flask_sock import Sock
 
 import untitledapp.shared as uas
 import untitledapp.getters as uag
+import untitledapp.inputs as uin
 import untitledapp.lastknown as uala
 import untitledapp.news as uan
 import untitledapp.occ as occ
@@ -42,7 +43,11 @@ def _validate_kingdom_name(
     
     if len(name) == 0:
         return False, "Kingdom name must have at least one character"
-    
+
+    if not name.isprintable():
+        # Hidden characters (zero-width spaces and the like) make a name that looks like another kingdom's.
+        return False, "Kingdom name can only have visible characters"
+
     return True, ""
 
 # How long a request's claim to make a user's kingdom holds off another request for the same user (see below).
@@ -427,9 +432,9 @@ def _validate_shields(req_values):
 # @flask_praetorian.roles_required('verified')
 def set_shields():
     app = flask.current_app
-    req = flask.request.get_json(force=True)
+    req = uin.body(flask.request)
     req_values = {
-        k: float(v or 0) / 100
+        k: uin.number(v, f"Shields {k}", blank=0) / 100
         for k, v in req.items()
         if v != "" and k in uas.SHIELD_KINDS
     }
@@ -466,26 +471,33 @@ def set_shields():
 def send_message(target_kd):
     app = flask.current_app
     kd_id = flask_praetorian.current_user().kd_id
-    req = flask.request.get_json(force=True)
+    req = flask.request.get_json(force=True, silent=True)
 
     kingdoms = uag._get_kingdoms()
+    target_kd = str(target_kd)
+    if target_kd not in kingdoms:
+        return flask.jsonify({"message": "There is no kingdom with that id"}), 400
 
-    if len(req.get("message", "")) > 1024:
+    message = req.get("message") if isinstance(req, dict) else None
+    if not isinstance(message, str) or not message.strip():
+        return flask.jsonify({"message": "Write a message to send"}), 400
+    if len(message) > 1024:
         return flask.jsonify({"message": "Messages must be less than 1024 characters"}), 400
+    # The time is the server's: the one the browser sent could be anything, of any size (issue #219).
+    sent_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-    
     payload_from = {
-        "time": req.get("time", ""),
+        "time": sent_at,
         "with": target_kd,
         "from": True,
-        "message": req.get("message", " "),
+        "message": message,
     }
 
     payload_to = {
-        "time": req.get("time", ""),
+        "time": sent_at,
         "with": kd_id,
         "from": False,
-        "message": req.get("message", " "),
+        "message": message,
     }
         
     message_response_from = REQUESTS_SESSION.patch(
@@ -524,11 +536,15 @@ def _validate_spending(spending_input):
 # @flask_praetorian.roles_required('verified')
 def spending():
     app = flask.current_app
-    req = flask.request.get_json(force=True)
-    
+    req = uin.body(flask.request)
+    if req.get("enabled") is not None:
+        uin.flag(req["enabled"], "enabled")
+    # Numbers only, finite: NaN passed every range check below.
+    numbers = {key: uin.number(value, f"Spending {key}") for key, value in req.items()
+               if key != "enabled" and value not in ("", None)}
+
     kd_id = flask_praetorian.current_user().kd_id
 
-    
     def decide(kd_info_parse):
         if req.get("enabled", None) != None:
             enabled = req["enabled"]
@@ -554,10 +570,10 @@ def spending():
             return payload, message
 
         req_spending = {
-            key: float(value or 0) / 100
-            for key, value in req.items()
+            key: value / 100
+            for key, value in numbers.items()
             # A share of 0 is a share like any other; an empty box keeps the current share. Only known categories.
-            if key in kd_info_parse['auto_spending'] and value not in ("", None)
+            if key in kd_info_parse['auto_spending']
         }
 
         current_spending = kd_info_parse['auto_spending']
