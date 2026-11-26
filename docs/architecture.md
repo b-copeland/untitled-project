@@ -161,8 +161,9 @@ Two things to know when working with it:
 - **The handlers can run without the hop.** `api/untitledapp/inprocess.py` is a session that answers the same calls as
   `REQUESTS_SESSION` by running `funcapp/function_app.py`'s handlers, unchanged, in the Flask process: same routes, same
   route constraints, same version checks, a `500` when a handler raises, as the host answers. Every Flask test runs
-  through it (on an in-memory container), so it is tested as much as the function app is. Production does not use it:
-  nothing wires it in yet (see [status.md](status.md#cost-and-efficiency) for what switching would take).
+  through it (on an in-memory container), so it is tested as much as the function app is. `STORAGE_BACKEND` chooses
+  it at startup (`configure_storage` in `untitledapp/__init__.py` gives `REQUESTS_SESSION` its `backend`); production
+  still uses the function app (see [status.md](status.md#cost-and-efficiency) for what switching would take).
 - **The hop has costs.** Each document read or write is a network round trip and a function execution; the Consumption
   plan has cold starts; `funcapp/` deploys separately and must go out first; and the handlers do merging and I/O, not
   game computation, so little CPU moves off the web server. This is why round trips are counted ([cost.md](cost.md)).
