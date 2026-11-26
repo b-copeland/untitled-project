@@ -71,7 +71,7 @@ building.
 | Primitives | Unclaimed land held by nobody. Attacking them gains stars; robbing them gains money. Both have automatic versions. |
 | Shields | Paid, per-epoch protection: military, spy, spy radar, missiles. |
 | Missiles | Planet, star and galaxy busters; built in silos, launched at a kingdom. |
-| Funding and auto spending | The share of income the auto builder puts into settling, structures, military and engineers. Targets say what to build. |
+| Funding and auto spending | The share of income the auto builder puts into settling, structures, military and engineers. Targets say what to build. A player can move money freely between money and the categories (`/api/funding/move`), into a category only while auto spending is on: money and funding count the same for networth and spoils, so a move only changes what the auto builder spends. |
 | Schedule | Actions queued to run at a future time by the refresh (attacks, spying, missiles). |
 | Networth | A weighted sum of a kingdom's assets (`NETWORTH_VALUES`). |
 | Points | Score earned over time by the top 10 kingdoms by networth (`NETWORTH_POINTS`). |

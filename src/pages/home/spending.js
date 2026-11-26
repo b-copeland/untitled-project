@@ -14,6 +14,58 @@ const CATEGORIES = [
     ["engineers", "Engineers"],
 ];
 
+const PLACES = [["money", "Money"], ...CATEGORIES];
+
+/** Why a move can not be sent yet (null if it can). The server makes the same checks against the kingdom as it is. */
+export function moveProblem({ from, to, amount, kingdom }) {
+    if (from === to) return "Choose two different places";
+    if (to !== "money" && !kingdom.auto_spending_enabled) return "Turn auto spending on first: funding is only spent while it is on";
+    const have = Math.max(Math.floor(from === "money" ? kingdom.money || 0 : kingdom.funding?.[from] || 0), 0);
+    if (have < 1) return "There is nothing to move";
+    const wanted = parseInt(amount, 10) || 0;
+    if (wanted < 1) return "Choose how much to move";
+    if (wanted > have) return `There is only ${have.toLocaleString()} to move`;
+    return null;
+}
+
+/**
+ * Move money between money and the four funding categories: funding back to money, from one category to another, or
+ * money into a category for the auto spender to spend. Money and funding count the same for networth and spoils.
+ */
+export function MoveFunding({ kingdom, loading, post }) {
+    const [from, setFrom] = useState("military");
+    const [to, setTo] = useState("money");
+    const [amount, setAmount] = useState("");
+    const have = Math.max(Math.floor(from === "money" ? kingdom.money || 0 : kingdom.funding?.[from] || 0), 0);
+    const blocked = moveProblem({ from, to, amount, kingdom });
+    const send = () => { post({ from, to, amount: parseInt(amount, 10) }); setAmount(""); };
+    const choose = (id, label, value, onChange) => (
+        <FieldRow label={label} htmlFor={id}>
+            <Form.Select id={id} size="sm" value={value} onChange={(e) => { onChange(e.target.value); setAmount(""); }}>
+                {PLACES.map(([key, name]) => <option key={key} value={key}>{name}{key === "money" ? "" : " funding"}</option>)}
+            </Form.Select>
+        </FieldRow>
+    );
+    return (
+        <div className="spending-move" data-testid="move-funding">
+            <h3 className="panel-title">Move funding</h3>
+            <p className="text-muted small">
+                Take funding back as money, move it to another category, or put money into a category for the auto
+                spender to spend. Nothing is lost either way.
+            </p>
+            {choose("move-from", "From", from, setFrom)}
+            {choose("move-to", "To", to, setTo)}
+            <FieldRow label="Amount" hint={`${have.toLocaleString()} to move`} htmlFor="move-amount">
+                <AmountInput box name="amount" id="move-amount" label="Amount" value={amount}
+                    onChange={(e) => setAmount(e.target.value)} max={have} />
+            </FieldRow>
+            <div className="form-actions">
+                <SubmitButton loading={loading.kingdom} onClick={send} blocked={blocked}>Move</SubmitButton>
+            </div>
+        </div>
+    );
+}
+
 /**
  * Automation's Spending tab (it has no page of its own; /spending redirects there): the auto spending switch, a slider
  * per category (the four add up to at most 100%), and the funding each holds. Update sends only the moved shares.
@@ -27,8 +79,8 @@ export function Spending(props) {
     if (props.kingdom?.auto_spending === undefined) {
         return null;
     }
-    const post = (body) => {
-        const updateFunc = () => authFetch('api/spending', { method: 'post', body: JSON.stringify(body) })
+    const post = (body, path = 'api/spending') => {
+        const updateFunc = () => authFetch(path, { method: 'post', body: JSON.stringify(body) })
             .then(safeJson).then(r => setResults((previous) => previous.concat(r)));
         props.updateData(['kingdom'], [updateFunc]);
     };
@@ -72,6 +124,7 @@ export function Spending(props) {
                     label: name,
                     value: Math.floor(props.kingdom.funding?.[key] || 0).toLocaleString(),
                 }))} />
+                <MoveFunding kingdom={props.kingdom} loading={props.loading} post={(body) => post(body, "api/funding/move")} />
             </Panel>
         </div>
     );

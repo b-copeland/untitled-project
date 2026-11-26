@@ -2,6 +2,7 @@ import collections
 import copy
 import datetime
 import json
+import math
 import os
 import random
 import uuid
@@ -594,6 +595,70 @@ def spending():
     except occ.Busy:
         return (flask.jsonify({"message": "Server is busy"}), 400)
     return (flask.jsonify({"message": message, "status": "success"}), 200)
+
+FUNDING_PLACES = ("money", "settle", "structures", "military", "engineers")
+
+
+def move_funding(kd_info, source, destination, amount):
+    """
+    The changes that move ``amount`` from ``source`` to ``destination`` (``money`` or a funding category), or
+    ``occ.Rejected``. Money and funding count the same for networth and attack spoils, so a move changes nothing but
+    what the auto spender spends.
+    """
+    if source == destination:
+        raise occ.Rejected("Choose two different places")
+    if amount <= 0:
+        raise occ.Rejected("There is nothing to move")
+    if destination != "money" and not kd_info.get("auto_spending_enabled"):
+        # Funding is only spent while auto spending is on, and turning it off returns every category to money.
+        raise occ.Rejected("Turn auto spending on first: funding is only spent while it is on")
+    money = kd_info.get("money", 0)
+    funding = dict(kd_info.get("funding") or {})
+    have = money if source == "money" else funding.get(source, 0)
+    if amount > math.floor(max(have, 0)):
+        raise occ.Rejected(f"There is only {math.floor(max(have, 0)):,} to move")
+    for place, change in ((source, -amount), (destination, amount)):
+        if place == "money":
+            money += change
+        else:
+            funding[place] = funding.get(place, 0) + change
+    changes = {"funding": funding}  # the whole object: the kingdom PATCH is a shallow merge
+    if "money" in (source, destination):
+        changes["money"] = money
+    return changes
+
+
+@bp.route('/api/funding/move', methods=['POST'])
+@flask_praetorian.auth_required
+@alive_required
+def funding_move():
+    """Move money between money and the funding categories: ``{"from", "to", "amount"}``, or ``"amount": "all"``."""
+    req = uin.body(flask.request)
+    source = uin.one_of(req.get("from"), FUNDING_PLACES, "place to move from")
+    destination = uin.one_of(req.get("to"), FUNDING_PLACES, "place to move to")
+    everything = req.get("amount") == "all"
+    amount = None if everything else uin.number(req.get("amount"), "Amount", minimum=1, integer=True)
+    kd_id = flask_praetorian.current_user().kd_id
+
+    def decide(kd_info):
+        # Decided against the kingdom as it is now: two quick moves can not spend the same funding twice.
+        if everything:
+            have = kd_info.get("money", 0) if source == "money" else (kd_info.get("funding") or {}).get(source, 0)
+            moved = math.floor(max(have, 0))
+        else:
+            moved = amount
+        return move_funding(kd_info, source, destination, moved), moved
+
+    try:
+        moved = occ.update(f"/kingdom/{kd_id}", decide)
+    except occ.Rejected as rejection:
+        return (flask.jsonify({"message": rejection.message}), rejection.status)
+    except occ.Busy:
+        return (flask.jsonify({"message": "Server is busy"}), 400)
+    names = {"money": "money", "settle": "settle funding", "structures": "structures funding",
+             "military": "military funding", "engineers": "engineers funding"}
+    return (flask.jsonify({"message": f"Moved {moved:,} from {names[source]} to {names[destination]}", "status": "success"}), 200)
+
 
 @bp.route('/api/share/<share_to>', methods=['POST'])
 @flask_praetorian.auth_required

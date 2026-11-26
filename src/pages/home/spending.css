@@ -1,1 +1,6 @@
-/* Spending uses the shared Panel, FieldRow and form-actions; nothing extra yet. */
+/* Spending uses the shared Panel, FieldRow and form-actions. */
+.spending-move {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--bs-border-color);
+}
