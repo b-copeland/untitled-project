@@ -44,7 +44,9 @@ Handlers catch everything with a bare `except` and answer `500`, which hides thr
 ## Tests and running
 
 - `conda run -n funcapp-worker python -m pytest funcapp/tests` (no stack needed).
-- The Flask tests in `tests/` also run these handlers in-process on an in-memory container (`tests/fake_backend.py`).
+- The Flask tests in `tests/` also run these handlers in-process on an in-memory container (`tests/fake_backend.py`),
+  through `api/untitledapp/inprocess.py`, which finds a handler by route the way the host does. It knows only the
+  `int` route constraint: a route with another one fails there until it is added.
 - Locally: `func host start` in this folder, with `local.settings.json` pointing at the emulator. The host hot-reloads
   on file changes.
 - Deploying: [docs/deployment.md](../docs/deployment.md#function-app). A change here must be live before the Flask
