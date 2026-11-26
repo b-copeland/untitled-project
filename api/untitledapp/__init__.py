@@ -219,6 +219,10 @@ ROUTE_LIMITS = (
     ("board.post_to_board", "10 per minute"),
     # One read per kingdom asked for: the Conquer page asks twice when it opens.
     ("getters.max_kingdoms", "20 per minute"),
+    # Resetting a kingdom before the round starts rewrites its twenty documents, and setting it up again posts to the
+    # galaxy's news; messages notify the kingdom they go to.
+    ("misc.reset_initial_kingdom", "10 per hour"),
+    ("misc.send_message", "20 per minute"),
 )
 
 

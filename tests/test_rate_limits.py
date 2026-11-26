@@ -77,3 +77,16 @@ def test_the_tick_is_not_limited(limited, monkeypatch):
     ]
 
     assert 429 not in statuses
+
+
+def test_resetting_a_kingdom_is_limited_per_hour(limited):
+    from tests.test_concurrency import _create_item, _set_up_kingdom
+    _set_up_kingdom(money=0)
+    _create_item("state", {"state": {"game_start": "2999-01-01T00:00:00+00:00", "game_end": "2999-02-01T00:00:00+00:00",
+                                     "active_policies": []}})
+    client = limited.test_client()
+    token = _login(client, "user1").json["accessToken"]
+    statuses = [client.post("/api/resetkingdom", headers={"Authorization": f"Bearer {token}"}).status_code
+                for _ in range(11)]
+
+    assert statuses[10] == 429 and 429 not in statuses[:10]

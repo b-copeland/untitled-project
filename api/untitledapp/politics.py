@@ -137,6 +137,37 @@ def _now():
     return datetime.datetime.now(datetime.timezone.utc)
 
 
+def diplomacy_actions_left(galaxy_politics, now):
+    """The galaxy's recent diplomacy (``diplomacy_actions``: times within the last hour), and how many more it may make
+    this hour."""
+    hour_ago = now - datetime.timedelta(hours=1)
+    recent = [time for time in galaxy_politics.get("diplomacy_actions") or [] if uas.utc(time) > hour_ago]
+    return recent, uas.GAME_CONFIG["GALAXY_DIPLOMACY_ACTIONS_PER_HOUR"] - len(recent)
+
+
+def spend_diplomacy(galaxy_id, now=None):
+    """
+    Count one of the galaxy's empire requests, invitations, cancellations or foundings against its hourly allowance,
+    or raise ``occ.Rejected`` if it has none left. Each of these posts empire news or makes documents, and costs
+    nothing, so without this a script could repeat them for ever (issue #219). Decided on the galaxy's politics
+    document as it is, so two at once can not both take the last one.
+    """
+    now = now or _now()
+
+    def spend(politics):
+        recent, left = diplomacy_actions_left(politics, now)
+        if left <= 0:
+            again = min(uas.utc(time) for time in recent) + datetime.timedelta(hours=1)
+            minutes = max(1, math.ceil((again - now).total_seconds() / 60))
+            raise occ.Rejected(
+                f"Your galaxy can make {uas.GAME_CONFIG['GALAXY_DIPLOMACY_ACTIONS_PER_HOUR']} empire requests, "
+                f"invitations, cancellations or foundings an hour. Try again in {minutes} minutes"
+            )
+        return {"diplomacy_actions": recent + [now.isoformat()]}, None
+
+    occ.update(f'/galaxy/{galaxy_id}/politics', spend)
+
+
 def _record_vote(galaxy_votes, kind, kd_id, choice, now):
     """
     Put ``kd_id``'s vote of ``kind`` (``leader``) as ``choice`` in ``galaxy_votes`` (the document as it is right now),
@@ -302,6 +333,12 @@ def found_empire(kd_id, empire_name):
     valid_name, message = _validate_empire_name(empire_name, galaxy_politics, kd_id, empires_inverted)
     if not valid_name:
         return {"message": message}, 400
+    try:
+        spend_diplomacy(kd_galaxy)
+    except occ.Rejected as rejection:
+        return {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return {"message": "Server is busy"}, 400
 
     empire_payload = {
         "empire_name": empire_name,
@@ -352,13 +389,18 @@ def ask_to_join_empire(kd_id, target_empire):
     valid_join, message = _validate_join_empire(galaxy_politics, kd_id, empires_inverted)
     if not valid_join:
         return {"message": message}, 400
+    target_empire = str(target_empire)
+    if target_empire not in empires_info["empires"]:
+        return {"message": "There is no empire with that id"}, 400
+    if target_empire in (galaxy_politics.get("empire_join_requests") or []):
+        return {"message": "Your galaxy has already asked to join that empire"}, 400
     try:
         _size_check(kd_galaxy)(empires_info["empires"].get(target_empire, {}).get("galaxies", []))
+        spend_diplomacy(kd_galaxy)
     except occ.Rejected as rejection:
         return {"message": rejection.message}, 400
-        
-        
-    target_empire_politics = uag._get_empire_politics(target_empire)
+    except occ.Busy:
+        return {"message": "Server is busy"}, 400
 
     _change_list(f'/empire/{target_empire}/politics', "empire_join_requests", add=kd_galaxy)
     _change_list(f'/galaxy/{kd_galaxy}/politics', "empire_join_requests", add=target_empire)
@@ -381,6 +423,15 @@ def withdraw_join_request(kd_id, target_empire):
 
     if galaxy_politics["leader"] != kd_id:
         return {"message": "You must be galaxy leader to manage Empire requests"}, 400
+    target_empire = str(target_empire)
+    if target_empire not in (galaxy_politics.get("empire_join_requests") or []):
+        return {"message": "Your galaxy has not asked to join that empire"}, 400
+    try:
+        spend_diplomacy(kd_galaxy)
+    except occ.Rejected as rejection:
+        return {"message": rejection.message}, rejection.status
+    except occ.Busy:
+        return {"message": "Server is busy"}, 400
 
     _change_list(f'/empire/{target_empire}/politics', "empire_join_requests", remove=kd_galaxy)
     _change_list(f'/galaxy/{kd_galaxy}/politics', "empire_join_requests", remove=target_empire)
@@ -476,11 +527,15 @@ def invite_galaxy_to_empire(kd_id, target_galaxy):
     valid_invite, message = _validate_invite_galaxy(empire_politics, kd_id, galaxy_empires, target_galaxy, kd_galaxy_politics, kd_galaxy_id)
     if not valid_invite:
         return {"message": message}, 400
+    if str(target_galaxy) in (empire_politics.get("empire_invitations") or []):
+        return {"message": "That galaxy is already invited"}, 400
     try:
         _size_check(target_galaxy)(empires_info["empires"].get(kd_empire, {}).get("galaxies", []))
+        spend_diplomacy(kd_galaxy_id)
     except occ.Rejected as rejection:
         return {"message": rejection.message}, 400
-        
+    except occ.Busy:
+        return {"message": "Server is busy"}, 400
 
     _change_list(f'/empire/{kd_empire}/politics', "empire_invitations", add=target_galaxy)
     _change_list(f'/galaxy/{target_galaxy}/politics', "empire_invitations", add=kd_empire)
@@ -519,7 +574,14 @@ def cancel_invite_galaxy(target_galaxy):
         
     if kd_galaxy_politics["leader"] != kd_id:
         return flask.jsonify({"message": "You are not the leader of the Empire's ruling galaxy"}), 400
-        
+    if str(target_galaxy) not in (empire_politics.get("empire_invitations") or []):
+        return flask.jsonify({"message": "That galaxy has not been invited"}), 400
+    try:
+        spend_diplomacy(kd_galaxy_id)
+    except occ.Rejected as rejection:
+        return flask.jsonify({"message": rejection.message}), rejection.status
+    except occ.Busy:
+        return flask.jsonify({"message": "Server is busy"}), 400
 
     _change_list(f'/empire/{kd_empire}/politics', "empire_invitations", remove=target_galaxy)
     _change_list(f'/galaxy/{target_galaxy}/politics', "empire_invitations", remove=kd_empire)

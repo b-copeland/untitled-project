@@ -28,6 +28,15 @@ CLIENT = CosmosClient(url=ENDPOINT, credential=KEY)
 DATABASE = CLIENT.create_database_if_not_exists(id=DATABASE_NAME)
 CONTAINER = ConditionalContainer(DATABASE.get_container_client(CONTAINER_NAME))
 
+
+# The newest lines kept in each list that grows with play (issue #219). Without a cap, a script repeating a free action
+# grew a document towards Cosmos's 2 MB item limit, and every read and write of it cost more on the way. Pages show the
+# newest lines; nothing reads further back.
+NEWS_LENGTH = 500  # a kingdom's, a galaxy's and an empire's news
+UNIVERSE_NEWS_LENGTH = 1000
+HISTORY_LENGTH = 300  # a kingdom's spy, attack and missile history
+PINNED_LENGTH = 200  # kingdoms a player has pinned
+
 APP = func.FunctionApp()
 
 ARCHIVE_PREFIX = "archive_"  # finished rounds (api/untitledapp/roundend.py) outlive a reset
@@ -1027,9 +1036,9 @@ def update_galaxy_news(req: func.HttpRequest) -> func.HttpResponse:
     )
     try:
         if isinstance(new_news, dict):
-            news["news"] = [new_news] + news["news"]
+            news["news"] = ([new_news] + news["news"])[:NEWS_LENGTH]
         else:
-            news["news"] = new_news + news["news"]
+            news["news"] = (new_news + news["news"])[:NEWS_LENGTH]
         CONTAINER.replace_item(
             item_id,
             news,
@@ -1100,9 +1109,9 @@ def update_news(req: func.HttpRequest) -> func.HttpResponse:
     )
     try:
         if isinstance(new_news, dict):
-            news["news"] = [new_news] + news["news"]
+            news["news"] = ([new_news] + news["news"])[:NEWS_LENGTH]
         else:
-            news["news"] = new_news + news["news"]
+            news["news"] = (new_news + news["news"])[:NEWS_LENGTH]
         CONTAINER.replace_item(
             item_id,
             news,
@@ -1134,7 +1143,7 @@ def update_empire_news(req: func.HttpRequest) -> func.HttpResponse:
     if news is None:
         return func.HttpResponse("No such empire", status_code=404)
     new_news = [body["news"]] if isinstance(body["news"], dict) else body["news"]
-    news["news"] = new_news + news.get("news", [])
+    news["news"] = (new_news + news.get("news", []))[:NEWS_LENGTH]
     try:
         CONTAINER.replace_item(item_id, news)
     except CosmosAccessConditionFailedError:
@@ -1156,9 +1165,9 @@ def update_universe_news(req: func.HttpRequest) -> func.HttpResponse:
             partition_key=item_id,
         )
         if isinstance(new_news, dict):
-            news["news"] = [new_news] + news["news"]
+            news["news"] = ([new_news] + news["news"])[:UNIVERSE_NEWS_LENGTH]
         else:
-            news["news"] = new_news + news["news"]
+            news["news"] = (new_news + news["news"])[:UNIVERSE_NEWS_LENGTH]
         CONTAINER.replace_item(
             item_id,
             news,
@@ -1696,12 +1705,9 @@ def update_pinned(req: func.HttpRequest) -> func.HttpResponse:
         partition_key=item_id,
     )
     try:
-        pinned["pinned"] = pinned["pinned"] + new_pinned
-        pinned["pinned"] = [
-            kd
-            for kd in pinned["pinned"]
-            if kd not in new_unpinned
-        ]
+        # Each kingdom once, without the unpinned, and the newest PINNED_LENGTH.
+        kept = [kd for kd in dict.fromkeys(pinned["pinned"] + list(new_pinned)) if kd not in new_unpinned]
+        pinned["pinned"] = kept[-PINNED_LENGTH:]
         CONTAINER.replace_item(
             item_id,
             pinned,
@@ -1751,7 +1757,7 @@ def update_spy_history(req: func.HttpRequest) -> func.HttpResponse:
         partition_key=item_id,
     )
     try:
-        spy_history["spy_history"] = [new_spy_history] + spy_history["spy_history"]
+        spy_history["spy_history"] = ([new_spy_history] + spy_history["spy_history"])[:HISTORY_LENGTH]
         CONTAINER.replace_item(
             item_id,
             spy_history,
@@ -1801,7 +1807,7 @@ def update_attack_history(req: func.HttpRequest) -> func.HttpResponse:
         partition_key=item_id,
     )
     try:
-        attack_history["attack_history"] = [new_attack_history] + attack_history["attack_history"]
+        attack_history["attack_history"] = ([new_attack_history] + attack_history["attack_history"])[:HISTORY_LENGTH]
         CONTAINER.replace_item(
             item_id,
             attack_history,
@@ -1851,7 +1857,7 @@ def update_missile_history(req: func.HttpRequest) -> func.HttpResponse:
         partition_key=item_id,
     )
     try:
-        missile_history["missile_history"] = [new_missile_history] + missile_history["missile_history"]
+        missile_history["missile_history"] = ([new_missile_history] + missile_history["missile_history"])[:HISTORY_LENGTH]
         CONTAINER.replace_item(
             item_id,
             missile_history,
