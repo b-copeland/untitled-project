@@ -78,6 +78,10 @@ caller has revealed: `_get_max_kd_info` in `getters.py` holds the whitelist of f
 with `max=True` returns the whole kingdom, which is for server-side calculations (an attack's real outcome) and must
 never reach a response. Bots follow the same rule: they decide only from what a player in their position could see.
 
+The other side of the same rule: anything in a request can be written by a script. An id, a key or a value from the
+request is checked before it is used, only what the game uses is stored, and nothing a player can repeat for free grows
+without end. See [security.md](security.md).
+
 ### 3. Rules live in one place
 
 - Game numbers live in `shared.py` (`GAME_CONFIG`, `GAME_FUNCS`, `UNITS`, `PROJECTS`, ...). Never repeat a number in

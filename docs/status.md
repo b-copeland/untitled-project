@@ -50,8 +50,9 @@ These pieces do not yet:
 
 Starting a round, its dates and bots were reworked on 2026-11-21 ([admin.md](admin.md)). Still open:
 
-- Accounts, password resets, bans and login signals were added on 2026-11-22 ([admin.md](admin.md#accounts)). A ban
-  still waits for the player's token to expire (decision 0005).
+- Accounts, password resets, bans and login signals were added on 2026-11-22 ([admin.md](admin.md#accounts)). Since
+  2026-11-25 a ban stops a live token at once (issue #219). A password change still leaves the old token working until
+  it expires.
 - Not built: rolling back to a backup (set aside by the maintainer, 2026-11-22).
 - There is no privacy notice in the app, though it stores emails and, since 2026-11-22, hashed login signals.
 - A player can not change their own password while signed in; only the email reset or the admin can.
@@ -62,6 +63,15 @@ Starting a round, its dates and bots were reworked on 2026-11-21 ([admin.md](adm
   it rather than nothing, because the kingdom is gone.
 - Bot accounts from earlier rounds stay, without kingdoms; new bots are numbered on from them. Left as it is
   (2026-11-22): two small documents per bot, far inside the free tier's storage.
+
+## Hostile players (issue #219)
+
+The review of 2026-11-25 and its fixes are in [security.md](security.md). Still open:
+
+- Sign-ups are free and unchecked apart from the rate limit: one person can hold many accounts, and no rule in the
+  game says they may not (issue #262).
+- The rate limits and the socket caps are per process (see Parallelism gaps).
+- Old documents grown before the caps (news, histories) are trimmed on their next append, not at once.
 
 ## Code health
 
