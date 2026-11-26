@@ -96,9 +96,6 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
 - **Lists that grow all round:** kingdom, galaxy and universe news, attack, spy and missile history, and the kingdom
   `history` are appended to and never trimmed (messages are capped at 100). Every append rewrites the whole document,
   so writes cost more as a round goes on. Capping them changes what players can see, so it needs a decision.
-- **One read per kingdom shown:** the Galaxy page (`/api/galaxy/<id>`) and `/api/kingdomsinfo` read each kingdom with
-  its own function app call. A batch read would make it one call, but the function app's rule is one document per
-  route; this is what the storage module ([architecture.md](architecture.md#target-one-storage-module)) would allow.
 - **Siphons are read on every tick for every kingdom** (`siphons_in` and `siphons_out`, two calls), almost always to
   find them empty. Skipping them needs a marker on the kingdom document, which is a document shape change.
 - **Function app executions are about half the spend** (2026-11-25, the maintainer: about 60,000 executions an hour

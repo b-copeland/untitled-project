@@ -46,6 +46,8 @@ The steady load, without anyone acting:
    - The shared documents (`state`, `galaxies`, `empires`, `kingdoms`, a galaxy's politics) are read through the getters
      (`_get_state`, `_get_galaxy_info`, ...), which read each at most once per request (`request_cache.py`). Do not read
      them with a raw `REQUESTS_SESSION.get`.
+   - Several kingdoms at once are one call: `getters._read_kingdom_documents` (the Galaxy page, `/api/kingdomsinfo`,
+     the bots' look at their galaxy), not one `/kingdom/<id>` read each.
    - The page getters (`_get_settle`, `_get_structures_info`, `_get_mobis`, `_get_engineers`) take the kingdom, its
      queue, the state or the galaxy's politics when the caller already has them. The refresh passes what it has read.
    - If a route reads a document and then decides on it, pass the copy to `occ.update(..., document=copy)` instead of

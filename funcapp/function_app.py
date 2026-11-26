@@ -486,6 +486,38 @@ def create_item(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
         )
 
+# At most this many kingdoms in one batch read: more than any universe has, so a request can not turn into an
+# unbounded query (docs/security.md, rule 4). Flask only sends ids it found in the galaxies document.
+MAX_KINGDOMS_PER_READ = 500
+
+
+@APP.function_name(name="ReadKingdomDocuments")
+@APP.route(route="kingdomdocuments", auth_level=func.AuthLevel.ADMIN, methods=["POST"])
+def read_kingdom_documents(req: func.HttpRequest) -> func.HttpResponse:
+    """
+    Body ``{"ids": ["1", "2", ...]}``: those kingdoms' documents, ``{"kingdoms": {id: document}}``, in one query
+    instead of one call each (the Galaxy page, ``/api/kingdomsinfo``). A kingdom that does not exist is left out.
+    """
+    try:
+        body = req.get_json()
+    except ValueError:
+        body = None
+    ids = body.get("ids") if isinstance(body, dict) else None
+    if not isinstance(ids, list) or not all(isinstance(kd_id, str) and kd_id.isdigit() for kd_id in ids):
+        return func.HttpResponse("Send the ids as a list of kingdom numbers", status_code=400)
+    ids = list(dict.fromkeys(ids))
+    if len(ids) > MAX_KINGDOMS_PER_READ:
+        return func.HttpResponse(f"At most {MAX_KINGDOMS_PER_READ} kingdoms at once", status_code=400)
+    if not ids:
+        return _json_response({"kingdoms": {}})
+    documents = CONTAINER.query_items(
+        query="SELECT * FROM c WHERE ARRAY_CONTAINS(@ids, c.id)",
+        parameters=[{"name": "@ids", "value": [f"kingdom_{kd_id}" for kd_id in ids]}],
+        enable_cross_partition_query=True,
+    )
+    return _json_response({"kingdoms": {document["id"][len("kingdom_"):]: document for document in documents}})
+
+
 @APP.function_name(name="GetKingdoms")
 @APP.route(route="kingdoms", auth_level=func.AuthLevel.ADMIN, methods=["GET"])
 def get_kingdoms(req: func.HttpRequest) -> func.HttpResponse:

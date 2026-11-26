@@ -250,13 +250,14 @@ def test_a_galaxymate_who_stops_sharing_leaves_a_snapshot_of_everything(app, cli
 
 
 def test_kingdoms_info_reads_each_kingdom_that_exists_once_however_many_ids_are_sent(app, client, jwt1, monkeypatch):
-    """Each id is a read, so a long list of repeats and made-up ids must not mean as many reads (issue #219)."""
+    """A long list of repeats and made-up ids must not mean as many reads (issue #219): the kingdoms that exist are
+    read in one call, each named once."""
     _set_up()
     calls = []
     original = REQUESTS_SESSION.request
 
     def request(method, url, *args, **kwargs):
-        calls.append((method.upper(), url.split("/api", 1)[1].split("?")[0]))
+        calls.append((method.upper(), url.split("/api", 1)[1].split("?")[0], kwargs.get("data")))
         return original(method, url, *args, **kwargs)
 
     monkeypatch.setattr(REQUESTS_SESSION, "request", request)
@@ -264,9 +265,9 @@ def test_kingdoms_info_reads_each_kingdom_that_exists_once_however_many_ids_are_
                            headers={"Authorization": f"Bearer {jwt1}"})
 
     assert response.status_code == 200 and set(response.json) == {"2"}
-    assert calls.count(("GET", "/kingdom/2")) == 1
-    made_up = {f"/kingdom/{i}" for i in range(100, 600)}
-    assert not any(path in made_up for _, path in calls)
+    batches = [json.loads(data)["ids"] for method, path, data in calls if (method, path) == ("POST", "/kingdomdocuments")]
+    assert batches == [["2"]]
+    assert not any(path.startswith("/kingdom/") and path.count("/") == 2 for _, path, _ in calls)
 
 
 def test_kingdoms_info_needs_a_list(app, client, jwt1):

@@ -145,7 +145,8 @@ class FakeContainer:
     def query_items(self, query, parameters=None, **kwargs):
         """
         Only the queries the function app sends: ``SELECT * FROM c WHERE`` followed by clauses joined with ``AND``,
-        each one of ``IS_DEFINED(c.<field>)``, ``c.<field> = @<param>`` or ``STARTSWITH(c.<field>, @<param>)``.
+        each one of ``IS_DEFINED(c.<field>)``, ``c.<field> = @<param>``, ``ARRAY_CONTAINS(@<param>, c.<field>)`` (the
+        field is one of a list) or ``STARTSWITH(c.<field>, @<param>)``.
         Anything else raises, so a new query shape needs adding here rather than silently matching everything.
         """
         self._pause()
@@ -160,6 +161,8 @@ class FakeContainer:
                 tests.append(lambda doc, field=match[1]: field in doc)
             elif match := re.fullmatch(r"c\.(\w+) = (@\w+)", clause):
                 tests.append(lambda doc, field=match[1], value=values[match[2]]: doc.get(field) == value)
+            elif match := re.fullmatch(r"ARRAY_CONTAINS\((@\w+), c\.(\w+)\)", clause):
+                tests.append(lambda doc, field=match[2], value=values[match[1]]: doc.get(field) in value)
             elif match := re.fullmatch(r"STARTSWITH\(c\.(\w+), (@\w+)\)", clause):
                 tests.append(
                     lambda doc, field=match[1], value=values[match[2]]:
