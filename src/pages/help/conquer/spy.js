@@ -45,6 +45,10 @@ function Spy(props) {
                 <li>If an aggressive operation fails, or their spy radar catches you, your stars, networth and drones are revealed to them for {duration(cfg.BASE_REVEAL_DURATION_MULTIPLIER, cfg)}.</li>
                 <li>Aggressive operations do less damage to a kingdom with Counter-Intelligence. The forecast counts it only if their projects are revealed.</li>
                 <li>When gathering intel, you can share it with your galaxy: free, or listed on the Intel market for a cut.</li>
+                <li>For a siphon or an intel operation, tick <b>Repeat it</b> to send it again by itself whenever a spy
+                    attempt is free, with the same share of your drones at home. It joins the Schedule page's Repeating
+                    tab, stops by itself after three failures in a row, and stops at once when you press Stop beside it
+                    on the Spy page or on that tab.</li>
             </ul>
             <HelpTable columns={[["Operation"], ["What it does"], ["Aggressive"]]}
                 rows={Object.keys(operations).map((key) => [names[key] || key, operations[key], aggressive.includes(key) ? "Yes" : ""])} />

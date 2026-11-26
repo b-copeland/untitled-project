@@ -4,7 +4,7 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
-import { useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import Alert from 'react-bootstrap/Alert';
 import ProgressBar from 'react-bootstrap/ProgressBar';
 import "./spy.css";
@@ -17,7 +17,9 @@ import { alreadyRevealed, checkPercent } from "../../validation";
 import { TargetIntel } from "./intel.js";
 import { useTour, TOUR_NO_SEND } from "../../components/tour";
 import { teamOf, TEAM_TAGS } from "../../components/teammates";
+import { displayPercent } from "../../format";
 import { KingdomPicker } from "../../components/kingdompicker";
+import { RepeatingEntry } from "./recurring";
 
 const initialDefenderValues = { drones: "", stars: "", shields: "" };
 
@@ -39,6 +41,23 @@ const OPERATIONS = [
 ];
 
 const whole = (value) => Math.floor(value || 0).toLocaleString();
+
+/**
+ * Why ``operation`` on ``target`` can not be ticked to repeat (null if it can). Only a siphon or an intel operation
+ * repeats. The server makes the same checks before it spends anything.
+ */
+export const canEverRepeat = (operation, state) => operation === "siphonfunds" || (state.reveal_operations || []).includes(operation);
+
+export function repeatProblem({ operation, target, data }) {
+    if (!canEverRepeat(operation, data.state)) return "Only a siphon or an intel operation can repeat";
+    const me = data.kingdomid?.kd_id;
+    if (me !== undefined && data.galaxies_inverted?.[target] === data.galaxies_inverted?.[me]) return "You can not repeat it on a galaxymate";
+    const entries = data.kingdom.recurring || [];
+    if (entries.some((entry) => String(entry.target) === String(target) && entry.operation === operation)) return "It already repeats on this kingdom";
+    const limit = data.state.game_config?.BASE_MAX_RECURRING_ENTRIES;
+    if (limit && entries.length >= limit) return `You already have ${limit} repeating operations`;
+    return null;
+}
 
 /**
  * The operations to offer this kingdom: one that needs a project (``state.operation_projects``) only once it is done,
@@ -80,6 +99,7 @@ function Spy(props) {
     const [cut, setCut] = useState("");
     const [share, setShare] = useState(false);
     const [confirming, setConfirming] = useState(false);
+    const [repeat, setRepeat] = useState(false);
 
     const loadTarget = (kdId) => authFetch("api/kingdom/" + kdId).then(safeJson).then(r => setTargetKdInfo(r));
     useEffect(() => {
@@ -107,6 +127,8 @@ function Spy(props) {
     const send = () => {
         setConfirming(false);
         const body = { drones, shielded: shieldDrones, operation, share_to_galaxy: share, cut: cut === "" ? 0 : cut };
+        if (repeating) body.recurring = true;
+        setRepeat(false);
         const updateFunc = async () => authFetch('api/spy/' + selected, { method: 'POST', body: JSON.stringify(body) })
             .then(safeJson).then(r => {
                 setForecast({});
@@ -142,6 +164,20 @@ function Spy(props) {
     const operations = availableOperations(OPERATIONS, kingdom, props.data.state);
     const chosen = operations.find((op) => op.value === operation);
     const hostileOnTeam = Boolean(team) && chosen?.group === "Hostile";
+
+    // "Repeat it": the same operation again whenever a spy attempt is free, as on the Schedule page's Repeating tab.
+    const cantRepeat = selected !== undefined && operation ? repeatProblem({ operation, target: selected, data: props.data }) : "Choose a target and an operation";
+    const repeating = repeat && !cantRepeat;
+    const config = props.data.state.game_config || {};
+    const siphonHours = (config.BASE_DRONES_SIPHON_TIME_MULTIPLIER || 0) * (config.BASE_EPOCH_SECONDS || 0) / 3600;
+    const repeatShare = maxDrones > 0 ? Math.min(sendingDrones / maxDrones, 1) : 0;
+    const repeatsHere = selected !== undefined ? (kingdom.recurring || []).filter((entry) => String(entry.target) === String(selected)) : [];
+    const stopRepeat = (entry) => {
+        const updateFunc = async () => authFetch("api/recurring/cancel", { method: "POST", body: JSON.stringify({ id: entry.id }) })
+            .then(safeJson).then((r) => setResults((previous) => previous.concat(r)));
+        props.updateData(["kingdom"], [updateFunc]);
+    };
+    const when = operation === "siphonfunds" ? `once each siphon has run its ${siphonHours} hours` : "once the intel it revealed runs out";
 
     const setDefender = (key) => (e) => setDefenderValues((previous) => ({ ...previous, [key]: e.target.value }));
     const entered = (key) => String(defenderValues[key]).trim() !== "";
@@ -193,6 +229,35 @@ function Spy(props) {
                                 {cutError ? <div className="amount-input-error">{cutError}</div> : null}
                             </FieldRow> : null}
                         </> : null}
+                        {canEverRepeat(operation, props.data.state) ? (
+                            <FieldRow label="Repeat it" htmlFor="spy-repeat"
+                                hint={cantRepeat || (repeating ? null : `Send it again by itself ${when}. You can stop it at any time.`)}>
+                                <Form.Check type="checkbox" id="spy-repeat" checked={repeating} disabled={Boolean(cantRepeat)} onChange={(e) => setRepeat(e.target.checked)} />
+                            </FieldRow>
+                        ) : null}
+                        {repeating ? (
+                            <div className="planner-notes spy-repeat-details" data-testid="spy-repeat-details">
+                                <p>
+                                    After this run, {chosen?.label.toLowerCase()} repeats on {kdLabel(selected)} whenever a spy attempt
+                                    is free, {when}. Each time it sends {displayPercent(repeatShare)} of your drones at home
+                                    ({whole(sendingDrones)} of your {whole(maxDrones)} now){shieldDrones ? ", shielded" : ""}
+                                    {sharesResult && share ? `, shared with your galaxy${parseFloat(cut) > 0 ? ` for a ${cut}% cut` : " free"}` : ""}.
+                                    Repeats get your spy attempts before the automatic rob.
+                                </p>
+                                <p>
+                                    It stops by itself after 3 failures in a row, or if they die. To stop it sooner, press Stop
+                                    beside it under "Repeating on this kingdom" on this page, or on
+                                    the <Link to="/schedule?tab=repeating">Schedule page's Repeating tab</Link>.
+                                </p>
+                            </div>
+                        ) : null}
+                        {repeatsHere.length > 0 ? <>
+                            <h3 className="panel-title spy-repeats-title">Repeating on this kingdom</h3>
+                            {repeatsHere.map((entry) => (
+                                <RepeatingEntry key={entry.id} entry={entry} data={props.data} loading={props.loading} onStop={() => stopRepeat(entry)} />
+                            ))}
+                            <div className="planner-hint-line">All your repeats are on the <Link to="/schedule?tab=repeating">Schedule page's Repeating tab</Link>.</div>
+                        </> : null}
                     </Panel>
 
                 <Panel className="area-know" title="3. What you know about them">
@@ -233,7 +298,7 @@ function Spy(props) {
                     </> : null}
                     <div className="planner-send">
                         <Button size="lg" disabled={Boolean(blocked) || props.loading.kingdom} title={blocked} onClick={() => (spyNeedsConfirmation({ hasForecast, guessing, chance, warning, hostileOnTeammate: hostileOnTeam }) ? setConfirming(true) : send())}>
-                            Send spies
+                            {repeating ? "Send spies and repeat" : "Send spies"}
                         </Button>
                         {blocked ? <div className="planner-why">{blocked}</div> : null}
                     </div>
@@ -246,6 +311,7 @@ function Spy(props) {
                     <Modal.Header closeButton><Modal.Title>Run this operation?</Modal.Title></Modal.Header>
                     <Modal.Body>
                         <p>{chosen?.label} on <strong>{selected !== undefined ? kdLabel(selected) : ""}</strong> with {whole(sendingDrones)} drones{shieldDrones ? " (shielded)" : ""}. It uses one spy attempt.</p>
+                        {repeating ? <p>Then it repeats whenever a spy attempt is free, with {displayPercent(repeatShare)} of your drones at home each time, until you press Stop beside it.</p> : null}
                         {hostileOnTeam ? <Alert variant="danger">{TEAM_TAGS[team]}: this hostile operation is on your own team.</Alert> : null}
                         {warning ? <Alert variant="warning">{warning}</Alert> : null}
                         {hasForecast && !guessing && chance < 1 ? <Alert variant={chance < 0.4 ? "danger" : "warning"}>About a {Math.round(chance * 100)}% chance of success with this many drones.</Alert> : null}

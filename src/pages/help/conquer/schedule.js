@@ -33,7 +33,8 @@ function Schedule() {
             </p>
             <p>
                 <b>Repeating</b> holds spy operations that run again by themselves, so you use your spy attempts while
-                you are away. Each one has a target and a share of your drones to send.
+                you are away. Each one has a target and a share of your drones to send. Add one here, or tick
+                Repeat it on the Spy page when you send a siphon or an intel operation.
             </p>
             <ul>
                 <li><b>Siphon funds</b> runs again once its last siphon on that kingdom has run its course, and at the

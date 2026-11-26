@@ -179,3 +179,59 @@ def test_the_number_of_entries_is_capped(app, client, jwt1, monkeypatch):
     assert _post(client, jwt1, "/api/recurring", {"type": "siphon", "target": TARGET_ID, "drones_pct": 40}).status_code == 200
     response = _post(client, jwt1, "/api/recurring", {"type": "intel", "operation": "spykingdom", "target": TARGET_ID, "drones_pct": 40})
     assert response.status_code == 400 and "more than 1" in response.get_json()["message"]
+
+
+# --- "Repeat it" on the Spy page -------------------------------------------------------------------------------------
+
+
+def _spy_and_repeat(client, jwt, operation="siphonfunds", drones=2_500, **extra):
+    body = {"drones": drones, "shielded": False, "operation": operation, "recurring": True, **extra}
+    return _post(client, jwt, f"/api/spy/{TARGET_ID}", body)
+
+
+def test_repeat_it_on_the_spy_page_runs_now_and_repeats_from_this_run(app, client, jwt1, monkeypatch):
+    monkeypatch.setattr(uac.random, "uniform", lambda a, b: 0.0)  # every roll succeeds
+    _set_up_two_named_kingdoms()
+    _create_item(f"kingdom_{KD_ID}", {"spy_attempts": 5, "drones": 10_000})
+    before = datetime.datetime.now(datetime.timezone.utc)
+
+    response = _spy_and_repeat(client, jwt1)
+
+    assert response.status_code == 200, response.get_json()
+    message = response.get_json()["message"]
+    assert "25.0% of your drones at home" in message and "press Stop" in message
+    kingdom = _get(f"/kingdom/{KD_ID}")
+    assert kingdom["spy_attempts"] == 4
+    [entry] = kingdom["recurring"]
+    assert entry["type"] == "siphon" and entry["drones_pct"] == 0.25 and entry["target_name"] == "Target"
+    # This run counts as its first: the siphon is not sent again until this one has run its course.
+    assert entry["runs"] == 1 and entry["last"]["status"] == "success"
+    assert uas.utc(entry["next"]) >= before + SIPHON_TIME
+
+
+def test_a_repeat_that_can_not_be_added_stops_the_send_before_anything_is_spent(app, client, jwt1):
+    _set_up_two_named_kingdoms()
+    _create_item(f"kingdom_{KD_ID}", {"spy_attempts": 5, "drones": 10_000})
+    assert _post(client, jwt1, "/api/recurring", {"type": "siphon", "target": TARGET_ID, "drones_pct": 40}).status_code == 200
+
+    duplicate = _spy_and_repeat(client, jwt1)
+    hostile = _spy_and_repeat(client, jwt1, operation="bombhomes")
+
+    assert duplicate.status_code == 400 and "already repeats" in duplicate.get_json()["message"]
+    assert hostile.status_code == 400 and "Only a siphon or an intel operation" in hostile.get_json()["message"]
+    kingdom = _get(f"/kingdom/{KD_ID}")
+    assert kingdom["spy_attempts"] == 5 and kingdom["drones"] == 10_000 and len(kingdom["recurring"]) == 1
+
+
+def test_repeat_it_keeps_the_intel_sharing_settings(app, client, jwt1, monkeypatch):
+    monkeypatch.setattr(uac.random, "uniform", lambda a, b: 1.0)  # every roll fails
+    _set_up_two_named_kingdoms()
+    _create_item(f"kingdom_{KD_ID}", {"spy_attempts": 5, "drones": 10_000})
+
+    response = _spy_and_repeat(client, jwt1, operation="spykingdom", share_to_galaxy=True, cut=5)
+
+    assert response.status_code == 200, response.get_json()
+    [entry] = _get(f"/kingdom/{KD_ID}")["recurring"]
+    assert entry["operation"] == "spykingdom" and entry["share_to_galaxy"] and entry["cut"] == 5
+    # A failed first run tries again at the next free attempt, and counts towards stopping.
+    assert entry["fails"] == 1 and entry["last"]["status"] == "failure"
