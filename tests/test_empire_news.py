@@ -192,5 +192,5 @@ def test_the_hourly_allowance_frees_up_as_actions_age(app, client, jwt1):
 
 def test_a_join_request_to_an_empire_that_does_not_exist_is_refused(app, client, jwt1):
     _galaxy_outside_an_empire()
-    assert client.post("/api/empire/e9/join", headers=_auth(jwt1)).status_code == 400
+    assert client.post("/api/empire/e9/join", headers=_auth(jwt1)).status_code == 404  # politics._known_targets
     assert client.post("/api/empire/e2/canceljoin", headers=_auth(jwt1)).status_code == 400

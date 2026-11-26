@@ -9,6 +9,7 @@ import flask_praetorian
 from flask_sock import Sock, ConnectionClosed
 
 import untitledapp.misc as uam
+import untitledapp.inputs as uin
 import untitledapp.getters as uag
 import untitledapp.occ as occ
 import untitledapp.shared as uas
@@ -153,8 +154,9 @@ def _recruit(kd_id, recruits_input):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def recruits():
-    req = flask.request.get_json(force=True)
-    payload, status = _recruit(flask_praetorian.current_user().kd_id, int(req["recruitsInput"]))
+    req = uin.body(flask.request)
+    recruits = uin.number(req.get("recruitsInput"), "Recruits", minimum=0, integer=True)
+    payload, status = _recruit(flask_praetorian.current_user().kd_id, recruits)
     return flask.jsonify(payload), status
 
 def _get_mobis_cost(mobis_request, kd_id):
@@ -277,12 +279,8 @@ def _train_mobis(kd_id, mobis_request):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def train_mobis():
-    req = flask.request.get_json(force=True)
-    mobis_request = {
-        k: int(v or 0)
-        for k, v in req.items()
-        if int(v or 0) != 0
-    }
+    req = uin.keyed(uin.body(flask.request), uas.TRAINABLE_UNITS, "unit", minimum=0, integer=True, blank=0)
+    mobis_request = {k: v for k, v in req.items() if v != 0}
     payload, status = _train_mobis(flask_praetorian.current_user().kd_id, mobis_request)
     return flask.jsonify(payload), status
 
@@ -309,10 +307,21 @@ def _validate_mobis_target(req_targets, kd_info_parse):
 # @flask_praetorian.roles_required('verified')
 def allocate_mobis():
     app = flask.current_app
-    req = flask.request.get_json(force=True)
-    
+    req = uin.body(flask.request)
+    # Checked before anything is read: only trainable units, finite percentages, a true or false switch.
+    if req.get("recruits_before_units") is not None:
+        uin.flag(req["recruits_before_units"], "recruits_before_units")
+    requested_targets = {
+        key: value / 100
+        for key, value in uin.keyed(req.get("targets") or {}, uas.TRAINABLE_UNITS, "unit", minimum=0, maximum=100,
+                                    blank=-1).items()
+        if value != -1  # a box left empty keeps its target
+    }
+    max_recruits = None
+    if req.get("max_recruits", "") not in ("", None):
+        max_recruits = uin.number(req["max_recruits"], "Max recruits", minimum=0, integer=True)
+
     kd_id = flask_praetorian.current_user().kd_id
-    
 
     def decide(kd_info_parse):
         if req.get("recruits_before_units", None) is not None:
@@ -325,11 +334,7 @@ def allocate_mobis():
 
         # A box left empty keeps its target; one set to 0 takes it out of the allocation (it used to be skipped, so a
         # target could never be lowered to 0).
-        req_targets = {
-            key: float(value or 0) / 100
-            for key, value in req.get("targets", {}).items()
-            if value not in ("", None)
-        }
+        req_targets = requested_targets
 
         current_targets = kd_info_parse['units_target']
         new_targets = {
@@ -341,8 +346,8 @@ def allocate_mobis():
             raise occ.Rejected(message)
 
         payload = {'units_target': new_targets}
-        if req.get("max_recruits", "") != "":
-            payload["max_recruits"] = int(req["max_recruits"])
+        if max_recruits is not None:
+            payload["max_recruits"] = max_recruits
         return payload, "Updated spending"
 
     try:
@@ -402,11 +407,12 @@ def _disband(kd_id, req_input):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def disband_mobis():
-    req = flask.request.get_json(force=True)
+    req = uin.body(flask.request)
     req_input = {
-        k: int(v)
-        for k, v in req["input"].items()
-        if v not in ("", "0")
+        k: v
+        for k, v in uin.keyed(req.get("input"), uas.TRAINABLE_UNITS + ["recruits"], "unit", minimum=0, integer=True,
+                              blank=0).items()
+        if v != 0
     }
     payload, status = _disband(flask_praetorian.current_user().kd_id, req_input)
     return flask.jsonify(payload), status
@@ -625,12 +631,8 @@ def _build_structures(kd_id, structures_request):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def build_structures():
-    req = flask.request.get_json(force=True)
-    structures_request = {
-        k: int(v or 0)
-        for k, v in req.items()
-        if int(v or 0) != 0
-    }
+    req = uin.keyed(uin.body(flask.request), uas.STRUCTURES, "structure", minimum=0, integer=True, blank=0)
+    structures_request = {k: v for k, v in req.items() if v != 0}
     payload, status = _build_structures(flask_praetorian.current_user().kd_id, structures_request)
     return flask.jsonify(payload), status
 
@@ -653,19 +655,18 @@ def _validate_structures_target(req_targets):
 # @flask_praetorian.roles_required('verified')
 def allocate_structures():
     app = flask.current_app
-    req = flask.request.get_json(force=True)
-    
-    kd_id = flask_praetorian.current_user().kd_id
-    
-    def decide(kd_info_parse):
-        # A box left empty keeps its target; one set to 0 takes it out of the allocation (it used to be skipped, so a
-        # target could never be lowered to 0).
-        req_targets = {
-            key: float(value or 0) / 100
-            for key, value in req.items()
-            if value not in ("", None)
-        }
+    # A box left empty keeps its target; one set to 0 takes it out of the allocation (it used to be skipped, so a
+    # target could never be lowered to 0). Only structures, and finite percentages.
+    req_targets = {
+        key: value / 100
+        for key, value in uin.keyed(uin.body(flask.request), uas.STRUCTURES, "structure", minimum=0, maximum=100,
+                                    blank=-1).items()
+        if value != -1
+    }
 
+    kd_id = flask_praetorian.current_user().kd_id
+
+    def decide(kd_info_parse):
         current_targets = kd_info_parse['structures_target']
         new_targets = {
             **current_targets,
@@ -699,12 +700,12 @@ def _validate_raze(kd_info, input):
 # @flask_praetorian.roles_required('verified')
 def raze_structures():
     app = flask.current_app
-    req = flask.request.get_json(force=True)
+    req = uin.body(flask.request)
     req_input = {
-        k: int(v)
-        for k, v in req["input"].items()
-        if v not in ("", "0")
-    } 
+        k: v
+        for k, v in uin.keyed(req.get("input"), uas.STRUCTURES, "structure", minimum=0, integer=True, blank=0).items()
+        if v != 0
+    }
 
     kd_id = flask_praetorian.current_user().kd_id
     modifiers = uag._get_modifiers(kd_id)
@@ -835,8 +836,9 @@ def _settle(kd_id, settle_input):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def settle():
-    req = flask.request.get_json(force=True)
-    payload, status = _settle(flask_praetorian.current_user().kd_id, int(req["settleInput"]))
+    req = uin.body(flask.request)
+    payload, status = _settle(flask_praetorian.current_user().kd_id,
+                              uin.number(req.get("settleInput"), "Stars", minimum=0, integer=True))
     return flask.jsonify(payload), status
 
 def _validate_missiles(missiles_request, kd_info_parse, missiles_building, max_available_missiles, modifiers=None):
@@ -937,12 +939,8 @@ def _build_missiles(kd_id, missiles_request):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def build_missiles():
-    req = flask.request.get_json(force=True)
-    missiles_request = {
-        k: int(v or 0)
-        for k, v in req.items()
-        if v not in ("", 0)
-    }
+    req = uin.keyed(uin.body(flask.request), uas.MISSILES, "missile", minimum=0, integer=True, blank=0)
+    missiles_request = {k: v for k, v in req.items() if v != 0}
     payload, status = _build_missiles(flask_praetorian.current_user().kd_id, missiles_request)
     return flask.jsonify(payload), status
 
@@ -1033,8 +1031,9 @@ def _train_engineers(kd_id, engineers_input):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def train_engineers():
-    req = flask.request.get_json(force=True)
-    payload, status = _train_engineers(flask_praetorian.current_user().kd_id, int(req["engineersInput"]))
+    req = uin.body(flask.request)
+    payload, status = _train_engineers(flask_praetorian.current_user().kd_id,
+                                       uin.number(req.get("engineersInput"), "Engineers", minimum=0, integer=True))
     return flask.jsonify(payload), status
 
 def _validate_projects_target(req_targets, kd_info_parse):
@@ -1076,11 +1075,18 @@ def _projects_refusal(engineers_by_project, kd_info_parse):
 # @flask_praetorian.roles_required('verified')
 def allocate_projects():
     app = flask.current_app
-    req = flask.request.get_json(force=True)
-    
+    req = uin.body(flask.request)
+    if req.get("enabled") is not None:
+        uin.flag(req["enabled"], "enabled")
+    requested_targets = {
+        key: value / 100
+        for key, value in uin.keyed(req.get("targets") or {}, uas.PROJECTS, "project", minimum=0, maximum=100,
+                                    blank=-1).items()
+        if value != -1
+    }
+
     kd_id = flask_praetorian.current_user().kd_id
-    
-    
+
     def decide(kd_info_parse):
         if req.get("enabled", None) is not None:
             if req["enabled"]:
@@ -1091,11 +1097,7 @@ def allocate_projects():
 
         # A box left empty keeps its target; one set to 0 takes it out of the allocation (it used to be skipped, so a
         # target could never be lowered to 0).
-        req_targets = {
-            key: float(value or 0) / 100
-            for key, value in req.get("targets", {}).items()
-            if value not in ("", None)
-        }
+        req_targets = requested_targets
 
         current_targets = kd_info_parse['projects_target']
         new_targets = {
@@ -1146,18 +1148,18 @@ def _validate_add_projects(req, available_engineers, kd_info_parse):
 # @flask_praetorian.roles_required('verified')
 def manage_projects():
     app = flask.current_app
-    req = flask.request.get_json(force=True)
+    req = uin.body(flask.request)
     kd_id = flask_praetorian.current_user().kd_id
-    
-    
 
-    # Parsed and type-checked before anything is read: counts are whole numbers.
+    # Parsed and type-checked before anything is read: counts are whole numbers, of projects that exist.
     try:
         for field in ("assign", "add"):
             if field in req:
-                req[field] = {k: int(v or 0) for k, v in req[field].items()}
-    except (TypeError, ValueError, AttributeError):
+                req[field] = uin.keyed(req[field], uas.PROJECTS, "project", minimum=0, integer=True, blank=0)
+    except uin.BadInput:
         return (flask.jsonify({"message": "Please enter whole numbers of engineers"}), 400)
+    if "clear" in req and not isinstance(req["clear"], list):
+        raise uin.BadInput("Send the projects to clear as a list")
 
     def decide(kd_info_parse):
         assigned = {key: kd_info_parse["projects_assigned"].get(key, 0) for key in uas.PROJECTS}

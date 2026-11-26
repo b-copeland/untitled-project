@@ -1002,6 +1002,8 @@ def galaxy(galaxy):
     kd_id = flask_praetorian.current_user().kd_id
     
     galaxies_inverted, galaxy_info = _get_galaxies_inverted()
+    if galaxy not in galaxy_info:
+        return flask.jsonify({"message": "There is no galaxy with that id"}), 404
     current_galaxy_kingdoms = galaxy_info[galaxy]
     galaxy_kd_info = _get_max_kingdoms(kd_id, current_galaxy_kingdoms)  
     

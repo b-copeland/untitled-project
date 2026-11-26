@@ -168,6 +168,20 @@ def spend_diplomacy(galaxy_id, now=None):
     occ.update(f'/galaxy/{galaxy_id}/politics', spend)
 
 
+@bp.before_request
+def _known_targets():
+    """
+    A 404 for a route about an empire or a galaxy that does not exist (issue #219), before any of it runs: the routes
+    below used their ids as given, and an unknown one reached the function app or failed half way.
+    """
+    args = flask.request.view_args or {}
+    if "target_empire" in args and str(args["target_empire"]) not in uag._get_empire_info()["empires"]:
+        return flask.jsonify({"message": "There is no empire with that id"}), 404
+    if "target_galaxy" in args and str(args["target_galaxy"]) not in uag._get_galaxies_inverted()[1]:
+        return flask.jsonify({"message": "There is no galaxy with that id"}), 404
+    return None
+
+
 def _record_vote(galaxy_votes, kind, kd_id, choice, now):
     """
     Put ``kd_id``'s vote of ``kind`` (``leader``) as ``choice`` in ``galaxy_votes`` (the document as it is right now),
@@ -194,6 +208,11 @@ def cast_leader_vote(kd_id, selected):
     app = flask.current_app
     
     galaxy_votes, galaxy_id = uag._get_galaxy_politics(kd_id)
+    # Only a kingdom of the galaxy can lead it (issue #219: any id was counted, so a galaxy could elect an outsider).
+    _, galaxy_info = uag._get_galaxies_inverted()
+    if not isinstance(selected, (str, int)) or str(selected) not in galaxy_info.get(galaxy_id, []):
+        return {"message": "Vote for a kingdom in your galaxy"}, 400
+    selected = str(selected)
     now = _now()
     elected = {}
 
@@ -235,8 +254,8 @@ def cast_leader_vote(kd_id, selected):
 @alive_required
 # @flask_praetorian.roles_required('verified')
 def galaxy_leader():
-    req = flask.request.get_json(force=True)
-    payload, status = cast_leader_vote(flask_praetorian.current_user().kd_id, req["selected"])
+    req = flask.request.get_json(force=True, silent=True) or {}
+    payload, status = cast_leader_vote(flask_praetorian.current_user().kd_id, req.get("selected"))
     return flask.jsonify(payload), status
 
 def cast_galaxy_vote(kd_id, galaxy_id, policy, option):

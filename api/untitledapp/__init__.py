@@ -352,6 +352,8 @@ def create_app(config_class='config.Config'):
     app.before_request(_refuse_unsafe_path_ids)
     app.before_request(refuse_banned)
     app.register_error_handler(UnsafePath, _unsafe_path_response)
+    from untitledapp.inputs import BadInput
+    app.register_error_handler(BadInput, lambda error: (flask.jsonify({"message": error.message}), 400))
 
     # Limits (docs/architecture.md#rate-limits): each route allows 100 a minute per user (per address without a
     # login), and every route together allows ADDRESS_LIMIT per address, however many accounts or tokens it uses. The
