@@ -111,6 +111,45 @@ def make_entry(req, kd_id, now=None):
     }, None
 
 
+def _target_problem(entry, kd_id):
+    """Why ``entry``'s target can not be one (None if it can). Fills in ``target_name`` for the page and the news."""
+    galaxies_inverted, _ = uag._get_galaxies_inverted()
+    entry["target_name"] = uag._get_kingdoms().get(entry["target"], entry["target"])
+    if entry["target"] not in galaxies_inverted:
+        return "There is no such kingdom"
+    if galaxies_inverted[entry["target"]] == galaxies_inverted.get(str(kd_id)):
+        return "You can not spy on a galaxymate"
+    return None
+
+
+def _room_problem(current, entry):
+    """Why ``entry`` can not join the kingdom's ``current`` entries (None if it can)."""
+    limit = uas.GAME_CONFIG["BASE_MAX_RECURRING_ENTRIES"]
+    if len(current) >= limit:
+        return f"You can not have more than {limit} repeating operations"
+    if any(e["target"] == entry["target"] and e["operation"] == entry["operation"] for e in current):
+        return "That operation already repeats on that kingdom"
+    return None
+
+
+def _add(kd_id, entry):
+    """Add ``entry`` to the kingdom: None, or why it was not added."""
+    def decide(kd_info):
+        current = entries(kd_info)
+        problem = _room_problem(current, entry)
+        if problem:
+            raise occ.Rejected(problem)
+        return {"recurring": current + [entry]}, None
+
+    try:
+        occ.update(f'/kingdom/{kd_id}', decide)
+    except occ.Rejected as rejection:
+        return rejection.message
+    except occ.Busy:
+        return "Server is busy"
+    return None
+
+
 @bp.route('/api/recurring', methods=['POST'])
 @flask_praetorian.auth_required
 @alive_required
@@ -120,29 +159,56 @@ def add_recurring():
     entry, message = make_entry(req, kd_id)
     if entry is None:
         return flask.jsonify({"message": message}), 400
-    galaxies_inverted, _ = uag._get_galaxies_inverted()
-    entry["target_name"] = uag._get_kingdoms().get(entry["target"], entry["target"])
-    if entry["target"] not in galaxies_inverted:
-        return flask.jsonify({"message": "There is no such kingdom"}), 400
-    if galaxies_inverted[entry["target"]] == galaxies_inverted.get(str(kd_id)):
-        return flask.jsonify({"message": "You can not spy on a galaxymate"}), 400
-
-    def decide(kd_info):
-        current = entries(kd_info)
-        limit = uas.GAME_CONFIG["BASE_MAX_RECURRING_ENTRIES"]
-        if len(current) >= limit:
-            raise occ.Rejected(f"You can not have more than {limit} repeating operations")
-        if any(e["target"] == entry["target"] and e["operation"] == entry["operation"] for e in current):
-            raise occ.Rejected("That operation already repeats on that kingdom")
-        return {"recurring": current + [entry]}, None
-
-    try:
-        occ.update(f'/kingdom/{kd_id}', decide)
-    except occ.Rejected as rejection:
-        return flask.jsonify({"message": rejection.message}), rejection.status
-    except occ.Busy:
-        return flask.jsonify({"message": "Server is busy"}), 400
+    message = _target_problem(entry, kd_id) or _add(kd_id, entry)
+    if message:
+        return flask.jsonify({"message": message}), 400
     return flask.jsonify({"message": "It will repeat whenever a spy attempt is free", "status": "success"}), 200
+
+
+# ------------------------------------------------------------------------------- from the Spy page's "Repeat it"
+
+
+def entry_for_spy(req, kd_id, target, now=None):
+    """
+    ``(entry, None)`` for the spy request ``req`` with "Repeat it" ticked, checked before anything is spent, or
+    ``(None, why)``. The drones it sends become a share of the drones at home now, which each repeat sends again.
+    """
+    operation = req.get("operation")
+    if operation != "siphonfunds" and operation not in uas.REVEAL_OPERATIONS:
+        return None, "Only a siphon or an intel operation can repeat"
+    kingdom = occ.read(f'/kingdom/{kd_id}')
+    home = kingdom.get("drones") or 0
+    drones = req.get("drones") or 0
+    if not 0 < drones <= home:
+        return None, "Send at least 1 drone, and no more than you have"
+    entry, message = make_entry({
+        "type": "siphon" if operation == "siphonfunds" else "intel",
+        "target": str(target),
+        "operation": operation,
+        "drones_pct": 100 * drones / home,
+        "shielded": req.get("shielded", False),
+        "share_to_galaxy": req.get("share_to_galaxy", False),
+        "cut": req.get("cut", 0),
+    }, kd_id, now)
+    if entry is None:
+        return None, message
+    message = _target_problem(entry, kd_id) or _room_problem(entries(kingdom), entry)
+    return (None, message) if message else (entry, None)
+
+
+def start_after_spy(kd_id, entry, success, message, now=None):
+    """
+    Add ``entry`` once the operation it repeats has run from the Spy page, with that run as its first: a siphon that
+    worked waits for it to run its course. What to tell the player, how to stop it included.
+    """
+    now = now or _now()
+    entry, _ = outcome(entry, ("success" if success else "failure", message), now)
+    problem = _add(kd_id, entry)
+    if problem:
+        return f"It does not repeat: {problem}."
+    return (f"It repeats on {entry['target_name']} whenever a spy attempt is free, sending "
+            f"{entry['drones_pct'] * 100:.1f}% of your drones at home each time. To stop it, press Stop beside it "
+            f"on the Spy page or on the Schedule page's Repeating tab.")
 
 
 @bp.route('/api/recurring/cancel', methods=['POST'])

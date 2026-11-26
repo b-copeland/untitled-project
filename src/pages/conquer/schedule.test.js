@@ -53,3 +53,8 @@ test("the chosen way of counting goes to the server", () => {
     expect(body.type).toBe("attackprimitives");
     expect(body.options).toMatchObject({ units_mode: "send", pure_offense: "25", flex_offense: "" });
 });
+
+test("?tab=repeating opens the Repeating tab (the Spy page links there)", () => {
+    render(<MemoryRouter initialEntries={["/schedule?tab=repeating"]}><Schedule data={data} loading={{}} updateData={jest.fn()} /></MemoryRouter>);
+    expect(screen.getByRole("tab", { name: /Repeating/ }).getAttribute("aria-selected")).toBe("true");
+});

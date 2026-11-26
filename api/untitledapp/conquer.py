@@ -1907,6 +1907,8 @@ def _clean_spy_request(req):
         cleaned["share_to_galaxy"] = uin.flag(req["share_to_galaxy"], "share_to_galaxy")
     if "cut" in req:
         cleaned["cut"] = uin.number(req["cut"], "Cut", minimum=0, blank=0)
+    if "recurring" in req:
+        cleaned["recurring"] = uin.flag(req["recurring"], "recurring")
     return cleaned
 
 
@@ -2280,7 +2282,18 @@ def spy(target_kd):
     if not req["operation"]:
         return (flask.jsonify({"message": "You must select an operation"}), 400)
     
+    repeat = None
+    if req.get("recurring"):
+        # "Repeat it": checked before anything is spent, so a repeat that can not be added stops the send.
+        import untitledapp.recurring as uarec  # recurring imports conquer
+        repeat, problem = uarec.entry_for_spy(req, kd_id, target_kd)
+        if repeat is None:
+            return (flask.jsonify({"message": problem}), 400)
+
     _, payload, status_code, success = _spy(req, kd_id, target_kd)
+    if repeat is not None and status_code == 200:
+        told = uarec.start_after_spy(kd_id, repeat, success, payload.get("message", ""))
+        payload = {**payload, "message": f"{payload.get('message', '')} {told}".strip()}
 
     return (flask.jsonify(payload), status_code)
 

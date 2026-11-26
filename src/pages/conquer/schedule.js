@@ -17,12 +17,18 @@ import { availableOperations } from "./spy";
 import { Repeating } from "./recurring";
 import { Reactions } from "./rules";
 import { KingdomPicker } from "../../components/kingdompicker";
+import { useSearchParams } from "react-router-dom";
+
+const TABS = ["add", "queue", "repeating", "reactions"];
 
 function Schedule(props) {
+    // /schedule?tab=repeating opens on that tab (the Spy page links there to stop a repeat).
+    const [query] = useSearchParams();
+    const tab = TABS.includes(query.get("tab")) ? query.get("tab") : "add";
     return (
         <>
             <div className="planner schedule">
-                <Tabs id="schedule-tabs" defaultActiveKey="add" variant="tabs">
+                <Tabs id="schedule-tabs" defaultActiveKey={tab} variant="tabs">
                     <Tab eventKey="add" title="Add">
                         <Add loading={props.loading} updateData={props.updateData} data={props.data} />
                     </Tab>

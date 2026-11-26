@@ -18,6 +18,36 @@ export const INTEL_OPERATIONS = [
 const START = { type: "siphon", target: null, operation: null, drones_pct: "", shielded: false, share_to_galaxy: false, cut: "", stop_after_fails: "3", until: "" };
 const STATUS = { success: "Worked", failure: "Failed", refused: "Refused", dead: "Target dead" };
 
+const operationLabel = (entry) => entry.type === "siphon" ? "Siphon funds"
+    : (INTEL_OPERATIONS.find((op) => op.value === entry.operation)?.label || entry.operation);
+
+/** One repeating operation: what it sends, when it runs next, how it went, and a button to stop it. */
+export function RepeatingEntry({ entry, data, loading, onStop }) {
+    const target = entry.target_name || (data.kingdoms[parseInt(entry.target)] + " (" + data.galaxies_inverted[entry.target] + ")");
+    const runs = entry.runs || 0;
+    return (
+        <div className="schedule-item">
+            <div className="schedule-item-head">
+                <div>
+                    <h3 className="panel-title">{operationLabel(entry)} on {target}</h3>
+                    <div className="planner-hint-line">
+                        {displayPercent(entry.drones_pct)} of drones{entry.shielded ? ", shielded" : ""}
+                        {entry.share_to_galaxy ? `, shared${entry.cut ? ` for a ${entry.cut}% cut` : " free"}` : ""}
+                        {". "}Next: {new Date(entry.next).toLocaleString()}
+                        {entry.until ? `. Stops at ${new Date(entry.until).toLocaleString()}` : ""}
+                    </div>
+                    <div className="planner-hint-line">
+                        Ran {runs} {runs === 1 ? "time" : "times"}
+                        {entry.last ? `; last ${new Date(entry.last.time).toLocaleString()}: ${STATUS[entry.last.status] || entry.last.status}. ${entry.last.message}` : ""}
+                        {entry.fails ? ` (${entry.fails} failed in a row)` : ""}
+                    </div>
+                </div>
+                <Button variant="outline-danger" size="sm" onClick={onStop} disabled={loading.kingdom}>Stop</Button>
+            </div>
+        </div>
+    );
+}
+
 /** Everything wrong with a repeating request, in the order the player would fix it. The server still decides. */
 export function recurringProblems(options, me, maxCut) {
     const found = [];
@@ -44,7 +74,6 @@ export function Repeating(props) {
     const maxCut = (config.BASE_MAX_SHARE_CUT || 0) * 100;
     const siphonHours = (config.BASE_DRONES_SIPHON_TIME_MULTIPLIER || 0) * (config.BASE_EPOCH_SECONDS || 0) / 3600;
     const me = props.data.kingdomid?.kd_id;
-    const kdLabel = (kdId) => props.data.kingdoms[parseInt(kdId)] + " (" + props.data.galaxies_inverted[kdId] + ")";
     const set = (name, value) => setOptions((previous) => ({ ...previous, [name]: value }));
     const onText = (event) => set(event.target.name, event.target.value);
     const blocked = recurringProblems(options, me, maxCut)[0];
@@ -59,9 +88,6 @@ export function Repeating(props) {
         send("api/recurring", { ...options, until: options.until ? new Date(options.until).toISOString() : null });
         setOptions(START);
     };
-    const operationLabel = (entry) => entry.type === "siphon" ? "Siphon funds"
-        : (INTEL_OPERATIONS.find((op) => op.value === entry.operation)?.label || entry.operation);
-
     return (
         <div className="schedule-repeating">
             <ResultToasts title="Repeating" results={results} setResults={setResults} />
@@ -122,25 +148,8 @@ export function Repeating(props) {
                 <Panel title={`Repeating now (${entries.length})`}>
                     {entries.length === 0 ? <p className="planner-hint-line">Nothing repeats yet.</p> : null}
                     {entries.map((entry) => (
-                        <div key={entry.id} className="schedule-item">
-                            <div className="schedule-item-head">
-                                <div>
-                                    <h3 className="panel-title">{operationLabel(entry)} on {entry.target_name || kdLabel(entry.target)}</h3>
-                                    <div className="planner-hint-line">
-                                        {displayPercent(entry.drones_pct)} of drones{entry.shielded ? ", shielded" : ""}
-                                        {entry.share_to_galaxy ? `, shared${entry.cut ? ` for a ${entry.cut}% cut` : " free"}` : ""}
-                                        {". "}Next: {new Date(entry.next).toLocaleString()}
-                                        {entry.until ? `. Stops at ${new Date(entry.until).toLocaleString()}` : ""}
-                                    </div>
-                                    <div className="planner-hint-line">
-                                        Ran {entry.runs || 0} times
-                                        {entry.last ? `; last ${new Date(entry.last.time).toLocaleString()}: ${STATUS[entry.last.status] || entry.last.status}. ${entry.last.message}` : ""}
-                                        {entry.fails ? ` (${entry.fails} failed in a row)` : ""}
-                                    </div>
-                                </div>
-                                <Button variant="outline-danger" size="sm" onClick={() => send("api/recurring/cancel", { id: entry.id })} disabled={props.loading.kingdom}>Stop</Button>
-                            </div>
-                        </div>
+                        <RepeatingEntry key={entry.id} entry={entry} data={props.data} loading={props.loading}
+                            onStop={() => send("api/recurring/cancel", { id: entry.id })} />
                     ))}
                 </Panel>
             </div>
