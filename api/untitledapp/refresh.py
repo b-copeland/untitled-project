@@ -1956,7 +1956,9 @@ def refresh_data():
     if isinstance(tick, tuple):
         return tick
     context = _RefreshContext(tick["state"])
-    kd_scores, failed_kd_ids = _refresh_kingdoms(list(tick["kingdoms"]), tick, context)
+    kd_scores, failed_kd_ids = _refresh_kingdoms(
+        list(tick["kingdoms"]), tick, context, spread_seconds=app.config.get("TICK_SPREAD_SECONDS", 0),
+    )
     return _tick_finish(tick, kd_scores, failed_kd_ids, context)
 
 
@@ -1991,12 +1993,38 @@ def _tick_start():
             "round_ending": round_ending}
 
 
-def _refresh_kingdoms(kd_ids, tick, context):
-    """Refresh ``kd_ids``. Returns ``({kd_id: (stars, networth)}, [kd_ids that failed])``."""
+def _paced(items, spread_seconds, clock=time.monotonic, sleep=time.sleep):
+    """
+    Yield ``items`` spread evenly over ``spread_seconds``: item ``i`` of ``n`` is not handed out before
+    ``i * spread_seconds / n`` has passed. Never waits when the work is already behind that schedule, and never after
+    the last item, so a tick that takes longer than the spread is not made any longer.
+
+    Each kingdom's refresh is a burst of reads and writes. One after another with nothing between, a tick's writes land
+    in a few seconds, and Cosmos's request units are shared by the second (1000 RU/s on the free tier, docs/cost.md),
+    so a fast tick throttles players' requests too. Spread out, the same writes cost the same but never pile up.
+    """
+    items = list(items)
+    if spread_seconds <= 0 or len(items) < 2:
+        yield from items
+        return
+    started = clock()
+    step = spread_seconds / len(items)
+    for index, item in enumerate(items):
+        wait = started + index * step - clock()
+        if wait > 0:
+            sleep(wait)
+        yield item
+
+
+def _refresh_kingdoms(kd_ids, tick, context, spread_seconds=0):
+    """
+    Refresh ``kd_ids``. Returns ``({kd_id: (stars, networth)}, [kd_ids that failed])``. With ``spread_seconds``, the
+    kingdoms are spread over that many seconds (``_paced``); the route passes ``TICK_SPREAD_SECONDS``.
+    """
     app = flask.current_app
     kd_scores = {}
     failed_kd_ids = []
-    for kd_id in kd_ids:
+    for kd_id in _paced(kd_ids, spread_seconds):
         # One kingdom with bad data must not stop everyone after it from being refreshed.
         try:
             kd_scores[kd_id] = _refresh_kd(
