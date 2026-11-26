@@ -17,6 +17,9 @@ class Config:
     # Where storage calls go: 'functionapp' (over HTTP) or 'inprocess' (its handlers in this process, which then needs
     # the function app's COSMOS_* settings). See untitledapp.configure_storage.
     STORAGE_BACKEND = os.environ.get('STORAGE_BACKEND', 'functionapp')
+    # The tick spreads its kingdoms over this many seconds, so its writes do not all land at once (refresh._paced).
+    # Keep it well under the minute between ticks.
+    TICK_SPREAD_SECONDS = float(os.environ.get('TICK_SPREAD_SECONDS', '30'))
 
 class TestingConfig(Config):
     SECRET_KEY="12345"
@@ -31,6 +34,7 @@ class TestingConfig(Config):
     EMAIL_BACKEND = 'memory'
     STRICT_KINGDOM_FIELDS = True  # a kingdom write with an unknown field raises instead of dropping it (check_function_url)
     RATELIMIT_ENABLED = False  # tests make hundreds of requests a second from one address
+    TICK_SPREAD_SECONDS = 0  # a test's tick runs at once; refresh._paced has its own tests
     FRONTEND_URL = 'http://frontend.test'
     AZURE_FUNCTION_ENDPOINT = "http://localhost:7071/api"
     AZURE_FUNCTION_KEY = ""

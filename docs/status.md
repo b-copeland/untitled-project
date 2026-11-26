@@ -30,7 +30,7 @@ These pieces do not yet:
 | The `accounts` document (2026-11-14) | The last copy of the SQLite users. Nothing writes it since users moved to `user_` documents; `adhoc/migrate_users_to_cosmos.py` reads it. `/resetstate` still clears kingdom fields in it, and `GET`/`PATCH /accounts` still exist. | Kept as a backup until the migration has run in production and been checked, then remove the document, the routes, and its place in `/init` and `/resetstate` |
 | `SOCKETS` (websocket registry, `sockets.py`) | A push only reaches sockets on the process that raised it. Each open socket also holds a server thread for its lifetime: capped at 50 registered plus 10 waiting for a token, 10 per address, and closed after 3 quiet minutes. | A pub/sub service, or polling notifications |
 | Rate limiter (`memory://`) | Limits are per process | Shared storage for the limiter |
-| The refresh | One request loops over every kingdom in turn. Two overlapping refreshes are safe (every step is version-checked), but one long tick is still one request | Split the tick per kingdom |
+| The refresh | One request loops over every kingdom in turn, spread over `TICK_SPREAD_SECONDS` so its writes do not land at once. Two overlapping refreshes are safe (every step is version-checked), but one long tick is still one request | Split the tick per kingdom |
 
 ## Deployment and operations
 
@@ -109,7 +109,8 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   ([architecture.md](architecture.md#why-there-is-a-function-app)), and these come first:
   - **Pace the tick.** Cosmos's "Normalized RU Consumption (max)" peaks at 45-60% of the 1000 RU/s today, from the tick's
     burst of writes. The function app's latency spreads that burst; in-process the same writes land in a few seconds
-    and would throttle players' requests too. `TICK_SPREAD_SECONDS` spreads it (pull request #267).
+    and would throttle players' requests too. `TICK_SPREAD_SECONDS` now spreads it (`refresh._paced`); check the
+    peak after switching.
   - **Run it against the emulator.** In-process has run only on the tests' in-memory container. A local stack with
     `STORAGE_BACKEND=inprocess` against the emulator, played and refreshed, is the check before production
     ([development.md](development.md#without-the-function-host)).

@@ -225,6 +225,10 @@ python scripts/refresh_loop.py --interval 10    # faster game time
 python scripts/refresh_loop.py --once           # one refresh and exit
 ```
 
+A tick spreads its kingdoms over `TICK_SPREAD_SECONDS` (`api/config.py`), so a local refresh takes about
+that long too. Set `TICK_SPREAD_SECONDS=0` in `api/.flaskenv` for ticks that finish at once. The tests and the
+simulator never wait.
+
 Or call it by hand:
 
 ```powershell
