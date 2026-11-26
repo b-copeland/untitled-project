@@ -1952,14 +1952,25 @@ def refresh_data():
     if headers.get("Refresh-Secret", "") != os.environ["REFRESH_SECRET"]:
         return ("Not Authorized", 401)
     
+    started = time.monotonic()
     tick = _tick_start()
     if isinstance(tick, tuple):
         return tick
     context = _RefreshContext(tick["state"])
-    kd_scores, failed_kd_ids = _refresh_kingdoms(
-        list(tick["kingdoms"]), tick, context, spread_seconds=app.config.get("TICK_SPREAD_SECONDS", 0),
+    spread = app.config.get("TICK_SPREAD_SECONDS", 0)
+    kd_scores, failed_kd_ids = _refresh_kingdoms(list(tick["kingdoms"]), tick, context, spread_seconds=spread)
+    kingdoms_done = time.monotonic()
+    response = _tick_finish(tick, kd_scores, failed_kd_ids, context)
+    # How long a tick takes, in the log stream: a tick that nears a minute starts to overlap the next one, and the
+    # time spent on storage is what a change of storage backend would change (docs/cost.md). The kingdoms take at
+    # least the spread (_paced waits between them); taking longer means the work, not the waiting, sets the pace.
+    finished = time.monotonic()
+    app.logger.info(
+        "Tick: %d kingdoms in %.1f s (kingdoms %.1f s over a %.0f s spread, the rest %.1f s), %d failed",
+        len(kd_scores), finished - started, kingdoms_done - started, spread, finished - kingdoms_done,
+        len(failed_kd_ids),
     )
-    return _tick_finish(tick, kd_scores, failed_kd_ids, context)
+    return response
 
 
 # A tick is three steps, so that the middle one (every kingdom) can be split up: scripts/simulate_round.py runs it on

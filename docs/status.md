@@ -101,6 +101,23 @@ Measured with `scripts/profile_calls.py` on 2026-11-14 (24 bots, in-process back
   route; this is what the storage module ([architecture.md](architecture.md#target-one-storage-module)) would allow.
 - **Siphons are read on every tick for every kingdom** (`siphons_in` and `siphons_out`, two calls), almost always to
   find them empty. Skipping them needs a marker on the kingdom document, which is a document shape change.
+- **Function app executions are about half the spend** (2026-11-25, the maintainer: about 60,000 executions an hour
+  with 70 bots and 10 players, against about $13 a month for B1). The tick makes nearly all of them: about 12 calls per
+  kingdom per minute, bots included, while a player's open tab adds about 13 a minute. `STORAGE_BACKEND=inprocess`
+  runs the handlers in the Flask process instead (`api/untitledapp/inprocess.py`, `configure_storage`), which removes
+  them. Production still uses the function app: switching is the maintainer's call
+  ([architecture.md](architecture.md#why-there-is-a-function-app)), and these come first:
+  - **Pace the tick.** Cosmos's "Normalized RU Consumption (max)" peaks at 45-60% of the 1000 RU/s today, from the tick's
+    burst of writes. The function app's latency spreads that burst; in-process the same writes land in a few seconds
+    and would throttle players' requests too. `TICK_SPREAD_SECONDS` now spreads it (`refresh._paced`); check the
+    peak after switching.
+  - **Run it against the emulator.** In-process has run only on the tests' in-memory container. A local stack with
+    `STORAGE_BACKEND=inprocess` against the emulator, played and refreshed, is the check before production
+    ([development.md](development.md#without-the-function-host)).
+  - **Settings, in the portal.** The web app needs the function app's Cosmos settings and `STORAGE_BACKEND=inprocess`
+    ([deployment.md](deployment.md#required-app-service-settings)). Going back is setting it to `functionapp`.
+  - **Measure first.** Each tick logs `Tick: <n> kingdoms in <s> s ...` (`refresh.refresh_data`); the log stream shows
+    how close a tick is to a minute before and after.
 
 ## Frontend
 

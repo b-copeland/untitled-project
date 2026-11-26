@@ -14,6 +14,9 @@ class Config:
     FRONTEND_URL = os.environ.get('FRONTEND_URL')  # base of the links in emails; defaults to the request's host
     AZURE_FUNCTION_ENDPOINT = os.environ.get('AZURE_FUNCTION_ENDPOINT')
     AZURE_FUNCTION_KEY = os.environ.get('AZURE_FUNCTIONS_HOST_KEY')
+    # Where storage calls go: 'functionapp' (over HTTP) or 'inprocess' (its handlers in this process, which then needs
+    # the function app's COSMOS_* settings). See untitledapp.configure_storage.
+    STORAGE_BACKEND = os.environ.get('STORAGE_BACKEND', 'functionapp')
     # The tick spreads its kingdoms over this many seconds, so its writes do not all land at once (refresh._paced).
     # Keep it well under the minute between ticks.
     TICK_SPREAD_SECONDS = float(os.environ.get('TICK_SPREAD_SECONDS', '30'))

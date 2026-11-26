@@ -11,7 +11,9 @@ This replaces only the bottom layer:
   new ``_etag``, a replace with ``etag`` and ``match_condition=IfNotModified`` is checked and applied atomically and
   fails with the same exception Cosmos raises, and creating an id twice or reading a missing one fails like Cosmos.
 * The real ``funcapp/function_app.py`` runs on top of it, unchanged, including the real ``concurrency.py``. Its handlers
-  are called directly instead of over HTTP by ``FakeSession``, which stands in for the ``requests`` session.
+  are called directly instead of over HTTP by ``FakeSession``, which stands in for the ``requests`` session. It is
+  ``untitledapp/inprocess.py``'s session, the one production could use in place of the function app, so every test
+  also tests that.
 
 So the routes and the version checks are the real ones. What is not tested here is Cosmos itself (the emulator still
 is, see ``USE_EMULATOR`` in conftest.py) and the HTTP layer.
@@ -21,7 +23,7 @@ quick that threads almost never overlap and a race test would pass on code that 
 gives the same interleavings as the real network.
 """
 import copy
-import importlib
+import importlib.util
 import json
 import os
 import pathlib
@@ -30,8 +32,6 @@ import re
 import sys
 import threading
 import time
-import types
-import urllib.parse
 
 from azure.core import MatchConditions
 from azure.cosmos.exceptions import (
@@ -41,7 +41,24 @@ from azure.cosmos.exceptions import (
     CosmosResourceNotFoundError,
 )
 
-FUNCAPP_DIR = pathlib.Path(__file__).resolve().parent.parent / "funcapp"
+
+def _load_inprocess():
+    """
+    ``api/untitledapp/inprocess.py``, loaded from its file: the function app's tests use this module in their own
+    environment, which has no Flask, so the ``untitledapp`` package (whose ``__init__`` imports Flask) can not be
+    imported there. The module itself needs only the standard library.
+    """
+    name = "untitled_inprocess"
+    if name not in sys.modules:
+        path = pathlib.Path(__file__).resolve().parent.parent / "api" / "untitledapp" / "inprocess.py"
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+inprocess = _load_inprocess()
 
 
 def _copy(doc):
@@ -192,93 +209,14 @@ class _FakeCosmosClient:
 
 def load_function_app(container):
     """Import funcapp/function_app.py with its Cosmos client replaced by ``container``. Returns the module."""
-    import azure.cosmos
-
     os.environ.setdefault("COSMOS_ENDPOINT", "https://fake.invalid")
     os.environ.setdefault("COSMOS_KEY", "fake")
     _FakeCosmosClient.container = container
-    real_client = azure.cosmos.CosmosClient
-    azure.cosmos.CosmosClient = _FakeCosmosClient
-    sys.path.insert(0, str(FUNCAPP_DIR))
-    try:
-        for name in ("function_app", "concurrency"):
-            sys.modules.pop(name, None)
-        return importlib.import_module("function_app")
-    finally:
-        azure.cosmos.CosmosClient = real_client
-        sys.path.remove(str(FUNCAPP_DIR))
+    return inprocess.load_function_app(cosmos_client_class=_FakeCosmosClient)
 
 
-class _Route:
-    def __init__(self, pattern, methods, handler):
-        self.methods = {method.upper() for method in methods}
-        self.handler = handler
-        self.names = re.findall(r"\{(\w+)(?::\w+)?\}", pattern)
-        regex = re.sub(r"\{(\w+)(?::\w+)?\}", r"(?P<\1>[^/]+)", re.escape(pattern).replace(r"\{", "{").replace(r"\}", "}"))
-        self.regex = re.compile("^" + regex + "$")
-
-
-class FakeSession:
-    """Quacks like the ``requests.Session`` the Flask code uses, but calls the function app's handlers directly."""
+class FakeSession(inprocess.InProcessSession):
+    """The session production would use in-process (``untitledapp/inprocess.py``), raising a handler's exception."""
 
     def __init__(self, function_app):
-        self.routes = []
-        for function in function_app.APP.get_functions():
-            route = next(b for b in function.get_bindings() if getattr(b, "route", None) is not None)
-            methods = [str(m.value) if hasattr(m, "value") else str(m) for m in route.methods]
-            self.routes.append(_Route(route.route, methods, function.get_user_function()))
-        # a literal route must win over a parameterised one with the same shape
-        self.routes.sort(key=lambda r: len(r.names))
-
-    def request(self, method, url, params=None, data=None, json=None, headers=None, **kwargs):  # noqa: A002
-        import azure.functions as func
-
-        parsed = urllib.parse.urlparse(url)
-        path = parsed.path.split("/api/", 1)[-1].strip("/")
-        query = {key: values[-1] for key, values in urllib.parse.parse_qs(parsed.query).items()}
-        for route in self.routes:
-            match = route.regex.match(path)
-            if match and method.upper() in route.methods:
-                break
-        else:
-            return _Response(404, f"No route {method} {path}")
-
-        body = b""
-        if json is not None:
-            import json as json_module
-            body = json_module.dumps(json).encode()
-        elif data is not None:
-            body = data.encode() if isinstance(data, str) else data
-        request_headers = {"content-type": "application/json", **{k: str(v) for k, v in (headers or {}).items()}}
-        request = func.HttpRequest(
-            method=method.upper(), url=url, headers=request_headers, params={**query, **(params or {})},
-            route_params=match.groupdict(), body=body,
-        )
-        response = route.handler(request)
-        return _Response(response.status_code, response.get_body().decode(), dict(response.headers))
-
-    def get(self, url, **kwargs):
-        return self.request("GET", url, **kwargs)
-
-    def post(self, url, **kwargs):
-        return self.request("POST", url, **kwargs)
-
-    def patch(self, url, **kwargs):
-        return self.request("PATCH", url, **kwargs)
-
-    def put(self, url, **kwargs):
-        return self.request("PUT", url, **kwargs)
-
-    def delete(self, url, **kwargs):
-        return self.request("DELETE", url, **kwargs)
-
-
-class _Response:
-    def __init__(self, status_code, text, headers=None):
-        self.status_code = status_code
-        self.text = text
-        self.headers = headers or {}
-        self.content = text.encode()
-
-    def json(self):
-        return json.loads(self.text)
+        super().__init__(function_app, raise_errors=True)

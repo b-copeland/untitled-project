@@ -24,13 +24,12 @@ def backend():
 
     container = fake_backend.FakeContainer(latency=float(os.environ.get("FAKE_LATENCY", "0.002")))
     function_app = fake_backend.load_function_app(container)
-    session = fake_backend.FakeSession(function_app)
-    original_request = REQUESTS_SESSION.request
-    REQUESTS_SESSION.request = session.request  # every module shares this one session object
+    # Every module shares this one session object; its backend is where the calls go (configure_storage).
+    REQUESTS_SESSION.backend = fake_backend.FakeSession(function_app)
     try:
         yield container
     finally:
-        REQUESTS_SESSION.request = original_request
+        REQUESTS_SESSION.backend = None
 
 
 def _empty_backend(app, backend):

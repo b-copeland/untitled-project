@@ -145,6 +145,24 @@ If you do not have access to the Azure account, skip step 3. Open the admin page
 **Start a new round**: it creates the empty core documents itself, then the galaxies and the round's dates. See
 [admin.md](admin.md).
 
+### Without the function host
+
+Flask can run the function app's handlers itself (`STORAGE_BACKEND=inprocess`, see
+[architecture.md](architecture.md#why-there-is-a-function-app)). Then Azurite and `func host start` are not needed: add
+the function app's Cosmos settings to `api/.flaskenv`, with the same values as in `funcapp/local.settings.json`:
+
+```
+STORAGE_BACKEND=inprocess
+COSMOS_ENDPOINT=https://localhost:8081
+COSMOS_KEY=<the emulator's well-known key>
+COSMOS_DATABASE_NAME=dev
+COSMOS_CONTAINER_NAME=dev
+REQUESTS_CA_BUNDLE=<absolute path to cosmos-emulator.pem>
+```
+
+Keep `COSMOS_ENDPOINT` on the emulator: the Azure account shares its request units with production. Remove
+`STORAGE_BACKEND` (or set it to `functionapp`) to go back to the function host.
+
 ## 5. Tests
 
 `.\scripts\check.ps1` runs all three suites below. What to test for each kind of change is in [testing.md](testing.md).

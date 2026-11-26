@@ -71,6 +71,7 @@ Set these under the web app's Environment variables in the Azure portal. They ar
 | `AZURE_FUNCTION_ENDPOINT` | Base URL of the function app's `/api`. |
 | `AZURE_FUNCTIONS_HOST_KEY` | Function host key, sent as `x-functions-key`. |
 | `REFRESH_SECRET` | Shared secret for `/api/refreshdata`. |
+| `STORAGE_BACKEND` | `functionapp` (the default) calls the function app over HTTP. `inprocess` runs its handlers in the web app instead (`api/untitledapp/inprocess.py`), with no function app executions; the web app then also needs the function app's `COSMOS_ENDPOINT`, `COSMOS_KEY`, `COSMOS_DATABASE_NAME` and `COSMOS_CONTAINER_NAME`. The deploy already carries `funcapp/` and `requirements.txt` has its packages, so changing it is a settings change and a restart. |
 | `SENDGRID_API_KEY`, `MAIL_DEFAULT_SENDER`, `FRONTEND_URL` | Outgoing email and the base of the links in it. Without a key, mail is only logged. See [email.md](email.md). |
 
 ### Things the repo does not record

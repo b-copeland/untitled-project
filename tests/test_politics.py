@@ -202,41 +202,41 @@ def test_join_requests_from_two_galaxies_to_one_empire_are_both_recorded(app, cl
     _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID))
     _create_item("galaxy_votes_1:2", _galaxy_politics(leader="2"))
     _create_item("galaxy_votes_1:3", _galaxy_politics())
-    _create_item("empires", {"empires": {"e1": {"galaxies": ["1:3"], "aggression": {}}}})
-    _create_item("empire_politics_e1", _empire_politics("1:3"))
+    _create_item("empires", {"empires": {"1": {"galaxies": ["1:3"], "aggression": {}}}})
+    _create_item("empire_politics_1", _empire_politics("1:3"))
 
     responses = _run_together(app, 2, lambda c, i: c.post(
-        "/api/empire/e1/join", headers=_auth([jwt1, jwt2][i])))
+        "/api/empire/1/join", headers=_auth([jwt1, jwt2][i])))
 
     assert [r.status_code for r in responses] == [200, 200], [r.get_json() for r in responses]
-    assert sorted(_get("/empire/e1/politics")["empire_join_requests"]) == ["1:1", "1:2"]
-    assert _get("/galaxy/1:1/politics")["empire_join_requests"] == ["e1"]
+    assert sorted(_get("/empire/1/politics")["empire_join_requests"]) == ["1:1", "1:2"]
+    assert _get("/galaxy/1:1/politics")["empire_join_requests"] == ["1"]
 
 
 def test_repeating_a_join_request_does_not_duplicate_it(app, client, jwt1):
     _set_up_kingdom(money=0)
     _create_item("galaxies", {"galaxies": {"1:1": [KD_ID], "1:3": ["3"]}})
     _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID))
-    _create_item("empires", {"empires": {"e1": {"galaxies": ["1:3"], "aggression": {}}}})
-    _create_item("empire_politics_e1", _empire_politics("1:3"))
+    _create_item("empires", {"empires": {"1": {"galaxies": ["1:3"], "aggression": {}}}})
+    _create_item("empire_politics_1", _empire_politics("1:3"))
 
-    responses = _run_together(app, 4, lambda c, i: c.post("/api/empire/e1/join", headers=_auth(jwt1)))
+    responses = _run_together(app, 4, lambda c, i: c.post("/api/empire/1/join", headers=_auth(jwt1)))
 
     assert [r.status_code for r in responses] == [200] * 4
-    assert _get("/empire/e1/politics")["empire_join_requests"] == ["1:1"]
+    assert _get("/empire/1/politics")["empire_join_requests"] == ["1:1"]
 
 
 def test_a_galaxy_accepting_two_invitations_at_once_joins_only_one_empire(app, client, jwt1):
     _set_up_kingdom(money=0)
     _create_item("galaxies", {"galaxies": {"1:1": [KD_ID], "1:2": ["2"], "1:3": ["3"]}})
-    _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID, empire_invitations=["e1", "e2"]))
-    _create_item("empires", {"empires": {"e1": {"galaxies": ["1:2"], "aggression": {}},
-                                          "e2": {"galaxies": ["1:3"], "aggression": {}}}})
-    _create_item("empire_politics_e1", _empire_politics("1:2", empire_invitations=["1:1"]))
-    _create_item("empire_politics_e2", _empire_politics("1:3", empire_invitations=["1:1"]))
+    _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID, empire_invitations=["1", "2"]))
+    _create_item("empires", {"empires": {"1": {"galaxies": ["1:2"], "aggression": {}},
+                                          "2": {"galaxies": ["1:3"], "aggression": {}}}})
+    _create_item("empire_politics_1", _empire_politics("1:2", empire_invitations=["1:1"]))
+    _create_item("empire_politics_2", _empire_politics("1:3", empire_invitations=["1:1"]))
 
     responses = _run_together(app, 2, lambda c, i: c.post(
-        f"/api/empire/e{i + 1}/acceptinvite", headers=_auth(jwt1)))
+        f"/api/empire/{i + 1}/acceptinvite", headers=_auth(jwt1)))
 
     assert sorted(r.status_code for r in responses) == [200, 400], [r.get_json() for r in responses]
     empires = _get("/empires")["empires"]
@@ -247,29 +247,29 @@ def test_leaving_an_empire_removes_the_galaxy_and_hands_over_the_leadership(app,
     _set_up_kingdom(money=0)
     _create_item("galaxies", {"galaxies": {"1:1": [KD_ID], "1:2": ["2"]}})
     _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID))
-    _create_item("empires", {"empires": {"e1": {"galaxies": ["1:1", "1:2"], "aggression": {}}}})
-    _create_item("empire_politics_e1", _empire_politics("1:1"))
+    _create_item("empires", {"empires": {"1": {"galaxies": ["1:1", "1:2"], "aggression": {}}}})
+    _create_item("empire_politics_1", _empire_politics("1:1"))
 
     response = client.post("/api/leaveempire", headers=_auth(jwt1))
 
     assert response.status_code == 200, response.get_json()
-    assert _get("/empires")["empires"]["e1"]["galaxies"] == ["1:2"]
-    assert _get("/empire/e1/politics")["leader"] == "1:2"
+    assert _get("/empires")["empires"]["1"]["galaxies"] == ["1:2"]
+    assert _get("/empire/1/politics")["leader"] == "1:2"
 
 
 def test_a_galaxy_can_not_leave_its_empire_during_a_war(app, client, jwt1):
     _at_war()
     response = client.post("/api/leaveempire", headers=_auth(jwt1))
     assert response.status_code == 400 and "at war" in response.get_json()["message"]
-    assert _get("/empires")["empires"]["e1"]["galaxies"] == ["1:1"]
+    assert _get("/empires")["empires"]["1"]["galaxies"] == ["1:1"]
 
 
 def test_a_war_declared_as_the_galaxy_leaves_still_holds_it(app):
     _at_war()
     with app.test_request_context():
         with pytest.raises(uap.occ.Rejected):
-            uap._change_empire_galaxies("e1", remove="1:1", leave_check=uap._refuse_leaving)
-    assert _get("/empires")["empires"]["e1"]["galaxies"] == ["1:1"]
+            uap._change_empire_galaxies("1", remove="1:1", leave_check=uap._refuse_leaving)
+    assert _get("/empires")["empires"]["1"]["galaxies"] == ["1:1"]
 
 
 def _two_empires():
@@ -277,10 +277,10 @@ def _two_empires():
     _create_item("galaxies", {"galaxies": {"1:1": [KD_ID], "1:2": ["2"]}})
     _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID))
     empire = {"galaxies": [], "war": [], "peace": {}, "denounced": "", "aggression": {}, "aggression_max": 100}
-    _create_item("empires", {"empires": {"e1": {**empire, "name": "One", "galaxies": ["1:1"]},
-                                          "e2": {**empire, "name": "Two", "galaxies": ["1:2"]}}})
-    _create_item("empire_politics_e1", _empire_politics("1:1"))
-    _create_item("empire_politics_e2", _empire_politics("1:2"))
+    _create_item("empires", {"empires": {"1": {**empire, "name": "One", "galaxies": ["1:1"]},
+                                          "2": {**empire, "name": "Two", "galaxies": ["1:2"]}}})
+    _create_item("empire_politics_1", _empire_politics("1:1"))
+    _create_item("empire_politics_2", _empire_politics("1:2"))
     _create_item("universe_news", {"news": []})
 
 
@@ -288,11 +288,11 @@ def _two_empires():
 def test_racing_denouncements_denounce_once(app, client, jwt1, repeat):
     _two_empires()
 
-    responses = _run_together(app, 6, lambda c, i: c.post("/api/empire/e2/denounce", headers=_auth(jwt1)))
+    responses = _run_together(app, 6, lambda c, i: c.post("/api/empire/2/denounce", headers=_auth(jwt1)))
 
     assert sorted(r.status_code for r in responses) == [200] + [400] * 5, [r.get_json() for r in responses]
-    e1 = _get("/empires")["empires"]["e1"]
-    assert e1["denounced"] == "e2" and e1["aggression"]["e2"] > 0
+    e1 = _get("/empires")["empires"]["1"]
+    assert e1["denounced"] == "2" and e1["aggression"]["2"] > 0
     assert len(_get("/universenews")["news"]) == 1
 
 
@@ -300,74 +300,74 @@ def test_racing_denouncements_denounce_once(app, client, jwt1, repeat):
 def test_racing_war_declarations_declare_war_once(app, client, jwt1, repeat):
     _two_empires()
 
-    responses = _run_together(app, 6, lambda c, i: c.post("/api/empire/e2/declare", headers=_auth(jwt1)))
+    responses = _run_together(app, 6, lambda c, i: c.post("/api/empire/2/declare", headers=_auth(jwt1)))
 
     assert sorted(r.status_code for r in responses) == [200] + [400] * 5, [r.get_json() for r in responses]
     empires = _get("/empires")["empires"]
-    assert empires["e1"]["war"] == ["e2"] and empires["e2"]["war"] == ["e1"]
-    assert empires["e1"]["surprise_war_penalty"] is True
+    assert empires["1"]["war"] == ["2"] and empires["2"]["war"] == ["1"]
+    assert empires["1"]["surprise_war_penalty"] is True
     assert len(_get("/universenews")["news"]) == 1
 
 
 def _at_war(**e1_politics):
-    """Empire e1 (galaxy 1:1, led by kingdom 1) at war with e2 (galaxy 1:2, led by kingdom 2)."""
+    """Empire 1 (galaxy 1:1, led by kingdom 1) at war with empire 2 (galaxy 1:2, led by kingdom 2)."""
     _set_up_kingdom(money=0)
     _set_up_kingdom(money=0, kd_id="2")
     _create_item("galaxies", {"galaxies": {"1:1": [KD_ID], "1:2": ["2"]}})
     _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID))
     _create_item("galaxy_votes_1:2", _galaxy_politics(leader="2"))
     empire = {"war": [], "peace": {}, "denounced": "", "aggression": {}, "aggression_max": 100}
-    _create_item("empires", {"empires": {"e1": {**empire, "name": "One", "galaxies": ["1:1"], "war": ["e2"],
-                                                 "aggression": {"e2": 50}},
-                                          "e2": {**empire, "name": "Two", "galaxies": ["1:2"], "war": ["e1"]}}})
+    _create_item("empires", {"empires": {"1": {**empire, "name": "One", "galaxies": ["1:1"], "war": ["2"],
+                                                 "aggression": {"2": 50}},
+                                          "2": {**empire, "name": "Two", "galaxies": ["1:2"], "war": ["1"]}}})
     surrender_lists = {"surrender_offers_sent": [], "surrender_offers_received": [],
                        "surrender_requests_sent": [], "surrender_requests_received": []}
-    _create_item("empire_politics_e1", _empire_politics("1:1", **{**surrender_lists, **e1_politics}))
-    _create_item("empire_politics_e2", _empire_politics("1:2", **surrender_lists))
+    _create_item("empire_politics_1", _empire_politics("1:1", **{**surrender_lists, **e1_politics}))
+    _create_item("empire_politics_2", _empire_politics("1:2", **surrender_lists))
 
 
 def test_a_surrender_request_is_recorded_on_both_sides_and_can_be_cancelled(app, client, jwt1):
     _at_war()
     body = {"type": "stars", "value": 0.05}
 
-    assert client.post("/api/empire/e2/surrenderrequest", json=body, headers=_auth(jwt1)).status_code == 200
-    assert _get("/empire/e2/politics")["surrender_requests_received"] == [{**body, "empire": "e1"}]
-    assert _get("/empire/e1/politics")["surrender_requests_sent"] == [{**body, "empire": "e2"}]
+    assert client.post("/api/empire/2/surrenderrequest", json=body, headers=_auth(jwt1)).status_code == 200
+    assert _get("/empire/2/politics")["surrender_requests_received"] == [{**body, "empire": "1"}]
+    assert _get("/empire/1/politics")["surrender_requests_sent"] == [{**body, "empire": "2"}]
 
-    assert client.post("/api/empire/e2/cancelsurrenderrequest", json=body, headers=_auth(jwt1)).status_code == 200
-    assert _get("/empire/e2/politics")["surrender_requests_received"] == []
-    assert _get("/empire/e1/politics")["surrender_requests_sent"] == []
+    assert client.post("/api/empire/2/cancelsurrenderrequest", json=body, headers=_auth(jwt1)).status_code == 200
+    assert _get("/empire/2/politics")["surrender_requests_received"] == []
+    assert _get("/empire/1/politics")["surrender_requests_sent"] == []
 
 
 def test_cancelling_one_request_leaves_a_different_one_between_the_same_empires(app, client, jwt1):
     _at_war()
     first, second = {"type": "stars", "value": 0.05}, {"type": "stars", "value": 0.1}
     # a request replaces the earlier one between the same two empires, so make the second from the other side
-    client.post("/api/empire/e2/surrenderrequest", json=first, headers=_auth(jwt1))
+    client.post("/api/empire/2/surrenderrequest", json=first, headers=_auth(jwt1))
 
-    client.post("/api/empire/e2/cancelsurrenderrequest", json=second, headers=_auth(jwt1))
+    client.post("/api/empire/2/cancelsurrenderrequest", json=second, headers=_auth(jwt1))
 
-    assert _get("/empire/e2/politics")["surrender_requests_received"] == [{**first, "empire": "e1"}]
+    assert _get("/empire/2/politics")["surrender_requests_received"] == [{**first, "empire": "1"}]
 
 
 @pytest.mark.parametrize("repeat", range(3))
 def test_racing_acceptances_of_one_surrender_offer_transfer_the_stars_once(app, client, jwt1, jwt2, repeat):
-    _at_war(surrender_offers_received=[{"empire": "e2", "type": "stars", "value": 0.1}])
+    _at_war(surrender_offers_received=[{"empire": "2", "type": "stars", "value": 0.1}])
     stars0 = {kd: _get(f"/kingdom/{kd}")["stars"] for kd in (KD_ID, "2")}
     body = {"type": "stars", "value": 0.1}
 
     responses = _run_together(app, 6, lambda c, i: c.post(
-        "/api/empire/e2/acceptsurrenderoffer", json=body, headers=_auth(jwt1)))
+        "/api/empire/2/acceptsurrenderoffer", json=body, headers=_auth(jwt1)))
 
     assert sorted(r.status_code for r in responses) == [200] + [400] * 5, [r.get_json() for r in responses]
     lost = int(stars0["2"] * 0.1)
     assert _get("/kingdom/2")["stars"] == stars0["2"] - lost
     assert _get(f"/kingdom/{KD_ID}")["stars"] == stars0[KD_ID] + lost
     empires = _get("/empires")["empires"]
-    assert empires["e1"]["war"] == [] and empires["e2"]["war"] == []
-    assert "e2" in empires["e1"]["peace"] and "e1" in empires["e2"]["peace"]
-    assert empires["e1"]["aggression"]["e2"] == 0
-    assert _get("/empire/e1/politics")["surrender_offers_received"] == []
+    assert empires["1"]["war"] == [] and empires["2"]["war"] == []
+    assert "2" in empires["1"]["peace"] and "1" in empires["2"]["peace"]
+    assert empires["1"]["aggression"]["2"] == 0
+    assert _get("/empire/1/politics")["surrender_offers_received"] == []
 
 
 def test_a_double_click_on_create_empire_makes_one_empire(app, client, jwt1, backend):
@@ -394,7 +394,7 @@ def test_a_double_click_on_create_empire_makes_one_empire(app, client, jwt1, bac
 
 
 def _ten_galaxies(empire_galaxies, networth=None, **leader_politics):
-    """Ten galaxies of one kingdom each; ``KD_ID`` leads 1:1, and empire e1 holds ``empire_galaxies``."""
+    """Ten galaxies of one kingdom each; ``KD_ID`` leads 1:1, and empire 1 holds ``empire_galaxies``."""
     _set_up_kingdom(money=0)
     galaxies = {f"1:{i}": [KD_ID if i == 1 else str(i)] for i in range(1, 11)}
     _create_item("galaxies", {"galaxies": galaxies})
@@ -403,7 +403,7 @@ def _ten_galaxies(empire_galaxies, networth=None, **leader_politics):
     _create_item("galaxy_votes_1:1", _galaxy_politics(leader=KD_ID, **leader_politics))
     _create_item("scores", {"stars": {}, "networth": {}, "points": {},
                             "galaxy_networth": networth or {galaxy: 100 for galaxy in galaxies}})
-    _create_item("empires", {"empires": {"e1": {"galaxies": empire_galaxies, "aggression": {}}}})
+    _create_item("empires", {"empires": {"1": {"galaxies": empire_galaxies, "aggression": {}}}})
 
 
 def test_an_empire_may_not_grow_past_30_percent_of_the_kingdoms():
@@ -418,31 +418,31 @@ def test_an_empire_may_not_grow_past_30_percent_of_the_kingdoms():
 
 
 def test_accepting_an_invitation_that_would_make_the_empire_too_large_is_refused(app, client, jwt1):
-    _ten_galaxies(["1:2", "1:3", "1:4"], empire_invitations=["e1"])
-    _create_item("empire_politics_e1", _empire_politics("1:2", empire_invitations=["1:1"]))
+    _ten_galaxies(["1:2", "1:3", "1:4"], empire_invitations=["1"])
+    _create_item("empire_politics_1", _empire_politics("1:2", empire_invitations=["1:1"]))
 
-    response = client.post("/api/empire/e1/acceptinvite", headers=_auth(jwt1))
+    response = client.post("/api/empire/1/acceptinvite", headers=_auth(jwt1))
 
     assert response.status_code == 400 and "30%" in response.get_json()["message"]
-    assert _get("/empires")["empires"]["e1"]["galaxies"] == ["1:2", "1:3", "1:4"]
+    assert _get("/empires")["empires"]["1"]["galaxies"] == ["1:2", "1:3", "1:4"]
 
 
 def test_asking_to_join_an_empire_with_too_much_networth_is_refused(app, client, jwt1):
     _ten_galaxies(["1:2", "1:3"], networth={**{f"1:{i}": 100 for i in range(1, 11)}, "1:2": 1000})
-    _create_item("empire_politics_e1", _empire_politics("1:2"))
+    _create_item("empire_politics_1", _empire_politics("1:2"))
 
-    response = client.post("/api/empire/e1/join", headers=_auth(jwt1))
+    response = client.post("/api/empire/1/join", headers=_auth(jwt1))
 
     assert response.status_code == 400 and "networth" in response.get_json()["message"]
-    assert _get("/empire/e1/politics")["empire_join_requests"] == []
+    assert _get("/empire/1/politics")["empire_join_requests"] == []
 
 
 def test_an_empire_with_room_admits_a_galaxy(app, client, jwt1):
     _ten_galaxies(["1:1", "1:3"])
-    _create_item("galaxy_votes_1:4", _galaxy_politics(leader="4", empire_join_requests=["e1"]))
-    _create_item("empire_politics_e1", _empire_politics("1:1", empire_join_requests=["1:4"]))
+    _create_item("galaxy_votes_1:4", _galaxy_politics(leader="4", empire_join_requests=["1"]))
+    _create_item("empire_politics_1", _empire_politics("1:1", empire_join_requests=["1:4"]))
 
     response = client.post("/api/galaxy/1:4/accept", headers=_auth(jwt1))
 
     assert response.status_code == 200, response.get_json()
-    assert _get("/empires")["empires"]["e1"]["galaxies"] == ["1:1", "1:3", "1:4"]
+    assert _get("/empires")["empires"]["1"]["galaxies"] == ["1:1", "1:3", "1:4"]
