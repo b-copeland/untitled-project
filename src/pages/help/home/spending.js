@@ -19,6 +19,12 @@ function Spending(props) {
                 <b>Structures and military need targets.</b> Without a target mix (Structure targets and Unit targets
                 on the Automation page), their funding builds up and is never spent.
             </p>
+            <p>
+                <b>Moving funding.</b> Under Funding set aside, choose where to move from, where to, and how much: take
+                funding back as money, move it from one category to another, or put money into a category for the auto
+                spender to spend at its next run. Money can only go into a category while auto spending is on. Nothing
+                is lost: money and funding count the same towards networth and are taken alike by attacks.
+            </p>
             <p>Turning auto spending off returns all funding to your money.</p>
         </Topic>
     );
