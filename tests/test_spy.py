@@ -218,7 +218,7 @@ def _revealed(kd_id, revealed=None, galaxymates=None):
 @pytest.mark.parametrize("operation,revealed,galaxymates", [
     ("spymilitary", {"military": FUTURE}, []),                        # spied, or received from a galaxymate
     ("spymilitary", {}, [TARGET_ID]),                                 # the target shares its whole kingdom
-    ("spyall", {c: FUTURE for c in ("kingdom", "military", "shields", "projects", "structures", "drones")}, []),
+    ("spyall", {c: FUTURE for c in uas.REVEAL_OPERATION_STATS["spyall"]}, []),
 ], ids=["own-or-received", "shared-kingdom", "full-infiltration-all-known"])
 def test_a_reveal_of_what_is_already_revealed_is_refused_before_anything_is_spent(app, client, jwt1, operation, revealed, galaxymates):
     """#155: nothing to see, so no drones or attempt spent, and no way to launder received intel into your own."""

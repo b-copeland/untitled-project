@@ -368,6 +368,7 @@ def create_app(config_class='config.Config'):
     import untitledapp.refresh as uar
     import untitledapp.rules as uarules
     import untitledapp.roundend as uare
+    import untitledapp.strength as uastr
     import untitledapp.targets as uat
     app.register_blueprint(uaa.bp)
     app.register_blueprint(uaad.bp)
@@ -388,6 +389,7 @@ def create_app(config_class='config.Config'):
     app.register_blueprint(uat.bp)
     app.register_blueprint(uabo.bp)
     app.register_blueprint(uaadv.bp)
+    app.register_blueprint(uastr.bp)
     app.before_request(uare.frozen_response)  # once the round is over, the game is read only
     app.before_request(_refuse_unsafe_path_ids)
     app.before_request(refuse_banned)

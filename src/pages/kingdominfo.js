@@ -9,6 +9,8 @@ import Table from 'react-bootstrap/Table';
 import "./kingdominfo.css";
 import HelpButton from "../components/helpbutton";
 import { Known, LastKnownNote } from "../components/lastknown";
+import { ArrivalsHead, ArrivalsRow } from "../components/forecast";
+import { StrengthForecast } from "../components/strengthforecast";
 
 
 /**
@@ -43,11 +45,19 @@ function KingdomContent(props) {
             {actions("military")}
             {note("military")}
             <Military kingdom={props.data.kingdom} state={props.data.state} known={known} />
+            {/* The forecast needs live military intel: last-known units are not forecast. */}
+            {props.data.kingdom?.generals_out && !endedOf("generals_out")
+                ? <StrengthForecast target={props.data.kdId} state={props.data.state} />
+                : null}
             </Tab>
             <Tab eventKey="structures" title="Structures">
             {actions("structures")}
             {note("structures")}
             <Structures kingdom={props.data.kingdom} known={known}/>
+            </Tab>
+            <Tab eventKey="production" title="Production">
+            {actions("production")}
+            <Production production={props.data.kingdom?.production} state={props.data.state} />
             </Tab>
             <Tab eventKey="projects" title="Projects">
             {actions("projects")}
@@ -181,6 +191,56 @@ function Military(props) {
         </div>
     )
 }
+// What production intel shows, in the order of the kingdom's own pages, and what each queue's entries count.
+const STRUCTURE_LABELS = [
+    ["homes", "Homes"], ["mines", "Mines"], ["fuel_plants", "Fuel Plants"], ["hangars", "Hangars"],
+    ["drone_factories", "Drone Factories"], ["missile_silos", "Missile Silos"], ["workshops", "Workshops"],
+];
+const MISSILE_LABELS = [["planet_busters", "Planet Busters"], ["star_busters", "Star Busters"], ["galaxy_busters", "Galaxy Busters"]];
+
+/**
+ * What another kingdom has in production (production intel): what each build queue delivers within each forecast
+ * horizon, and all it holds. What the kingdom has now is on the other tabs.
+ */
+function Production(props) {
+    const production = props.production;
+    if (!production) {
+        return <p className="kd-unknown-note">Not revealed. Spy on production to see what they are training and building.</p>;
+    }
+    const cfg = props.state?.game_config || {};
+    const horizons = cfg.QUEUE_FORECAST_EPOCHS || [];
+    const units = inOrder(Object.keys(props.state?.units || {}), props.state?.order?.units)
+        .filter((key) => key !== "engineers" && (production.mobis?.queued?.[key] || 0) > 0)
+        .map((key) => [key, props.state?.pretty_names?.[key] || key, "mobis"]);
+    const sections = [
+        ["Units in training", units],
+        ["Structures being built", STRUCTURE_LABELS.map(([key, label]) => [key, label, "structures"])],
+        ["Engineers, stars and missiles", [["amount", "Engineers", "engineers"], ["amount", "Stars", "settles"],
+            ...MISSILE_LABELS.map(([key, label]) => [key, label, "missiles"])]],
+    ];
+    return (
+        <div className="kd-production">
+            {sections.map(([title, rows]) => (
+                <div key={title} className="kd-production-section">
+                    <h4>{title}</h4>
+                    {rows.length
+                        ? <div className="table-scroll">
+                            <Table hover size="sm">
+                                <ArrivalsHead horizons={horizons} cfg={cfg} />
+                                <tbody>
+                                    {rows.map(([key, label, queue]) => (
+                                        <ArrivalsRow key={queue + key} label={label} horizons={horizons} at={(name) => production[queue]?.[name]?.[key]} />
+                                    ))}
+                                </tbody>
+                            </Table>
+                        </div>
+                        : <p className="kd-unknown-note">None.</p>}
+                </div>
+            ))}
+        </div>
+    );
+}
+
 function Structures(props) {
     const structures = props.kingdom?.structures;
     return (

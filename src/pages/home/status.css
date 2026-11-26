@@ -71,3 +71,10 @@
 .structures-info {
     max-width: 40rem;
 }
+
+/* Strength over time takes a whole row under Armies and Mobilization: its tables are wide. */
+.status-kingdom-content .strength-info {
+    grid-column: 1 / -1;
+    min-width: 0;
+    margin: var(--space-loose) 0;
+}

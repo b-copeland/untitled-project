@@ -241,7 +241,7 @@ def test_a_galaxymate_who_stops_sharing_leaves_a_snapshot_of_everything(app, cli
 
     assert unshare.status_code == 200
     known = _last_known("2")["1"]
-    assert set(known) == set(uas.REVEAL_FIELDS)
+    assert set(known) == {category for category, fields in uas.REVEAL_FIELDS.items() if fields}  # not production
     assert known["drones"]["values"]["drones"] == 600
     # Unsharing again (nothing shared any more) leaves the snapshot as it was.
     ended = known["drones"]["ended"]

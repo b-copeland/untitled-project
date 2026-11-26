@@ -1,6 +1,19 @@
 import React from "react";
 import { HelpTable, Topic, config, duration, num } from "../util";
 
+/** How "Strength over time" is worked out. Also used by the Kingdom page topic. */
+export function StrengthHelp() {
+    return (
+        <p>
+            <b>Strength over time</b>, on the Military tab, shows offense and defense in three tables: as each general
+            that is out comes home with its units, as units in training arrive, and both together. Offense counts the
+            generals at home at each time. Both start from the kingdom's military shields and military efficiency;
+            change either to see what it would do. Running out of fuel weakens both. War, denouncing and peace, which
+            depend on who attacks whom, are not counted.
+        </p>
+    );
+}
+
 function Home(props) {
     const values = config(props.state).NETWORTH_VALUES || {};
     const names = props.state.pretty_names || {};
@@ -15,12 +28,7 @@ function Home(props) {
                 <li><b>Structures</b>: what is built and what is still being built.</li>
                 <li><b>Stats</b>: figures worked out for you: your offense and defense by kind of unit and per star, income per star, per home and per mine (and per home once the fuel plants its people need are counted), your siphon income in all and per drone factory, and what your advisors watch, such as the defense per star you need to make attacking you pay worse than attacking primitives. Attackers, defenders and flexers of every kind (heavy, elite and so on) count together. Hover over a figure's name to see how it is counted.</li>
             </ul>
-            <p>
-                <b>Max offense</b> and <b>max defense</b> on the Military tab assume your best case: military
-                efficiency and military shields at their maximum, all four generals sent, and fuel in stock. The
-                Overview's Military card shows your defense and offense at home as they are now instead: your real
-                military efficiency, shields and fuel, and the generals at home.
-            </p>
+            <StrengthHelp />
             {horizons.length > 0 && (
                 <p>
                     The Military and Structures tabs also show what you will have as training and building finish,

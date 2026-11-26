@@ -30,6 +30,7 @@ const MISSILES = [["planet_busters", "Planet busters"], ["star_busters", "Star b
 const INTEL = [
     { value: "spymilitary", label: "Spy on military" }, { value: "spykingdom", label: "Spy on kingdom" },
     { value: "spyshields", label: "Spy on shields" }, { value: "spydrones", label: "Spy on drones" },
+    { value: "spyproduction", label: "Spy on production" },
     { value: "spyall", label: "Full infiltration (everything)" },
 ];
 const START = {

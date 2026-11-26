@@ -251,6 +251,17 @@ Built 2026-11-20 (issue #27, `lastknown.py`, [decisions/0009](decisions/0009-las
 - Bots do not use snapshots; they decide from what is revealed now.
 - `LAST_KNOWN_FRESH_EPOCHS` (12) and `LAST_KNOWN_AGING_EPOCHS` (24) are the maintainer's numbers from the issue.
 
+## Production intel and strength forecasts
+
+Built 2026-11-26 (Spy on Production, `strength.py`).
+
+- Last-known intel does not keep production: the queues change as things arrive, and keeping them would mean reading
+  five queue documents for every reveal that ends.
+- The strength forecast needs live military intel on another kingdom; it does not forecast from last-known units.
+- Climbing military shields count at their level now, not their level later in the forecast.
+- Bots do not spy on production or use the forecast.
+- Spy on Production costs what every intel operation costs; the maintainer chose the same as Spy on Military.
+
 ## Cluster politics
 
 Started 2026-11-19 (issue #157, [decisions/0007](decisions/0007-cluster-politics.md), `clusters.py`). The framework is

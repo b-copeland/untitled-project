@@ -946,6 +946,74 @@ def _get_kd_info(kd_id):
     return kd_info_parse
 
 
+def _revealed_categories(other_kd_id, kd_id, revealed_info, galaxies_inverted=None):
+    """
+    The kinds of intel ``kd_id`` holds on ``other_kd_id`` now, or None when it sees everything: once the round is over,
+    and for a galaxymate that has revealed itself.
+    """
+    if _round_is_over():  # everything about every kingdom is public once the round is over
+        return None
+    if other_kd_id in revealed_info["revealed_galaxymates"]:
+        return None
+    if galaxies_inverted is None:
+        galaxies_inverted, _ = _get_galaxies_inverted()
+    revealed_categories = set(revealed_info["revealed"].get(other_kd_id, {}).keys())
+    if galaxies_inverted.get(other_kd_id) == galaxies_inverted.get(kd_id):
+        revealed_categories.add("stats")
+    return revealed_categories
+
+
+def _forecast_start(state=None):
+    """When queue forecasts count from: now, or the round's start if it has not started."""
+    if state is None:
+        state = _get_state()
+    return max(
+        datetime.datetime.now(datetime.timezone.utc),
+        datetime.datetime.fromisoformat(state["state"]["game_start"]).astimezone(datetime.timezone.utc),
+    )
+
+
+def _read_queue(kd_id, queue):
+    """One of a kingdom's build queues (``uas.PRODUCTION_QUEUES``): its list of entries."""
+    app = flask.current_app
+    response = REQUESTS_SESSION.get(
+        app.config['AZURE_FUNCTION_ENDPOINT'] + f'/kingdom/{kd_id}/{queue}',
+        headers={'x-functions-key': app.config['AZURE_FUNCTION_KEY']}
+    )
+    return json.loads(response.text)[queue]
+
+
+# What each production queue's entries count: units by unit, structures by structure, missiles by missile, and
+# engineers and stars as one ``amount``.
+_PRODUCTION_KEYS = {
+    "mobis": lambda: list(uas.UNITS),
+    "structures": lambda: list(uas.STRUCTURES),
+    "engineers": lambda: ["amount"],
+    "settles": lambda: ["amount"],
+    "missiles": lambda: list(uas.MISSILES),
+}
+
+
+def _production(queues, start_time):
+    """
+    What production intel shows: for each build queue in ``queues`` (queue name to entries), what lands within each
+    forecast horizon (``future_<n>``) and everything queued (``queued``), as the kingdom's own pages forecast it.
+    """
+    return {
+        queue: _queue_forecast(start_time, entries, _PRODUCTION_KEYS[queue]())
+        for queue, entries in queues.items()
+    }
+
+
+def _get_production(kd_id, state=None, mobis_queue=None):
+    """``_production`` of every build queue of ``kd_id``: one read per queue (the mobis one only if not passed)."""
+    queues = {
+        queue: (mobis_queue if queue == "mobis" and mobis_queue is not None else _read_queue(kd_id, queue))
+        for queue in uas.PRODUCTION_QUEUES
+    }
+    return _production(queues, _forecast_start(state))
+
+
 def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inverted=None, last_known=None):
     """
     Another kingdom as ``kd_id`` sees it: the fields of what ``revealed_info`` reveals now. With ``last_known`` (the
@@ -964,15 +1032,9 @@ def _get_max_kd_info(other_kd_id, kd_id, revealed_info, max=False, galaxies_inve
     if max:
         return kd_info_parse
 
-    if _round_is_over():  # everything about every kingdom is public once the round is over
+    revealed_categories = _revealed_categories(other_kd_id, kd_id, revealed_info, galaxies_inverted)
+    if revealed_categories is None:
         return kd_info_parse
-
-    if other_kd_id in revealed_info["revealed_galaxymates"]:
-        return kd_info_parse
-    
-    revealed_categories = set(revealed_info["revealed"].get(other_kd_id, {}).keys())
-    if galaxies_inverted[other_kd_id] == galaxies_inverted[kd_id]:
-        revealed_categories.add("stats")
 
     kd_info_parse_allowed = uas.revealed_fields(kd_info_parse, revealed_categories)
     if last_known is not None:
@@ -990,7 +1052,13 @@ def max_kingdom(other_kd_id):
     
 
     revealed_info = _get_revealed(kd_id)
-    max_kd_info = _get_max_kd_info(other_kd_id, kd_id, revealed_info, last_known=uala.read(kd_id))
+    galaxies_inverted, _ = _get_galaxies_inverted()
+    max_kd_info = _get_max_kd_info(other_kd_id, kd_id, revealed_info, galaxies_inverted=galaxies_inverted,
+                                   last_known=uala.read(kd_id))
+    # The build queues are documents of their own: read only for this one kingdom, and only with production intel.
+    categories = _revealed_categories(other_kd_id, kd_id, revealed_info, galaxies_inverted)
+    if categories is None or "production" in categories:
+        max_kd_info["production"] = _get_production(other_kd_id)
 
     return (flask.jsonify(max_kd_info), 200)
 

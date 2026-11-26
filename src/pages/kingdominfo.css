@@ -36,3 +36,13 @@
     border: 1px dashed var(--bs-border-color);
     border-radius: var(--radius);
 }
+
+.kd-unknown-note {
+    color: var(--bs-secondary-color);
+    margin: 0.5rem 0;
+}
+
+.kd-production-section h4 {
+    font-size: 1rem;
+    margin: 0.75rem 0 0.25rem;
+}

@@ -39,7 +39,7 @@ def snapshot(kd_info, categories, ended):
         category: {"ended": ended,
                    "values": _compact(uas.revealed_fields(kd_info, [category], public=False, derived=False))}
         for category in categories
-        if category in uas.REVEAL_FIELDS
+        if uas.REVEAL_FIELDS.get(category)  # production has no kingdom fields to keep
     }
 
 

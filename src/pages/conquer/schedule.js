@@ -85,6 +85,7 @@ const INTEL_OPERATIONS = [
     { value: "spymilitary", label: "Spy on military" }, { value: "spykingdom", label: "Spy on kingdom" },
     { value: "spyshields", label: "Spy on shields" }, { value: "spyprojects", label: "Spy on projects" },
     { value: "spystructures", label: "Spy on structures" }, { value: "spydrones", label: "Spy on drones" },
+    { value: "spyproduction", label: "Spy on production" },
     { value: "spyall", label: "Full infiltration (everything)" },
 ];
 const HOSTILE_OPERATIONS = [

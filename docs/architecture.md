@@ -74,7 +74,8 @@ Pieces that still assume one process or one machine, and so are known gaps: `SOC
 
 The game hides information on purpose (fog of war, reveal timers). Anything in an API response can be read by a script,
 so hiding a field in the UI is not hiding it. A route that returns another kingdom's data must filter it through what the
-caller has revealed: `_get_max_kd_info` in `getters.py` holds the whitelist of fields per reveal category. Calling it
+caller has revealed: `_get_max_kd_info` in `getters.py` holds the whitelist of fields per reveal category, and
+`_revealed_categories` says which categories the caller holds (production intel, the build queues, is checked with it). Calling it
 with `max=True` returns the whole kingdom, which is for server-side calculations (an attack's real outcome) and must
 never reach a response. Bots follow the same rule: they decide only from what a player in their position could see.
 
@@ -203,6 +204,7 @@ In game code take `kd_id` from `flask_praetorian.current_user()` and nothing els
 | Galaxy policies: the round's draw, the timed tally of votes, what the active options are worth | `galaxypolicies.py` (pure); the vote route in `politics.py`; every effect summed by `getters._get_modifiers` |
 | Empire targets: marking targets, delegates, participation points, the spoils fund and its payouts | `targets.py` |
 | Read routes (`/api/kingdom`, `/api/structures`, ...) and the calculations they share | `getters.py` |
+| Offense and defense over time (Status and another kingdom's Military tab), with what-if shields and efficiency | `strength.py` |
 | Last-known intel: snapshots of ended reveals, and which to show with a kingdom | `lastknown.py` (the fields each reveal shows: `REVEAL_FIELDS` in `shared.py`) |
 | The tick | `refresh.py` (`refresh_data` calls `_refresh_kd` per kingdom) |
 | The end of a round: archive, read-only game | `roundend.py` |
