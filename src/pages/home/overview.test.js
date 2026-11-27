@@ -77,3 +77,15 @@ test("the guided tour's reminder is on the overview only after Not now", () => {
     withTour("done");
     expect(screen.queryByText("Guided tour")).toBeNull();
 });
+
+test("the Economy card shows the funding set aside, in total and by category", () => {
+    show(data({ funding: { settle: 100, structures: 200.7, military: 300, engineers: 0 } }));
+    expect(screen.getByText("Funding").nextSibling.textContent).toBe("600");
+    expect(screen.getByText(/Funding set aside: Settle 100, Structures 200, Military 300, Engineers 0\./)).toBeTruthy();
+});
+
+test("with no funding the card says nothing more about it", () => {
+    show(data({ funding: { settle: 0, structures: 0, military: 0, engineers: 0 } }));
+    expect(screen.getByText("Funding").nextSibling.textContent).toBe("0");
+    expect(screen.queryByText(/Funding set aside/)).toBeNull();
+});

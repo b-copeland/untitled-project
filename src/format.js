@@ -1,4 +1,14 @@
 /** 0.256 -> "25.6%" */
+/** The auto spender's funding categories, in the order the Spending tab lists them. */
+export const FUNDING_CATEGORIES = [["settle", "Settle"], ["structures", "Structures"], ["military", "Military"], ["engineers", "Engineers"]];
+
+/** All the funding a kingdom has set aside, in whole money. */
+export const totalFunding = (funding) => FUNDING_CATEGORIES.reduce((sum, [key]) => sum + Math.max(Math.floor(funding?.[key] || 0), 0), 0);
+
+/** "Settle 100, Structures 200, Military 300, Engineers 0": each category's funding. */
+export const fundingBreakdown = (funding) => FUNDING_CATEGORIES
+    .map(([key, name]) => `${name} ${Math.max(Math.floor(funding?.[key] || 0), 0).toLocaleString()}`).join(", ");
+
 export const displayPercent = (fraction) => `${(fraction * 100).toFixed(1)}%`;
 
 /** Like displayPercent, but nothing at all (rather than "NaN%") when there is no value yet. */

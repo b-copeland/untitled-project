@@ -71,3 +71,9 @@
 .structures-info {
     max-width: 40rem;
 }
+
+/* A funding category under the Funding total on the Kingdom tab. */
+.text-box-item-sub .text-box-item-title {
+    padding-left: 1rem;
+    opacity: 0.8;
+}

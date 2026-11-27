@@ -8,9 +8,9 @@ function Home(props) {
     return (
         <Topic id="home" title="Status" lead="Your kingdom at a glance.">
             <ul>
-                <li><b>Overview</b>: first your advisors, then your economy, military, growth and threats on four cards. Each card's title links to the page where you act on it.</li>
+                <li><b>Overview</b>: first your advisors, then your economy, military, growth and threats on four cards. Each card's title links to the page where you act on it: the Economy card, which shows your money and the funding set aside for auto spending, links to the Spending tab, where you can move funding.</li>
                 <li><b>Since you were last here</b>: on the Overview, what changed while you were away: stars, networth, population, drones, engineers, each military unit and structure, and the attacks, spy operations and missiles against you. It counts from when you were last here if you were away for an hour or more (on any device), for the first hour of your visit, and covers the last hour otherwise. Your kingdom is recorded every half hour, so it counts from the record just before your visit, and units and structures go back a week at most.</li>
-                <li><b>Kingdom</b>: your resources, income and population. Income adds up continuously, not in steps.</li>
+                <li><b>Kingdom</b>: your resources (money, and the funding set aside for each auto spending category), income and population. Income adds up continuously, not in steps.</li>
                 <li><b>Military</b>: your units at home and with each general, and when each general returns.</li>
                 <li><b>Structures</b>: what is built and what is still being built.</li>
                 <li><b>Stats</b>: figures worked out for you: your offense and defense by kind of unit and per star, income per star, per home and per mine (and per home once the fuel plants its people need are counted), your siphon income in all and per drone factory, and what your advisors watch, such as the defense per star you need to make attacking you pay worse than attacking primitives. Attackers, defenders and flexers of every kind (heavy, elite and so on) count together. Hover over a figure's name to see how it is counted.</li>

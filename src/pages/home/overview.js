@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { displayNumber, displayPercent } from "../../format";
+import { displayNumber, displayPercent, fundingBreakdown, totalFunding } from "../../format";
 import { rateTip } from "../../components/header";
 import { Stats } from "../../components/planner";
 import { authFetch } from "../../auth";
@@ -211,13 +211,17 @@ export function Overview({ data, loadSummary }) {
                 <Stats items={[
                     { label: "Money", value: displayNumber(kingdom.money), tone: kingdom.money < 0 ? "bad" : undefined },
                     { label: "Income / h", value: signed(perHour(kingdom.income?.money?.net)) },
+                    { label: "Funding", value: displayNumber(totalFunding(kingdom.funding)) },
                     { label: "Fuel", value: displayNumber(kingdom.fuel), tone: kingdom.fuel <= 0 ? "bad" : undefined },
                     { label: "Fuel / h", value: signed(perHour(kingdom.income?.fuel?.net)), tone: fuelFalling ? "bad" : undefined },
                     { label: "Population", value: displayNumber(kingdom.population) },
                     { label: "Pop / h", value: signed(perHour(kingdom.income?.population)) },
                 ]} />
                 {fuelFalling && fuelTip ? <p className="overview-warning">Fuel: {fuelTip}</p> : null}
-                <p className="overview-line">Auto spending is <strong>{kingdom.auto_spending_enabled ? "on" : "off"}</strong>.</p>
+                <p className="overview-line">
+                    Auto spending is <strong>{kingdom.auto_spending_enabled ? "on" : "off"}</strong>.
+                    {totalFunding(kingdom.funding) > 0 ? <> Funding set aside: {fundingBreakdown(kingdom.funding)}.</> : null}
+                </p>
             </Card>
 
             <Card title="Military" to="/military">
