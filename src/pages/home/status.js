@@ -1,4 +1,4 @@
-import { displayPercent } from "../../format";
+import { displayPercent, FUNDING_CATEGORIES, fundingBreakdown, totalFunding } from "../../format";
 import { inOrder } from "../../order";
 import React, { useEffect, useState } from "react";
 import {useNavigate} from "react-router-dom";
@@ -218,6 +218,16 @@ function Status(props) {
                         <span className="text-box-item-title">Money</span>
                         <span className="text-box-item-value">{Math.floor(props.kingdom.money)?.toLocaleString()}</span>
                     </div>
+                    <div className="text-box-item" title={fundingBreakdown(props.kingdom.funding)}>
+                        <span className="text-box-item-title">Funding</span>
+                        <span className="text-box-item-value">{totalFunding(props.kingdom.funding).toLocaleString()}</span>
+                    </div>
+                    {FUNDING_CATEGORIES.map(([key, name]) => (
+                        <div className="text-box-item text-box-item-sub" key={key}>
+                            <span className="text-box-item-title">{name} funding</span>
+                            <span className="text-box-item-value">{Math.max(Math.floor(props.kingdom.funding?.[key] || 0), 0).toLocaleString()}</span>
+                        </div>
+                    ))}
                     <br />
                     <div className="text-box-item">
                         <span className="text-box-item-title">Engineers</span>
